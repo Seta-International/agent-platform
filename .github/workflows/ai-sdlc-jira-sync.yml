@@ -1,4 +1,4 @@
-name: AI Ticket Update — Future
+name: AI SDLC — Jira Field Sync (Future)
 
 on:
   pull_request:
@@ -34,6 +34,7 @@ jobs:
           JIRA_AI_USAGE_FIELD: ${{ secrets.JIRA_AI_USAGE_FIELD }}
           JIRA_AI_TOOL_FIELD: ${{ secrets.JIRA_AI_TOOL_FIELD }}
           JIRA_AI_TIME_SAVED_FIELD: ${{ secrets.JIRA_AI_TIME_SAVED_FIELD }}
-          GH_REPO: seta-international/agent-platform
+          GH_REPO: ${{ github.repository }}
+          JIRA_BASE: 'https://all-it.atlassian.net'
           JIRA_PROJECT: FUT
         run: python -m collector.update_ticket --pr ${{ github.event.pull_request.number }}

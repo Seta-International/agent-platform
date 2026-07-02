@@ -1,4 +1,4 @@
-name: Build
+name: Build & Publish Images
 
 # Build the server + web images once and push to ECR. Env-agnostic artifact:
 # every environment deploys by pulling these tags. Manual, and callable.

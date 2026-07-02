@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy (Dev/UAT)
 
 # Pull the prebuilt image from ECR and deploy to the chosen environment.
 # Environment is an input mapped to a GitHub Environment (scoped vars/secrets).

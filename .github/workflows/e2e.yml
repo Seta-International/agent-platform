@@ -1,4 +1,4 @@
-name: E2E
+name: End-to-End Tests
 
 # Run Playwright against a live deployment and publish the HTML report behind
 # Traefik basic-auth. Plumbing only — test specs/fixtures are authored elsewhere.

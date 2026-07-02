@@ -1,4 +1,4 @@
-name: AI Label Check
+name: AI SDLC — PR Label Check
 
 on:
   pull_request:
