@@ -50,6 +50,13 @@
       "when": 1782709143701,
       "tag": "0006_yummy_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782980474372,
+      "tag": "0007_smooth_the_watchers",
+      "breakpoints": true
     }
   ]
 }

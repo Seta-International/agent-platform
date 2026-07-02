@@ -12,6 +12,7 @@ export interface ProjectListRow {
   phase: string;
   status: string;
   pm_worker_id: string | null;
+  org_unit_id: string | null;
 }
 
 export async function listProjects(session: SessionScope): Promise<ProjectListRow[]> {
@@ -24,6 +25,7 @@ export async function listProjects(session: SessionScope): Promise<ProjectListRo
       phase: project.phase,
       status: project.status,
       pm_worker_id: project.pm_worker_id,
+      org_unit_id: project.org_unit_id,
     })
     .from(project)
     .where(and(tenantScoped(project.tenant_id, session), isNull(project.deleted_at)))
@@ -64,6 +66,7 @@ export async function getProject(input: { project_id: string; session: SessionSc
     phase: p.phase,
     status: p.status,
     planner_group_id: p.planner_group_id,
+    org_unit_id: p.org_unit_id,
     version: p.version,
   };
 }

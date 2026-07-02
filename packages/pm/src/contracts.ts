@@ -99,6 +99,7 @@ export const editProjectPatch = z.object({
   phase: phaseEnum.optional(),
   status: projectStatusEnum.optional(),
   planner_group_id: z.string().uuid().nullable().optional(),
+  org_unit_id: z.string().uuid().nullable().optional(),
 });
 export const editProjectInput = z.object({
   project_id: z.string().uuid(),
