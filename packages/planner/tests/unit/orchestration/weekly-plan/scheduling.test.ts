@@ -1,9 +1,32 @@
 // packages/planner/tests/unit/orchestration/weekly-plan/scheduling.test.ts
 import { describe, expect, it } from 'vitest';
 import {
+  capacityHint,
+  prePassOrder,
   resolvePlanWindow,
   resolveWeekChoice,
+  windowDays,
 } from '../../../../src/backend/orchestration/weekly-plan/scheduling.ts';
+import type {
+  NormalizedTask,
+  PlanWindow,
+} from '../../../../src/backend/orchestration/weekly-plan/schemas.ts';
+
+const task = (over: Partial<NormalizedTask> & { title: string }): NormalizedTask => ({
+  priority: 'medium',
+  priorityAssumed: false,
+  dueAt: null,
+  dueAssumed: false,
+  overdue: false,
+  ...over,
+});
+
+const WED_FRI: PlanWindow = {
+  startDay: 'wed',
+  endDay: 'fri',
+  weekStart: '2026-07-08',
+  weekEnd: '2026-07-10',
+};
 
 describe('resolveWeekChoice', () => {
   it('defaults to this week', () => {
@@ -84,5 +107,41 @@ describe('resolvePlanWindow (UTC-pinned)', () => {
     expect(w.startDay).toBe('tue');
     expect(w.weekStart).toBe('2026-07-07');
     expect(w.weekEnd).toBe('2026-07-10');
+  });
+});
+
+describe('prePassOrder', () => {
+  it('orders overdue first, then due date (nulls last), then priority', () => {
+    const ordered = prePassOrder([
+      task({ title: 'no-due low', priority: 'low' }),
+      task({ title: 'due-fri', dueAt: '2026-07-10' }),
+      task({ title: 'overdue', dueAt: '2026-07-01', overdue: true }),
+      task({ title: 'due-thu urgent', dueAt: '2026-07-09', priority: 'urgent' }),
+      task({ title: 'no-due urgent', priority: 'urgent' }),
+    ]);
+    expect(ordered.map((t) => t.title)).toEqual([
+      'overdue',
+      'due-thu urgent',
+      'due-fri',
+      'no-due urgent',
+      'no-due low',
+    ]);
+  });
+
+  it('does not mutate its input', () => {
+    const input = [task({ title: 'b' }), task({ title: 'a', priority: 'urgent' })];
+    prePassOrder(input);
+    expect(input[0]!.title).toBe('b');
+  });
+});
+
+describe('windowDays / capacityHint', () => {
+  it('lists only the days from startDay', () => {
+    expect(windowDays(WED_FRI)).toEqual(['wed', 'thu', 'fri']);
+  });
+
+  it('capacity is ceil(tasks / remaining days)', () => {
+    expect(capacityHint(7, WED_FRI)).toBe(3); // 7 tasks / 3 days
+    expect(capacityHint(3, WED_FRI)).toBe(1);
   });
 });
