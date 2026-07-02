@@ -1,28 +1,7 @@
-import { type Statement, toManifest } from '@seta/shared-rbac';
+import { INVENTORY, inventoryToManifests } from '@seta/shared-rbac';
 
-export const peopleStatement = {
-  'people.worker': ['read', 'read.all', 'provision', 'edit', 'manage'],
-  'people.self': ['read', 'manage'],
-} as const satisfies Statement;
+export type { PeoplePermission } from './generated/rbac.ts';
+export { PEOPLE_PERMISSIONS } from './generated/rbac.ts';
 
-const roleStatements = {
-  'people.strategic': {
-    'people.worker': ['read', 'read.all', 'provision', 'edit', 'manage'],
-    'people.self': ['read', 'manage'],
-    'core.skill': ['read'],
-  },
-  'people.viewer': {
-    'people.worker': ['read'],
-    'people.self': ['read', 'manage'],
-    'core.skill': ['read'],
-  },
-} as const satisfies Record<string, Statement>;
-
-export const peopleRbac = toManifest('people', peopleStatement, roleStatements, {
-  'people.strategic': 'Full people administration',
-  'people.viewer': 'Read people records',
-});
-
-export type PeoplePermission = (typeof peopleRbac.permissions)[number]['key'];
-
-export const PEOPLE_PERMISSIONS = peopleRbac.permissions.map((p) => p.key);
+// biome-ignore lint/style/noNonNullAssertion: 'people' is always in INVENTORY (asserted by codegen-drift.test.ts)
+export const peopleRbac = inventoryToManifests(INVENTORY).find((m) => m.module === 'people')!;
