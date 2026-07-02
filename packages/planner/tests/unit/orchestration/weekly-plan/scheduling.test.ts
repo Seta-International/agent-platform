@@ -2,9 +2,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   capacityHint,
+  fallbackPlan,
   prePassOrder,
   resolvePlanWindow,
   resolveWeekChoice,
+  synthesizeWorkloadInsight,
   validatePlan,
   windowDays,
 } from '../../../../src/backend/orchestration/weekly-plan/scheduling.ts';
@@ -207,5 +209,41 @@ describe('validatePlan', () => {
     const t = [task({ title: 'far', dueAt: '2026-08-01' })];
     const v = validatePlan(plan([{ day: 'fri', titles: ['far'] }]), t, WED_FRI);
     expect(v.ok).toBe(true);
+  });
+});
+
+describe('fallbackPlan', () => {
+  it('deals pre-pass order across window days and places everything', () => {
+    const tasks = [
+      task({ title: 'T1', dueAt: '2026-07-08' }),
+      task({ title: 'T2', dueAt: '2026-07-09' }),
+      task({ title: 'T3' }),
+      task({ title: 'T4', priority: 'low' }),
+    ];
+    const p = fallbackPlan(tasks, WED_FRI); // capacity ceil(4/3) = 2 per day
+    expect(p.unplaced).toEqual([]);
+    expect(p.days.map((d) => d.day)).toEqual(['wed', 'thu']);
+    expect(p.days[0]!.blocks[0]!.taskTitles).toEqual(['T1', 'T2']);
+    expect(p.days[1]!.blocks[0]!.taskTitles).toEqual(['T3', 'T4']);
+  });
+
+  it('handles the single-day Friday window', () => {
+    const friOnly: PlanWindow = {
+      startDay: 'fri',
+      endDay: 'fri',
+      weekStart: '2026-07-10',
+      weekEnd: '2026-07-10',
+    };
+    const p = fallbackPlan([task({ title: 'only' })], friOnly);
+    expect(p.days).toEqual([{ day: 'fri', blocks: [{ label: 'Focus', taskTitles: ['only'] }] }]);
+  });
+});
+
+describe('synthesizeWorkloadInsight', () => {
+  it('summarizes per-day counts as a workload insight', () => {
+    const p = fallbackPlan([task({ title: 'a' }), task({ title: 'b' })], WED_FRI);
+    const insight = synthesizeWorkloadInsight(p);
+    expect(insight.kind).toBe('workload');
+    expect(insight.text).toContain('wed');
   });
 });
