@@ -19,6 +19,7 @@ import {
 import { hiringKeys } from '../state/query-keys.ts';
 import { NewRequisitionDialog } from './new-requisition-dialog.tsx';
 import { RequisitionCard, STAGE_LABEL } from './requisition-card.tsx';
+import { buildScopeNote } from './utils.ts';
 
 const STATUS_LABEL: Record<string, string> = {
   open: 'Open',
@@ -41,12 +42,7 @@ export function RequisitionsPage() {
     queryFn: fetchOpenRequisitions,
   });
   const rows = data?.requisitions ?? [];
-  const scopeNote =
-    data?.scope === 'account'
-      ? data.scoped_account_names.length > 0
-        ? `Showing requisitions for: ${data.scoped_account_names.join(', ')}`
-        : 'You are not assigned as Account Manager on any active account.'
-      : null;
+  const scopeNote = buildScopeNote(data);
 
   const stat = (label: string, value: number, valueClass = 'text-ink') => (
     <div className="rounded-lg border border-hairline bg-surface-1 px-5 py-4">

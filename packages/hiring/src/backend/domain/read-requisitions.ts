@@ -115,20 +115,22 @@ export async function listRequisitions(session: SessionScope): Promise<Requisiti
 const OPEN_BOARD_STATUSES = ['open', 'on_hold'] as const;
 
 export interface OpenRequisitionsBoard {
-  scope: 'all' | 'account';
+  scope: 'all' | 'scoped';
   scoped_account_names: string[];
+  scoped_project_names: string[];
   requisitions: RequisitionListRow[];
 }
 
 /**
- * FUT-326/327 — the open-positions board.
+ * FUT-326/327/328 — the open-positions board.
  *
  * A requisition is a hiring-owned resource, so access is gated by `hiring.requisition.read`.
  * Row scoping delegates to `buildRequisitionScope` (the unified RBAC scope layer, FUT-378):
  * a tenant-wide `hiring.requisition.read` grant sees every non-filled requisition
- * company-wide; a scoped grant is limited to requisitions the viewer owns or is an assigned
- * recruiter on (via `@seta/pm`). `scoped_account_names` is derived from the returned rows
- * rather than a second lookup, so it always matches what's actually shown.
+ * company-wide; a scoped grant is limited to requisitions the viewer owns, is an assigned
+ * recruiter on (via `@seta/pm`), or owns the project of as EM/TL/PM (FUT-328).
+ * `scoped_account_names`/`scoped_project_names` are derived from the returned rows rather
+ * than a second lookup, so they always match what's actually shown.
  */
 export async function listOpenRequisitions(session: SessionScope): Promise<OpenRequisitionsBoard> {
   requirePermission(session, 'hiring.requisition.read');
@@ -141,12 +143,17 @@ export async function listOpenRequisitions(session: SessionScope): Promise<OpenR
   if (scope) conds.push(scope);
   const requisitions = await requisitionListQuery().where(and(...conds));
 
-  if (!scope) return { scope: 'all', scoped_account_names: [], requisitions };
+  if (!scope) {
+    return { scope: 'all', scoped_account_names: [], scoped_project_names: [], requisitions };
+  }
 
   const scoped_account_names = Array.from(
     new Set(requisitions.map((r) => r.account_name).filter((n): n is string => n != null)),
   ).sort();
-  return { scope: 'account', scoped_account_names, requisitions };
+  const scoped_project_names = Array.from(
+    new Set(requisitions.map((r) => r.project_name).filter((n): n is string => n != null)),
+  ).sort();
+  return { scope: 'scoped', scoped_account_names, scoped_project_names, requisitions };
 }
 
 export interface RequisitionDetail {

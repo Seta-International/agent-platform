@@ -63,6 +63,12 @@ describe('project access + staffing plan', () => {
         const access = await listProjectAccess({ project_id, session: t.adminSession });
         expect(access.find((a) => a.worker_id === w)?.level).toBe('edit');
 
+        // the access-changed event carries the current owner-level worker ids, so hiring
+        // (FUT-328) can project "who owns this project" without a cross-module join
+        const accessEvents = await readEvents(pool, t.tenant_id, 'pm.project.access.changed');
+        const latest = accessEvents[accessEvents.length - 1];
+        expect(latest?.payload.owner_worker_ids).toEqual([t.adminSession.user_id]);
+
         const line = await upsertStaffingPlanLine({
           project_id,
           role: 'Backend',
@@ -75,6 +81,29 @@ describe('project access + staffing plan', () => {
         expect(
           (await readEvents(pool, t.tenant_id, 'pm.project.staffing_plan.changed')).length,
         ).toBe(1);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('project creation seeds the PM as owner and emits access.changed (FUT-328)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { project_id } = await seedProject(pool, t.adminSession, t.tenant_id);
+
+        const access = await listProjectAccess({ project_id, session: t.adminSession });
+        expect(access).toEqual([{ worker_id: t.adminSession.user_id, level: 'owner' }]);
+
+        const accessEvents = await readEvents(pool, t.tenant_id, 'pm.project.access.changed');
+        expect(accessEvents.length).toBe(1);
+        expect(accessEvents[0]?.payload.owner_worker_ids).toEqual([t.adminSession.user_id]);
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -115,12 +144,16 @@ describe('project access + staffing plan', () => {
       try {
         const t = await seedTenant(pool);
         const { project_id } = await seedProject(pool, t.adminSession, t.tenant_id);
+        // project creation already seeded the PM as owner and emitted one access.changed event
+        const before = (await readEvents(pool, t.tenant_id, 'pm.project.access.changed')).length;
 
         const r = await setProjectAccess({ project_id, grants: [], session: t.adminSession });
         expect(r.added).toBe(0);
         expect(r.removed).toBe(0);
         expect(r.changed).toBe(0);
-        expect((await readEvents(pool, t.tenant_id, 'pm.project.access.changed')).length).toBe(0);
+        expect((await readEvents(pool, t.tenant_id, 'pm.project.access.changed')).length).toBe(
+          before,
+        );
       } finally {
         resetPmDb();
         resetCoreDb();
