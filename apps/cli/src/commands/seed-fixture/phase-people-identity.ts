@@ -73,7 +73,7 @@ export async function seedPeopleIdentity(
     if (hireDate) {
       await coreDb().execute(
         sql`UPDATE people.employment_period
-              SET start_date = ${hireDate}, lifecycle_stage = 'active', status = 'active'
+              SET start_date = ${hireDate}, lifecycle_stage = 'active'
             WHERE person_id = ${workerId} AND end_date IS NULL
               AND (start_date IS DISTINCT FROM ${hireDate}::date OR lifecycle_stage <> 'active')`,
       );

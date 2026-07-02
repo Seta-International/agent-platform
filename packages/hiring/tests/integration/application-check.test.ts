@@ -44,14 +44,16 @@ describe('application exactly-one-subject CHECK', () => {
           }),
         ).rejects.toThrow();
 
-        // exactly one → accepted
+        // exactly one → accepted. Uses worker_id (an FK-less people.worker soft ref) so the row
+        // exercises the exactly-one-subject CHECK without needing a candidate row to satisfy
+        // application.candidate_id → candidate.id.
         const inserted = await hiringDb()
           .insert(application)
           .values({
             tenant_id: t.tenant_id,
             requisition_id,
-            kind: 'external',
-            candidate_id: crypto.randomUUID(),
+            kind: 'internal',
+            worker_id: crypto.randomUUID(),
           })
           .returning({ id: application.id });
         expect(inserted).toHaveLength(1);

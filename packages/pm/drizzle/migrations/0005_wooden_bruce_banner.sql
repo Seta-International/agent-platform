@@ -1,1 +1,0 @@
-ALTER TABLE "pm"."allocation" ADD COLUMN "note" text;

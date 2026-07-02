@@ -1,1 +1,0 @@
-ALTER TABLE "people"."worker" ADD CONSTRAINT "worker_gender_check" CHECK (gender IN ('male','female','prefer_not_to_say'));

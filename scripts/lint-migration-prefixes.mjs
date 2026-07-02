@@ -6,13 +6,7 @@ import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 // pre-squash collisions, removed by the module's squash PR (ratchet: stale entries fail)
-const KNOWN = new Set([
-  'packages/agent/drizzle:0001',
-  'packages/hiring/drizzle/migrations:0001',
-  'packages/people/drizzle/migrations:0001',
-  'packages/people/drizzle/migrations:0005',
-  'packages/pm/drizzle/migrations:0001',
-]);
+const KNOWN = new Set(['packages/agent/drizzle:0001']);
 
 function* sqlDirs(dir) {
   for (const name of readdirSync(dir)) {

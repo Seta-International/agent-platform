@@ -142,6 +142,10 @@ export const orgUnit = peopleSchema.table(
     parent_id: uuid('parent_id'),
     name: text('name').notNull(),
     kind: textEnum('kind', ORG_UNIT_KINDS).notNull(),
+    // Soft reference to the unit head, keyed on person_id (the domain's canonical worker handle,
+    // as returned by createWorker/insertWorkerAggregate). Like every other *_worker_id column
+    // (am_worker_id, lead_worker_id, worker_id), it carries no FK — worker rows are keyed on
+    // worker.id but referenced across the domain by person_id, so a worker.id FK would be wrong.
     head_worker_id: uuid('head_worker_id'),
     sort: integer('sort').notNull().default(0),
     version: integer('version').default(1).notNull(),
@@ -156,11 +160,6 @@ export const orgUnit = peopleSchema.table(
       foreignColumns: [t.id],
       name: 'org_unit_parent_fk',
     }),
-    foreignKey({
-      columns: [t.head_worker_id],
-      foreignColumns: [worker.id],
-      name: 'org_unit_head_worker_fk',
-    }).onDelete('set null'),
     textEnumCheck('org_unit', 'kind', ORG_UNIT_KINDS),
   ],
 );
