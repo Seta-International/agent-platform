@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { hiringDb } from '../db/client.ts';
 import {
   application,
@@ -101,6 +101,7 @@ export async function listCandidates(session: SessionScope): Promise<CandidateLi
     eq(application.kind, 'external'),
     eq(application.status, 'active'),
     tenantScoped(application.tenant_id, session),
+    isNull(candidate.deleted_at),
   ];
   const scope = await buildCandidateScope(session);
   if (scope) conds.push(scope);
@@ -151,7 +152,11 @@ export async function getCandidate(input: {
   const { session, candidate_id } = input;
   requirePermission(session, 'hiring.candidate.read');
   const scope = await buildCandidateScope(session);
-  const candConds = [eq(candidate.id, candidate_id), tenantScoped(candidate.tenant_id, session)];
+  const candConds = [
+    eq(candidate.id, candidate_id),
+    tenantScoped(candidate.tenant_id, session),
+    isNull(candidate.deleted_at),
+  ];
   if (scope) {
     candConds.push(sql`EXISTS (SELECT 1 FROM ${application}
       WHERE ${application.candidate_id} = ${candidate.id}
@@ -271,7 +276,7 @@ export async function listTalentPool(session: SessionScope): Promise<TalentPoolR
     }
   }
 
-  const candConds = [tenantScoped(candidate.tenant_id, session)];
+  const candConds = [tenantScoped(candidate.tenant_id, session), isNull(candidate.deleted_at)];
   if (candidateScope) {
     candConds.push(sql`EXISTS (SELECT 1 FROM ${application}
       WHERE ${application.candidate_id} = ${candidate.id}
