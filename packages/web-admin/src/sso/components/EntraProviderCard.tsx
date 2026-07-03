@@ -3,7 +3,6 @@ import { CheckCircle2, Plug, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import type { SsoProviderRowDto } from '../api/sso-client.ts';
 import { disconnectProvider, setProviderEnabled, startConsent } from '../api/sso-client.ts';
-import { ConnectEntraDialog } from './ConnectEntraDialog.tsx';
 import { EditDomainsDialog } from './EditDomainsDialog.tsx';
 
 interface EntraProviderCardProps {
@@ -170,14 +169,13 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
             <Plug aria-hidden className="mt-0.5 size-4 flex-none text-ink-subtle" />
             <div className="min-w-0 flex-1">
               <p className="m-0 text-body-sm text-ink">
-                Connect your Microsoft tenant so your team can sign in with their work account.
+                Microsoft Entra sign-in is linked through the Microsoft 365 integration.
               </p>
               <p className="m-0 mt-1 text-caption text-ink-subtle">
-                Invite people first — Microsoft sign-in only works for users who already have an
-                account here.
+                Configure the Microsoft 365 integration (via platform provisioning) first. Once it's
+                linked, the Entra provider appears here to enable and to manage email domains.
               </p>
             </div>
-            <ConnectEntraDialog onConnected={onChanged} />
           </div>
         </div>
       ) : (
