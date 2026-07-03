@@ -15,6 +15,18 @@ export async function createAllocation(
   requirePermission(session, 'pm.project.manage');
   const parsed = createAllocationInput.parse(input);
 
+  // Mirror the DB row rules (allocation_worker_rule_check, allocation_committed_dates_check)
+  // so invalid combinations surface as 400 VALIDATION instead of a raw constraint violation.
+  if (parsed.status === 'placeholder') {
+    if (parsed.worker_id)
+      throw new PmError('VALIDATION', 'placeholder allocations cannot name a worker');
+  } else {
+    if (!parsed.worker_id)
+      throw new PmError('VALIDATION', `${parsed.status} allocations require a worker`);
+    if (!parsed.date_from)
+      throw new PmError('VALIDATION', `${parsed.status} allocations require a start date`);
+  }
+
   let result!: { allocation_id: string };
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
