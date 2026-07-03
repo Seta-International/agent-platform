@@ -96,6 +96,7 @@ export interface RequisitionRow {
   note: string | null;
   default_interview_mode: string | null;
   closed_at: string | null;
+  created_at: string;
   version: number;
 }
 export interface OpeningRow {
