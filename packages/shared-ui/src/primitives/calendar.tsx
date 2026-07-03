@@ -36,7 +36,10 @@ function Calendar({
         ...formatters,
       }}
       classNames={{
-        root: cn('w-fit', defaultClassNames.root),
+        // Not `w-fit`: with the table-based month grid, shrink-to-fit here has nothing
+        // reliable to shrink around and the whole grid collapses to ~half size. Let the
+        // caller size this via its own wrapper instead.
+        root: cn(defaultClassNames.root),
         months: cn('relative flex flex-col gap-4 md:flex-row', defaultClassNames.months),
         month: cn('flex w-full flex-col gap-4', defaultClassNames.month),
         nav: cn(
@@ -73,6 +76,11 @@ function Calendar({
             : '[&>svg]:text-ink-subtle flex h-8 items-center gap-1 rounded-md pl-2 pr-1 text-sm [&>svg]:size-3.5',
           defaultClassNames.caption_label,
         ),
+        // react-day-picker renders the grid as a real <table> (slot name "month_grid").
+        // Without an explicit width the table shrinks to its content's natural size —
+        // every cell/button collapses toward ~16px regardless of --cell-size, since the
+        // browser's table auto-layout wins over the flex classes on <tr>/<td> beneath it.
+        month_grid: cn('w-full border-collapse [table-layout:fixed]', defaultClassNames.month_grid),
         weekdays: cn('flex', defaultClassNames.weekdays),
         weekday: cn(
           'text-ink-subtle flex-1 select-none rounded-md text-[0.8rem] font-normal',

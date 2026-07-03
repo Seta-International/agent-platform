@@ -70,6 +70,7 @@ export interface RequisitionListRow {
   start_date: string | null;
   due_date: string | null;
   created_at: string;
+  updated_at: string;
   skills: RequisitionSkillSummary[];
   openings_total: number;
   openings_open: number;
@@ -277,7 +278,7 @@ export async function resumeRequisition(
 }
 export async function closeRequisition(
   id: string,
-  input: { expected_version?: number; status: 'filled' | 'cancelled' },
+  input: { expected_version?: number; status: 'filled' | 'cancelled'; close_reason_id?: string },
 ): Promise<{ version: number }> {
   return handleResponse(
     await fetch(`/api/hiring/v1/requisitions/${id}/close`, json('POST', input)),

@@ -19,7 +19,7 @@ export function RequisitionDetailDialog({ requisitionId, onClose }: Props) {
         hideClose
         unstyled
         onOpenAutoFocus={(e) => e.preventDefault()}
-        className="w-[min(720px,92vw)]"
+        className="w-[min(1100px,94vw)]"
       >
         <DialogTitle className="sr-only">Job description</DialogTitle>
         {/*

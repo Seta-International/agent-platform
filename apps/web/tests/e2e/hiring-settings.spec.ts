@@ -21,10 +21,10 @@ test('admin creates a JD template', async ({ page }) => {
   await expect(page.getByText(TEMPLATE)).toBeVisible({ timeout: 8_000 });
 });
 
-test('admin creates an opening close-reason', async ({ page }) => {
+test('admin creates a close reason', async ({ page }) => {
   await page.goto('/hiring/settings');
   await expect(page.getByRole('heading', { name: 'Hiring settings' })).toBeVisible();
-  await expect(page.getByText('Opening close-reasons')).toBeVisible();
+  await expect(page.getByText('Close reasons')).toBeVisible();
 
   await page.getByRole('button', { name: 'New close reason' }).click();
   await expect(page.getByRole('heading', { name: 'New close reason' })).toBeVisible();

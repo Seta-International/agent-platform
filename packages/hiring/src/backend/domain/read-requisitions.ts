@@ -44,6 +44,7 @@ export interface RequisitionListRow {
   start_date: string | null;
   due_date: string | null;
   created_at: string;
+  updated_at: string;
   skills: RequisitionSkillSummary[];
   openings_total: number;
   openings_open: number;
@@ -71,6 +72,9 @@ const REQUISITION_LIST_COLUMNS = {
   start_date: requisition.start_date,
   due_date: requisition.due_date,
   created_at: sql<string>`${requisition.created_at}::text`,
+  // Bumped whenever the row is written, including by holdRequisition — used to show
+  // "Paused since {updated_at}" on the board card while on_hold.
+  updated_at: sql<string>`${requisition.updated_at}::text`,
   // Skills are surfaced on the list card (chips); aggregate them inline rather than
   // forcing a second round-trip to the detail endpoint.
   skills: sql<
