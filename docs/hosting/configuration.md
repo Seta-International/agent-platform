@@ -197,6 +197,36 @@ Optional. Int. Default: `100`.
 
 `/health/ready` returns 503 when any subscription has more than this many dead-letter rows in the last 24h. Lower it to fail readiness sooner on a poison-pill subscriber.
 
+### MONITORING_ENV
+
+Optional. String. Default: `dev`.
+
+Env label attached to every metric/log series shipped by the Alloy agent (`obs-agent` profile), e.g. `dev` | `uat` | `prod`.
+
+### REMOTE_WRITE_URL
+
+Conditional. URL. No default.
+
+Central Prometheus `remote_write` endpoint. Required when the `obs-agent` profile is enabled (all deployed envs).
+
+### LOKI_URL
+
+Conditional. URL. No default.
+
+Central Loki push endpoint. Required when the `obs-agent` profile is enabled (all deployed envs).
+
+### REMOTE_WRITE_USERNAME
+
+Conditional. String. No default.
+
+Basic-auth username paired with `REMOTE_WRITE_PASSWORD` for both `REMOTE_WRITE_URL` and `LOKI_URL`.
+
+### REMOTE_WRITE_PASSWORD
+
+Conditional. Secret. No default.
+
+Basic-auth password paired with `REMOTE_WRITE_USERNAME`. Treat as a high-value secret.
+
 ## Mail (outbound transactional only)
 
 ### MAILER_DEFAULT_TRANSPORT
@@ -305,13 +335,13 @@ AWS region of the knowledge bucket.
 
 Optional. String. Default: `seta-knowledge`.
 
-Bucket for tenant knowledge file uploads. Keys are prefixed `tenants/<id>/`.
+Bucket for tenant knowledge file uploads. Keys are prefixed `tenants/<id>/`. Per-env real-S3 bucket names: `seta-dev-app-apse1` | `seta-uat-app-apse1` | `seta-prod-app-apse1`.
 
 ### S3_ENDPOINT
 
-Optional. URL. No default.
+Local dev only. URL. No default.
 
-Custom S3 endpoint for MinIO / LocalStack (e.g. `http://localhost:9000`). Leave unset for AWS S3.
+Custom S3 endpoint for the bundled MinIO (the compose override defaults this to `http://minio:9000`). Unset for real S3.
 
 ### S3_ACCESS_KEY_ID
 
@@ -327,9 +357,9 @@ Secret access key paired with `S3_ACCESS_KEY_ID`.
 
 ### S3_FORCE_PATH_STYLE
 
-Optional. Boolean. Default: `false`.
+Local dev only. Boolean. No default (leave blank).
 
-`true` for MinIO (path-style addressing); `false` for AWS S3 (virtual-hosted style).
+Leave blank for local MinIO — the compose override defaults it to `true` (path-style addressing). Set explicitly to `false` for real AWS S3 (virtual-hosted style). A literal `false` in the env file shadows the override's default, so don't set it for local dev.
 
 ## Knowledge upload AV scanning (ClamAV)
 
