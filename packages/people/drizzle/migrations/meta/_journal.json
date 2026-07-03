@@ -8,6 +8,13 @@
       "when": 1783019783879,
       "tag": "0000_awesome_patch",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783069197405,
+      "tag": "0001_warm_king_bedlam",
+      "breakpoints": true
     }
   ]
 }

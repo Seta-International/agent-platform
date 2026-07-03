@@ -92,12 +92,14 @@ export const worker = peopleSchema.table(
     employee_no: text('employee_no'),
     full_name: text('full_name').notNull(),
     work_email: text('work_email'),
+    personal_email: text('personal_email'),
     dob: date('dob'),
     gender: textEnum('gender', GENDERS),
     phone: text('phone'),
     emergency_contact: jsonb('emergency_contact'),
     profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
     job_title: text('job_title'),
+    cv_storage_key: text('cv_storage_key'),
     // Lazy column-level reference (not table-level foreignKey()): org_unit and worker
     // FK each other (head_worker_id), and org_unit is declared after worker below —
     // a table-level foreignKey() would evaluate `orgUnit` eagerly and hit the TDZ.

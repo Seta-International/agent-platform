@@ -15,6 +15,7 @@ export const createWorkerInput = z.object({
   full_name: z.string().min(1),
   employee_no: z.string().optional(),
   work_email: z.string().email().optional(),
+  personal_email: z.string().email().optional(),
   start_date: z.string().optional(),
   employment_type: z.string().optional(),
   dob: z.string().optional(),
@@ -29,6 +30,8 @@ export type CreateWorkerInput = z.infer<typeof createWorkerInput>;
 export const editWorkerPatch = z.object({
   full_name: z.string().min(1).optional(),
   work_email: z.string().email().optional(),
+  personal_email: z.string().email().nullable().optional(),
+  cv_storage_key: z.string().min(1).nullable().optional(),
   phone: z.string().nullable().optional(),
   dob: z.string().nullable().optional(),
   gender: genderValue.nullable().optional(),
