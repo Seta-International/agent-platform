@@ -16,6 +16,10 @@ type BaseProps = {
   disabled?: boolean;
   className?: string;
   triggerPrefix?: string;
+  /** Comboboxes don't take their accessible name from contents — label the trigger. */
+  'aria-label'?: string;
+  /** Forwarded to Combobox — required when rendered inside a modal Dialog/Sheet. */
+  modal?: boolean;
 };
 
 export type AsyncComboboxProps =
@@ -116,6 +120,8 @@ export function AsyncCombobox(props: AsyncComboboxProps): React.ReactElement {
         disabled={disabled}
         className={className}
         triggerPrefix={triggerPrefix}
+        aria-label={props['aria-label']}
+        modal={props.modal}
       />
     );
   }
@@ -130,6 +136,8 @@ export function AsyncCombobox(props: AsyncComboboxProps): React.ReactElement {
       disabled={disabled}
       className={className}
       triggerPrefix={triggerPrefix}
+      aria-label={props['aria-label']}
+      modal={props.modal}
     />
   );
 }
