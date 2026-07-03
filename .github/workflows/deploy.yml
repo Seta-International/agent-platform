@@ -115,13 +115,11 @@ jobs:
         run: docker compose -p "$COMPOSE_PROJECT" --env-file "$ENV_FILE" up -d --wait postgres
 
       - name: Pre-migration RDS snapshot (prod)
-        # Gated on RDS_INSTANCE_ID: the box instance role needs rds:CreateDBSnapshot
-        # for this to work. Leave RDS_INSTANCE_ID unset until that IAM grant exists,
-        # and this pre-migration safety snapshot is skipped rather than failing deploy.
+        # Skipped until RDS_INSTANCE_ID is set (box role needs rds:CreateDBSnapshot).
         if: ${{ startsWith(inputs.environment, 'prod') && vars.RDS_INSTANCE_ID != '' }}
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
-          DB_ID: ${{ vars.RDS_INSTANCE_ID }}   # e.g. seta-prod-pg
+          DB_ID: ${{ vars.RDS_INSTANCE_ID }}
         run: |
           set -euo pipefail
           SNAP="${DB_ID}-pre-${{ inputs.image_tag }}-$(date +%Y%m%d%H%M%S)"
@@ -172,8 +170,7 @@ jobs:
           echo "✅ ${{ inputs.environment }} deploy healthy (image_tag=${{ inputs.image_tag }})"
 
       - name: Record last-good prod image
-        # Best-effort: needs a token with variables:write. Never fail a healthy
-        # deploy just because last-good bookkeeping (self-heal input) couldn't write.
+        # Best-effort (needs variables:write); must never fail a healthy deploy.
         if: success() && inputs.environment == 'prod'
         continue-on-error: true
         env:

@@ -1,9 +1,5 @@
-# PROD: external RDS + real S3. Cloudflare proxies (orange-cloud, SSL "Full")
-# to the origin's public :443 — so the box publishes 80 (HTTP→HTTPS redirect)
-# and 443 (TLS) to all interfaces, and Traefik terminates TLS with a self-signed
-# origin cert. Cloudflare "Full" (not "Full (strict)") trusts the self-signed
-# leaf, so no ACME/public CA is needed at the origin. `!override` replaces the
-# base's 80/443/5173 mapping and drops the public 5173 smoke port.
+# PROD: Cloudflare (SSL "Full") proxies to the origin's public :443; Traefik
+# serves a self-signed cert, so no origin ACME is needed.
 services:
   proxy:
     ports: !override
