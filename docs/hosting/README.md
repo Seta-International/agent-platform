@@ -36,6 +36,6 @@ Tag scheme: the server and web images share one repository, distinguished by a `
 | `README.md` | Decision tree: which path do you want? |
 | `docker-compose.md` | 5-minute self-host quickstart (the §19.3 contract). |
 | `configuration.md` | Exhaustive env var reference; mirrors `.env.example`. CI gate enforces. |
-| `aws.md` | Points at `infra/opentofu/aws-ecs/`, sketches the topology. |
+| `aws.md` | AWS production: single-box Terraform (EC2 ASG + RDS + S3, Cloudflare Tunnel). *(rewritten by the prod-terraform work)* |
 | `deploying.md` | CI/CD: `build.yml`/`deploy.yml`/`e2e.yml`, GitHub Environments, run/rollback. |
 | `community.md` | Coolify / Dokploy / Kamal mentions. Explicit "not supported" framing. |
