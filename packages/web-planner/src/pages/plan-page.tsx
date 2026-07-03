@@ -194,15 +194,6 @@ export function PlanPage({
     onOpenFocused: () => {
       if (focusedCardId) onOpenTask(focusedCardId);
     },
-    onCreateTask: () => {
-      if (!canCreateTask) return;
-      const bucketId = focusedCardId
-        ? buckets.find((b) =>
-            (activeByBucket.get(b.id) ?? []).some((e) => e.card.id === focusedCardId),
-          )?.id
-        : buckets[0]?.id;
-      if (bucketId) createTask.mutate({ plan_id: plan.id, bucket_id: bucketId, title: 'New task' });
-    },
   });
 
   const hasActiveFilters =

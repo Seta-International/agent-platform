@@ -22,11 +22,11 @@ describe('createHttpEntitySearch', () => {
     vi.stubGlobal('fetch', f);
     const out = await make().search('ali');
     expect(out).toEqual([{ value: 'w1', label: 'Alice' }]);
-    const url = f.mock.calls[0]?.[0] as string;
+    const url = (f.mock.calls[0] as unknown as [string, RequestInit])[0];
     expect(url).toContain('/api/people/v1/workers?');
     expect(url).toContain('search=ali');
     expect(url).toContain('pageSize=20');
-    expect((f.mock.calls[0]?.[1] as RequestInit).credentials).toBe('include');
+    expect((f.mock.calls[0] as unknown as [string, RequestInit])[1].credentials).toBe('include');
   });
 
   it('resolveByIds short-circuits on empty and otherwise passes ids', async () => {
@@ -37,7 +37,7 @@ describe('createHttpEntitySearch', () => {
     expect(f).not.toHaveBeenCalled();
     const out = await api.resolveByIds(['w2', 'w3']);
     expect(out).toEqual([{ value: 'w2', label: 'Bob' }]);
-    expect(f.mock.calls[0]?.[0] as string).toContain('ids=w2%2Cw3');
+    expect((f.mock.calls[0] as unknown as [string])[0]).toContain('ids=w2%2Cw3');
   });
 
   it('throws on non-ok response', async () => {

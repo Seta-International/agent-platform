@@ -40,7 +40,7 @@ describe('<KanbanColumn> header', () => {
 
   it('shows Add task and More options buttons when callbacks provided', () => {
     col({ onCreateTask: vi.fn(), onDelete: vi.fn() });
-    expect(screen.getByTitle('Add task (C)')).toBeInTheDocument();
+    expect(screen.getByTitle('Add task')).toBeInTheDocument();
     expect(screen.getByTitle('More options')).toBeInTheDocument();
   });
 });
@@ -127,7 +127,7 @@ describe('<KanbanColumn> inline rename', () => {
     col({ onRename: vi.fn(), onCreateTask: vi.fn() });
     fireEvent.click(screen.getByTitle('More options'));
     fireEvent.click(screen.getByRole('menuitem', { name: /rename bucket/i }));
-    expect(screen.queryByTitle('Add task (C)')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Add task')).not.toBeInTheDocument();
     expect(screen.queryByTitle('More options')).not.toBeInTheDocument();
   });
 
