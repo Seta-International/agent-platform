@@ -10,7 +10,7 @@ import { withAgentTestDb } from '../helpers.ts';
 
 function card(taskId: string, tenantId: string, userId: string): ApprovalCard {
   return {
-    toolCallId: `staffing-orchestrator:${taskId}`,
+    toolCallId: `assignment-orchestrator:${taskId}`,
     intent: 'Assign "AWS migration"',
     riskBadge: 'write',
     summary: 'Top match: Alice (1 skill(s) matched, available).',
@@ -29,7 +29,7 @@ function card(taskId: string, tenantId: string, userId: string): ApprovalCard {
     meta: {
       tenantId,
       userId,
-      agentPath: ['staffing', 'orchestrator'],
+      agentPath: ['assignment', 'orchestrator'],
       toolId: 'planner_proposeAssignment',
       ts: new Date().toISOString(),
     },

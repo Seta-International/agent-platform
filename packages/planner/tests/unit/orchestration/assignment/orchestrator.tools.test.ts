@@ -109,7 +109,7 @@ function buildTools(
   };
 }
 
-describe('staffing_analyzeTasks taskRef resolution', () => {
+describe('assign_analyzeTasks taskRef resolution', () => {
   it('resolves an ordinal taskRef against recentTasks and hands the UUID to the sub-agent', async () => {
     const { toolCtx } = memCtx([
       { taskId: UUID_A, title: 'A' },
@@ -118,7 +118,7 @@ describe('staffing_analyzeTasks taskRef resolution', () => {
     const { tools, taskAnalyzer } = buildTools({
       taskAnalyzerResult: { skills: ['aws'], title: 'A' },
     });
-    const out = (await tools.staffing_analyzeTasks.execute!(
+    const out = (await tools.assign_analyzeTasks.execute!(
       {
         intent: 'resolve_task_skills',
         query: 'assignee for the first task',
@@ -133,7 +133,7 @@ describe('staffing_analyzeTasks taskRef resolution', () => {
   it('passes a UUID taskRef through unchanged', async () => {
     const { toolCtx } = memCtx();
     const { tools, taskAnalyzer } = buildTools();
-    await tools.staffing_analyzeTasks.execute!(
+    await tools.assign_analyzeTasks.execute!(
       { intent: 'resolve_task_skills', query: 'q', taskRef: UUID_B } as never,
       toolCtx,
     );
@@ -143,7 +143,7 @@ describe('staffing_analyzeTasks taskRef resolution', () => {
   it('passes null through when taskRef is null', async () => {
     const { toolCtx, memory } = memCtx();
     const { tools, taskAnalyzer } = buildTools();
-    await tools.staffing_analyzeTasks.execute!(
+    await tools.assign_analyzeTasks.execute!(
       { intent: 'extract_named_skills', query: 'who knows aws', taskRef: null } as never,
       toolCtx,
     );
@@ -158,7 +158,7 @@ describe('staffing_analyzeTasks taskRef resolution', () => {
     // TaskRefResolveError into an AgentToolError whose .message is the generic
     // user-safe text; the resolver's message survives in .internalDetail.
     await expect(
-      tools.staffing_analyzeTasks.execute!(
+      tools.assign_analyzeTasks.execute!(
         { intent: 'resolve_task_skills', query: 'q', taskRef: 'first' } as never,
         toolCtx,
       ),
@@ -171,22 +171,22 @@ describe('staffing_analyzeTasks taskRef resolution', () => {
 });
 
 describe('result-limit pass-through', () => {
-  it('staffing_analyzeTasks forwards the requested find_tasks limit to the sub-agent', async () => {
+  it('assign_analyzeTasks forwards the requested find_tasks limit to the sub-agent', async () => {
     const { toolCtx } = memCtx();
     const { tools, taskAnalyzer } = buildTools({
       taskAnalyzerResult: { tasks: [] },
     });
-    await tools.staffing_analyzeTasks.execute!(
+    await tools.assign_analyzeTasks.execute!(
       { intent: 'find_tasks', query: 'find 5 infra tasks', taskRef: null, limit: 5 } as never,
       toolCtx,
     );
     expect((taskAnalyzer.inputs[0] as { limit?: number }).limit).toBe(5);
   });
 
-  it('staffing_lookupUserProfile forwards the requested limit to the profile port', async () => {
+  it('assign_lookupUserProfile forwards the requested limit to the profile port', async () => {
     const { toolCtx } = memCtx();
     const { tools, profileCalls } = buildTools();
-    await tools.staffing_lookupUserProfile.execute!({ name: 'Alice', limit: 3 } as never, toolCtx);
+    await tools.assign_lookupUserProfile.execute!({ name: 'Alice', limit: 3 } as never, toolCtx);
     expect(profileCalls).toEqual([{ name: 'Alice', limit: 3 }]);
   });
 });
@@ -202,7 +202,7 @@ describe('entity recording', () => {
         ],
       },
     });
-    await tools.staffing_analyzeTasks.execute!(
+    await tools.assign_analyzeTasks.execute!(
       { intent: 'find_tasks', query: 'find infra tasks', taskRef: null } as never,
       toolCtx,
     );
@@ -214,7 +214,7 @@ describe('entity recording', () => {
     const { tools } = buildTools({
       taskAnalyzerResult: { skills: ['aws'], title: 'A full title' },
     });
-    await tools.staffing_analyzeTasks.execute!(
+    await tools.assign_analyzeTasks.execute!(
       { intent: 'resolve_task_skills', query: 'q', taskRef: 'first' } as never,
       toolCtx,
     );
@@ -223,7 +223,7 @@ describe('entity recording', () => {
     expect(entities.recentTasks[0]).toMatchObject({ taskId: UUID_A, title: 'A full title' });
   });
 
-  it('staffing_rankRecommendations records lastDiscussedTaskId + lastProposedCandidateUserId', async () => {
+  it('assign_rankRecommendations records lastDiscussedTaskId + lastProposedCandidateUserId', async () => {
     const { toolCtx, read } = memCtx();
     const { tools } = buildTools({
       recommenderResult: {
@@ -233,7 +233,7 @@ describe('entity recording', () => {
         ],
       },
     });
-    await tools.staffing_rankRecommendations.execute!(
+    await tools.assign_rankRecommendations.execute!(
       { taskId: UUID_A, skills: ['aws'], candidates: [], availability: [] } as never,
       toolCtx,
     );
@@ -252,7 +252,7 @@ describe('entity recording', () => {
     });
     // Must not throw — workflow/cron contexts have no chat memory.
     await expect(
-      tools.staffing_analyzeTasks.execute!(
+      tools.assign_analyzeTasks.execute!(
         { intent: 'find_tasks', query: 'q', taskRef: null } as never,
         toolCtx,
       ),
@@ -260,7 +260,7 @@ describe('entity recording', () => {
   });
 });
 
-describe('staffing_answerQuestion', () => {
+describe('assign_answerQuestion', () => {
   it('passes the orchestrator userText verbatim to the general-answer sub-agent', async () => {
     const userText =
       'Context:\n<<<FILE: a.pdf>>>\nhello world\n<<<END a.pdf>>>\n\nwhat does it say?';
@@ -272,7 +272,7 @@ describe('staffing_answerQuestion', () => {
     const rc = new RequestContext();
     rc.set('tenant_id', 't1');
     rc.set('actor', { type: 'user', user_id: 'a1' });
-    const out = (await tools.staffing_answerQuestion.execute!(
+    const out = (await tools.assign_answerQuestion.execute!(
       {} as never,
       {
         requestContext: rc,

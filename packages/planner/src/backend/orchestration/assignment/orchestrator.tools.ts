@@ -96,8 +96,8 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     userMemory: ctx.userMemory,
   };
 
-  const staffing_analyzeTasks = defineAgentTool({
-    id: 'staffing_analyzeTasks',
+  const assign_analyzeTasks = defineAgentTool({
+    id: 'assign_analyzeTasks',
     name: 'Analyze Tasks',
     description: [
       'Analyze task requirements or find tasks by intent. Use for: resolving which skills a task',
@@ -163,8 +163,8 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
   // search, or a task-less recommend). It is only a correlation label here.
   // For a plain people search ("find users with aws and docker") this is the
   // FINAL step: the orchestrator answers with these candidates and stops.
-  const staffing_matchCandidatesBySkill = defineAgentTool({
-    id: 'staffing_matchCandidatesBySkill',
+  const assign_matchCandidatesBySkill = defineAgentTool({
+    id: 'assign_matchCandidatesBySkill',
     name: 'Match Candidates By Skill',
     description:
       'Find and rank candidate users by required skills.\n\n' +
@@ -179,13 +179,13 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
-  const staffing_checkCandidateAvailability = defineAgentTool({
-    id: 'staffing_checkCandidateAvailability',
+  const assign_checkCandidateAvailability = defineAgentTool({
+    id: 'assign_checkCandidateAvailability',
     name: 'Check Candidate Availability',
     description:
       'Score availability (status + in-progress load) for each candidate.\n\n' +
       'Use for: filtering out busy or OOO people before recommending.\n' +
-      'Pass candidates from staffing_matchCandidatesBySkill and the same taskId.',
+      'Pass candidates from assign_matchCandidatesBySkill and the same taskId.',
     input: z.object({ taskId: z.string().nullable(), candidates: z.array(RankedCandidateSchema) }),
     output: z.object({
       taskId: z.string().nullable(),
@@ -197,14 +197,14 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
-  const staffing_rankRecommendations = defineAgentTool({
-    id: 'staffing_rankRecommendations',
+  const assign_rankRecommendations = defineAgentTool({
+    id: 'assign_rankRecommendations',
     name: 'Rank Recommendations',
     description:
       'Produce the final ranked assignee recommendations from candidates and availability scores.\n\n' +
       'Use for: the last step in any "recommend who should own this task" flow.\n' +
-      'Pass taskId, skills, candidates (from staffing_matchCandidatesBySkill), ' +
-      'and availability (from staffing_checkCandidateAvailability).',
+      'Pass taskId, skills, candidates (from assign_matchCandidatesBySkill), ' +
+      'and availability (from assign_checkCandidateAvailability).',
     input: z.object({
       taskId: z.string().nullable(),
       skills: z.array(z.string()),
@@ -227,14 +227,14 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
-  const staffing_answerQuestion = defineAgentTool({
-    id: 'staffing_answerQuestion',
+  const assign_answerQuestion = defineAgentTool({
+    id: 'assign_answerQuestion',
     name: 'Answer Question',
     description:
       'Answer a general question or a question about an attached document in prose.\n\n' +
       'Use for: conversational follow-ups; document questions; any query that is NOT about ' +
       'finding tasks, skills, or recommending people.\n' +
-      'Do NOT use for staffing requests — use the staffing_* tools instead.',
+      'Do NOT use for staffing requests — use the assign_* tools instead.',
     input: z.object({}),
     output: z.object({ answer: z.string() }),
     execute: async () => {
@@ -243,8 +243,8 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     },
   });
 
-  const staffing_lookupUserProfile = defineAgentTool({
-    id: 'staffing_lookupUserProfile',
+  const assign_lookupUserProfile = defineAgentTool({
+    id: 'assign_lookupUserProfile',
     name: 'Look Up User Profile',
     description:
       "Look up a specific person's skills, role, and availability by display name.\n\n" +
@@ -284,12 +284,12 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
   });
 
   return {
-    staffing_analyzeTasks,
-    staffing_matchCandidatesBySkill,
-    staffing_checkCandidateAvailability,
-    staffing_rankRecommendations,
-    staffing_answerQuestion,
-    staffing_lookupUserProfile,
+    assign_analyzeTasks,
+    assign_matchCandidatesBySkill,
+    assign_checkCandidateAvailability,
+    assign_rankRecommendations,
+    assign_answerQuestion,
+    assign_lookupUserProfile,
     proposeAssignment,
   };
 }

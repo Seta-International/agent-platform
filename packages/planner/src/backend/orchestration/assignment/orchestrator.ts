@@ -162,7 +162,7 @@ function instructionsText(cap: number): string {
     '"Let me find open React tasks." or "I\'ll look up Tuấn\'s profile." — THEN call the tools.',
     'For simple single-tool lookups you may skip the preamble and call immediately.',
     '',
-    'Get skills or tasks with staffing_analyzeTasks, picking the intent that matches the request:',
+    'Get skills or tasks with assign_analyzeTasks, picking the intent that matches the request:',
     '- intent=resolve_task_skills (with the current taskRef): for "what skills does this task',
     '  need", and to get a task\'s skills before recommending people FOR that task.',
     '- intent=extract_named_skills: when the user asks for PEOPLE by skill they named, e.g.',
@@ -175,51 +175,51 @@ function instructionsText(cap: number): string {
     '',
     "PERSON PROFILE LOOKUP — when the user asks about a specific named individual's skills,",
     'role, or profile (e.g. "list skills of Alice", "what does Tuấn know", "show Bob\'s skills"),',
-    "call staffing_lookupUserProfile with that person's name and STOP. Do NOT use staffing_analyzeTasks",
-    'or staffing_matchCandidatesBySkill for this — those are for task-based skill searches.',
+    "call assign_lookupUserProfile with that person's name and STOP. Do NOT use assign_analyzeTasks",
+    'or assign_matchCandidatesBySkill for this — those are for task-based skill searches.',
     '',
     'DOCUMENT / GENERAL QUESTION — when the user asks a general question, a',
     'conversational follow-up, or anything about an attached document (its text is',
     'inlined in this message under a `Context:` block delimited by `<<<FILE: ...>>>`,',
-    'or appeared in an earlier turn), call staffing_answerQuestion and STOP. Do NOT use the',
-    'staffing tools (staffing_analyzeTasks / find_tasks / skill / people tools) for a',
+    'or appeared in an earlier turn), call assign_answerQuestion and STOP. Do NOT use the',
+    'staffing tools (assign_analyzeTasks / find_tasks / skill / people tools) for a',
     'document or general question.',
     '',
-    'staffing_analyzeTasks takes taskRef: a task UUID, or an ordinal reference into tasks already',
+    'assign_analyzeTasks takes taskRef: a task UUID, or an ordinal reference into tasks already',
     'listed in this conversation — "first"/"#1", "second"/"#2", "last". When the user refers',
     'to a previously listed task ("the first task", "task đầu tiên"), pass the ordinal and',
     'NEVER invent a UUID. Its result includes resolvedTaskId (the real UUID): pass THAT as',
-    'taskId to staffing_matchCandidatesBySkill, staffing_checkCandidateAvailability and staffing_rankRecommendations.',
+    'taskId to assign_matchCandidatesBySkill, assign_checkCandidateAvailability and assign_rankRecommendations.',
     '',
     'PEOPLE SEARCH — the user just wants people who HAVE the skills, with no task to staff and',
     'no "who should do it" question (e.g. "find users with aws and docker", "who has k8s',
-    'skills"): staffing_analyzeTasks(extract_named_skills), then staffing_matchCandidatesBySkill with those skills',
+    'skills"): assign_analyzeTasks(extract_named_skills), then assign_matchCandidatesBySkill with those skills',
     'and taskId=null, then STOP. The matcher candidates are the answer — do NOT call',
-    'staffing_checkCandidateAvailability or staffing_rankRecommendations for a people search.',
+    'assign_checkCandidateAvailability or assign_rankRecommendations for a people search.',
     '',
     'RECOMMEND OR ASSIGN AN ASSIGNEE for ONE task — the user asks who SHOULD do a specific task,',
     'to pick the best person for it, OR to ASSIGN it (e.g. "who should do this task", "recommend',
     'someone for the auth work", "assign this task", "assign it to the best person", or "assign',
-    'to them" / "assign to him" right after candidates were listed): call staffing_proposeAssignment(taskId)',
+    'to them" / "assign to him" right after candidates were listed): call assign_proposeAssignment(taskId)',
     'ONCE and STOP. taskId is the task UUID, or an ordinal reference into tasks already listed in',
     'this conversation ("first"/"#1", "last") — never invent a UUID. For "assign to them" /',
     '"assign this" that refers to a task already discussed in this conversation, use that task',
     '(its UUID, or "first" if it was the one just listed). If the user names a task that has NOT',
-    'been listed yet (e.g. "assign the AWS inventory task to someone"), FIRST call staffing_analyzeTasks',
-    'with intent=find_tasks and that name as the query, THEN call staffing_proposeAssignment with the',
-    'matching task ("first" when it is the top result). staffing_proposeAssignment runs the whole recommend',
-    'pipeline itself and pauses for the user to confirm the assignment; do NOT call staffing_matchCandidatesBySkill/',
-    'staffing_checkCandidateAvailability/staffing_rankRecommendations yourself for a single-task recommend. "Assign" is NEVER a direct',
-    'write you perform — it ALWAYS goes through staffing_proposeAssignment, which asks the user to confirm.',
+    'been listed yet (e.g. "assign the AWS inventory task to someone"), FIRST call assign_analyzeTasks',
+    'with intent=find_tasks and that name as the query, THEN call assign_proposeAssignment with the',
+    'matching task ("first" when it is the top result). assign_proposeAssignment runs the whole recommend',
+    'pipeline itself and pauses for the user to confirm the assignment; do NOT call assign_matchCandidatesBySkill/',
+    'assign_checkCandidateAvailability/assign_rankRecommendations yourself for a single-task recommend. "Assign" is NEVER a direct',
+    'write you perform — it ALWAYS goes through assign_proposeAssignment, which asks the user to confirm.',
     '',
     'RECOMMEND FOR MULTIPLE FOUND TASKS — when the user asks to find tasks AND recommend people',
-    'for them, you cannot use staffing_proposeAssignment (it is single-task). For each found task, after',
-    'obtaining its skills, call in order: staffing_matchCandidatesBySkill with those skills; then staffing_checkCandidateAvailability',
-    'with the returned candidates; then staffing_rankRecommendations with the candidates AND the availability',
-    "returned by staffing_checkCandidateAvailability. Pass that task's resolvedTaskId through all three.",
+    'for them, you cannot use assign_proposeAssignment (it is single-task). For each found task, after',
+    'obtaining its skills, call in order: assign_matchCandidatesBySkill with those skills; then assign_checkCandidateAvailability',
+    'with the returned candidates; then assign_rankRecommendations with the candidates AND the availability',
+    "returned by assign_checkCandidateAvailability. Pass that task's resolvedTaskId through all three.",
     '',
     'If the user only asks what skills a task needs, or only to list tasks, answer with the',
-    'staffing_analyzeTasks result and STOP — do not recommend people.',
+    'assign_analyzeTasks result and STOP — do not recommend people.',
     `When asked to find tasks AND recommend people, recommend for at most the first ${cap} tasks.`,
     'Never invent tasks, skills, or people.',
     '',
@@ -305,7 +305,7 @@ async function buildOrchestrator(
     observability: new Observability({
       configs: {
         default: {
-          serviceName: 'seta-staffing-orchestrator',
+          serviceName: 'assignment-orchestrator',
           exporters: [new MastraStorageExporter()],
         },
       },
@@ -472,8 +472,8 @@ function results(res: MastraToolSignals, name: string): unknown[] {
 }
 
 function assemble(res: MastraToolSignals): OrchestratorResult {
-  const ta = results(res, 'staffing_analyzeTasks') as TaskAnalyzerOutput[];
-  const recs = results(res, 'staffing_rankRecommendations') as {
+  const ta = results(res, 'assign_analyzeTasks') as TaskAnalyzerOutput[];
+  const recs = results(res, 'assign_rankRecommendations') as {
     taskId: string | null;
     recommendations: Recommendation[];
   }[];
@@ -496,15 +496,15 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
   // when the pipeline went PAST the matcher — avaiChecker/recommender called
   // (even unsuccessfully) means an assignee recommendation was attempted.
   const downstreamAttempted = [
-    'staffing_checkCandidateAvailability',
-    'staffing_rankRecommendations',
+    'assign_checkCandidateAvailability',
+    'assign_rankRecommendations',
   ].some(
     (name) =>
       res.toolCalls.some((c) => c.payload.toolName === name) ||
       res.toolResults.some((t) => t.payload.toolName === name),
   );
   if (!downstreamAttempted) {
-    const [match] = results(res, 'staffing_matchCandidatesBySkill') as {
+    const [match] = results(res, 'assign_matchCandidatesBySkill') as {
       taskId: string | null;
       candidates: RankedCandidate[];
     }[];
@@ -523,7 +523,7 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
 
   // Profile lookup: terminal answer for "list skills of <name>".
   const profileHits = (
-    results(res, 'staffing_lookupUserProfile') as { profiles?: UserProfileResult[] }[]
+    results(res, 'assign_lookupUserProfile') as { profiles?: UserProfileResult[] }[]
   ).flatMap((r) => r.profiles ?? []);
   if (profileHits.length > 0) return { userProfiles: profileHits };
 
@@ -531,8 +531,8 @@ function assemble(res: MastraToolSignals): OrchestratorResult {
   // prose IS the terminal answer. It runs only when the LLM called NO staffing
   // tools, so the structured branches above never fire alongside it. An empty
   // answer falls through to the honest capability message below.
-  const generalAnswer = (results(res, 'staffing_answerQuestion') as { answer?: string }[]).find(
-    (g) => g.answer?.trim(),
+  const generalAnswer = (results(res, 'assign_answerQuestion') as { answer?: string }[]).find((g) =>
+    g.answer?.trim(),
   )?.answer;
   if (generalAnswer) return { message: generalAnswer.trim() };
 
@@ -555,17 +555,17 @@ function citationsFor(
   tr: { payload: { toolName: string; result: unknown } },
   result: OrchestratorResult,
 ): Citation[] {
-  if (tr.payload.toolName === 'staffing_analyzeTasks') {
+  if (tr.payload.toolName === 'assign_analyzeTasks') {
     const ts = (tr.payload.result as { tasks?: TaskSummary[] }).tasks ?? [];
     return ts.map<Citation>((t) => ({ kind: 'task', id: t.taskId, label: t.title }));
   }
-  if (tr.payload.toolName === 'staffing_rankRecommendations') {
+  if (tr.payload.toolName === 'assign_rankRecommendations') {
     const rs = (tr.payload.result as { recommendations?: Recommendation[] }).recommendations ?? [];
     return rs.map<Citation>((r) => ({ kind: 'user', id: r.userId, label: r.name ?? undefined }));
   }
   // Matcher candidates are evidence only when they ARE the answer (people-search
   // terminal); in the recommend flow the recommender already cites those users.
-  if (tr.payload.toolName === 'staffing_matchCandidatesBySkill' && result.candidates) {
+  if (tr.payload.toolName === 'assign_matchCandidatesBySkill' && result.candidates) {
     const cs = (tr.payload.result as { candidates?: RankedCandidate[] }).candidates ?? [];
     return cs.map<Citation>((c) => ({ kind: 'user', id: c.userId, label: c.name ?? undefined }));
   }
@@ -582,7 +582,7 @@ function confidenceFor(result: OrchestratorResult, res?: MastraToolSignals): num
   // 0.2 honest-failure floor that bare `message` results carry.
   if (
     res &&
-    (results(res, 'staffing_answerQuestion') as { answer?: string }[]).some((g) => g.answer?.trim())
+    (results(res, 'assign_answerQuestion') as { answer?: string }[]).some((g) => g.answer?.trim())
   ) {
     return 0.6;
   }

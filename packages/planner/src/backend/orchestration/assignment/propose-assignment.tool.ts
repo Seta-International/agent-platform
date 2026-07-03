@@ -90,7 +90,7 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
   };
 
   return defineAgentTool({
-    id: 'staffing_proposeAssignment',
+    id: 'assign_proposeAssignment',
     name: 'Propose Assignment',
     description: [
       'Recommend the best assignee for a single task and ask the user to confirm the',

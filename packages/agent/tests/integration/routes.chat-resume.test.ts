@@ -84,7 +84,7 @@ function makeCard(assigneeUserIds: string[], taskId: string) {
     meta: {
       tenantId: 't',
       userId: 'u',
-      agentPath: ['staffing.orchestrator'],
+      agentPath: ['planner.assignment-orchestrator'],
       toolId: 'proposeAssignment',
       ts: new Date().toISOString(),
     },

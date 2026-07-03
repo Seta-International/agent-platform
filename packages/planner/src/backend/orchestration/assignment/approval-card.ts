@@ -30,7 +30,7 @@ export function buildAssignApprovalCard(opts: BuildAssignApprovalCardOpts): Appr
   const [top, ...rest] = recommendations;
   if (!top) throw new Error('buildAssignApprovalCard: recommendations must be non-empty');
   return {
-    toolCallId: `staffing-orchestrator:${taskId}`,
+    toolCallId: `assignment-orchestrator:${taskId}`,
     intent: `Assign "${title ?? taskId}"`,
     riskBadge: 'write',
     summary: `Top match: ${candidateLabel(top)} (${top.skillMatchCount} skill(s) matched, ${top.status}).`,
@@ -61,7 +61,7 @@ export function buildAssignApprovalCard(opts: BuildAssignApprovalCardOpts): Appr
     meta: {
       tenantId,
       userId,
-      agentPath: ['staffing', 'orchestrator'],
+      agentPath: ['assignment', 'orchestrator'],
       toolId: 'planner_proposeAssignment',
       ts: new Date().toISOString(),
     },

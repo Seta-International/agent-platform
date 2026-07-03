@@ -50,9 +50,7 @@ describe('makeChatOrchestrationStreamer', () => {
     const startChat = makeChatOrchestrationStreamer({
       ...baseDeps,
       streamAgent: () =>
-        fakeOutput([
-          { payload: { toolName: 'staffing_analyzeTasks', result: { skills: ['aws'] } } },
-        ]),
+        fakeOutput([{ payload: { toolName: 'assign_analyzeTasks', result: { skills: ['aws'] } } }]),
     });
     const run = await startChat({ userText: 'what skills', taskId: 't-1' }, ctx);
     expect(run.output).toBeDefined();
