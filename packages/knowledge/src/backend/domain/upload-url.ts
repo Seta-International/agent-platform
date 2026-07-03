@@ -66,7 +66,7 @@ export async function requestKnowledgeUpload(
   const s3Key = buildTenantKey({
     tenant_id: input.tenant_id,
     domain: 'knowledge',
-    file_id: String(row.id),
+    file_id: row.id,
     filename: input.filename,
   });
 
@@ -80,5 +80,5 @@ export async function requestKnowledgeUpload(
     expiresInSeconds: UPLOAD_URL_TTL_SECONDS,
   });
 
-  return { file_id: String(row.id), upload_url, s3_key: s3Key };
+  return { file_id: row.id, upload_url, s3_key: s3Key };
 }

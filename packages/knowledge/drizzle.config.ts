@@ -5,6 +5,7 @@ export default defineConfig({
   schema: './src/backend/db/schema.ts',
   out: './drizzle/migrations',
   schemaFilter: ['knowledge'],
+  tablesFilter: ['!chunks'],
   dbCredentials: {
     url: process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/platform_dev',
   },

@@ -44,14 +44,14 @@ export async function purgeKnowledgeFile(
   const fileRow = await db
     .select({ s3_key: files.s3_key })
     .from(files)
-    .where(and(eq(files.tenant_id, input.tenant_id), eq(files.id, BigInt(input.file_id))))
+    .where(and(eq(files.tenant_id, input.tenant_id), eq(files.id, input.file_id)))
     .limit(1);
   if (fileRow.length === 0) return;
 
   const chunkRows = await db
     .select({ chunk_ordinal: chunks.chunk_ordinal })
     .from(chunks)
-    .where(and(eq(chunks.tenant_id, input.tenant_id), eq(chunks.file_id, BigInt(input.file_id))));
+    .where(and(eq(chunks.tenant_id, input.tenant_id), eq(chunks.file_id, input.file_id)));
 
   if (chunkRows.length > 0) {
     const pgVector =
@@ -77,10 +77,10 @@ export async function purgeKnowledgeFile(
 
   await db
     .delete(chunks)
-    .where(and(eq(chunks.tenant_id, input.tenant_id), eq(chunks.file_id, BigInt(input.file_id))));
+    .where(and(eq(chunks.tenant_id, input.tenant_id), eq(chunks.file_id, input.file_id)));
   await db
     .delete(files)
-    .where(and(eq(files.tenant_id, input.tenant_id), eq(files.id, BigInt(input.file_id))));
+    .where(and(eq(files.tenant_id, input.tenant_id), eq(files.id, input.file_id)));
 
   // biome-ignore lint/style/noNonNullAssertion: fileRow.length === 0 returned above
   const s3Key = fileRow[0]!.s3_key;
