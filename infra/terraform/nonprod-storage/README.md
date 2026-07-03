@@ -22,7 +22,7 @@ per env in `var.envs` (default `["dev", "uat"]`).
 
 After `apply`, pull the per-env access key id/secret out of state and paste them into the matching
 GitHub Environment (`dev`, `uat`) as `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` secrets — these are
-what `compose.dev.yml`/`compose.uat.yml` expect at deploy time.
+what `compose.dev.yaml`/`compose.uat.yaml` expect at deploy time.
 
 ```bash
 terraform output -raw access_key_ids

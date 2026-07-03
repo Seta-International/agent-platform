@@ -12,9 +12,9 @@
 
 http:
   # ── Observability — disabled on the hackathon host ──────────────────────────
-  # The jaeger-auth middleware and traces/metrics routers below depend on the
-  # jaeger / prometheus / grafana services in compose.yml, which are currently
-  # commented out to fit the 4GB EC2 host. Re-enable both sides together.
+  # The jaeger-auth middleware and traces/metrics routers below depend on
+  # services that are not part of this deploy's compose.yaml, which is
+  # currently trimmed to fit the 4GB EC2 host. Re-enable both sides together.
   #
   # middlewares:
   #   jaeger-auth:

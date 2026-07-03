@@ -179,17 +179,11 @@ Optional. Integer. Default: `9464`.
 
 Port on which each app container exposes the Prometheus `/metrics` endpoint. Override if 9464 conflicts with another service on your host. The bundled `prometheus` service scrapes this port on both `server` and `worker`.
 
-### GRAFANA_ADMIN_PASSWORD
+### GF_ADMIN_PASSWORD
 
 Optional. String. Default: `admin`.
 
 Initial password for the Grafana `admin` account. Change this before exposing Grafana publicly. The compose stack mounts `infra/grafana/provisioning/` and pre-provisions Prometheus as the default datasource.
-
-### GRAFANA_ROOT_URL
-
-Optional. URL. No default.
-
-Root URL Grafana uses for absolute links and redirects when served behind a reverse proxy (e.g. `https://metrics.example.com`). Matches the `metrics.<domain>` Traefik router.
 
 ### DLQ_ALERT_THRESHOLD
 

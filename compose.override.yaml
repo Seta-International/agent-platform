@@ -10,8 +10,13 @@ networks:
 
 services:
   postgres:
+    container_name: seta-ap-postgres-dev
+    environment:
+      POSTGRES_USER: seta
+      POSTGRES_PASSWORD: seta
+      POSTGRES_DB: seta
     ports:
-      - "${POSTGRES_BIND_ADDR:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
+      - "${POSTGRES_BIND_ADDR:-127.0.0.1}:${POSTGRES_HOST_PORT:-5542}:5432"
     networks: [seta-internal, seta-admin]
 
   server:

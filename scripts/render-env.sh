@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Render the runtime env file for a compose deploy from the process environment.
 # The deploy workflow injects GitHub Environment Variables + Secrets as env vars;
-# this writes the subset compose.yml consumes. Values are never echoed.
+# this writes the subset compose.yaml consumes. Values are never echoed.
 set -euo pipefail
 
 OUT="${1:?usage: render-env.sh <output-path>}"
