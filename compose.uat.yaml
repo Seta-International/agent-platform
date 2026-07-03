@@ -1,0 +1,18 @@
+# UAT: external RDS + real S3. Alt host ports so it can co-reside with another
+# stack. e2e-report served behind Traefik (profile e2e-report).
+services:
+  proxy:
+    ports:
+      - "${HTTP_BIND:-8080}:80"
+      - "${HTTPS_BIND:-8443}:443"
+      - "${SMOKE_BIND:-8173}:5173"
+
+  e2e-report:
+    image: nginxinc/nginx-unprivileged:alpine
+    restart: unless-stopped
+    profiles: [e2e-report]
+    networks: [seta-edge]
+    read_only: true
+    tmpfs: [/tmp, /var/cache/nginx, /var/run]
+    volumes:
+      - e2e-reports:/usr/share/nginx/html:ro
