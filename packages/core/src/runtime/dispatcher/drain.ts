@@ -1,5 +1,5 @@
 import { context, SpanStatusCode, trace } from '@opentelemetry/api';
-import type { NodeTx } from '@seta/shared-db';
+import { type NodeTx, setTenantGuc } from '@seta/shared-db';
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -113,6 +113,7 @@ export async function drainOne(
             async (span) => {
               try {
                 await outerTx.transaction(async (handlerTx) => {
+                  await setTenantGuc(handlerTx as unknown as NodeTx, row.tenantId);
                   await emitContext.run(
                     {
                       tx: handlerTx as unknown as NodeTx,

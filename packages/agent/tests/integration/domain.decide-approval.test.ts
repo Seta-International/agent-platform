@@ -154,10 +154,11 @@ describe('decideApproval', () => {
       const approvalIdApprove = randomUUID();
       await pool.query(
         `INSERT INTO agent.workflow_approvals
-           (approval_id, run_id, step_id, proposed_payload, approver_user_id,
+           (approval_id, run_id, tenant_id, step_id, proposed_payload, approver_user_id,
             fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
             status, expires_at, created_at)
-         VALUES ($1, $2, 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
+         VALUES ($1, $2, (SELECT tenant_id FROM agent.workflow_runs WHERE run_id = $2),
+                 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
                  'pending', now() + interval '1 day', now())`,
         [approvalIdApprove, runApprove, JSON.stringify(cardPayload), me.user_id],
       );
@@ -184,10 +185,11 @@ describe('decideApproval', () => {
       const approvalIdModify = randomUUID();
       await pool.query(
         `INSERT INTO agent.workflow_approvals
-           (approval_id, run_id, step_id, proposed_payload, approver_user_id,
+           (approval_id, run_id, tenant_id, step_id, proposed_payload, approver_user_id,
             fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
             status, expires_at, created_at)
-         VALUES ($1, $2, 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
+         VALUES ($1, $2, (SELECT tenant_id FROM agent.workflow_runs WHERE run_id = $2),
+                 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
                  'pending', now() + interval '1 day', now())`,
         [approvalIdModify, runModify, JSON.stringify(cardPayload), me.user_id],
       );
@@ -216,10 +218,11 @@ describe('decideApproval', () => {
       const approvalIdReject = randomUUID();
       await pool.query(
         `INSERT INTO agent.workflow_approvals
-           (approval_id, run_id, step_id, proposed_payload, approver_user_id,
+           (approval_id, run_id, tenant_id, step_id, proposed_payload, approver_user_id,
             fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
             status, expires_at, created_at)
-         VALUES ($1, $2, 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
+         VALUES ($1, $2, (SELECT tenant_id FROM agent.workflow_runs WHERE run_id = $2),
+                 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
                  'pending', now() + interval '1 day', now())`,
         [approvalIdReject, runReject, JSON.stringify(cardPayload), me.user_id],
       );

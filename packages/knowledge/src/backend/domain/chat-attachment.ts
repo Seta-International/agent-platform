@@ -93,7 +93,7 @@ export async function requestChatAttachmentUpload(
   const s3Key = buildTenantKey({
     tenant_id: input.tenant_id,
     domain: 'chat-attachments',
-    file_id: String(row.id),
+    file_id: row.id,
     filename: input.filename,
   });
   await db.update(files).set({ s3_key: s3Key }).where(eq(files.id, row.id));
@@ -115,7 +115,7 @@ export async function requestChatAttachmentUpload(
     pendingBytes > warnBytes
       ? `This thread's attachments exceed ${Math.round(warnBytes / 1_048_576)} MB; large files may not fit the model context.`
       : undefined;
-  return { file_id: String(row.id), upload_url, s3_key: s3Key, warning };
+  return { file_id: row.id, upload_url, s3_key: s3Key, warning };
 }
 
 /** Upload-complete signal: flip 'uploading' → 'uploaded'. Returns the row's
@@ -132,7 +132,7 @@ export async function markChatAttachmentUploaded(input: {
     .where(
       and(
         eq(files.tenant_id, input.tenant_id),
-        eq(files.id, BigInt(input.file_id)),
+        eq(files.id, input.file_id),
         eq(files.uploaded_by, input.uploaded_by),
         eq(files.origin, 'chat'),
         eq(files.status, 'uploading'),
@@ -150,15 +150,7 @@ export async function markAttachmentsConsumed(fileIds: string[]): Promise<void> 
   await db
     .update(files)
     .set({ status: 'consumed', consumed_at: new Date() })
-    .where(
-      and(
-        inArray(
-          files.id,
-          fileIds.map((id) => BigInt(id)),
-        ),
-        eq(files.status, 'uploaded'),
-      ),
-    );
+    .where(and(inArray(files.id, fileIds), eq(files.status, 'uploaded')));
 }
 
 export interface AssertReadableDeps {
@@ -181,7 +173,7 @@ export async function assertChatAttachmentReadable(
     .where(
       and(
         eq(files.tenant_id, input.tenant_id),
-        eq(files.id, BigInt(input.file_id)),
+        eq(files.id, input.file_id),
         eq(files.uploaded_by, input.uploaded_by),
         eq(files.origin, 'chat'),
         eq(files.status, 'uploading'),
@@ -210,15 +202,7 @@ export async function markAttachmentsFailed(fileIds: string[], reason?: string):
   await db
     .update(files)
     .set({ status: 'failed', error_reason: reason ?? 'attachment could not be read' })
-    .where(
-      and(
-        inArray(
-          files.id,
-          fileIds.map((id) => BigInt(id)),
-        ),
-        inArray(files.status, ['uploading', 'uploaded']),
-      ),
-    );
+    .where(and(inArray(files.id, fileIds), inArray(files.status, ['uploading', 'uploaded'])));
 }
 
 export interface PendingThreadAttachment {
@@ -252,7 +236,7 @@ export async function listPendingThreadAttachments(input: {
     )
     .orderBy(files.created_at);
   return rows.map((r) => ({
-    file_id: String(r.id),
+    file_id: r.id,
     filename: r.filename,
     mime_type: r.mime_type,
     s3_key: r.s3_key,
@@ -296,7 +280,7 @@ export async function deleteChatAttachment(
     .where(
       and(
         eq(files.tenant_id, input.tenant_id),
-        eq(files.id, BigInt(input.file_id)),
+        eq(files.id, input.file_id),
         eq(files.uploaded_by, input.uploaded_by),
         eq(files.origin, 'chat'),
       ),

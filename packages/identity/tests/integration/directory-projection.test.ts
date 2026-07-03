@@ -18,7 +18,7 @@ const ctx = {
 };
 
 describe('directoryProjectionSubscribers', () => {
-  it('upserts a directory_person row on worker.created and is idempotent', async () => {
+  it('upserts a person_projection row on worker.created and is idempotent', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetIdentityDb();
@@ -49,8 +49,8 @@ describe('directoryProjectionSubscribers', () => {
         const db = drizzle(pool, { schema });
         const rows = await db
           .select()
-          .from(schema.directoryPerson)
-          .where(eq(schema.directoryPerson.person_id, PERSON));
+          .from(schema.personProjection)
+          .where(eq(schema.personProjection.person_id, PERSON));
 
         expect(rows).toHaveLength(1);
         expect(rows[0]).toMatchObject({
@@ -110,8 +110,8 @@ describe('directoryProjectionSubscribers', () => {
         const db = drizzle(pool, { schema });
         const [row] = await db
           .select()
-          .from(schema.directoryPerson)
-          .where(eq(schema.directoryPerson.person_id, PERSON2));
+          .from(schema.personProjection)
+          .where(eq(schema.personProjection.person_id, PERSON2));
 
         expect(row).toMatchObject({ full_name: 'New Name', job_title: 'Senior Engineer' });
       } finally {
@@ -161,8 +161,8 @@ describe('directoryProjectionSubscribers', () => {
         const db = drizzle(pool, { schema });
         let [row] = await db
           .select()
-          .from(schema.directoryPerson)
-          .where(eq(schema.directoryPerson.person_id, PERSON3));
+          .from(schema.personProjection)
+          .where(eq(schema.personProjection.person_id, PERSON3));
         expect(row?.employment_status).toBe('terminated');
 
         await dispatch(directoryProjectionSubscribers, {
@@ -172,8 +172,8 @@ describe('directoryProjectionSubscribers', () => {
 
         [row] = await db
           .select()
-          .from(schema.directoryPerson)
-          .where(eq(schema.directoryPerson.person_id, PERSON3));
+          .from(schema.personProjection)
+          .where(eq(schema.personProjection.person_id, PERSON3));
         expect(row?.employment_status).toBe('active');
       } finally {
         resetIdentityDb();

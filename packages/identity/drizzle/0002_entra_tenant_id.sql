@@ -1,0 +1,1 @@
+ALTER TABLE "identity"."tenant_sso_providers" ADD COLUMN "entra_tenant_id" uuid;

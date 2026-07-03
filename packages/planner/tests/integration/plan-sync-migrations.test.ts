@@ -96,7 +96,7 @@ describe('plan sync schema migration', () => {
         expect(res.rows).toHaveLength(1);
         const indexdef = (res.rows[0] as { indexdef: string }).indexdef;
         expect(indexdef).toMatch(/UNIQUE INDEX plans_external_uniq/);
-        expect(indexdef).toMatch(/\(external_source, external_id\)/);
+        expect(indexdef).toMatch(/\(tenant_id, external_source, external_id\)/);
         expect(indexdef).toMatch(/external_source <> 'native'/);
         expect(indexdef).toMatch(/external_id IS NOT NULL/);
         expect(indexdef).toMatch(/deleted_at IS NULL/);
@@ -120,7 +120,7 @@ describe('plan sync schema migration', () => {
         expect(res.rows).toHaveLength(1);
         const indexdef = (res.rows[0] as { indexdef: string }).indexdef;
         expect(indexdef).toMatch(/UNIQUE INDEX checklist_items_external_uniq/);
-        expect(indexdef).toMatch(/\(task_id, external_id\)/);
+        expect(indexdef).toMatch(/\(tenant_id, task_id, external_id\)/);
         expect(indexdef).toMatch(/external_id IS NOT NULL/);
         expect(indexdef).toMatch(/deleted_at IS NULL/);
       } finally {

@@ -1,9 +1,68 @@
 {
-  "id": "e992c974-9c07-4bee-a121-16ddc41cbbda",
-  "prevId": "4ff03e4f-197b-4e17-b21c-e6d89b84149e",
+  "id": "1ddfc297-cb32-40a7-b9bd-ed3ea2fb89d5",
+  "prevId": "6baf3b6a-8985-4cbe-ad0c-ffcdb780b77c",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "hiring.account_projection": {
+      "name": "account_projection",
+      "schema": "hiring",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "am_worker_id": {
+          "name": "am_worker_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "account_projection_by_am": {
+          "name": "account_projection_by_am",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "am_worker_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "hiring.application": {
       "name": "application",
       "schema": "hiring",
@@ -49,19 +108,59 @@
           "name": "stage",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'new'"
         },
         "status": {
           "name": "status",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'active'"
         },
         "rating": {
           "name": "rating",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
+        },
+        "rejection_reason_id": {
+          "name": "rejection_reason_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tags": {
+          "name": "tags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "superseded_by_application_id": {
+          "name": "superseded_by_application_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         },
         "created_at": {
           "name": "created_at",
@@ -102,7 +201,7 @@
             }
           ],
           "isUnique": true,
-          "where": "candidate_id IS NOT NULL",
+          "where": "candidate_id IS NOT NULL AND status = 'active'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -130,7 +229,7 @@
             }
           ],
           "isUnique": true,
-          "where": "worker_id IS NOT NULL",
+          "where": "worker_id IS NOT NULL AND status = 'active'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -155,16 +254,111 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "application_by_candidate": {
+          "name": "application_by_candidate",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "candidate_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "application_by_worker": {
+          "name": "application_by_worker",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "worker_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "application_requisition_id_requisition_id_fk": {
+          "name": "application_requisition_id_requisition_id_fk",
+          "tableFrom": "application",
+          "tableTo": "requisition",
+          "schemaTo": "hiring",
+          "columnsFrom": ["requisition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "application_candidate_id_candidate_id_fk": {
+          "name": "application_candidate_id_candidate_id_fk",
+          "tableFrom": "application",
+          "tableTo": "candidate",
+          "schemaTo": "hiring",
+          "columnsFrom": ["candidate_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "application_rejection_reason_id_rejection_reason_id_fk": {
+          "name": "application_rejection_reason_id_rejection_reason_id_fk",
+          "tableFrom": "application",
+          "tableTo": "rejection_reason",
+          "schemaTo": "hiring",
+          "columnsFrom": ["rejection_reason_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "application_superseded_by_fk": {
+          "name": "application_superseded_by_fk",
+          "tableFrom": "application",
+          "tableTo": "application",
+          "schemaTo": "hiring",
+          "columnsFrom": ["superseded_by_application_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
         "application_kind_check": {
           "name": "application_kind_check",
-          "value": "kind IN ('external','internal')"
+          "value": "kind IN ('external', 'internal')"
+        },
+        "application_stage_check": {
+          "name": "application_stage_check",
+          "value": "stage IN ('new', 'screening', 'interview', 'offer')"
+        },
+        "application_status_check": {
+          "name": "application_status_check",
+          "value": "status IN ('active', 'hired', 'rejected', 'transferred')"
+        },
+        "application_rating_check": {
+          "name": "application_rating_check",
+          "value": "rating IS NULL OR rating BETWEEN 0 AND 5"
         },
         "application_one_subject_check": {
           "name": "application_one_subject_check",
@@ -240,7 +434,20 @@
         },
         "source_cost": {
           "name": "source_cost",
-          "type": "numeric",
+          "type": "numeric(15, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -259,12 +466,283 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "candidate_by_tenant": {
+          "name": "candidate_by_tenant",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "candidate_gender_check": {
+          "name": "candidate_gender_check",
+          "value": "gender IN ('male', 'female', 'prefer_not_to_say')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "hiring.candidate_event": {
+      "name": "candidate_event",
+      "schema": "hiring",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate_id": {
+          "name": "candidate_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "application_id": {
+          "name": "application_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "summary": {
+          "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "detail": {
+          "name": "detail",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "candidate_event_by_candidate": {
+          "name": "candidate_event_by_candidate",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "candidate_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "candidate_event_by_application": {
+          "name": "candidate_event_by_application",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "application_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "candidate_event_candidate_id_candidate_id_fk": {
+          "name": "candidate_event_candidate_id_candidate_id_fk",
+          "tableFrom": "candidate_event",
+          "tableTo": "candidate",
+          "schemaTo": "hiring",
+          "columnsFrom": ["candidate_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "candidate_event_application_id_application_id_fk": {
+          "name": "candidate_event_application_id_application_id_fk",
+          "tableFrom": "candidate_event",
+          "tableTo": "application",
+          "schemaTo": "hiring",
+          "columnsFrom": ["application_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "candidate_event_kind_check": {
+          "name": "candidate_event_kind_check",
+          "value": "kind IN ('created', 'stage_changed', 'rejected', 'transferred', 'rating_changed', 'note_changed', 'skills_changed', 'profile_changed')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "hiring.candidate_skill": {
+      "name": "candidate_skill",
+      "schema": "hiring",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate_id": {
+          "name": "candidate_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "skill_id": {
+          "name": "skill_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "skill_name": {
+          "name": "skill_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level": {
+          "name": "level",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "candidate_skill_by_skill": {
+          "name": "candidate_skill_by_skill",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "skill_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "candidate_skill_candidate_id_candidate_id_fk": {
+          "name": "candidate_skill_candidate_id_candidate_id_fk",
+          "tableFrom": "candidate_skill",
+          "tableTo": "candidate",
+          "schemaTo": "hiring",
+          "columnsFrom": ["candidate_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "candidate_skill_tenant_id_candidate_id_skill_id_pk": {
+          "name": "candidate_skill_tenant_id_candidate_id_skill_id_pk",
+          "columns": ["tenant_id", "candidate_id", "skill_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "candidate_skill_level_check": {
+          "name": "candidate_skill_level_check",
+          "value": "level IS NULL OR level BETWEEN 0 AND 5"
+        }
+      },
       "isRLSEnabled": false
     },
     "hiring.jd_template": {
@@ -348,7 +826,7 @@
       "checkConstraints": {
         "jd_template_kind_check": {
           "name": "jd_template_kind_check",
-          "value": "kind IN ('role','intro','closing')"
+          "value": "kind IN ('role', 'intro', 'closing')"
         }
       },
       "isRLSEnabled": false
@@ -386,14 +864,39 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "jd_template_section_template_id_jd_template_id_fk": {
+          "name": "jd_template_section_template_id_jd_template_id_fk",
+          "tableFrom": "jd_template_section",
+          "tableTo": "jd_template",
+          "schemaTo": "hiring",
+          "columnsFrom": ["template_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {
-        "jd_template_section_template_id_variant_section_pk": {
-          "name": "jd_template_section_template_id_variant_section_pk",
-          "columns": ["template_id", "variant", "section"]
+        "jd_template_section_tenant_id_template_id_variant_section_pk": {
+          "name": "jd_template_section_tenant_id_template_id_variant_section_pk",
+          "columns": ["tenant_id", "template_id", "variant", "section"]
         }
       },
       "uniqueConstraints": {},
@@ -401,11 +904,11 @@
       "checkConstraints": {
         "jd_template_section_variant_check": {
           "name": "jd_template_section_variant_check",
-          "value": "variant IN ('internal','external')"
+          "value": "variant IN ('internal', 'external')"
         },
         "jd_template_section_section_check": {
           "name": "jd_template_section_section_check",
-          "value": "section IN ('about','responsibilities','requirements','nice_to_have')"
+          "value": "section IN ('about', 'responsibilities', 'requirements', 'nice_to_have')"
         }
       },
       "isRLSEnabled": false
@@ -568,16 +1071,68 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "opening_by_hired_application": {
+          "name": "opening_by_hired_application",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "hired_application_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "opening_requisition_id_requisition_id_fk": {
+          "name": "opening_requisition_id_requisition_id_fk",
+          "tableFrom": "opening",
+          "tableTo": "requisition",
+          "schemaTo": "hiring",
+          "columnsFrom": ["requisition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "opening_close_reason_id_opening_close_reason_id_fk": {
+          "name": "opening_close_reason_id_opening_close_reason_id_fk",
+          "tableFrom": "opening",
+          "tableTo": "opening_close_reason",
+          "schemaTo": "hiring",
+          "columnsFrom": ["close_reason_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "opening_hired_application_id_application_id_fk": {
+          "name": "opening_hired_application_id_application_id_fk",
+          "tableFrom": "opening",
+          "tableTo": "application",
+          "schemaTo": "hiring",
+          "columnsFrom": ["hired_application_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
         "opening_status_check": {
           "name": "opening_status_check",
-          "value": "status IN ('open','filled','closed','cancelled')"
+          "value": "status IN ('open', 'filled', 'closed', 'cancelled')"
         }
       },
       "isRLSEnabled": false
@@ -664,6 +1219,158 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "hiring.project_projection": {
+      "name": "project_projection",
+      "schema": "hiring",
+      "columns": {
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "project_projection_by_account": {
+          "name": "project_projection_by_account",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "hiring.rejection_reason": {
+      "name": "rejection_reason",
+      "schema": "hiring",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "rejection_reason_uniq_label": {
+          "name": "rejection_reason_uniq_label",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "label",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "rejection_reason_category_check": {
+          "name": "rejection_reason_category_check",
+          "value": "category IN ('rejected_by_us', 'withdrew', 'other')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "hiring.requisition": {
       "name": "requisition",
       "schema": "hiring",
@@ -701,6 +1408,12 @@
         },
         "account_id": {
           "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project_id": {
+          "name": "project_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -848,23 +1561,23 @@
       "checkConstraints": {
         "requisition_kind_check": {
           "name": "requisition_kind_check",
-          "value": "kind IN ('replacement','new')"
+          "value": "kind IN ('replacement', 'new')"
         },
         "requisition_approval_status_check": {
           "name": "requisition_approval_status_check",
-          "value": "approval_status IN ('draft','pending_approval','approved','rejected')"
+          "value": "approval_status IN ('draft', 'pending_approval', 'approved', 'rejected')"
         },
         "requisition_status_check": {
           "name": "requisition_status_check",
-          "value": "status IN ('open','on_hold','filled','cancelled')"
+          "value": "status IN ('open', 'on_hold', 'filled', 'cancelled')"
         },
         "requisition_stage_check": {
           "name": "requisition_stage_check",
-          "value": "stage IN ('sourcing','screening','interview','offer')"
+          "value": "stage IN ('sourcing', 'screening', 'interview', 'offer')"
         },
-        "requisition_interview_mode_check": {
-          "name": "requisition_interview_mode_check",
-          "value": "default_interview_mode IS NULL OR default_interview_mode IN ('online','onsite','either')"
+        "requisition_default_interview_mode_check": {
+          "name": "requisition_default_interview_mode_check",
+          "value": "default_interview_mode IN ('online', 'onsite', 'either')"
         }
       },
       "isRLSEnabled": false
@@ -919,23 +1632,34 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "requisition_jd_section_requisition_id_requisition_id_fk": {
+          "name": "requisition_jd_section_requisition_id_requisition_id_fk",
+          "tableFrom": "requisition_jd_section",
+          "tableTo": "requisition",
+          "schemaTo": "hiring",
+          "columnsFrom": ["requisition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {
-        "requisition_jd_section_requisition_id_variant_section_pk": {
-          "name": "requisition_jd_section_requisition_id_variant_section_pk",
-          "columns": ["requisition_id", "variant", "section"]
+        "requisition_jd_section_tenant_id_requisition_id_variant_section_pk": {
+          "name": "requisition_jd_section_tenant_id_requisition_id_variant_section_pk",
+          "columns": ["tenant_id", "requisition_id", "variant", "section"]
         }
       },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "jd_section_variant_check": {
-          "name": "jd_section_variant_check",
-          "value": "variant IN ('internal','external')"
+        "requisition_jd_section_variant_check": {
+          "name": "requisition_jd_section_variant_check",
+          "value": "variant IN ('internal', 'external')"
         },
-        "jd_section_section_check": {
-          "name": "jd_section_section_check",
-          "value": "section IN ('about','responsibilities','requirements','nice_to_have')"
+        "requisition_jd_section_section_check": {
+          "name": "requisition_jd_section_section_check",
+          "value": "section IN ('about', 'responsibilities', 'requirements', 'nice_to_have')"
         }
       },
       "isRLSEnabled": false
@@ -960,7 +1684,7 @@
           "name": "skill_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "skill_name": {
           "name": "skill_name",
@@ -980,16 +1704,109 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
+      "indexes": {
+        "requisition_skill_by_skill": {
+          "name": "requisition_skill_by_skill",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "skill_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "requisition_skill_requisition_id_requisition_id_fk": {
+          "name": "requisition_skill_requisition_id_requisition_id_fk",
+          "tableFrom": "requisition_skill",
+          "tableTo": "requisition",
+          "schemaTo": "hiring",
+          "columnsFrom": ["requisition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {
-        "requisition_skill_requisition_id_skill_name_pk": {
-          "name": "requisition_skill_requisition_id_skill_name_pk",
-          "columns": ["requisition_id", "skill_name"]
+        "requisition_skill_tenant_id_requisition_id_skill_id_pk": {
+          "name": "requisition_skill_tenant_id_requisition_id_skill_id_pk",
+          "columns": ["tenant_id", "requisition_id", "skill_id"]
         }
       },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "hiring.worker_user_projection": {
+      "name": "worker_user_projection",
+      "schema": "hiring",
+      "columns": {
+        "worker_id": {
+          "name": "worker_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "worker_user_projection_by_user": {
+          "name": "worker_user_projection_by_user",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

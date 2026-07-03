@@ -155,14 +155,9 @@ describe('applyUserCreated', () => {
             `evt-${tenantId.slice(0, 8)}`,
           ]);
 
-          // identity.user is populated synchronously by the identity module; only the
-          // planner projection events can arrive out of order. applyProfileUpdated seeds
-          // the projection row from identity.user, so it must exist.
-          await pool.query(
-            `INSERT INTO identity."user" (id, name, email, tenant_id) VALUES ($1, $2, $3, $4)`,
-            [userId, 'Out Of Order', 'out-of-order@example.test', tenantId],
-          );
-
+          // Planner projection events can arrive out of order. applyProfileUpdated must be
+          // able to seed the projection row purely from the event payload (no identity.user
+          // cross-schema read), so the enriched payload carries email itself.
           const db = drizzle(pool, { schema });
           await db.transaction(async (tx) => {
             const profileTx = tx as unknown as Parameters<typeof applyProfileUpdated>[1]['tx'];
@@ -179,6 +174,7 @@ describe('applyUserCreated', () => {
                 payload: {
                   actor: { type: 'cli', user_id: null },
                   user_id: userId,
+                  email: 'out-of-order@example.test',
                   before: { skills: [] },
                   after: {
                     skills: ['aws', 'kubernetes'],
@@ -264,6 +260,7 @@ describe('applyProfileUpdated', () => {
                 payload: {
                   actor: { type: 'user', user_id: userId },
                   user_id: userId,
+                  email: seeded.admin.email,
                   before: { display_name: 'Test Admin' },
                   after: { display_name: 'Alice Updated', availability_status: 'busy' },
                 },
@@ -320,6 +317,7 @@ describe('applyProfileUpdated', () => {
                 payload: {
                   actor: { type: 'user', user_id: userId },
                   user_id: userId,
+                  email: seeded.admin.email,
                   before: {},
                   // 'after' only has a non-projected field (not in our handled set)
                   after: {},

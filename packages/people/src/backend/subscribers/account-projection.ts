@@ -25,6 +25,7 @@ export const accountProjectionCreated: SubscriberDef = {
         set: {
           name,
           am_worker_id: am_worker_id ?? null,
+          updated_at: new Date(),
         },
       });
   },
@@ -51,12 +52,13 @@ export const accountProjectionUpdated: SubscriberDef = {
         set: {
           name,
           am_worker_id: am_worker_id ?? null,
+          updated_at: new Date(),
         },
       });
 
     await ctx.tx
       .update(workerAllocationProjection)
-      .set({ account_name: name })
+      .set({ account_name: name, updated_at: new Date() })
       .where(
         and(
           eq(workerAllocationProjection.account_id, account_id),

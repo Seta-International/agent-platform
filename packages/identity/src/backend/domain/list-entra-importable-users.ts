@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import { user } from '../db/schema.ts';
+import { IdentityError } from '../rbac.ts';
 import { graphListUsers } from '../sso/graph.ts';
 import { requireProviderRow } from '../sso/helpers.ts';
 
@@ -16,7 +17,13 @@ export async function listEntraImportableUsers(
   tenantId: string,
 ): Promise<ReadonlyArray<EntraImportableUser>> {
   const provider = await requireProviderRow(tenantId, 'microsoft-entra-id');
-  const graphUsers = await graphListUsers(provider.config.entra_tenant_id);
+  if (!provider.entra_tenant_id) {
+    throw new IdentityError(
+      'M365_NOT_CONFIGURED',
+      'Entra tenant linkage not set; configure Microsoft 365 integration first.',
+    );
+  }
+  const graphUsers = await graphListUsers(provider.entra_tenant_id);
 
   const emails = graphUsers
     .map((g) => (g.mail ?? g.userPrincipalName ?? '').toLowerCase())

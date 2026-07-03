@@ -114,13 +114,20 @@ export const setProjectAccessInput = z.object({
 });
 export type SetProjectAccessInput = z.infer<typeof setProjectAccessInput>;
 
+export const staffingPlanLineSkillInput = z.object({
+  skill_id: z.string().uuid(),
+  skill_name: z.string().min(1),
+  min_level: z.number().int().min(0).max(5).optional(),
+});
+export type StaffingPlanLineSkillInput = z.infer<typeof staffingPlanLineSkillInput>;
+
 export const staffingPlanLineInput = z.object({
   project_id: z.string().uuid(),
   line_id: z.string().uuid().optional(),
   expected_version: z.number().int().positive().optional(),
   role: z.string().min(1),
   effort_mm: z.number().nonnegative().optional(),
-  skills: z.array(z.string()).optional(),
+  skills: z.array(staffingPlanLineSkillInput).optional(),
 });
 export type StaffingPlanLineInput = z.infer<typeof staffingPlanLineInput>;
 

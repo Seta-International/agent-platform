@@ -5,57 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1781916790268,
-      "tag": "0000_normal_wendell_rand",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1781919034644,
-      "tag": "0001_right_jack_flag",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1781921502315,
-      "tag": "0002_closed_stone_men",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1781930285368,
-      "tag": "0003_absent_randall",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1782119600384,
-      "tag": "0004_giant_kronos",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1782704749973,
-      "tag": "0005_wooden_bruce_banner",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1782709143701,
-      "tag": "0006_yummy_puppet_master",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1782980474372,
-      "tag": "0007_smooth_the_watchers",
+      "when": 1783017992464,
+      "tag": "0000_ambitious_joseph",
       "breakpoints": true
     }
   ]

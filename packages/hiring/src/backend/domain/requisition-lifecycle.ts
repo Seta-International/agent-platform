@@ -4,8 +4,10 @@ import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, inArray } from 'drizzle-orm';
 import { HIRING_REQUISITION_CLOSED, HIRING_REQUISITION_UPDATED } from '../../events.ts';
 import { hiringDb } from '../db/client.ts';
-import { opening, requisition } from '../db/schema.ts';
+import { opening, type REQUISITION_STATUS, requisition } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
+
+type RequisitionStatus = (typeof REQUISITION_STATUS)[number];
 
 async function load(requisition_id: string, expected: number | undefined, session: SessionScope) {
   const [r] = await hiringDb()
@@ -22,8 +24,8 @@ async function load(requisition_id: string, expected: number | undefined, sessio
 async function transition(
   requisition_id: string,
   expected: number | undefined,
-  from: string[],
-  to: string,
+  from: RequisitionStatus[],
+  to: RequisitionStatus,
   session: SessionScope,
 ): Promise<{ version: number }> {
   requirePermission(session, 'hiring.requisition.manage');

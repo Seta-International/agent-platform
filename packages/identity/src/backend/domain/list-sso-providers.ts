@@ -22,6 +22,7 @@ export async function listSsoProviders(tenantId: string): Promise<ReadonlyArray<
     tenant_id: row.tenant_id,
     provider_id: row.provider_id as SsoProviderId,
     enabled: row.enabled,
+    entra_tenant_id: row.entra_tenant_id,
     config: row.config as MicrosoftEntraConfig,
     email_domains,
     created_at: row.created_at,

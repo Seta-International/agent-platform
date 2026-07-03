@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { captureException } from '../../composition/error-capture.ts';
 import { subscriptionDlqAlerter } from './dlq-alerter.ts';
 import { partitionManagerTick } from './partition-manager.ts';
+import { retentionTick } from './retention.ts';
 
 function withErrorCapture(task: Task): Task {
   return async (payload, helpers) => {
@@ -37,6 +38,9 @@ export async function startWorkerPool(opts: StartWorkerPoolOpts): Promise<Worker
     partition_manager_tick: async () => {
       await partitionManagerTick();
     },
+    retention_tick: async () => {
+      await retentionTick();
+    },
     subscription_dlq_alerter: async () => {
       await subscriptionDlqAlerter(opts.log);
     },
@@ -50,6 +54,7 @@ export async function startWorkerPool(opts: StartWorkerPoolOpts): Promise<Worker
 
   const defaultCrontab = `
 0 3 * * * partition_manager_tick
+15 3 * * * retention_tick
 */5 * * * * subscription_dlq_alerter
 `;
   const crontab = [opts.crontab ?? defaultCrontab, opts.extraCrontab]

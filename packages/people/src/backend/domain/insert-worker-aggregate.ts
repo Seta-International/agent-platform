@@ -1,5 +1,6 @@
 import { emit } from '@seta/core/events';
 import type { NodeTx } from '@seta/shared-db';
+import type { GenderValue } from '../../contracts.ts';
 import { employmentPeriod, person, worker, workerHistory } from '../db/schema.ts';
 
 export interface InsertWorkerArgs {
@@ -11,7 +12,7 @@ export interface InsertWorkerArgs {
   start_date?: string | null;
   employment_type?: string | null;
   dob?: string | null;
-  gender?: string | null;
+  gender?: GenderValue | null;
   phone?: string | null;
   emergency_contact?: unknown;
   job_title?: string | null;
@@ -39,7 +40,6 @@ export async function insertWorkerAggregate(
     seq: 1,
     start_date: args.start_date ?? null,
     end_date: null,
-    status: 'active',
     lifecycle_stage: 'preboarding',
     employment_type: args.employment_type ?? null,
   });

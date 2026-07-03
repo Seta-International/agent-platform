@@ -31,7 +31,6 @@ export async function terminateWorker(input: {
         .update(employmentPeriod)
         .set({
           end_date: new Date().toISOString().slice(0, 10),
-          status: 'terminated',
           lifecycle_stage: 'alumni',
           updated_at: new Date(),
         })
@@ -78,7 +77,6 @@ export async function reinstateWorker(input: {
         person_id,
         seq: maxSeq + 1,
         start_date: new Date().toISOString().slice(0, 10),
-        status: 'active',
         lifecycle_stage: 'active',
       });
       await emit({

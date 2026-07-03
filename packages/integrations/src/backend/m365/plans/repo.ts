@@ -176,7 +176,7 @@ export function createM365ResourceEtagRepo(
           and(
             eq(m365ResourceEtags.planLinkId, planLinkId),
             eq(m365ResourceEtags.resourceType, resourceType),
-            eq(m365ResourceEtags.setaId, setaId),
+            eq(m365ResourceEtags.platform_id, setaId),
           ),
         )
         .limit(1);
@@ -201,7 +201,7 @@ export function createM365ResourceEtagRepo(
           tenantId: input.tenantId,
           planLinkId: input.planLinkId,
           resourceType: input.resourceType,
-          setaId: input.setaId,
+          platform_id: input.setaId,
           externalId: input.externalId,
           etag: input.etag,
           lastSyncedFields: input.lastSyncedFields,
@@ -211,7 +211,7 @@ export function createM365ResourceEtagRepo(
             m365ResourceEtags.tenantId,
             m365ResourceEtags.planLinkId,
             m365ResourceEtags.resourceType,
-            m365ResourceEtags.setaId,
+            m365ResourceEtags.platform_id,
           ],
           set: {
             etag: input.etag,
@@ -228,7 +228,7 @@ export function createM365ResourceEtagRepo(
           and(
             eq(m365ResourceEtags.planLinkId, planLinkId),
             eq(m365ResourceEtags.resourceType, resourceType),
-            eq(m365ResourceEtags.setaId, setaId),
+            eq(m365ResourceEtags.platform_id, setaId),
           ),
         );
     },

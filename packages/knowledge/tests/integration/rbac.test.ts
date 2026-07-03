@@ -86,7 +86,9 @@ describe('knowledge RBAC', () => {
         },
         { bucket: 'test', session: admin, presign: (async () => 'https://s3') as never },
       );
-      expect(result.file_id).toMatch(/^\d+$/);
+      expect(result.file_id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
     }));
 
   it('knowledge.member grants write/delete', () =>
@@ -103,7 +105,9 @@ describe('knowledge RBAC', () => {
         },
         { bucket: 'test', session: member, presign: (async () => 'https://s3') as never },
       );
-      expect(result.file_id).toMatch(/^\d+$/);
+      expect(result.file_id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
     }));
 
   describe('fine-grained resolution via resolved permissions', () => {

@@ -2,7 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { employmentPeriod, worker, workerHistory } from '../db/schema.ts';
+import { employmentPeriod, LIFECYCLE_STAGES, worker, workerHistory } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { buildWorkerScope } from './worker-scope.ts';
 
@@ -115,7 +115,12 @@ export async function listWorkers(
   }
 
   if (query.status && query.status.length > 0) {
-    filters.push(inArray(employmentPeriod.lifecycle_stage, query.status));
+    const validStages = query.status.filter((s): s is (typeof LIFECYCLE_STAGES)[number] =>
+      (LIFECYCLE_STAGES as readonly string[]).includes(s),
+    );
+    if (validStages.length > 0) {
+      filters.push(inArray(employmentPeriod.lifecycle_stage, validStages));
+    }
   }
 
   if (query.account_id && query.account_id.length > 0) {

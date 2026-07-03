@@ -41,7 +41,11 @@ async function handle(
       })),
     )
     .onConflictDoNothing({
-      target: [notificationsTable.sourceEventId, notificationsTable.userId],
+      target: [
+        notificationsTable.tenantId,
+        notificationsTable.sourceEventId,
+        notificationsTable.userId,
+      ],
     })
     .returning({ userId: notificationsTable.userId });
 

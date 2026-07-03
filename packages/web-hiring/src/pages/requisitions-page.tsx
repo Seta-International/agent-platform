@@ -3,18 +3,28 @@ import {
   AlertDescription,
   DataTable,
   EmptyState,
+  Input,
   PageChrome,
   SegmentedControl,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Briefcase } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { fetchRequisitions, type RequisitionListRow } from '../api/hiring-client.ts';
+import {
+  fetchOpenRequisitions,
+  type OpenRequisitionsBoard,
+  type RequisitionListRow,
+} from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { NewRequisitionDialog } from './new-requisition-dialog.tsx';
 import { RequisitionCard, STAGE_LABEL } from './requisition-card.tsx';
+import { buildScopeNote } from './utils.ts';
 
 const STATUS_LABEL: Record<string, string> = {
   open: 'Open',
@@ -26,18 +36,32 @@ const STATUS_LABEL: Record<string, string> = {
 export function RequisitionsPage() {
   const navigate = useNavigate();
   const canManage = usePermission('hiring.requisition.manage');
+  // The "New requisition" button calls openRequisition, which the backend gates on
+  // `.open` (see backend/domain/open-requisition.ts) — a distinct permission from `.manage`
+  // (edit/hold/close an existing requisition), even though every seed role grants both today.
+  const canCreate = usePermission('hiring.requisition.open');
   const [view, setView] = useState<'board' | 'list'>('board');
+  const [boardQuery, setBoardQuery] = useState('');
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<OpenRequisitionsBoard>({
     queryKey: hiringKeys.requisitions(),
-    queryFn: fetchRequisitions,
+    queryFn: fetchOpenRequisitions,
   });
-  const rows = data ?? [];
+  const rows = data?.requisitions ?? [];
+  const scopeNote = buildScopeNote(data);
 
-  const stat = (label: string, value: number) => (
-    <div className="rounded-lg border border-hairline bg-surface-1 px-4 py-3">
-      <div className="text-caption text-ink-muted">{label}</div>
-      <div className="text-h3 font-semibold text-ink">{value}</div>
+  const boardRows = useMemo(() => {
+    const q = boardQuery.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) =>
+      [r.title, r.account_name, r.project_name].some((v) => v?.toLowerCase().includes(q)),
+    );
+  }, [rows, boardQuery]);
+
+  const stat = (label: string, value: number, valueClass = 'text-ink') => (
+    <div className="rounded-lg border border-hairline bg-surface-1 px-5 py-4">
+      <div className={`text-display-md font-semibold tabular-nums ${valueClass}`}>{value}</div>
+      <div className="mt-1 text-caption text-ink-muted">{label}</div>
     </div>
   );
 
@@ -49,8 +73,17 @@ export function RequisitionsPage() {
         accessorKey: 'title',
         header: 'Position',
         cell: ({ row }: Ctx) => (
-          <div>
-            <div className="font-medium text-ink">{row.original.title}</div>
+          <div className="min-w-[240px] max-w-[420px]">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="line-clamp-2 break-words font-medium text-ink">
+                    {row.original.title}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>{row.original.title}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <div className="font-mono text-caption text-ink-muted">
               {row.original.id.slice(0, 8)}
             </div>
@@ -58,18 +91,40 @@ export function RequisitionsPage() {
         ),
       },
       {
-        id: 'account_id',
-        accessorKey: 'account_id',
+        id: 'account_name',
+        accessorKey: 'account_name',
         header: 'Account',
         cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.account_id ?? '—'}</span>
+          <span className="text-ink-muted">{row.original.account_name ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'project_name',
+        accessorKey: 'project_name',
+        header: 'Project',
+        cell: ({ row }: Ctx) => (
+          <span className="text-ink-muted">{row.original.project_name ?? '—'}</span>
         ),
       },
       {
         id: 'grade',
         accessorKey: 'grade',
         header: 'Grade',
-        cell: ({ row }: Ctx) => <span className="text-ink-muted">{row.original.grade ?? '—'}</span>,
+        cell: ({ row }: Ctx) =>
+          row.original.grade ? (
+            <div className="max-w-[160px]">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="truncate text-ink-muted">{row.original.grade}</div>
+                  </TooltipTrigger>
+                  <TooltipContent>{row.original.grade}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          ) : (
+            <span className="text-ink-muted">—</span>
+          ),
       },
       {
         id: 'kind',
@@ -116,17 +171,29 @@ export function RequisitionsPage() {
     ];
   }, []);
 
-  const open = rows.filter((r) => r.status === 'open' || r.status === 'on_hold').length;
-  const filled = rows.filter((r) => r.status === 'filled').length;
+  // The board only carries non-filled requisitions (status open | on_hold).
+  const openCount = rows.filter((r) => r.status === 'open').length;
+  const onHold = rows.filter((r) => r.status === 'on_hold').length;
   const totalApplicants = rows.reduce((n, r) => n + r.applicants_count, 0);
 
   return (
-    <PageChrome title="Requisitions" actions={canManage ? <NewRequisitionDialog /> : undefined}>
+    <PageChrome
+      breadcrumb={['Hiring management', 'Open positions']}
+      title="Requisitions"
+      subtitle="Live open positions across every account — track hiring status and let internal staff browse and apply."
+      actions={<NewRequisitionDialog disabled={!canCreate} />}
+    >
       <div className="page-container space-y-4 p-6">
-        <div className="grid grid-cols-3 gap-3">
-          {stat('Open positions', open)}
+        {scopeNote && (
+          <Alert variant="info">
+            <AlertDescription>{scopeNote}</AlertDescription>
+          </Alert>
+        )}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {stat('Open positions', openCount)}
           {stat('Applicants', totalApplicants)}
-          {stat('Filled', filled)}
+          {stat('On hold', onHold, 'text-warning')}
+          {stat('Total open', rows.length)}
         </div>
         <div className="flex items-center justify-between">
           <div className="text-caption font-medium uppercase tracking-wide text-ink-muted">
@@ -162,32 +229,49 @@ export function RequisitionsPage() {
             }
             onRowClick={(row) =>
               void navigate({
-                to: '/hiring/requisitions/$requisitionId',
-                params: { requisitionId: row.original.id },
+                to: '/hiring/requisitions',
+                search: (prev: Record<string, unknown>) => ({
+                  ...prev,
+                  selectedRequisitionId: row.original.id,
+                }),
               })
             }
           />
-        ) : isLoading ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {[0, 1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
-              />
-            ))}
-          </div>
-        ) : rows.length === 0 ? (
-          <EmptyState
-            icon={<Briefcase className="size-6" />}
-            title="No requisitions yet"
-            description="Open a requisition to get started."
-          />
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {rows.map((r) => (
-              <RequisitionCard key={r.id} r={r} canManage={canManage} />
-            ))}
-          </div>
+          <>
+            <Input
+              placeholder="Search requisitions…"
+              value={boardQuery}
+              onChange={(e) => setBoardQuery(e.target.value)}
+              className="max-w-sm"
+            />
+            {isLoading ? (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
+                  />
+                ))}
+              </div>
+            ) : boardRows.length === 0 ? (
+              <EmptyState
+                icon={<Briefcase className="size-6" />}
+                title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
+                description={
+                  rows.length === 0
+                    ? 'Open a requisition to get started.'
+                    : 'Try a different search term.'
+                }
+              />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {boardRows.map((r) => (
+                  <RequisitionCard key={r.id} r={r} canManage={canManage} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </PageChrome>

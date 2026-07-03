@@ -114,6 +114,7 @@ async function setTaskAssigneesImpl(
           // biome-ignore lint/style/noNonNullAssertion: i is a valid index from addedIndices
           const a = input.assignees[i]!;
           return {
+            tenant_id: task.tenant_id,
             task_id: input.task_id,
             user_id: a.user_id,
             // biome-ignore lint/style/noNonNullAssertion: hintsForN returns exactly input.assignees.length hints

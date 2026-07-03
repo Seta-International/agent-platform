@@ -36,7 +36,7 @@ export async function markKnowledgeFileProcessed(
     .where(
       and(
         eq(files.tenant_id, input.tenant_id),
-        eq(files.id, BigInt(input.file_id)),
+        eq(files.id, input.file_id),
         eq(files.status, 'uploading'),
       ),
     )

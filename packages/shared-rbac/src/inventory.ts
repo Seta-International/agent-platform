@@ -108,30 +108,6 @@ export const INVENTORY: StatementSpec[] = [
     ],
   },
   {
-    module: 'staffing',
-    statement: {
-      staffing: ['read'],
-      'staffing.workflow': ['read', 'run', 'cancel'],
-    },
-    roles: [
-      {
-        slug: 'staffing.member',
-        description: 'Run and cancel staffing workflows (member tier)',
-        permissions: [
-          'staffing.read',
-          'staffing.workflow.read',
-          'staffing.workflow.run',
-          'staffing.workflow.cancel',
-        ],
-      },
-      {
-        slug: 'staffing.viewer',
-        description: 'Read staffing workflows',
-        permissions: ['staffing.read', 'staffing.workflow.read'],
-      },
-    ],
-  },
-  {
     module: 'agent',
     statement: {
       'agent.chat': ['use'],
@@ -222,6 +198,7 @@ export const INVENTORY: StatementSpec[] = [
       'planner.label': ['read', 'update'],
       'planner.checklist': ['update'],
       'planner.trash': ['read', 'restore', 'empty'],
+      'planner.assignment': ['read', 'run', 'cancel'],
     },
     roles: [
       {
@@ -269,6 +246,9 @@ export const INVENTORY: StatementSpec[] = [
           'planner.trash.read',
           'planner.trash.restore',
           'planner.trash.empty',
+          'planner.assignment.read',
+          'planner.assignment.run',
+          'planner.assignment.cancel',
         ],
       },
       {
@@ -294,6 +274,9 @@ export const INVENTORY: StatementSpec[] = [
           'planner.reporting.read',
           'planner.group.refresh',
           'planner.plan.refresh',
+          'planner.assignment.read',
+          'planner.assignment.run',
+          'planner.assignment.cancel',
         ],
       },
       {
@@ -310,6 +293,7 @@ export const INVENTORY: StatementSpec[] = [
           'planner.reporting.read',
           'planner.group.refresh',
           'planner.plan.refresh',
+          'planner.assignment.read',
         ],
       },
       {
@@ -369,7 +353,7 @@ export const INVENTORY: StatementSpec[] = [
   {
     module: 'hiring',
     statement: {
-      'hiring.requisition': ['read', 'open', 'manage', 'close'],
+      'hiring.requisition': ['read', 'read.all', 'open', 'manage', 'close'],
       'hiring.jd_template': ['read', 'manage'],
       'hiring.candidate': ['read', 'create', 'manage', 'reject', 'transfer'],
       'hiring.rejection_reason': ['read', 'manage'],
@@ -380,6 +364,7 @@ export const INVENTORY: StatementSpec[] = [
         description: 'Hiring management across the granted scope',
         permissions: [
           'hiring.requisition.read',
+          'hiring.requisition.read.all',
           'hiring.requisition.open',
           'hiring.requisition.manage',
           'hiring.requisition.close',
@@ -400,6 +385,7 @@ export const INVENTORY: StatementSpec[] = [
         description: 'Run requisitions, candidates, interviews, offers',
         permissions: [
           'hiring.requisition.read',
+          'hiring.requisition.read.all',
           'hiring.requisition.open',
           'hiring.requisition.manage',
           'hiring.requisition.close',
@@ -417,9 +403,20 @@ export const INVENTORY: StatementSpec[] = [
       },
       {
         slug: 'hiring.viewer',
-        description: 'Read hiring records',
+        description: 'Read hiring records (account-scoped for AM/EM/TL/PM personas)',
         permissions: [
           'hiring.requisition.read',
+          'hiring.jd_template.read',
+          'hiring.candidate.read',
+          'hiring.rejection_reason.read',
+        ],
+      },
+      {
+        slug: 'hiring.viewer_all',
+        description: 'Read every hiring record, unscoped (BOD/PMO)',
+        permissions: [
+          'hiring.requisition.read',
+          'hiring.requisition.read.all',
           'hiring.jd_template.read',
           'hiring.candidate.read',
           'hiring.rejection_reason.read',

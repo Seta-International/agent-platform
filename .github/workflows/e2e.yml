@@ -38,6 +38,7 @@ jobs:
         env:
           PUBLIC_DOMAIN: ${{ vars.PUBLIC_DOMAIN }}
           E2E_BASICAUTH_USERS: ${{ secrets.E2E_BASICAUTH_USERS }}
+          COMPOSE_FILE: ${{ vars.COMPOSE_FILE }}
           COMPOSE_PROJECT: ${{ vars.COMPOSE_PROJECT }}
           ENV_FILE: ${{ vars.ENV_FILE }}
         run: |

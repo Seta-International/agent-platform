@@ -3,6 +3,7 @@ import { z } from 'zod';
 const Env = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   DATABASE_URL: z.string().url(),
+  DATABASE_APP_URL: z.string().optional(),
   PORT: z.coerce.number().default(3000),
   EVENTS_RETENTION_DAYS: z.coerce.number().default(30),
   PUBLIC_URL: z.string().url().default('http://localhost:5173'),
@@ -33,12 +34,6 @@ const Env = z.object({
         .filter(Boolean),
     ),
   SESSION_COOKIE_SAMESITE: z.enum(['strict', 'lax']).default('strict'),
-  CLAMAV_HOST: z.string().default('localhost'),
-  CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
-  KNOWLEDGE_AV_REQUIRED: z
-    .enum(['true', 'false'])
-    .default('true')
-    .transform((s) => s === 'true'),
 });
 
 export function parseEnv(raw: NodeJS.ProcessEnv) {

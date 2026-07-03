@@ -8,7 +8,7 @@ import {
 } from '@seta/shared-rbac';
 import type { Pool } from 'pg';
 import { identityDb } from '../../src/backend/db/index.ts';
-import { directoryPerson, roleAssignments } from '../../src/backend/db/schema.ts';
+import { personProjection, roleAssignments } from '../../src/backend/db/schema.ts';
 import { createUser } from '../../src/backend/domain/create-user.ts';
 import { deactivateUser } from '../../src/backend/domain/deactivate-user.ts';
 
@@ -26,7 +26,7 @@ export interface SeededDirectoryPerson {
 }
 
 /**
- * Seed a directory_person row paired with a matching user account.
+ * Seed a person_projection row paired with a matching user account.
  * Creates a fresh tenant unless `tenant_id` is supplied.
  * Used by A1.5, A1.6, A1.7 integration tests.
  */
@@ -53,7 +53,7 @@ export async function seedDirectoryAccount(
 
   const displayName = opts.name ?? 'Test Person';
   const person_id = crypto.randomUUID();
-  await identityDb().insert(directoryPerson).values({
+  await identityDb().insert(personProjection).values({
     person_id,
     tenant_id,
     full_name: displayName,
@@ -114,7 +114,7 @@ export async function seedDirectoryAccount(
 }
 
 /**
- * Seed a directory_person row with NO linked user account.
+ * Seed a person_projection row with NO linked user account.
  * Used by A1.6 and A1.7 tests that need a person whose account
  * will be provisioned or suspended as part of the test action.
  */
@@ -138,7 +138,7 @@ export async function seedDirectoryPersonOnly(
 
   const person_id = crypto.randomUUID();
   await identityDb()
-    .insert(directoryPerson)
+    .insert(personProjection)
     .values({
       person_id,
       tenant_id,

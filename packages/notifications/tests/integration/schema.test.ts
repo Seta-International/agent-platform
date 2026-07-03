@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { withNotificationsTestDb } from './test-helpers.ts';
 
 describe('notifications.notifications schema', () => {
-  it('has expected columns and the unique (source_event_id, user_id) constraint', async () => {
+  it('has expected columns and the tenant-led unique (tenant_id, source_event_id, user_id) constraint', async () => {
     await withNotificationsTestDb(async ({ pool }) => {
       const cols = await pool.query<{ column_name: string; data_type: string }>(`
         SELECT column_name, data_type
@@ -32,7 +32,7 @@ describe('notifications.notifications schema', () => {
                  FROM unnest(c.conkey) AS k(attnum)
                  JOIN pg_attribute a
                    ON a.attrelid = c.conrelid AND a.attnum = k.attnum
-             ) = ARRAY['source_event_id', 'user_id']
+             ) = ARRAY['source_event_id', 'tenant_id', 'user_id']
         ) AS exists
       `);
       expect(uniq.rows[0]?.exists).toBe(true);

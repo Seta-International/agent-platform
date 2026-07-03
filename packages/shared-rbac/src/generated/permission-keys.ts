@@ -31,6 +31,7 @@ export type PermissionKey =
   | 'hiring.requisition.manage'
   | 'hiring.requisition.open'
   | 'hiring.requisition.read'
+  | 'hiring.requisition.read.all'
   | 'identity.concept_map.read'
   | 'identity.concept_map.update'
   | 'identity.group.create'
@@ -79,6 +80,9 @@ export type PermissionKey =
   | 'people.worker.manage'
   | 'people.worker.read'
   | 'people.worker.update'
+  | 'planner.assignment.cancel'
+  | 'planner.assignment.read'
+  | 'planner.assignment.run'
   | 'planner.bucket.create'
   | 'planner.bucket.delete'
   | 'planner.bucket.read'
@@ -127,11 +131,7 @@ export type PermissionKey =
   | 'pm.charter.read'
   | 'pm.charter.submit'
   | 'pm.project.manage'
-  | 'pm.project.read'
-  | 'staffing.read'
-  | 'staffing.workflow.cancel'
-  | 'staffing.workflow.read'
-  | 'staffing.workflow.run';
+  | 'pm.project.read';
 
 export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'agent.chat.use',
@@ -165,6 +165,7 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'hiring.requisition.manage',
   'hiring.requisition.open',
   'hiring.requisition.read',
+  'hiring.requisition.read.all',
   'identity.concept_map.read',
   'identity.concept_map.update',
   'identity.group.create',
@@ -213,6 +214,9 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'people.worker.manage',
   'people.worker.read',
   'people.worker.update',
+  'planner.assignment.cancel',
+  'planner.assignment.read',
+  'planner.assignment.run',
   'planner.bucket.create',
   'planner.bucket.delete',
   'planner.bucket.read',
@@ -262,8 +266,4 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'pm.charter.submit',
   'pm.project.manage',
   'pm.project.read',
-  'staffing.read',
-  'staffing.workflow.cancel',
-  'staffing.workflow.read',
-  'staffing.workflow.run',
 ];

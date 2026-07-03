@@ -2,16 +2,17 @@ import type { SessionScope } from '@seta/core';
 import { and, eq, exists, inArray, isNull, type SQL, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
 import { assigneeProjection, buckets, plans, taskAssignments, tasks } from '../db/schema.ts';
+import { numberToPriority, type TaskProgress } from '../db/task-enums.ts';
 import type { ChartData, ChartStatus } from '../dto.ts';
 import type { ChartFilters, ChartStatusKey, GetPlanChartDataInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
 
-const STATUS_PERCENT: Record<ChartStatusKey, 0 | 50 | 100> = {
-  not_started: 0,
-  in_progress: 50,
-  completed: 100,
+const STATUS_PROGRESS: Record<ChartStatusKey, TaskProgress> = {
+  not_started: 'not_started',
+  in_progress: 'in_progress',
+  completed: 'done',
 };
 
 const PRIORITY_META = [
@@ -21,21 +22,14 @@ const PRIORITY_META = [
   { key: 'low', label: 'Low' },
 ] as const;
 
-function priorityLabel(n: number): 'urgent' | 'important' | 'medium' | 'low' {
-  if (n <= 1) return 'urgent';
-  if (n <= 4) return 'important';
-  if (n <= 7) return 'medium';
-  return 'low';
-}
-
 function emptyStatus(): ChartStatus {
   return { not_started: 0, in_progress: 0, completed: 0 };
 }
 
 const statusCols = () => ({
-  not_started: sql<number>`COUNT(*) FILTER (WHERE ${tasks.percent_complete} = 0)::int`,
-  in_progress: sql<number>`COUNT(*) FILTER (WHERE ${tasks.percent_complete} = 50)::int`,
-  completed: sql<number>`COUNT(*) FILTER (WHERE ${tasks.percent_complete} = 100)::int`,
+  not_started: sql<number>`COUNT(*) FILTER (WHERE ${tasks.progress} = 'not_started')::int`,
+  in_progress: sql<number>`COUNT(*) FILTER (WHERE ${tasks.progress} = 'in_progress')::int`,
+  completed: sql<number>`COUNT(*) FILTER (WHERE ${tasks.progress} = 'done')::int`,
 });
 
 /** Conditions derived from the user-supplied chart filters, applied to every
@@ -47,12 +41,14 @@ function taskFilterConds(
   const conds: SQL[] = [];
   if (!filters) return conds;
   if (filters.bucket_ids?.length) conds.push(inArray(tasks.bucket_id, filters.bucket_ids));
-  if (filters.priorities?.length) conds.push(inArray(tasks.priority_number, filters.priorities));
+  if (filters.priorities?.length) {
+    conds.push(inArray(tasks.priority, filters.priorities.map(numberToPriority)));
+  }
   if (filters.statuses?.length) {
     conds.push(
       inArray(
-        tasks.percent_complete,
-        filters.statuses.map((s) => STATUS_PERCENT[s]),
+        tasks.progress,
+        filters.statuses.map((s) => STATUS_PROGRESS[s]),
       ),
     );
   }
@@ -127,7 +123,7 @@ async function getPlanChartDataImpl(
   const [statusRow] = await db
     .select({
       ...statusCols(),
-      late: sql<number>`COUNT(*) FILTER (WHERE ${tasks.percent_complete} < 100 AND ${tasks.due_at} IS NOT NULL AND ${tasks.due_at} < ${now})::int`,
+      late: sql<number>`COUNT(*) FILTER (WHERE ${tasks.progress} <> 'done' AND ${tasks.due_at} IS NOT NULL AND ${tasks.due_at} < ${now})::int`,
     })
     .from(tasks)
     .where(liveTasksWhere);
@@ -144,10 +140,10 @@ async function getPlanChartDataImpl(
   };
 
   const priorityRows = await db
-    .select({ priority_number: tasks.priority_number, ...statusCols() })
+    .select({ priority: tasks.priority, ...statusCols() })
     .from(tasks)
     .where(liveTasksWhere)
-    .groupBy(tasks.priority_number);
+    .groupBy(tasks.priority);
 
   const priorityAcc: Record<'urgent' | 'important' | 'medium' | 'low', ChartStatus> = {
     urgent: emptyStatus(),
@@ -156,7 +152,7 @@ async function getPlanChartDataImpl(
     low: emptyStatus(),
   };
   for (const r of priorityRows) {
-    const b = priorityAcc[priorityLabel(r.priority_number)];
+    const b = priorityAcc[r.priority];
     b.not_started += r.not_started;
     b.in_progress += r.in_progress;
     b.completed += r.completed;

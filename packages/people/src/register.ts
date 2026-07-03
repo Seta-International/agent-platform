@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, ErrorMapper } from '@seta/core';
+import { getLifecycleEntries, registerLifecycle } from '@seta/shared-db';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import * as schema from './backend/db/schema.ts';
 import { buildPeopleRoutes } from './backend/http/index.ts';
@@ -25,6 +26,23 @@ export const peopleErrorMapper: ErrorMapper = (err) => {
 };
 
 export function registerPeopleContributions(reg: ContributionRegistry): void {
+  // Tests construct a fresh ContributionRegistry per call (often several times per process),
+  // but the shared-db lifecycle registry is process-global and throws on re-registering a
+  // table — skip if a prior call in this process already ran.
+  if (!getLifecycleEntries().some((e) => e.table === 'people.person')) {
+    registerLifecycle([
+      { table: 'people.person', policy: { kind: 'permanent' } },
+      { table: 'people.employment_period', policy: { kind: 'permanent' } },
+      { table: 'people.worker', policy: { kind: 'permanent' } },
+      { table: 'people.org_unit', policy: { kind: 'permanent' } },
+      { table: 'people.person_skill', policy: { kind: 'permanent' } },
+      { table: 'people.worker_history', policy: { kind: 'permanent' } },
+      { table: 'people.worker_allocation_projection', policy: { kind: 'permanent' } },
+      { table: 'people.account_projection', policy: { kind: 'permanent' } },
+      { table: 'people.project_projection', policy: { kind: 'permanent' } },
+    ]);
+  }
+
   reg.module({
     name: 'people',
     schema,

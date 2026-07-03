@@ -1,0 +1,53 @@
+// Metrics: scrape app :9464 + host/DB/RDS exporters → remote_write to central.
+prometheus.scrape "app" {
+  targets = [
+    { __address__ = "server:9464" },
+    { __address__ = "worker:9464" },
+    { __address__ = "node-exporter:9100" },      // host cpu/mem/DISK
+    { __address__ = "postgres-exporter:9187" },  // DB connections/size/query stats
+    { __address__ = "cloudwatch-exporter:9106" }, // RDS storage/burst/conns (prod/uat)
+  ]
+  metrics_path = "/metrics"
+  forward_to   = [prometheus.remote_write.central.receiver]
+}
+
+prometheus.remote_write "central" {
+  external_labels = { env = sys.env("MONITORING_ENV") }
+  endpoint {
+    url = sys.env("REMOTE_WRITE_URL")
+    basic_auth {
+      username = sys.env("REMOTE_WRITE_USERNAME")
+      password = sys.env("REMOTE_WRITE_PASSWORD")
+    }
+  }
+}
+
+// Logs: discover local containers, label by name, push NDJSON stdout → Loki.
+discovery.docker "local" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.local.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "app" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.write.central.receiver]
+}
+
+loki.write "central" {
+  external_labels = { env = sys.env("MONITORING_ENV") }
+  endpoint {
+    url = sys.env("LOKI_URL")
+    basic_auth {
+      username = sys.env("REMOTE_WRITE_USERNAME")
+      password = sys.env("REMOTE_WRITE_PASSWORD")
+    }
+  }
+}

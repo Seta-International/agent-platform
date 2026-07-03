@@ -25,6 +25,7 @@ describe('m365_resource_etags migration', () => {
         'external_id',
         'etag',
         'last_synced_fields',
+        'created_at',
         'updated_at',
       ]);
     });

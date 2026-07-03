@@ -125,8 +125,8 @@ describe('pumpOrchestrationStream', () => {
       meta: {
         tenantId: 'ten',
         userId: 'usr',
-        agentPath: ['staffing', 'orchestrator'],
-        toolId: 'staffing_proposeAssignment',
+        agentPath: ['assignment', 'orchestrator'],
+        toolId: 'assign_proposeAssignment',
         ts: new Date().toISOString(),
       },
     };

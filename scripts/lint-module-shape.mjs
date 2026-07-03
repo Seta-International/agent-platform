@@ -22,7 +22,6 @@ const MODULES_CHECKED = [
   'planner',
   'agent',
   'notifications',
-  'staffing',
   'core',
   'integrations',
   'knowledge',
@@ -80,7 +79,8 @@ const BACKEND_DIR_ALLOWLIST = new Set([
   'agents',
   'agent-tools',
   'routes', // agent-owned HTTP route handlers split from routes.ts
-  'orchestration', // staffing orchestrator-tier composition + agents + run state
+  'mastra-store', // agent-owned Mastra tenant-containment repository (FUT-386)
+  'orchestration', // planner-owned assignment + QnA runtimes (agents + run state)
   'm365', // integrations-owned external connector
   'scan', // knowledge-owned upload AV scanner
   'skills', // core-owned skill catalog (categories + skills admin)

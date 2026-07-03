@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const jdVariant = z.enum(['internal', 'external']);
 export const jdSectionKey = z.enum(['about', 'responsibilities', 'requirements', 'nice_to_have']);
 export const interviewMode = z.enum(['online', 'onsite', 'either']);
+export const genderValue = z.enum(['male', 'female', 'prefer_not_to_say']);
 
 export const jdSectionInput = z.object({
   variant: jdVariant,
@@ -18,20 +19,26 @@ export const skillInput = z.object({
 });
 export type SkillInput = z.infer<typeof skillInput>;
 
-export const openRequisitionInput = z.object({
-  title: z.string().min(1),
-  kind: z.enum(['replacement', 'new']).default('new'),
-  role_title: z.string().optional(),
-  grade: z.string().optional(),
-  account_id: z.string().uuid().optional(),
-  due_date: z.string().optional(),
-  start_date: z.string().optional(),
-  note: z.string().optional(),
-  default_interview_mode: interviewMode.optional(),
-  headcount: z.number().int().min(1).default(1),
-  jd_sections: z.array(jdSectionInput).optional(),
-  skills: z.array(skillInput).optional(),
-});
+export const openRequisitionInput = z
+  .object({
+    title: z.string().min(1),
+    kind: z.enum(['replacement', 'new']).default('new'),
+    role_title: z.string().optional(),
+    grade: z.string().optional(),
+    account_id: z.string().uuid().optional(),
+    project_id: z.string().uuid().optional(),
+    due_date: z.string().optional(),
+    start_date: z.string().optional(),
+    note: z.string().optional(),
+    default_interview_mode: interviewMode.optional(),
+    headcount: z.number().int().min(1).default(1),
+    jd_sections: z.array(jdSectionInput).optional(),
+    skills: z.array(skillInput).optional(),
+  })
+  .refine((data) => !data.start_date || !data.due_date || data.start_date < data.due_date, {
+    message: 'start_date must be before due_date',
+    path: ['start_date'],
+  });
 export type OpenRequisitionInput = z.input<typeof openRequisitionInput>;
 
 export const editRequisitionPatch = z
@@ -40,6 +47,7 @@ export const editRequisitionPatch = z
     role_title: z.string(),
     grade: z.string(),
     account_id: z.string().uuid(),
+    project_id: z.string().uuid(),
     kind: z.enum(['replacement', 'new']),
     due_date: z.string(),
     start_date: z.string(),
@@ -47,7 +55,13 @@ export const editRequisitionPatch = z
     default_interview_mode: interviewMode,
     stage: z.enum(['sourcing', 'screening', 'interview', 'offer']),
   })
-  .partial();
+  .partial()
+  // Only catches a patch that sets both fields at once — a patch touching just one of them is
+  // checked against the stored counterpart in edit-requisition.ts, which has the current row.
+  .refine((data) => !data.start_date || !data.due_date || data.start_date < data.due_date, {
+    message: 'start_date must be before due_date',
+    path: ['start_date'],
+  });
 export type EditRequisitionPatch = z.infer<typeof editRequisitionPatch>;
 
 export const addOpeningInput = z.object({
@@ -90,7 +104,7 @@ export const addCandidateInput = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   dob: z.string().optional(),
-  gender: z.string().optional(),
+  gender: genderValue.optional(),
   seniority: z.string().optional(),
   source: z.string().optional(),
   segment: z.string().optional(),
@@ -105,7 +119,7 @@ export const editCandidatePatch = z
     email: z.string().email(),
     phone: z.string(),
     dob: z.string(),
-    gender: z.string(),
+    gender: genderValue,
     seniority: z.string(),
     source: z.string(),
     segment: z.string(),

@@ -8,6 +8,7 @@ export const notificationsTable = notifications.table(
     id: uuid('id').primaryKey().defaultRandom(),
     tenantId: uuid('tenant_id').notNull(),
     userId: uuid('user_id').notNull(),
+    // event_type is deliberately free text: open event-name set, not an enum.
     eventType: text('event_type').notNull(),
     sourceEventId: uuid('source_event_id').notNull(),
     payload: jsonb('payload').notNull().$type<Record<string, unknown>>(),
@@ -16,7 +17,11 @@ export const notificationsTable = notifications.table(
     dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
   },
   (t) => ({
-    sourceUserUnique: unique('notifications_source_user_unique').on(t.sourceEventId, t.userId),
+    sourceUserUnique: unique('notifications_tenant_source_user_unique').on(
+      t.tenantId,
+      t.sourceEventId,
+      t.userId,
+    ),
     unreadIdx: index('notifications_unread_idx')
       .on(t.userId, t.createdAt.desc())
       .where(sql`${t.readAt} IS NULL AND ${t.dismissedAt} IS NULL`),

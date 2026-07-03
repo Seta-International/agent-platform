@@ -43,7 +43,7 @@ export async function completeTask(input: {
 
       await requirePermission(input.session, 'planner.task.update', plan.group_id);
 
-      if (existing.percent_complete === 100) {
+      if (existing.progress === 'done') {
         throw new PlannerError('VALIDATION', 'Task already completed', {
           task_id: input.task_id,
         });
@@ -56,7 +56,7 @@ export async function completeTask(input: {
       const [updated] = await tx
         .update(tasks)
         .set({
-          percent_complete: 100,
+          progress: 'done',
           is_deferred: false,
           updated_at: now,
           version: versionAfter,

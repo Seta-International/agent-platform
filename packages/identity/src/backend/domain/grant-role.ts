@@ -1,3 +1,4 @@
+import { invalidateUserSessions } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { roleAssignments } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
@@ -79,6 +80,8 @@ export async function grantRole(
       });
     },
   );
+
+  await invalidateUserSessions(input.user_id);
 
   return { grant_id: grantId };
 }

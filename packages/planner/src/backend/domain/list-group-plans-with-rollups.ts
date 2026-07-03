@@ -5,6 +5,12 @@ import { assigneeProjection, plans } from '../db/schema.ts';
 import type { PlanWithRollupsRow } from '../dto.ts';
 import { requirePermission } from '../rbac.ts';
 import { groupFilterFor } from '../read-helpers.ts';
+import { fetchCategoryDescriptionsMany } from './_plan-dto.ts';
+
+// MS Planner 3-state progress buckets, expressed against the `progress` enum
+// column (mirrors task-enums.ts's progressToPercent, inlined as SQL literals
+// since these are raw aggregate expressions, not row-level reads).
+const PROGRESS_PERCENT_CASE = sql`CASE progress WHEN 'not_started' THEN 0 WHEN 'in_progress' THEN 50 WHEN 'done' THEN 100 END`;
 
 export async function listGroupPlansWithRollups(input: {
   group_id: string;
@@ -35,7 +41,6 @@ export async function listGroupPlansWithRollups(input: {
       tenant_id: plans.tenant_id,
       group_id: plans.group_id,
       name: plans.name,
-      category_descriptions: plans.category_descriptions,
       external_source: plans.external_source,
       external_id: plans.external_id,
       external_etag: plans.external_etag,
@@ -49,15 +54,15 @@ export async function listGroupPlansWithRollups(input: {
       archived_at: plans.archived_at,
       version: plans.version,
       task_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL)`,
-      open_task_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND percent_complete < 100 AND is_deferred = false)`,
-      // MS Planner 3-state progress buckets (0 / 50 / 100), across non-deleted tasks.
-      not_started_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND percent_complete = 0)`,
-      in_progress_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND percent_complete = 50)`,
-      completed_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND percent_complete = 100)`,
+      open_task_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND progress <> 'done' AND is_deferred = false)`,
+      // MS Planner 3-state progress buckets, across non-deleted tasks.
+      not_started_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND progress = 'not_started')`,
+      in_progress_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND progress = 'in_progress')`,
+      completed_count: sql<number>`(SELECT COUNT(*)::int FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL AND progress = 'done')`,
       // Average percent_complete across non-deleted tasks, 0..1. Returns null when plan has no tasks.
       percent_complete_avg: sql<
         number | null
-      >`(SELECT AVG(percent_complete)::float / 100 FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL)`,
+      >`(SELECT AVG(${PROGRESS_PERCENT_CASE})::float / 100 FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL)`,
       // Latest task due_at — used as the plan's "due" hint when no plan-level due exists.
       latest_due_at: sql<Date | null>`(SELECT MAX(due_at) FROM planner.tasks WHERE plan_id = "planner"."plans"."id" AND deleted_at IS NULL)`,
       owner_display_name: assigneeProjection.display_name,
@@ -66,6 +71,11 @@ export async function listGroupPlansWithRollups(input: {
     .leftJoin(assigneeProjection, eq(assigneeProjection.user_id, plans.created_by))
     .where(and(...conditions))
     .orderBy(asc(plans.name));
+
+  const categoryDescriptionsByPlan = await fetchCategoryDescriptionsMany(
+    db,
+    rows.map((r) => r.id),
+  );
 
   return rows.map((r) => {
     const taskCount = Number(r.task_count);
@@ -77,7 +87,7 @@ export async function listGroupPlansWithRollups(input: {
       tenant_id: r.tenant_id,
       group_id: r.group_id,
       name: r.name,
-      category_descriptions: (r.category_descriptions ?? {}) as Record<string, string>,
+      category_descriptions: categoryDescriptionsByPlan.get(r.id) ?? {},
       external_source: r.external_source as PlanWithRollupsRow['external_source'],
       external_id: r.external_id,
       external_etag: r.external_etag,

@@ -9,7 +9,7 @@ import {
 } from '@seta/shared-rbac';
 import type { Pool } from 'pg';
 import { peopleDb } from '../src/backend/db/client.ts';
-import { orgUnit } from '../src/backend/db/schema.ts';
+import { type ORG_UNIT_KINDS, orgUnit, person } from '../src/backend/db/schema.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 function permsFor(roles: string[]): ReadonlySet<string> {
@@ -105,10 +105,21 @@ export function buildSession(opts: {
   };
 }
 
+/**
+ * Insert the parent `person` rows for the given person_ids. worker.person_id FKs person.id,
+ * so any fixture that inserts a `worker` directly (rather than via createWorker) must seed the
+ * person first. Tests key workers on person_id (the domain's canonical handle), so id === person_id.
+ */
+export async function seedPersons(tenant_id: string, ...person_ids: string[]): Promise<void> {
+  await peopleDb()
+    .insert(person)
+    .values(person_ids.map((id) => ({ id, tenant_id })));
+}
+
 export async function seedOrgUnit(opts: {
   tenant_id: string;
   name: string;
-  kind: string;
+  kind: (typeof ORG_UNIT_KINDS)[number];
   parent_id?: string | null;
   head_worker_id?: string | null;
 }): Promise<string> {

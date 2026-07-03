@@ -481,7 +481,7 @@ describe('GET /api/agent/v1/workflows/:workflowId/input-schema', () => {
 function hitlCard(tenantId: string, userId: string): ApprovalCard {
   const taskId = randomUUID();
   return {
-    toolCallId: `staffing-orchestrator:${taskId}`,
+    toolCallId: `assignment-orchestrator:${taskId}`,
     intent: 'Assign "AWS migration"',
     riskBadge: 'write',
     summary: 'Top match: Alice (1 skill(s) matched, available).',
@@ -500,7 +500,7 @@ function hitlCard(tenantId: string, userId: string): ApprovalCard {
     meta: {
       tenantId,
       userId,
-      agentPath: ['staffing', 'orchestrator'],
+      agentPath: ['assignment', 'orchestrator'],
       toolId: 'planner_proposeAssignment',
       ts: new Date().toISOString(),
     },

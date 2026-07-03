@@ -1,0 +1,52 @@
+name: Prod self-heal
+
+# If prod's app is down but a prod runner is online, re-deploy the last-good
+# image. ASG heals the box; this heals the app. Secrets stay in the prod
+# Environment (rendered fresh at deploy) — nothing sensitive at rest on AWS.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: prod-self-heal
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    outputs:
+      healthy: ${{ steps.check.outputs.healthy }}
+    steps:
+      - id: check
+        env:
+          PROD_HEALTH_URL: ${{ vars.PROD_HEALTH_URL }}
+        run: |
+          set -uo pipefail
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$PROD_HEALTH_URL" || echo 000)
+          if [ "$code" = "200" ]; then echo "healthy=true" >> "$GITHUB_OUTPUT"; else echo "healthy=false" >> "$GITHUB_OUTPUT"; fi
+
+  redeploy:
+    needs: probe
+    if: needs.probe.outputs.healthy == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run last-good prod deploy (non-gated recovery)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LAST_GOOD: ${{ vars.PROD_LAST_GOOD_TAG }}
+        run: |
+          set -euo pipefail
+          # Fail CLOSED: never auto-deploy mutable `latest`. Require a pinned SHA.
+          if [ -z "$LAST_GOOD" ]; then
+            echo "PROD_LAST_GOOD_TAG unset — refusing to auto-recover to 'latest'." >&2
+            exit 1
+          fi
+          gh workflow run deploy.yml \
+            -f environment=prod-recovery \
+            -f image_tag="$LAST_GOOD" \
+            -R "${{ github.repository }}"

@@ -1,12 +1,56 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq } from 'drizzle-orm';
-import type { StaffingPlanLineInput } from '../../contracts.ts';
+import { and, eq, inArray } from 'drizzle-orm';
+import type { StaffingPlanLineInput, StaffingPlanLineSkillInput } from '../../contracts.ts';
 import { PM_PROJECT_STAFFING_PLAN_CHANGED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { project, staffingPlanLine } from '../db/schema.ts';
+import { project, staffingPlanLine, staffingPlanLineSkill } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
+
+export interface StaffingPlanLineSkillRow {
+  skill_id: string;
+  skill_name: string;
+  min_level: number | null;
+}
+
+export interface StaffingPlanLineRow {
+  line_id: string;
+  role: string;
+  effort_mm: string | null;
+  version: number;
+  skills: StaffingPlanLineSkillRow[];
+}
+
+// Full-replace within the same transaction: delete-all + insert-all is fine at this
+// volume (a handful of skills per staffing-plan line). `skills === undefined` means
+// the caller omitted the field entirely — leave existing child rows untouched.
+async function replaceLineSkills(
+  tx: Parameters<Parameters<typeof withEmit>[1]>[0],
+  session: SessionScope,
+  line_id: string,
+  skills: StaffingPlanLineSkillInput[] | undefined,
+): Promise<void> {
+  if (skills === undefined) return;
+  await tx
+    .delete(staffingPlanLineSkill)
+    .where(
+      and(
+        eq(staffingPlanLineSkill.line_id, line_id),
+        eq(staffingPlanLineSkill.tenant_id, session.tenant_id),
+      ),
+    );
+  if (skills.length === 0) return;
+  await tx.insert(staffingPlanLineSkill).values(
+    skills.map((s) => ({
+      tenant_id: session.tenant_id,
+      line_id,
+      skill_id: s.skill_id,
+      skill_name: s.skill_name,
+      min_level: s.min_level ?? null,
+    })),
+  );
+}
 
 async function assertProject(project_id: string, session: SessionScope) {
   const [p] = await pmDb()
@@ -32,15 +76,17 @@ async function emitStaffingChanged(
   });
 }
 
-export async function listStaffingPlan(input: { project_id: string; session: SessionScope }) {
+export async function listStaffingPlan(input: {
+  project_id: string;
+  session: SessionScope;
+}): Promise<StaffingPlanLineRow[]> {
   const { project_id, session } = input;
   requirePermission(session, 'pm.project.read');
-  return pmDb()
+  const lines = await pmDb()
     .select({
       line_id: staffingPlanLine.id,
       role: staffingPlanLine.role,
       effort_mm: staffingPlanLine.effort_mm,
-      skills: staffingPlanLine.skills,
       version: staffingPlanLine.version,
     })
     .from(staffingPlanLine)
@@ -50,6 +96,30 @@ export async function listStaffingPlan(input: { project_id: string; session: Ses
         tenantScoped(staffingPlanLine.tenant_id, session),
       ),
     );
+  if (lines.length === 0) return [];
+
+  const lineIds = lines.map((l) => l.line_id);
+  const skillRows = await pmDb()
+    .select({
+      line_id: staffingPlanLineSkill.line_id,
+      skill_id: staffingPlanLineSkill.skill_id,
+      skill_name: staffingPlanLineSkill.skill_name,
+      min_level: staffingPlanLineSkill.min_level,
+    })
+    .from(staffingPlanLineSkill)
+    .where(
+      and(
+        inArray(staffingPlanLineSkill.line_id, lineIds),
+        tenantScoped(staffingPlanLineSkill.tenant_id, session),
+      ),
+    );
+  const skillsByLine = new Map<string, StaffingPlanLineSkillRow[]>();
+  for (const s of skillRows) {
+    const arr = skillsByLine.get(s.line_id) ?? [];
+    arr.push({ skill_id: s.skill_id, skill_name: s.skill_name, min_level: s.min_level });
+    skillsByLine.set(s.line_id, arr);
+  }
+  return lines.map((l) => ({ ...l, skills: skillsByLine.get(l.line_id) ?? [] }));
 }
 
 export async function upsertStaffingPlanLine(
@@ -72,12 +142,12 @@ export async function upsertStaffingPlanLine(
             project_id,
             role: input.role,
             effort_mm: input.effort_mm?.toString(),
-            skills: input.skills,
           })
           .returning({ id: staffingPlanLine.id, version: staffingPlanLine.version });
         if (!row) throw new Error('staffing line insert returned no row');
         resultId = row.id;
         resultVersion = row.version;
+        await replaceLineSkills(tx, session, resultId, input.skills);
       } else {
         const [current] = await tx
           .select()
@@ -99,7 +169,6 @@ export async function upsertStaffingPlanLine(
           .set({
             role: input.role,
             effort_mm: input.effort_mm?.toString(),
-            skills: input.skills,
             version: resultVersion,
             updated_at: new Date(),
           })
@@ -109,6 +178,7 @@ export async function upsertStaffingPlanLine(
           .returning({ id: staffingPlanLine.id });
         if (updated.length === 0)
           throw new PmError('CONFLICT', 'staffing line was modified concurrently');
+        await replaceLineSkills(tx, session, line_id, input.skills);
       }
       await emitStaffingChanged(tx, session, project_id);
     },

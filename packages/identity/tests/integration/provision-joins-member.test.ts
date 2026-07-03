@@ -6,7 +6,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { identityDb, resetIdentityDb } from '../../src/backend/db/index.ts';
-import { accessGroupMembership, directoryPerson } from '../../src/backend/db/schema.ts';
+import { accessGroupMembership, personProjection } from '../../src/backend/db/schema.ts';
 import { provisionLogin } from '../../src/backend/domain/provision-login.ts';
 import { createGroup, listUserGroups, provisionAccount } from '../../src/index.ts';
 import { registerIdentityContributions } from '../../src/register.ts';
@@ -131,7 +131,7 @@ describe('provision auto-joins Member', () => {
           );
 
           const personId = crypto.randomUUID();
-          await identityDb().insert(directoryPerson).values({
+          await identityDb().insert(personProjection).values({
             person_id: personId,
             tenant_id,
             full_name: 'New Hire',

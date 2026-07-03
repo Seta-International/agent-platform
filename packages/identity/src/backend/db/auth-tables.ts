@@ -87,6 +87,15 @@ export const account = identity.table(
 
 // Column names are camelCase to match better-auth's drizzle adapter defaults —
 // the rateLimit model has no `fields` mapping in betterAuth() config.
+//
+// Residual risk (no tenant scoping, by design — not a gap to fix): better-auth computes this
+// row's `key` internally as `createRateLimitKey(ip, path)` (@better-auth/core/utils/ip) before
+// any credentials are parsed, so no tenant is resolvable at that point. The only exposed hook is
+// `rateLimit.customStorage.get/set(key)`, which receives the already-built IP+path key — it lets
+// you swap the storage backend, not the key's shape. This table has no tenant_id column and is
+// intentionally RLS-exempt (see rls-census.test.ts auto-skip for tables without tenant_id):
+// brute-force throttling on auth endpoints is correctly IP-scoped across tenants, since an
+// attacker probing /sign-in/email doesn't know the target tenant yet.
 export const rateLimit = identity.table('rate_limit', {
   id: text('id').primaryKey(),
   key: text('key').notNull().unique(),
@@ -94,6 +103,16 @@ export const rateLimit = identity.table('rate_limit', {
   lastRequest: bigint('lastRequest', { mode: 'number' }).notNull(),
 });
 
+// Residual risk (no tenant scoping — verified unsafe to add, not merely undocumented):
+// `databaseHooks.verification.create.before` exists and could rewrite `identifier`, but
+// better-auth's read paths reconstruct the identifier independently, without going through any
+// hook — e.g. forget-password's `findVerificationValue(\`reset-password:${token}\`)` derives the
+// lookup key from the token alone (see better-auth/dist/api/routes/password.mjs). Prefixing
+// `identifier` on create only would desync create vs. lookup and break password reset for every
+// user. Separately, on the installed better-auth version (1.6.16) email verification doesn't use
+// this table at all — it's a self-contained signed JWT (see email-verification.mjs), so there's
+// no row to scope here either. This table has no tenant_id column and is intentionally
+// RLS-exempt (see rls-census.test.ts auto-skip for tables without tenant_id).
 export const verification = identity.table(
   'verification',
   {

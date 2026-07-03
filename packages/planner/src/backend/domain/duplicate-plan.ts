@@ -12,19 +12,23 @@ import {
   emitPlannerTaskCreated,
   emitPlannerTaskReferenceAdded,
 } from '../../events/emit-helpers.ts';
+import { plannerDb } from '../db/index.ts';
 import {
   buckets,
   checklistItems,
   groups,
   labels,
+  planCategories,
   plans,
   taskAssignments,
   taskLabels,
   taskReferences,
   tasks,
 } from '../db/schema.ts';
-import type { PlanRow, TaskPreviewType, TaskPriorityNumber, TaskReferenceType } from '../dto.ts';
+import { priorityToNumber, progressToPercent } from '../db/task-enums.ts';
+import type { PlanRow, TaskPreviewType, TaskReferenceType } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { fetchCategoryDescriptions, planRowToDto } from './_plan-dto.ts';
 import { resolveGroupMemberIds } from './recipients.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
@@ -74,12 +78,26 @@ export async function duplicatePlan(input: {
           tenant_id: source.tenant_id,
           group_id: source.group_id,
           name: newName,
-          category_descriptions: source.category_descriptions,
           created_by: input.session.user_id,
         })
         .returning();
       if (!row) throw new PlannerError('VALIDATION', 'Insert returned no row');
       inserted = row;
+
+      const sourceCategories = await tx
+        .select({ slot: planCategories.slot, name: planCategories.name })
+        .from(planCategories)
+        .where(eq(planCategories.plan_id, source.id));
+      if (sourceCategories.length > 0) {
+        await tx.insert(planCategories).values(
+          sourceCategories.map((c) => ({
+            tenant_id: source.tenant_id,
+            plan_id: row.id,
+            slot: c.slot,
+            name: c.name,
+          })),
+        );
+      }
 
       const { eventId } = await emitPlannerPlanCreated({
         actor,
@@ -106,6 +124,7 @@ export async function duplicatePlan(input: {
             plan_id: row.id,
             name: b.name,
             order_hint: b.order_hint,
+            created_by: input.session.user_id,
           })
           .returning();
         if (!newBucket) continue;
@@ -200,7 +219,8 @@ export async function duplicatePlan(input: {
     },
   );
 
-  return rowToDto(inserted);
+  const categoryDescriptions = await fetchCategoryDescriptions(plannerDb(), inserted.id);
+  return planRowToDto(inserted, categoryDescriptions);
 }
 
 async function copyTask(args: {
@@ -225,8 +245,8 @@ async function copyTask(args: {
       title: sourceTask.title,
       description: sourceTask.description,
       description_text: sourceTask.description_text,
-      priority_number: sourceTask.priority_number,
-      percent_complete: sourceTask.percent_complete,
+      priority: sourceTask.priority,
+      progress: sourceTask.progress,
       is_deferred: sourceTask.is_deferred,
       preview_type: sourceTask.preview_type,
       review_state: sourceTask.review_state,
@@ -251,8 +271,8 @@ async function copyTask(args: {
       bucket_id: row.bucket_id,
       title: row.title,
       description: row.description,
-      priority_number: row.priority_number as TaskPriorityNumber,
-      percent_complete: row.percent_complete,
+      priority_number: priorityToNumber(row.priority),
+      percent_complete: progressToPercent(row.progress),
       is_deferred: row.is_deferred,
       preview_type: row.preview_type as TaskPreviewType,
       start_at: row.start_at ? row.start_at.toISOString() : null,
@@ -276,6 +296,7 @@ async function copyTask(args: {
     const [newItem] = await tx
       .insert(checklistItems)
       .values({
+        tenant_id: row.tenant_id,
         task_id: newTaskId,
         label: item.label,
         checked: item.checked,
@@ -306,6 +327,7 @@ async function copyTask(args: {
     const inserted = await tx
       .insert(taskAssignments)
       .values({
+        tenant_id: row.tenant_id,
         task_id: newTaskId,
         user_id: assignee.user_id,
         order_hint: assignee.order_hint,
@@ -337,6 +359,7 @@ async function copyTask(args: {
     const inserted = await tx
       .insert(taskLabels)
       .values({
+        tenant_id: row.tenant_id,
         task_id: newTaskId,
         label_id: mappedLabelId,
         applied_by: createdBy,
@@ -387,26 +410,4 @@ async function copyTask(args: {
       type: newRef.type as TaskReferenceType,
     });
   }
-}
-
-function rowToDto(row: PlanDbRow): PlanRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    group_id: row.group_id,
-    name: row.name,
-    category_descriptions: (row.category_descriptions ?? {}) as Record<string, string>,
-    external_source: row.external_source as 'native' | 'm365',
-    external_id: row.external_id,
-    external_etag: row.external_etag,
-    external_synced_at: row.external_synced_at ? row.external_synced_at.toISOString() : null,
-    sync_status: row.sync_status as PlanRow['sync_status'],
-    last_error: row.last_error,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at ? row.deleted_at.toISOString() : null,
-    archived_at: row.archived_at ? row.archived_at.toISOString() : null,
-    version: row.version,
-  };
 }

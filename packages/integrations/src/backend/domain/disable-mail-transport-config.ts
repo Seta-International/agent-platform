@@ -16,21 +16,18 @@ export async function disableMailTransportConfig(
   if (args.actor.tenantId !== args.tenantId)
     throw new IntegrationsError('FORBIDDEN', 'tenant mismatch');
 
-  await withEmit(
-    { actor: { userId: String(args.actor.user_id), tenantId: args.tenantId } },
-    async (tx) => {
-      await tx
-        .update(mailTransportConfig)
-        .set({ enabled: false, updatedAt: sql`now()`, updatedBy: args.actor.user_id })
-        .where(eq(mailTransportConfig.tenantId, args.tenantId));
-      await emit({
-        tenantId: args.tenantId,
-        aggregateType: 'mail_transport_config',
-        aggregateId: args.tenantId,
-        eventType: 'integrations.mail_transport.disabled',
-        eventVersion: 1,
-        payload: {},
-      });
-    },
-  );
+  await withEmit({ actor: { userId: args.actor.user_id, tenantId: args.tenantId } }, async (tx) => {
+    await tx
+      .update(mailTransportConfig)
+      .set({ enabled: false, updatedAt: sql`now()`, updatedBy: args.actor.user_id })
+      .where(eq(mailTransportConfig.tenantId, args.tenantId));
+    await emit({
+      tenantId: args.tenantId,
+      aggregateType: 'mail_transport_config',
+      aggregateId: args.tenantId,
+      eventType: 'integrations.mail_transport.disabled',
+      eventVersion: 1,
+      payload: {},
+    });
+  });
 }

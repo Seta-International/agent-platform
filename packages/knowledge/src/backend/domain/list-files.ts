@@ -29,7 +29,7 @@ export async function listKnowledgeFiles(
     .orderBy(desc(files.created_at))
     .limit(input.limit);
   return rows.map((r) => ({
-    file_id: String(r.id),
+    file_id: r.id,
     filename: r.filename,
     mime_type: r.mime_type,
     size_bytes: Number(r.size_bytes),

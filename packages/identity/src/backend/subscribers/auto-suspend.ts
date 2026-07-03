@@ -1,7 +1,7 @@
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import { and, eq, sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
-import { directoryPerson, user } from '../db/schema.ts';
+import { personProjection, user } from '../db/schema.ts';
 import { deactivateUser } from '../domain/deactivate-user.ts';
 import { reactivateUser } from '../domain/reactivate-user.ts';
 import { IdentityError } from '../rbac.ts';
@@ -16,15 +16,15 @@ const systemActor = { type: 'system' as const, user_id: null };
 async function resolveUserId(payload: WorkerLifecyclePayload): Promise<string | null> {
   const [row] = await identityDb()
     .select({ id: user.id })
-    .from(directoryPerson)
+    .from(personProjection)
     .innerJoin(
       user,
       and(
-        eq(user.tenant_id, directoryPerson.tenant_id),
-        sql`lower(${user.email}) = lower(${directoryPerson.work_email})`,
+        eq(user.tenant_id, personProjection.tenant_id),
+        sql`lower(${user.email}) = lower(${personProjection.work_email})`,
       ),
     )
-    .where(eq(directoryPerson.person_id, payload.person_id))
+    .where(eq(personProjection.person_id, payload.person_id))
     .limit(1);
   return row?.id ?? null;
 }

@@ -8,7 +8,7 @@ const ctx = {
 };
 
 describe('hiring schema', () => {
-  it('migrates all twelve hiring tables', async () => {
+  it('migrates all sixteen hiring tables', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       initPools({ databaseUrl });
       try {
@@ -17,6 +17,7 @@ describe('hiring schema', () => {
              WHERE table_schema = 'hiring' ORDER BY table_name`,
         );
         expect(r.rows.map((x) => x.table_name)).toEqual([
+          'account_projection',
           'application',
           'candidate',
           'candidate_event',
@@ -25,10 +26,13 @@ describe('hiring schema', () => {
           'jd_template_section',
           'opening',
           'opening_close_reason',
+          'project_owner_projection',
+          'project_projection',
           'rejection_reason',
           'requisition',
           'requisition_jd_section',
           'requisition_skill',
+          'worker_user_projection',
         ]);
       } finally {
         await closePools();

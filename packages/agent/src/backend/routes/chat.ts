@@ -8,17 +8,13 @@ import {
 } from '../domain/write-chat-approval-row.ts';
 import { agentEnv } from '../env.ts';
 import { recordLlmTurn } from '../llm-metrics.ts';
+import { TenantGuardedMastraStore } from '../mastra-store/tenant-guarded-store.ts';
 import { ModelNotFoundError, resolveModel } from '../model-registry.ts';
 import { type ApprovalEvent, pumpOrchestrationStream } from '../orchestration-ui-stream.ts';
 import { commitActualTokens, RateLimitError, reserveTurn } from '../rate-limit.ts';
 import { getTenantSettings } from '../tenant-settings.ts';
 import { generateThreadTitle } from '../thread-title.ts';
-import {
-  type AgentRouteDeps,
-  type AgentRouteEnv,
-  getMemoryStore,
-  NO_BUFFER_HEADERS,
-} from './_shared.ts';
+import { type AgentRouteDeps, type AgentRouteEnv, NO_BUFFER_HEADERS } from './_shared.ts';
 
 const ChatBody = z.object({
   id: z.string().optional(),
@@ -125,6 +121,8 @@ function pageContextTaskId(messages: UIMessage[]): string | null {
 }
 
 export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): void {
+  const store = new TenantGuardedMastraStore(deps.mastra);
+
   app.post('/api/agent/v1/chat', async (c) => {
     const session = c.get('session') as import('../types.ts').SessionLike | undefined;
     if (!session) {
@@ -191,7 +189,6 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
     const taskId = pageContextTaskId(effectiveMessages);
     const orchestrate = deps.chatOrchestration;
     const orchThreadId = parsed.data.id;
-    const orchStore = getMemoryStore(deps.mastra);
     // Original (un-prefixed) last user message — what the user actually typed,
     // persisted as-is so reload shows clean text (no injected [Context] prefix).
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
@@ -241,28 +238,22 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
     // Create the thread row up front so a GET on the returned threadId never 404s
     // mid-stream. The ownership guard: never write onto another user's thread.
     let createdNewThread = false;
-    if (orchThreadId && orchStore) {
-      const existing = await orchStore.getThreadById({ threadId: orchThreadId });
-      if (existing && existing.resourceId !== `${session.tenant_id}:${session.user_id}`) {
+    if (orchThreadId) {
+      const ensured = await store.ensureThreadForUser(session.tenant_id, session.user_id, {
+        id: orchThreadId,
+        // With memory attached we run the orchestrator readOnly (no Mastra
+        // auto-persist over our curated trace) — which also disables
+        // Mastra's generateTitle. So we seed an empty title here and fill
+        // it ourselves via generateThreadTitle after the turn persists.
+        title: deps.userMemory ? '' : orchThreadTitle,
+        createdAt: userCreatedAt,
+        updatedAt: userCreatedAt,
+        metadata: {},
+      });
+      if (ensured.kind === 'forbidden') {
         return c.json({ error: 'not_found', message: 'thread not found' }, 404);
       }
-      if (!existing) {
-        createdNewThread = true;
-        await orchStore.saveThread({
-          thread: {
-            id: orchThreadId,
-            resourceId: `${session.tenant_id}:${session.user_id}`,
-            // With memory attached we run the orchestrator readOnly (no Mastra
-            // auto-persist over our curated trace) — which also disables
-            // Mastra's generateTitle. So we seed an empty title here and fill
-            // it ourselves via generateThreadTitle after the turn persists.
-            title: deps.userMemory ? '' : orchThreadTitle,
-            createdAt: userCreatedAt,
-            updatedAt: userCreatedAt,
-            metadata: {},
-          },
-        });
-      }
+      if (ensured.kind === 'ok') createdNewThread = ensured.created;
     }
 
     let effectiveUserText = userText;
@@ -378,14 +369,13 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
         }
         // Persist the user turn + assistant trace timeline so the conversation
         // survives reload (GET /threads/:id rebuilds the cards + final answer).
-        if (!orchThreadId || !orchStore) return;
+        if (!orchThreadId || !store.isConfigured()) return;
         try {
           const assistantCreatedAt = new Date(Math.max(Date.now(), userCreatedAt.getTime() + 1));
-          const userMsg = {
+          const userMsg = store.buildMessage(session.tenant_id, session.user_id, {
             id: lastUserMessage?.id ?? crypto.randomUUID(),
             threadId: orchThreadId,
-            resourceId: `${session.tenant_id}:${session.user_id}`,
-            role: 'user' as const,
+            role: 'user',
             createdAt: userCreatedAt,
             content: {
               format: 2 as const,
@@ -394,15 +384,14 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
                 ...contextParts,
               ],
             },
-          };
-          const assistantMsg = {
+          });
+          const assistantMsg = store.buildMessage(session.tenant_id, session.user_id, {
             id: crypto.randomUUID(),
             threadId: orchThreadId,
-            resourceId: `${session.tenant_id}:${session.user_id}`,
-            role: 'assistant' as const,
+            role: 'assistant',
             createdAt: assistantCreatedAt,
             content: { format: 2 as const, parts: assistantParts },
-          };
+          });
           // Persist via the Memory when present: it embeds + upserts the
           // semanticRecall vectors so future turns can recall this exchange.
           if (deps.userMemory) {
@@ -411,7 +400,7 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
               memoryConfig: deps.userMemoryConfig as never,
             });
           } else {
-            await orchStore.saveMessages({ messages: [userMsg, assistantMsg] });
+            await store.saveMessages([userMsg, assistantMsg]);
           }
           if (consumedFileIds.length > 0 && deps.markAttachmentsConsumed) {
             await deps.markAttachmentsConsumed(consumedFileIds);
@@ -430,14 +419,14 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
         // Supervisor-parity auto-title: on the first turn of a memory-backed
         // thread (seeded with an empty title above), generate an LLM title from
         // the user's message and write it back.
-        if (createdNewThread && deps.userMemory && orchStore) {
+        if (createdNewThread && deps.userMemory && orchThreadId) {
           try {
             const title = await generateThreadTitle({
               userText: cleanUserText || userText,
               model: modelOverride ?? resolveModel('auto', { tierHint: 'fast' }).model,
               fallback: orchThreadTitle,
             });
-            await orchStore.updateThread({ id: orchThreadId, title, metadata: {} });
+            await store.updateThread(orchThreadId, { title, metadata: {} });
           } catch (err) {
             (deps.log?.error ?? console.error)(
               {

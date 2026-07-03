@@ -29,7 +29,6 @@
   },
   "devDependencies": {
     "@seta/core": "workspace:^",
-    "@seta/identity": "workspace:^",
     "@seta/shared-config": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
@@ -38,16 +37,19 @@
     "@types/node": "^25.9.3",
     "@types/pg": "^8.20.0",
     "@types/sanitize-html": "^2.16.1",
+    "ai": "^6.0.200",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   },
   "dependencies": {
     "@mastra/core": "^1.42.0",
+    "@mastra/observability": "^1.14.1",
     "@mastra/pg": "^1.13.0",
     "@mastra/rag": "^2.2.1",
     "@opentelemetry/api": "^1.9.1",
     "@seta/agent-sdk": "workspace:^",
+    "@seta/identity": "workspace:^",
     "@seta/notifications": "workspace:^",
     "@seta/people": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",

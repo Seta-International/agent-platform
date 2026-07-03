@@ -1,0 +1,12 @@
+# DEPLOYED DEV (VPS runner). COMPOSE_FILE=compose.yaml:compose.dev.yaml.
+# Bundled Postgres (profile bundled-db via env), real AWS S3 (dev bucket).
+networks:
+  seta-admin: { driver: bridge }
+
+services:
+  postgres:
+    ports:
+      - "${POSTGRES_BIND_ADDR:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
+    networks: [seta-internal, seta-admin]
+  # No S3_ENDPOINT/force-path-style: server/worker talk to real AWS S3 via the
+  # base *app-env (S3_REGION/S3_BUCKET/keys from the GitHub dev Environment).

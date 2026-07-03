@@ -56,7 +56,7 @@ describe('migration: m365_group_links + m365_subscriptions', () => {
     });
   });
 
-  it('m365_group_links has the status check constraint', async () => {
+  it('m365_group_links has the sync_status check constraint', async () => {
     await withIntegrationsTestDb(async ({ pool }) => {
       const { rows } = await pool.query<{ constraint_name: string }>(
         `SELECT conname AS constraint_name
@@ -66,7 +66,7 @@ describe('migration: m365_group_links + m365_subscriptions', () => {
           WHERE n.nspname = 'integrations'
             AND t.relname = 'm365_group_links'
             AND c.contype = 'c'
-            AND conname   = 'm365_group_links_status_check'`,
+            AND conname   = 'm365_group_links_sync_status_check'`,
       );
       expect(rows).toHaveLength(1);
     });

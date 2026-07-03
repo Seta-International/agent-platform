@@ -10,7 +10,6 @@ describe('ASSIGNABLE_ROLES', () => {
       'knowledge.member',
       'planner.member',
       'planner.viewer',
-      'staffing.member',
       'notifications.member',
     ])
       expect(ASSIGNABLE_ROLES).toContain(r);

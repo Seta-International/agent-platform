@@ -26,7 +26,7 @@ import type { KnowledgeStreamHub } from '@seta/knowledge/stream';
 import { registerNotificationsRoutes } from '@seta/notifications/http';
 import { NotificationStreamHub } from '@seta/notifications/stream';
 import { getWorkerIdForUser } from '@seta/people';
-import { getPool } from '@seta/shared-db';
+import { getPool, runRequestTenant } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -60,7 +60,7 @@ export type BuildServerAppDeps = {
    * can hand the Mastra instance to subscriberBuilders before the dispatcher
    * starts. The smoke test omits this; buildServerApp then builds the engine
    * itself for a self-contained HTTP-only test — with a stub chat runtime,
-   * since only the composition root (index.ts) can bind staffing adapters.
+   * since only the composition root (index.ts) can bind assignment adapters.
    */
   agent?: AgentHandle;
   /**
@@ -84,7 +84,7 @@ export type BuiltServerApp = {
 
 // Chat runtime stand-in for engine instances built without the composition
 // root (deps.agent omitted, e.g. the HTTP smoke test). Real wiring lives in
-// index.ts: chatOrchestration: staffingOrchestration.runStream.
+// index.ts: chatOrchestration: assignmentOrchestration.runStream.
 function stubChatRuntimeNotWired(): Promise<import('@seta/shared-orchestration').ChatStreamRun> {
   const message = 'Chat runtime is not configured on this server build.';
   const fullStream = new ReadableStream({
@@ -228,7 +228,7 @@ export function buildServerApp(
       databaseUrl: deps.databaseUrl,
       reg,
       log: deps.log,
-      // Self-contained HTTP-only build (no composition root): the staffing
+      // Self-contained HTTP-only build (no composition root): the assignment
       // orchestration can't be wired here, so chat answers with an explicit
       // not-configured message instead of crashing the whole app.
       chatOrchestration: () => stubChatRuntimeNotWired(),
@@ -238,6 +238,14 @@ export function buildServerApp(
 
   // Session middleware gates everything registered after this point
   app.use('*', sessionMiddleware);
+
+  // Bind the request's tenant onto the RLS web connection so seta_app reads pass
+  // the tenant_isolation policy. Runs after sessionMiddleware (tenant resolved).
+  app.use('*', async (c, next) => {
+    const tenantId = c.get('user')?.tenant_id;
+    if (!tenantId) return next();
+    return runRequestTenant(tenantId, next);
+  });
 
   // Cross-cutting protected routes that stay in apps/server.
   registerMeRoute(app);

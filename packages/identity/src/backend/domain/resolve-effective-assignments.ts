@@ -6,6 +6,7 @@ import {
   accessGroupRole,
   roleAssignments,
 } from '../db/schema.ts';
+import { scopeIdFromDb } from './scope-id.ts';
 
 export interface EffectiveAssignment {
   role_slug: string;
@@ -49,7 +50,8 @@ export async function resolveEffectiveAssignments(
     .where(and(eq(accessGroupMembership.user_id, userId), eq(accessGroup.tenant_id, tenantId)));
 
   const out = new Map<string, EffectiveAssignment>();
-  for (const a of [...direct, ...viaGroups]) out.set(key(a), a);
+  const viaGroupsMapped = viaGroups.map((a) => ({ ...a, scope_id: scopeIdFromDb(a.scope_id) }));
+  for (const a of [...direct, ...viaGroupsMapped]) out.set(key(a), a);
   return [...out.values()].sort((x, y) => key(x).localeCompare(key(y)));
 }
 

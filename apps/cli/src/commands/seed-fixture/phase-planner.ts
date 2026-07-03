@@ -34,6 +34,9 @@ export async function seedPlanner(
   people: Map<string, { workerId: string; userId: string }>,
   membersByCode: Map<string, string[]>,
   projectByCode: Map<string, string>,
+  // Real board structure (group per project, plan, buckets, PM→planner link) is always seeded.
+  // Faker tasks/checklists/comments are demo-only so the default seed carries no mock work items.
+  demo = false,
 ): Promise<void> {
   faker.seed(20260521);
 
@@ -85,7 +88,7 @@ export async function seedPlanner(
       bucketIds.push(bucket.id);
     }
 
-    const taskCount = faker.number.int({ min: 8, max: 15 });
+    const taskCount = demo ? faker.number.int({ min: 8, max: 15 }) : 0;
     for (let i = 0; i < taskCount; i++) {
       const bucketIdx = faker.number.int({ min: 0, max: 3 });
       const bucketId = bucketIds[bucketIdx] as string;

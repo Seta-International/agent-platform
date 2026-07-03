@@ -5,6 +5,12 @@ import sanitizeHtml from 'sanitize-html';
 import { emitPlannerTaskUpdated } from '../../events/emit-helpers.ts';
 import type { TaskChangedField, TaskMutableFields } from '../../events/types.ts';
 import { plans, tasks } from '../db/schema.ts';
+import {
+  numberToPriority,
+  percentToProgress,
+  priorityToNumber,
+  progressToPercent,
+} from '../db/task-enums.ts';
 import type { TaskRow } from '../dto.ts';
 import { type UpdateTaskPatch, UpdateTaskPatchSchema } from '../inputs.ts';
 import { recordTaskFieldUpdated, withSpan } from '../observability.ts';
@@ -56,8 +62,6 @@ const SIMPLE_FIELDS = [
   'title',
   'description',
   'bucket_id',
-  'percent_complete',
-  'priority_number',
   'is_deferred',
   'preview_type',
   'order_hint',
@@ -184,6 +188,33 @@ async function updateTaskImpl(input: {
         setFields[f] = v;
         changed.push(f);
         recordTaskFieldUpdated(f);
+      }
+
+      // percent_complete / priority_number are DB-mapped through the enum
+      // columns (`progress` / `priority`) — not part of SIMPLE_FIELDS since
+      // the patch/row field names diverge from the column names.
+      if (patch.percent_complete !== undefined) {
+        const nextProgress = percentToProgress(patch.percent_complete);
+        const exVal = progressToPercent(existing.progress);
+        if (exVal !== patch.percent_complete) {
+          before.percent_complete = exVal;
+          after.percent_complete = patch.percent_complete;
+          setFields.progress = nextProgress;
+          changed.push('percent_complete');
+          recordTaskFieldUpdated('percent_complete');
+        }
+      }
+
+      if (patch.priority_number !== undefined) {
+        const nextPriority = numberToPriority(patch.priority_number);
+        const exVal = priorityToNumber(existing.priority);
+        if (exVal !== patch.priority_number) {
+          before.priority_number = exVal;
+          after.priority_number = patch.priority_number;
+          setFields.priority = nextPriority;
+          changed.push('priority_number');
+          recordTaskFieldUpdated('priority_number');
+        }
       }
 
       // Explicitly write description_text when description was sanitized.

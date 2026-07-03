@@ -33,6 +33,9 @@ export interface IdentityUserProfileUpdated {
   payload: {
     actor: IdentityEventActor;
     user_id: Uuid;
+    // Carried alongside user_id (not itself mutated by this event) so downstream
+    // event-fed projections can seed a full row without reading identity.user.
+    email: string;
     before: Partial<{
       display_name: string;
       availability_status: string;
@@ -105,7 +108,6 @@ export interface IdentitySsoProviderRegistered {
     after: {
       tenant_id: string;
       provider_id: 'microsoft-entra-id';
-      entra_tenant_id: string;
       email_domains: string[];
     };
   };

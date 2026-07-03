@@ -72,7 +72,7 @@ describe('reg.module', () => {
     };
     reg.module({ name: 'planner', schema: {}, migrationsDir: '/a', agentTools: [tool] });
     expect(() => {
-      reg.module({ name: 'staffing', schema: {}, migrationsDir: '/b', agentTools: [tool] });
+      reg.module({ name: 'assignment', schema: {}, migrationsDir: '/b', agentTools: [tool] });
     }).toThrow(/duplicate agent tool id: planner\.demo/);
   });
 
@@ -81,7 +81,7 @@ describe('reg.module', () => {
     const spec = { id: 'planner.demo', instructions: '', tools: [], rbac: [] };
     reg.module({ name: 'planner', schema: {}, migrationsDir: '/a', agentSpecs: [spec] });
     expect(() => {
-      reg.module({ name: 'staffing', schema: {}, migrationsDir: '/b', agentSpecs: [spec] });
+      reg.module({ name: 'assignment', schema: {}, migrationsDir: '/b', agentSpecs: [spec] });
     }).toThrow(/duplicate agent spec id: planner\.demo/);
   });
 

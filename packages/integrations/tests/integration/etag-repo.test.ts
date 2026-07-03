@@ -199,7 +199,7 @@ describe('createM365ResourceEtagRepo', () => {
       // TASK-2 on the same planLinkId must still be present
       const remaining = await etagRepo.listForLink(planLinkId);
       expect(remaining.length).toBe(1);
-      expect(remaining[0]?.setaId).toBe('TASK-2');
+      expect(remaining[0]?.platform_id).toBe('TASK-2');
     });
   });
 

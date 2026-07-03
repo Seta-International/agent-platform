@@ -4,6 +4,7 @@ import { requestNotification } from '@seta/notifications';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerTaskReopened } from '../../events/emit-helpers.ts';
 import { plans, taskAssignments, tasks } from '../db/schema.ts';
+import { progressToPercent } from '../db/task-enums.ts';
 import type { TaskRow } from '../dto.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
 import { taskRowToDto } from './_task-dto.ts';
@@ -43,10 +44,10 @@ export async function reopenTask(input: {
 
       await requirePermission(input.session, 'planner.task.update', plan.group_id);
 
-      if (existing.percent_complete !== 100) {
+      if (existing.progress !== 'done') {
         throw new PlannerError('VALIDATION', 'Task is not completed', {
           task_id: input.task_id,
-          percent_complete: existing.percent_complete,
+          percent_complete: progressToPercent(existing.progress),
         });
       }
 
@@ -56,7 +57,12 @@ export async function reopenTask(input: {
       // guard: 0 rows ⇒ the row changed since our read (lost-update prevention)
       const [updated] = await tx
         .update(tasks)
-        .set({ percent_complete: 0, is_deferred: false, updated_at: now, version: versionAfter })
+        .set({
+          progress: 'not_started',
+          is_deferred: false,
+          updated_at: now,
+          version: versionAfter,
+        })
         .where(and(eq(tasks.id, input.task_id), eq(tasks.version, input.expected_version)))
         .returning();
       if (!updated)

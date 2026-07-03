@@ -5,7 +5,7 @@ import { INTEGRATIONS_PERMISSIONS, IntegrationsError, requirePermission } from '
 import type { MailTransportConfigRow } from './mail-transport-config-store.ts';
 
 export interface Actor {
-  user_id: number;
+  user_id: string;
   tenantId: string;
   permissions: ReadonlySet<string>;
 }

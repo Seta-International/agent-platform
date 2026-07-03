@@ -70,11 +70,14 @@ export async function onLifecycleEvent(pool: Pool, evt: MastraLifecycleEvent): P
   try {
     await client.query('BEGIN');
     const seen = await client.query(
-      `INSERT INTO agent.workflow_run_events_seen (run_id, event_seq)
-       VALUES ($1, $2)
+      // tenant_id: terminal events on the workflows-finish path can arrive
+      // without requestContext, so recover it from the seeded run row when the
+      // event doesn't carry it (run-started always does).
+      `INSERT INTO agent.workflow_run_events_seen (run_id, tenant_id, event_seq)
+       VALUES ($1, COALESCE($2::uuid, (SELECT tenant_id FROM agent.workflow_runs WHERE run_id = $1)), $3)
        ON CONFLICT DO NOTHING
        RETURNING run_id`,
-      [evt.runId, evt.eventSeq],
+      [evt.runId, evt.tenantId || null, evt.eventSeq],
     );
     if (seen.rowCount === 0) {
       await client.query('COMMIT');
@@ -193,11 +196,11 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
   }
   const ins = await client.query<{ approval_id: string }>(
     `INSERT INTO agent.workflow_approvals
-       (approval_id, run_id, step_id, proposed_payload,
+       (approval_id, run_id, tenant_id, step_id, proposed_payload,
         approver_user_id, fallback_approver_user_id,
         surface_canvas, surface_chat_thread_id,
         status, expires_at, created_at)
-     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10)
      ON CONFLICT (run_id, step_id) DO UPDATE
        SET status               = 'pending',
            proposed_payload     = EXCLUDED.proposed_payload,
@@ -213,6 +216,7 @@ async function onRunSuspended(client: PoolClient, evt: RunSuspendedEvent): Promi
      RETURNING approval_id`,
     [
       evt.runId,
+      tenantId,
       evt.stepId,
       JSON.stringify(evt.proposedPayload),
       approverUserId,

@@ -72,7 +72,6 @@ describe('setLocalPasswordDisabled', () => {
             [
               tenantId,
               JSON.stringify({
-                entra_tenant_id: '11111111-2222-3333-4444-555555555555',
                 consent_granted_at: null,
                 consent_granted_by_oid: null,
                 consent_granted_by_email: null,

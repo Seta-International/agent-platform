@@ -4,7 +4,7 @@ import { identityDb } from '../db/index.ts';
 import {
   accessGroup,
   accessGroupMembership,
-  directoryPerson,
+  personProjection,
   roleAssignments,
   user,
 } from '../db/schema.ts';
@@ -49,8 +49,8 @@ export async function listDirectory(
 
   const searchFilter = opts.search
     ? or(
-        ilike(directoryPerson.full_name, `%${opts.search}%`),
-        ilike(directoryPerson.work_email, `%${opts.search}%`),
+        ilike(personProjection.full_name, `%${opts.search}%`),
+        ilike(personProjection.work_email, `%${opts.search}%`),
       )
     : undefined;
 
@@ -64,7 +64,7 @@ export async function listDirectory(
           : undefined;
 
   const employmentFilter = opts.employment
-    ? eq(directoryPerson.employment_status, opts.employment)
+    ? eq(personProjection.employment_status, opts.employment)
     : undefined;
 
   // Membership keys on user_id, so a group filter implicitly excludes account-less people.
@@ -80,11 +80,11 @@ export async function listDirectory(
 
   // Shared join + filter, reused by the page query and the total-count query so they stay in sync.
   const userJoin = and(
-    eq(user.tenant_id, directoryPerson.tenant_id),
-    sql`lower(${user.email}) = lower(${directoryPerson.work_email})`,
+    eq(user.tenant_id, personProjection.tenant_id),
+    sql`lower(${user.email}) = lower(${personProjection.work_email})`,
   );
   const whereClause = and(
-    eq(directoryPerson.tenant_id, session.tenant_id),
+    eq(personProjection.tenant_id, session.tenant_id),
     searchFilter,
     statusFilter,
     employmentFilter,
@@ -94,23 +94,23 @@ export async function listDirectory(
   const [base, totalRows] = await Promise.all([
     identityDb()
       .select({
-        person_id: directoryPerson.person_id,
-        full_name: directoryPerson.full_name,
-        work_email: directoryPerson.work_email,
-        job_title: directoryPerson.job_title,
-        employment_status: directoryPerson.employment_status,
+        person_id: personProjection.person_id,
+        full_name: personProjection.full_name,
+        work_email: personProjection.work_email,
+        job_title: personProjection.job_title,
+        employment_status: personProjection.employment_status,
         user_id: user.id,
         deactivated_at: user.deactivated_at,
       })
-      .from(directoryPerson)
+      .from(personProjection)
       .leftJoin(user, userJoin)
       .where(whereClause)
-      .orderBy(directoryPerson.full_name)
+      .orderBy(personProjection.full_name)
       .limit(pageSize + 1)
       .offset(page * pageSize),
     identityDb()
       .select({ total: sql<number>`count(*)::int` })
-      .from(directoryPerson)
+      .from(personProjection)
       .leftJoin(user, userJoin)
       .where(whereClause),
   ]);

@@ -1,12 +1,13 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import { tenantSsoProviders, user } from '../db/schema.ts';
-import type { MicrosoftEntraConfig, SsoProviderId } from './config.ts';
+import type { SsoProviderId } from './config.ts';
 
 export interface ResolvedSetaTenant {
   tenant_id: string;
   provider_id: SsoProviderId;
-  config: MicrosoftEntraConfig;
+  // Projected in from integrations; null until the tenant's M365 config has been set.
+  entra_tenant_id: string | null;
 }
 
 export async function resolveSetaTenantFromEmail(
@@ -23,9 +24,9 @@ export async function resolveSetaTenantFromEmail(
   const result = await identityDb().execute<{
     tenant_id: string;
     provider_id: string;
-    config: MicrosoftEntraConfig;
+    entra_tenant_id: string | null;
   }>(sql`
-    SELECT p.tenant_id, p.provider_id, p.config
+    SELECT p.tenant_id, p.provider_id, p.entra_tenant_id
     FROM core.tenants t -- cross-schema-read: core.tenants owns email_domains; identity joins it for pre-auth SSO routing.
     JOIN identity.tenant_sso_providers p ON p.tenant_id = t.id AND p.enabled = true
     WHERE ${domain} = ANY(t.email_domains)
@@ -36,7 +37,7 @@ export async function resolveSetaTenantFromEmail(
     return {
       tenant_id: row.tenant_id,
       provider_id: row.provider_id as SsoProviderId,
-      config: row.config,
+      entra_tenant_id: row.entra_tenant_id,
     };
   }
 
@@ -48,7 +49,7 @@ export async function resolveSetaTenantFromEmail(
     .select({
       tenant_id: tenantSsoProviders.tenant_id,
       provider_id: tenantSsoProviders.provider_id,
-      config: tenantSsoProviders.config,
+      entra_tenant_id: tenantSsoProviders.entra_tenant_id,
     })
     .from(user)
     .innerJoin(tenantSsoProviders, eq(user.tenant_id, tenantSsoProviders.tenant_id))
@@ -65,13 +66,14 @@ export async function resolveSetaTenantFromEmail(
   return {
     tenant_id: fallback.tenant_id,
     provider_id: fallback.provider_id as SsoProviderId,
-    config: fallback.config as MicrosoftEntraConfig,
+    entra_tenant_id: fallback.entra_tenant_id,
   };
 }
 
 export function validateEntraTid(
-  seta: { config: MicrosoftEntraConfig },
+  seta: { entra_tenant_id: string | null },
   claimedTid: string,
 ): boolean {
-  return seta.config.entra_tenant_id === claimedTid;
+  // Null linkage (M365 not yet configured for the tenant) can't be validated → reject.
+  return seta.entra_tenant_id !== null && seta.entra_tenant_id === claimedTid;
 }

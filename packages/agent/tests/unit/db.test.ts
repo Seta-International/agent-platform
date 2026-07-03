@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Stable Pool reference — must not change between getPool() calls or the
 // pool-identity cache invalidates on every access.
 const mockPool = { connect: vi.fn(), on: vi.fn() };
-vi.mock('@seta/shared-db', () => ({
+vi.mock('@seta/shared-db', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@seta/shared-db')>()),
   getPool: vi.fn(() => mockPool),
 }));
 

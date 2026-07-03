@@ -1,7 +1,8 @@
 import type { SessionScope } from '@seta/core';
-import { and, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
-import { checklistItems, plans, taskAssignments, tasks } from '../db/schema.ts';
+import { checklistItems, plans, TASK_PROGRESS, taskAssignments, tasks } from '../db/schema.ts';
+import { progressToPercent, type TaskProgress } from '../db/task-enums.ts';
 import type {
   AssigneeRow,
   ChecklistPreviewItem,
@@ -41,6 +42,16 @@ function safeHost(url: string): string {
   } catch {
     return '';
   }
+}
+
+/** progress enum values whose M365 percent bucket is strictly below `n`. */
+function progressValuesBelow(n: number): TaskProgress[] {
+  return TASK_PROGRESS.filter((p) => progressToPercent(p) < n);
+}
+
+/** progress enum values whose M365 percent bucket is at or above `n`. */
+function progressValuesAtOrAbove(n: number): TaskProgress[] {
+  return TASK_PROGRESS.filter((p) => progressToPercent(p) >= n);
 }
 
 export async function fetchSupplementaryData(
@@ -254,11 +265,11 @@ export async function listTasks(input: {
   }
 
   if (filters.percent_complete_lt !== undefined) {
-    conditions.push(lt(tasks.percent_complete, filters.percent_complete_lt));
+    conditions.push(inArray(tasks.progress, progressValuesBelow(filters.percent_complete_lt)));
   }
 
   if (filters.percent_complete_gte !== undefined) {
-    conditions.push(gte(tasks.percent_complete, filters.percent_complete_gte));
+    conditions.push(inArray(tasks.progress, progressValuesAtOrAbove(filters.percent_complete_gte)));
   }
 
   if (filters.due_before !== undefined) {

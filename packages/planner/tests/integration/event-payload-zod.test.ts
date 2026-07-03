@@ -234,6 +234,13 @@ describe('new event payloads validate', () => {
             session,
           });
 
+          // labels.category_slot FKs to plan_categories(plan_id, slot); the slot must exist.
+          await pool.query(
+            `INSERT INTO planner.plan_categories (tenant_id, plan_id, slot, name)
+             VALUES ($1, $2, 3, 'Category 3')`,
+            [seeded.tenant_id, plan.id],
+          );
+
           await attachLabelToCategorySlot({
             plan_id: plan.id,
             label_id: label.id,

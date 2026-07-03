@@ -1,4 +1,4 @@
-import { bigserial, integer, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigserial, integer, jsonb, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { core } from './_core-schema.ts';
 
 export const coreSubscriptionCursors = core.table('subscription_cursors', {
@@ -13,11 +13,15 @@ export const coreSubscriptionCursors = core.table('subscription_cursors', {
   lastProcessedAt: timestamp('last_processed_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const coreSubscriptionProcessed = core.table('subscription_processed', {
-  subscription: text('subscription').notNull(),
-  eventId: uuid('event_id').notNull(),
-  processedAt: timestamp('processed_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const coreSubscriptionProcessed = core.table(
+  'subscription_processed',
+  {
+    subscription: text('subscription').notNull(),
+    eventId: uuid('event_id').notNull(),
+    processedAt: timestamp('processed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.subscription, t.eventId] })],
+);
 
 export const coreSubscriptionDeadLetter = core.table('subscription_dead_letter', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),

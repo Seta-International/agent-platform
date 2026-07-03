@@ -1,5 +1,5 @@
 import { type CrossModuleReadToolSpec, defineCrossModuleReadAsTool } from '@seta/agent-sdk';
-import { and, count, eq, isNull, lt } from 'drizzle-orm';
+import { and, count, eq, isNull, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import { plannerDb } from '../db/index.ts';
 import { taskAssignments, tasks } from '../db/schema.ts';
@@ -46,7 +46,7 @@ export const plannerGetOpenTaskCountSpec: CrossModuleReadToolSpec<
           eq(taskAssignments.user_id, parsed.userId),
           eq(tasks.tenant_id, session.tenant_id),
           isNull(tasks.deleted_at),
-          lt(tasks.percent_complete, 100),
+          ne(tasks.progress, 'done'),
         ),
       );
     return { openCount: Number(row?.n ?? 0) };

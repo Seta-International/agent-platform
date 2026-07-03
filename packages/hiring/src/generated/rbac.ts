@@ -12,7 +12,8 @@ export type HiringPermission =
   | 'hiring.requisition.close'
   | 'hiring.requisition.manage'
   | 'hiring.requisition.open'
-  | 'hiring.requisition.read';
+  | 'hiring.requisition.read'
+  | 'hiring.requisition.read.all';
 
 export const HIRING_PERMISSIONS: readonly HiringPermission[] = [
   'hiring.candidate.create',
@@ -28,10 +29,12 @@ export const HIRING_PERMISSIONS: readonly HiringPermission[] = [
   'hiring.requisition.manage',
   'hiring.requisition.open',
   'hiring.requisition.read',
+  'hiring.requisition.read.all',
 ];
 
 export const HIRING_ROLE_SLUGS = [
   'hiring.manager',
   'hiring.recruiter',
   'hiring.viewer',
+  'hiring.viewer_all',
 ] as const;

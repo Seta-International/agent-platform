@@ -56,7 +56,12 @@ export async function grantProductAccess(
           granted_via,
         })
         .onConflictDoUpdate({
-          target: [productGrant.subject_type, productGrant.subject_id, productGrant.product_id],
+          target: [
+            productGrant.tenant_id,
+            productGrant.subject_type,
+            productGrant.subject_id,
+            productGrant.product_id,
+          ],
           set: {
             effect,
             granted_by: actor.user_id ?? null,

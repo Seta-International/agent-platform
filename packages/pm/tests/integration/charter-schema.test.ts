@@ -40,21 +40,22 @@ describe('charter schema', () => {
         ).rejects.toThrow();
 
         // new project columns exist
-        await pool.query(
+        const proj = await pool.query(
           `INSERT INTO pm.project (tenant_id, account_id, name, methodology, pricing_model, team_size, charter_id)
-           VALUES ($1,$2,'P','kanban','time_materials',5,$3)`,
+           VALUES ($1,$2,'P','kanban','time_materials',5,$3) RETURNING id`,
           [t.tenant_id, accountId, ins.rows[0].id],
         );
+        const projectId = proj.rows[0].id;
 
         await pool.query(
           `INSERT INTO pm.project_access (tenant_id, project_id, worker_id, level)
            VALUES ($1,$2,$3,'owner')`,
-          [t.tenant_id, ins.rows[0].id, t.admin_user_id],
+          [t.tenant_id, projectId, t.admin_user_id],
         );
         await pool.query(
           `INSERT INTO pm.staffing_plan_line (tenant_id, project_id, role, effort_mm)
            VALUES ($1,$2,'Dev',1.5)`,
-          [t.tenant_id, ins.rows[0].id],
+          [t.tenant_id, projectId],
         );
       } finally {
         resetPmDb();

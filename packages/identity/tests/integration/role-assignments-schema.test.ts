@@ -87,6 +87,7 @@ describe('role_assignments schema', () => {
           });
 
           await identityDb().insert(accessGroupRole).values({
+            tenant_id: tenantId,
             group_id: groupId,
             role_slug: 'pm.manager',
             scope_kind: 'org_unit',

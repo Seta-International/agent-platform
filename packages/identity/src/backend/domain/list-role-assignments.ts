@@ -9,6 +9,7 @@ import {
 } from '../db/schema.ts';
 import { IdentityError } from '../rbac.ts';
 import type { EffectiveAssignment } from './resolve-effective-assignments.ts';
+import { scopeIdFromDb } from './scope-id.ts';
 
 export interface ActiveAssignment extends EffectiveAssignment {
   granted_at: Date;
@@ -49,8 +50,9 @@ export async function listRoleAssignments(
     .innerJoin(accessGroupRole, eq(accessGroupRole.group_id, accessGroup.id))
     .where(and(eq(accessGroupMembership.user_id, userId), eq(accessGroup.tenant_id, u.tenant_id)));
 
+  const viaGroupsMapped = viaGroups.map((g) => ({ ...g, scope_id: scopeIdFromDb(g.scope_id) }));
   const directKeys = new Set(direct.map(key));
-  const synthetic = viaGroups
+  const synthetic = viaGroupsMapped
     .filter((g) => !directKeys.has(key(g)))
     .map((g) => ({ ...g, granted_at: new Date(0) }));
 
