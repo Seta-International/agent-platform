@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { makeAvaiCheckerAgent } from '../../../../src/backend/orchestration/agents/avai-checker.ts';
-import type { AvailabilityPort } from '../../../../src/backend/orchestration/ports.ts';
-import type { RankedCandidate } from '../../../../src/backend/orchestration/schemas.ts';
+import { makeAvaiCheckerAgent } from '../../../../../src/backend/orchestration/assignment/agents/avai-checker.ts';
+import type { AvailabilityPort } from '../../../../../src/backend/orchestration/assignment/ports.ts';
+import type { RankedCandidate } from '../../../../../src/backend/orchestration/assignment/schemas.ts';
 
 // avaiChecker is deterministic: it reads status + in-progress load per candidate
 // and scores them. No LLM / model — these stubs supply the two real signals.

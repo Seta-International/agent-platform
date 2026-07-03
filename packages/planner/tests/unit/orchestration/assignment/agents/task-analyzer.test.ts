@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { makeTaskAnalyzerAgent } from '../../../../src/backend/orchestration/agents/task-analyzer.ts';
+import { makeTaskAnalyzerAgent } from '../../../../../src/backend/orchestration/assignment/agents/task-analyzer.ts';
 import type {
   TaskInfo,
   TaskReaderPort,
   TaskSearchPort,
-} from '../../../../src/backend/orchestration/ports.ts';
+} from '../../../../../src/backend/orchestration/assignment/ports.ts';
 
 const ctx = { tenantId: 't1', actorUserId: 'a1' };
 

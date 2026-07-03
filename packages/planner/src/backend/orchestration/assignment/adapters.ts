@@ -1,7 +1,12 @@
 import { buildActorSession, listUsers } from '@seta/identity';
 import { getPersonSkills, matchUsersToTopic, readPresence } from '@seta/people';
-import { getTask, listDistinctLabels, listTasks, listTasksByLabel } from '@seta/planner';
+import { assignTask } from '../../domain/assign-task.ts';
+import { getTask } from '../../domain/get-task.ts';
+import { listDistinctLabels } from '../../domain/list-distinct-labels.ts';
+import { listTasks } from '../../domain/list-tasks.ts';
+import { listTasksByLabel } from '../../domain/list-tasks-by-label.ts';
 import type {
+  AssignPort,
   AvailabilityPort,
   SkillSearchPort,
   TaskReaderPort,
@@ -151,6 +156,20 @@ export function makeAvailability(): AvailabilityPort {
         limit: 200,
       });
       return tasks.length;
+    },
+  };
+}
+
+// ---- Assign: planner's own assignTask domain function, called directly now
+// that the orchestration lives inside planner (previously bound in apps/server
+// against @seta/planner's public surface). RBAC is re-checked inside assignTask. ----
+export function makeAssign(): AssignPort {
+  return {
+    async assign({ taskId, assigneeUserIds, actorUserId }) {
+      const session = await buildActorSession({ user_id: actorUserId });
+      for (const userId of assigneeUserIds) {
+        await assignTask({ task_id: taskId, user_id: userId, session });
+      }
     },
   };
 }

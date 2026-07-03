@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   loadUserContextSection,
   makeUpdateWorkingMemoryTool,
-} from '../../../src/backend/orchestration/working-memory.tools.ts';
+} from '../../../../src/backend/orchestration/assignment/working-memory.tools.ts';
 
 // defineAgentTool's wrapper (timeout/breaker) reads ctx.requestContext for the
 // per-tenant breaker key — give tool.execute a real RequestContext, same as

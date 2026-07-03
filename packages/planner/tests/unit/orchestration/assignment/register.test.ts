@@ -9,8 +9,8 @@ import type {
   TaskReaderPort,
   TaskSearchPort,
   UserProfilePort,
-} from '../../../src/backend/orchestration/ports.ts';
-import { buildStaffingOrchestrationRuntime } from '../../../src/backend/orchestration/register.ts';
+} from '../../../../src/backend/orchestration/assignment/ports.ts';
+import { buildAssignmentOrchestrationRuntime } from '../../../../src/backend/orchestration/assignment/register.ts';
 
 const fakePorts = {
   taskReader: { load: async () => null } satisfies TaskReaderPort,
@@ -32,9 +32,9 @@ afterEach(() => {
   OrchestrationRegistry.__resetForTests();
 });
 
-describe('buildStaffingOrchestrationRuntime', () => {
+describe('buildAssignmentOrchestrationRuntime', () => {
   it('registers the orchestrator agent + spec and returns a runtime', () => {
-    const rt = buildStaffingOrchestrationRuntime({
+    const rt = buildAssignmentOrchestrationRuntime({
       ports: fakePorts,
       resolveModel: () => ({}) as never,
       repo: {} as never,
@@ -43,8 +43,8 @@ describe('buildStaffingOrchestrationRuntime', () => {
     SpecializedAgentRegistry.freeze();
     OrchestrationRegistry.freeze();
 
-    expect(SpecializedAgentRegistry.get('staffing.orchestrator')).toBeDefined();
-    expect(OrchestrationRegistry.get('staffing.orchestrator')).toBeDefined();
+    expect(SpecializedAgentRegistry.get('planner.assignment-orchestrator')).toBeDefined();
+    expect(OrchestrationRegistry.get('planner.assignment-orchestrator')).toBeDefined();
     expect(SpecializedAgentRegistry.get('staffing.analyzer')).toBeUndefined();
     expect(OrchestrationRegistry.get('staffing.assigneeRecommendation')).toBeUndefined();
     expect(typeof rt.runInline).toBe('function');

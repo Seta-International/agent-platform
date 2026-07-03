@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeAvailabilityScore } from '../../../../src/backend/orchestration/agents/avai-checker.score.ts';
+import { computeAvailabilityScore } from '../../../../../src/backend/orchestration/assignment/agents/avai-checker.score.ts';
 
 describe('computeAvailabilityScore', () => {
   it('ooo is always 0, regardless of workload', () => {

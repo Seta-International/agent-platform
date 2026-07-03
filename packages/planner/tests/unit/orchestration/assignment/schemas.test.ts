@@ -6,7 +6,7 @@ import {
   RecommendationSchema,
   SkillRequirementSchema,
   TaskSummarySchema,
-} from '../../../src/backend/orchestration/schemas.ts';
+} from '../../../../src/backend/orchestration/assignment/schemas.ts';
 
 describe('orchestration schemas', () => {
   it('SkillRequirement defaults skills to []', () => {

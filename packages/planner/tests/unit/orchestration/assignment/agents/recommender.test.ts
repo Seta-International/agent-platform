@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { makeRecommenderAgent } from '../../../../src/backend/orchestration/agents/recommender.ts';
+import { makeRecommenderAgent } from '../../../../../src/backend/orchestration/assignment/agents/recommender.ts';
 import type {
   AvailabilityResult,
   RankedCandidate,
-} from '../../../../src/backend/orchestration/schemas.ts';
+} from '../../../../../src/backend/orchestration/assignment/schemas.ts';
 
 const CTX = { tenantId: 't1', actorUserId: 'u1' } as never;
 

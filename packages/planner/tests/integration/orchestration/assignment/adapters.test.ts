@@ -6,8 +6,8 @@ import {
   makeAvailability,
   makeTaskReader,
   makeTaskSearch,
-} from '../../../src/backend/orchestration/adapters.ts';
-import { withAgentTestDb } from '../../helpers.ts';
+} from '../../../../src/backend/orchestration/assignment/adapters.ts';
+import { withAgentTestDb } from '../../agent-tools-helpers.ts';
 
 /**
  * Seed a tenant + org.admin actor + one group/plan/bucket/task with labels.
@@ -95,7 +95,7 @@ async function seedAdminTask(
   return { tenantId, adminUserId: admin.user_id, taskId };
 }
 
-describe('staffing orchestration adapters (real DB)', () => {
+describe('assignment orchestration adapters (real DB)', () => {
   it('makeTaskReader.load surfaces the task labels', () =>
     withAgentTestDb(async ({ pool }) => {
       const { tenantId, adminUserId, taskId } = await seedAdminTask(pool, {

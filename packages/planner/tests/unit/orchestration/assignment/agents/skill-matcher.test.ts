@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { makeSkillMatcherAgent } from '../../../../src/backend/orchestration/agents/skill-matcher.ts';
-import type { SkillSearchPort } from '../../../../src/backend/orchestration/ports.ts';
-import type { FitJudgment, FitReasoner } from '../../../../src/backend/orchestration/skill-fit.ts';
+import { makeSkillMatcherAgent } from '../../../../../src/backend/orchestration/assignment/agents/skill-matcher.ts';
+import type { SkillSearchPort } from '../../../../../src/backend/orchestration/assignment/ports.ts';
+import type {
+  FitJudgment,
+  FitReasoner,
+} from '../../../../../src/backend/orchestration/assignment/skill-fit.ts';
 
 const ctx = { tenantId: 't1', actorUserId: 'a1' } as never;
 

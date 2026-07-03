@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { makeIntentClassifier } from '../../../src/chat-routing/intent-classifier.ts';
 
-describe('chat intent classifier (tier 2: staffing vs planner_qna)', () => {
+describe('chat intent classifier (tier 2: assignment vs planner_qna)', () => {
   const classify = makeIntentClassifier({ resolveModel: () => ({}) as never });
 
   it('routes question intents to planner_qna by rules (no LLM call)', async () => {
@@ -18,7 +18,7 @@ describe('chat intent classifier (tier 2: staffing vs planner_qna)', () => {
     }
   });
 
-  it('routes action/recommend intents to staffing by rules (no LLM call)', async () => {
+  it('routes action/recommend intents to assignment by rules (no LLM call)', async () => {
     const actions = [
       'who should I assign to this task?',
       'find people with skill react for this task',
@@ -26,11 +26,11 @@ describe('chat intent classifier (tier 2: staffing vs planner_qna)', () => {
       'recommend an owner for the launch task',
     ];
     for (const a of actions) {
-      expect(await classify(a)).toBe('staffing');
+      expect(await classify(a)).toBe('assignment');
     }
   });
 
-  it('routes English find-tasks-by-label queries to staffing by rules (no LLM call)', async () => {
+  it('routes English find-tasks-by-label queries to assignment by rules (no LLM call)', async () => {
     const queries = [
       'list tasks with label backend',
       'find tasks tagged devops',
@@ -39,7 +39,7 @@ describe('chat intent classifier (tier 2: staffing vs planner_qna)', () => {
       'tìm task frontend đang mở',
     ];
     for (const q of queries) {
-      expect(await classify(q), q).toBe('staffing');
+      expect(await classify(q), q).toBe('assignment');
     }
   });
 
@@ -51,19 +51,19 @@ describe('chat intent classifier (tier 2: staffing vs planner_qna)', () => {
       'tôi đang có task nào quá hạn không',
     ];
     for (const q of queries) {
-      const llm = vi.fn(async () => 'staffing' as const);
+      const llm = vi.fn(async () => 'assignment' as const);
       const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
       const out = await c(q);
       expect(llm, `${q} — should reach LLM`).toHaveBeenCalledOnce();
-      expect(out, q).toBe('staffing');
+      expect(out, q).toBe('assignment');
     }
   });
 
   it('falls back to the LLM seam only for ambiguous text, defaulting safe', async () => {
-    const llm = vi.fn(async () => 'staffing' as const);
+    const llm = vi.fn(async () => 'assignment' as const);
     const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
     const out = await c('hmm');
     expect(llm).toHaveBeenCalledOnce();
-    expect(out).toBe('staffing');
+    expect(out).toBe('assignment');
   });
 });

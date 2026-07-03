@@ -9,7 +9,7 @@ import { createOutboxStore } from '@seta/core/outbox';
 import { registerCoreContributions } from '@seta/core/register';
 import { buildRuntime, runMigrations, type WorkerHandle } from '@seta/core/runtime';
 import { registerHiringContributions } from '@seta/hiring/register';
-import { buildActorSession, listTenantRoleOverlays } from '@seta/identity';
+import { listTenantRoleOverlays } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { registerIntegrationsContributions } from '@seta/integrations/register';
 import {
@@ -22,9 +22,17 @@ import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
 import { getPeopleVectorStore } from '@seta/people';
 import { registerPeopleContributions } from '@seta/people/register';
-import { assignTask } from '@seta/planner';
 import { plannerFindSimilarTasksTool } from '@seta/planner/agent-tools';
-import { buildPlannerQnaRuntime } from '@seta/planner/orchestration';
+import {
+  buildAssignmentOrchestrationRuntime,
+  buildPlannerQnaRuntime,
+  makeAssign,
+  makeAvailability,
+  makeSkillSearch,
+  makeTaskReader,
+  makeTaskSearch,
+  makeUserProfileLookup,
+} from '@seta/planner/orchestration';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { registerPmContributions } from '@seta/pm/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
@@ -32,15 +40,7 @@ import { closePools, getPool, initPools } from '@seta/shared-db';
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { createMailer } from '@seta/shared-mailer';
 import { OrchestrationRegistry } from '@seta/shared-orchestration';
-import {
-  buildStaffingOrchestrationRuntime,
-  makeAvailability,
-  makeSkillSearch,
-  makeTaskReader,
-  makeTaskSearch,
-  makeUserProfileLookup,
-  StaffingRunStateRepository,
-} from '@seta/staffing';
+import { StaffingRunStateRepository } from '@seta/staffing';
 import { registerStaffingContributions } from '@seta/staffing/register';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
@@ -126,9 +126,11 @@ const getMailer = (): import('@seta/shared-mailer').Mailer => {
 
 const outboxStore = createOutboxStore({ db: coreDb() });
 
-// Build the staffing orchestration runtime (specialized agents + DAG) and freeze
-// the kernel registries. apps/server is the only layer allowed to bind staffing
-// adapters (planner/identity reads + the agent model) to the engine surface.
+// Build the assignment orchestration runtime (specialized agents + DAG) and
+// freeze the kernel registries. apps/server is the only layer allowed to bind
+// assignment adapters (planner/identity reads + the agent model) to the engine
+// surface. Run persistence still comes from staffing's local tables — Task 3
+// swaps this repo for an agent-backed implementation.
 const identityEmbeddingProvider: ReturnType<typeof resolveEmbeddingProvider> = {
   // Lazy proxy: defer the OPENAI_API_KEY check to the first embed call (runtime)
   // so the server still boots without a key, matching identity's own lazy use.
@@ -140,13 +142,13 @@ const identityEmbeddingProvider: ReturnType<typeof resolveEmbeddingProvider> = {
   },
   embed: (...args) => resolveEmbeddingProvider().embed(...args),
 };
-// ONE shared Mastra store for both the engine runtime and the staffing
+// ONE shared Mastra store for both the engine runtime and the assignment
 // orchestrator's per-turn Mastra. Cross-Mastra-instance native-suspend resume
 // requires both wrap the SAME physical store; the engine's Mastra is built from
 // getPool('worker'), so the orchestrator must share that exact pool.
 const mastraStorage = createAgentMastraStorage({ pool: getPool('worker') });
 
-const staffingOrchestration = buildStaffingOrchestrationRuntime({
+const assignmentOrchestration = buildAssignmentOrchestrationRuntime({
   repo: new StaffingRunStateRepository(),
   mastraStorage,
   resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
@@ -159,16 +161,7 @@ const staffingOrchestration = buildStaffingOrchestrationRuntime({
     }),
     availability: makeAvailability(),
     userProfileLookup: makeUserProfileLookup(),
-    // Binds the staffing assign port to planner's public assignTask surface.
-    // RBAC is re-checked inside assignTask at the planner callee.
-    assign: {
-      async assign({ taskId, assigneeUserIds, actorUserId }) {
-        const session = await buildActorSession({ user_id: actorUserId });
-        for (const userId of assigneeUserIds) {
-          await assignTask({ task_id: taskId, user_id: userId, session });
-        }
-      },
-    },
+    assign: makeAssign(),
   },
 });
 
@@ -187,35 +180,35 @@ SpecializedAgentRegistry.freeze();
 OrchestrationRegistry.freeze();
 
 // Tiered chat router: classify each turn (tier-1 domain hard-coded to planner;
-// tier-2 staffing vs planner_qna) and dispatch to the matching runtime. Composed
+// tier-2 assignment vs planner_qna) and dispatch to the matching runtime. Composed
 // here because apps/server is the only layer that can see both runtimes; the
 // agent engine stays import-isolated and receives one chatOrchestration function.
 const chatRouter = makeChatRouter({
   classify: makeIntentClassifier({
     resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
   }),
-  staffing: staffingOrchestration.runStream,
+  assignment: assignmentOrchestration.runStream,
   plannerQna: plannerQnaOrchestration.runStream,
 });
 
 // Build the agent engine up front so subscriberBuilders contributed by
-// orchestrator modules (e.g. staffing) can be constructed against the live
-// Mastra instance before the dispatcher starts.
+// orchestrator modules (e.g. the planner assignment orchestrator) can be
+// constructed against the live Mastra instance before the dispatcher starts.
 const agent = registerAgent({
   pool: getPool('worker'),
   databaseUrl: env.DATABASE_URL,
   reg,
-  // Reuse the SAME store instance the staffing orchestrator wraps so the engine
-  // Mastra and the per-turn orchestrator Mastra share one physical store.
+  // Reuse the SAME store instance the assignment orchestrator wraps so the
+  // engine Mastra and the per-turn orchestrator Mastra share one physical store.
   mastraStorage,
   log: log.child({ subsystem: 'agent' }),
   // The chat runtime: every chat turn streams through the tiered chat router,
-  // which classifies the turn and dispatches to the staffing or planner_qna
+  // which classifies the turn and dispatches to the assignment or planner_qna
   // runtime. apps/server is the only layer that can compose both.
   chatOrchestration: chatRouter,
   // Native-suspend HITL resume: POST /chat/resume re-enters the suspended
   // proposeAssignment composite via resumeStream. Same composition-root binding.
-  resumeOrchestration: staffingOrchestration.runResume,
+  resumeOrchestration: assignmentOrchestration.runResume,
   // Chat attachments: apps/server is the only layer that can import the
   // @seta/knowledge consume/mark functions into the engine surface.
   consumeThreadAttachments: async ({ tenantId, threadId, query }) => {
@@ -262,9 +255,9 @@ const rt = buildRuntime(env, {
   pool: getPool('worker'),
   log: log.child({ subsystem: 'core.runtime' }),
   // The orchestration kernel's queued runner (production async path). The chat
-  // harness uses staffingOrchestration.runStream instead; same registries.
+  // harness uses assignmentOrchestration.runStream instead; same registries.
   extraJobs: {
-    ...staffingOrchestration.taskList,
+    ...assignmentOrchestration.taskList,
   },
   extraSubscribers: [
     failedLoginAlertSubscriber({

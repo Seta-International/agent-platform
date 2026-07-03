@@ -1,7 +1,7 @@
 import { RequestContext } from '@mastra/core/request-context';
 import { EMPTY_TRUST, type SpecializedAgentSpec } from '@seta/agent-sdk';
 import { describe, expect, it, vi } from 'vitest';
-import { makeProposeAssignmentTool } from '../../../src/backend/orchestration/propose-assignment.tool.ts';
+import { makeProposeAssignmentTool } from '../../../../src/backend/orchestration/assignment/propose-assignment.tool.ts';
 
 const TASK_ID = '66be2be2-394d-4184-b106-c412289fd1e1';
 const U1 = '0b54f3da-7be4-4d51-9b32-d0a63aa39c2b';

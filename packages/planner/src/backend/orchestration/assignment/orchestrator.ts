@@ -278,7 +278,7 @@ async function buildOrchestrator(
     : instructionsText(cap);
 
   const agent = new Agent({
-    id: 'staffing.orchestrator',
+    id: 'planner.assignment-orchestrator',
     name: 'Staffing Orchestrator',
     instructions,
     model: pickModel(ctx, deps.resolveModel),
@@ -292,7 +292,7 @@ async function buildOrchestrator(
   // SAME store. The store is injected (staffing owns no storage); the engine
   // Mastra shares this one instance so cross-Mastra-instance resume works.
   const mastra = new Mastra({
-    agents: { 'staffing.orchestrator': agent },
+    agents: { 'planner.assignment-orchestrator': agent },
     storage: deps.mastraStorage,
     // Framework-level logs (WARN by default; raise via MASTRA_LOG_LEVEL).
     logger: new ConsoleLogger({
@@ -311,7 +311,7 @@ async function buildOrchestrator(
       },
     }),
   });
-  const boundAgent = mastra.getAgent('staffing.orchestrator');
+  const boundAgent = mastra.getAgent('planner.assignment-orchestrator');
 
   const message = [
     `User message: ${input.userText}`,
@@ -364,7 +364,7 @@ function finalizeOrchestratorResult(
 export function makeOrchestratorAgent(deps: OrchestratorDeps): SpecializedAgentSpec<In, Out> {
   const cap = deps.recommendTaskCap ?? RECOMMEND_TASK_CAP;
   return {
-    id: 'staffing.orchestrator',
+    id: 'planner.assignment-orchestrator',
     description:
       'Routes a staffing chat message across the task-analysis and recommendation sub-agents.',
     inputSchema: OrchestratorInputSchema,

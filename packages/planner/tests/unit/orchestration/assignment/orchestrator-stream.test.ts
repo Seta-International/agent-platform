@@ -7,7 +7,7 @@ import {
   makeChatOrchestrationStreamer,
   type OrchestratorDeps,
   type ResumeDecision,
-} from '../../../src/backend/orchestration/orchestrator.ts';
+} from '../../../../src/backend/orchestration/assignment/orchestrator.ts';
 
 const ctx = { tenantId: 't1', actorUserId: 'a1' };
 

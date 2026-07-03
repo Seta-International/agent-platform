@@ -86,7 +86,7 @@ import { defineAgentTool } from '@seta/agent-sdk';
 import { MockLanguageModelV3 } from 'ai/test';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { withAgentTestDb } from '../../helpers.ts';
+import { withAgentTestDb } from '../../agent-tools-helpers.ts';
 
 const TENANT = '00000000-0000-4000-8000-0000000000b1';
 const ACTOR = '00000000-0000-4000-8000-0000000000c1';

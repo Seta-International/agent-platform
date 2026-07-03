@@ -10,7 +10,7 @@ import {
 } from '@seta/agent-sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { makeOrchestratorTools } from '../../../src/backend/orchestration/orchestrator.tools.ts';
+import { makeOrchestratorTools } from '../../../../src/backend/orchestration/assignment/orchestrator.tools.ts';
 
 const UUID_A = '66be2be2-394d-4184-b106-c412289fd1e1';
 const UUID_B = '499f9898-2133-4ba3-82b5-83d9fb1996fc';

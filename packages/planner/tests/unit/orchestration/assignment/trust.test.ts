@@ -1,6 +1,6 @@
 import type { TrustEnvelope } from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
-import { trustFromMastraResult } from '../../../src/backend/orchestration/trust.ts';
+import { trustFromMastraResult } from '../../../../src/backend/orchestration/assignment/trust.ts';
 
 describe('trustFromMastraResult', () => {
   it('derives trace from toolCalls and citations from the extractor', () => {

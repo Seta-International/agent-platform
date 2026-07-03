@@ -34,7 +34,7 @@ import type {
   UserProfilePort,
 } from './ports.ts';
 
-export interface StaffingPorts {
+export interface AssignmentPorts {
   taskReader: TaskReaderPort;
   taskSearch: TaskSearchPort;
   skillSearch: SkillSearchPort;
@@ -43,7 +43,7 @@ export interface StaffingPorts {
   assign: AssignPort;
 }
 
-export interface StaffingOrchestrationRuntime {
+export interface AssignmentOrchestrationRuntime {
   taskList: ReturnType<typeof makeOrchestrationTaskList>;
   runInline: (
     runInput: { userText: string; taskId: string | null },
@@ -65,7 +65,7 @@ export interface StaffingOrchestrationRuntime {
 let newRunId: () => string = () => crypto.randomUUID();
 
 /** Override the run-id generator (tests). */
-export function __setStaffingRunIdForTests(fn: () => string): void {
+export function __setAssignmentRunIdForTests(fn: () => string): void {
   newRunId = fn;
 }
 
@@ -76,18 +76,18 @@ export function __setStaffingRunIdForTests(fn: () => string): void {
  * sub-agents through its tools. The caller (apps/server) freezes the registries
  * after calling this.
  */
-export function buildStaffingOrchestrationRuntime(deps: {
-  ports: StaffingPorts;
+export function buildAssignmentOrchestrationRuntime(deps: {
+  ports: AssignmentPorts;
   resolveModel: () => MastraModelConfig;
   repo: RunStateRepository;
   /**
    * Store the per-turn orchestrator Mastra wraps so its native-suspend snapshot
-   * persists (Task 7's resume reloads it). Injected at the composition root —
-   * staffing does NOT own storage (and cannot import @mastra/pg). The same
-   * instance is shared with the agent engine so cross-Mastra resume works.
+   * persists (Task 7's resume reloads it). Injected at the composition root so
+   * the SAME physical store instance is shared with the agent engine's Mastra —
+   * cross-Mastra-instance resume requires both point at one store.
    */
   mastraStorage: MastraCompositeStore;
-}): StaffingOrchestrationRuntime {
+}): AssignmentOrchestrationRuntime {
   const { ports, resolveModel, repo, mastraStorage } = deps;
 
   // Sub-agents are invoked through the orchestrator's tools (direct .run calls),
@@ -125,8 +125,11 @@ export function buildStaffingOrchestrationRuntime(deps: {
 
   const taskList = makeOrchestrationTaskList(runnerDeps);
 
-  const runInline: StaffingOrchestrationRuntime['runInline'] = (runInput, ctx) =>
-    runOrchestrationInline('staffing.orchestrator', runInput, ctx, { ...runnerDeps, newRunId });
+  const runInline: AssignmentOrchestrationRuntime['runInline'] = (runInput, ctx) =>
+    runOrchestrationInline('planner.assignment-orchestrator', runInput, ctx, {
+      ...runnerDeps,
+      newRunId,
+    });
 
   const streamChat = makeChatOrchestrationStreamer(orchestratorDeps);
   const resumeChat = makeChatOrchestrationResumer(orchestratorDeps);

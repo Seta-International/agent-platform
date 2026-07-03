@@ -1,6 +1,6 @@
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { describe, expect, it, vi } from 'vitest';
-import { pickModel } from '../../../src/backend/orchestration/model.ts';
+import { pickModel } from '../../../../src/backend/orchestration/assignment/model.ts';
 
 describe('pickModel', () => {
   it('returns ctx.model and never calls the fallback when an override is set', () => {

@@ -3,7 +3,7 @@ import { InMemoryStore } from '@mastra/core/storage';
 import { EMPTY_TRUST, RC_THREAD_ID, type SpecializedAgentSpec } from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { makeOrchestratorAgent } from '../../../src/backend/orchestration/orchestrator.ts';
+import { makeOrchestratorAgent } from '../../../../src/backend/orchestration/assignment/orchestrator.ts';
 
 const ctx = { tenantId: 't1', actorUserId: 'a1' };
 

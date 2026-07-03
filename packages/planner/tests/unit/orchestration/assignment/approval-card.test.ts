@@ -1,7 +1,7 @@
 import { ApprovalCardSchema } from '@seta/agent-sdk';
 import { describe, expect, it } from 'vitest';
-import { buildAssignApprovalCard } from '../../../src/backend/orchestration/approval-card.ts';
-import type { Recommendation } from '../../../src/backend/orchestration/schemas.ts';
+import { buildAssignApprovalCard } from '../../../../src/backend/orchestration/assignment/approval-card.ts';
+import type { Recommendation } from '../../../../src/backend/orchestration/assignment/schemas.ts';
 
 const REC = (over: Partial<Recommendation> = {}): Recommendation => ({
   userId: 'u1',

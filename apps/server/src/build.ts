@@ -60,7 +60,7 @@ export type BuildServerAppDeps = {
    * can hand the Mastra instance to subscriberBuilders before the dispatcher
    * starts. The smoke test omits this; buildServerApp then builds the engine
    * itself for a self-contained HTTP-only test — with a stub chat runtime,
-   * since only the composition root (index.ts) can bind staffing adapters.
+   * since only the composition root (index.ts) can bind assignment adapters.
    */
   agent?: AgentHandle;
   /**
@@ -84,7 +84,7 @@ export type BuiltServerApp = {
 
 // Chat runtime stand-in for engine instances built without the composition
 // root (deps.agent omitted, e.g. the HTTP smoke test). Real wiring lives in
-// index.ts: chatOrchestration: staffingOrchestration.runStream.
+// index.ts: chatOrchestration: assignmentOrchestration.runStream.
 function stubChatRuntimeNotWired(): Promise<import('@seta/shared-orchestration').ChatStreamRun> {
   const message = 'Chat runtime is not configured on this server build.';
   const fullStream = new ReadableStream({
@@ -228,7 +228,7 @@ export function buildServerApp(
       databaseUrl: deps.databaseUrl,
       reg,
       log: deps.log,
-      // Self-contained HTTP-only build (no composition root): the staffing
+      // Self-contained HTTP-only build (no composition root): the assignment
       // orchestration can't be wired here, so chat answers with an explicit
       // not-configured message instead of crashing the whole app.
       chatOrchestration: () => stubChatRuntimeNotWired(),
