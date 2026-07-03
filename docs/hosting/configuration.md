@@ -6,7 +6,7 @@ Each entry shows: required/optional, type, default, and a short paragraph of mea
 
 ## Image versions
 
-Compose-level variables. They are interpolated into `compose.yml` to choose the image to pull. The running `platform-server` and `platform-web` do not read them. Images are published to **Amazon ECR**; see the [image and version policy](README.md#image-and-version-policy) for the canonical tag/registry scheme.
+Compose-level variables. They are interpolated into `compose.yaml` to choose the image to pull. The running `platform-server` and `platform-web` do not read them. Images are published to **Amazon ECR**; see the [image and version policy](README.md#image-and-version-policy) for the canonical tag/registry scheme.
 
 ### PLATFORM_VERSION
 
