@@ -1,0 +1,90 @@
+{
+  "uid": "seta-load-app-health",
+  "title": "Seta Load App Health",
+  "tags": ["seta", "prg-1", "load"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "env",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(env)",
+        "refresh": 2,
+        "includeAll": false,
+        "current": { "text": "uat", "value": "uat" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "DB pool connections",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "db_pool_connections_total{env=\"$env\"}",
+          "legendFormat": "{{service}} {{pool}} total",
+          "refId": "A"
+        },
+        {
+          "expr": "db_pool_connections_idle{env=\"$env\"}",
+          "legendFormat": "{{service}} {{pool}} idle",
+          "refId": "B"
+        },
+        {
+          "expr": "db_pool_connections_waiting{env=\"$env\"}",
+          "legendFormat": "{{service}} {{pool}} waiting",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "DB pool wait p95 (ms)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(db_pool_connection_wait_ms_bucket{env=\"$env\"}[5m])) by (le, pool))",
+          "legendFormat": "{{pool}} p95",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Process CPU",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_time_seconds_total{env=\"$env\"}[2m])",
+          "legendFormat": "{{service}} {{state}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Process resident memory",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "process_memory_usage_bytes{env=\"$env\"}",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
