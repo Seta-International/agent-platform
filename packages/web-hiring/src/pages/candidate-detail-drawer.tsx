@@ -10,7 +10,15 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { type CandStage, fetchCandidate, moveApplicationStage } from '../api/hiring-client.ts';
+import {
+  type CandStage,
+  editCandidate,
+  fetchCandidate,
+  getCandidateCvDownloadUrl,
+  moveApplicationStage,
+  putCvToS3,
+  requestCandidateCvUpload,
+} from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { CandidateTimeline } from './candidate-timeline.tsx';
 import { fitLabel } from './candidate-utils.ts';
@@ -112,9 +120,16 @@ export function CandidateDetailDrawer({
 
               <section>
                 <h4 className="mb-2 text-eyebrow uppercase text-ink-muted">CV</h4>
-                <div className="rounded border border-hairline bg-surface-2 px-3 py-2 text-caption text-ink-muted">
-                  CV auto-fill coming soon.
-                </div>
+                <CandidateCvActions
+                  candidateId={data.candidate.id}
+                  hasCv={Boolean(data.candidate.cv_storage_key)}
+                  canManage={canManage}
+                  onChanged={() =>
+                    void queryClient.invalidateQueries({
+                      queryKey: hiringKeys.candidate(data.candidate.id),
+                    })
+                  }
+                />
               </section>
 
               <section>
@@ -199,6 +214,75 @@ function Row({ k, v }: { k: string; v: string }) {
     <div className="flex justify-between border-b border-hairline py-1.5">
       <span className="text-ink-muted">{k}</span>
       <span className="text-ink">{v}</span>
+    </div>
+  );
+}
+
+function CandidateCvActions({
+  candidateId,
+  hasCv,
+  canManage,
+  onChanged,
+}: {
+  candidateId: string;
+  hasCv: boolean;
+  canManage: boolean;
+  onChanged: () => void;
+}) {
+  const download = useMutation({
+    mutationFn: () => getCandidateCvDownloadUrl(candidateId),
+    onSuccess: (url) => window.open(url, '_blank', 'noopener'),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const replace = useMutation({
+    mutationFn: async (file: File) => {
+      const { upload_url, s3_key } = await requestCandidateCvUpload(
+        candidateId,
+        file.name,
+        file.type || 'application/octet-stream',
+      );
+      await putCvToS3(upload_url, file);
+      await editCandidate(candidateId, { patch: { cv_storage_key: s3_key } });
+    },
+    onSuccess: () => {
+      toast.success('CV updated');
+      onChanged();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="flex items-center gap-3 text-body-sm">
+      {hasCv ? (
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0"
+          disabled={download.isPending}
+          onClick={() => download.mutate()}
+        >
+          Download CV
+        </Button>
+      ) : (
+        <span className="text-ink-muted">No CV on file</span>
+      )}
+      {canManage && (
+        <label className="cursor-pointer text-primary hover:underline">
+          {replace.isPending ? 'Uploading…' : hasCv ? 'Replace' : 'Upload'}
+          <input
+            type="file"
+            accept=".pdf,.docx"
+            className="hidden"
+            disabled={replace.isPending}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) replace.mutate(f);
+              e.target.value = '';
+            }}
+          />
+        </label>
+      )}
     </div>
   );
 }

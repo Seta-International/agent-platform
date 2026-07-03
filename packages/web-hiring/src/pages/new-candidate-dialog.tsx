@@ -1,12 +1,14 @@
 import {
   Alert,
   AlertDescription,
+  Badge,
   Button,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  Dropzone,
   Input,
   Label,
   Select,
@@ -18,8 +20,16 @@ import {
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { FileText, X } from 'lucide-react';
 import { useState } from 'react';
-import { addCandidate, fetchRequisitions } from '../api/hiring-client.ts';
+import {
+  addCandidate,
+  editCandidate,
+  fetchRequisitions,
+  parseCandidateCvDraft,
+  putCvToS3,
+  requestCandidateCvUpload,
+} from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
@@ -38,6 +48,8 @@ export function NewCandidateDialog() {
   const [reqId, setReqId] = useState('');
   const [note, setNote] = useState('');
   const [skills, setSkills] = useState<PickedSkill[]>([]);
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const { data: reqs } = useQuery({
@@ -57,17 +69,40 @@ export function NewCandidateDialog() {
     setReqId('');
     setNote('');
     setSkills([]);
+    setCvFile(null);
+    setSuggestions([]);
     setError(null);
   }
 
   const effectiveReq = reqId || openReqs[0]?.id || '';
 
+  // Fill-only-empty: a parse never overwrites what the recruiter already typed.
+  const parse = useMutation({
+    mutationFn: parseCandidateCvDraft,
+    onSuccess: (draft) => {
+      if (!name.trim() && draft.name) setName(draft.name);
+      if (!email.trim() && draft.personal_email) setEmail(draft.personal_email);
+      if (!phone.trim() && draft.phone) setPhone(draft.phone);
+      if (!dob && draft.dob) setDob(draft.dob);
+      if (!gender && draft.gender) setGender(draft.gender);
+      if (!seniority && draft.seniority) setSeniority(draft.seniority);
+      if (!note.trim() && draft.note) setNote(draft.note);
+      setSkills((prev) => {
+        const have = new Set(prev.map((s) => s.skill_id));
+        return [...prev, ...draft.skills.filter((s) => !have.has(s.skill_id))];
+      });
+      setSuggestions(draft.skill_suggestions);
+      toast.success('CV parsed — review the pre-filled fields before saving');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!name.trim() || !effectiveReq) {
         throw new Error('A name and an open role are required.');
       }
-      return addCandidate({
+      const res = await addCandidate({
         requisition_id: effectiveReq,
         name,
         personal_email: email || undefined,
@@ -83,9 +118,26 @@ export function NewCandidateDialog() {
           level: s.level,
         })),
       });
+      // Candidate first, CV second: an upload failure must never lose the record.
+      let cvWarning: string | null = null;
+      if (cvFile) {
+        try {
+          const { upload_url, s3_key } = await requestCandidateCvUpload(
+            res.candidate_id,
+            cvFile.name,
+            cvFile.type || 'application/octet-stream',
+          );
+          await putCvToS3(upload_url, cvFile);
+          await editCandidate(res.candidate_id, { patch: { cv_storage_key: s3_key } });
+        } catch (e) {
+          cvWarning = `CV was not attached: ${(e as Error).message}`;
+        }
+      }
+      return { cvWarning };
     },
-    onSuccess: () => {
+    onSuccess: ({ cvWarning }) => {
       toast.success('Candidate added');
+      if (cvWarning) toast.error(cvWarning);
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
       setOpen(false);
       reset();
@@ -109,6 +161,38 @@ export function NewCandidateDialog() {
           <DialogTitle>New candidate</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 max-h-[70vh] overflow-y-auto">
+          {cvFile ? (
+            <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-1 px-3 py-2 text-body-sm">
+              <FileText className="size-4 flex-none text-ink-subtle" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
+              {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                aria-label="Remove CV"
+                onClick={() => {
+                  setCvFile(null);
+                  setSuggestions([]);
+                }}
+              >
+                <X className="size-3.5" />
+              </Button>
+            </div>
+          ) : (
+            <Dropzone
+              accept=".pdf,.docx"
+              maxBytes={10 * 1024 * 1024}
+              label="Upload CV to auto-fill"
+              hint="PDF or DOCX, up to 10MB — parsed fields stay editable"
+              pendingLabel="Parsing CV…"
+              isPending={parse.isPending}
+              onFile={(f) => {
+                setCvFile(f);
+                parse.mutate(f);
+              }}
+            />
+          )}
           <div className="space-y-1">
             <Label htmlFor="cand-name">Full name *</Label>
             <Input id="cand-name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -181,9 +265,16 @@ export function NewCandidateDialog() {
             <Label htmlFor="cand-note">Notes</Label>
             <Textarea id="cand-note" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
-          <div className="rounded border border-hairline bg-surface-2 px-3 py-2 text-caption text-ink-muted">
-            CV auto-fill coming soon — enter details manually for now.
-          </div>
+          {suggestions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
+              {suggestions.map((sg) => (
+                <Badge key={sg} variant="outline" className="border-dashed">
+                  {sg}
+                </Badge>
+              ))}
+            </div>
+          )}
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -195,7 +286,7 @@ export function NewCandidateDialog() {
             </Button>
             <Button
               onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !name.trim() || !effectiveReq}
+              disabled={mutation.isPending || parse.isPending || !name.trim() || !effectiveReq}
             >
               {mutation.isPending ? 'Saving…' : 'Save candidate'}
             </Button>
