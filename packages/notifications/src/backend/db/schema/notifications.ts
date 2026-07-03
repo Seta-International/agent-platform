@@ -17,7 +17,7 @@ export const notificationsTable = notifications.table(
     dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
   },
   (t) => ({
-    sourceUserUnique: unique('notifications_source_user_unique').on(
+    sourceUserUnique: unique('notifications_tenant_source_user_unique').on(
       t.tenantId,
       t.sourceEventId,
       t.userId,

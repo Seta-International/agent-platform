@@ -1,5 +1,6 @@
 import { textEnum, textEnumCheck } from '@seta/shared-db';
-import { boolean, index, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { boolean, index, jsonb, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { agent } from './pg-schema.ts';
 import { workflowRuns } from './schema.workflow-runs.ts';
 
@@ -41,6 +42,11 @@ export const workflowApprovals = agent.table(
   },
   (t) => [
     index('workflow_approvals_approver_status_idx').on(t.approverUserId, t.status),
+    // Idempotency target for lifecycle-hook.ts ON CONFLICT: the PK is gen_random_uuid(),
+    // so without this a re-delivered suspension would insert a duplicate approval.
+    unique('workflow_approvals_run_step_unique').on(t.runId, t.stepId),
+    // Partial index scanned by the sweeper + list-my-pending-approvals (open approvals only).
+    index('workflow_approvals_pending_expires_idx').on(t.expiresAt).where(sql`status = 'pending'`),
     textEnumCheck('workflow_approvals', 'status', APPROVAL_STATUS),
   ],
 );

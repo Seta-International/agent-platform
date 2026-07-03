@@ -1,5 +1,5 @@
 {
-  "id": "b0f09a6a-0112-46a6-8742-b3854cf4a35d",
+  "id": "c3c59377-d252-4f39-a6ff-ce0e0a6715ce",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -69,6 +69,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "rl_cleanup_window": {
+          "name": "rl_cleanup_window",
+          "columns": [
+            {
+              "expression": "window_start",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -118,6 +133,13 @@
           "notNull": true,
           "default": 72
         },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp with time zone",
@@ -146,6 +168,12 @@
         },
         "run_id": {
           "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -183,6 +211,18 @@
         },
         "surface_chat_thread_id": {
           "name": "surface_chat_thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mastra_run_id": {
+          "name": "mastra_run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tool_call_id": {
+          "name": "tool_call_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -246,6 +286,22 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "workflow_approvals_pending_expires_idx": {
+          "name": "workflow_approvals_pending_expires_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "status = 'pending'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -261,9 +317,20 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "workflow_approvals_run_step_unique": {
+          "name": "workflow_approvals_run_step_unique",
+          "nullsNotDistinct": false,
+          "columns": ["run_id", "step_id"]
+        }
+      },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "workflow_approvals_status_check": {
+          "name": "workflow_approvals_status_check",
+          "value": "status IN ('pending', 'approved', 'rejected', 'modified', 'superseded', 'expired')"
+        }
+      },
       "isRLSEnabled": false
     },
     "agent.workflow_run_events_seen": {
@@ -276,6 +343,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "event_seq": {
           "name": "event_seq",
           "type": "bigint",
@@ -284,7 +357,18 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "workflow_run_events_seen_run_id_workflow_runs_run_id_fk": {
+          "name": "workflow_run_events_seen_run_id_workflow_runs_run_id_fk",
+          "tableFrom": "workflow_run_events_seen",
+          "tableTo": "workflow_runs",
+          "schemaTo": "agent",
+          "columnsFrom": ["run_id"],
+          "columnsTo": ["run_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {
         "workflow_run_events_seen_run_id_event_seq_pk": {
           "name": "workflow_run_events_seen_run_id_event_seq_pk",
@@ -294,6 +378,91 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "agent.workflow_run_steps": {
+      "name": "workflow_run_steps",
+      "schema": "agent",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "step_id": {
+          "name": "step_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "agent_id": {
+          "name": "agent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reasoning_trace": {
+          "name": "reasoning_trace",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "evidence_citations": {
+          "name": "evidence_citations",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "confidence_score": {
+          "name": "confidence_score",
+          "type": "numeric(4, 3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "workflow_run_steps_run_id_workflow_runs_run_id_fk": {
+          "name": "workflow_run_steps_run_id_workflow_runs_run_id_fk",
+          "tableFrom": "workflow_run_steps",
+          "tableTo": "workflow_runs",
+          "schemaTo": "agent",
+          "columnsFrom": ["run_id"],
+          "columnsTo": ["run_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "workflow_run_steps_tenant_id_run_id_step_id_pk": {
+          "name": "workflow_run_steps_tenant_id_run_id_step_id_pk",
+          "columns": ["tenant_id", "run_id", "step_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "workflow_run_steps_confidence_check": {
+          "name": "workflow_run_steps_confidence_check",
+          "value": "confidence_score BETWEEN 0 AND 1"
+        }
+      },
       "isRLSEnabled": false
     },
     "agent.workflow_runs": {
@@ -353,6 +522,19 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{\"outputs\":{}}'::jsonb"
+        },
+        "result": {
+          "name": "result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -451,6 +633,12 @@
           "name": "workflow_runs_source_event_id_idx",
           "columns": [
             {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
               "expression": "source_event_id",
               "isExpression": false,
               "asc": true,
@@ -467,7 +655,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "workflow_runs_status_check": {
+          "name": "workflow_runs_status_check",
+          "value": "status IN ('running', 'paused', 'success', 'failed', 'canceled')"
+        }
+      },
       "isRLSEnabled": false
     }
   },

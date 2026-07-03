@@ -9,7 +9,9 @@ import { notificationsTable } from '../../src/backend/db/schema/notifications.ts
 describe('notifications schema constitution', () => {
   it('dedupe unique is tenant-led (tenant_id, source_event_id, user_id)', () => {
     const cfg = getTableConfig(notificationsTable);
-    const uq = cfg.uniqueConstraints.find((u) => u.name === 'notifications_source_user_unique');
+    const uq = cfg.uniqueConstraints.find(
+      (u) => u.name === 'notifications_tenant_source_user_unique',
+    );
     expect(uq?.columns.map((c) => c.name)).toEqual(['tenant_id', 'source_event_id', 'user_id']);
   });
 

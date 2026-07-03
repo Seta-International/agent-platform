@@ -14,6 +14,8 @@ export const rateLimits = agent.table(
   (t) => ({
     pk: primaryKey({ columns: [t.tenantId, t.userId, t.windowStart] }),
     byTenantWindow: index('rl_by_tenant_window').on(t.tenantId, t.windowStart),
+    // Cleanup job deletes expired windows by window_start without a full scan.
+    cleanupWindow: index('rl_cleanup_window').on(t.windowStart),
   }),
 );
 
