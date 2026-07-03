@@ -3,6 +3,7 @@ import {
   AlertDescription,
   Badge,
   Button,
+  EmptyState,
   Input,
   Label,
   RichTextDisplay,
@@ -230,6 +231,13 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     .filter(Boolean)
     .join(' · ');
 
+  const hasJdContent = SECTIONS.some((s) =>
+    (
+      data.jd_sections.find((j) => j.variant === jdVariant && j.section === s.key)?.body ?? ''
+    ).trim(),
+  );
+  const hasAnyDetail = data.skills.length > 0 || hasJdContent;
+
   return (
     <div
       className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
@@ -339,67 +347,76 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             </div>
           )}
 
-          {editing ? (
-            <SkillPicker value={skills} onChange={setSkills} />
+          {!editing && !hasAnyDetail ? (
+            <EmptyState
+              title="No job description yet"
+              description="Skills and JD content haven't been added for this requisition."
+            />
           ) : (
-            data.skills.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {data.skills.map((s) => (
-                  <Badge
-                    key={s.skill_name}
-                    variant="secondary"
-                    className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
-                  >
-                    {s.skill_name}
-                    {s.min_level != null ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
-                  </Badge>
-                ))}
-              </div>
-            )
-          )}
+            <>
+              {editing ? (
+                <SkillPicker value={skills} onChange={setSkills} />
+              ) : (
+                data.skills.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {data.skills.map((s) => (
+                      <Badge
+                        key={s.skill_name}
+                        variant="secondary"
+                        className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
+                      >
+                        {s.skill_name}
+                        {s.min_level != null ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
+                      </Badge>
+                    ))}
+                  </div>
+                )
+              )}
 
-          {SECTIONS.map((s) => {
-            const body = editing
-              ? sections[s.key]
-              : (data.jd_sections.find((j) => j.variant === jdVariant && j.section === s.key)
-                  ?.body ?? '');
-            if (!editing && !body) return null;
-            return (
-              <div key={s.key}>
-                {s.key === 'about' ? (
-                  <div className="rounded-lg bg-primary/8 p-4">
-                    <div className="mb-1 font-semibold text-ink">{s.label}</div>
-                    {editing ? (
-                      <RichTextEditor
-                        value={sections[s.key]}
-                        onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
-                        placeholder="Write the about section…"
-                      />
+              {SECTIONS.map((s) => {
+                const body = editing
+                  ? sections[s.key]
+                  : (data.jd_sections.find((j) => j.variant === jdVariant && j.section === s.key)
+                      ?.body ?? '');
+                if (!editing && !body) return null;
+                return (
+                  <div key={s.key}>
+                    {s.key === 'about' ? (
+                      <div className="rounded-lg bg-primary/8 p-4">
+                        <div className="mb-1 font-semibold text-ink">{s.label}</div>
+                        {editing ? (
+                          <RichTextEditor
+                            value={sections[s.key]}
+                            onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
+                            placeholder="Write the about section…"
+                          />
+                        ) : (
+                          <RichTextDisplay value={body} />
+                        )}
+                      </div>
                     ) : (
-                      <RichTextDisplay value={body} />
+                      <div>
+                        <div
+                          className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                        >
+                          {s.label}
+                        </div>
+                        {editing ? (
+                          <RichTextEditor
+                            value={sections[s.key]}
+                            onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
+                            placeholder={`Write the ${s.label.toLowerCase()}…`}
+                          />
+                        ) : (
+                          <RichTextDisplay value={body} />
+                        )}
+                      </div>
                     )}
                   </div>
-                ) : (
-                  <div>
-                    <div
-                      className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
-                    >
-                      {s.label}
-                    </div>
-                    {editing ? (
-                      <RichTextEditor
-                        value={sections[s.key]}
-                        onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
-                        placeholder={`Write the ${s.label.toLowerCase()}…`}
-                      />
-                    ) : (
-                      <RichTextDisplay value={body} />
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </>
+          )}
 
           <p className="text-caption text-ink-subtle">
             Posted {req.created_at.slice(0, 10)}
