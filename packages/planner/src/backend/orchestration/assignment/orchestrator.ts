@@ -299,9 +299,9 @@ async function buildOrchestrator(
       name: 'Mastra',
       level: (process.env.MASTRA_LOG_LEVEL as LogLevel) ?? 'warn',
     }),
-    // AI tracing → agent.mastra_ai_spans. This is the per-turn agent that
-    // actually decides tools (proposeAssignment etc.) and natively suspends,
-    // so its span tree is the primary record for debugging chat HITL.
+    // AI tracing → the agent module's shared span store. This is the per-turn
+    // agent that actually decides tools (proposeAssignment etc.) and natively
+    // suspends, so its span tree is the primary record for debugging chat HITL.
     observability: new Observability({
       configs: {
         default: {
