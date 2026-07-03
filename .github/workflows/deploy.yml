@@ -115,7 +115,10 @@ jobs:
         run: docker compose -p "$COMPOSE_PROJECT" --env-file "$ENV_FILE" up -d --wait postgres
 
       - name: Pre-migration RDS snapshot (prod)
-        if: startsWith(inputs.environment, 'prod')
+        # Gated on RDS_INSTANCE_ID: the box instance role needs rds:CreateDBSnapshot
+        # for this to work. Leave RDS_INSTANCE_ID unset until that IAM grant exists,
+        # and this pre-migration safety snapshot is skipped rather than failing deploy.
+        if: ${{ startsWith(inputs.environment, 'prod') && vars.RDS_INSTANCE_ID != '' }}
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
           DB_ID: ${{ vars.RDS_INSTANCE_ID }}   # e.g. seta-prod-pg
@@ -164,7 +167,10 @@ jobs:
           echo "✅ ${{ inputs.environment }} deploy healthy (image_tag=${{ inputs.image_tag }})"
 
       - name: Record last-good prod image
+        # Best-effort: needs a token with variables:write. Never fail a healthy
+        # deploy just because last-good bookkeeping (self-heal input) couldn't write.
         if: success() && inputs.environment == 'prod'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh variable set PROD_LAST_GOOD_TAG --body "${{ inputs.image_tag }}" -R "${{ github.repository }}"

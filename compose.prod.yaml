@@ -1,15 +1,16 @@
-# PROD: external RDS + real S3. NOT publicly exposed — but the host-side
-# cloudflared tunnel must still reach Traefik, so publish HTTP to LOOPBACK only
-# (the EC2 security group has zero inbound; loopback is not externally reachable).
-# `!override` replaces the base's 80/443/5173 with a single loopback HTTP port.
+# PROD: external RDS + real S3. Cloudflare proxies (orange-cloud, SSL "Full")
+# to the origin's public :443 — so the box publishes 80 (HTTP→HTTPS redirect)
+# and 443 (TLS) to all interfaces, and Traefik terminates TLS with a self-signed
+# origin cert. Cloudflare "Full" (not "Full (strict)") trusts the self-signed
+# leaf, so no ACME/public CA is needed at the origin. `!override` replaces the
+# base's 80/443/5173 mapping and drops the public 5173 smoke port.
 services:
   proxy:
     ports: !override
-      - "127.0.0.1:8080:80"
+      - "80:80"
+      - "443:443"
     environment:
-      # No inbound 80 ⇒ ACME HTTP-01 is impossible. Terminate TLS at Cloudflare
-      # (Full mode) and serve plain HTTP on the origin behind the tunnel.
-      PLATFORM_TLS_MODE: none
+      PLATFORM_TLS_MODE: self-signed
 
   # RDS infra metrics (storage-fill / burst-balance / connections) — these live
   # ONLY in CloudWatch. Read-only metric API via the instance role (~$1-2/mo at
