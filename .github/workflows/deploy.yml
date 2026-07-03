@@ -85,6 +85,7 @@ jobs:
           M365_GRAPH_CLIENT_ID: ${{ vars.M365_GRAPH_CLIENT_ID }}
           # ── Environment Secrets (sensitive) ──────────────────────────────
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_APP_URL: ${{ secrets.DATABASE_APP_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           CRYPTO_LOCAL_MASTER_KEY: ${{ secrets.CRYPTO_LOCAL_MASTER_KEY }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}

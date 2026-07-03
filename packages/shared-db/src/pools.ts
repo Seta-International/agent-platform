@@ -33,7 +33,10 @@ export function initPools(cfg: PoolsConfig): Pools {
   const workerStmt = 30_000;
   pools = {
     web: new Pool({
-      connectionString: cfg.appDatabaseUrl ?? cfg.databaseUrl,
+      // || not ??: an unset DATABASE_APP_URL arrives as "" through compose's
+      // ${VAR:-} default, and "" must fall back to databaseUrl (not become an
+      // empty connectionString that pg silently resolves to localhost).
+      connectionString: cfg.appDatabaseUrl || cfg.databaseUrl,
       max: cfg.webMax ?? 15,
       connectionTimeoutMillis: 5_000,
       idleTimeoutMillis: 10_000,
