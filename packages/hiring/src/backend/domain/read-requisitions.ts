@@ -112,7 +112,7 @@ export async function listRequisitions(session: SessionScope): Promise<Requisiti
 }
 
 // A requisition is shown on the open-positions board until it is filled or cancelled.
-const OPEN_BOARD_STATUSES = ['open', 'on_hold'];
+const OPEN_BOARD_STATUSES = ['open', 'on_hold'] as const;
 
 export interface OpenRequisitionsBoard {
   scope: 'all' | 'account';

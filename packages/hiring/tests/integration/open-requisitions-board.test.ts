@@ -1,16 +1,14 @@
 // packages/hiring/tests/integration/open-requisitions-board.test.ts
 // FUT-326: BOD/PMO view every open (non-filled) requisition company-wide on a board.
 import { resetCoreDb } from '@seta/core/testing';
+import { createAccount } from '@seta/pm';
+import { resetPmDb } from '@seta/pm/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
-import {
-  accountProjection,
-  requisition,
-  workerUserProjection,
-} from '../../src/backend/db/schema.ts';
+import { accountProjection, requisition } from '../../src/backend/db/schema.ts';
 import { listOpenRequisitions, openRequisition } from '../../src/index.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
 
@@ -140,62 +138,68 @@ describe('open requisitions board (FUT-326)', () => {
 });
 
 describe('account-scoped requisitions board (FUT-327)', () => {
-  it('AM sees only requisitions for accounts they manage, with a scope note', async () => {
+  it('a recruiter sees only requisitions for accounts they’re assigned to, with a scope note', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetHiringDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const amUserId = crypto.randomUUID();
-        const workerId = crypto.randomUUID();
-        const myAccount = crypto.randomUUID();
-        const otherAccount = crypto.randomUUID();
+        const recruiterUserId = crypto.randomUUID();
+        const recruiterWorkerId = crypto.randomUUID();
 
+        const manager = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['hiring.manager', 'pm.manager'],
+        });
+
+        const { account_id: myAccount } = await createAccount({
+          name: 'My Account',
+          recruiter_worker_ids: [recruiterWorkerId],
+          session: manager,
+        });
+        const { account_id: otherAccount } = await createAccount({
+          name: 'Other Account',
+          session: manager,
+        });
+        // account_projection is normally synced from pm's account events by a subscriber;
+        // seed it directly here so the join has a name to surface without a live dispatcher.
         await hiringDb()
           .insert(accountProjection)
           .values([
-            {
-              account_id: myAccount,
-              tenant_id: t.tenant_id,
-              name: 'My Account',
-              am_worker_id: workerId,
-            },
-            {
-              account_id: otherAccount,
-              tenant_id: t.tenant_id,
-              name: 'Other Account',
-              am_worker_id: null,
-            },
+            { account_id: myAccount, tenant_id: t.tenant_id, name: 'My Account' },
+            { account_id: otherAccount, tenant_id: t.tenant_id, name: 'Other Account' },
           ]);
-        await hiringDb()
-          .insert(workerUserProjection)
-          .values({ worker_id: workerId, tenant_id: t.tenant_id, user_id: amUserId });
 
         const { requisition_id: mine } = await openRequisition({
           title: 'Req on my account',
           kind: 'new',
           account_id: myAccount,
-          session: t.adminSession,
+          session: manager,
         });
         await openRequisition({
           title: 'Req on another account',
           kind: 'new',
           account_id: otherAccount,
-          session: t.adminSession,
+          session: manager,
         });
 
-        const am = buildSession({
+        const recruiter = buildSession({
           tenant_id: t.tenant_id,
-          user_id: amUserId,
-          roles: ['hiring.viewer'],
+          user_id: recruiterUserId,
+          roles: ['hiring.recruiter'],
+          assignments: [{ role_slug: 'hiring.recruiter', scope_kind: 'self', scope_id: null }],
+          worker_id: recruiterWorkerId,
         });
 
-        const result = await listOpenRequisitions(am);
+        const result = await listOpenRequisitions(recruiter);
         expect(result.scope).toBe('account');
         expect(result.scoped_account_names).toEqual(['My Account']);
         expect(result.requisitions.map((r) => r.id)).toEqual([mine]);
       } finally {
+        resetPmDb();
         resetHiringDb();
         resetCoreDb();
         await closePools();
@@ -203,23 +207,31 @@ describe('account-scoped requisitions board (FUT-327)', () => {
     });
   });
 
-  it('a hiring.viewer with no linked worker sees an empty board', async () => {
+  it('a recruiter with no worker link sees an empty board', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetHiringDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
+        const manager = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['hiring.manager', 'pm.manager'],
+        });
         await openRequisition({
           title: 'Someone else’s req',
           kind: 'new',
-          session: t.adminSession,
+          session: manager,
         });
 
         const unlinked = buildSession({
           tenant_id: t.tenant_id,
           user_id: crypto.randomUUID(),
-          roles: ['hiring.viewer'],
+          roles: ['hiring.recruiter'],
+          assignments: [{ role_slug: 'hiring.recruiter', scope_kind: 'self', scope_id: null }],
+          worker_id: null,
         });
 
         const result = await listOpenRequisitions(unlinked);
@@ -227,6 +239,7 @@ describe('account-scoped requisitions board (FUT-327)', () => {
         expect(result.scoped_account_names).toEqual([]);
         expect(result.requisitions).toEqual([]);
       } finally {
+        resetPmDb();
         resetHiringDb();
         resetCoreDb();
         await closePools();

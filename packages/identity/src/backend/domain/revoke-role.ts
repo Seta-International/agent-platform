@@ -62,5 +62,5 @@ export async function revokeRole(assignmentId: string, actor: Actor): Promise<vo
     },
   );
 
-  await invalidateUserSessions(grant.user_id);
+  await invalidateUserSessions(assignment.user_id);
 }

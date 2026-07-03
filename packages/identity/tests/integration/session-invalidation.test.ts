@@ -6,7 +6,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { bulkGrantRole, bulkRevokeRole } from '../../src/backend/domain/bulk-grant-role.ts';
 import { grantRole } from '../../src/backend/domain/grant-role.ts';
-import { listRoleGrants } from '../../src/backend/domain/list-role-grants.ts';
+import { listRoleAssignments } from '../../src/backend/domain/list-role-assignments.ts';
 import { revokeRole } from '../../src/backend/domain/revoke-role.ts';
 import { registerIdentityContributions } from '../../src/register.ts';
 import { seedTenantWithUsers } from '../helpers/seed-tenant.ts';
@@ -41,7 +41,7 @@ function withDb<T>(fn: (pool: import('pg').Pool) => Promise<T>): Promise<T> {
   );
 }
 
-const resolveEmpty = { listRoleGrants, resolvePermissions: async () => new Set<string>() };
+const resolveEmpty = { listRoleAssignments, resolvePermissions: async () => new Set<string>() };
 
 describe('session invalidation on role changes', () => {
   it('grantRole / revokeRole invalidate the target user session immediately', async () => {
@@ -58,7 +58,7 @@ describe('session invalidation on role changes', () => {
           user_id: targetId,
           tenant_id,
           role_slug: 'hiring.viewer',
-          scope_type: 'tenant',
+          scope_kind: 'tenant',
           scope_id: null,
         },
         { type: 'user', user_id: admin },
@@ -107,7 +107,7 @@ describe('session invalidation on role changes', () => {
           user_ids: users,
           tenant_id,
           role_slug: 'hiring.viewer',
-          scope_type: 'tenant',
+          scope_kind: 'tenant',
           scope_id: null,
         },
         { type: 'user', user_id: admin },
@@ -129,7 +129,7 @@ describe('session invalidation on role changes', () => {
           user_ids: users,
           tenant_id,
           role_slug: 'hiring.viewer',
-          scope_type: 'tenant',
+          scope_kind: 'tenant',
           scope_id: null,
         },
         { type: 'user', user_id: admin },
