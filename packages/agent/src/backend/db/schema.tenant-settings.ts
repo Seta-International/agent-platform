@@ -13,6 +13,7 @@ export const tenantSettings = agent.table('tenant_settings', {
     .notNull()
     .$type<{ exact: number; vec: number; load: number; tz: number }>(),
   approvalTtlHours: integer('approval_ttl_hours').notNull().default(72),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

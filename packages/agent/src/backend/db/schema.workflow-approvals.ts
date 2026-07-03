@@ -1,6 +1,17 @@
+import { textEnum, textEnumCheck } from '@seta/shared-db';
 import { boolean, index, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { agent } from './pg-schema.ts';
 import { workflowRuns } from './schema.workflow-runs.ts';
+
+/** Every status a workflow_approvals row is ever written with. */
+export const APPROVAL_STATUS = [
+  'pending',
+  'approved',
+  'rejected',
+  'modified',
+  'superseded',
+  'expired',
+] as const;
 
 export const workflowApprovals = agent.table(
   'workflow_approvals',
@@ -9,6 +20,7 @@ export const workflowApprovals = agent.table(
     runId: uuid('run_id')
       .notNull()
       .references(() => workflowRuns.runId, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id').notNull(),
     stepId: text('step_id').notNull(),
     proposedPayload: jsonb('proposed_payload').notNull(),
     approverUserId: uuid('approver_user_id').notNull(),
@@ -20,14 +32,17 @@ export const workflowApprovals = agent.table(
     // rows — their presence is the agentic-vs-workflow discriminator.
     mastraRunId: text('mastra_run_id'),
     toolCallId: text('tool_call_id'),
-    status: text('status').notNull(),
+    status: textEnum('status', APPROVAL_STATUS).notNull(),
     decisionPayload: jsonb('decision_payload'),
     decidedBy: uuid('decided_by'),
     decidedAt: timestamp('decided_at', { withTimezone: true }),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('workflow_approvals_approver_status_idx').on(t.approverUserId, t.status)],
+  (t) => [
+    index('workflow_approvals_approver_status_idx').on(t.approverUserId, t.status),
+    textEnumCheck('workflow_approvals', 'status', APPROVAL_STATUS),
+  ],
 );
 
 export type WorkflowApprovalRow = typeof workflowApprovals.$inferSelect;

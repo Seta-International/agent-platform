@@ -1,5 +1,5 @@
 import './otel.ts'; // MUST be first; see otel.ts header comment.
-import { resolveModel } from '@seta/agent';
+import { AgentRunStateRepository, resolveModel } from '@seta/agent';
 import { createAgentMastraStorage, registerAgent } from '@seta/agent/register';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import { createContributionRegistry, createOverlayStore, requestIdStorage } from '@seta/core';
@@ -40,7 +40,6 @@ import { closePools, getPool, initPools } from '@seta/shared-db';
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { createMailer } from '@seta/shared-mailer';
 import { OrchestrationRegistry } from '@seta/shared-orchestration';
-import { StaffingRunStateRepository } from '@seta/staffing';
 import { registerStaffingContributions } from '@seta/staffing/register';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
@@ -149,7 +148,7 @@ const identityEmbeddingProvider: ReturnType<typeof resolveEmbeddingProvider> = {
 const mastraStorage = createAgentMastraStorage({ pool: getPool('worker') });
 
 const assignmentOrchestration = buildAssignmentOrchestrationRuntime({
-  repo: new StaffingRunStateRepository(),
+  repo: new AgentRunStateRepository(),
   mastraStorage,
   resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
   ports: {

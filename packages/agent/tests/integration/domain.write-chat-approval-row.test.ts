@@ -59,7 +59,7 @@ describe('writeChatApprovalRow', () => {
         [result.runId],
       );
       expect(runs.rows[0]).toEqual({
-        workflow_id: 'staffing.orchestrator',
+        workflow_id: 'planner.assignment-orchestrator',
         status: 'paused',
         started_via: 'chat',
       });

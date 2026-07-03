@@ -216,9 +216,10 @@ describe('listWorkflowRuns', () => {
       });
       await pool.query(
         `INSERT INTO agent.workflow_approvals
-           (approval_id, run_id, step_id, proposed_payload,
+           (approval_id, run_id, tenant_id, step_id, proposed_payload,
             approver_user_id, status, decision_payload, expires_at, decided_at)
-         VALUES (gen_random_uuid(), $1, 'assignBySkill.suggest', '{}'::jsonb,
+         VALUES (gen_random_uuid(), $1, (SELECT tenant_id FROM agent.workflow_runs WHERE run_id = $1),
+                 'assignBySkill.suggest', '{}'::jsonb,
                  $2, 'superseded',
                  jsonb_build_object('reason','task-assigned-elsewhere'),
                  now() + interval '1 hour', now())`,

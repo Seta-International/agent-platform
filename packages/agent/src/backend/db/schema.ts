@@ -20,4 +20,5 @@ export const rateLimits = agent.table(
 export * from './schema.tenant-settings.ts';
 export * from './schema.workflow-approvals.ts';
 export * from './schema.workflow-events-seen.ts';
+export * from './schema.workflow-run-steps.ts';
 export * from './schema.workflow-runs.ts';

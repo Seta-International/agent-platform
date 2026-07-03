@@ -19,9 +19,9 @@ async function seedSuspendedAssignRun(
   );
   await pool.query(
     `INSERT INTO agent.workflow_approvals
-      (approval_id, run_id, step_id, proposed_payload, approver_user_id, status, expires_at)
-     VALUES ($1, $2, 'assignBySkill.suggest', $3::jsonb, $4, 'pending', now() + interval '1 hour')`,
-    [approvalId, runId, JSON.stringify({ candidates: [] }), randomUUID()],
+      (approval_id, run_id, tenant_id, step_id, proposed_payload, approver_user_id, status, expires_at)
+     VALUES ($1, $2, $3, 'assignBySkill.suggest', $4::jsonb, $5, 'pending', now() + interval '1 hour')`,
+    [approvalId, runId, args.tenantId, JSON.stringify({ candidates: [] }), randomUUID()],
   );
   return { runId, approvalId };
 }
