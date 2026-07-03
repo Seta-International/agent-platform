@@ -14,16 +14,26 @@ import {
 } from '../../../src/notifications/renderers';
 
 describe('planner notification renderers', () => {
-  it('registers 8 event types in sorted order', () => {
+  it('registers the expected event types in sorted order', () => {
     const types = plannerRenderers.map((r) => r.eventType).sort();
     expect(types).toEqual([
+      'planner.bucket.created',
+      'planner.bucket.deleted',
+      'planner.group.created',
+      'planner.group.deleted',
       'planner.group.member.added',
       'planner.group.member.role-changed',
       'planner.plan.created',
       'planner.plan.deleted',
       'planner.task.assigned',
       'planner.task.completed',
+      'planner.task.created',
+      'planner.task.deleted',
       'planner.task.reopened',
+      'planner.task.reopened.in-progress',
+      'planner.task.reopened.not-started',
+      'planner.task.status.in-progress',
+      'planner.task.status.not-started',
       'planner.task.unassigned',
     ]);
   });

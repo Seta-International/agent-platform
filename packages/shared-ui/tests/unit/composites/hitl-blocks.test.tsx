@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import type { EntityRef } from '../../../src/composites/hitl-blocks';
 import { blockRenderers } from '../../../src/composites/hitl-blocks';
 
 describe('hitl block renderers', () => {
@@ -11,6 +12,9 @@ describe('hitl block renderers', () => {
 
   it('entityList multi renders checkboxes + a top-match badge', () => {
     const EntityList = blockRenderers.entityList;
+    expect(EntityList).toBeDefined();
+    if (!EntityList) return;
+
     render(
       <EntityList
         block={{
@@ -20,7 +24,7 @@ describe('hitl block renderers', () => {
         }}
         selectedIds={['u1']}
         onToggle={() => {}}
-        renderEntity={(e) => <span>{e.label}</span>}
+        renderEntity={(e: EntityRef) => <span>{e.label}</span>}
       />,
     );
     expect(screen.getByRole('checkbox')).toBeChecked();
