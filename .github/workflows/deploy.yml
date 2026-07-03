@@ -139,7 +139,12 @@ jobs:
           set -euo pipefail
           dc() { docker compose -p "$COMPOSE_PROJECT" --env-file "$ENV_FILE" "$@"; }
 
-          dc pull
+          # Pull only the per-deploy app images from ECR. Public infra images
+          # (traefik, pgvector) are version-pinned and cached on the box; a blanket
+          # `dc pull` re-fetches them from Docker Hub every deploy, which hard-fails
+          # the box when Hub is unreachable (flaky IPv6). `dc up` below still pulls
+          # any genuinely-missing image via its default pull-if-missing policy.
+          dc pull server web worker migrator
           dc run --rm migrator
           dc up -d --remove-orphans --wait --wait-timeout 300 proxy server web worker
 
