@@ -23,7 +23,6 @@ import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/sh
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import { resolveTransport } from '@seta/shared-mailer';
 import { createMailerSendTask } from '@seta/shared-mailer/queue';
-import { registerStaffingContributions } from '@seta/staffing/register';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
 import { parseEnv } from './env.ts';
@@ -57,7 +56,6 @@ registerIntegrationsContributions(reg, {
 registerKnowledgeContributions(reg);
 registerNotificationsContributions(reg);
 registerPlannerContributions(reg);
-registerStaffingContributions(reg);
 registerPeopleContributions(reg);
 registerHiringContributions(reg);
 registerPmContributions(reg);

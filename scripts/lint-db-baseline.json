@@ -1,9 +1,7 @@
 [
-  "R1:packages/staffing/src/backend/db/schema.ts:orchestration_step_trace",
   "R3:packages/people/src/backend/db/schema.ts:employment_period:t.person_id",
   "R3:packages/people/src/backend/db/schema.ts:worker:t.person_id",
   "R3:packages/planner/src/backend/db/schema.ts:labels:t.plan_id",
-  "R3:packages/staffing/src/backend/db/schema.ts:orchestration_step_trace:t.run_id",
   "R4:packages/agent/src/backend/db/schema.ts:rate_limits",
   "R4:packages/agent/src/backend/db/schema.workflow-events-seen.ts:workflow_run_events_seen",
   "R4:packages/agent/src/backend/db/schema.workflow-runs.ts:workflow_runs",
