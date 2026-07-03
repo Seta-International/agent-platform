@@ -2,7 +2,12 @@ import { Alert, AlertDescription, Button } from '@seta/shared-ui';
 import { CheckCircle2, Plug, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import type { SsoProviderRowDto } from '../api/sso-client.ts';
-import { disconnectProvider, setProviderEnabled, startConsent } from '../api/sso-client.ts';
+import {
+  disconnectProvider,
+  setProviderEnabled,
+  startConsent,
+  syncConsent,
+} from '../api/sso-client.ts';
 import { ConnectEntraDialog } from './ConnectEntraDialog.tsx';
 import { EditDomainsDialog } from './EditDomainsDialog.tsx';
 
@@ -81,6 +86,24 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
     try {
       const { admin_consent_url } = await startConsent();
       window.open(admin_consent_url, '_blank', 'noopener');
+    } catch (e) {
+      setActionError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSyncConsent() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const updated = await syncConsent();
+      if (!updated.config.consent_granted_at) {
+        setActionError(
+          "Microsoft hasn't confirmed admin consent yet. Grant it in Microsoft, then check again.",
+        );
+      }
+      onChanged();
     } catch (e) {
       setActionError((e as Error).message);
     } finally {
@@ -240,9 +263,14 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
           <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline-tertiary bg-surface-1 px-5 py-3">
             <div className="flex flex-wrap items-center gap-2">
               {status === 'consent_pending' && (
-                <Button onClick={handleConsent} disabled={busy} size="sm">
-                  Grant admin consent
-                </Button>
+                <>
+                  <Button onClick={handleConsent} disabled={busy} size="sm">
+                    Grant admin consent
+                  </Button>
+                  <Button variant="ghost" onClick={handleSyncConsent} disabled={busy} size="sm">
+                    Already granted in Microsoft? Check again
+                  </Button>
+                </>
               )}
               {status === 'consent_granted' && (
                 <Button onClick={handleEnable} disabled={busy} size="sm">

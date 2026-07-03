@@ -7,6 +7,7 @@ import {
   IdentityError,
   recordSsoConsent,
   requireProviderRow,
+  syncSsoConsentFromGraph,
 } from '../../index.ts';
 
 const STATE_COOKIE = 'platform_sso_consent_state';
@@ -72,6 +73,19 @@ export function registerSsoConsentRoutes(app: Hono<SessionEnv>): void {
       redirectUri,
     });
     return c.json({ admin_consent_url });
+  });
+
+  // Covers admins who grant consent directly in the Entra admin center instead of through
+  // the /start redirect above — the callback below never fires for that path, so this lets
+  // the client ask us to verify Microsoft's actual grant state on demand.
+  app.post('/api/identity/v1/sso/consent/microsoft/sync', async (c) => {
+    requireSsoAdmin(c);
+    const scope = c.get('user');
+    const row = await syncSsoConsentFromGraph(
+      { tenant_id: scope.tenant_id, provider_id: 'microsoft-entra-id' },
+      { type: 'user', user_id: scope.user_id },
+    );
+    return c.json(row);
   });
 
   app.get('/api/identity/v1/sso/consent/microsoft/callback', async (c) => {
