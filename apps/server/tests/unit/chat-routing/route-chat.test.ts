@@ -10,39 +10,57 @@ const fakeRun = (tag: string): ChatStreamRun =>
 
 const ctx: RunCtx = { tenantId: 't1', actorUserId: 'u1' };
 
+const makeDeps = () => ({
+  staffing: vi.fn(async () => fakeRun('staffing')),
+  plannerQna: vi.fn(async () => fakeRun('qna')),
+  weeklyPlanner: vi.fn(async () => fakeRun('weekly')),
+});
+
 describe('chat router dispatch', () => {
   it('dispatches a question to planner_qna', async () => {
-    const staffing = vi.fn(async () => fakeRun('staffing'));
-    const plannerQna = vi.fn(async () => fakeRun('qna'));
-    const router = makeChatRouter({ classify: async () => 'planner_qna', staffing, plannerQna });
+    const deps = makeDeps();
+    const router = makeChatRouter({ classify: async () => 'planner_qna', ...deps });
 
     const run = await router({ userText: 'what are my open tasks?', taskId: null }, ctx);
     const final = await run.finalize();
 
-    expect(plannerQna).toHaveBeenCalledOnce();
-    expect(staffing).not.toHaveBeenCalled();
+    expect(deps.plannerQna).toHaveBeenCalledOnce();
+    expect(deps.staffing).not.toHaveBeenCalled();
+    expect(deps.weeklyPlanner).not.toHaveBeenCalled();
     expect((final.result as { tag: string }).tag).toBe('qna');
   });
 
   it('dispatches an action to staffing', async () => {
-    const staffing = vi.fn(async () => fakeRun('staffing'));
-    const plannerQna = vi.fn(async () => fakeRun('qna'));
-    const router = makeChatRouter({ classify: async () => 'staffing', staffing, plannerQna });
+    const deps = makeDeps();
+    const router = makeChatRouter({ classify: async () => 'staffing', ...deps });
 
     await router({ userText: 'who should I assign?', taskId: 't-1' }, ctx);
 
-    expect(staffing).toHaveBeenCalledOnce();
-    expect(plannerQna).not.toHaveBeenCalled();
+    expect(deps.staffing).toHaveBeenCalledOnce();
+    expect(deps.plannerQna).not.toHaveBeenCalled();
+    expect(deps.weeklyPlanner).not.toHaveBeenCalled();
+  });
+
+  it('dispatches a planning request to weekly_planner', async () => {
+    const deps = makeDeps();
+    const router = makeChatRouter({ classify: async () => 'weekly_planner', ...deps });
+
+    const run = await router({ userText: 'plan my week', taskId: null }, ctx);
+    const final = await run.finalize();
+
+    expect(deps.weeklyPlanner).toHaveBeenCalledOnce();
+    expect(deps.staffing).not.toHaveBeenCalled();
+    expect(deps.plannerQna).not.toHaveBeenCalled();
+    expect((final.result as { tag: string }).tag).toBe('weekly');
   });
 
   it('forwards runInput and ctx unchanged to the selected runtime', async () => {
-    const staffing = vi.fn(async () => fakeRun('staffing'));
-    const plannerQna = vi.fn(async () => fakeRun('qna'));
-    const router = makeChatRouter({ classify: async () => 'staffing', staffing, plannerQna });
+    const deps = makeDeps();
+    const router = makeChatRouter({ classify: async () => 'staffing', ...deps });
 
     const runInput = { userText: 'reassign this', taskId: 't-9' };
     await router(runInput, ctx);
 
-    expect(staffing).toHaveBeenCalledWith(runInput, ctx);
+    expect(deps.staffing).toHaveBeenCalledWith(runInput, ctx);
   });
 });

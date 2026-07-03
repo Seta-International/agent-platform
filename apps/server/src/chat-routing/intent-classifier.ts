@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 
-export type ChatIntent = 'staffing' | 'planner_qna';
+export type ChatIntent = 'staffing' | 'planner_qna' | 'weekly_planner';
 
 /** Tier 1 is hard-coded: only the `planner` domain exists today. When a second
  *  domain (people/hiring) lands, add a tier-1 domain classifier above this and
@@ -13,6 +13,12 @@ export interface IntentClassifierDeps {
   /** Override/seam for the ambiguous-case LLM fallback (used in tests). */
   classifyLlm?: (userText: string) => Promise<ChatIntent>;
 }
+
+// Weekly-planning intent → weekly_planner. Checked BEFORE ACTION_RE: planning
+// phrases carry no assignment verb but say "tasks"/"week" and must not fall
+// through to staffing or planner_qna.
+const WEEKLY_RE =
+  /\b(plan\s+(my|this|the|next)\s+week|weekly\s+plan|(organi[sz]e|schedule|prioriti[sz]e)\s+my\s+(week|tasks?))\b|lập kế hoạch tuần|sắp xếp công việc/i;
 
 // Action/recommend intent → staffing. Checked first; assignment verbs win.
 // Also catches find-tasks-by-label/criteria queries (task analyzer find_tasks intent).
@@ -29,13 +35,19 @@ async function llmFallback(deps: IntentClassifierDeps, userText: string): Promis
     id: 'chat.intentClassifier',
     name: 'Chat Intent Classifier',
     instructions:
-      'Classify the user message as exactly one word: "staffing" or "planner_qna".\n' +
+      'Classify the user message as exactly one word: "staffing", "weekly_planner", or "planner_qna".\n' +
       '\n' +
       '"staffing" — use when the user wants to:\n' +
       '  • assign, reassign, recommend, or delegate work to someone\n' +
       '  • find or list tasks by skill, label, area, or status (e.g. open/overdue tasks in a domain)\n' +
       '  • search for tasks matching a criteria (infrastructure, frontend, devops, etc.)\n' +
       '  • find people with a certain skill for a task\n' +
+      '\n' +
+      '"weekly_planner" — use when the user wants their OWN workload organized into a\n' +
+      'day-by-day schedule:\n' +
+      '  • plan, organize, or prioritize their week or their task list\n' +
+      '  • turn a list of tasks into a weekly schedule\n' +
+      '  • rebalance or regenerate an existing weekly plan\n' +
       '\n' +
       '"planner_qna" — use when the user wants to:\n' +
       '  • read details about a specific task (deadline, description, assignee)\n' +
@@ -46,12 +58,15 @@ async function llmFallback(deps: IntentClassifierDeps, userText: string): Promis
     model: deps.resolveModel(),
   });
   const r = await agent.generate(userText);
-  return /staffing/i.test(r.text ?? '') ? 'staffing' : 'planner_qna';
+  const t = r.text ?? '';
+  if (/weekly_planner/i.test(t)) return 'weekly_planner';
+  return /staffing/i.test(t) ? 'staffing' : 'planner_qna';
 }
 
 /** Returns the tier-2 intent for a planner-domain chat turn. */
 export function makeIntentClassifier(deps: IntentClassifierDeps) {
   return async function classify(userText: string): Promise<ChatIntent> {
+    if (WEEKLY_RE.test(userText)) return 'weekly_planner';
     if (ACTION_RE.test(userText)) return 'staffing';
     if (QUESTION_RE.test(userText)) return 'planner_qna';
     // Ambiguous: ask the LLM; default to the read-only flow if it is unavailable.
