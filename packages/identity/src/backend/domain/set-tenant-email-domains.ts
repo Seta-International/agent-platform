@@ -37,11 +37,19 @@ export async function setTenantEmailDomains(
       );
     }
 
-    // When the tenant has an Entra provider whose linkage is known, every domain must be
-    // verified in the Entra tenant. If entra_tenant_id is not yet projected in from integrations,
-    // skip Graph verification (nothing to verify against yet).
+    // When the tenant has an Entra provider, every domain must be verified in the Entra tenant.
+    // Fail CLOSED if the linkage isn't projected in yet: we cannot verify domain ownership without
+    // the Entra tenant id, so we must not persist unverified domains (mirrors the fail-closed guards
+    // in sso-consent.ts / list-entra-importable-users.ts). Only genuinely non-Entra tenants (no
+    // provider row) skip verification.
     const provider = await getProviderRow(args.tenant_id, 'microsoft-entra-id');
-    if (provider?.entra_tenant_id) {
+    if (provider) {
+      if (!provider.entra_tenant_id) {
+        throw new IdentityError(
+          'M365_NOT_CONFIGURED',
+          'Entra tenant linkage not set; configure the Microsoft 365 integration before setting email domains.',
+        );
+      }
       const graphDomains = await graphGetDomains(provider.entra_tenant_id);
       const verified = new Set(
         graphDomains.filter((d) => d.isVerified).map((d) => d.id.toLowerCase()),

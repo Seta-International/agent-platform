@@ -110,6 +110,14 @@ describe('@seta/identity importUsersFromEntra', () => {
 
           mockGraphFull(fetchMock);
 
+          // Integrations projects the tenant↔Entra linkage first (it owns entra_tenant_id);
+          // seed the provider row so registerSsoProvider's fail-closed domain verification passes.
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
+
           // Register + consent + enable provider
           await registerSsoProvider(
             {
@@ -118,13 +126,6 @@ describe('@seta/identity importUsersFromEntra', () => {
               email_domains: ['acme.com'],
             },
             CLI_ACTOR,
-          );
-          // Simulate integrations projecting the tenant↔Entra linkage into the column
-          // (entra_tenant_id is owned by integrations, not the admin register path).
-          await pool.query(
-            `UPDATE identity.tenant_sso_providers SET entra_tenant_id = $2
-             WHERE tenant_id = $1 AND provider_id = 'microsoft-entra-id'`,
-            [tenantId, ENTRA_TID],
           );
           await recordSsoConsent(
             {
@@ -200,6 +201,13 @@ describe('@seta/identity importUsersFromEntra', () => {
 
           mockGraphFull(fetchMock);
 
+          // Seed the integrations-owned Entra linkage before register (fail-closed verification).
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
+
           await registerSsoProvider(
             {
               tenant_id: tenantId,
@@ -207,11 +215,6 @@ describe('@seta/identity importUsersFromEntra', () => {
               email_domains: ['acme.com'],
             },
             CLI_ACTOR,
-          );
-          await pool.query(
-            `UPDATE identity.tenant_sso_providers SET entra_tenant_id = $2
-             WHERE tenant_id = $1 AND provider_id = 'microsoft-entra-id'`,
-            [tenantId, ENTRA_TID],
           );
           await recordSsoConsent(
             {

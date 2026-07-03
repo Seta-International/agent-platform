@@ -7,39 +7,24 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  Input,
-  Label,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import { registerProvider } from '../api/sso-client.ts';
 
-function isUuid(s: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-}
-
 export function ConnectEntraDialog({ onConnected }: { onConnected: () => void }) {
   const [open, setOpen] = useState(false);
-  const [entraTenantId, setEntraTenantId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  function reset() {
-    setEntraTenantId('');
-    setError(null);
-  }
-
   async function submit() {
-    if (!isUuid(entraTenantId)) {
-      setError("That doesn't look like an Entra tenant ID. Paste the UUID from your Azure portal.");
-      return;
-    }
     setSubmitting(true);
     setError(null);
     try {
-      await registerProvider({ entra_tenant_id: entraTenantId });
+      // The Entra tenant linkage is owned by integrations and projected in once the tenant's
+      // Microsoft 365 integration is configured; the admin no longer supplies it here.
+      await registerProvider({});
       onConnected();
       setOpen(false);
-      reset();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -48,13 +33,7 @@ export function ConnectEntraDialog({ onConnected }: { onConnected: () => void })
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>Connect Microsoft Entra ID</Button>
       </DialogTrigger>
@@ -63,15 +42,10 @@ export function ConnectEntraDialog({ onConnected }: { onConnected: () => void })
           <DialogTitle>Connect Microsoft Entra ID</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="connect-entra-tenant-id">Entra tenant ID (UUID)</Label>
-            <Input
-              id="connect-entra-tenant-id"
-              value={entraTenantId}
-              onChange={(e) => setEntraTenantId(e.target.value)}
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            />
-          </div>
+          <p className="m-0 text-body-sm text-ink-subtle">
+            The Microsoft tenant link is set up from the Microsoft 365 integration. Connect here to
+            start managing sign-in for your team, then add your email domains.
+          </p>
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>

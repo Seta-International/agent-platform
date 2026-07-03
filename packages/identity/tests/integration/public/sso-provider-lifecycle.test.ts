@@ -293,6 +293,13 @@ describe('@seta/identity SSO provider lifecycle', () => {
             `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'NoConsent', 'no-consent')`,
             [tenantId],
           );
+          // Seed the Entra linkage (owned by integrations) so registering domains passes
+          // the fail-closed verification guard and we reach the consent check.
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
 
           mockGraphHappy(fetchMock);
           await registerSsoProvider(

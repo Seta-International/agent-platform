@@ -184,7 +184,13 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
         <>
           <dl className="m-0 divide-y divide-hairline-tertiary px-5 py-1">
             <MetaRow label="Tenant ID">
-              <code className="font-mono text-body-sm text-ink">{row.config.entra_tenant_id}</code>
+              {row.entra_tenant_id ? (
+                <code className="font-mono text-body-sm text-ink">{row.entra_tenant_id}</code>
+              ) : (
+                <span className="text-ink-subtle">
+                  Not yet linked — configured via the Microsoft 365 integration.
+                </span>
+              )}
             </MetaRow>
             <MetaRow label="Email domains">
               <div className="flex flex-wrap items-center gap-1.5">
@@ -201,7 +207,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
                   ))
                 )}
                 <EditDomainsDialog
-                  entraTenantId={row.config.entra_tenant_id}
+                  entraTenantId={row.entra_tenant_id}
                   initialDomains={row.email_domains}
                   onSaved={onChanged}
                 />

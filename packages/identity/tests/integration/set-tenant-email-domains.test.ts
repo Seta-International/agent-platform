@@ -194,4 +194,46 @@ describe('setTenantEmailDomains', () => {
       },
     );
   });
+
+  it('fails closed (M365_NOT_CONFIGURED) when a provider exists but the Entra linkage is null', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const tenantId = crypto.randomUUID();
+          await pool.query(
+            `INSERT INTO core.tenants (id, name, slug) VALUES ($1::uuid, 'Acme', 'acme4-' || $1::text)`,
+            [tenantId],
+          );
+
+          // Provider row exists but entra_tenant_id has NOT been projected in from integrations yet.
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config)
+             VALUES ($1, 'microsoft-entra-id', false, '{}'::jsonb)`,
+            [tenantId],
+          );
+
+          // Must NOT silently persist unverified domains — no Graph call should even be made.
+          await expect(
+            setTenantEmailDomains({ tenant_id: tenantId, email_domains: ['acme.com'] }, CLI_ACTOR),
+          ).rejects.toSatisfy(
+            (e: unknown) => e instanceof IdentityError && e.code === 'M365_NOT_CONFIGURED',
+          );
+          expect(fetchMock).not.toHaveBeenCalled();
+
+          // And nothing was persisted.
+          const persisted = await getTenantEmailDomains(tenantId);
+          expect(persisted).toEqual([]);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
 });
