@@ -28,6 +28,8 @@ import {
   useUserGroups,
 } from '../../groups/hooks/useGroups.ts';
 import type { DirectoryRow } from '../api/directory-client.ts';
+import { Field, SectionTitle } from './sheet-primitives.tsx';
+import { WorkSection } from './WorkSection.tsx';
 
 const ACCOUNT_STATUS_BADGE: Record<
   DirectoryRow['account_status'],
@@ -60,24 +62,6 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">{label}</span>
-      <div className="text-body-sm text-ink">{children}</div>
-    </div>
-  );
-}
-
-function SectionTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 border-b border-hairline pb-2">
-      <span className="text-ink-subtle">{icon}</span>
-      <h3 className="text-body-sm font-semibold text-ink">{children}</h3>
-    </div>
-  );
-}
-
 function GroupsSection({ userId }: { userId: string }) {
   const { data: userGroups = [] } = useUserGroups(userId);
   const { data: allGroups = [] } = useGroupsQuery();
@@ -103,6 +87,7 @@ function GroupsSection({ userId }: { userId: string }) {
         placeholder="Add to group…"
         searchPlaceholder="Search groups…"
         aria-label="Groups"
+        modal
       />
     </Field>
   );
@@ -270,10 +255,6 @@ export function UserDetailSheet({ row, open, onOpenChange }: Props) {
 
         {row && (
           <div className="flex flex-col gap-5">
-            <Field label="Job title">
-              {row.job_title ?? <span className="text-ink-tertiary">—</span>}
-            </Field>
-
             <div className="grid grid-cols-2 gap-4">
               <Field label="Employment">
                 <Badge variant={EMPLOYMENT_BADGE[row.employment_status]}>
@@ -286,6 +267,8 @@ export function UserDetailSheet({ row, open, onOpenChange }: Props) {
                 </Badge>
               </Field>
             </div>
+
+            <WorkSection workerId={row.person_id} employmentStatus={row.employment_status} />
 
             {row.user_id && (
               <div className="mt-1 flex flex-col gap-4">

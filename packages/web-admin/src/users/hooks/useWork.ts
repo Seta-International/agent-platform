@@ -9,6 +9,15 @@ import {
   listWorkersBrief,
   patchWorker,
 } from '../api/work-client.ts';
+import { directoryKeys } from '../state/query-keys.ts';
+
+/** Local calendar date (YYYY-MM-DD). Tentative allocations require a start date. */
+function localToday(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
 
 export const workKeys = {
   all: ['admin', 'work'] as const,
@@ -49,9 +58,17 @@ export function useOrgUnits() {
 export function useWorkMutations(workerId: string) {
   const qc = useQueryClient();
   // The directory list re-reads people projections; the drawer re-reads pm live.
-  // Invalidate the whole work subtree so the sheet and the table converge after any write.
+  // Invalidate the whole work subtree plus the directory list (it carries job_title)
+  // so the sheet and the table converge after any write. The table's sources
+  // (identity.directory_person, people.worker_allocation_projection) are event-driven
+  // projections, so kick once more after the subscribers' LISTEN/NOTIFY + 2s poll window.
   const invalidate = () => {
-    void qc.invalidateQueries({ queryKey: workKeys.all });
+    const kick = () => {
+      void qc.invalidateQueries({ queryKey: workKeys.all });
+      void qc.invalidateQueries({ queryKey: directoryKeys.all });
+    };
+    kick();
+    setTimeout(kick, 2500);
   };
 
   const editWorker = useMutation({
@@ -74,7 +91,13 @@ export function useWorkMutations(workerId: string) {
       planned_pct?: number | null;
       date_from?: string | null;
       date_to?: string | null;
-    }) => createWorkerAllocation({ ...body, worker_id: workerId, status: 'tentative' }),
+    }) =>
+      createWorkerAllocation({
+        ...body,
+        worker_id: workerId,
+        status: 'tentative',
+        date_from: body.date_from ?? localToday(),
+      }),
     onSuccess: () => toast.success('Project added'),
     onError: (e) => toast.error((e as Error).message),
     onSettled: invalidate,
