@@ -108,30 +108,6 @@ export const INVENTORY: StatementSpec[] = [
     ],
   },
   {
-    module: 'staffing',
-    statement: {
-      staffing: ['read'],
-      'staffing.workflow': ['read', 'run', 'cancel'],
-    },
-    roles: [
-      {
-        slug: 'staffing.member',
-        description: 'Run and cancel staffing workflows (member tier)',
-        permissions: [
-          'staffing.read',
-          'staffing.workflow.read',
-          'staffing.workflow.run',
-          'staffing.workflow.cancel',
-        ],
-      },
-      {
-        slug: 'staffing.viewer',
-        description: 'Read staffing workflows',
-        permissions: ['staffing.read', 'staffing.workflow.read'],
-      },
-    ],
-  },
-  {
     module: 'agent',
     statement: {
       'agent.chat': ['use'],
@@ -222,6 +198,7 @@ export const INVENTORY: StatementSpec[] = [
       'planner.label': ['read', 'update'],
       'planner.checklist': ['update'],
       'planner.trash': ['read', 'restore', 'empty'],
+      'planner.assignment': ['read', 'run', 'cancel'],
     },
     roles: [
       {
@@ -269,6 +246,9 @@ export const INVENTORY: StatementSpec[] = [
           'planner.trash.read',
           'planner.trash.restore',
           'planner.trash.empty',
+          'planner.assignment.read',
+          'planner.assignment.run',
+          'planner.assignment.cancel',
         ],
       },
       {
@@ -294,6 +274,9 @@ export const INVENTORY: StatementSpec[] = [
           'planner.reporting.read',
           'planner.group.refresh',
           'planner.plan.refresh',
+          'planner.assignment.read',
+          'planner.assignment.run',
+          'planner.assignment.cancel',
         ],
       },
       {
@@ -310,6 +293,7 @@ export const INVENTORY: StatementSpec[] = [
           'planner.reporting.read',
           'planner.group.refresh',
           'planner.plan.refresh',
+          'planner.assignment.read',
         ],
       },
       {

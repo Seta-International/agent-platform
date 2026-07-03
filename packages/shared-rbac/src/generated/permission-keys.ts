@@ -79,6 +79,9 @@ export type PermissionKey =
   | 'people.worker.manage'
   | 'people.worker.read'
   | 'people.worker.update'
+  | 'planner.assignment.cancel'
+  | 'planner.assignment.read'
+  | 'planner.assignment.run'
   | 'planner.bucket.create'
   | 'planner.bucket.delete'
   | 'planner.bucket.read'
@@ -127,11 +130,7 @@ export type PermissionKey =
   | 'pm.charter.read'
   | 'pm.charter.submit'
   | 'pm.project.manage'
-  | 'pm.project.read'
-  | 'staffing.read'
-  | 'staffing.workflow.cancel'
-  | 'staffing.workflow.read'
-  | 'staffing.workflow.run';
+  | 'pm.project.read';
 
 export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'agent.chat.use',
@@ -213,6 +212,9 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'people.worker.manage',
   'people.worker.read',
   'people.worker.update',
+  'planner.assignment.cancel',
+  'planner.assignment.read',
+  'planner.assignment.run',
   'planner.bucket.create',
   'planner.bucket.delete',
   'planner.bucket.read',
@@ -262,8 +264,4 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
   'pm.charter.submit',
   'pm.project.manage',
   'pm.project.read',
-  'staffing.read',
-  'staffing.workflow.cancel',
-  'staffing.workflow.read',
-  'staffing.workflow.run',
 ];
