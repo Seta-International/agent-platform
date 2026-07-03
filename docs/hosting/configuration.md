@@ -83,7 +83,7 @@ Connection string read by the server and CLI. Local dev connects to the Docker P
 
 Optional. URL. Default (local dev): `postgres://seta_app:seta_app@localhost:5542/seta`. Unset falls back to `DATABASE_URL`.
 
-RLS-bound connection used by the server's web-facing pool only (migrations and the worker pool keep the admin `DATABASE_URL`). Dev Postgres bootstraps the `seta_app` role (`NOSUPERUSER NOBYPASSRLS`) via `infra/docker/initdb/01-app-role.sql`. Leaving this unset is self-host "simple mode": the web pool falls back to the admin connection and the RLS backstop is inert.
+RLS-bound connection used by the server's web-facing pool only (migrations and the worker pool keep the admin `DATABASE_URL`). Dev Postgres bootstraps the `seta_app` role (`NOSUPERUSER NOBYPASSRLS`) via `infra/postgres/initdb/01-app-role.sql`. Leaving this unset is self-host "simple mode": the web pool falls back to the admin connection and the RLS backstop is inert.
 
 ## Server runtime
 
