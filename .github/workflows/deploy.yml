@@ -224,3 +224,70 @@ jobs:
     with:
       environment: uat
     secrets: inherit
+
+  load:
+    name: Load test (uat only)
+    needs: e2e
+    if: ${{ inputs.environment == 'uat' }}
+    runs-on: [self-hosted, uat]
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Run k6 load suite against live UAT
+        id: k6
+        shell: bash
+        continue-on-error: ${{ vars.LOAD_GATE_ENFORCE != 'true' }}
+        env:
+          PUBLIC_DOMAIN: ${{ vars.PUBLIC_DOMAIN }}
+          REMOTE_WRITE_URL: ${{ secrets.REMOTE_WRITE_URL || vars.REMOTE_WRITE_URL }}
+          REMOTE_WRITE_USERNAME: ${{ secrets.REMOTE_WRITE_USERNAME || vars.REMOTE_WRITE_USERNAME }}
+          REMOTE_WRITE_PASSWORD: ${{ secrets.REMOTE_WRITE_PASSWORD }}
+          LOADTEST_ADMIN_PASSWORD: ${{ secrets.LOADTEST_ADMIN_PASSWORD }}
+          LOADTEST_MEMBER_PASSWORD: ${{ secrets.LOADTEST_MEMBER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          sha12="$(git rev-parse --short=12 HEAD)"
+          mkdir -p load-out && chmod 777 load-out
+          docker run --rm \
+            -v "$PWD/tests/load:/load" -v "$PWD/load-out:/out" \
+            -e BASE_URL="https://${PUBLIC_DOMAIN}" \
+            -e RUN_ID="git-${sha12}" \
+            -e MEMBER_COUNT=100 \
+            -e LOADTEST_ADMIN_EMAIL="admin@loadtest.test" \
+            -e LOADTEST_ADMIN_PASSWORD -e LOADTEST_MEMBER_PASSWORD \
+            -e K6_PROMETHEUS_RW_SERVER_URL="${REMOTE_WRITE_URL}" \
+            -e K6_PROMETHEUS_RW_USERNAME="${REMOTE_WRITE_USERNAME}" \
+            -e K6_PROMETHEUS_RW_PASSWORD="${REMOTE_WRITE_PASSWORD}" \
+            grafana/k6:2.1.0 run \
+            --out experimental-prometheus-rw \
+            --tag "testid=git-${sha12}" --tag env=uat \
+            /load/main.ts
+
+      - name: Publish k6 summary to the job log
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f load-out/summary.json ]; then
+            {
+              echo "### k6 load summary (git-$(git rev-parse --short=12 HEAD))"
+              echo '```json'
+              python3 -c "import json;d=json.load(open('load-out/summary.json'));print(json.dumps(d.get('metrics',{}).get('http_req_duration',{}),indent=2))"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload k6 summary artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: k6-load-summary-${{ github.run_id }}
+          path: load-out/summary.json
+          if-no-files-found: warn
+
+      - name: Fail the job if the gate is enforced and k6 breached
+        if: ${{ vars.LOAD_GATE_ENFORCE == 'true' && steps.k6.outcome == 'failure' }}
+        run: |
+          echo "❌ LOAD_GATE_ENFORCE=true and k6 thresholds breached"
+          exit 1
