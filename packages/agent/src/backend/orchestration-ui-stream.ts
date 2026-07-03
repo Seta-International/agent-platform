@@ -65,6 +65,13 @@ class ThinkStreamSplitter {
 
   constructor(private readonly writer: UiStreamWriter) {}
 
+  /** True while inside an open `<think>` block (reasoning part started, not yet
+   *  closed). Used by the pump to avoid force-closing reasoning at a text-part
+   *  boundary — see `text-end` handling. */
+  get inThink(): boolean {
+    return this.mode === 'think';
+  }
+
   push(delta: string, textId?: string): string {
     if (textId) this.textId = textId;
     this.buf += delta;
@@ -124,16 +131,23 @@ class ThinkStreamSplitter {
 
   flush(textId?: string): string {
     if (textId) this.textId = textId;
+    if (this.mode === 'think') {
+      // Unclosed <think> block at end of stream — treat remaining as reasoning
+      // and close the part. Emit reasoning-end even when the buffer is empty, so
+      // the client's reasoning part reaches a done state instead of hanging open.
+      // Reset to text mode to keep flush idempotent.
+      if (this.buf) {
+        this.writer.write({ type: 'reasoning-delta', id: this.reasoningId, delta: this.buf });
+        this.thinking.push(this.buf);
+        this.buf = '';
+      }
+      this.writer.write({ type: 'reasoning-end', id: this.reasoningId });
+      this.mode = 'text';
+      return '';
+    }
     if (!this.buf) return '';
     const remaining = this.buf;
     this.buf = '';
-    if (this.mode === 'think') {
-      // Unclosed <think> block — treat as reasoning.
-      this.writer.write({ type: 'reasoning-delta', id: this.reasoningId, delta: remaining });
-      this.writer.write({ type: 'reasoning-end', id: this.reasoningId });
-      this.thinking.push(remaining);
-      return '';
-    }
     this.writer.write({ type: 'text-delta', id: this.textId, delta: remaining });
     return remaining;
   }
@@ -184,8 +198,15 @@ export async function pumpOrchestrationStream(
       timing.lastTokenAtMs = now;
       answer += splitter.push(part.delta ?? part.text ?? '', part.id);
     } else if (part.type === 'text-end') {
-      // Flush buffered content before forwarding text-end so text-delta ordering is preserved.
-      answer += splitter.flush(part.id);
+      // A text-end is a text-segment boundary, not the end of a reasoning block.
+      // When we're mid-`<think>`, an r1-style model's `</think>` can straddle
+      // this boundary (the buffer holds a partial `</` tag prefix). Flushing here
+      // would emit a premature reasoning-end, and the next segment would then
+      // re-emit reasoning-delta on a closed id — which ai@6 rejects with
+      // "Received reasoning-delta for missing reasoning part". So only flush
+      // text-mode content; keep an open think block (and its buffer) alive across
+      // the boundary. The end-of-stream flush below closes any unclosed think.
+      if (!splitter.inThink) answer += splitter.flush(part.id);
       writer.write(part);
     } else {
       writer.write(part);
