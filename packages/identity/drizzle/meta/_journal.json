@@ -8,6 +8,13 @@
       "when": 1783011879469,
       "tag": "0000_groovy_sasquatch",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783055905123,
+      "tag": "0002_entra_tenant_id",
+      "breakpoints": true
     }
   ]
 }

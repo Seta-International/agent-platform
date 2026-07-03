@@ -115,10 +115,16 @@ describe('@seta/identity importUsersFromEntra', () => {
             {
               tenant_id: tenantId,
               provider_id: 'microsoft-entra-id',
-              entra_tenant_id: ENTRA_TID,
               email_domains: ['acme.com'],
             },
             CLI_ACTOR,
+          );
+          // Simulate integrations projecting the tenant↔Entra linkage into the column
+          // (entra_tenant_id is owned by integrations, not the admin register path).
+          await pool.query(
+            `UPDATE identity.tenant_sso_providers SET entra_tenant_id = $2
+             WHERE tenant_id = $1 AND provider_id = 'microsoft-entra-id'`,
+            [tenantId, ENTRA_TID],
           );
           await recordSsoConsent(
             {
@@ -198,10 +204,14 @@ describe('@seta/identity importUsersFromEntra', () => {
             {
               tenant_id: tenantId,
               provider_id: 'microsoft-entra-id',
-              entra_tenant_id: ENTRA_TID,
               email_domains: ['acme.com'],
             },
             CLI_ACTOR,
+          );
+          await pool.query(
+            `UPDATE identity.tenant_sso_providers SET entra_tenant_id = $2
+             WHERE tenant_id = $1 AND provider_id = 'microsoft-entra-id'`,
+            [tenantId, ENTRA_TID],
           );
           await recordSsoConsent(
             {

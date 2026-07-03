@@ -97,6 +97,9 @@ export const tenantSsoProviders = identity.table(
     tenant_id: uuid('tenant_id').notNull(),
     provider_id: text('provider_id').notNull(),
     enabled: boolean('enabled').default(false).notNull(),
+    // Owned solely by integrations (projected in via the entra-linkage subscriber). Nullable:
+    // a freshly admin-registered provider precedes integrations' M365 config being set.
+    entra_tenant_id: uuid('entra_tenant_id'),
     config: jsonb('config').notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

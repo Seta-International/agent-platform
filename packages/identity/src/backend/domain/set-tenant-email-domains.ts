@@ -37,10 +37,12 @@ export async function setTenantEmailDomains(
       );
     }
 
-    // When the tenant has an Entra provider, every domain must be verified in the Entra tenant.
+    // When the tenant has an Entra provider whose linkage is known, every domain must be
+    // verified in the Entra tenant. If entra_tenant_id is not yet projected in from integrations,
+    // skip Graph verification (nothing to verify against yet).
     const provider = await getProviderRow(args.tenant_id, 'microsoft-entra-id');
-    if (provider) {
-      const graphDomains = await graphGetDomains(provider.config.entra_tenant_id);
+    if (provider?.entra_tenant_id) {
+      const graphDomains = await graphGetDomains(provider.entra_tenant_id);
       const verified = new Set(
         graphDomains.filter((d) => d.isVerified).map((d) => d.id.toLowerCase()),
       );

@@ -10,6 +10,7 @@ import { IdentityError } from './backend/rbac.ts';
 import { autoProvisionSubscribers } from './backend/subscribers/auto-provision.ts';
 import { autoSuspendSubscribers } from './backend/subscribers/auto-suspend.ts';
 import { directoryProjectionSubscribers } from './backend/subscribers/directory-projection.ts';
+import { entraLinkageSubscribers } from './backend/subscribers/entra-linkage.ts';
 import { orgUnitProjectionSubscribers } from './backend/subscribers/org-unit-projection.ts';
 import { identityRbac } from './rbac.ts';
 
@@ -63,6 +64,7 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
       ...autoProvisionSubscribers,
       ...autoSuspendSubscribers,
       ...directoryProjectionSubscribers,
+      ...entraLinkageSubscribers,
       ...orgUnitProjectionSubscribers,
     ],
     routes: { mountAt: '/', build: buildIdentityRoutes },

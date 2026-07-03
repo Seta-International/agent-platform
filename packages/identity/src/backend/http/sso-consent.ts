@@ -54,6 +54,12 @@ export function registerSsoConsentRoutes(app: Hono<SessionEnv>): void {
     requireSsoAdmin(c);
     const scope = c.get('user');
     const row = await requireProviderRow(scope.tenant_id, 'microsoft-entra-id');
+    if (!row.entra_tenant_id) {
+      throw new IdentityError(
+        'M365_NOT_CONFIGURED',
+        'Entra tenant linkage not set; configure Microsoft 365 integration first.',
+      );
+    }
 
     const state = makeState(scope.tenant_id);
     setCookie(c, STATE_COOKIE, state, {
@@ -67,7 +73,7 @@ export function registerSsoConsentRoutes(app: Hono<SessionEnv>): void {
     const publicUrl = process.env.PUBLIC_URL ?? 'http://localhost:5173';
     const redirectUri = `${publicUrl}/api/identity/v1/sso/consent/microsoft/callback`;
     const admin_consent_url = buildAdminConsentUrl({
-      entraTenantId: row.config.entra_tenant_id,
+      entraTenantId: row.entra_tenant_id,
       state,
       redirectUri,
     });

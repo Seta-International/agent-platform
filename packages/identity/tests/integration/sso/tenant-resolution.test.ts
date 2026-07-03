@@ -25,14 +25,14 @@ describe('resolveSetaTenantFromEmail', () => {
     );
     await pool.query(
       `
-      INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config)
-      VALUES ($1, 'microsoft-entra-id', $2, $3::jsonb)
+      INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+      VALUES ($1, 'microsoft-entra-id', $2, $3, $4::jsonb)
     `,
       [
         tenantId,
         opts.enabled,
+        entraTid,
         JSON.stringify({
-          entra_tenant_id: entraTid,
           consent_granted_at: null,
           consent_granted_by_oid: null,
           consent_granted_by_email: null,
@@ -57,7 +57,7 @@ describe('resolveSetaTenantFromEmail', () => {
           const out = await resolveSetaTenantFromEmail('Bob@Acme.COM');
           expect(out?.tenant_id).toBe(tenantId);
           expect(out?.provider_id).toBe('microsoft-entra-id');
-          expect(out?.config.entra_tenant_id).toBe(entraTid);
+          expect(out?.entra_tenant_id).toBe(entraTid);
         } finally {
           resetCoreDb();
           await closePools();
@@ -166,32 +166,17 @@ describe('resolveSetaTenantFromEmail', () => {
 
 describe('validateEntraTid', () => {
   it('returns true on exact match', () => {
-    const out = validateEntraTid(
-      {
-        config: {
-          entra_tenant_id: 'abc',
-          consent_granted_at: null,
-          consent_granted_by_oid: null,
-          consent_granted_by_email: null,
-        },
-      },
-      'abc',
-    );
+    const out = validateEntraTid({ entra_tenant_id: 'abc' }, 'abc');
     expect(out).toBe(true);
   });
 
   it('returns false on mismatch', () => {
-    const out = validateEntraTid(
-      {
-        config: {
-          entra_tenant_id: 'abc',
-          consent_granted_at: null,
-          consent_granted_by_oid: null,
-          consent_granted_by_email: null,
-        },
-      },
-      'xyz',
-    );
+    const out = validateEntraTid({ entra_tenant_id: 'abc' }, 'xyz');
+    expect(out).toBe(false);
+  });
+
+  it('returns false when linkage is not yet projected in (null)', () => {
+    const out = validateEntraTid({ entra_tenant_id: null }, 'abc');
     expect(out).toBe(false);
   });
 });

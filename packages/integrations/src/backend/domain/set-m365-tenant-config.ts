@@ -65,5 +65,18 @@ export async function setM365TenantConfig(args: SetM365TenantConfigArgs): Promis
         client_id: parsed.data.client_id,
       },
     });
+    // Projection event: integrations is the sole owner of the tenant↔Entra linkage;
+    // identity's entra-linkage subscriber mirrors entra_tenant_id into tenant_sso_providers.
+    await emit({
+      tenantId: args.tenantId,
+      aggregateType: 'integrations.m365_tenant_config',
+      aggregateId: args.tenantId,
+      eventType: 'integrations.m365_tenant_config.updated',
+      eventVersion: 1,
+      payload: {
+        entraTenantId: parsed.data.entra_tenant_id,
+        enabled: true,
+      },
+    });
   });
 }

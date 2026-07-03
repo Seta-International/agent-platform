@@ -19,7 +19,6 @@ function requireSsoAdmin(c: Context<SessionEnv>): void {
 }
 
 const registerSchema = z.object({
-  entra_tenant_id: z.string().uuid(),
   email_domains: z.array(z.string()).default([]),
 });
 
@@ -40,7 +39,6 @@ export function registerSsoProvidersRoutes(app: Hono<SessionEnv>): void {
       {
         tenant_id: scope.tenant_id,
         provider_id: 'microsoft-entra-id',
-        entra_tenant_id: parsed.data.entra_tenant_id,
         email_domains: parsed.data.email_domains,
       },
       {

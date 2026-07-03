@@ -98,7 +98,6 @@ function ssoAggregateId(tenantId: string, providerId: string): string {
 export async function emitIdentitySsoProviderRegistered(args: {
   actor: IdentityEventActor;
   tenant_id: string;
-  entra_tenant_id: string;
   email_domains: string[];
 }): Promise<void> {
   await emit({
@@ -112,7 +111,6 @@ export async function emitIdentitySsoProviderRegistered(args: {
       after: {
         tenant_id: args.tenant_id,
         provider_id: 'microsoft-entra-id',
-        entra_tenant_id: args.entra_tenant_id,
         email_domains: args.email_domains,
       },
     },

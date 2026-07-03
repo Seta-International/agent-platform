@@ -108,7 +108,6 @@ export interface IdentitySsoProviderRegistered {
     after: {
       tenant_id: string;
       provider_id: 'microsoft-entra-id';
-      entra_tenant_id: string;
       email_domains: string[];
     };
   };
