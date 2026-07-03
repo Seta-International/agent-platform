@@ -1,3 +1,4 @@
+import { resolveModel as resolveAgentModel } from '@seta/agent';
 import { type AgentHandle, registerAgent, registerAgentContributions } from '@seta/agent/register';
 import type { SessionLike } from '@seta/agent-sdk';
 import {
@@ -253,6 +254,7 @@ export function buildServerApp(
       workers: deps.workers,
       streams: streamsView,
       log: deps.log,
+      resolveModel: (opts) => resolveAgentModel(undefined, opts).model,
     });
     app.route(route.mountAt, subApp as unknown as Hono<SessionEnv>);
   }
