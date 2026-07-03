@@ -36,8 +36,12 @@ import {
   fetchWorkerHistory,
   GENDER_OPTIONS,
   genderLabel,
+  getWorkerCvDownloadUrl,
+  putToS3,
   removeWorkerSkill,
+  requestWorkerCvUpload,
   searchSkills,
+  type WorkerDetail,
   type WorkerPatch,
 } from '../api/people-client.ts';
 import { peopleKeys } from '../state/query-keys.ts';
@@ -367,6 +371,7 @@ export function WorkerProfilePage() {
                   <FieldRow label="Manager" value={worker.manager_name} />
                   <FieldRow label="Org unit" value={worker.org_unit_name} />
                   <FieldRow label="Work email" value={worker.work_email} />
+                  <FieldRow label="Personal email" value={worker.personal_email} />
                   <FieldRow label="Phone" value={worker.phone} />
                   <FieldRow label="Date of birth" value={worker.dob} />
                   <FieldRow label="Gender" value={genderLabel(worker.gender)} />
@@ -374,6 +379,10 @@ export function WorkerProfilePage() {
                   <FieldRow
                     label="Lifecycle stage"
                     value={<LifecycleBadge stage={worker.lifecycle_stage} />}
+                  />
+                  <FieldRow
+                    label="CV"
+                    value={<WorkerCvActions worker={worker} canEdit={canEdit} />}
                   />
                 </div>
               )}
@@ -507,5 +516,69 @@ export function WorkerProfilePage() {
         </div>
       </div>
     </PageChrome>
+  );
+}
+
+function WorkerCvActions({ worker, canEdit }: { worker: WorkerDetail; canEdit: boolean }) {
+  const queryClient = useQueryClient();
+
+  const download = useMutation({
+    mutationFn: () => getWorkerCvDownloadUrl(worker.worker_id),
+    onSuccess: (url) => window.open(url, '_blank', 'noopener'),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const replace = useMutation({
+    mutationFn: async (file: File) => {
+      const { upload_url, s3_key } = await requestWorkerCvUpload(
+        worker.worker_id,
+        file.name,
+        file.type || 'application/octet-stream',
+      );
+      await putToS3(upload_url, file);
+      await editWorker(worker.worker_id, {
+        expected_version: worker.version,
+        patch: { cv_storage_key: s3_key },
+      });
+    },
+    onSuccess: () => {
+      toast.success('CV updated');
+      void queryClient.invalidateQueries({ queryKey: peopleKeys.worker(worker.worker_id) });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <span className="flex items-center gap-2">
+      {worker.cv_storage_key ? (
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0"
+          disabled={download.isPending}
+          onClick={() => download.mutate()}
+        >
+          Download
+        </Button>
+      ) : (
+        <span className="text-ink-muted">—</span>
+      )}
+      {canEdit && (
+        <label className="cursor-pointer text-body-sm text-primary hover:underline">
+          {replace.isPending ? 'Uploading…' : worker.cv_storage_key ? 'Replace' : 'Upload'}
+          <input
+            type="file"
+            accept=".pdf,.docx"
+            className="hidden"
+            disabled={replace.isPending}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) replace.mutate(f);
+              e.target.value = '';
+            }}
+          />
+        </label>
+      )}
+    </span>
   );
 }
