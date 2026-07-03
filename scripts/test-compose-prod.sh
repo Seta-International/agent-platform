@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for the production compose.yml.
+# Smoke test for the production compose.yaml + compose.prod.yaml overlay.
 # Brings the stack up against locally-built images, waits for healthchecks,
 # asserts the public endpoints respond, tears down.
 #
@@ -21,7 +21,7 @@ PLATFORM_SMOKE_DOMAIN="${PLATFORM_SMOKE_DOMAIN:-localhost}"
 
 cleanup() {
   echo "--- smoke: tearing down ---"
-  docker compose -f compose.yml --env-file .env.smoke down -v --remove-orphans || true
+  docker compose -f compose.yaml -f compose.prod.yaml --env-file .env.smoke down -v --remove-orphans || true
   rm -f .env.smoke
 }
 trap cleanup EXIT
@@ -41,19 +41,19 @@ cp .env.example .env.smoke
 } >> .env.smoke
 
 echo "--- smoke: docker compose up -d ---"
-docker compose -f compose.yml --env-file .env.smoke up -d
+docker compose -f compose.yaml -f compose.prod.yaml --env-file .env.smoke up -d
 
 echo "--- smoke: waiting for postgres healthy ---"
-bash scripts/lib/compose-wait.sh compose.yml postgres healthy 60
+bash scripts/lib/compose-wait.sh compose.yaml postgres healthy 60
 
 echo "--- smoke: waiting for migrator to exit 0 ---"
-bash scripts/lib/compose-wait.sh compose.yml migrator exited:0 120
+bash scripts/lib/compose-wait.sh compose.yaml migrator exited:0 120
 
 echo "--- smoke: waiting for server healthy ---"
-bash scripts/lib/compose-wait.sh compose.yml server healthy 60
+bash scripts/lib/compose-wait.sh compose.yaml server healthy 60
 
 echo "--- smoke: waiting for proxy running ---"
-bash scripts/lib/compose-wait.sh compose.yml proxy running 30
+bash scripts/lib/compose-wait.sh compose.yaml proxy running 30
 
 echo "--- smoke: probing https://$PLATFORM_SMOKE_DOMAIN/ ---"
 curl --fail --silent --show-error --insecure --max-time 10 \

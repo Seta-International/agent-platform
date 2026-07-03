@@ -2,6 +2,19 @@
 
 This is the supported self-host install path. End-to-end clock time on a fresh Ubuntu 24.04 VPS with Docker preinstalled: ≤5 minutes from clone to login screen.
 
+## Compose file layout
+
+The stack is one base file plus per-env overlays; only the base auto-loads:
+
+| File | Loaded when | Adds |
+|---|---|---|
+| `compose.yaml` | always | `proxy`, `web`, `server`, `worker`, `migrator`, `seeder`, bundled `postgres` (behind the `bundled-db` profile), `alloy`/`node-exporter`/`postgres-exporter` (behind `obs-agent`). |
+| `compose.override.yaml` | **auto-loaded by bare `docker compose up`** — never on a deployed box | Bundled **MinIO** (+ `minio-setup`), local port-bindings, local `build:` context for `server`/`web`. |
+| `compose.dev.yaml` / `compose.uat.yaml` / `compose.prod.yaml` | only when named explicitly via `COMPOSE_FILE` | Env-specific overlay: alt ports, `e2e-report` (uat), the Cloudflare-tunnel-only proxy port + `cloudwatch-exporter` (prod). |
+| `compose.monitoring.yaml` | only when named explicitly | The central Prometheus + Loki + Grafana stack (runs once, on the VPS that hosts it — not per app-env). |
+
+`docker compose` merges `compose.yaml` with whatever `compose.override.yaml` (implicit) or `-f`/`COMPOSE_FILE` (explicit) name, in order. A bare `docker compose up` on a laptop always picks up the override; a deployed box pins `COMPOSE_FILE` so the override is never in the merge (see [`deploying.md`](deploying.md#compose-mechanics)).
+
 ## Prerequisites
 
 - Linux host with ≥4 GB RAM and ≥20 GB free disk.
@@ -22,9 +35,9 @@ This is the supported self-host install path. End-to-end clock time on a fresh U
    chmod 600 .env
    $EDITOR .env
    ```
-   Required edits (see [`configuration.md`](configuration.md) for the full list): `PLATFORM_DOMAIN`, `PLATFORM_ACME_EMAIL`, `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET`. For first-try local installs, leave `PLATFORM_TLS_MODE=self-signed` and `PLATFORM_DOMAIN=localhost`.
+   Required edits (see [`configuration.md`](configuration.md) for the full list): `PLATFORM_DOMAIN`, `PLATFORM_ACME_EMAIL`, `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET`. For first-try local installs, leave `PLATFORM_TLS_MODE=self-signed` and `PLATFORM_DOMAIN=localhost`. Also add `COMPOSE_PROFILES=bundled-db` — the bundled `postgres` sits behind that profile so it doesn't start by accident on boxes that point `DATABASE_URL` at an external database.
 
-3. Pull and start the stack:
+3. Pull and start the stack. A bare `docker compose up` auto-loads `compose.override.yaml` on top of `compose.yaml`, which brings in bundled **MinIO** — this install path never needs AWS credentials:
    ```bash
    docker compose pull
    docker compose up -d
@@ -54,7 +67,8 @@ This is the supported self-host install path. End-to-end clock time on a fresh U
 | `web` | `${PLATFORM_IMAGE_WEB}` | Static React bundle, served by `proxy`. |
 | `server` | `${PLATFORM_IMAGE_SERVER}` | API + workers, default `PLATFORM_MODULES=*`. |
 | `migrator` | `${PLATFORM_IMAGE_SERVER}` | One-shot `platform-server migrate`. `depends_on: postgres healthy`. |
-| `postgres` | `pgvector/pgvector:pg17-trixie` | Persistent named volume. |
+| `postgres` | `pgvector/pgvector:pg17-trixie` | Persistent named volume. Behind the `bundled-db` profile. |
+| `minio` | `minio/minio` | S3-compatible object store for tenant knowledge files. From `compose.override.yaml` — **local-only**; not part of the base stack and never runs on a deployed box (dev/uat/prod talk to real AWS S3 instead, see [`deploying.md`](deploying.md)). |
 
 ## Verifying the install
 

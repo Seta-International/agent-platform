@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Render the runtime env file for a compose deploy from the process environment.
 # The deploy workflow injects GitHub Environment Variables + Secrets as env vars;
-# this writes the subset compose.yml consumes. Values are never echoed.
+# this writes the subset compose.yaml consumes. Values are never echoed.
 set -euo pipefail
 
 OUT="${1:?usage: render-env.sh <output-path>}"
@@ -30,6 +30,7 @@ for key in \
   MAILER_DEFAULT_TRANSPORT MAILER_DEFAULT_SENDER MAILER_DEFAULT_SENDER_DISPLAY_NAME \
   MAILER_DEFAULT_SMTP_URL MAILER_GRAPH_CLIENT_ID MAILER_GRAPH_CLIENT_SECRET \
   ECR_REGISTRY ECR_REPOSITORY \
+  MONITORING_ENV REMOTE_WRITE_URL LOKI_URL REMOTE_WRITE_USERNAME REMOTE_WRITE_PASSWORD \
 ; do emit "$key"; done
 
 echo "rendered $(grep -c '=' "$OUT") keys to $OUT"

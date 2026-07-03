@@ -83,3 +83,23 @@ jobs:
           name: web-bundle-stats
           path: apps/web/dist/stats.html
           if-no-files-found: warn
+
+  compose-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate every env's compose renders
+        env:
+          S3_BUCKET: lint
+          REMOTE_WRITE_URL: https://lint
+          LOKI_URL: https://lint
+          GF_ADMIN_PASSWORD: lint
+        run: |
+          set -euo pipefail
+          for env in override dev uat prod; do
+            docker compose -f compose.yaml -f compose.$env.yaml config -q
+          done
+          docker compose -f compose.monitoring.yaml config -q
+          echo "all compose files render"

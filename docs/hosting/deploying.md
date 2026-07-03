@@ -26,7 +26,7 @@ Environment-specific config lives entirely in the matching **GitHub Environment*
 | | dev | uat |
 |---|---|---|
 | Runner label | `dev` | `uat` |
-| Data services | bundled Docker (Postgres + MinIO) via the `bundled-infra` compose profile | **AWS RDS** (Postgres+pgvector) + **AWS S3** |
+| Data services | bundled Docker **Postgres** (`bundled-db` profile) + real **AWS S3** (`seta-dev-app-apse1`) | **AWS RDS** (Postgres+pgvector) + real **AWS S3** (`seta-uat-app-apse1`) |
 | App image | pulled from ECR | pulled from ECR |
 | Compose project | `seta-dev` | `seta-uat` |
 | Published ports (host) | `80` / `443` / `5173` (defaults) | `8080` / `8443` / `8173` (`HTTP_BIND`/`HTTPS_BIND`/`SMOKE_BIND`) |
@@ -36,7 +36,8 @@ Two environments can share one host: the proxy's published ports are parameteriz
 
 ## Compose mechanics
 
-- **`bundled-infra` profile** (`compose.yml`): the bundled `postgres` + `minio` (+ a one-shot `minio-setup`) sit behind this profile, **off by default**. dev sets `COMPOSE_PROFILES=bundled-infra`; uat leaves it empty and uses external RDS/S3. `server`/`worker`/`migrator` declare the bundled `postgres` dependency as `required: false`, so the stack starts cleanly when the profile is off.
+- **`COMPOSE_FILE` pins the merge, per environment.** Deploy runners set `COMPOSE_FILE=compose.yaml:compose.<env>.yaml` (a GitHub Environment Variable, e.g. `compose.yaml:compose.dev.yaml`) so the run only ever merges the base with that env's overlay. `compose.override.yaml` — the file that brings in bundled **MinIO** — is a *local-laptop* convenience auto-loaded by a bare `docker compose up`; it is never named in a deployed box's `COMPOSE_FILE`, so MinIO never runs there. All deployed envs (dev/uat/prod) talk to real **AWS S3**: `seta-dev-app-apse1`, `seta-uat-app-apse1`, `seta-prod-app-apse1`.
+- **`bundled-db` profile** (`compose.yaml`): the bundled `postgres` sits behind this profile, **off by default**. dev sets `COMPOSE_PROFILES=bundled-db`; uat leaves it empty and uses external RDS. `server`/`worker`/`migrator` declare the bundled `postgres` dependency as `required: false`, so the stack starts cleanly when the profile is off. There is no bundled MinIO/`minio-setup` on deployed boxes — those services only exist in `compose.override.yaml`.
 - **Egress for an external DB:** `migrator` and `seeder` join `seta-edge` (not just the internal-only network) so they can resolve and reach a public **RDS** endpoint. Without this they fail with `EAI_AGAIN`.
 - **Env file** is a **generated artifact**: `deploy.yml` renders it from the GitHub Environment on every deploy via `scripts/render-env.sh` (`chmod 600`, no secret echoed). **Do not hand-edit it.** Path is the `ENV_FILE` variable (the live deployment uses `/home/ubuntu/seta/<env>.env` because the runner user has no passwordless `sudo` for `/etc`).
 
@@ -56,8 +57,9 @@ Two environments can share one host: the proxy's published ports are parameteriz
 
 | Variable | dev | uat |
 |---|---|---|
+| `COMPOSE_FILE` | `compose.yaml:compose.dev.yaml` | `compose.yaml:compose.uat.yaml` |
 | `COMPOSE_PROJECT` | `seta-dev` | `seta-uat` |
-| `COMPOSE_PROFILES` | `bundled-infra` | *(unset/empty)* |
+| `COMPOSE_PROFILES` | `bundled-db` | *(unset/empty)* |
 | `ENV_FILE` | `/home/ubuntu/seta/dev.env` | `/home/ubuntu/seta/uat.env` |
 | `HTTP_BIND` / `HTTPS_BIND` / `SMOKE_BIND` | *(unset → 80/443/5173)* | `8080` / `8443` / `8173` |
 | `PUBLIC_DOMAIN` | dev domain | uat domain |
@@ -68,9 +70,9 @@ Two environments can share one host: the proxy's published ports are parameteriz
 | `PLATFORM_MODULES` | `*` | `*` |
 | `SESSION_COOKIE_SAMESITE` | `lax` | `lax` |
 | `S3_REGION` | `ap-southeast-1` | real region |
-| `S3_ENDPOINT` | `http://minio:9000` | *(unset = AWS S3)* |
-| `S3_BUCKET` | `seta-knowledge` | real bucket |
-| `S3_FORCE_PATH_STYLE` | `true` | `false` |
+| `S3_ENDPOINT` | *(unset = AWS S3 — MinIO is local-laptop-only)* | *(unset = AWS S3)* |
+| `S3_BUCKET` | `seta-dev-app-apse1` | `seta-uat-app-apse1` |
+| `S3_FORCE_PATH_STYLE` | `false` | `false` |
 | `AGENT_MODELS`, `AGENT_MODEL_DEFAULT`, `OLLAMA_BASE_URL`, `EMBED_MODEL` | per env | per env |
 | `MAILER_DEFAULT_TRANSPORT`, `MAILER_DEFAULT_SENDER`, `MAILER_DEFAULT_SENDER_DISPLAY_NAME`, `MAILER_GRAPH_CLIENT_ID` | per env | per env |
 | `POSTGRES_BIND_ADDR` | as needed (dev) | n/a |
@@ -122,10 +124,10 @@ docker run --rm --network <project>_seta-edge \
 ## Operational notes
 
 - **`gh` account:** repo/Environment writes require a collaborator account with Environment-secrets admin. The CLI can revert to a non-collaborator account — run `gh auth switch --user <ops-account>` before write operations.
-- **Two stacks, one host:** dev (`seta-dev`, ports 80/443/5173) and uat (`seta-uat`, ports 8080/8443/8173) coexist. Each owns its own networks/volumes; the bundled `postgres`/`minio` only exist in dev.
+- **Two stacks, one host:** dev (`seta-dev`, ports 80/443/5173) and uat (`seta-uat`, ports 8080/8443/8173) coexist. Each owns its own networks/volumes; the bundled `postgres` only exists in dev (uat uses RDS). Neither runs MinIO — that service exists only in `compose.override.yaml`, which is local-laptop-only and never named in either env's `COMPOSE_FILE`.
 - **S3 credentials hardening:** if you wired S3 with a broad personal IAM key to get going, swap it for a dedicated bucket-scoped key.
 - **`build-images` action** logs into ECR with no `registries:` input (that field expects a 12-digit account id, not the registry hostname) — it uses the caller's default registry.
 
 ## Reference: locating the concrete values
 
-The concrete values for a running deployment (public URLs, RDS/S3/ECR resource names, IAM role names, runner hosts) are intentionally **not** documented here — they live in the matching **GitHub Environment** (Variables + Secrets, see tables above) and the repo-level Variables `ECR_REGISTRY` / `ECR_REPOSITORY` / `AWS_REGION`. Check there (or the internal ops runbook) rather than this file.
+The concrete values for a running deployment (public URLs, RDS endpoint, IAM role names, runner hosts) are intentionally **not** documented here — they live in the matching **GitHub Environment** (Variables + Secrets, see tables above) and the repo-level Variables `ECR_REGISTRY` / `ECR_REPOSITORY` / `AWS_REGION`. Check there (or the internal ops runbook) rather than this file. (The S3 bucket names are the exception — they follow a fixed `seta-<env>-app-apse1` convention and are public in `.env.example`.)

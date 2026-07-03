@@ -27,8 +27,8 @@ This document records each choice, the alternatives evaluated, and the condition
 | Routing + data | TanStack Router + Query | Type-safe routes, query keys for cache | [§15](#15-tanstack-router--query) |
 | UI primitives | shadcn/ui | Code we own, not a dependency | [§16](#16-shadcnui) |
 | Styling | Tailwind 4 | One styling vocab, design-token native | [§17](#17-tailwind-4) |
-| Compute | AWS ECS Fargate | Containers without cluster ops | [§18](#18-aws-ecs-fargate) |
-| IaC | OpenTofu | Terraform-compatible, open governance | [§19](#19-opentofu) |
+| Compute | AWS ECS Fargate | Containers without cluster ops | [§18](#18-ecs-fargate) |
+| IaC | Terraform | AWS provider + Cloud Posse modules | [§19](#19-terraform) |
 | Observability | OpenTelemetry + pino | Vendor-neutral signals | [§20](#20-opentelemetry--pino) |
 | Testing | Vitest + testcontainers + Playwright | Real Postgres, real browser | [§21](#21-vitest--testcontainers--playwright) |
 
@@ -259,7 +259,7 @@ This document records each choice, the alternatives evaluated, and the condition
 
 ---
 
-## 18. AWS ECS Fargate
+## 18. ECS Fargate
 
 **Role:** Production compute. Each runtime (`server`, `worker`) is its own ECS service.
 
@@ -272,16 +272,16 @@ This document records each choice, the alternatives evaluated, and the condition
 
 ---
 
-## 19. OpenTofu
+## 19. Terraform
 
-**Role:** Infrastructure-as-code for the AWS reference module at `infra/opentofu/aws-ecs/`.
+**Role:** Infrastructure-as-code for the AWS reference module at `infra/terraform/`.
 
 | | |
 |---|---|
-| **Why this** | Open-governance fork of Terraform (post-BSL relicense). Provider ecosystem is identical. Cloud Posse modules (`terraform-aws-ecs-alb-service-task`) work unchanged. |
-| **Alternatives** | **Terraform** (rejected: BSL license risk for downstream commercial use). **AWS CDK** (rejected: TypeScript IaC is appealing but the generated CloudFormation is opaque to debug, drift detection is poor). **Pulumi** (rejected: same code-as-config benefit, much smaller AWS-native ecosystem). |
-| **Trade-offs accepted** | • Some Terraform Cloud features (private module registry mirrors) don't have OpenTofu equivalents • Slightly younger CLI |
-| **Reconsider when** | HashiCorp relicenses back **or** OpenTofu governance falters. |
+| **Why this** | Standard tool for AWS infrastructure. Cloud Posse modules provide proven patterns. Single-box EC2 ASG + RDS + S3 deployed as code. |
+| **Alternatives** | **AWS CDK** (rejected: TypeScript IaC is appealing but the generated CloudFormation is opaque to debug, drift detection is poor). **Pulumi** (rejected: same code-as-config benefit, much smaller AWS-native ecosystem). |
+| **Trade-offs accepted** | Terraform Cloud features are optional; we run from CLI with remote state. |
+| **Reconsider when** | Scaling to multi-region or highly dynamic infrastructure requires Pulumi's programming model. |
 
 ---
 
@@ -339,4 +339,4 @@ This document records each choice, the alternatives evaluated, and the condition
 - [`architecture.md`](./architecture.md) — how these pieces compose into the system shape.
 - [`agent-architecture.md`](../agent/architecture.md) — Mastra + AI SDK v6 + assistant-ui in motion.
 - [`creating-modules.md`](../guides/creating-modules.md) — Hono routes, Drizzle schemas, agent tools in practice.
-- [`hosting/aws.md`](../hosting/aws.md) — ECS Fargate + OpenTofu deployed.
+- [`hosting/aws.md`](../hosting/aws.md) — AWS production deployment (rewritten as part of prod-terraform work).

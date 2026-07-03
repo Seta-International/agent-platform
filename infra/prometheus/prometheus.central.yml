@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 30s
+# Receives remote_write from env Alloy agents (enabled via the CLI flag above).
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

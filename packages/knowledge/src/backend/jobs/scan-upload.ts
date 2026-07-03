@@ -12,7 +12,6 @@ import {
 } from '../../events.ts';
 import { knowledgeDb } from '../db/client.ts';
 import { files } from '../db/schema.ts';
-import { scanStream } from '../scan/clamav-client.ts';
 
 const SNIFF_BYTES = 4096;
 
@@ -33,8 +32,6 @@ export interface ScanUploadPayload {
 
 export interface ScanUploadDeps {
   bucket: string;
-  clamavHost: string;
-  clamavPort: number;
   s3: S3Client;
   enqueueParseJob?: (payload: {
     tenant_id: string;
@@ -49,7 +46,7 @@ export async function runScanUpload(input: ScanUploadPayload, deps: ScanUploadDe
   await db.update(files).set({ scan_status: 'scanning' }).where(eq(files.id, input.file_id));
 
   try {
-    // 1. Content-type sniff on the first 4 KB. Catches `.exe` masquerading as `.pdf`.
+    // Content-type sniff on the first 4 KB. Catches `.exe` masquerading as `.pdf`.
     const head = await s3.send(
       new GetObjectCommand({
         Bucket: deps.bucket,
@@ -61,19 +58,6 @@ export async function runScanUpload(input: ScanUploadPayload, deps: ScanUploadDe
     const sniff = await fileTypeFromBuffer(headBuf);
     if (sniff && !ALLOWED_MIME.has(sniff.mime)) {
       await markInfected(input, `content_type_spoof: detected ${sniff.mime}`);
-      await deleteObject(s3, deps.bucket, input.s3_key);
-      return;
-    }
-
-    // 2. AV scan the full object. clamd's INSTREAM gets framed length-prefixed chunks.
-    const full = await s3.send(new GetObjectCommand({ Bucket: deps.bucket, Key: input.s3_key }));
-    const result = await scanStream(toBufferIterable(full.Body as Readable | undefined), {
-      host: deps.clamavHost,
-      port: deps.clamavPort,
-    });
-
-    if (result.status === 'infected') {
-      await markInfected(input, `av_hit: ${result.virus}`);
       await deleteObject(s3, deps.bucket, input.s3_key);
       return;
     }
@@ -144,9 +128,4 @@ async function streamToBuffer(body: Readable | undefined): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const c of body) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c));
   return Buffer.concat(chunks);
-}
-
-async function* toBufferIterable(body: Readable | undefined): AsyncIterable<Buffer> {
-  if (!body) return;
-  for await (const c of body) yield Buffer.isBuffer(c) ? c : Buffer.from(c);
 }

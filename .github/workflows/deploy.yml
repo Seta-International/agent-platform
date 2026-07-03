@@ -11,7 +11,7 @@ on:
         description: 'Target environment'
         required: true
         type: choice
-        options: [dev, uat]
+        options: [dev, uat, prod, prod-recovery]
       image_tag:
         description: 'Image tag to deploy: latest or a git-<sha>'
         required: false
@@ -28,7 +28,7 @@ permissions:
 jobs:
   deploy:
     name: Deploy to ${{ inputs.environment }}
-    runs-on: [self-hosted, "${{ inputs.environment }}"]
+    runs-on: [self-hosted, "${{ inputs.environment == 'prod-recovery' && 'prod' || inputs.environment }}"]
     environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -101,27 +101,42 @@ jobs:
           MAILER_GRAPH_CLIENT_SECRET: ${{ secrets.MAILER_GRAPH_CLIENT_SECRET }}
         run: bash scripts/render-env.sh "$ENV_FILE"
 
+      - name: Start bundled data (only when bundled-db profile is on)
+        if: contains(vars.COMPOSE_PROFILES, 'bundled-db')
+        shell: bash
+        env:
+          COMPOSE_FILE: ${{ vars.COMPOSE_FILE }}
+          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
+          ENV_FILE: ${{ vars.ENV_FILE }}
+          COMPOSE_PROJECT: ${{ vars.COMPOSE_PROJECT }}
+        run: docker compose -p "$COMPOSE_PROJECT" --env-file "$ENV_FILE" up -d --wait postgres
+
+      - name: Pre-migration RDS snapshot (prod)
+        if: startsWith(inputs.environment, 'prod')
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          DB_ID: ${{ vars.RDS_INSTANCE_ID }}   # e.g. seta-prod-pg
+        run: |
+          set -euo pipefail
+          SNAP="${DB_ID}-pre-${{ inputs.image_tag }}-$(date +%Y%m%d%H%M%S)"
+          SNAP=$(echo "$SNAP" | tr -c 'a-zA-Z0-9-' '-' | cut -c1-255)
+          aws rds create-db-snapshot --region "$AWS_REGION" \
+            --db-instance-identifier "$DB_ID" --db-snapshot-identifier "$SNAP"
+          aws rds wait db-snapshot-available --region "$AWS_REGION" --db-snapshot-identifier "$SNAP"
+          echo "Pre-migration snapshot: $SNAP"
+
       - name: Pull, migrate, and bring up the stack
         shell: bash
         env:
+          COMPOSE_FILE: ${{ vars.COMPOSE_FILE }}
+          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
           ENV_FILE: ${{ vars.ENV_FILE }}
           COMPOSE_PROJECT: ${{ vars.COMPOSE_PROJECT }}
-          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
         run: |
           set -euo pipefail
-          PROFILE_ARGS=()
-          [ -n "${COMPOSE_PROFILES:-}" ] && PROFILE_ARGS=(--profile "$COMPOSE_PROFILES")
-          dc() { docker compose -p "$COMPOSE_PROJECT" "${PROFILE_ARGS[@]}" --env-file "$ENV_FILE" "$@"; }
+          dc() { docker compose -p "$COMPOSE_PROJECT" --env-file "$ENV_FILE" "$@"; }
 
           dc pull
-
-          # Bundled data services (dev only). When COMPOSE_PROFILES is empty (UAT),
-          # postgres/minio are profile-excluded and the stack uses external RDS/S3.
-          if [ -n "${COMPOSE_PROFILES:-}" ]; then
-            dc up -d --wait postgres minio
-            dc run --rm minio-setup
-          fi
-
           dc run --rm migrator
           dc up -d --remove-orphans --wait --wait-timeout 300 proxy server web worker
 
@@ -144,6 +159,12 @@ jobs:
           done
           [ "$code" = "200" ] || { echo "❌ smoke failed (last HTTP $code)"; exit 1; }
           echo "✅ ${{ inputs.environment }} deploy healthy (image_tag=${{ inputs.image_tag }})"
+
+      - name: Record last-good prod image
+        if: success() && inputs.environment == 'prod'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh variable set PROD_LAST_GOOD_TAG --body "${{ inputs.image_tag }}" -R "${{ github.repository }}"
 
   e2e:
     name: E2E (uat only)

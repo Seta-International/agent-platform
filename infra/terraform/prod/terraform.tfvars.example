@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+db_master_password = "CHANGE_ME_same_as_github_DATABASE_PASSWORD"
+github_runner_url  = "https://github.com/<org>/agent-platform"
+ecr_repository_arn = "arn:aws:ecr:ap-southeast-1:<account-id>:repository/<repo>"

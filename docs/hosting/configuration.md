@@ -6,7 +6,7 @@ Each entry shows: required/optional, type, default, and a short paragraph of mea
 
 ## Image versions
 
-Compose-level variables. They are interpolated into `compose.yml` to choose the image to pull. The running `platform-server` and `platform-web` do not read them. Images are published to **Amazon ECR**; see the [image and version policy](README.md#image-and-version-policy) for the canonical tag/registry scheme.
+Compose-level variables. They are interpolated into `compose.yaml` to choose the image to pull. The running `platform-server` and `platform-web` do not read them. Images are published to **Amazon ECR**; see the [image and version policy](README.md#image-and-version-policy) for the canonical tag/registry scheme.
 
 ### PLATFORM_VERSION
 
@@ -83,7 +83,7 @@ Connection string read by the server and CLI. Local dev connects to the Docker P
 
 Optional. URL. Default (local dev): `postgres://seta_app:seta_app@localhost:5542/seta`. Unset falls back to `DATABASE_URL`.
 
-RLS-bound connection used by the server's web-facing pool only (migrations and the worker pool keep the admin `DATABASE_URL`). Dev Postgres bootstraps the `seta_app` role (`NOSUPERUSER NOBYPASSRLS`) via `infra/docker/initdb/01-app-role.sql`. Leaving this unset is self-host "simple mode": the web pool falls back to the admin connection and the RLS backstop is inert.
+RLS-bound connection used by the server's web-facing pool only (migrations and the worker pool keep the admin `DATABASE_URL`). Dev Postgres bootstraps the `seta_app` role (`NOSUPERUSER NOBYPASSRLS`) via `infra/postgres/initdb/01-app-role.sql`. Leaving this unset is self-host "simple mode": the web pool falls back to the admin connection and the RLS backstop is inert.
 
 ## Server runtime
 
@@ -179,23 +179,47 @@ Optional. Integer. Default: `9464`.
 
 Port on which each app container exposes the Prometheus `/metrics` endpoint. Override if 9464 conflicts with another service on your host. The bundled `prometheus` service scrapes this port on both `server` and `worker`.
 
-### GRAFANA_ADMIN_PASSWORD
+### GF_ADMIN_PASSWORD
 
-Optional. String. Default: `admin`.
+Required (monitoring stack). String. No default.
 
-Initial password for the Grafana `admin` account. Change this before exposing Grafana publicly. The compose stack mounts `infra/grafana/provisioning/` and pre-provisions Prometheus as the default datasource.
-
-### GRAFANA_ROOT_URL
-
-Optional. URL. No default.
-
-Root URL Grafana uses for absolute links and redirects when served behind a reverse proxy (e.g. `https://metrics.example.com`). Matches the `metrics.<domain>` Traefik router.
+Initial password for the Grafana `admin` account. `compose.monitoring.yaml` reads it as `${GF_ADMIN_PASSWORD:?…}`, so the central monitoring stack fails to start if it is unset — there is no `admin`/`admin` fallback. The compose stack mounts `infra/grafana/provisioning/` and pre-provisions Prometheus + Loki as datasources.
 
 ### DLQ_ALERT_THRESHOLD
 
 Optional. Int. Default: `100`.
 
 `/health/ready` returns 503 when any subscription has more than this many dead-letter rows in the last 24h. Lower it to fail readiness sooner on a poison-pill subscriber.
+
+### MONITORING_ENV
+
+Optional. String. Default: `dev`.
+
+Env label attached to every metric/log series shipped by the Alloy agent (`obs-agent` profile), e.g. `dev` | `uat` | `prod`.
+
+### REMOTE_WRITE_URL
+
+Conditional. URL. No default.
+
+Central Prometheus `remote_write` endpoint. Required when the `obs-agent` profile is enabled (all deployed envs).
+
+### LOKI_URL
+
+Conditional. URL. No default.
+
+Central Loki push endpoint. Required when the `obs-agent` profile is enabled (all deployed envs).
+
+### REMOTE_WRITE_USERNAME
+
+Conditional. String. No default.
+
+Basic-auth username paired with `REMOTE_WRITE_PASSWORD` for both `REMOTE_WRITE_URL` and `LOKI_URL`.
+
+### REMOTE_WRITE_PASSWORD
+
+Conditional. Secret. No default.
+
+Basic-auth password paired with `REMOTE_WRITE_USERNAME`. Treat as a high-value secret.
 
 ## Mail (outbound transactional only)
 
@@ -305,13 +329,13 @@ AWS region of the knowledge bucket.
 
 Optional. String. Default: `seta-knowledge`.
 
-Bucket for tenant knowledge file uploads. Keys are prefixed `tenants/<id>/`.
+Bucket for tenant knowledge file uploads. Keys are prefixed `tenants/<id>/`. Per-env real-S3 bucket names: `seta-dev-app-apse1` | `seta-uat-app-apse1` | `seta-prod-app-apse1`.
 
 ### S3_ENDPOINT
 
-Optional. URL. No default.
+Local dev only. URL. No default.
 
-Custom S3 endpoint for MinIO / LocalStack (e.g. `http://localhost:9000`). Leave unset for AWS S3.
+Custom S3 endpoint for the bundled MinIO (the compose override defaults this to `http://minio:9000`). Unset for real S3.
 
 ### S3_ACCESS_KEY_ID
 
@@ -327,29 +351,9 @@ Secret access key paired with `S3_ACCESS_KEY_ID`.
 
 ### S3_FORCE_PATH_STYLE
 
-Optional. Boolean. Default: `false`.
+Local dev only. Boolean. No default (leave blank).
 
-`true` for MinIO (path-style addressing); `false` for AWS S3 (virtual-hosted style).
-
-## Knowledge upload AV scanning (ClamAV)
-
-### CLAMAV_HOST
-
-Optional. String. Default: `clamav`.
-
-ClamAV daemon hostname. Defaults to the compose service name `clamav`; use `localhost` for split deploys.
-
-### CLAMAV_PORT
-
-Optional. Int. Default: `3310`.
-
-ClamAV daemon TCP port.
-
-### KNOWLEDGE_AV_REQUIRED
-
-Optional. Boolean. Default: `false`.
-
-When `true`, uploaded files cannot move past `uploading` until ClamAV marks them clean. Set to `false` only for environments that intentionally skip AV.
+Leave blank for local MinIO — the compose override defaults it to `true` (path-style addressing). Set explicitly to `false` for real AWS S3 (virtual-hosted style). A literal `false` in the env file shadows the override's default, so don't set it for local dev.
 
 ## Sync-check contract
 
