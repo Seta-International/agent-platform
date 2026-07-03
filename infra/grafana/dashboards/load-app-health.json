@@ -61,13 +61,14 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "Process CPU",
+      "title": "Host CPU busy %",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
       "targets": [
         {
-          "expr": "rate(process_cpu_time_seconds_total{env=\"$env\"}[2m])",
-          "legendFormat": "{{service}} {{state}}",
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",env=\"$env\"}[2m])) * 100)",
+          "legendFormat": "cpu busy %",
           "refId": "A"
         }
       ]
@@ -75,13 +76,14 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Process resident memory",
+      "title": "Host memory used %",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
       "targets": [
         {
-          "expr": "process_memory_usage_bytes{env=\"$env\"}",
-          "legendFormat": "{{service}}",
+          "expr": "(1 - (node_memory_MemAvailable_bytes{env=\"$env\"} / node_memory_MemTotal_bytes{env=\"$env\"})) * 100",
+          "legendFormat": "mem used %",
           "refId": "A"
         }
       ]
