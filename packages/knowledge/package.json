@@ -30,6 +30,7 @@
     "@seta/shared-testing": "workspace:^",
     "@types/node": "^25.9.3",
     "@types/pg": "^8.20.0",
+    "ai": "^6.0.200",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
