@@ -238,26 +238,43 @@ program
 program
   .command('seed')
   .description(
-    'Seed the cross-module dev fixture (tenant + admin, people, PM, planner, hiring) from the private/ workbook. Auto-creates the tenant + admin; degrades to tenant + admin only when the gitignored workbook is absent. Idempotent.',
+    'Seed the cross-module fixture (tenant + admin, people, PM, planner boards, org structure) from the private/ workbook. The tenant admin is the first ADMIN-role employee in the workbook (override with --admin-email). Degrades to tenant + admin only when the gitignored workbook is absent. Real data only by default; pass --demo to add synthetic planner tasks, hiring candidates, and edge cases (never in prod). Idempotent.',
   )
   .requiredOption('--tenant <slug>', 'tenant slug', 'seta-international')
   .option('--dir <dir>', 'fixture workbook dir', 'private')
-  .option('--admin-email <email>', 'admin email', 'admin@example.com')
+  .option(
+    '--admin-email <email>',
+    'bootstrap admin (defaults to first ADMIN-role workbook employee)',
+  )
   .option('--password <pw>', 'default password for seeded logins', 'ChangeMe@2026')
-  .action(async (o: { tenant: string; dir: string; adminEmail: string; password?: string }) => {
-    try {
-      const base = process.env.INIT_CWD ?? process.cwd();
-      const { resolve } = await import('node:path');
-      await seedFixtureCommand({
-        tenant: o.tenant,
-        dir: resolve(base, o.dir),
-        adminEmail: o.adminEmail,
-        password: o.password,
-      });
-    } finally {
-      await closePools();
-    }
-  });
+  .option(
+    '--demo',
+    'also seed synthetic demo data (planner tasks, hiring, edge cases) — never in prod',
+    false,
+  )
+  .action(
+    async (o: {
+      tenant: string;
+      dir: string;
+      adminEmail?: string;
+      password?: string;
+      demo?: boolean;
+    }) => {
+      try {
+        const base = process.env.INIT_CWD ?? process.cwd();
+        const { resolve } = await import('node:path');
+        await seedFixtureCommand({
+          tenant: o.tenant,
+          dir: resolve(base, o.dir),
+          adminEmail: o.adminEmail,
+          password: o.password,
+          demo: o.demo,
+        });
+      } finally {
+        await closePools();
+      }
+    },
+  );
 
 plannerCommand(program);
 

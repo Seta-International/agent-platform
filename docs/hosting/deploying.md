@@ -118,8 +118,9 @@ docker run --rm --network <project>_seta-edge \
   seed --dir /seed
 ```
 
-- Admin defaults: `--admin-email admin@example.com`, `--password ChangeMe@2026` (idempotent; auto-creates tenant + admin; degrades to tenant+admin only if the workbook is absent).
-- **Do not pipe the seeder to `| tail`** — that masks its exit code; a truncated run can look successful while leaving planner/hiring unseeded. Redirect to a log and check the exit code instead.
+- Admin: the tenant admin is the **first `ADMIN`-role employee in the workbook** — no synthetic account is created. Override with `--admin-email <email>` (must match a real employee; required if the workbook is absent). Default login password is `--password ChangeMe@2026`. Idempotent; auto-creates the tenant; degrades to tenant + admin only if the workbook is absent.
+- **Real data only by default.** Synthetic demo artifacts (faker planner tasks, hiring candidates, and edge cases like a deactivated user / on-hold requisition / over-allocation) are seeded **only** when you pass `--demo`. Never pass `--demo` in production.
+- **Do not pipe the seeder to `| tail`** — that masks its exit code; a truncated run can look successful while leaving data unseeded. Redirect to a log and check the exit code instead.
 
 ## Operational notes
 

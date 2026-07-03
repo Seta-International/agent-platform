@@ -79,8 +79,10 @@ async function getCounts(): Promise<Counts> {
   return r.rows[0] as Counts;
 }
 
+const ADMIN_EMAIL = 'admin.test@example.test';
+
 describe('seed-fixture end-to-end', () => {
-  it('populates every module and is idempotent', { timeout: 120_000 }, async () => {
+  it('with --demo, populates every module and is idempotent', { timeout: 120_000 }, async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       // Reset all module DB singletons
       resetCoreDb();
@@ -101,20 +103,22 @@ describe('seed-fixture end-to-end', () => {
       });
 
       try {
-        // No explicit tenant-create — seedFixtureCommand auto-bootstraps the tenant + admin.
+        // No explicit tenant-create and no adminEmail — seedFixtureCommand bootstraps the tenant
+        // and derives the admin from the workbook's first ADMIN-role employee (admin.test@…).
         await seedFixtureCommand({
-          tenant: 'seta-international',
+          tenant: 'test-co',
           dir: MINI_DIR,
-          adminEmail: 'admin@example.com',
+          demo: true,
         });
 
-        // Wait for subscribers (assignee_projection) to catch up
-        // We seeded 4 employees + 1 admin = at least 5 users → projection should have ≥ 5 rows
+        // Wait for subscribers (assignee_projection) to catch up. The 4 workbook employees
+        // (the ADMIN row is the bootstrap admin, not a separate account) project in; the
+        // edge-cases phase then deactivates one, leaving ≥ 3 active.
         await waitFor(async () => {
           const r = await pool.query<{ cnt: string }>(
             `SELECT COUNT(*)::text AS cnt FROM planner.assignee_projection WHERE deactivated_at IS NULL`,
           );
-          return Number(r.rows[0]?.cnt ?? 0) >= 4;
+          return Number(r.rows[0]?.cnt ?? 0) >= 3;
         });
 
         // The edge-cases phase deactivates one user (the deactivated-user case);
@@ -149,12 +153,9 @@ describe('seed-fixture end-to-end', () => {
         // Org spine: Executive + Operation + 7 functions + Delivery + PMO = 11 units.
         expect(before.org_units).toBe(11);
         const adminSession = await buildAdminSession(
-          (
-            await coreDb().execute(
-              sql`SELECT id FROM core.tenants WHERE slug = 'seta-international' LIMIT 1`,
-            )
-          ).rows[0]!.id as string,
-          'admin@example.com',
+          (await coreDb().execute(sql`SELECT id FROM core.tenants WHERE slug = 'test-co' LIMIT 1`))
+            .rows[0]!.id as string,
+          ADMIN_EMAIL,
         );
         const { units } = await getOrgStructure(adminSession);
         expect(units.find((u) => u.kind === 'executive')?.head).toBeTruthy();
@@ -210,9 +211,9 @@ describe('seed-fixture end-to-end', () => {
 
         // Second run — must be idempotent
         await seedFixtureCommand({
-          tenant: 'seta-international',
+          tenant: 'test-co',
           dir: MINI_DIR,
-          adminEmail: 'admin@example.com',
+          demo: true,
         });
 
         // Let the dispatcher settle back to the deactivated steady state (the
@@ -243,6 +244,70 @@ describe('seed-fixture end-to-end', () => {
         expect(after.candidate_skills).toEqual(before.candidate_skills);
         expect(after.requisition_skills).toEqual(before.requisition_skills);
         expect(after.org_units).toEqual(before.org_units);
+      } finally {
+        await dispatcher.shutdown(5_000);
+        await closePools();
+      }
+    });
+  });
+
+  it('default seed (no --demo) is prod-shaped: real data only', { timeout: 120_000 }, async () => {
+    await withTestDb(ctx, async ({ databaseUrl }) => {
+      resetCoreDb();
+      resetIdentityDb();
+      resetPeopleDb();
+      resetPmDb();
+      resetPlannerDb();
+      resetHiringDb();
+
+      initPools({ databaseUrl });
+
+      const reg = buildMigrationRegistry();
+      const dispatcher = await startDispatcher({
+        pool: getPool('worker'),
+        subscribers: [...reg.collected.subscribers],
+        pollIntervalMs: 100,
+      });
+
+      try {
+        // No adminEmail, no --demo: admin is derived from the workbook, and the synthetic
+        // demo phases (planner tasks, hiring, edge cases) are all skipped.
+        await seedFixtureCommand({ tenant: 'test-co', dir: MINI_DIR });
+
+        const counts = await getCounts();
+
+        // Real structural data is present…
+        expect(counts.workers).toBeGreaterThanOrEqual(4);
+        expect(counts.users).toBeGreaterThanOrEqual(4);
+        expect(counts.projects).toBeGreaterThanOrEqual(1);
+        expect(counts.allocations).toBeGreaterThanOrEqual(2);
+        expect(counts.groups).toBeGreaterThanOrEqual(1); // empty boards are still scaffolded
+        expect(counts.org_units).toBe(11);
+
+        // …but every synthetic demo artifact is absent.
+        expect(counts.tasks).toBe(0);
+        expect(counts.task_assignments).toBe(0);
+        expect(counts.requisitions).toBe(0);
+        expect(counts.candidate_skills).toBe(0);
+        expect(counts.requisition_skills).toBe(0);
+
+        // The bootstrap admin is a real workbook employee — never a synthetic admin@example.com.
+        const emails = (
+          await coreDb().execute(
+            sql`SELECT lower(email) AS email FROM identity."user" WHERE lower(email) IN (${ADMIN_EMAIL}, 'admin@example.com')`,
+          )
+        ).rows as Array<{ email: string }>;
+        const emailSet = new Set(emails.map((r) => r.email));
+        expect(emailSet.has(ADMIN_EMAIL)).toBe(true);
+        expect(emailSet.has('admin@example.com')).toBe(false);
+
+        // Edge-cases phase is skipped, so no worker is deactivated.
+        const deactivated = (
+          await coreDb().execute(
+            sql`SELECT COUNT(*)::int AS n FROM people.worker WHERE deleted_at IS NOT NULL`,
+          )
+        ).rows[0] as { n: number };
+        expect(deactivated.n).toBe(0);
       } finally {
         await dispatcher.shutdown(5_000);
         await closePools();
