@@ -105,7 +105,7 @@ export function CandidateDetailDrawer({
 
               <section>
                 <h4 className="mb-2 text-eyebrow uppercase text-ink-muted">Contact</h4>
-                <Row k="Email" v={data.candidate.contact?.email ?? '—'} />
+                <Row k="Personal email" v={data.candidate.contact?.personal_email ?? '—'} />
                 <Row k="Phone" v={data.candidate.contact?.phone ?? '—'} />
                 <Row k="Source" v={data.candidate.source ?? '—'} />
               </section>

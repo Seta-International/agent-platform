@@ -314,7 +314,8 @@ export interface CandidateDetail {
     dob: string | null;
     gender: string | null;
     note: string | null;
-    contact: { email?: string; phone?: string } | null;
+    contact: { personal_email?: string; phone?: string } | null;
+    cv_storage_key: string | null;
     version: number;
   };
   applications: CandidateApplication[];
@@ -350,7 +351,8 @@ export interface SkillCatalog {
 export interface AddCandidatePayload {
   requisition_id: string;
   name: string;
-  contact?: { email?: string; phone?: string };
+  personal_email?: string;
+  phone?: string;
   dob?: string;
   gender?: string;
   seniority?: string;

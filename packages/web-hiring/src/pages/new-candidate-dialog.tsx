@@ -70,7 +70,8 @@ export function NewCandidateDialog() {
       return addCandidate({
         requisition_id: effectiveReq,
         name,
-        contact: { email: email || undefined, phone: phone || undefined },
+        personal_email: email || undefined,
+        phone: phone || undefined,
         dob: dob || undefined,
         gender: gender || undefined,
         seniority: seniority || undefined,
