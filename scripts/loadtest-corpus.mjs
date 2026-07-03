@@ -23,20 +23,29 @@ async function api(method, path, body) {
 }
 const unwrap = (raw, key) => raw?.[key] ?? raw;
 
-await api('POST', '/api/identity/v1/auth/sign-in/email', { email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
+await api('POST', '/api/identity/v1/auth/sign-in/email', {
+  email: ADMIN_EMAIL,
+  password: ADMIN_PASSWORD,
+});
 
 const groupsRaw = await api('GET', '/api/planner/v1/groups');
 const groups = Array.isArray(groupsRaw) ? groupsRaw : (groupsRaw.groups ?? []);
 let group = groups.find((g) => g.name === 'Load Corpus');
 if (!group) {
-  group = unwrap(await api('POST', '/api/planner/v1/groups', { name: 'Load Corpus', visibility: 'private' }), 'group');
+  group = unwrap(
+    await api('POST', '/api/planner/v1/groups', { name: 'Load Corpus', visibility: 'private' }),
+    'group',
+  );
   console.log(`created group ${group.id}`);
 }
 
 const memberIds = [];
 for (let i = 1; i <= MEMBER_COUNT; i++) {
   const email = `member${i}@${MEMBER_DOMAIN}`;
-  const cand = await api('GET', `/api/planner/v1/groups/${group.id}/members/candidates?search=${encodeURIComponent(email)}`);
+  const cand = await api(
+    'GET',
+    `/api/planner/v1/groups/${group.id}/members/candidates?search=${encodeURIComponent(email)}`,
+  );
   const rows = Array.isArray(cand) ? cand : (cand.candidates ?? cand.users ?? []);
   const hit = rows.find((u) => (u.email ?? '').toLowerCase() === email);
   if (hit) memberIds.push({ user_id: hit.user_id ?? hit.id });
@@ -54,10 +63,16 @@ for (let p = 1; p <= 5; p++) {
     console.log(`plan "${name}" exists, skipping`);
     continue;
   }
-  const plan = unwrap(await api('POST', '/api/planner/v1/plans', { group_id: group.id, name }), 'plan');
+  const plan = unwrap(
+    await api('POST', '/api/planner/v1/plans', { group_id: group.id, name }),
+    'plan',
+  );
   const bucketIds = [];
   for (const bname of ['Backlog', 'Doing', 'Done']) {
-    const bucket = unwrap(await api('POST', '/api/planner/v1/buckets', { plan_id: plan.id, name: bname }), 'bucket');
+    const bucket = unwrap(
+      await api('POST', '/api/planner/v1/buckets', { plan_id: plan.id, name: bname }),
+      'bucket',
+    );
     bucketIds.push(bucket.id);
   }
   for (let t = 1; t <= 40; t++) {
