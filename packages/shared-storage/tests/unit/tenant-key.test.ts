@@ -23,6 +23,15 @@ describe('buildTenantKey', () => {
     expect(key.endsWith('evil.pdf')).toBe(true);
   });
 
+  it('supports the CV domains for hiring and people', () => {
+    expect(
+      buildTenantKey({ tenant_id: 't1', domain: 'hiring-cv', file_id: 'c1', filename: 'cv.pdf' }),
+    ).toBe('tenants/t1/hiring-cv/c1/cv.pdf');
+    expect(
+      buildTenantKey({ tenant_id: 't1', domain: 'people-cv', file_id: 'w1', filename: 'cv.docx' }),
+    ).toBe('tenants/t1/people-cv/w1/cv.docx');
+  });
+
   it('throws when filename is empty', () => {
     expect(() =>
       buildTenantKey({

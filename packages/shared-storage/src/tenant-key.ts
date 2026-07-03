@@ -2,7 +2,7 @@ import { basename } from 'node:path';
 
 export interface BuildTenantKeyInput {
   tenant_id: string;
-  domain: 'knowledge' | 'chat-attachments';
+  domain: 'knowledge' | 'chat-attachments' | 'hiring-cv' | 'people-cv';
   file_id: string;
   filename: string;
 }
