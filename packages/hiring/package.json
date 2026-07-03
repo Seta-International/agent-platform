@@ -25,6 +25,7 @@
     "@seta/shared-config": "workspace:^",
     "@seta/shared-testing": "workspace:^",
     "@types/pg": "^8.20.0",
+    "ai": "^6.0.200",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7"
@@ -32,9 +33,11 @@
   "dependencies": {
     "@seta/agent-sdk": "workspace:^",
     "@seta/core": "workspace:^",
+    "@seta/knowledge": "workspace:^",
     "@seta/pm": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
+    "@seta/shared-storage": "workspace:^",
     "@seta/shared-types": "workspace:^",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.25",
