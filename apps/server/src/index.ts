@@ -1,4 +1,5 @@
 import './otel.ts'; // MUST be first; see otel.ts header comment.
+import './undici-timeouts.ts'; // MUST run before any outbound fetch.
 import { AgentRunStateRepository, resolveModel } from '@seta/agent';
 import { createAgentMastraStorage, registerAgent } from '@seta/agent/register';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
