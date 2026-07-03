@@ -24,7 +24,8 @@ const INSTRUCTIONS = `You explain a weekly plan with 1-3 short insights. Kinds:
 - "workload": why the tasks are distributed across the days the way they are.
 - "focus": why tasks were grouped into focus blocks (context-switching cost).
 Each insight is one or two sentences of plain language naming concrete tasks.
-Return only the structured object.`;
+Return only the structured object.
+/no_think`;
 
 export function makeWeeklyPlanInsightGenerator(
   deps: WeeklyPlanInsightGeneratorDeps,
@@ -64,13 +65,21 @@ export function makeWeeklyPlanInsightGenerator(
               instructions: INSTRUCTIONS,
               model: pickModel(ctx, deps.resolveModel),
             });
-            const r = await agent.generate(message, {
-              structuredOutput: { schema: InsightOutputSchema },
-              requestContext: rc,
-              abortSignal: ctx.abortSignal,
-            });
-            if (!r.object) throw new Error('insight generation returned no structured output');
-            return r.object;
+            console.log('[weeklyPlan.insightGenerator] in:', message);
+            try {
+              const stream = await agent.stream(message, {
+                structuredOutput: { schema: InsightOutputSchema },
+                requestContext: rc,
+                abortSignal: ctx.abortSignal,
+              });
+              const object = await stream.object;
+              if (!object) throw new Error('insight generation returned no structured output');
+              console.log('[weeklyPlan.insightGenerator] out:', JSON.stringify(object));
+              return object;
+            } catch (err) {
+              console.error('[weeklyPlan.insightGenerator] throw:', err);
+              throw err;
+            }
           })();
 
       const insights: Insight[] = (out.insights ?? []).slice(0, 3);

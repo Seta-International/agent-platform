@@ -3,13 +3,7 @@ import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
 import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { pickModel } from '../../model.ts';
-import {
-  capacityHint,
-  fallbackPlan,
-  prePassOrder,
-  validatePlan,
-  windowDays,
-} from '../scheduling.ts';
+import { capacityHint, fallbackPlan, prePassOrder, windowDays } from '../scheduling.ts';
 import {
   BuilderInputSchema,
   BuilderOutputSchema,
@@ -21,7 +15,7 @@ import {
 
 export interface WeeklyPlanScheduleBuilderDeps {
   resolveModel: () => MastraModelConfig;
-  /** Test-only seam replacing the LLM placement call; validator/repair/fallback run for real. */
+  /** Test-only seam replacing the LLM placement call; the deterministic fallback runs for real. */
   generatePlan?: (args: { message: string; requestContext: RequestContext }) => Promise<WeeklyPlan>;
 }
 
@@ -34,7 +28,8 @@ Soft goals:
 - Group related tasks (same theme or topic) into the same named focus block so the
   user avoids context switching; blocks are contiguous within a day by construction.
 - Balance the number of tasks per day around the stated per-day target.
-Return only the structured plan object.`;
+Return only the structured plan object.
+/no_think`;
 
 export function makeWeeklyPlanScheduleBuilder(
   deps: WeeklyPlanScheduleBuilderDeps,
@@ -42,7 +37,7 @@ export function makeWeeklyPlanScheduleBuilder(
   return {
     id: 'planner.weeklyPlan.scheduleBuilder',
     description:
-      'Places normalized tasks onto the window days: deterministic pre-pass, LLM grouping/placement, deterministic validation with one repair retry, deterministic fallback.',
+      'Places normalized tasks onto the window days: deterministic pre-pass, LLM grouping/placement, deterministic fallback on LLM error.',
     inputSchema: BuilderInputSchema,
     outputSchema: BuilderOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
@@ -87,42 +82,40 @@ export function makeWeeklyPlanScheduleBuilder(
           instructions: INSTRUCTIONS,
           model: pickModel(ctx, deps.resolveModel),
         });
-        const r = await agent.generate(message, {
-          structuredOutput: { schema: WeeklyPlanSchema },
-          requestContext: rc,
-          abortSignal: ctx.abortSignal,
-        });
-        if (!r.object) throw new Error('schedule building returned no structured output');
-        return r.object;
+        console.log('[weeklyPlan.scheduleBuilder] in:', message);
+        try {
+          const stream = await agent.stream(message, {
+            structuredOutput: { schema: WeeklyPlanSchema },
+            requestContext: rc,
+            abortSignal: ctx.abortSignal,
+          });
+          const object = await stream.object;
+          if (!object) throw new Error('schedule building returned no structured output');
+          console.log('[weeklyPlan.scheduleBuilder] out:', JSON.stringify(object));
+          return object;
+        } catch (err) {
+          console.error('[weeklyPlan.scheduleBuilder] throw:', err);
+          throw err;
+        }
       };
 
-      const first = await callLlm(baseMessage);
-      let validation = validatePlan(first, input.tasks, input.window);
-      if (validation.ok) {
+      let plan: WeeklyPlan;
+      try {
+        plan = await callLlm(baseMessage);
+      } catch (err) {
+        console.error('[weeklyPlan.scheduleBuilder] falling back:', err);
         return {
-          result: { plan: first, caveat: null },
-          trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.7 },
+          result: {
+            plan: fallbackPlan(input.tasks, input.window),
+            caveat:
+              'The AI placement call failed, so a deterministic order (due date, then priority) was used instead.',
+          },
+          trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.4 },
         };
       }
-
-      const second = await callLlm(
-        `${baseMessage}\n\nYour previous plan had these violations — return a corrected plan:\n- ${validation.violations.join('\n- ')}`,
-      );
-      validation = validatePlan(second, input.tasks, input.window);
-      if (validation.ok) {
-        return {
-          result: { plan: second, caveat: null },
-          trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.6 },
-        };
-      }
-
       return {
-        result: {
-          plan: fallbackPlan(input.tasks, input.window),
-          caveat:
-            'The AI placement failed validation twice, so a deterministic order (due date, then priority) was used instead.',
-        },
-        trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.4 },
+        result: { plan, caveat: null },
+        trust: { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.7 },
       };
     },
   };
