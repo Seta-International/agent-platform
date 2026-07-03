@@ -3,6 +3,12 @@ import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerTaskCreated } from '../../events/emit-helpers.ts';
 import { buckets, plans, tasks } from '../db/schema.ts';
+import {
+  numberToPriority,
+  percentToProgress,
+  priorityToNumber,
+  progressToPercent,
+} from '../db/task-enums.ts';
 import type { TaskRow } from '../dto.ts';
 import type { CreateTaskInput } from '../inputs.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
@@ -77,8 +83,8 @@ export async function createTask(
           bucket_id: input.bucket_id ?? null,
           title: input.title,
           description: input.description ?? null,
-          priority_number: input.priority_number ?? 5,
-          percent_complete: input.percent_complete ?? 0,
+          priority: numberToPriority(input.priority_number ?? 5),
+          progress: percentToProgress(input.percent_complete ?? 0),
           is_deferred: input.is_deferred ?? false,
           preview_type: input.preview_type ?? 'automatic',
           review_state: input.review_state ?? null,
@@ -101,8 +107,8 @@ export async function createTask(
           bucket_id: row.bucket_id,
           title: row.title,
           description: row.description,
-          priority_number: row.priority_number as 1 | 3 | 5 | 9,
-          percent_complete: row.percent_complete,
+          priority_number: priorityToNumber(row.priority),
+          percent_complete: progressToPercent(row.progress),
           is_deferred: row.is_deferred,
           preview_type: row.preview_type as
             | 'automatic'

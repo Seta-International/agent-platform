@@ -42,8 +42,8 @@ it('returns account_status none/active/suspended, role summary, and SQL status f
         [groupId, tenant, 'hr', 'HR'],
       );
       await pool.query(
-        `INSERT INTO identity.access_group_membership (group_id, user_id) VALUES ($1, $2)`,
-        [groupId, act.user_id],
+        `INSERT INTO identity.access_group_membership (tenant_id, group_id, user_id) VALUES ($1, $2, $3)`,
+        [tenant, groupId, act.user_id],
       );
       await seedDirectoryAccount(pool, {
         tenant_id: tenant,

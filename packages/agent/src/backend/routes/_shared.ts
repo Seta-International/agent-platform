@@ -23,7 +23,7 @@ export type AgentRouteDeps = {
    * Resource-scoped userContext Memory (the supervisor tree's GuardedMemory) +
    * its MemoryConfig. The orchestration chat branch passes both into the run
    * ctx so the orchestrator can inject userContext into its prompt and expose
-   * the guarded updateWorkingMemory tool. Writes land in agent.mastra_resources.
+   * the guarded updateWorkingMemory tool. Writes land in Mastra's resource-scoped store.
    * Optional because tests may construct routes without a configured Memory.
    */
   userMemory?: Memory;

@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1779378020925,
-      "tag": "0000_initial",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1748044800000,
-      "tag": "0006_tasks_search_tsv_and_task_id_fix",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1779427790085,
-      "tag": "0007_plans_tasks_sync_schema",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1749193200000,
-      "tag": "0016_description_text",
+      "when": 1783040105610,
+      "tag": "0000_white_whistler",
       "breakpoints": true
     }
   ]

@@ -1,1 +1,0 @@
-ALTER TABLE "core"."session_scope_cache" DROP COLUMN "accessible_group_ids";

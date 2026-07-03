@@ -15,7 +15,8 @@ import { DomainsField } from '../../components/DomainsField.tsx';
 import { registerProvider } from '../api/sso-client.ts';
 
 interface EditDomainsDialogProps {
-  entraTenantId: string;
+  // Owned by integrations; null until the Microsoft 365 integration is configured.
+  entraTenantId: string | null;
   initialDomains: string[];
   onSaved: () => void;
 }
@@ -43,7 +44,7 @@ export function EditDomainsDialog({
     setSubmitting(true);
     setError(null);
     try {
-      await registerProvider({ entra_tenant_id: entraTenantId, email_domains: domains });
+      await registerProvider({ email_domains: domains });
       onSaved();
       setOpen(false);
     } catch (e) {
@@ -75,7 +76,8 @@ export function EditDomainsDialog({
             <Label htmlFor="edit-domains-tenant-id">Entra tenant ID</Label>
             <Input
               id="edit-domains-tenant-id"
-              value={entraTenantId}
+              value={entraTenantId ?? ''}
+              placeholder="Configured via the Microsoft 365 integration"
               readOnly
               className="text-muted-foreground"
             />

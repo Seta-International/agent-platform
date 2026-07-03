@@ -23,7 +23,7 @@ describe('runMigrations(reg)', () => {
         const { rows } = await getPool('web').query(
           `SELECT count(*)::int AS n FROM core.__platform_migrations WHERE module='core'`,
         );
-        expect(rows[0]?.n).toBeGreaterThanOrEqual(3);
+        expect(rows[0]?.n).toBeGreaterThanOrEqual(2);
 
         await runMigrations(reg, { pool: getPool('worker') });
         const { rows: rows2 } = await getPool('web').query(

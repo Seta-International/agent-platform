@@ -17,7 +17,7 @@ export interface UpsertM365TenantConfigInput {
   entraTenantId: string;
   clientId: string;
   clientSecretBlob: import('@seta/shared-crypto').EncryptedBlob;
-  actorUserId: number;
+  actorUserId: string;
 }
 
 export interface M365TenantConfigStore {

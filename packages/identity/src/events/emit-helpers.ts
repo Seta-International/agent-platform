@@ -27,6 +27,7 @@ export async function emitIdentityUserProfileUpdated(args: {
   actor: IdentityUserProfileUpdated['payload']['actor'];
   user_id: string;
   tenant_id: string;
+  email: string;
   before: IdentityUserProfileUpdated['payload']['before'];
   after: IdentityUserProfileUpdated['payload']['after'];
 }): Promise<void> {
@@ -36,7 +37,13 @@ export async function emitIdentityUserProfileUpdated(args: {
     aggregateId: args.user_id,
     eventType: 'identity.user.profile.updated',
     eventVersion: 1,
-    payload: { actor: args.actor, user_id: args.user_id, before: args.before, after: args.after },
+    payload: {
+      actor: args.actor,
+      user_id: args.user_id,
+      email: args.email,
+      before: args.before,
+      after: args.after,
+    },
   });
 }
 
@@ -91,7 +98,6 @@ function ssoAggregateId(tenantId: string, providerId: string): string {
 export async function emitIdentitySsoProviderRegistered(args: {
   actor: IdentityEventActor;
   tenant_id: string;
-  entra_tenant_id: string;
   email_domains: string[];
 }): Promise<void> {
   await emit({
@@ -105,7 +111,6 @@ export async function emitIdentitySsoProviderRegistered(args: {
       after: {
         tenant_id: args.tenant_id,
         provider_id: 'microsoft-entra-id',
-        entra_tenant_id: args.entra_tenant_id,
         email_domains: args.email_domains,
       },
     },

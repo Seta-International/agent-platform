@@ -124,9 +124,10 @@ describe('chat attachment routes', () => {
             'could not read "broken.pdf": Invalid PDF structure.',
           );
         });
-        const res = await app.request('/api/agent/v1/knowledge/attachments/42/processed', {
-          method: 'POST',
-        });
+        const res = await app.request(
+          `/api/agent/v1/knowledge/attachments/${randomUUID()}/processed`,
+          { method: 'POST' },
+        );
         expect(res.status).toBe(400);
         const body = (await res.json()) as { error: string; message: string };
         expect(body.message).toMatch(/Invalid PDF/);

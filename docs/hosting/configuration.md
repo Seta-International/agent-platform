@@ -79,6 +79,12 @@ Required. URL. Default (local dev): `postgres://seta:seta@localhost:5542/seta`. 
 
 Connection string read by the server and CLI. Local dev connects to the Docker Postgres mapped to host port `5542` (`pnpm db:up`). For the Docker Compose self-host stack, override to use the in-network `postgres` service hostname — do not change `postgres` unless you also rename the service. Set this explicitly to a managed-service endpoint when pointing at RDS — see [`aws.md`](aws.md).
 
+### DATABASE_APP_URL
+
+Optional. URL. Default (local dev): `postgres://seta_app:seta_app@localhost:5542/seta`. Unset falls back to `DATABASE_URL`.
+
+RLS-bound connection used by the server's web-facing pool only (migrations and the worker pool keep the admin `DATABASE_URL`). Dev Postgres bootstraps the `seta_app` role (`NOSUPERUSER NOBYPASSRLS`) via `infra/docker/initdb/01-app-role.sql`. Leaving this unset is self-host "simple mode": the web pool falls back to the admin connection and the RLS backstop is inert.
+
 ## Server runtime
 
 ### NODE_ENV

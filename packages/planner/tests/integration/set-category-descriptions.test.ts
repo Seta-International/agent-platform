@@ -262,11 +262,13 @@ describe('setCategoryDescriptions (batched)', () => {
             }),
           ).rejects.toThrow();
 
-          const { rows } = await pool.query<{
-            category_descriptions: Record<string, string>;
-          }>(`SELECT category_descriptions FROM planner.plans WHERE id = $1`, [plan.id]);
-          expect(rows[0]?.category_descriptions.category1).toBe('Existing');
-          expect(rows[0]?.category_descriptions.category2).toBeUndefined();
+          const { rows } = await pool.query<{ slot: number; name: string }>(
+            `SELECT slot, name FROM planner.plan_categories WHERE plan_id = $1`,
+            [plan.id],
+          );
+          const bySlot = new Map(rows.map((r) => [r.slot, r.name]));
+          expect(bySlot.get(1)).toBe('Existing');
+          expect(bySlot.has(2)).toBe(false);
 
           const afterEvents = await countEvents(
             pool,

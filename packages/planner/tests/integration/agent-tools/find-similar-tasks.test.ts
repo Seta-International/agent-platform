@@ -49,8 +49,8 @@ function makeSessionProvider(tenantId: string) {
 
 async function setTaskAssignee(pool: Pool, taskId: string, userId: string): Promise<void> {
   await pool.query(
-    `INSERT INTO planner.task_assignments (task_id, user_id, assigned_by)
-     VALUES ($1, $2, $2)`,
+    `INSERT INTO planner.task_assignments (tenant_id, task_id, user_id, assigned_by)
+     VALUES ((SELECT tenant_id FROM planner.tasks WHERE id = $1), $1, $2, $2)`,
     [taskId, userId],
   );
 }

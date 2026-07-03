@@ -16,7 +16,7 @@ export const projectProjectionCreated: SubscriberDef = {
       .values({ project_id, tenant_id, account_id, name })
       .onConflictDoUpdate({
         target: projectProjection.project_id,
-        set: { account_id, name },
+        set: { account_id, name, updated_at: new Date() },
       });
   },
 };
@@ -34,7 +34,7 @@ export const projectProjectionUpdated: SubscriberDef = {
       .values({ project_id, tenant_id, account_id, name })
       .onConflictDoUpdate({
         target: projectProjection.project_id,
-        set: { account_id, name },
+        set: { account_id, name, updated_at: new Date() },
       });
   },
 };

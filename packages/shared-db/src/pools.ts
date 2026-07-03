@@ -3,6 +3,7 @@ import { instrumentPool } from './instrumentation.ts';
 
 export interface PoolsConfig {
   databaseUrl: string;
+  appDatabaseUrl?: string;
   webMax?: number;
   workerMax?: number;
   mastraStateMax?: number;
@@ -32,7 +33,7 @@ export function initPools(cfg: PoolsConfig): Pools {
   const workerStmt = 30_000;
   pools = {
     web: new Pool({
-      connectionString: cfg.databaseUrl,
+      connectionString: cfg.appDatabaseUrl ?? cfg.databaseUrl,
       max: cfg.webMax ?? 15,
       connectionTimeoutMillis: 5_000,
       idleTimeoutMillis: 10_000,

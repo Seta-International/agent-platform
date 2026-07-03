@@ -68,12 +68,18 @@ describe('@seta/identity SSO provider lifecycle', () => {
             [tenantId],
           );
 
+          // Integrations owns the Entra linkage; seed the column as the projection would, so
+          // registerSsoProvider's domain verification (via setTenantEmailDomains) runs.
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
           mockGraphHappy(fetchMock);
           await registerSsoProvider(
             {
               tenant_id: tenantId,
               provider_id: 'microsoft-entra-id',
-              entra_tenant_id: ENTRA_TID,
               email_domains: ['acme.com', 'acme.co.uk'],
             },
             CLI_ACTOR,
@@ -150,7 +156,6 @@ describe('@seta/identity SSO provider lifecycle', () => {
             {
               tenant_id: tenantId,
               provider_id: 'microsoft-entra-id',
-              entra_tenant_id: ENTRA_TID,
               email_domains: [],
             },
             CLI_ACTOR,
@@ -190,6 +195,13 @@ describe('@seta/identity SSO provider lifecycle', () => {
             [tenantId],
           );
 
+          // Seed the Entra linkage (owned by integrations) so domain verification runs.
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
+
           // Mock token
           fetchMock.mockResolvedValueOnce({
             ok: true,
@@ -211,7 +223,6 @@ describe('@seta/identity SSO provider lifecycle', () => {
               {
                 tenant_id: tenantId,
                 provider_id: 'microsoft-entra-id',
-                entra_tenant_id: ENTRA_TID,
                 email_domains: ['evil.com'],
               },
               CLI_ACTOR,
@@ -252,7 +263,6 @@ describe('@seta/identity SSO provider lifecycle', () => {
               {
                 tenant_id: tenantB,
                 provider_id: 'microsoft-entra-id',
-                entra_tenant_id: ENTRA_TID,
                 email_domains: ['acme.com'],
               },
               CLI_ACTOR,
@@ -283,13 +293,19 @@ describe('@seta/identity SSO provider lifecycle', () => {
             `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'NoConsent', 'no-consent')`,
             [tenantId],
           );
+          // Seed the Entra linkage (owned by integrations) so registering domains passes
+          // the fail-closed verification guard and we reach the consent check.
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
 
           mockGraphHappy(fetchMock);
           await registerSsoProvider(
             {
               tenant_id: tenantId,
               provider_id: 'microsoft-entra-id',
-              entra_tenant_id: ENTRA_TID,
               email_domains: ['acme.com'],
             },
             CLI_ACTOR,

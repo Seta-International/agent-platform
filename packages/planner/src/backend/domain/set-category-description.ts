@@ -3,35 +3,15 @@ import { withEmit } from '@seta/core/events';
 import type { NodeTx } from '@seta/shared-db';
 import { and, eq, isNull } from 'drizzle-orm';
 import { emitPlannerPlanCategoryDescriptionChanged } from '../../events/emit-helpers.ts';
-import { plans } from '../db/schema.ts';
-import type { PlanRow, TaskExternalSource } from '../dto.ts';
+import { plannerDb } from '../db/index.ts';
+import { planCategories, plans } from '../db/schema.ts';
+import type { PlanRow } from '../dto.ts';
 import type { SetCategoryDescriptionInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { PlannerError, requirePermission } from '../rbac.ts';
+import { fetchCategoryDescriptions, planRowToDto } from './_plan-dto.ts';
 
 type PlanDbRow = typeof plans.$inferSelect;
-
-function rowToDto(row: PlanDbRow): PlanRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    group_id: row.group_id,
-    name: row.name,
-    category_descriptions: (row.category_descriptions ?? {}) as Record<string, string>,
-    external_source: row.external_source as TaskExternalSource,
-    external_id: row.external_id,
-    external_etag: row.external_etag,
-    external_synced_at: row.external_synced_at?.toISOString() ?? null,
-    sync_status: row.sync_status as PlanRow['sync_status'],
-    last_error: row.last_error,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at?.toISOString() ?? null,
-    archived_at: row.archived_at?.toISOString() ?? null,
-    version: row.version,
-  };
-}
 
 export async function setCategoryDescription(
   input: SetCategoryDescriptionInput & { session: SessionScope },
@@ -56,7 +36,8 @@ export async function setCategoryDescription(
           updated = await setCategoryDescriptionTx(tx, input);
         },
       );
-      return rowToDto(updated);
+      const categoryDescriptions = await fetchCategoryDescriptions(plannerDb(), updated.id);
+      return planRowToDto(updated, categoryDescriptions);
     },
   );
 }
@@ -95,9 +76,17 @@ export async function setCategoryDescriptionTx(
 
   await requirePermission(input.session, 'planner.plan.update', existing.group_id);
 
-  const key = `category${input.slot}`;
-  const currentMap = (existing.category_descriptions ?? {}) as Record<string, string>;
-  const beforeVal: string | null = currentMap[key] ?? null;
+  const slotCondition = and(
+    eq(planCategories.tenant_id, existing.tenant_id),
+    eq(planCategories.plan_id, input.plan_id),
+    eq(planCategories.slot, input.slot),
+  );
+  const [existingCategory] = await tx
+    .select({ name: planCategories.name })
+    .from(planCategories)
+    .where(slotCondition)
+    .limit(1);
+  const beforeVal: string | null = existingCategory?.name ?? null;
 
   if (input.name === undefined) {
     return existing;
@@ -108,17 +97,26 @@ export async function setCategoryDescriptionTx(
     return existing;
   }
 
-  const nextMap: Record<string, string> = { ...currentMap };
   if (afterVal === null) {
-    delete nextMap[key];
+    await tx.delete(planCategories).where(slotCondition);
   } else {
-    nextMap[key] = afterVal;
+    await tx
+      .insert(planCategories)
+      .values({
+        tenant_id: existing.tenant_id,
+        plan_id: input.plan_id,
+        slot: input.slot,
+        name: afterVal,
+      })
+      .onConflictDoUpdate({
+        target: [planCategories.tenant_id, planCategories.plan_id, planCategories.slot],
+        set: { name: afterVal, updated_at: new Date() },
+      });
   }
 
   const [row] = await tx
     .update(plans)
     .set({
-      category_descriptions: nextMap,
       updated_at: new Date(),
       version: existing.version + 1,
     })

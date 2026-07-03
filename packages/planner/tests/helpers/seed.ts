@@ -62,9 +62,9 @@ export async function seedTaskForTest(pool: Pool, opts: SeedTaskOptions): Promis
   const bucket_id = randomUUID();
   await pool.query(
     `INSERT INTO planner.buckets
-       (id, tenant_id, plan_id, name, external_source)
-     VALUES ($1, $2, $3, $4, 'native')`,
-    [bucket_id, tenant_id, plan_id, `Bucket ${bucket_id.slice(0, 8)}`],
+       (id, tenant_id, plan_id, name, external_source, created_by)
+     VALUES ($1, $2, $3, $4, 'native', $5)`,
+    [bucket_id, tenant_id, plan_id, `Bucket ${bucket_id.slice(0, 8)}`, actor_id],
   );
 
   // Insert task — created_by is NOT NULL; use a synthetic UUID (no FK constraint on tasks).
@@ -86,9 +86,9 @@ export async function seedTaskForTest(pool: Pool, opts: SeedTaskOptions): Promis
       [tenant_id, plan_id, name],
     );
     await pool.query(
-      `INSERT INTO planner.task_labels (task_id, label_id, applied_by)
-       VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-      [task_id, res.rows[0]!.id, created_by],
+      `INSERT INTO planner.task_labels (tenant_id, task_id, label_id, applied_by)
+       VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+      [tenant_id, task_id, res.rows[0]!.id, created_by],
     );
   }
 

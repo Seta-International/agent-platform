@@ -66,7 +66,7 @@ async function updateCommentImpl(
       const beforeBody = existing.body;
       const [updated] = await tx
         .update(taskComments)
-        .set({ body: input.body, edited_at: new Date() })
+        .set({ body: input.body, updated_at: new Date() })
         .where(eq(taskComments.id, existing.id))
         .returning();
       if (!updated) throw new PlannerError('VALIDATION', 'Update returned no row');
@@ -77,7 +77,7 @@ async function updateCommentImpl(
         .where(eq(assigneeProjection.user_id, updated.author_id))
         .limit(1);
 
-      const editedIso = (updated.edited_at as Date).toISOString();
+      const editedIso = (updated.updated_at as Date).toISOString();
 
       await emitPlannerCommentUpdated({
         actor: { type: 'user', user_id: input.session.user_id },

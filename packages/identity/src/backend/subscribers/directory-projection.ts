@@ -40,7 +40,7 @@ const upsertOnCreated: SubscriberDef = {
   handler: async (event, ctx) => {
     const e = event as DomainEvent<CreatedPayload>;
     await pgClient(ctx.tx).query(
-      `INSERT INTO identity.directory_person (person_id, tenant_id, full_name, work_email, job_title, employment_status)
+      `INSERT INTO identity.person_projection (person_id, tenant_id, full_name, work_email, job_title, employment_status)
        VALUES ($1, $2, $3, $4, $5, 'active')
        ON CONFLICT (person_id) DO UPDATE SET
          full_name = EXCLUDED.full_name,
@@ -65,7 +65,7 @@ const upsertOnUpdated: SubscriberDef = {
   handler: async (event, ctx) => {
     const e = event as DomainEvent<UpdatedPayload>;
     await pgClient(ctx.tx).query(
-      `INSERT INTO identity.directory_person (person_id, tenant_id, full_name, work_email, job_title, employment_status)
+      `INSERT INTO identity.person_projection (person_id, tenant_id, full_name, work_email, job_title, employment_status)
        VALUES ($1, $2, $3, $4, $5, 'active')
        ON CONFLICT (person_id) DO UPDATE SET
          full_name = EXCLUDED.full_name,
@@ -90,7 +90,7 @@ const terminateSub: SubscriberDef = {
   handler: async (event, ctx) => {
     const e = event as DomainEvent<LifecyclePayload>;
     await pgClient(ctx.tx).query(
-      `UPDATE identity.directory_person
+      `UPDATE identity.person_projection
        SET employment_status = 'terminated', updated_at = NOW()
        WHERE person_id = $1`,
       [e.payload.person_id],
@@ -105,7 +105,7 @@ const reinstateSub: SubscriberDef = {
   handler: async (event, ctx) => {
     const e = event as DomainEvent<LifecyclePayload>;
     await pgClient(ctx.tx).query(
-      `UPDATE identity.directory_person
+      `UPDATE identity.person_projection
        SET employment_status = 'active', updated_at = NOW()
        WHERE person_id = $1`,
       [e.payload.person_id],

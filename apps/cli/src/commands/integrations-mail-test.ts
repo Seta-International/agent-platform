@@ -7,6 +7,10 @@ import { parseMailerEnv } from '@seta/shared-mailer';
 import { eq } from 'drizzle-orm';
 import pino from 'pino';
 
+// Nil-uuid system actor: this CLI command runs from an operator terminal with no
+// authenticated user session to attribute the write to.
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
+
 export interface MailTestOpts {
   tenant: string;
   to: string;
@@ -33,7 +37,7 @@ export async function integrationsMailTestCommand(opts: MailTestOpts): Promise<v
   const keyProvider = await createKeyProviderFromEnv(cryptoEnv);
   const cryptoSvc = createCrypto({ keyProvider, log: log.child({ component: 'crypto' }) });
   const actor = {
-    user_id: 0,
+    user_id: SYSTEM_USER_ID,
     tenantId,
     permissions: new Set<string>([INTEGRATIONS_PERMISSIONS.mailConfigure]),
   };

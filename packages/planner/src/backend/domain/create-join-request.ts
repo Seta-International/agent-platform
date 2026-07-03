@@ -93,7 +93,11 @@ export async function createJoinRequest(
       } else {
         const [row] = await tx
           .insert(groupJoinRequests)
-          .values({ group_id: input.group_id, user_id: input.session.user_id })
+          .values({
+            tenant_id: group.tenant_id,
+            group_id: input.group_id,
+            user_id: input.session.user_id,
+          })
           .returning();
         // biome-ignore lint/style/noNonNullAssertion: .returning() always returns a row when inserting one record
         inserted = row!;

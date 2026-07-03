@@ -9,7 +9,6 @@ import { peopleRbac } from '@seta/people/rbac';
 import { plannerRbac } from '@seta/planner/rbac';
 import { pmRbac } from '@seta/pm/rbac';
 import { buildRegistry, INVENTORY, inventoryToManifests } from '@seta/shared-rbac';
-import { staffingRbac } from '@seta/staffing/rbac';
 import { describe, expect, it } from 'vitest';
 
 // Welds the per-module better-auth statements (declared in each <module>/src/rbac.ts
@@ -24,7 +23,6 @@ describe('rbac registry parity', () => {
     notificationsRbac,
     integrationsRbac,
     peopleRbac,
-    staffingRbac,
     agentRbac,
     plannerRbac,
     identityRbac,

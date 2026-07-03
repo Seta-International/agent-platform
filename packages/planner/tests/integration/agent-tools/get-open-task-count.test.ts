@@ -104,7 +104,7 @@ describe('planner_getOpenTaskCountForUser cross-module read', () => {
         user_id: assignee.user_id,
         session,
       });
-      await pool.query(`UPDATE planner.tasks SET percent_complete = 100 WHERE id = $1`, [done.id]);
+      await pool.query(`UPDATE planner.tasks SET progress = 'done' WHERE id = $1`, [done.id]);
 
       // 1 soft-deleted task — should not count.
       const deleted = await createTask({ plan_id: plan.id, title: 'gone', session });

@@ -20,7 +20,9 @@ export {
   CORE_SKILL_CATEGORY_UPDATED,
   CORE_SKILL_CREATED,
   CORE_SKILL_EVENTS,
+  CORE_SKILL_RENAMED,
   CORE_SKILL_UPDATED,
+  type SkillRenamedEventPayload,
 } from './backend/skills/events.ts';
 export {
   archiveSkill,

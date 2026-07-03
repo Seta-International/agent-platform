@@ -8,7 +8,7 @@ type RunStream = (
 
 export interface ChatRouterDeps {
   classify: (userText: string) => Promise<ChatIntent>;
-  staffing: RunStream;
+  assignment: RunStream;
   plannerQna: RunStream;
 }
 
@@ -17,6 +17,8 @@ export interface ChatRouterDeps {
 export function makeChatRouter(deps: ChatRouterDeps): RunStream {
   return async function routeChat(runInput, ctx) {
     const intent = await deps.classify(runInput.userText);
-    return intent === 'staffing' ? deps.staffing(runInput, ctx) : deps.plannerQna(runInput, ctx);
+    return intent === 'assignment'
+      ? deps.assignment(runInput, ctx)
+      : deps.plannerQna(runInput, ctx);
   };
 }

@@ -4,7 +4,12 @@ import { coreSkill, coreSkillCategory } from '../../db/schema/skills.ts';
 import { emit, withEmit } from '../../events/index.ts';
 import type { SessionScope } from '../../session/scope.ts';
 import { CoreSkillError, requireSkillPermission } from './error.ts';
-import { CORE_SKILL_ARCHIVED, CORE_SKILL_CREATED, CORE_SKILL_UPDATED } from './events.ts';
+import {
+  CORE_SKILL_ARCHIVED,
+  CORE_SKILL_CREATED,
+  CORE_SKILL_RENAMED,
+  CORE_SKILL_UPDATED,
+} from './events.ts';
 
 export type SkillRow = typeof coreSkill.$inferSelect;
 
@@ -67,7 +72,11 @@ export async function editSkill(input: {
   const { session, id } = input;
   requireSkillPermission(session, 'core.skill.manage');
   const [cur] = await coreDb()
-    .select({ version: coreSkill.version, category_id: coreSkill.category_id })
+    .select({
+      version: coreSkill.version,
+      category_id: coreSkill.category_id,
+      name: coreSkill.name,
+    })
     .from(coreSkill)
     .where(and(eq(coreSkill.id, id), eq(coreSkill.tenant_id, session.tenant_id)))
     .limit(1);
@@ -78,13 +87,14 @@ export async function editSkill(input: {
     await categoryOrThrow(session, input.input.category_id);
   const next = cur.version + 1;
   const categoryId = input.input.category_id ?? cur.category_id;
+  const newName = input.input.name !== undefined ? input.input.name.trim() : undefined;
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
       const updated = await tx
         .update(coreSkill)
         .set({
-          ...(input.input.name !== undefined ? { name: input.input.name.trim() } : {}),
+          ...(newName !== undefined ? { name: newName } : {}),
           ...(input.input.category_id !== undefined
             ? { category_id: input.input.category_id }
             : {}),
@@ -102,6 +112,16 @@ export async function editSkill(input: {
         eventVersion: 1,
         payload: { skill_id: id, category_id: categoryId, tenant_id: session.tenant_id },
       });
+      if (newName !== undefined && newName !== cur.name) {
+        await emit({
+          tenantId: session.tenant_id,
+          aggregateType: 'core.skill',
+          aggregateId: id,
+          eventType: CORE_SKILL_RENAMED,
+          eventVersion: 1,
+          payload: { skill_id: id, name: newName, previous_name: cur.name },
+        });
+      }
     },
   );
   return { version: next };

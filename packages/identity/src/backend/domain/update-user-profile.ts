@@ -64,6 +64,7 @@ export async function updateUserProfile(
             user_agent: actor.user_agent,
           },
           user_id: userId,
+          email: target.email,
           before: { display_name: before.display_name },
           after: { display_name: patch.display_name },
         },

@@ -100,10 +100,7 @@ describe.runIf(SHOULD_RUN_CLAMAV)('scan-upload job (clamav available)', () => {
         },
       );
 
-      const [row] = await knowledgeDb()
-        .select()
-        .from(files)
-        .where(eq(files.id, BigInt(fileId)));
+      const [row] = await knowledgeDb().select().from(files).where(eq(files.id, fileId));
       expect(row?.scan_status).toBe('infected');
       expect(row?.scan_detail).toMatch(/av_hit:/);
       expect(fake.deleteFn).toHaveBeenCalledOnce();
@@ -128,10 +125,7 @@ describe.runIf(SHOULD_RUN_CLAMAV)('scan-upload job (clamav available)', () => {
         },
       );
 
-      const [row] = await knowledgeDb()
-        .select()
-        .from(files)
-        .where(eq(files.id, BigInt(fileId)));
+      const [row] = await knowledgeDb().select().from(files).where(eq(files.id, fileId));
       expect(row?.scan_status).toBe('clean');
       expect(row?.scan_at).toBeTruthy();
       expect(fake.deleteFn).not.toHaveBeenCalled();
@@ -161,10 +155,7 @@ describe('scan-upload content-type sniffing', () => {
         },
       );
 
-      const [row] = await knowledgeDb()
-        .select()
-        .from(files)
-        .where(eq(files.id, BigInt(fileId)));
+      const [row] = await knowledgeDb().select().from(files).where(eq(files.id, fileId));
       expect(row?.scan_status).toBe('infected');
       expect(row?.scan_detail).toMatch(/content_type_spoof/);
       expect(fake.deleteFn).toHaveBeenCalledOnce();

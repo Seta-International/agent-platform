@@ -84,7 +84,7 @@ function makeCard(assigneeUserIds: string[], taskId: string) {
     meta: {
       tenantId: 't',
       userId: 'u',
-      agentPath: ['staffing.orchestrator'],
+      agentPath: ['planner.assignment-orchestrator'],
       toolId: 'proposeAssignment',
       ts: new Date().toISOString(),
     },
@@ -108,16 +108,17 @@ async function seedAgenticApproval(
   await pool.query(
     `INSERT INTO agent.workflow_runs
        (run_id, workflow_id, tenant_id, started_by, started_via, input_summary, status, started_at)
-     VALUES ($1, 'staffing.orchestrator', $2, $3, 'chat', '{}'::jsonb, 'paused', now())`,
+     VALUES ($1, 'planner.assignment-orchestrator', $2, $3, 'chat', '{}'::jsonb, 'paused', now())`,
     [runId, args.tenantId, args.approverUserId],
   );
   const approvalId = randomUUID();
   await pool.query(
     `INSERT INTO agent.workflow_approvals
-       (approval_id, run_id, step_id, proposed_payload, approver_user_id,
+       (approval_id, run_id, tenant_id, step_id, proposed_payload, approver_user_id,
         fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
         mastra_run_id, tool_call_id, status, expires_at, created_at)
-     VALUES ($1, $2, 'chat-hitl', $3::jsonb, $4, NULL, false, $5,
+     VALUES ($1, $2, (SELECT tenant_id FROM agent.workflow_runs WHERE run_id = $2),
+             'chat-hitl', $3::jsonb, $4, NULL, false, $5,
              $6, $7, 'pending', now() + interval '1 day', now())`,
     [
       approvalId,
@@ -416,10 +417,11 @@ describe('POST /api/agent/v1/chat/resume', () => {
       const approvalId = randomUUID();
       await pool.query(
         `INSERT INTO agent.workflow_approvals
-           (approval_id, run_id, step_id, proposed_payload, approver_user_id,
+           (approval_id, run_id, tenant_id, step_id, proposed_payload, approver_user_id,
             fallback_approver_user_id, surface_canvas, surface_chat_thread_id,
             mastra_run_id, tool_call_id, status, expires_at, created_at)
-         VALUES ($1, $2, 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
+         VALUES ($1, $2, (SELECT tenant_id FROM agent.workflow_runs WHERE run_id = $2),
+                 'assignBySkill.suggest', $3::jsonb, $4, NULL, true, NULL,
                  NULL, NULL, 'pending', now() + interval '1 day', now())`,
         [approvalId, runId, JSON.stringify(makeCard(['u1'], randomUUID())), userId],
       );

@@ -69,7 +69,7 @@ export function registerKnowledgeRoutes(app: Hono<SessionEnv>, deps: KnowledgeRo
     requireOrgAdmin(c);
     const scope = c.get('user');
     const file_id = c.req.param('id');
-    if (!/^\d+$/.test(file_id)) return c.json({ error: 'invalid_id' }, 400);
+    if (!z.string().uuid().safeParse(file_id).success) return c.json({ error: 'invalid_id' }, 400);
     await markKnowledgeFileProcessed(
       { tenant_id: scope.tenant_id, file_id },
       {
@@ -93,7 +93,7 @@ export function registerKnowledgeRoutes(app: Hono<SessionEnv>, deps: KnowledgeRo
     requireOrgAdmin(c);
     const scope = c.get('user');
     const file_id = c.req.param('id');
-    if (!/^\d+$/.test(file_id)) return c.json({ error: 'invalid_id' }, 400);
+    if (!z.string().uuid().safeParse(file_id).success) return c.json({ error: 'invalid_id' }, 400);
     await deleteKnowledgeFile({ tenant_id: scope.tenant_id, file_id }, { session: scope });
     return c.json({ ok: true });
   });

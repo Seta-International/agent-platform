@@ -50,7 +50,7 @@ async function buildActor(c: Context<SessionEnv>): Promise<IntegrationsActor> {
   const scope = c.get('user');
   const perms = await listMyEffectivePermissions({ type: 'user', user_id: scope.user_id });
   return {
-    user_id: 0,
+    user_id: scope.user_id,
     tenantId: scope.tenant_id,
     permissions: new Set(perms),
   };

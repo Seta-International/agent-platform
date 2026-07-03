@@ -10,7 +10,7 @@ import {
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { getAllocationGrid } from '../../src/backend/domain/allocation-grid.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { buildSession, seedPersons, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -30,6 +30,7 @@ describe('getAllocationGrid', () => {
         const projA = crypto.randomUUID();
         const projB = crypto.randomUUID();
 
+        await seedPersons(t.tenant_id, personId);
         await peopleDb().insert(worker).values({
           tenant_id: t.tenant_id,
           person_id: personId,
@@ -108,6 +109,7 @@ describe('getAllocationGrid', () => {
         const accountId = crypto.randomUUID();
         const zoe = crypto.randomUUID();
         const amy = crypto.randomUUID();
+        await seedPersons(t.tenant_id, zoe, amy);
         await peopleDb()
           .insert(worker)
           .values([
@@ -189,6 +191,7 @@ describe('getAllocationGrid', () => {
         const hung = crypto.randomUUID(); // over-allocated
         const dung = crypto.randomUUID(); // under-utilized, đ in name
 
+        await seedPersons(t.tenant_id, hung, dung);
         await peopleDb()
           .insert(worker)
           .values([
@@ -311,6 +314,7 @@ describe('getAllocationGrid', () => {
         const t = await seedTenant(pool);
         const acc = crypto.randomUUID();
         const nam = crypto.randomUUID();
+        await seedPersons(t.tenant_id, nam);
         await peopleDb().insert(worker).values({
           tenant_id: t.tenant_id,
           person_id: nam,
@@ -372,6 +376,7 @@ describe('getAllocationGrid', () => {
         const acc = crypto.randomUUID();
         const am = crypto.randomUUID();
         const member = crypto.randomUUID();
+        await seedPersons(t.tenant_id, am, member);
         await peopleDb()
           .insert(worker)
           .values([
@@ -445,6 +450,7 @@ describe('getAllocationGrid', () => {
       try {
         const t = await seedTenant(pool);
         const stranger = crypto.randomUUID();
+        await seedPersons(t.tenant_id, stranger);
         await peopleDb().insert(worker).values({
           tenant_id: t.tenant_id,
           person_id: stranger,

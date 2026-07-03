@@ -6,35 +6,12 @@ import type { NodeTx } from '@seta/shared-db';
 import { and, eq, isNull } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
 import { labels, plans } from '../db/schema.ts';
-import type { PlanRow, TaskExternalSource } from '../dto.ts';
+import type { PlanRow } from '../dto.ts';
 import type { SetCategoryDescriptionsInput } from '../inputs.ts';
 import { PlannerError } from '../rbac.ts';
+import { fetchCategoryDescriptions, planRowToDto } from './_plan-dto.ts';
 import { attachLabelToCategorySlotTx } from './attach-label-to-category-slot.ts';
 import { setCategoryDescriptionTx } from './set-category-description.ts';
-
-type PlanDbRow = typeof plans.$inferSelect;
-
-function rowToDto(row: PlanDbRow): PlanRow {
-  return {
-    id: row.id,
-    tenant_id: row.tenant_id,
-    group_id: row.group_id,
-    name: row.name,
-    category_descriptions: (row.category_descriptions ?? {}) as Record<string, string>,
-    external_source: row.external_source as TaskExternalSource,
-    external_id: row.external_id,
-    external_etag: row.external_etag,
-    external_synced_at: row.external_synced_at?.toISOString() ?? null,
-    sync_status: row.sync_status as PlanRow['sync_status'],
-    last_error: row.last_error,
-    created_by: row.created_by,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
-    deleted_at: row.deleted_at?.toISOString() ?? null,
-    archived_at: row.archived_at?.toISOString() ?? null,
-    version: row.version,
-  };
-}
 
 async function detachLabelFromSlotTx(
   tx: NodeTx,
@@ -123,5 +100,6 @@ export async function setCategoryDescriptions(
   if (!row) {
     throw new PlannerError('NOT_FOUND', 'Plan not found', { plan_id: input.plan_id });
   }
-  return rowToDto(row);
+  const categoryDescriptions = await fetchCategoryDescriptions(db, row.id);
+  return planRowToDto(row, categoryDescriptions);
 }

@@ -53,13 +53,7 @@ export async function updateGroup(input: {
       const before: Partial<Record<UpdatableField, unknown>> = {};
       const after: Partial<Record<UpdatableField, unknown>> = {};
       const changed_fields: GroupFieldKey[] = [];
-      const setFields: {
-        name?: string;
-        description?: string | null;
-        theme?: string;
-        visibility?: string;
-        default_role?: string;
-      } = {};
+      const setFields: Record<string, unknown> = {};
 
       for (const field of UPDATABLE_FIELDS) {
         if (!(field in input.patch)) continue;

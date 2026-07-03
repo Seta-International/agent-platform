@@ -67,6 +67,7 @@ export async function applyLabel(input: {
       const inserted = await tx
         .insert(taskLabels)
         .values({
+          tenant_id: task.tenant_id,
           task_id: input.task_id,
           label_id: input.label_id,
           applied_by: input.session.user_id,

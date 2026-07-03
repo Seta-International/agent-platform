@@ -62,43 +62,40 @@ export async function setMailTransportConfig(args: SetMailTransportConfigArgs): 
     };
   }
 
-  await withEmit(
-    { actor: { userId: String(args.actor.user_id), tenantId: args.tenantId } },
-    async (tx) => {
-      await tx
-        .insert(mailTransportConfig)
-        .values({
-          tenantId: args.tenantId,
+  await withEmit({ actor: { userId: args.actor.user_id, tenantId: args.tenantId } }, async (tx) => {
+    await tx
+      .insert(mailTransportConfig)
+      .values({
+        tenantId: args.tenantId,
+        kind: parsed.data.kind,
+        senderAddress: parsed.data.senderAddress,
+        senderDisplayName: parsed.data.senderDisplayName,
+        config: configPayload as never,
+        enabled: true,
+        createdBy: args.actor.user_id,
+        updatedBy: args.actor.user_id,
+      })
+      .onConflictDoUpdate({
+        target: mailTransportConfig.tenantId,
+        set: {
           kind: parsed.data.kind,
           senderAddress: parsed.data.senderAddress,
           senderDisplayName: parsed.data.senderDisplayName,
           config: configPayload as never,
           enabled: true,
-          createdBy: args.actor.user_id,
+          updatedAt: sql`now()`,
           updatedBy: args.actor.user_id,
-        })
-        .onConflictDoUpdate({
-          target: mailTransportConfig.tenantId,
-          set: {
-            kind: parsed.data.kind,
-            senderAddress: parsed.data.senderAddress,
-            senderDisplayName: parsed.data.senderDisplayName,
-            config: configPayload as never,
-            enabled: true,
-            updatedAt: sql`now()`,
-            updatedBy: args.actor.user_id,
-            lastVerifiedAt: null,
-            lastVerifyError: null,
-          },
-        });
-      await emit({
-        tenantId: args.tenantId,
-        aggregateType: 'mail_transport_config',
-        aggregateId: args.tenantId,
-        eventType: 'integrations.mail_transport.configured',
-        eventVersion: 1,
-        payload: { kind: parsed.data.kind, sender_address: parsed.data.senderAddress },
+          lastVerifiedAt: null,
+          lastVerifyError: null,
+        },
       });
-    },
-  );
+    await emit({
+      tenantId: args.tenantId,
+      aggregateType: 'mail_transport_config',
+      aggregateId: args.tenantId,
+      eventType: 'integrations.mail_transport.configured',
+      eventVersion: 1,
+      payload: { kind: parsed.data.kind, sender_address: parsed.data.senderAddress },
+    });
+  });
 }

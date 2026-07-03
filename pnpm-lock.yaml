@@ -115,9 +115,6 @@ importers:
       '@seta/shared-rbac':
         specifier: workspace:^
         version: link:../../packages/shared-rbac
-      '@seta/staffing':
-        specifier: workspace:^
-        version: link:../../packages/staffing
       commander:
         specifier: ^15.0.0
         version: 15.0.0
@@ -227,9 +224,6 @@ importers:
       '@seta/shared-types':
         specifier: workspace:^
         version: link:../../packages/shared-types
-      '@seta/staffing':
-        specifier: workspace:^
-        version: link:../../packages/staffing
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.2)(pg@8.21.0)
@@ -532,9 +526,6 @@ importers:
       '@seta/shared-types':
         specifier: workspace:^
         version: link:../../packages/shared-types
-      '@seta/staffing':
-        specifier: workspace:^
-        version: link:../../packages/staffing
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.2)(pg@8.21.0)
@@ -1198,6 +1189,9 @@ importers:
       '@mastra/core':
         specifier: ^1.42.0
         version: 1.42.0(@grpc/grpc-js@1.14.4)(ai@6.0.200(zod@4.4.3))(express@5.2.1)(zod@4.4.3)
+      '@mastra/observability':
+        specifier: ^1.14.1
+        version: 1.14.1(@mastra/core@1.42.0(@grpc/grpc-js@1.14.4)(ai@6.0.200(zod@4.4.3))(express@5.2.1)(zod@4.4.3))(zod@4.4.3)
       '@mastra/pg':
         specifier: ^1.13.0
         version: 1.13.0(@mastra/core@1.42.0(@grpc/grpc-js@1.14.4)(ai@6.0.200(zod@4.4.3))(express@5.2.1)(zod@4.4.3))
@@ -1210,6 +1204,9 @@ importers:
       '@seta/agent-sdk':
         specifier: workspace:^
         version: link:../../sdks/agent
+      '@seta/identity':
+        specifier: workspace:^
+        version: link:../identity
       '@seta/notifications':
         specifier: workspace:^
         version: link:../notifications
@@ -1253,9 +1250,6 @@ importers:
       '@seta/core':
         specifier: workspace:^
         version: link:../core
-      '@seta/identity':
-        specifier: workspace:^
-        version: link:../identity
       '@seta/shared-config':
         specifier: workspace:^
         version: link:../shared-config
@@ -1280,6 +1274,9 @@ importers:
       '@types/sanitize-html':
         specifier: ^2.16.1
         version: 2.16.1
+      ai:
+        specifier: ^6.0.200
+        version: 6.0.200(zod@4.4.3)
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
@@ -1592,6 +1589,9 @@ importers:
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.2)(pg@8.21.0)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1783,94 +1783,6 @@ importers:
       tailwindcss:
         specifier: ^4.3.0
         version: 4.3.0
-      vitest:
-        specifier: ^4.1.9
-        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.3)(typescript@6.0.3))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
-  packages/staffing:
-    dependencies:
-      '@mastra/core':
-        specifier: ^1.42.0
-        version: 1.42.0(@grpc/grpc-js@1.14.4)(ai@6.0.200(zod@4.4.3))(express@5.2.1)(zod@4.4.3)
-      '@mastra/observability':
-        specifier: ^1.14.1
-        version: 1.14.1(@mastra/core@1.42.0(@grpc/grpc-js@1.14.4)(ai@6.0.200(zod@4.4.3))(express@5.2.1)(zod@4.4.3))(zod@4.4.3)
-      '@seta/agent':
-        specifier: workspace:^
-        version: link:../agent
-      '@seta/agent-sdk':
-        specifier: workspace:^
-        version: link:../../sdks/agent
-      '@seta/core':
-        specifier: workspace:^
-        version: link:../core
-      '@seta/identity':
-        specifier: workspace:^
-        version: link:../identity
-      '@seta/knowledge':
-        specifier: workspace:*
-        version: link:../knowledge
-      '@seta/people':
-        specifier: workspace:^
-        version: link:../people
-      '@seta/planner':
-        specifier: workspace:^
-        version: link:../planner
-      '@seta/shared-db':
-        specifier: workspace:^
-        version: link:../shared-db
-      '@seta/shared-embeddings':
-        specifier: workspace:^
-        version: link:../shared-embeddings
-      '@seta/shared-orchestration':
-        specifier: workspace:*
-        version: link:../shared-orchestration
-      '@seta/shared-rbac':
-        specifier: workspace:^
-        version: link:../shared-rbac
-      '@seta/shared-retrieval':
-        specifier: workspace:^
-        version: link:../shared-retrieval
-      '@seta/shared-types':
-        specifier: workspace:^
-        version: link:../shared-types
-      ai:
-        specifier: ^6.0.200
-        version: 6.0.200(zod@4.4.3)
-      drizzle-orm:
-        specifier: ^0.45.2
-        version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.29.2)(pg@8.21.0)
-      graphile-worker:
-        specifier: ^0.16.6
-        version: 0.16.6(typescript@6.0.3)
-      pg:
-        specifier: ^8.21.0
-        version: 8.21.0
-      pino:
-        specifier: ^10.3.1
-        version: 10.3.1
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
-    devDependencies:
-      '@seta/shared-config':
-        specifier: workspace:^
-        version: link:../shared-config
-      '@seta/shared-testing':
-        specifier: workspace:^
-        version: link:../shared-testing
-      '@types/node':
-        specifier: ^25.9.3
-        version: 25.9.3
-      '@types/pg':
-        specifier: ^8.20.0
-        version: 8.20.0
-      drizzle-kit:
-        specifier: ^0.31.10
-        version: 0.31.10
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
       vitest:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.3)(typescript@6.0.3))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))

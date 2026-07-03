@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { plannerDb } from '../../../db/index.ts';
 import { labels, taskLabels, tasks } from '../../../db/schema.ts';
+import { priorityToNumber } from '../../../db/task-enums.ts';
 import { PlannerError } from '../../../rbac.ts';
 
 export interface LoadedTask {
@@ -45,6 +46,6 @@ export async function loadTask(input: { tenantId: string; taskId: string }): Pro
     description: row.description ?? '',
     labels: labelRows.map((l) => l.name),
     due_at: row.due_at,
-    priority_number: row.priority_number,
+    priority_number: priorityToNumber(row.priority),
   };
 }

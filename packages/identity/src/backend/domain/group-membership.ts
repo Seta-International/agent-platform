@@ -36,6 +36,7 @@ export async function addGroupMembers(
       .insert(accessGroupMembership)
       .values(
         input.user_ids.map((user_id) => ({
+          tenant_id: input.tenant_id,
           group_id: input.group_id,
           user_id,
           added_by: actor.user_id,

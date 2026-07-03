@@ -41,14 +41,15 @@ describe('knowledge.files', () => {
         'size_bytes',
         's3_key',
         'status',
-        'error_reason',
-        'created_at',
-        'processed_at',
         'scan_status',
         'scan_at',
         'scan_detail',
+        'error_reason',
         'thread_id',
         'origin',
+        'created_at',
+        'updated_at',
+        'processed_at',
         'consumed_at',
       ]);
     }));
@@ -73,6 +74,7 @@ it('creates knowledge.chunks (LIST partitioned)', async () => {
       'chunk_ordinal',
       'chunk_text',
       'page_hint',
+      'created_at',
     ]);
   });
 });

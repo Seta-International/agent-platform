@@ -3,7 +3,6 @@ import { CheckCircle2, Plug, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import type { SsoProviderRowDto } from '../api/sso-client.ts';
 import { disconnectProvider, setProviderEnabled, startConsent } from '../api/sso-client.ts';
-import { ConnectEntraDialog } from './ConnectEntraDialog.tsx';
 import { EditDomainsDialog } from './EditDomainsDialog.tsx';
 
 interface EntraProviderCardProps {
@@ -170,21 +169,26 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
             <Plug aria-hidden className="mt-0.5 size-4 flex-none text-ink-subtle" />
             <div className="min-w-0 flex-1">
               <p className="m-0 text-body-sm text-ink">
-                Connect your Microsoft tenant so your team can sign in with their work account.
+                Microsoft Entra sign-in is linked through the Microsoft 365 integration.
               </p>
               <p className="m-0 mt-1 text-caption text-ink-subtle">
-                Invite people first — Microsoft sign-in only works for users who already have an
-                account here.
+                Configure the Microsoft 365 integration (via platform provisioning) first. Once it's
+                linked, the Entra provider appears here to enable and to manage email domains.
               </p>
             </div>
-            <ConnectEntraDialog onConnected={onChanged} />
           </div>
         </div>
       ) : (
         <>
           <dl className="m-0 divide-y divide-hairline-tertiary px-5 py-1">
             <MetaRow label="Tenant ID">
-              <code className="font-mono text-body-sm text-ink">{row.config.entra_tenant_id}</code>
+              {row.entra_tenant_id ? (
+                <code className="font-mono text-body-sm text-ink">{row.entra_tenant_id}</code>
+              ) : (
+                <span className="text-ink-subtle">
+                  Not yet linked — configured via the Microsoft 365 integration.
+                </span>
+              )}
             </MetaRow>
             <MetaRow label="Email domains">
               <div className="flex flex-wrap items-center gap-1.5">
@@ -201,7 +205,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
                   ))
                 )}
                 <EditDomainsDialog
-                  entraTenantId={row.config.entra_tenant_id}
+                  entraTenantId={row.entra_tenant_id}
                   initialDomains={row.email_domains}
                   onSaved={onChanged}
                 />

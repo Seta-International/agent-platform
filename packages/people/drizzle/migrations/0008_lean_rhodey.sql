@@ -1,2 +1,0 @@
-ALTER TABLE "people"."worker" ADD COLUMN "employee_no" text;--> statement-breakpoint
-CREATE UNIQUE INDEX "worker_uniq_employee_no_per_tenant" ON "people"."worker" USING btree ("tenant_id","employee_no") WHERE employee_no IS NOT NULL AND deleted_at IS NULL;

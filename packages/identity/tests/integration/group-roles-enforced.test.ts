@@ -60,10 +60,12 @@ describe('group roles enforced by requirePermission', () => {
             name: 'HR',
           });
           await db.insert(accessGroupRole).values({
+            tenant_id,
             group_id: groupId,
             role_slug: 'people.manager',
           });
           await db.insert(accessGroupMembership).values({
+            tenant_id,
             group_id: groupId,
             user_id,
           });
