@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, ErrorMapper } from '@seta/core';
+import { getLifecycleEntries, registerLifecycle } from '@seta/shared-db';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { identityAgentTools } from './agent-tools.ts';
 import * as schema from './backend/db/schema.ts';
@@ -22,6 +23,36 @@ export const identityErrorMapper: ErrorMapper = (err) => {
 };
 
 export function registerIdentityContributions(reg: ContributionRegistry): void {
+  // Tests construct a fresh ContributionRegistry per call (often several times per process),
+  // but the shared-db lifecycle registry is process-global and throws on re-registering a
+  // table — skip if a prior call in this process already ran.
+  if (!getLifecycleEntries().some((e) => e.table === 'identity.user')) {
+    registerLifecycle([
+      { table: 'identity.user', policy: { kind: 'permanent' } },
+      { table: 'identity.session', policy: { kind: 'permanent' } },
+      { table: 'identity.account', policy: { kind: 'permanent' } },
+      { table: 'identity.rate_limit', policy: { kind: 'permanent' } },
+      { table: 'identity.verification', policy: { kind: 'permanent' } },
+      { table: 'identity.role_assignments', policy: { kind: 'permanent' } },
+      { table: 'identity.role_permission_overlays', policy: { kind: 'permanent' } },
+      { table: 'identity.tenant_sso_providers', policy: { kind: 'permanent' } },
+      { table: 'identity.person_projection', policy: { kind: 'permanent' } },
+      { table: 'identity.access_group', policy: { kind: 'permanent' } },
+      { table: 'identity.access_group_membership', policy: { kind: 'permanent' } },
+      { table: 'identity.access_group_role', policy: { kind: 'permanent' } },
+      { table: 'identity.org_unit_projection', policy: { kind: 'permanent' } },
+      { table: 'identity.product_grant', policy: { kind: 'permanent' } },
+      {
+        table: 'identity.failed_login_attempts',
+        policy: { kind: 'ttl', column: 'attempted_at', olderThan: '90 days' },
+      },
+      {
+        table: 'identity.failed_login_alerts_sent',
+        policy: { kind: 'ttl', column: 'last_sent_at', olderThan: '90 days' },
+      },
+    ]);
+  }
+
   reg.module({
     name: 'identity',
     schema,
