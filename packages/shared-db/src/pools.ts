@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { instrumentPool } from './instrumentation.ts';
+import { bindWebPool, makeTenantAwarePool } from './request-tenant.ts';
 
 export interface PoolsConfig {
   databaseUrl: string;
@@ -20,6 +21,7 @@ export interface Pools {
 }
 
 let pools: Pools | null = null;
+let webFacade: Pool | null = null;
 
 // Sizing formula (docs/hosting/aws.md §7):
 //   max = floor(pg_max_connections / (server_tasks + worker_tasks)) − margin
@@ -33,7 +35,10 @@ export function initPools(cfg: PoolsConfig): Pools {
   const workerStmt = 30_000;
   pools = {
     web: new Pool({
-      connectionString: cfg.appDatabaseUrl ?? cfg.databaseUrl,
+      // || not ??: an unset DATABASE_APP_URL arrives as "" through compose's
+      // ${VAR:-} default, and "" must fall back to databaseUrl (not become an
+      // empty connectionString that pg silently resolves to localhost).
+      connectionString: cfg.appDatabaseUrl || cfg.databaseUrl,
       max: cfg.webMax ?? 15,
       connectionTimeoutMillis: 5_000,
       idleTimeoutMillis: 10_000,
@@ -77,12 +82,20 @@ export function initPools(cfg: PoolsConfig): Pools {
   instrumentPool(pools.worker, 'worker');
   instrumentPool(pools.mastraState, 'mastraState');
 
+  // The web pool is served through a tenant-aware facade so per-request RLS
+  // binding (runRequestTenant) governs every module's reads. Raw pool is bound
+  // for the connection-pinning path.
+  bindWebPool(pools.web);
+  webFacade = makeTenantAwarePool(pools.web);
+
   return pools;
 }
 
 export function getPool(name?: 'web' | 'worker' | 'mastraState'): Pool {
   if (!pools) throw new Error('getPool called before initPools.');
-  return pools[name ?? 'web'];
+  const key = name ?? 'web';
+  if (key === 'web') return webFacade ?? pools.web;
+  return pools[key];
 }
 
 export function getPoolStats(): {
@@ -114,4 +127,5 @@ export async function closePools(): Promise<void> {
   if (!pools) return;
   await Promise.all([pools.web.end(), pools.worker.end(), pools.mastraState.end()]);
   pools = null;
+  webFacade = null;
 }
