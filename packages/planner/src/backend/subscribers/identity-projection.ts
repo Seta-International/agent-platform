@@ -47,10 +47,9 @@ export async function applyProfileUpdated(
   const userId = e.payload.user_id;
 
   // Upsert: if the projection row doesn't exist yet (race with user.created subscriber —
-  // both events fire within milliseconds at seed time), insert it by pulling the required
-  // identity fields from identity.user within the same transaction.
-  // ON CONFLICT applies the same partial update so the net result is identical whether
-  // the row existed or not.
+  // both events fire within milliseconds at seed time), insert it from the event payload
+  // alone. ON CONFLICT applies the same partial update so the net result is identical
+  // whether the row existed or not.
   //
   // Arrays must be passed as a PG array-literal string ($1::text[]) because Drizzle's
   // sql`` template expands a JS array to a row literal ($1,$2,...) which PG rejects as
@@ -68,20 +67,24 @@ export async function applyProfileUpdated(
     conflictClauses.push(sql`ooo_until = ${after.ooo_until ? new Date(after.ooo_until) : null}`);
   if (after.timezone !== undefined) conflictClauses.push(sql`timezone = ${after.timezone}`);
 
+  // display_name fallback: when only non-display_name profile fields are patched, the
+  // event carries no name — email is the only other event-carried identifier, so it
+  // seeds the NOT NULL column until a later display_name update or user.created lands.
+  const displayNameSeed = after.display_name !== undefined ? after.display_name : e.payload.email;
+
   await ctx.tx.execute(sql`
     INSERT INTO planner.assignee_projection
       (user_id, tenant_id, display_name, email, skills, availability_status, timezone, projection_built_at)
-    SELECT
-      u.id,
-      u.tenant_id,
-      ${after.display_name !== undefined ? sql`${after.display_name}` : sql`u.name`},
-      u.email,
+    VALUES (
+      ${userId},
+      ${e.tenantId},
+      ${displayNameSeed},
+      ${e.payload.email},
       ${skillsLiteral !== null ? sql`${skillsLiteral}::text[]` : sql`'{}'::text[]`},
-      ${after.availability_status !== undefined ? sql`${after.availability_status}` : sql`'available'`},
-      ${after.timezone !== undefined ? sql`${after.timezone}` : sql`'UTC'`},
+      ${after.availability_status !== undefined ? after.availability_status : 'available'},
+      ${after.timezone !== undefined ? after.timezone : 'UTC'},
       NOW()
-    FROM identity.user u -- cross-schema-read: planner reads identity.user to seed assignee_projection
-    WHERE u.id = ${userId}
+    )
     ON CONFLICT (user_id) DO UPDATE SET ${sql.join(conflictClauses, sql`, `)}
   `);
 }
