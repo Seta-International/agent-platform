@@ -92,8 +92,8 @@ describe('m365 group routes — tenant scoping', () => {
         ]);
         const attackerId = crypto.randomUUID();
         await pool.query(
-          `INSERT INTO planner.group_members (group_id, user_id, role, added_by) VALUES ($1, $2, 'member', $2)`,
-          [groupAId, attackerId],
+          `INSERT INTO planner.group_members (tenant_id, group_id, user_id, role, added_by) VALUES ($1, $2, $3, 'member', $3)`,
+          [tenantAId, groupAId, attackerId],
         );
 
         const session = buildSession({

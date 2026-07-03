@@ -36,7 +36,7 @@ async function seedAdminTask(
     { type: 'cli', user_id: null },
   );
 
-  // groups.created_by / plans.created_by / tasks.created_by are NOT NULL but unconstrained.
+  // groups.created_by / plans.created_by / buckets.created_by / tasks.created_by are NOT NULL but unconstrained.
   const actorId = randomUUID();
   const groupId = randomUUID();
   await pool.query(
@@ -55,9 +55,9 @@ async function seedAdminTask(
   const bucketId = randomUUID();
   await pool.query(
     `INSERT INTO planner.buckets
-       (id, tenant_id, plan_id, name, external_source)
-     VALUES ($1, $2, $3, $4, 'native')`,
-    [bucketId, tenantId, planId, `Bucket ${bucketId.slice(0, 8)}`],
+       (id, tenant_id, plan_id, name, external_source, created_by)
+     VALUES ($1, $2, $3, $4, 'native', $5)`,
+    [bucketId, tenantId, planId, `Bucket ${bucketId.slice(0, 8)}`, actorId],
   );
   const taskId = randomUUID();
   await pool.query(
@@ -86,9 +86,9 @@ async function seedAdminTask(
       [tenantId, planId, name],
     );
     await pool.query(
-      `INSERT INTO planner.task_labels (task_id, label_id, applied_by)
-       VALUES ($1, $2, $3)`,
-      [taskId, labelRow!.id, actorId],
+      `INSERT INTO planner.task_labels (tenant_id, task_id, label_id, applied_by)
+       VALUES ($1, $2, $3, $4)`,
+      [tenantId, taskId, labelRow!.id, actorId],
     );
   }
 
