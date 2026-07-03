@@ -90,7 +90,10 @@ export function RequisitionCard({ r, canManage }: { r: RequisitionListRow; canMa
       }
       if (value === 'on_hold') return holdRequisition(r.id, { expected_version: r.version });
       if (value === 'filled' || value === 'cancelled')
-        return closeRequisition(r.id, { expected_version: r.version, status: value });
+        return closeRequisition(r.id, {
+          expected_version: r.version,
+          status: value,
+        });
       throw new Error(`unknown status ${value}`);
     },
     onSuccess: () => {
@@ -116,8 +119,11 @@ export function RequisitionCard({ r, canManage }: { r: RequisitionListRow; canMa
     .join(' · ');
   const go = () =>
     void navigate({
-      to: '/hiring/requisitions/$requisitionId',
-      params: { requisitionId: r.id },
+      to: '/hiring/requisitions',
+      search: (prev: Record<string, unknown>) => ({
+        ...prev,
+        selectedRequisitionId: r.id,
+      }),
     });
 
   return (
@@ -128,12 +134,14 @@ export function RequisitionCard({ r, canManage }: { r: RequisitionListRow; canMa
           <div className="min-w-0">
             <button
               type="button"
-              className="text-left text-card-title font-semibold text-ink hover:underline"
+              className="line-clamp-2 w-full break-words text-left text-card-title font-semibold text-ink hover:underline"
               onClick={go}
             >
               {r.title}
             </button>
-            {subtitle && <div className="mt-0.5 text-body-sm text-ink-muted">{subtitle}</div>}
+            {subtitle && (
+              <div className="mt-0.5 truncate text-body-sm text-ink-muted">{subtitle}</div>
+            )}
           </div>
           <Badge
             className={
@@ -261,11 +269,12 @@ export function RequisitionCard({ r, canManage }: { r: RequisitionListRow; canMa
             </span>
             {r.applicants_count > 0 && (
               <button
+                hidden={true}
                 type="button"
                 className="text-body-sm text-ink-subtle hover:underline"
                 onClick={go}
               >
-                tap to review
+                Tap to review
               </button>
             )}
           </div>

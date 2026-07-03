@@ -36,10 +36,12 @@ test('board↔list toggle keeps the requisition visible', async ({ page }) => {
   await expect(page.getByRole('button', { name: TITLE })).toBeVisible();
 });
 
-test('opening the requisition detail shows the tabs', async ({ page }) => {
+test('opening the requisition detail shows the JD modal', async ({ page }) => {
   await page.goto('/hiring/requisitions');
   await page.getByRole('button', { name: TITLE }).click();
   await expect(page.getByRole('heading', { name: TITLE })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Job description' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Openings' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+  await expect(page.getByRole('heading', { name: TITLE })).not.toBeVisible();
 });
