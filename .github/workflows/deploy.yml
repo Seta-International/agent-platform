@@ -101,27 +101,28 @@ jobs:
           MAILER_GRAPH_CLIENT_SECRET: ${{ secrets.MAILER_GRAPH_CLIENT_SECRET }}
         run: bash scripts/render-env.sh "$ENV_FILE"
 
+      - name: Start bundled data (only when bundled-db profile is on)
+        if: contains(vars.COMPOSE_PROFILES, 'bundled-db')
+        shell: bash
+        env:
+          COMPOSE_FILE: ${{ vars.COMPOSE_FILE }}
+          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
+          ENV_FILE: ${{ vars.ENV_FILE }}
+          COMPOSE_PROJECT: ${{ vars.COMPOSE_PROJECT }}
+        run: docker compose -p "$COMPOSE_PROJECT" --env-file "$ENV_FILE" up -d --wait postgres
+
       - name: Pull, migrate, and bring up the stack
         shell: bash
         env:
+          COMPOSE_FILE: ${{ vars.COMPOSE_FILE }}
+          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
           ENV_FILE: ${{ vars.ENV_FILE }}
           COMPOSE_PROJECT: ${{ vars.COMPOSE_PROJECT }}
-          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
         run: |
           set -euo pipefail
-          PROFILE_ARGS=()
-          [ -n "${COMPOSE_PROFILES:-}" ] && PROFILE_ARGS=(--profile "$COMPOSE_PROFILES")
-          dc() { docker compose -p "$COMPOSE_PROJECT" "${PROFILE_ARGS[@]}" --env-file "$ENV_FILE" "$@"; }
+          dc() { docker compose -p "$COMPOSE_PROJECT" --env-file "$ENV_FILE" "$@"; }
 
           dc pull
-
-          # Bundled data services (dev only). When COMPOSE_PROFILES is empty (UAT),
-          # postgres/minio are profile-excluded and the stack uses external RDS/S3.
-          if [ -n "${COMPOSE_PROFILES:-}" ]; then
-            dc up -d --wait postgres minio
-            dc run --rm minio-setup
-          fi
-
           dc run --rm migrator
           dc up -d --remove-orphans --wait --wait-timeout 300 proxy server web worker
 
