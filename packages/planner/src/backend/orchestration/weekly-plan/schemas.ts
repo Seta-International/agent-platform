@@ -91,9 +91,7 @@ export const BuilderOutputSchema = z.object({
   caveat: z
     .string()
     .nullable()
-    .describe(
-      'Set when the LLM plan failed validation twice and the deterministic fallback was used.',
-    ),
+    .describe('Set when the LLM placement call failed and the deterministic fallback was used.'),
 });
 export type BuilderOutput = z.infer<typeof BuilderOutputSchema>;
 

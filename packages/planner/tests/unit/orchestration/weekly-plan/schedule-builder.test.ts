@@ -49,25 +49,23 @@ describe('weeklyPlan scheduleBuilder', () => {
     expect(generatePlan).toHaveBeenCalledOnce();
   });
 
-  it('repairs once: invalid then valid → valid plan, violations fed to the retry', async () => {
-    const generatePlan = vi
-      .fn()
-      .mockResolvedValueOnce(invalidPlan)
-      .mockResolvedValueOnce(validPlan);
-    const spec = makeWeeklyPlanScheduleBuilder({ resolveModel: () => ({}) as never, generatePlan });
-    const res = await spec.run({ tasks, window: WED_FRI }, ctx);
-    expect(res.result.plan).toEqual(validPlan);
-    expect(res.result.caveat).toBeNull();
-    expect(generatePlan).toHaveBeenCalledTimes(2);
-    const retryArgs = generatePlan.mock.calls[1]![0] as { message: string };
-    expect(retryArgs.message).toContain('outside the planning window');
-  });
-
-  it('falls back deterministically after two invalid plans, with a caveat', async () => {
+  it('returns the LLM plan as-is with a single call — no validation or repair', async () => {
     const generatePlan = vi.fn(async () => invalidPlan);
     const spec = makeWeeklyPlanScheduleBuilder({ resolveModel: () => ({}) as never, generatePlan });
     const res = await spec.run({ tasks, window: WED_FRI }, ctx);
-    expect(generatePlan).toHaveBeenCalledTimes(2);
+    // The plan is trusted verbatim even though it places a task outside the window.
+    expect(res.result.plan).toEqual(invalidPlan);
+    expect(res.result.caveat).toBeNull();
+    expect(generatePlan).toHaveBeenCalledOnce();
+  });
+
+  it('falls back deterministically when the LLM call throws, with a caveat', async () => {
+    const generatePlan = vi.fn(async () => {
+      throw new Error('LLM unavailable');
+    });
+    const spec = makeWeeklyPlanScheduleBuilder({ resolveModel: () => ({}) as never, generatePlan });
+    const res = await spec.run({ tasks, window: WED_FRI }, ctx);
+    expect(generatePlan).toHaveBeenCalledOnce();
     expect(res.result.caveat).toContain('deterministic');
     // Fallback still places every task inside the window.
     const placed = res.result.plan.days.flatMap((d) => d.blocks.flatMap((b) => b.taskTitles));

@@ -46,6 +46,14 @@ export interface WeeklyPlanToolDeps {
 
 export function makeWeeklyPlanTools(deps: WeeklyPlanToolDeps) {
   const { ctx, state, window } = deps;
+  // Each of the three delegation tools below wraps a full nested LLM sub-agent
+  // (Agent.generate with structuredOutput + tool steps), not a cheap DB read.
+  // The SDK default classifies a no-approval tool as READ (30s), which the
+  // sub-agent's multi round-trip latency routinely exceeds — producing
+  // ToolExecutionTimeoutError and tripping the per-tool circuit breaker. Raise
+  // the budget to the LLM-agent tier (capped at AGENT_TOOL_TIMEOUT_MAX_MS =
+  // 300s by resolveTimeoutMs).
+  const LLM_SUBAGENT_TIMEOUT_MS = 300_000;
   const subCtx: SpecializedAgentRunCtx = {
     tenantId: ctx.tenantId,
     actorUserId: ctx.actorUserId,
@@ -58,6 +66,7 @@ export function makeWeeklyPlanTools(deps: WeeklyPlanToolDeps) {
     planner_collectWeekTasks: defineAgentTool({
       id: 'planner_collectWeekTasks',
       name: 'Collect Week Tasks',
+      executionTimeoutMs: LLM_SUBAGENT_TIMEOUT_MS,
       description:
         'Step 1 — collect and normalize the tasks to plan (from the pasted list or the ' +
         'user’s open planner tasks, window-filtered). Always call this first.',
@@ -93,6 +102,7 @@ export function makeWeeklyPlanTools(deps: WeeklyPlanToolDeps) {
     planner_buildWeekSchedule: defineAgentTool({
       id: 'planner_buildWeekSchedule',
       name: 'Build Week Schedule',
+      executionTimeoutMs: LLM_SUBAGENT_TIMEOUT_MS,
       description:
         'Step 2 — place the collected tasks onto the window days with focus blocks. ' +
         'Requires planner_collectWeekTasks to have run in this turn.',
@@ -118,6 +128,7 @@ export function makeWeeklyPlanTools(deps: WeeklyPlanToolDeps) {
     planner_generatePlanInsights: defineAgentTool({
       id: 'planner_generatePlanInsights',
       name: 'Generate Plan Insights',
+      executionTimeoutMs: LLM_SUBAGENT_TIMEOUT_MS,
       description:
         'Step 3 — produce 1-3 insights (risk / workload / focus) for the built plan. ' +
         'Requires planner_buildWeekSchedule to have run in this turn.',
