@@ -2,6 +2,7 @@ import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
 import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import { dateAnchorsPromptBlock } from '../../../agent-tools/date-anchors.ts';
 import { plannerQueryTasksTool } from '../../../agent-tools/query-tasks.ts';
 import { pickModel } from '../../model.ts';
 import {
@@ -11,17 +12,46 @@ import {
   type CollectorOutput as Out,
 } from '../schemas.ts';
 
+/**
+ * Local logging wrapper — traces planner_queryTasks input before the call and
+ * output/error after, without mutating the shared tool export (used elsewhere).
+ * The Proxy overrides only `execute`; every other tool property passes through.
+ */
+const loggedQueryTasksTool = new Proxy(plannerQueryTasksTool, {
+  get(target, prop, receiver) {
+    if (prop !== 'execute') return Reflect.get(target, prop, receiver);
+    const orig = Reflect.get(target, prop, receiver) as (...args: unknown[]) => Promise<unknown>;
+    return async (...args: unknown[]) => {
+      console.log('[planner_queryTasks] in:', JSON.stringify(args[0]));
+      try {
+        const result = await orig.apply(target, args);
+        console.log('[planner_queryTasks] out:', JSON.stringify(result));
+        return result;
+      } catch (err) {
+        console.error('[planner_queryTasks] throw:', err);
+        throw err;
+      }
+    };
+  },
+});
+
 export interface WeeklyPlanTaskCollectorDeps {
   resolveModel: () => MastraModelConfig;
   /** Test-only seam; production builds + runs a real Mastra Agent. */
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<Out>;
 }
 
-const INSTRUCTIONS = `You collect the task list for a weekly plan. Decide the source:
+const buildInstructions = (now: Date) => `${dateAnchorsPromptBlock(now)}
+
+You collect the task list for a weekly plan. Decide the source:
 - If the user's message itself contains a task list (bullet lines, numbered lines,
   or comma-separated items), parse THAT list. Do not call any tool.
 - Otherwise call planner_queryTasks EXACTLY ONCE with
-  { assigneeScope: "me", status: "open", limit: 50 } and nothing else — no due filters.
+  { assigneeScope: "me", status: "open", limit: 50, dueBefore: "<DUE_BEFORE>" }
+  where <DUE_BEFORE> is the exclusive upper bound printed as "dueBefore" on the
+  Window line below. dueBefore is EXCLUSIVE (due_at < dueBefore), so this makes the
+  DB drop tasks due after the window AT SOURCE. Never omit dueBefore; pass no other
+  filters. Use the exact date given — do NOT recompute it.
 
 Then normalize into tasks[]:
 - Keep tasks due inside the window (weekStart..weekEnd), tasks due BEFORE weekStart
@@ -35,7 +65,8 @@ Then normalize into tasks[]:
   tasks mid-week, merge: the previously planned tasks plus the stated changes.
 - If more than 20 tasks remain, keep the 20 with the earliest due dates, then the
   highest priority, and drop the rest.
-Return only the structured object.`;
+Return only the structured object.
+/no_think`;
 
 export function makeWeeklyPlanTaskCollector(
   deps: WeeklyPlanTaskCollectorDeps,
@@ -56,27 +87,37 @@ export function makeWeeklyPlanTaskCollector(
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
             const model = pickModel(ctx, deps.resolveModel);
+            // exclusive upper bound: day AFTER weekEnd, so tasks due ON weekEnd are kept
+            const dueBefore = new Date(`${input.window.weekEnd}T00:00:00Z`);
+            dueBefore.setUTCDate(dueBefore.getUTCDate() + 1);
+            const dueBeforeIso = dueBefore.toISOString().slice(0, 10);
             const agent = new Agent({
               id: 'planner.weeklyPlan.taskCollector',
               name: 'Weekly Plan Task Collector',
-              instructions: INSTRUCTIONS,
+              instructions: buildInstructions(new Date()),
               model,
-              tools: { planner_queryTasks: plannerQueryTasksTool } as never,
+              tools: { planner_queryTasks: loggedQueryTasksTool } as never,
             });
-            const r = await agent.generate(
-              [`Window: ${JSON.stringify(input.window)}`, `User request: ${input.userText}`].join(
-                '\n',
-              ),
+            const stream = await agent.stream(
+              [
+                `Window: ${JSON.stringify(input.window)} (dueBefore ${dueBeforeIso})`,
+                `User request: ${input.userText}`,
+              ].join('\n'),
               {
-                toolChoice: { type: 'tool', toolName: 'planner_queryTasks' },
+                // Free tool-choice: the model decides whether to call
+                // planner_queryTasks (and authors its args from INSTRUCTIONS,
+                // incl. assigneeScope: "me") vs. parsing a pasted list. Forcing
+                // toolChoice made the model emit empty args, dropping the
+                // optional assigneeScope so the query silently ran unscoped.
                 structuredOutput: { schema: CollectorOutputSchema, model },
                 maxSteps: 5,
                 requestContext: rc,
                 abortSignal: ctx.abortSignal,
               },
             );
-            if (!r.object) throw new Error('task collection returned no structured output');
-            return r.object;
+            const object = await stream.object;
+            if (!object) throw new Error('task collection returned no structured output');
+            return object;
           })();
 
       const tasks = out.tasks ?? [];
