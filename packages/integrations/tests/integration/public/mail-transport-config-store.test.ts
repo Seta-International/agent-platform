@@ -26,7 +26,7 @@ describe('mail transport config store', () => {
         senderAddress: 'noreply@acme.test',
         senderDisplayName: 'Acme',
         config: { app_access_policy_documented: true },
-        actorUserId: 42,
+        actorUserId: crypto.randomUUID(),
       });
       const row = await store.findEnabled(tenantId);
       expect(row).toMatchObject({
@@ -49,9 +49,9 @@ describe('mail transport config store', () => {
         senderAddress: 'a@b.com',
         senderDisplayName: null,
         config: { app_access_policy_documented: false },
-        actorUserId: 1,
+        actorUserId: crypto.randomUUID(),
       });
-      await store.disable(tenantId, 1);
+      await store.disable(tenantId, crypto.randomUUID());
       expect(await store.findEnabled(tenantId)).toBeNull();
     });
   });
@@ -73,7 +73,7 @@ describe('mail transport config store', () => {
           password_blob: fakeBlob,
           require_tls: true,
         },
-        actorUserId: 1,
+        actorUserId: crypto.randomUUID(),
       });
       const row = await store.findEnabled(tenantId);
       expect(row?.kind).toBe('smtp');
@@ -95,7 +95,7 @@ describe('mail transport config store', () => {
         senderAddress: 'a@b.com',
         senderDisplayName: null,
         config: { app_access_policy_documented: true },
-        actorUserId: 1,
+        actorUserId: crypto.randomUUID(),
       });
       await store.recordVerification(tenantId, { ok: true });
       const row = await store.findEnabled(tenantId);
@@ -115,7 +115,7 @@ describe('mail transport config store', () => {
         senderAddress: 'a@b.com',
         senderDisplayName: null,
         config: { app_access_policy_documented: true },
-        actorUserId: 1,
+        actorUserId: crypto.randomUUID(),
       });
       await store.recordVerification(tenantId, { ok: false, error: 'AUTH_DENIED' });
       const row = await store.findEnabled(tenantId);

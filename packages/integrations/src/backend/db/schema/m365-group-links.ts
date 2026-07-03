@@ -1,6 +1,7 @@
+import { textEnum, textEnumCheck } from '@seta/shared-db';
 import { sql } from 'drizzle-orm';
-import { check, index, jsonb, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
-import { integrations } from './_integrations-schema.ts';
+import { index, jsonb, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { integrations, SYNC_STATUS } from './_integrations-schema.ts';
 
 export const m365GroupLinks = integrations.table(
   'm365_group_links',
@@ -12,7 +13,7 @@ export const m365GroupLinks = integrations.table(
     deltaLink: text('delta_link'),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }).defaultNow().notNull(),
     lastSyncedFields: jsonb('last_synced_fields').notNull(),
-    syncStatus: text('sync_status').notNull().default('idle'),
+    syncStatus: textEnum('sync_status', SYNC_STATUS).notNull().default('idle'),
     lastError: text('last_error'),
     unlinkedAt: timestamp('unlinked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -26,10 +27,7 @@ export const m365GroupLinks = integrations.table(
       .on(t.tenantId, t.externalId)
       .where(sql`unlinked_at IS NULL`),
     index('m365_group_links_by_status').on(t.tenantId, t.syncStatus),
-    check(
-      'm365_group_links_status_check',
-      sql`sync_status IN ('idle','pulling','pushing','error','conflict')`,
-    ),
+    textEnumCheck('m365_group_links', 'sync_status', SYNC_STATUS),
   ],
 );
 

@@ -33,7 +33,7 @@ describe('m365 tenant config store', () => {
         entraTenantId,
         clientId: 'my-client-id',
         clientSecretBlob: fakeBlob,
-        actorUserId: 1,
+        actorUserId: crypto.randomUUID(),
       });
 
       const row = await store.findEnabled(tenantId);
@@ -58,7 +58,7 @@ describe('m365 tenant config store', () => {
         entraTenantId: crypto.randomUUID(),
         clientId: 'cid',
         clientSecretBlob: fakeBlob,
-        actorUserId: 1,
+        actorUserId: crypto.randomUUID(),
       });
 
       // Directly disable by calling upsert with a manual disable is not exposed;
@@ -80,14 +80,14 @@ describe('m365 tenant config store', () => {
         entraTenantId,
         clientId: 'old-client',
         clientSecretBlob: fakeBlob,
-        actorUserId: 1,
+        actorUserId: crypto.randomUUID(),
       });
       await store.upsert({
         tenantId,
         entraTenantId: newEntraTenantId,
         clientId: 'new-client',
         clientSecretBlob: fakeBlob,
-        actorUserId: 2,
+        actorUserId: crypto.randomUUID(),
       });
 
       const row = await store.findEnabled(tenantId);
@@ -108,7 +108,7 @@ describe('setM365TenantConfig domain', () => {
       `acme-${tenantId.slice(0, 8)}`,
     ]);
     const actor = {
-      user_id: 42,
+      user_id: crypto.randomUUID(),
       tenantId,
       permissions: new Set<string>([INTEGRATIONS_PERMISSIONS.m365Configure]),
     };
@@ -162,7 +162,11 @@ describe('setM365TenantConfig domain', () => {
       },
       async ({ pool, databaseUrl }) => {
         const { tenantId } = await setup(pool, databaseUrl);
-        const actorNoPerm = { user_id: 1, tenantId, permissions: new Set<string>() };
+        const actorNoPerm = {
+          user_id: crypto.randomUUID(),
+          tenantId,
+          permissions: new Set<string>(),
+        };
         try {
           await expect(
             setM365TenantConfig({

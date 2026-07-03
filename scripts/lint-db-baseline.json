@@ -19,7 +19,6 @@
   "R4:packages/identity/src/backend/db/schema.ts:person_projection",
   "R4:packages/identity/src/backend/db/schema.ts:role_assignments",
   "R4:packages/identity/src/backend/db/schema.ts:role_permission_overlays",
-  "R4:packages/integrations/src/backend/db/schema/m365-resource-etags.ts:m365_resource_etags",
   "R4:packages/notifications/src/backend/db/schema/notification-prefs.ts:notification_prefs",
   "R4:packages/people/src/backend/db/schema.ts:account_projection",
   "R4:packages/people/src/backend/db/schema.ts:project_projection",

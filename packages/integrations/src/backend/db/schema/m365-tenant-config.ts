@@ -1,5 +1,5 @@
 import type { EncryptedBlob } from '@seta/shared-crypto';
-import { bigint, boolean, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, jsonb, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { integrations } from './_integrations-schema.ts';
 
 export const m365TenantConfig = integrations.table('m365_tenant_config', {
@@ -8,8 +8,8 @@ export const m365TenantConfig = integrations.table('m365_tenant_config', {
   clientId: text('client_id').notNull(),
   clientSecretBlob: jsonb('client_secret_blob').$type<EncryptedBlob>().notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  createdBy: bigint('created_by', { mode: 'number' }).notNull(),
+  createdBy: uuid('created_by').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedBy: bigint('updated_by', { mode: 'number' }).notNull(),
+  updatedBy: uuid('updated_by').notNull(),
   enabled: boolean('enabled').notNull().default(true),
 });

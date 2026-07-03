@@ -8,6 +8,9 @@ export interface M365EnvConfig {
   client_secret_plaintext: string;
 }
 
+// Nil-uuid system actor: no authenticated human runs this env-driven bootstrap path.
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
+
 /**
  * Read the M365 Graph app credentials from the environment. Returns null unless
  * all three are present (non-blank), so seeding stays a no-op on machines that
@@ -49,7 +52,7 @@ export async function provisionM365FromEnv(args: {
   await setM365TenantConfig({
     tenantId: args.tenantId,
     actor: {
-      user_id: 0,
+      user_id: SYSTEM_USER_ID,
       tenantId: args.tenantId,
       permissions: new Set<string>([INTEGRATIONS_PERMISSIONS.m365Configure]),
     },

@@ -27,13 +27,13 @@ export interface UpsertMailTransportConfigInput {
   senderAddress: string;
   senderDisplayName: string | null;
   config: TransportConfigPayload;
-  actorUserId: number;
+  actorUserId: string;
 }
 
 export interface MailTransportConfigStore {
   findEnabled(tenantId: string): Promise<MailTransportConfigRow | null>;
   upsert(input: UpsertMailTransportConfigInput): Promise<void>;
-  disable(tenantId: string, actorUserId: number): Promise<void>;
+  disable(tenantId: string, actorUserId: string): Promise<void>;
   recordVerification(
     tenantId: string,
     result: { ok: true } | { ok: false; error: string },
