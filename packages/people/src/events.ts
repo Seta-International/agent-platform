@@ -55,6 +55,16 @@ export const orgUnitCreatedPayload = z.object({
 });
 export type OrgUnitCreatedPayload = z.infer<typeof orgUnitCreatedPayload>;
 
+export const PEOPLE_WORKER_USER_LINKED = 'people.worker.user_linked';
+
+export const workerUserLinkedPayload = z.object({
+  worker_id: z.string().uuid(),
+  person_id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+});
+export type WorkerUserLinkedPayload = z.infer<typeof workerUserLinkedPayload>;
+
 export const PEOPLE_EVENTS = {
   [PEOPLE_WORKER_CREATED]: workerCreatedPayload,
   [PEOPLE_WORKER_UPDATED]: workerUpdatedPayload,
@@ -63,4 +73,5 @@ export const PEOPLE_EVENTS = {
   'people.worker.terminated': workerLifecyclePayload,
   'people.worker.reinstated': workerLifecyclePayload,
   [PEOPLE_ORG_UNIT_CREATED]: orgUnitCreatedPayload,
+  [PEOPLE_WORKER_USER_LINKED]: workerUserLinkedPayload,
 } as const satisfies Record<string, z.ZodSchema>;

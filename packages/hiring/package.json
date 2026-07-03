@@ -32,6 +32,7 @@
   "dependencies": {
     "@seta/agent-sdk": "workspace:^",
     "@seta/core": "workspace:^",
+    "@seta/people": "workspace:^",
     "@seta/pm": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-rbac": "workspace:^",

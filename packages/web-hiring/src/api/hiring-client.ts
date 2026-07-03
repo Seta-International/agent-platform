@@ -2,8 +2,21 @@ async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
     try {
-      const body = (await res.json()) as { message?: string };
-      if (body.message) message = body.message;
+      const body = (await res.json()) as {
+        message?: string;
+        // Zod validation failures (400s from the HTTP layer's safeParse, e.g. VALIDATION errors
+        // not routed through a HiringError) carry `details.{form,field}Errors`, not `message`.
+        details?: { formErrors?: string[]; fieldErrors?: Record<string, string[]> };
+      };
+      if (body.message) {
+        message = body.message;
+      } else if (body.details) {
+        const messages = [
+          ...(body.details.formErrors ?? []),
+          ...Object.values(body.details.fieldErrors ?? {}).flat(),
+        ];
+        if (messages.length > 0) message = messages.join(' ');
+      }
     } catch {
       // ignore parse error
     }
@@ -27,18 +40,43 @@ export type ReqStage = 'sourcing' | 'screening' | 'interview' | 'offer';
 export type JdVariant = 'internal' | 'external';
 export type JdSectionKey = 'about' | 'responsibilities' | 'requirements' | 'nice_to_have';
 
+export interface RequisitionSkillSummary {
+  skill_name: string;
+  min_level: number | null;
+}
+
+export interface RequisitionApplicantSummary {
+  name: string;
+  role: string | null;
+  applied_date: string;
+  stage: string;
+  kind: string;
+}
+
 export interface RequisitionListRow {
   id: string;
   title: string;
+  role_title: string | null;
   account_id: string | null;
+  account_name: string | null;
+  project_id: string | null;
+  project_name: string | null;
   grade: string | null;
   kind: string;
+  approval_status: string;
   stage: ReqStage;
   status: ReqStatus;
+  note: string | null;
+  start_date: string | null;
   due_date: string | null;
+  created_at: string;
+  skills: RequisitionSkillSummary[];
   openings_total: number;
   openings_open: number;
   applicants_count: number;
+  applicants_internal: number;
+  applicants_external: number;
+  applicants: RequisitionApplicantSummary[];
   version: number;
 }
 export interface RequisitionRow {
@@ -47,6 +85,7 @@ export interface RequisitionRow {
   role_title: string | null;
   grade: string | null;
   account_id: string | null;
+  project_id: string | null;
   kind: string;
   approval_status: string;
   status: ReqStatus;
@@ -92,10 +131,21 @@ export interface ApplicantRow {
 }
 export interface RequisitionDetail {
   requisition: RequisitionRow;
+  account_name: string | null;
+  project_name: string | null;
   openings: OpeningRow[];
   jd_sections: JdSectionRow[];
   skills: SkillRow[];
   applicants: ApplicantRow[];
+}
+export interface AccountOption {
+  account_id: string;
+  name: string;
+}
+export interface ProjectOption {
+  project_id: string;
+  account_id: string;
+  name: string;
 }
 export interface JdTemplate {
   template: { id: string; name: string; kind: string; version: number };
@@ -114,19 +164,23 @@ export interface OpenRequisitionPayload {
   role_title?: string;
   grade?: string;
   account_id?: string;
+  project_id?: string;
   due_date?: string;
   start_date?: string;
   note?: string;
   default_interview_mode?: 'online' | 'onsite' | 'either';
   headcount?: number;
   jd_sections?: { variant: JdVariant; section: JdSectionKey; body: string }[];
-  skills?: { skill_name: string; skill_id?: string; min_level?: number }[];
+  // skill_id is required by the backend (hiring.requisition_skill.skill_id is NOT NULL and part
+  // of its PK) — always pick from the skill catalog (SkillPicker), never free text.
+  skills?: { skill_id: string; skill_name: string; min_level?: number }[];
 }
 export interface RequisitionPatch {
   title?: string;
   role_title?: string;
   grade?: string;
   account_id?: string;
+  project_id?: string;
   kind?: 'new' | 'replacement';
   due_date?: string;
   start_date?: string;
@@ -139,6 +193,28 @@ export interface RequisitionPatch {
 export async function fetchRequisitions(): Promise<RequisitionListRow[]> {
   const res = await fetch('/api/hiring/v1/requisitions', { credentials: 'include' });
   return (await handleResponse<{ requisitions: RequisitionListRow[] }>(res)).requisitions;
+}
+// FUT-326/327 — the open-positions board: every non-filled requisition the viewer is scoped
+// to. `scope: 'all'` for oversight/full-hiring-access viewers, `'account'` for AM-style viewers
+// scoped to their own accounts (scoped_account_names names what they're scoped to).
+export interface OpenRequisitionsBoard {
+  scope: 'all' | 'account';
+  scoped_account_names: string[];
+  requisitions: RequisitionListRow[];
+}
+export async function fetchOpenRequisitions(): Promise<OpenRequisitionsBoard> {
+  const res = await fetch('/api/hiring/v1/requisitions/board', { credentials: 'include' });
+  return handleResponse<OpenRequisitionsBoard>(res);
+}
+// Backing data for the New Requisition account/project pickers.
+export async function fetchAccounts(): Promise<AccountOption[]> {
+  const res = await fetch('/api/hiring/v1/accounts', { credentials: 'include' });
+  return (await handleResponse<{ accounts: AccountOption[] }>(res)).accounts;
+}
+export async function fetchProjects(accountId?: string): Promise<ProjectOption[]> {
+  const qs = accountId ? `?account_id=${encodeURIComponent(accountId)}` : '';
+  const res = await fetch(`/api/hiring/v1/projects${qs}`, { credentials: 'include' });
+  return (await handleResponse<{ projects: ProjectOption[] }>(res)).projects;
 }
 export async function fetchRequisition(id: string): Promise<RequisitionDetail> {
   const res = await fetch(`/api/hiring/v1/requisitions/${id}`, { credentials: 'include' });
@@ -175,7 +251,7 @@ export async function setRequisitionSkills(
   id: string,
   input: {
     expected_version?: number;
-    skills: { skill_name: string; skill_id?: string; min_level?: number }[];
+    skills: { skill_id: string; skill_name: string; min_level?: number }[];
   },
 ): Promise<{ version: number }> {
   return handleResponse(

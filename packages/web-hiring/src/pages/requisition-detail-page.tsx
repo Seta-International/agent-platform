@@ -183,6 +183,13 @@ export function RequisitionDetailPage({ requisitionId }: { requisitionId: string
                         onChange={(e) => setDraft((d) => ({ ...d, grade: e.target.value }))}
                       />
                     </Field>
+                    <Field label="Start date">
+                      <Input
+                        type="date"
+                        value={draft.start_date ?? ''}
+                        onChange={(e) => setDraft((d) => ({ ...d, start_date: e.target.value }))}
+                      />
+                    </Field>
                     <Field label="Due date">
                       <Input
                         type="date"
@@ -215,10 +222,12 @@ export function RequisitionDetailPage({ requisitionId }: { requisitionId: string
                   <>
                     <ReadRow label="Role title" value={req.role_title} />
                     <ReadRow label="Grade" value={req.grade} />
-                    <ReadRow label="Account" value={req.account_id} />
+                    <ReadRow label="Account" value={data.account_name} />
+                    <ReadRow label="Project" value={data.project_name} />
                     <ReadRow label="Type" value={req.kind} />
                     <ReadRow label="Status" value={req.status} />
                     <ReadRow label="Stage" value={req.stage} />
+                    <ReadRow label="Start" value={req.start_date} />
                     <ReadRow label="Due" value={req.due_date} />
                     <ReadRow label="Interview mode" value={req.default_interview_mode} />
                   </>

@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DisabledActionTooltip,
   Input,
   Label,
   SegmentedControl,
@@ -18,28 +19,62 @@ import {
   Textarea,
   toast,
 } from '@seta/shared-ui';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { type JdSectionKey, type JdVariant, openRequisition } from '../api/hiring-client.ts';
+import {
+  fetchAccounts,
+  fetchProjects,
+  type JdSectionKey,
+  type JdVariant,
+  openRequisition,
+} from '../api/hiring-client.ts';
+import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
+import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
-const SECTIONS: { key: JdSectionKey; label: string }[] = [
-  { key: 'about', label: 'About the role' },
-  { key: 'responsibilities', label: 'Responsibilities' },
-  { key: 'requirements', label: 'Requirements' },
-  { key: 'nice_to_have', label: 'Nice to have' },
+const SECTIONS: { key: JdSectionKey; label: string; hint?: string; placeholder: string }[] = [
+  {
+    key: 'about',
+    label: 'About the role',
+    placeholder: 'One short paragraph on the role and its context…',
+  },
+  {
+    key: 'responsibilities',
+    label: 'Responsibilities',
+    hint: 'one per line',
+    placeholder: 'Design and build…\nReview PRs…',
+  },
+  {
+    key: 'requirements',
+    label: 'Requirements',
+    hint: 'one per line',
+    placeholder: '5+ years…\nStrong…',
+  },
+  {
+    key: 'nice_to_have',
+    label: 'Nice to have',
+    hint: 'one per line, optional',
+    placeholder: 'Domain experience…',
+  },
 ];
 
-export function NewRequisitionDialog() {
+export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
+  const [roleTitle, setRoleTitle] = useState('');
   const [grade, setGrade] = useState('L4');
   const [kind, setKind] = useState<'new' | 'replacement'>('new');
   const [mode, setMode] = useState<'online' | 'onsite' | 'either'>('online');
+  const [accountId, setAccountId] = useState('');
+  const [projectId, setProjectId] = useState('');
+  const [start, setStart] = useState('');
   const [due, setDue] = useState('');
+  // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
+  const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
   const [headcount, setHeadcount] = useState(1);
-  const [stack, setStack] = useState('');
+  const [note, setNote] = useState('');
+  const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [variant, setVariant] = useState<JdVariant>('external');
   const [jd, setJd] = useState<Record<JdSectionKey, string>>({
     about: '',
@@ -49,14 +84,30 @@ export function NewRequisitionDialog() {
   });
   const [error, setError] = useState<string | null>(null);
 
+  const { data: accounts } = useQuery({
+    queryKey: hiringKeys.accounts(),
+    queryFn: fetchAccounts,
+    enabled: open,
+  });
+  const { data: projects } = useQuery({
+    queryKey: hiringKeys.projects(accountId || undefined),
+    queryFn: () => fetchProjects(accountId || undefined),
+    enabled: open && !!accountId,
+  });
+
   function reset() {
     setTitle('');
+    setRoleTitle('');
     setGrade('L4');
     setKind('new');
     setMode('online');
+    setAccountId('');
+    setProjectId('');
+    setStart('');
     setDue('');
     setHeadcount(1);
-    setStack('');
+    setNote('');
+    setSkills([]);
     setVariant('external');
     setJd({ about: '', responsibilities: '', requirements: '', nice_to_have: '' });
     setError(null);
@@ -64,14 +115,6 @@ export function NewRequisitionDialog() {
 
   const mutation = useMutation({
     mutationFn: () => {
-      const skills = stack
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => {
-          const [name = s] = s.split(/[·|]/).map((x) => x.trim());
-          return { skill_name: name };
-        });
       const jd_sections = SECTIONS.filter((s) => jd[s.key].trim()).map((s) => ({
         variant,
         section: s.key,
@@ -80,12 +123,21 @@ export function NewRequisitionDialog() {
       return openRequisition({
         title,
         kind,
+        role_title: roleTitle || undefined,
         grade: grade || undefined,
+        account_id: accountId || undefined,
+        project_id: projectId || undefined,
         default_interview_mode: mode,
+        start_date: start || undefined,
         due_date: due || undefined,
+        note: note || undefined,
         headcount,
         jd_sections,
-        skills,
+        skills: skills.map((s) => ({
+          skill_id: s.skill_id,
+          skill_name: s.skill_name,
+          min_level: s.level,
+        })),
       });
     },
     onSuccess: () => {
@@ -105,9 +157,13 @@ export function NewRequisitionDialog() {
         if (!v) reset();
       }}
     >
-      <DialogTrigger asChild>
-        <Button size="sm">New requisition</Button>
-      </DialogTrigger>
+      <DisabledActionTooltip disabled={disabled} reason={PERMISSION_DENIED.requisition.create}>
+        <DialogTrigger asChild>
+          <Button size="sm" disabled={disabled}>
+            New requisition
+          </Button>
+        </DialogTrigger>
+      </DisabledActionTooltip>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New requisition</DialogTitle>
@@ -119,6 +175,14 @@ export function NewRequisitionDialog() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Senior Backend Engineer"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Role title</Label>
+            <Input
+              value={roleTitle}
+              onChange={(e) => setRoleTitle(e.target.value)}
+              placeholder="Internal role title, if different"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -133,8 +197,46 @@ export function NewRequisitionDialog() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="new">new</SelectItem>
-                  <SelectItem value="replacement">replacement</SelectItem>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="replacement">Replacement</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Account</Label>
+              <Select
+                value={accountId}
+                onValueChange={(v) => {
+                  setAccountId(v);
+                  setProjectId('');
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="No account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(accounts ?? []).map((a) => (
+                    <SelectItem key={a.account_id} value={a.account_id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Project</Label>
+              <Select value={projectId} onValueChange={setProjectId} disabled={!accountId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={accountId ? 'No project' : 'Pick an account first'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(projects ?? []).map((p) => (
+                    <SelectItem key={p.project_id} value={p.project_id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -166,17 +268,34 @@ export function NewRequisitionDialog() {
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Start date</Label>
+              <Input
+                type="date"
+                value={start}
+                max={due || undefined}
+                onChange={(e) => setStart(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Due date</Label>
+              <Input
+                type="date"
+                value={due}
+                min={start || undefined}
+                onChange={(e) => setDue(e.target.value)}
+              />
+            </div>
+          </div>
+          {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
           <div className="space-y-1">
-            <Label>Due date</Label>
-            <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+            <Label>Note</Label>
+            <Input value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label>Tech stack — comma-separated</Label>
-            <Input
-              value={stack}
-              onChange={(e) => setStack(e.target.value)}
-              placeholder="React, TypeScript, AWS"
-            />
+            <Label>Tech stack</Label>
+            <SkillPicker value={skills} onChange={setSkills} />
           </div>
           <div className="flex items-center justify-between pt-2">
             <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
@@ -191,10 +310,14 @@ export function NewRequisitionDialog() {
           </div>
           {SECTIONS.map((s) => (
             <div key={s.key} className="space-y-1">
-              <Label>{s.label}</Label>
+              <Label>
+                {s.label}
+                {s.hint && <span className="ml-1 font-normal text-ink-subtle">— {s.hint}</span>}
+              </Label>
               <Textarea
                 value={jd[s.key]}
                 onChange={(e) => setJd((d) => ({ ...d, [s.key]: e.target.value }))}
+                placeholder={s.placeholder}
               />
             </div>
           ))}
@@ -209,7 +332,7 @@ export function NewRequisitionDialog() {
             </Button>
             <Button
               onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !title.trim()}
+              disabled={mutation.isPending || !title.trim() || !!dateError}
             >
               {mutation.isPending ? 'Creating…' : 'Create requisition'}
             </Button>
