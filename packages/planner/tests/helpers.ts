@@ -243,10 +243,10 @@ export async function makeMemberSession(
     [r.user_id, opts.tenant_id, `User ${tag}`, email],
   );
   await pool.query(
-    `INSERT INTO planner.group_members (group_id, user_id, role, added_by)
-       VALUES ($1, $2, $3, $2)
+    `INSERT INTO planner.group_members (tenant_id, group_id, user_id, role, added_by)
+       VALUES ($4, $1, $2, $3, $2)
        ON CONFLICT DO NOTHING`,
-    [opts.group_id, r.user_id, opts.role],
+    [opts.group_id, r.user_id, opts.role, opts.tenant_id],
   );
 
   return buildSession({

@@ -10,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
@@ -163,7 +164,9 @@ export const planCategories = plannerSchema.table(
   },
   (t) => [
     primaryKey({ columns: [t.tenant_id, t.plan_id, t.slot] }),
-    uniqueIndex('plan_categories_plan_slot').on(t.plan_id, t.slot), // FK target for labels
+    // unique() (not uniqueIndex) so it emits as a table constraint inside CREATE TABLE,
+    // ahead of labels_category_slot_fk which references it in the squashed baseline.
+    unique('plan_categories_plan_slot').on(t.plan_id, t.slot), // FK target for labels
     check('plan_categories_slot_check', sql`slot BETWEEN 1 AND 25`),
     check('plan_categories_name_check', sql`char_length(name) BETWEEN 1 AND 100`),
   ],

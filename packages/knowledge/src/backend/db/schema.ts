@@ -4,9 +4,7 @@ import {
   bigint,
   check,
   index,
-  integer,
   pgSchema,
-  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -64,19 +62,4 @@ export const files = knowledge.table(
     textEnumCheck('files', 'scan_status', SCAN_STATUS),
     textEnumCheck('files', 'origin', FILE_ORIGINS),
   ],
-);
-
-// Model kept for query typing; the actual DDL is hand-written (LIST-partitioned
-// by tenant_id) in Task 7's platform SQL — see drizzle.config.ts tablesFilter.
-export const chunks = knowledge.table(
-  'chunks',
-  {
-    tenant_id: uuid('tenant_id').notNull(),
-    file_id: uuid('file_id').notNull(),
-    chunk_ordinal: integer('chunk_ordinal').notNull(),
-    chunk_text: text('chunk_text').notNull(),
-    // Non-numeric hints ("p.3", sheet names) — see parse/parsers/*.ts producers.
-    page_hint: text('page_hint'),
-  },
-  (t) => [primaryKey({ columns: [t.tenant_id, t.file_id, t.chunk_ordinal] })],
 );

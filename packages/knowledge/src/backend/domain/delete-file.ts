@@ -3,8 +3,9 @@ import type { PgVector } from '@mastra/pg';
 import type { SessionScope } from '@seta/core';
 import { getS3Client } from '@seta/shared-storage';
 import { and, eq } from 'drizzle-orm';
+import { chunks } from '../db/chunks.ts';
 import { knowledgeDb } from '../db/client.ts';
-import { chunks, files } from '../db/schema.ts';
+import { files } from '../db/schema.ts';
 import {
   ensureKnowledgeVectorIndex,
   getKnowledgeVectorStore,

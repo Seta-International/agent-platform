@@ -829,11 +829,11 @@ describe('createTask initial percent_complete', () => {
 
           expect(task.percent_complete).toBe(50);
 
-          const { rows } = await pool.query(
-            `SELECT percent_complete FROM planner.tasks WHERE id = $1`,
-            [task.id],
-          );
-          expect(rows[0]?.percent_complete).toBe(50);
+          // percent_complete=50 maps to the progress enum bucket 'in_progress'.
+          const { rows } = await pool.query(`SELECT progress FROM planner.tasks WHERE id = $1`, [
+            task.id,
+          ]);
+          expect(rows[0]?.progress).toBe('in_progress');
         } finally {
           resetCoreDb();
           await closePools();

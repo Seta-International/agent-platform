@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import * as planner from '../../src/index.ts';
@@ -37,16 +37,6 @@ describe('plan sync boundary', () => {
       expect(planner).toHaveProperty(k);
       expect(typeof (planner as Record<string, unknown>)[k]).toBe('function');
     }
-  });
-
-  it('planner package has the expected drizzle migration applied', () => {
-    const migration = resolve(__dirname, '../../drizzle/0007_plans_tasks_sync_schema.sql');
-    expect(existsSync(migration)).toBe(true);
-    const sql = readFileSync(migration, 'utf8');
-    expect(sql).toMatch(/plans_sync_status_check/);
-    expect(sql).toMatch(/tasks_sync_status_check/);
-    expect(sql).toMatch(/checklist_items_external_uniq/);
-    expect(sql).toMatch(/external_assigned_at/);
   });
 
   it('lint:deps would pass on planner package (dep-cruiser via biome lint)', () => {

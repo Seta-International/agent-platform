@@ -47,7 +47,9 @@ describe('requestKnowledgeUpload', () => {
       );
 
       expect(result.upload_url).toBe('https://s3/signed?X');
-      expect(result.file_id).toMatch(/^\d+$/);
+      expect(result.file_id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
       expect(presign).toHaveBeenCalledOnce();
 
       const row = await pool.query<{ status: string; s3_key: string }>(
