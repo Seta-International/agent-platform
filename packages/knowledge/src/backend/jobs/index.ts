@@ -19,8 +19,6 @@ import {
 import { runScanUpload, type ScanUploadPayload } from './scan-upload.ts';
 
 const BUCKET = process.env.S3_BUCKET ?? 'seta-knowledge';
-const CLAMAV_HOST = process.env.CLAMAV_HOST ?? 'clamav';
-const CLAMAV_PORT = Number(process.env.CLAMAV_PORT ?? 3310);
 
 async function fetchS3Object(s3_key: string): Promise<Buffer> {
   const client = getS3Client();
@@ -35,8 +33,6 @@ export const knowledgeJobs: TaskList = {
   scan_upload: async (payload, helpers) => {
     await runScanUpload(payload as ScanUploadPayload, {
       bucket: BUCKET,
-      clamavHost: CLAMAV_HOST,
-      clamavPort: CLAMAV_PORT,
       s3: getS3Client(),
       enqueueParseJob: async (parsePayload) => {
         await helpers.addJob('parse_knowledge_file', parsePayload);

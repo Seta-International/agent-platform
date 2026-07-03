@@ -361,26 +361,6 @@ Local dev only. Boolean. No default (leave blank).
 
 Leave blank for local MinIO — the compose override defaults it to `true` (path-style addressing). Set explicitly to `false` for real AWS S3 (virtual-hosted style). A literal `false` in the env file shadows the override's default, so don't set it for local dev.
 
-## Knowledge upload AV scanning (ClamAV)
-
-### CLAMAV_HOST
-
-Optional. String. Default: `clamav`.
-
-ClamAV daemon hostname. Defaults to the compose service name `clamav`; use `localhost` for split deploys.
-
-### CLAMAV_PORT
-
-Optional. Int. Default: `3310`.
-
-ClamAV daemon TCP port.
-
-### KNOWLEDGE_AV_REQUIRED
-
-Optional. Boolean. Default: `false`.
-
-When `true`, uploaded files cannot move past `uploading` until ClamAV marks them clean. Set to `false` only for environments that intentionally skip AV.
-
 ## Sync-check contract
 
 This page must list every variable in `.env.example` exactly once, with a heading of the form `### VAR_NAME` (uppercase letters, digits, and underscores only). Run `pnpm docs:hosting:check` locally — or wait for CI — to detect drift. If you add a var, add a section here in the same PR.
