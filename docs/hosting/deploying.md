@@ -129,6 +129,24 @@ docker run --rm --network <project>_seta-edge \
 - **S3 credentials hardening:** if you wired S3 with a broad personal IAM key to get going, swap it for a dedicated bucket-scoped key.
 - **`build-images` action** logs into ECR with no `registries:` input (that field expects a 12-digit account id, not the registry hostname) — it uses the caller's default registry.
 
+## Load-test gate
+
+Every UAT deploy chains `deploy → e2e → load`. The `load` job runs the k6 suite
+in `tests/load/` against `https://<PUBLIC_DOMAIN>` (100 VUs, ≈8 min), asserting
+the SLOs from `docs/hosting/aws.md` §11 (buffered: p95 < 300 ms, error rate < 0.1%).
+Metrics remote-write to the central Prometheus (reusing the Alloy credentials) and
+render in the central Grafana (k6 dashboard; filter by `testid=git-<sha>`).
+
+- **Gate mode**: advisory by default. Set the GitHub Environment variable
+  `LOAD_GATE_ENFORCE=true` (uat) to make threshold breaches fail the deploy.
+- **One-time setup per environment**: run `scripts/loadtest-bootstrap.sh`
+  (creates the `loadtest` tenant, member users, and the "Load Corpus" planner
+  data); add uat Environment secrets `LOADTEST_ADMIN_PASSWORD`,
+  `LOADTEST_MEMBER_PASSWORD`.
+- **Local smoke**: `pnpm test:load:smoke` (2 VUs, 30 s) against the dev stack.
+- Agent/chat endpoints are deliberately excluded (LLM cost + provider variance);
+  the agent first-token SLO is monitored via alerting (PRG-3).
+
 ## Reference: locating the concrete values
 
 The concrete values for a running deployment (public URLs, RDS endpoint, IAM role names, runner hosts) are intentionally **not** documented here — they live in the matching **GitHub Environment** (Variables + Secrets, see tables above) and the repo-level Variables `ECR_REGISTRY` / `ECR_REPOSITORY` / `AWS_REGION`. Check there (or the internal ops runbook) rather than this file. (The S3 bucket names are the exception — they follow a fixed `seta-<env>-app-apse1` convention and are public in `.env.example`.)
