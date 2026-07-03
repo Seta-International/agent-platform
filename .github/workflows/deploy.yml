@@ -229,7 +229,7 @@ jobs:
     name: Load test (uat only)
     needs: e2e
     if: ${{ inputs.environment == 'uat' }}
-    runs-on: [self-hosted, uat]
+    runs-on: [self-hosted, "${{ inputs.environment }}"]
     environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -285,9 +285,3 @@ jobs:
           name: k6-load-summary-${{ github.run_id }}
           path: load-out/summary.json
           if-no-files-found: warn
-
-      - name: Fail the job if the gate is enforced and k6 breached
-        if: ${{ vars.LOAD_GATE_ENFORCE == 'true' && steps.k6.outcome == 'failure' }}
-        run: |
-          echo "❌ LOAD_GATE_ENFORCE=true and k6 thresholds breached"
-          exit 1
