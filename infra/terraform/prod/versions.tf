@@ -1,9 +1,7 @@
 terraform {
   required_version = ">= 1.11.0"
   required_providers {
-    aws    = { source = "hashicorp/aws", version = "~> 6.0" }
-    http   = { source = "hashicorp/http", version = "~> 3.4" }
-    random = { source = "hashicorp/random", version = "~> 3.6" }
+    aws = { source = "hashicorp/aws", version = "~> 6.0" }
   }
 }
 
@@ -14,10 +12,14 @@ provider "aws" {
   }
 }
 
+# Matches the tag set already applied (ClickOps) to every real future-app
+# resource: Project / Environment / ManagedBy. Individual resources add
+# their own Name (and, for subnets, Tier) tag on top of these.
 locals {
   tags = {
-    Project   = "seta"
-    Env       = "prod"
-    ManagedBy = "terraform"
+    Project     = "future-app"
+    Environment = "prod"
+    ManagedBy   = "Terraform"
   }
+  name = "future-app-prod"
 }
