@@ -320,6 +320,9 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
           // the client error part — otherwise mid-stream LLM/tool failures are
           // invisible in the logs and only show as "Error in ... stream" on the UI.
           onError: (e: unknown) => {
+            // TEMP debug: bypass pino (it may itself be the detached-`this`
+            // crash source) and dump the raw stack straight to stderr.
+            console.error('[STREAM_ERR_STACK]', e instanceof Error ? e.stack : e);
             (deps.log?.error ?? console.error)(
               { subsystem: 'agent.chat', event: 'stream.error', threadId: orchThreadId, err: e },
               'agent chat stream error',

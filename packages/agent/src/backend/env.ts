@@ -10,7 +10,7 @@ const Env = z.object({
   // Tool execution timeout + circuit breaker
   AGENT_TOOL_TIMEOUT_READ_MS: z.coerce.number().int().positive().default(30_000),
   AGENT_TOOL_TIMEOUT_WRITE_MS: z.coerce.number().int().positive().default(60_000),
-  AGENT_TOOL_TIMEOUT_MAX_MS: z.coerce.number().int().positive().default(300_000),
+  AGENT_TOOL_TIMEOUT_MAX_MS: z.coerce.number().int().positive().default(600_000),
   AGENT_TOOL_BREAKER_FAILURE_THRESHOLD: z.coerce.number().int().positive().default(3),
   AGENT_TOOL_BREAKER_OPEN_MS: z.coerce.number().int().positive().default(60_000),
 
