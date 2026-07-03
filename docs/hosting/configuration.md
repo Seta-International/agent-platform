@@ -181,9 +181,9 @@ Port on which each app container exposes the Prometheus `/metrics` endpoint. Ove
 
 ### GF_ADMIN_PASSWORD
 
-Optional. String. Default: `admin`.
+Required (monitoring stack). String. No default.
 
-Initial password for the Grafana `admin` account. Change this before exposing Grafana publicly. The compose stack mounts `infra/grafana/provisioning/` and pre-provisions Prometheus as the default datasource.
+Initial password for the Grafana `admin` account. `compose.monitoring.yaml` reads it as `${GF_ADMIN_PASSWORD:?…}`, so the central monitoring stack fails to start if it is unset — there is no `admin`/`admin` fallback. The compose stack mounts `infra/grafana/provisioning/` and pre-provisions Prometheus + Loki as datasources.
 
 ### DLQ_ALERT_THRESHOLD
 
