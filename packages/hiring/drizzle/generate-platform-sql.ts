@@ -23,8 +23,9 @@ const TOUCH_TABLES = [
 
 // Every hiring table is tenant-scoped and gets the RLS backstop policy (constitution: none
 // allowlisted). Includes candidate_event (append-only, no updated_at, still tenant-scoped).
-// account_projection/project_projection/worker_user_projection (FUT-326/327) are local
-// read-models fed by other modules' events — still tenant-scoped, no updated_at column.
+// account_projection/project_projection/worker_user_projection (FUT-326/327) and
+// project_owner_projection (FUT-328) are local read-models fed by other modules' events —
+// still tenant-scoped, no updated_at column.
 const RLS_TABLES = [
   'requisition',
   'opening',
@@ -41,6 +42,7 @@ const RLS_TABLES = [
   'account_projection',
   'project_projection',
   'worker_user_projection',
+  'project_owner_projection',
 ];
 
 const lines: string[] = [];

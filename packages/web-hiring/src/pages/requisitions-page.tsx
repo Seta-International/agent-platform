@@ -3,8 +3,13 @@ import {
   AlertDescription,
   DataTable,
   EmptyState,
+  Input,
   PageChrome,
   SegmentedControl,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
@@ -19,6 +24,7 @@ import {
 import { hiringKeys } from '../state/query-keys.ts';
 import { NewRequisitionDialog } from './new-requisition-dialog.tsx';
 import { RequisitionCard, STAGE_LABEL } from './requisition-card.tsx';
+import { buildScopeNote } from './utils.ts';
 
 const STATUS_LABEL: Record<string, string> = {
   open: 'Open',
@@ -35,18 +41,22 @@ export function RequisitionsPage() {
   // (edit/hold/close an existing requisition), even though every seed role grants both today.
   const canCreate = usePermission('hiring.requisition.open');
   const [view, setView] = useState<'board' | 'list'>('board');
+  const [boardQuery, setBoardQuery] = useState('');
 
   const { data, isLoading, error } = useQuery<OpenRequisitionsBoard>({
     queryKey: hiringKeys.requisitions(),
     queryFn: fetchOpenRequisitions,
   });
   const rows = data?.requisitions ?? [];
-  const scopeNote =
-    data?.scope === 'account'
-      ? data.scoped_account_names.length > 0
-        ? `Showing requisitions for: ${data.scoped_account_names.join(', ')}`
-        : 'You are not assigned as Account Manager on any active account.'
-      : null;
+  const scopeNote = buildScopeNote(data);
+
+  const boardRows = useMemo(() => {
+    const q = boardQuery.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) =>
+      [r.title, r.account_name, r.project_name].some((v) => v?.toLowerCase().includes(q)),
+    );
+  }, [rows, boardQuery]);
 
   const stat = (label: string, value: number, valueClass = 'text-ink') => (
     <div className="rounded-lg border border-hairline bg-surface-1 px-5 py-4">
@@ -63,8 +73,17 @@ export function RequisitionsPage() {
         accessorKey: 'title',
         header: 'Position',
         cell: ({ row }: Ctx) => (
-          <div>
-            <div className="font-medium text-ink">{row.original.title}</div>
+          <div className="min-w-[240px] max-w-[420px]">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="line-clamp-2 break-words font-medium text-ink">
+                    {row.original.title}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>{row.original.title}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <div className="font-mono text-caption text-ink-muted">
               {row.original.id.slice(0, 8)}
             </div>
@@ -91,7 +110,21 @@ export function RequisitionsPage() {
         id: 'grade',
         accessorKey: 'grade',
         header: 'Grade',
-        cell: ({ row }: Ctx) => <span className="text-ink-muted">{row.original.grade ?? '—'}</span>,
+        cell: ({ row }: Ctx) =>
+          row.original.grade ? (
+            <div className="max-w-[160px]">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="truncate text-ink-muted">{row.original.grade}</div>
+                  </TooltipTrigger>
+                  <TooltipContent>{row.original.grade}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          ) : (
+            <span className="text-ink-muted">—</span>
+          ),
       },
       {
         id: 'kind',
@@ -196,32 +229,49 @@ export function RequisitionsPage() {
             }
             onRowClick={(row) =>
               void navigate({
-                to: '/hiring/requisitions/$requisitionId',
-                params: { requisitionId: row.original.id },
+                to: '/hiring/requisitions',
+                search: (prev: Record<string, unknown>) => ({
+                  ...prev,
+                  selectedRequisitionId: row.original.id,
+                }),
               })
             }
           />
-        ) : isLoading ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {[0, 1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
-              />
-            ))}
-          </div>
-        ) : rows.length === 0 ? (
-          <EmptyState
-            icon={<Briefcase className="size-6" />}
-            title="No requisitions yet"
-            description="Open a requisition to get started."
-          />
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {rows.map((r) => (
-              <RequisitionCard key={r.id} r={r} canManage={canManage} />
-            ))}
-          </div>
+          <>
+            <Input
+              placeholder="Search requisitions…"
+              value={boardQuery}
+              onChange={(e) => setBoardQuery(e.target.value)}
+              className="max-w-sm"
+            />
+            {isLoading ? (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
+                  />
+                ))}
+              </div>
+            ) : boardRows.length === 0 ? (
+              <EmptyState
+                icon={<Briefcase className="size-6" />}
+                title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
+                description={
+                  rows.length === 0
+                    ? 'Open a requisition to get started.'
+                    : 'Try a different search term.'
+                }
+              />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {boardRows.map((r) => (
+                  <RequisitionCard key={r.id} r={r} canManage={canManage} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </PageChrome>

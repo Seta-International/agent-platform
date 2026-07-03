@@ -9,6 +9,7 @@ import {
   PM_CHARTER_APPROVED,
   PM_CHARTER_PMO_SIGNED_OFF,
   PM_CHARTER_REJECTED,
+  PM_PROJECT_ACCESS_CHANGED,
   PM_PROJECT_CREATED,
 } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
@@ -164,6 +165,18 @@ export async function bodApproveCharter(input: {
           project_id: proj.id,
           worker_id: c.pm_worker_id,
           level: 'owner',
+        });
+        await emit({
+          tenantId: session.tenant_id,
+          aggregateType: 'pm.project',
+          aggregateId: proj.id,
+          eventType: PM_PROJECT_ACCESS_CHANGED,
+          eventVersion: 1,
+          payload: {
+            project_id: proj.id,
+            tenant_id: session.tenant_id,
+            owner_worker_ids: [c.pm_worker_id],
+          },
         });
       }
 

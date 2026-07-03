@@ -28,6 +28,7 @@ import {
   type JdVariant,
   openRequisition,
 } from '../api/hiring-client.ts';
+import { GRADES } from '../lib/grades.ts';
 import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
@@ -62,7 +63,6 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
-  const [roleTitle, setRoleTitle] = useState('');
   const [grade, setGrade] = useState('L4');
   const [kind, setKind] = useState<'new' | 'replacement'>('new');
   const [mode, setMode] = useState<'online' | 'onsite' | 'either'>('online');
@@ -73,7 +73,6 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
   const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
   const [headcount, setHeadcount] = useState(1);
-  const [note, setNote] = useState('');
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [variant, setVariant] = useState<JdVariant>('external');
   const [jd, setJd] = useState<Record<JdSectionKey, string>>({
@@ -97,7 +96,6 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
   function reset() {
     setTitle('');
-    setRoleTitle('');
     setGrade('L4');
     setKind('new');
     setMode('online');
@@ -106,7 +104,6 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     setStart('');
     setDue('');
     setHeadcount(1);
-    setNote('');
     setSkills([]);
     setVariant('external');
     setJd({ about: '', responsibilities: '', requirements: '', nice_to_have: '' });
@@ -123,14 +120,12 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
       return openRequisition({
         title,
         kind,
-        role_title: roleTitle || undefined,
         grade: grade || undefined,
         account_id: accountId || undefined,
         project_id: projectId || undefined,
         default_interview_mode: mode,
         start_date: start || undefined,
         due_date: due || undefined,
-        note: note || undefined,
         headcount,
         jd_sections,
         skills: skills.map((s) => ({
@@ -177,18 +172,21 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               placeholder="e.g. Senior Backend Engineer"
             />
           </div>
-          <div className="space-y-1">
-            <Label>Role title</Label>
-            <Input
-              value={roleTitle}
-              onChange={(e) => setRoleTitle(e.target.value)}
-              placeholder="Internal role title, if different"
-            />
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Grade</Label>
-              <Input value={grade} onChange={(e) => setGrade(e.target.value)} />
+              <Select value={grade} onValueChange={setGrade}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GRADES.map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {g}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label>Type</Label>
@@ -289,10 +287,6 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
             </div>
           </div>
           {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
-          <div className="space-y-1">
-            <Label>Note</Label>
-            <Input value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
           <div className="space-y-1">
             <Label>Tech stack</Label>
             <SkillPicker value={skills} onChange={setSkills} />

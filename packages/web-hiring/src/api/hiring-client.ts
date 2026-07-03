@@ -96,6 +96,7 @@ export interface RequisitionRow {
   note: string | null;
   default_interview_mode: string | null;
   closed_at: string | null;
+  created_at: string;
   version: number;
 }
 export interface OpeningRow {
@@ -194,12 +195,14 @@ export async function fetchRequisitions(): Promise<RequisitionListRow[]> {
   const res = await fetch('/api/hiring/v1/requisitions', { credentials: 'include' });
   return (await handleResponse<{ requisitions: RequisitionListRow[] }>(res)).requisitions;
 }
-// FUT-326/327 — the open-positions board: every non-filled requisition the viewer is scoped
-// to. `scope: 'all'` for oversight/full-hiring-access viewers, `'account'` for AM-style viewers
-// scoped to their own accounts (scoped_account_names names what they're scoped to).
+// FUT-326/327/328 — the open-positions board: every non-filled requisition the viewer is
+// scoped to. `scope: 'all'` for oversight/full-hiring-access viewers, `'scoped'` for
+// AM/EM/TL/PM-style viewers scoped to their own accounts and/or projects (scoped_account_names
+// / scoped_project_names name what they're scoped to; a viewer can hold both at once).
 export interface OpenRequisitionsBoard {
-  scope: 'all' | 'account';
+  scope: 'all' | 'scoped';
   scoped_account_names: string[];
+  scoped_project_names: string[];
   requisitions: RequisitionListRow[];
 }
 export async function fetchOpenRequisitions(): Promise<OpenRequisitionsBoard> {
