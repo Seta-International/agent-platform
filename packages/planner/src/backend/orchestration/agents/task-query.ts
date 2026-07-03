@@ -12,6 +12,7 @@ import {
   plannerQueryTasksTool,
   plannerResolveMemberTool,
 } from '@seta/planner/agent-tools';
+import { dateAnchorsPromptBlock } from '../../agent-tools/date-anchors.ts';
 import { pickModel } from '../model.ts';
 import {
   type QnaSubAgentInput as In,
@@ -34,8 +35,11 @@ export interface QnaTaskQueryDeps {
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
 }
 
-const INSTRUCTIONS = `You answer "which tasks?" questions — the user is discovering a
+function buildInstructions(now: Date = new Date()): string {
+  return `You answer "which tasks?" questions — the user is discovering a
 SET of tasks, not asking about one known task. Answer in prose.
+
+${dateAnchorsPromptBlock(now)}
 
 Tools:
 - planner_queryTasks: structured filter (assignee, plan, status, due window) → list.
@@ -59,6 +63,7 @@ the user means ("what have I finished" → completed; "what am I working on" →
 Other heuristics: "how many ..." → getOpenTaskCount; topic phrasing ("about X") → findSimilarTasks.
 Empty result sets are valid answers — say "you have no matching tasks", don't error.
 Read-only.`;
+}
 
 export function makeQnaTaskQueryAgent(deps: QnaTaskQueryDeps): SpecializedAgentSpec<In, Out> {
   return {
@@ -79,7 +84,7 @@ export function makeQnaTaskQueryAgent(deps: QnaTaskQueryDeps): SpecializedAgentS
             const agent = new Agent({
               id: 'planner.qna.taskQuery',
               name: 'Planner Task Query',
-              instructions: INSTRUCTIONS,
+              instructions: buildInstructions(),
               model: pickModel(ctx, deps.resolveModel),
               tools: {
                 planner_queryTasks: plannerQueryTasksTool,
