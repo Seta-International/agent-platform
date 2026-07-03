@@ -21,8 +21,11 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
 }
 
 resource "aws_db_instance" "main" {
-  identifier     = "${var.name}-pg"
-  engine         = "postgres"
+  identifier = "${var.name}-pg"
+  engine     = "postgres"
+  # Pin the major version for create-time determinism (platform runs PG17 —
+  # pgvector, RLS, partitioning). auto_minor_version_upgrade still tracks minors.
+  engine_version = "17"
   instance_class = var.db_instance_class
 
   allocated_storage     = 20
