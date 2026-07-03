@@ -4,7 +4,10 @@ import { createHttpEntitySearch } from '../../../src/composites/entity-search';
 type Row = { worker_id: string; full_name: string };
 
 function mockFetch(rows: Row[]) {
-  return vi.fn(async () => ({ ok: true, json: async () => ({ rows }) }) as unknown as Response);
+  return vi.fn(
+    async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      ({ ok: true, json: async () => ({ rows }) }) as unknown as Response,
+  );
 }
 
 afterEach(() => vi.restoreAllMocks());
