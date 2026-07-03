@@ -44,6 +44,7 @@ export async function addGroupMember(input: {
       const inserted = await tx
         .insert(groupMembers)
         .values({
+          tenant_id: existing.tenant_id,
           group_id: input.group_id,
           user_id: input.user_id,
           role: existing.default_role,

@@ -8,4 +8,5 @@ export {
   type PgContainerHandle,
   startPgContainer,
 } from './pg-container.ts';
+export { assertRlsCensus, type RlsCensusOpts } from './rls-census.ts';
 export { type TestDbCtx, withTestDb } from './with-test-db.ts';

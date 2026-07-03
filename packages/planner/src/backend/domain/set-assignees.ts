@@ -83,6 +83,7 @@ export async function setAssignees(input: {
       // Insert new assignees and emit events for each.
       for (const userId of newUserIds) {
         await tx.insert(taskAssignments).values({
+          tenant_id: existing.tenant_id,
           task_id: input.task_id,
           user_id: userId,
           assigned_by: input.session.user_id,

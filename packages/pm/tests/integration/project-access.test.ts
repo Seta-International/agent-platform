@@ -67,7 +67,7 @@ describe('project access + staffing plan', () => {
           project_id,
           role: 'Backend',
           effort_mm: 2,
-          skills: ['node'],
+          skills: [{ skill_id: crypto.randomUUID(), skill_name: 'node' }],
           session: t.adminSession,
         });
         expect(line.version).toBe(1);
@@ -225,7 +225,7 @@ describe('project access + staffing plan', () => {
           project_id,
           role: 'FE',
           effort_mm: 1,
-          skills: ['react'],
+          skills: [{ skill_id: crypto.randomUUID(), skill_name: 'react' }],
           session: t.adminSession,
         });
         expect(line.version).toBe(1);
@@ -236,7 +236,10 @@ describe('project access + staffing plan', () => {
           expected_version: 1,
           role: 'FE',
           effort_mm: 3,
-          skills: ['react', 'ts'],
+          skills: [
+            { skill_id: crypto.randomUUID(), skill_name: 'react' },
+            { skill_id: crypto.randomUUID(), skill_name: 'ts' },
+          ],
           session: t.adminSession,
         });
         expect(updated.version).toBe(2);

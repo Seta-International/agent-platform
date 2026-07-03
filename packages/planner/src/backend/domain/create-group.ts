@@ -67,6 +67,7 @@ export async function createGroup(
           .insert(groupMembers)
           .values(
             membersToInsert.map((m) => ({
+              tenant_id: input.tenant_id,
               group_id: row.id,
               user_id: m.user_id,
               role: m.role,

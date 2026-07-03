@@ -83,7 +83,7 @@ async function listCommentsImpl(
       author_id: taskComments.author_id,
       body: taskComments.body,
       created_at: taskComments.created_at,
-      edited_at: taskComments.edited_at,
+      updated_at: taskComments.updated_at,
       display_name: assigneeProjection.display_name,
     })
     .from(taskComments)
@@ -104,7 +104,7 @@ async function listCommentsImpl(
     author_display_name: r.display_name ?? 'Unknown user',
     body: r.body,
     created_at: r.created_at.toISOString(),
-    edited_at: r.edited_at ? r.edited_at.toISOString() : null,
+    edited_at: r.updated_at ? r.updated_at.toISOString() : null,
   }));
 
   let next_cursor: string | undefined;

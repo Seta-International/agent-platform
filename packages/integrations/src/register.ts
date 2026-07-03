@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, SessionEnv, WorkerHandle } from '@seta/core';
 import { getEntraTenantId } from '@seta/identity';
 import type { Crypto } from '@seta/shared-crypto';
+import { getLifecycleEntries, registerLifecycle } from '@seta/shared-db';
 import type { MailerEnv } from '@seta/shared-mailer';
 import { Hono } from 'hono';
 import * as schema from './backend/db/schema/index.ts';
@@ -24,6 +25,20 @@ export function registerIntegrationsContributions(
   reg: ContributionRegistry,
   deps: IntegrationsRegisterDeps = {},
 ): void {
+  // Tests construct a fresh ContributionRegistry per call (often several times per
+  // process), but the shared-db lifecycle registry is process-global and throws on
+  // re-registering a table — skip if a prior call in this process already ran.
+  if (!getLifecycleEntries().some((e) => e.table === 'integrations.m365_group_links')) {
+    registerLifecycle([
+      { table: 'integrations.m365_group_links', policy: { kind: 'permanent' } },
+      { table: 'integrations.m365_subscriptions', policy: { kind: 'permanent' } },
+      { table: 'integrations.m365_plan_links', policy: { kind: 'permanent' } },
+      { table: 'integrations.m365_resource_etags', policy: { kind: 'permanent' } },
+      { table: 'integrations.m365_tenant_config', policy: { kind: 'permanent' } },
+      { table: 'integrations.mail_transport_config', policy: { kind: 'permanent' } },
+    ]);
+  }
+
   const m365Boot =
     deps.webhookSecret && deps.cryptoSvc && deps.getWorkers
       ? buildM365Boot({

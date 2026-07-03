@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContributionRegistry, StreamHubBuilder } from '@seta/core';
+import { getLifecycleEntries, registerLifecycle } from '@seta/shared-db';
 import type { SubscriberDef } from '@seta/shared-types';
 import * as schema from './backend/db/schema/index.ts';
 import { NotificationStreamHub } from './backend/stream/hub.ts';
@@ -25,6 +26,19 @@ const buildNotificationStreamHub: StreamHubBuilder = (deps) => {
 };
 
 export function registerNotificationsContributions(reg: ContributionRegistry): void {
+  // Tests construct a fresh ContributionRegistry per call (often several times per
+  // process), but the shared-db lifecycle registry is process-global and throws on
+  // re-registering a table — skip if a prior call in this process already ran.
+  if (!getLifecycleEntries().some((e) => e.table === 'notifications.notifications')) {
+    registerLifecycle([
+      {
+        table: 'notifications.notifications',
+        policy: { kind: 'ttl', column: 'created_at', olderThan: '180 days' },
+      },
+      { table: 'notifications.notification_prefs', policy: { kind: 'permanent' } },
+    ]);
+  }
+
   reg.module({
     name: 'notifications',
     schema,

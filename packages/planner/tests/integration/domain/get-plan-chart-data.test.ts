@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { plannerDb } from '../../../src/backend/db/index.ts';
 import { tasks } from '../../../src/backend/db/schema.ts';
+import { numberToPriority, percentToProgress } from '../../../src/backend/db/task-enums.ts';
 import {
   createBucket,
   createGroup,
@@ -33,9 +34,9 @@ async function setState(
   await plannerDb()
     .update(tasks)
     .set({
-      percent_complete: s.percent ?? 0,
+      progress: percentToProgress(s.percent ?? 0),
       due_at: s.due ?? null,
-      priority_number: s.priority ?? 5,
+      priority: numberToPriority(s.priority ?? 5),
       ...(s.bucketId ? { bucket_id: s.bucketId } : {}),
     })
     .where(eq(tasks.id, taskId));

@@ -18,6 +18,11 @@ const PRESENCE_DEFAULTS: PresenceResult = {
   timezone: 'UTC',
 };
 
+// pg returns `time` columns as 'HH:MM:SS' strings; the API keeps the pre-existing 'HH:MM' shape.
+function toHHMM(t: string): string {
+  return t.slice(0, 5);
+}
+
 // Shared by readPresence (domain/HTTP callers) and the agent-tool spec execute.
 // No session gate — callers are responsible for RBAC before calling this.
 export async function fetchPresenceByUserId(
@@ -28,7 +33,8 @@ export async function fetchPresenceByUserId(
     .select({
       availability_status: worker.availability_status,
       ooo_until: worker.ooo_until,
-      working_hours: worker.working_hours,
+      work_start: worker.work_start,
+      work_end: worker.work_end,
       timezone: worker.timezone,
     })
     .from(worker)
@@ -40,7 +46,10 @@ export async function fetchPresenceByUserId(
   return {
     availability_status: row.availability_status as 'available' | 'busy' | 'ooo',
     ooo_until: row.ooo_until,
-    working_hours: row.working_hours,
+    working_hours:
+      row.work_start != null && row.work_end != null
+        ? { start: toHHMM(row.work_start), end: toHHMM(row.work_end) }
+        : null,
     timezone: row.timezone,
   };
 }

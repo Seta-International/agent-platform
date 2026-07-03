@@ -1,5 +1,5 @@
 {
-  "id": "cdd6d16c-4bee-47a6-ac58-d1d4679ddcf3",
+  "id": "bfeb44cb-13fb-4884-a12a-07a51664eec8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -56,7 +56,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "notification_prefs_channel_check": {
+          "name": "notification_prefs_channel_check",
+          "value": "channel IN ('in_app', 'email')"
+        }
+      },
       "isRLSEnabled": false
     },
     "notifications.notifications": {
@@ -147,10 +152,10 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "notifications_source_user_unique": {
-          "name": "notifications_source_user_unique",
+        "notifications_tenant_source_user_unique": {
+          "name": "notifications_tenant_source_user_unique",
           "nullsNotDistinct": false,
-          "columns": ["source_event_id", "user_id"]
+          "columns": ["tenant_id", "source_event_id", "user_id"]
         }
       },
       "policies": {},

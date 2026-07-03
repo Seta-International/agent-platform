@@ -1,5 +1,7 @@
+import { textEnum, textEnumCheck, textEnumValuesSql } from '@seta/shared-db';
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   boolean,
   check,
   date,
@@ -10,12 +12,32 @@ import {
   numeric,
   pgSchema,
   text,
+  time,
   timestamp,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
 export const peopleSchema = pgSchema('people');
+
+export const LIFECYCLE_STAGES = [
+  'preboarding',
+  'onboarding',
+  'probation',
+  'active',
+  'on_leave',
+  'offboarding',
+  'alumni',
+  'did_not_start',
+] as const;
+
+export const AVAILABILITY_STATUS = ['available', 'busy', 'ooo'] as const;
+
+export const ORG_UNIT_KINDS = ['executive', 'operation', 'function', 'delivery', 'pmo'] as const;
+
+export const GENDERS = ['male', 'female', 'prefer_not_to_say'] as const;
+
+export const PROJECTION_BUCKETS = ['billable', 'internal', 'bench'] as const;
 
 export const person = peopleSchema.table(
   'person',
@@ -26,6 +48,7 @@ export const person = peopleSchema.table(
     bio: text('bio'),
     original_hire_date: date('original_hire_date'),
     seniority_date: date('seniority_date'),
+    version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -41,9 +64,9 @@ export const employmentPeriod = peopleSchema.table(
     seq: integer('seq').notNull(),
     start_date: date('start_date'),
     end_date: date('end_date'),
-    status: text('status').notNull().default('active'),
-    lifecycle_stage: text('lifecycle_stage').notNull().default('preboarding'),
+    lifecycle_stage: textEnum('lifecycle_stage', LIFECYCLE_STAGES).notNull().default('preboarding'),
     employment_type: text('employment_type'),
+    version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -51,10 +74,12 @@ export const employmentPeriod = peopleSchema.table(
     uniqueIndex('employment_period_uniq_seq').on(t.tenant_id, t.person_id, t.seq),
     uniqueIndex('employment_period_one_open').on(t.person_id).where(sql`end_date IS NULL`),
     index('employment_period_by_person').on(t.tenant_id, t.person_id),
-    check(
-      'employment_period_lifecycle_stage_check',
-      sql`lifecycle_stage IN ('preboarding','onboarding','probation','active','on_leave','offboarding','alumni','did_not_start')`,
-    ),
+    foreignKey({
+      columns: [t.person_id],
+      foreignColumns: [person.id],
+      name: 'employment_period_person_fk',
+    }),
+    textEnumCheck('employment_period', 'lifecycle_stage', LIFECYCLE_STAGES),
   ],
 );
 
@@ -68,17 +93,21 @@ export const worker = peopleSchema.table(
     full_name: text('full_name').notNull(),
     work_email: text('work_email'),
     dob: date('dob'),
-    gender: text('gender'),
+    gender: textEnum('gender', GENDERS),
     phone: text('phone'),
     emergency_contact: jsonb('emergency_contact'),
     profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
     job_title: text('job_title'),
-    org_unit_id: uuid('org_unit_id'),
-    availability_status: text('availability_status', { enum: ['available', 'busy', 'ooo'] })
+    // Lazy column-level reference (not table-level foreignKey()): org_unit and worker
+    // FK each other (head_worker_id), and org_unit is declared after worker below —
+    // a table-level foreignKey() would evaluate `orgUnit` eagerly and hit the TDZ.
+    org_unit_id: uuid('org_unit_id').references((): AnyPgColumn => orgUnit.id),
+    availability_status: textEnum('availability_status', AVAILABILITY_STATUS)
       .default('available')
       .notNull(),
     ooo_until: timestamp('ooo_until', { withTimezone: true }),
-    working_hours: jsonb('working_hours').$type<{ start: string; end: string } | null>(),
+    work_start: time('work_start'),
+    work_end: time('work_end'),
     timezone: text('timezone').default('UTC').notNull(),
     version: integer('version').default(1).notNull(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
@@ -93,9 +122,15 @@ export const worker = peopleSchema.table(
     uniqueIndex('worker_uniq_email_per_tenant')
       .on(t.tenant_id, t.work_email)
       .where(sql`work_email IS NOT NULL AND deleted_at IS NULL`),
-    index('worker_by_tenant_live').on(t.tenant_id, t.deleted_at),
+    index('worker_by_tenant_live').on(t.tenant_id).where(sql`deleted_at IS NULL`),
     index('worker_by_org_unit').on(t.tenant_id, t.org_unit_id),
-    check('worker_gender_check', sql`gender IN ('male','female','prefer_not_to_say')`),
+    foreignKey({
+      columns: [t.person_id],
+      foreignColumns: [person.id],
+      name: 'worker_person_fk',
+    }),
+    textEnumCheck('worker', 'gender', GENDERS),
+    textEnumCheck('worker', 'availability_status', AVAILABILITY_STATUS),
   ],
 );
 
@@ -106,9 +141,12 @@ export const orgUnit = peopleSchema.table(
     tenant_id: uuid('tenant_id').notNull(),
     parent_id: uuid('parent_id'),
     name: text('name').notNull(),
-    kind: text('kind').notNull(),
+    kind: textEnum('kind', ORG_UNIT_KINDS).notNull(),
+    // Keyed on person_id (the domain's canonical worker handle, as returned by
+    // createWorker/insertWorkerAggregate), not worker.id.
     head_worker_id: uuid('head_worker_id'),
     sort: integer('sort').notNull().default(0),
+    version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -120,10 +158,12 @@ export const orgUnit = peopleSchema.table(
       foreignColumns: [t.id],
       name: 'org_unit_parent_fk',
     }),
-    check(
-      'org_unit_kind_check',
-      sql`kind IN ('executive','operation','function','delivery','pmo')`,
-    ),
+    foreignKey({
+      columns: [t.head_worker_id],
+      foreignColumns: [person.id],
+      name: 'org_unit_head_worker_fk',
+    }).onDelete('set null'),
+    textEnumCheck('org_unit', 'kind', ORG_UNIT_KINDS),
   ],
 );
 
@@ -136,6 +176,7 @@ export const personSkill = peopleSchema.table(
     skill_id: uuid('skill_id').notNull(),
     skill_name: text('skill_name').notNull(),
     level: integer('level'),
+    version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -148,6 +189,7 @@ export const personSkill = peopleSchema.table(
       foreignColumns: [person.id],
       name: 'person_skill_person_fk',
     }),
+    check('person_skill_level_check', sql`level BETWEEN 0 AND 5`),
   ],
 );
 
@@ -164,7 +206,14 @@ export const workerHistory = peopleSchema.table(
     to_val: jsonb('to_val'),
     by_user_id: uuid('by_user_id'),
   },
-  (t) => [index('worker_history_by_person').on(t.tenant_id, t.person_id, t.at)],
+  (t) => [
+    index('worker_history_by_person').on(t.tenant_id, t.person_id, t.at),
+    foreignKey({
+      columns: [t.person_id],
+      foreignColumns: [person.id],
+      name: 'worker_history_person_fk',
+    }).onDelete('cascade'),
+  ],
 );
 
 export const workerAllocationProjection = peopleSchema.table(
@@ -182,6 +231,7 @@ export const workerAllocationProjection = peopleSchema.table(
     planned_pct: numeric('planned_pct', { precision: 10, scale: 4 }),
     bucket: text('bucket'),
     active: boolean('active').notNull().default(true),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     index('worker_alloc_by_worker').on(t.tenant_id, t.worker_id),
@@ -189,7 +239,7 @@ export const workerAllocationProjection = peopleSchema.table(
     index('worker_alloc_by_project').on(t.tenant_id, t.project_id),
     check(
       'worker_alloc_bucket_check',
-      sql`bucket IS NULL OR bucket IN ('billable','internal','bench')`,
+      sql.raw(`bucket IS NULL OR bucket IN (${textEnumValuesSql(PROJECTION_BUCKETS)})`),
     ),
   ],
 );
@@ -199,6 +249,7 @@ export const accountProjection = peopleSchema.table('account_projection', {
   tenant_id: uuid('tenant_id').notNull(),
   name: text('name').notNull(),
   am_worker_id: uuid('am_worker_id'),
+  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const projectProjection = peopleSchema.table(
@@ -208,6 +259,7 @@ export const projectProjection = peopleSchema.table(
     tenant_id: uuid('tenant_id').notNull(),
     account_id: uuid('account_id').notNull(),
     name: text('name').notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index('project_proj_by_account').on(t.tenant_id, t.account_id)],
 );

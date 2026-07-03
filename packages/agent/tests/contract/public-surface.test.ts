@@ -15,6 +15,9 @@ const EXPECTED_NAMED_EXPORTS = new Set<string>([
   // orchestrator adapters (orchestrator modules may not import the engine).
   'resolveModel',
   'ModelNotFoundError',
+  // agent-backed orchestration run store — injected by the composition root into
+  // the assignment-orchestration runtime's RunStateRepository port.
+  'AgentRunStateRepository',
 ]);
 
 const EXPECTED_EXPORT_SUBPATHS = new Set<string>([

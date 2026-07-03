@@ -46,9 +46,7 @@ export interface ScanUploadDeps {
 export async function runScanUpload(input: ScanUploadPayload, deps: ScanUploadDeps): Promise<void> {
   const db = knowledgeDb();
   const s3 = deps.s3;
-  const fileIdBig = BigInt(input.file_id);
-
-  await db.update(files).set({ scan_status: 'scanning' }).where(eq(files.id, fileIdBig));
+  await db.update(files).set({ scan_status: 'scanning' }).where(eq(files.id, input.file_id));
 
   try {
     // 1. Content-type sniff on the first 4 KB. Catches `.exe` masquerading as `.pdf`.
@@ -62,7 +60,7 @@ export async function runScanUpload(input: ScanUploadPayload, deps: ScanUploadDe
     const headBuf = await streamToBuffer(head.Body as Readable | undefined);
     const sniff = await fileTypeFromBuffer(headBuf);
     if (sniff && !ALLOWED_MIME.has(sniff.mime)) {
-      await markInfected(input, fileIdBig, `content_type_spoof: detected ${sniff.mime}`);
+      await markInfected(input, `content_type_spoof: detected ${sniff.mime}`);
       await deleteObject(s3, deps.bucket, input.s3_key);
       return;
     }
@@ -75,7 +73,7 @@ export async function runScanUpload(input: ScanUploadPayload, deps: ScanUploadDe
     });
 
     if (result.status === 'infected') {
-      await markInfected(input, fileIdBig, `av_hit: ${result.virus}`);
+      await markInfected(input, `av_hit: ${result.virus}`);
       await deleteObject(s3, deps.bucket, input.s3_key);
       return;
     }
@@ -83,7 +81,7 @@ export async function runScanUpload(input: ScanUploadPayload, deps: ScanUploadDe
     await db
       .update(files)
       .set({ scan_status: 'clean', scan_at: new Date(), status: 'parsing' })
-      .where(eq(files.id, fileIdBig));
+      .where(eq(files.id, input.file_id));
     await emitScanCompleted(input, 'clean');
     if (deps.enqueueParseJob) {
       await deps.enqueueParseJob({
@@ -97,17 +95,13 @@ export async function runScanUpload(input: ScanUploadPayload, deps: ScanUploadDe
     await db
       .update(files)
       .set({ scan_status: 'error', scan_detail: message, scan_at: new Date() })
-      .where(eq(files.id, fileIdBig));
+      .where(eq(files.id, input.file_id));
     await emitScanCompleted(input, 'error', message);
     throw err;
   }
 }
 
-async function markInfected(
-  input: ScanUploadPayload,
-  fileIdBig: bigint,
-  detail: string,
-): Promise<void> {
+async function markInfected(input: ScanUploadPayload, detail: string): Promise<void> {
   const db = knowledgeDb();
   await db
     .update(files)
@@ -118,7 +112,7 @@ async function markInfected(
       status: 'failed',
       error_reason: detail,
     })
-    .where(eq(files.id, fileIdBig));
+    .where(eq(files.id, input.file_id));
   await emitScanCompleted(input, 'infected', detail);
 }
 

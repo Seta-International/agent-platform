@@ -110,12 +110,19 @@ describe('@seta/identity importUsersFromEntra', () => {
 
           mockGraphFull(fetchMock);
 
+          // Integrations projects the tenant↔Entra linkage first (it owns entra_tenant_id);
+          // seed the provider row so registerSsoProvider's fail-closed domain verification passes.
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
+
           // Register + consent + enable provider
           await registerSsoProvider(
             {
               tenant_id: tenantId,
               provider_id: 'microsoft-entra-id',
-              entra_tenant_id: ENTRA_TID,
               email_domains: ['acme.com'],
             },
             CLI_ACTOR,
@@ -194,11 +201,17 @@ describe('@seta/identity importUsersFromEntra', () => {
 
           mockGraphFull(fetchMock);
 
+          // Seed the integrations-owned Entra linkage before register (fail-closed verification).
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
+
           await registerSsoProvider(
             {
               tenant_id: tenantId,
               provider_id: 'microsoft-entra-id',
-              entra_tenant_id: ENTRA_TID,
               email_domains: ['acme.com'],
             },
             CLI_ACTOR,

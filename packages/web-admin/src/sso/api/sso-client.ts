@@ -2,8 +2,10 @@ export interface SsoProviderRowDto {
   tenant_id: string;
   provider_id: 'microsoft-entra-id';
   enabled: boolean;
+  // Owned by integrations (projected in via the M365 config); null until the tenant's Microsoft
+  // 365 integration has been configured. No longer inside `config`.
+  entra_tenant_id: string | null;
   config: {
-    entra_tenant_id: string;
     consent_granted_at: string | null;
     consent_granted_by_oid: string | null;
     consent_granted_by_email: string | null;
@@ -28,8 +30,9 @@ export async function listProviders(): Promise<SsoProviderRowDto[]> {
   return ((await jsonOrThrow(res)) as { rows: SsoProviderRowDto[] }).rows;
 }
 
+// entra_tenant_id is intentionally NOT accepted: integrations owns the linkage (the backend
+// ignores it). The admin register path only manages email_domains + enable/disable.
 export async function registerProvider(body: {
-  entra_tenant_id: string;
   email_domains?: string[];
 }): Promise<SsoProviderRowDto> {
   const res = await fetch('/api/identity/v1/sso/providers', {

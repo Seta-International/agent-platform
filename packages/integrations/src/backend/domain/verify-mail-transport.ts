@@ -63,7 +63,7 @@ export async function verifyMailTransport(
     });
     await withEmit(
       {
-        actor: { userId: String(args.actor.user_id), tenantId: args.tenantId },
+        actor: { userId: args.actor.user_id, tenantId: args.tenantId },
       },
       async (tx) => {
         await tx
@@ -86,7 +86,7 @@ export async function verifyMailTransport(
     const message = (err as Error).message ?? String(err);
     await withEmit(
       {
-        actor: { userId: String(args.actor.user_id), tenantId: args.tenantId },
+        actor: { userId: args.actor.user_id, tenantId: args.tenantId },
       },
       async (tx) => {
         await tx

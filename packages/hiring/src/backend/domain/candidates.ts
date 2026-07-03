@@ -1,7 +1,7 @@
 import { listSkills, type SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type {
   AddCandidateInput,
   CandidateSkillInput,
@@ -16,6 +16,7 @@ import {
 import { hiringDb } from '../db/client.ts';
 import {
   application,
+  type CANDIDATE_EVENT_KINDS,
   candidate,
   candidateEvent,
   candidateSkill,
@@ -31,7 +32,7 @@ export async function recordCandidateEvent(
     session: SessionScope;
     candidate_id: string;
     application_id?: string | null;
-    kind: string;
+    kind: (typeof CANDIDATE_EVENT_KINDS)[number];
     summary: string;
     detail?: Record<string, unknown>;
   },
@@ -169,7 +170,13 @@ export async function editCandidate(input: {
   const [cur] = await hiringDb()
     .select()
     .from(candidate)
-    .where(and(eq(candidate.id, candidate_id), tenantScoped(candidate.tenant_id, session)))
+    .where(
+      and(
+        eq(candidate.id, candidate_id),
+        tenantScoped(candidate.tenant_id, session),
+        isNull(candidate.deleted_at),
+      ),
+    )
     .limit(1);
   if (!cur) throw new HiringError('NOT_FOUND', 'candidate not found');
   const contact = {
@@ -191,7 +198,13 @@ export async function editCandidate(input: {
           segment: patch.segment ?? cur.segment,
           updated_at: new Date(),
         })
-        .where(and(eq(candidate.id, candidate_id), tenantScoped(candidate.tenant_id, session)));
+        .where(
+          and(
+            eq(candidate.id, candidate_id),
+            tenantScoped(candidate.tenant_id, session),
+            isNull(candidate.deleted_at),
+          ),
+        );
       const fields = Object.keys(patch);
       await recordCandidateEvent(tx, {
         session,
@@ -225,7 +238,13 @@ export async function setCandidateSkills(input: {
   const [cur] = await hiringDb()
     .select({ id: candidate.id })
     .from(candidate)
-    .where(and(eq(candidate.id, candidate_id), tenantScoped(candidate.tenant_id, session)))
+    .where(
+      and(
+        eq(candidate.id, candidate_id),
+        tenantScoped(candidate.tenant_id, session),
+        isNull(candidate.deleted_at),
+      ),
+    )
     .limit(1);
   if (!cur) throw new HiringError('NOT_FOUND', 'candidate not found');
   await withEmit(

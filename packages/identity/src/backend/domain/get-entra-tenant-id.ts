@@ -7,5 +7,5 @@ import { getProviderRow } from '../sso/helpers.ts';
 export async function getEntraTenantId(tenantId: string): Promise<string | null> {
   const row = await getProviderRow(tenantId, 'microsoft-entra-id');
   if (!row?.enabled) return null;
-  return row.config.entra_tenant_id ?? null;
+  return row.entra_tenant_id ?? null;
 }

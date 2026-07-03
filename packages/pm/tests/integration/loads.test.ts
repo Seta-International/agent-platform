@@ -24,6 +24,7 @@ describe('pm schema', () => {
           'project',
           'project_access',
           'staffing_plan_line',
+          'staffing_plan_line_skill',
           'worker_projection',
         ]);
       } finally {

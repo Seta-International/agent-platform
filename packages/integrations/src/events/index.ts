@@ -20,6 +20,10 @@ export type IntegrationsEvent =
       payload: { entra_tenant_id: string; client_id: string };
     }
   | {
+      type: 'integrations.m365_tenant_config.updated';
+      payload: { entraTenantId: string; enabled: boolean };
+    }
+  | {
       type: 'integrations.m365.member.skipped';
       payload: {
         group_id: string;

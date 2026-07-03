@@ -9,7 +9,7 @@ import {
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { getUtilizationByPerson } from '../../src/backend/domain/utilization.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { buildSession, seedPersons, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -29,6 +29,7 @@ describe('getUtilizationByPerson', () => {
         const projA = crypto.randomUUID();
         const projB = crypto.randomUUID();
 
+        await seedPersons(t.tenant_id, personId);
         await peopleDb().insert(worker).values({
           tenant_id: t.tenant_id,
           person_id: personId,
@@ -107,6 +108,7 @@ describe('getUtilizationByPerson', () => {
       try {
         const t = await seedTenant(pool);
         const stranger = crypto.randomUUID();
+        await seedPersons(t.tenant_id, stranger);
         await peopleDb().insert(worker).values({
           tenant_id: t.tenant_id,
           person_id: stranger,

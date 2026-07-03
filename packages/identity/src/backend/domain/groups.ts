@@ -9,6 +9,7 @@ import { accessGroup, accessGroupMembership, accessGroupRole } from '../db/schem
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
 import { requireOrgUnitInTenant } from './helpers.ts';
+import { scopeIdFromDb, scopeIdToDb } from './scope-id.ts';
 
 export interface GroupRoleInput {
   role_slug: string;
@@ -158,10 +159,11 @@ export async function setGroupRoles(
     if (input.roles.length > 0) {
       await tx.insert(accessGroupRole).values(
         input.roles.map((r) => ({
+          tenant_id: input.tenant_id,
           group_id: input.group_id,
           role_slug: r.role_slug,
           scope_kind: r.scope_kind,
-          scope_id: r.scope_id,
+          scope_id: scopeIdToDb(r.scope_id),
         })),
       );
     }
@@ -209,7 +211,7 @@ export async function listGroups(session: SessionScope): Promise<GroupRow[]> {
   for (const r of roles)
     rolesBy.set(r.group_id, [
       ...(rolesBy.get(r.group_id) ?? []),
-      { role_slug: r.role_slug, scope_kind: r.scope_kind, scope_id: r.scope_id },
+      { role_slug: r.role_slug, scope_kind: r.scope_kind, scope_id: scopeIdFromDb(r.scope_id) },
     ]);
   return groups.map((g) => ({
     group_id: g.id,

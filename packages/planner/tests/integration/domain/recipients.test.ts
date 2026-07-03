@@ -32,9 +32,9 @@ describe('resolveGroupMemberIds', () => {
         await plannerDb()
           .insert(groupMembers)
           .values([
-            { group_id: groupId, user_id: u1, role: 'owner', added_by: u1 },
-            { group_id: groupId, user_id: u2, role: 'member', added_by: u1 },
-            { group_id: groupId, user_id: u3, role: 'member', added_by: u1 },
+            { tenant_id: tenantId, group_id: groupId, user_id: u1, role: 'owner', added_by: u1 },
+            { tenant_id: tenantId, group_id: groupId, user_id: u2, role: 'member', added_by: u1 },
+            { tenant_id: tenantId, group_id: groupId, user_id: u3, role: 'member', added_by: u1 },
           ]);
         const ids = await resolveGroupMemberIds(tenantId, groupId, plannerDb());
         expect(ids.sort()).toEqual([u1, u2, u3].sort());

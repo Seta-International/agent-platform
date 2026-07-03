@@ -17,7 +17,7 @@ import { getPendingAssignRunIdForTask } from './get-pending-assign-run-for-task.
 // the frontend's pending-approvals poll renders the card.
 //
 // This row carries:
-//   • workflow_id = 'staffing.orchestrator' (the agentic run's logical id)
+//   • workflow_id = 'planner.assignment-orchestrator' (the agentic run's logical id)
 //   • mastra_run_id + tool_call_id — the agentic-resume parameters Task 7 uses
 //     to `mastra.getAgent().resume()`. Their presence is the
 //     agentic-vs-evented-workflow discriminator on the approval row.
@@ -29,7 +29,7 @@ import { getPendingAssignRunIdForTask } from './get-pending-assign-run-for-task.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Logical id of the agentic orchestrator run that owns chat-HITL approvals. */
-export const STAFFING_ORCHESTRATOR_WORKFLOW_ID = 'staffing.orchestrator';
+export const ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID = 'planner.assignment-orchestrator';
 
 export interface WriteChatApprovalRowOpts {
   card: ApprovalCard;
@@ -135,7 +135,7 @@ export async function writeChatApprovalRow(
        VALUES (gen_random_uuid(), $1, $2, $3, 'chat', 'paused', $4::jsonb, now())
        RETURNING run_id`,
       [
-        STAFFING_ORCHESTRATOR_WORKFLOW_ID,
+        ASSIGNMENT_ORCHESTRATOR_WORKFLOW_ID,
         tenantId,
         userId,
         JSON.stringify({ taskId, thread_id: threadId }),
@@ -148,12 +148,12 @@ export async function writeChatApprovalRow(
     // tool_call_id carry the agentic-resume parameters Task 7 reads.
     const approvalRes = await client.query<{ approval_id: string }>(
       `INSERT INTO agent.workflow_approvals
-         (approval_id, run_id, step_id, proposed_payload,
+         (approval_id, run_id, tenant_id, step_id, proposed_payload,
           approver_user_id, surface_canvas, surface_chat_thread_id,
           mastra_run_id, tool_call_id, status, expires_at, created_at)
-       VALUES (gen_random_uuid(), $1, 'chat-hitl', $2, $3, false, $4, $5, $6, 'pending', $7, now())
+       VALUES (gen_random_uuid(), $1, $2, 'chat-hitl', $3, $4, false, $5, $6, $7, 'pending', $8, now())
        RETURNING approval_id`,
-      [runId, JSON.stringify(card), userId, threadId, mastraRunId, toolCallId, expiresAt],
+      [runId, tenantId, JSON.stringify(card), userId, threadId, mastraRunId, toolCallId, expiresAt],
     );
     const approvalId = approvalRes.rows[0]?.approval_id;
     if (!approvalId)

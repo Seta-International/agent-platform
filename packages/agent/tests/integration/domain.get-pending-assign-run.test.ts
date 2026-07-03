@@ -8,7 +8,7 @@ interface SeedRunArgs {
   pool: Pool;
   runId?: string;
   workflowId?: string;
-  status?: 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  status?: 'running' | 'paused' | 'success' | 'failed' | 'canceled';
   tenantId: string;
   inputSummary?: Record<string, unknown>;
 }
@@ -42,8 +42,8 @@ async function seedApproval(args: SeedApprovalArgs): Promise<string> {
   const approvalId = randomUUID();
   await args.pool.query(
     `INSERT INTO agent.workflow_approvals
-       (approval_id, run_id, step_id, proposed_payload, approver_user_id, status, expires_at)
-     VALUES ($1, $2, 'assignBySkill.suggest', $3::jsonb, $4, $5, now() + interval '1 hour')`,
+       (approval_id, run_id, tenant_id, step_id, proposed_payload, approver_user_id, status, expires_at)
+     VALUES ($1, $2, (SELECT tenant_id FROM agent.workflow_runs WHERE run_id = $2), 'assignBySkill.suggest', $3::jsonb, $4, $5, now() + interval '1 hour')`,
     [
       approvalId,
       args.runId,
@@ -98,7 +98,7 @@ describe('getPendingAssignRunIdForTask', () => {
       const runId = await seedRun({
         pool,
         tenantId,
-        workflowId: 'staffing.orchestrator',
+        workflowId: 'planner.assignment-orchestrator',
         status: 'paused',
         inputSummary: { taskId, thread_id: randomUUID() },
       });
@@ -129,7 +129,7 @@ describe('getPendingAssignRunIdForTask', () => {
     await withAgentTestDb(async ({ pool }) => {
       const tenantId = randomUUID();
       const taskId = randomUUID();
-      await seedRun({ pool, tenantId, status: 'completed', inputSummary: { taskId } });
+      await seedRun({ pool, tenantId, status: 'success', inputSummary: { taskId } });
       await seedRun({ pool, tenantId, status: 'failed', inputSummary: { taskId } });
 
       const result = await getPendingAssignRunIdForTask({ taskId, tenantId });

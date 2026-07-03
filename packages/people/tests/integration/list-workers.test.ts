@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
   employmentPeriod,
+  type LIFECYCLE_STAGES,
   person,
   personSkill,
   projectProjection,
@@ -74,7 +75,7 @@ async function makeWorker(
 async function addEmployment(
   _t: SeededTenant,
   personId: string,
-  opts: { stage: string; start: string },
+  opts: { stage: (typeof LIFECYCLE_STAGES)[number]; start: string },
 ): Promise<void> {
   await peopleDb()
     .update(employmentPeriod)

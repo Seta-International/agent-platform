@@ -74,7 +74,7 @@ describe('employment status transitions', () => {
           .from(employmentPeriod)
           .where(and(eq(employmentPeriod.person_id, person_id), isNull(employmentPeriod.end_date)));
         expect(open).toBeDefined();
-        expect(open?.status).toBe('active');
+        expect(open?.lifecycle_stage).toBe('active');
 
         const events = await readEvents(pool, t.tenant_id, 'people.worker.reinstated');
         expect(events).toHaveLength(1);

@@ -30,7 +30,7 @@ async function setup(pool: import('pg').Pool, databaseUrl: string) {
     `acme-${tenantId.slice(0, 8)}`,
   ]);
   const actor = {
-    user_id: 42,
+    user_id: crypto.randomUUID(),
     tenantId,
     permissions: new Set<string>([INTEGRATIONS_PERMISSIONS.mailConfigure]),
   };
@@ -159,7 +159,11 @@ describe('mail transport config domain', () => {
       },
       async ({ pool, databaseUrl }) => {
         const { tenantId } = await setup(pool, databaseUrl);
-        const actorNoPerm = { user_id: 1, tenantId, permissions: new Set<string>() };
+        const actorNoPerm = {
+          user_id: crypto.randomUUID(),
+          tenantId,
+          permissions: new Set<string>(),
+        };
         try {
           await expect(
             setMailTransportConfig({

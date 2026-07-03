@@ -5,22 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1782967292295,
-      "tag": "0000_identity_baseline",
+      "when": 1783011879469,
+      "tag": "0000_groovy_sasquatch",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1782970479447,
-      "tag": "0001_optimal_queen_noir",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1782999205542,
-      "tag": "0002_ambiguous_madame_web",
+      "when": 1783055905123,
+      "tag": "0002_entra_tenant_id",
       "breakpoints": true
     }
   ]

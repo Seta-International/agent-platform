@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const jdVariant = z.enum(['internal', 'external']);
 export const jdSectionKey = z.enum(['about', 'responsibilities', 'requirements', 'nice_to_have']);
 export const interviewMode = z.enum(['online', 'onsite', 'either']);
+export const genderValue = z.enum(['male', 'female', 'prefer_not_to_say']);
 
 export const jdSectionInput = z.object({
   variant: jdVariant,
@@ -90,7 +91,7 @@ export const addCandidateInput = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   dob: z.string().optional(),
-  gender: z.string().optional(),
+  gender: genderValue.optional(),
   seniority: z.string().optional(),
   source: z.string().optional(),
   segment: z.string().optional(),
@@ -105,7 +106,7 @@ export const editCandidatePatch = z
     email: z.string().email(),
     phone: z.string(),
     dob: z.string(),
-    gender: z.string(),
+    gender: genderValue,
     seniority: z.string(),
     source: z.string(),
     segment: z.string(),

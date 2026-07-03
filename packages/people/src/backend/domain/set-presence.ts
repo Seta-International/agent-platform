@@ -27,7 +27,10 @@ export async function setPresence(session: SessionScope, input: SetPresenceInput
   const set: Record<string, unknown> = { updated_at: new Date() };
   if (input.availability_status !== undefined) set.availability_status = input.availability_status;
   if (input.ooo_until !== undefined) set.ooo_until = input.ooo_until;
-  if (input.working_hours !== undefined) set.working_hours = input.working_hours;
+  if (input.working_hours !== undefined) {
+    set.work_start = input.working_hours?.start ?? null;
+    set.work_end = input.working_hours?.end ?? null;
+  }
   if (input.timezone !== undefined) set.timezone = input.timezone;
 
   if (Object.keys(set).length === 1) return;

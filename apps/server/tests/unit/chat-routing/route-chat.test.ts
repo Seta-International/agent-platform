@@ -12,37 +12,37 @@ const ctx: RunCtx = { tenantId: 't1', actorUserId: 'u1' };
 
 describe('chat router dispatch', () => {
   it('dispatches a question to planner_qna', async () => {
-    const staffing = vi.fn(async () => fakeRun('staffing'));
+    const assignment = vi.fn(async () => fakeRun('assignment'));
     const plannerQna = vi.fn(async () => fakeRun('qna'));
-    const router = makeChatRouter({ classify: async () => 'planner_qna', staffing, plannerQna });
+    const router = makeChatRouter({ classify: async () => 'planner_qna', assignment, plannerQna });
 
     const run = await router({ userText: 'what are my open tasks?', taskId: null }, ctx);
     const final = await run.finalize();
 
     expect(plannerQna).toHaveBeenCalledOnce();
-    expect(staffing).not.toHaveBeenCalled();
+    expect(assignment).not.toHaveBeenCalled();
     expect((final.result as { tag: string }).tag).toBe('qna');
   });
 
-  it('dispatches an action to staffing', async () => {
-    const staffing = vi.fn(async () => fakeRun('staffing'));
+  it('dispatches an action to assignment', async () => {
+    const assignment = vi.fn(async () => fakeRun('assignment'));
     const plannerQna = vi.fn(async () => fakeRun('qna'));
-    const router = makeChatRouter({ classify: async () => 'staffing', staffing, plannerQna });
+    const router = makeChatRouter({ classify: async () => 'assignment', assignment, plannerQna });
 
     await router({ userText: 'who should I assign?', taskId: 't-1' }, ctx);
 
-    expect(staffing).toHaveBeenCalledOnce();
+    expect(assignment).toHaveBeenCalledOnce();
     expect(plannerQna).not.toHaveBeenCalled();
   });
 
   it('forwards runInput and ctx unchanged to the selected runtime', async () => {
-    const staffing = vi.fn(async () => fakeRun('staffing'));
+    const assignment = vi.fn(async () => fakeRun('assignment'));
     const plannerQna = vi.fn(async () => fakeRun('qna'));
-    const router = makeChatRouter({ classify: async () => 'staffing', staffing, plannerQna });
+    const router = makeChatRouter({ classify: async () => 'assignment', assignment, plannerQna });
 
     const runInput = { userText: 'reassign this', taskId: 't-9' };
     await router(runInput, ctx);
 
-    expect(staffing).toHaveBeenCalledWith(runInput, ctx);
+    expect(assignment).toHaveBeenCalledWith(runInput, ctx);
   });
 });

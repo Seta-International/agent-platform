@@ -17,13 +17,13 @@ async function seedProvider(
     tenantId,
   ]);
   await pool.query(
-    `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config)
-     VALUES ($1, 'microsoft-entra-id', $2, $3::jsonb)`,
+    `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+     VALUES ($1, 'microsoft-entra-id', $2, $3, $4::jsonb)`,
     [
       tenantId,
       opts.enabled,
+      entraTid,
       JSON.stringify({
-        entra_tenant_id: entraTid,
         consent_granted_at: null,
         consent_granted_by_oid: null,
         consent_granted_by_email: null,

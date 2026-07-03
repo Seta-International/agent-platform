@@ -2,18 +2,11 @@ import type { SessionScope } from '@seta/core';
 import { and, eq, ilike, isNull, or, sql } from 'drizzle-orm';
 import { plannerDb } from '../db/index.ts';
 import { groups, plans, taskAssignments, tasks } from '../db/schema.ts';
-import type { MyTasksResult, TaskPriorityNumber, TaskWithPlan } from '../dto.ts';
+import type { MyTasksResult, TaskWithPlan } from '../dto.ts';
 import type { ListMyTasksInput } from '../inputs.ts';
 import { withSpan } from '../observability.ts';
 import { taskRowToDto } from './_task-dto.ts';
 import { fetchAssigneesAndLabels } from './_task-supplementary.ts';
-
-const PRIORITY_MAP: Record<'urgent' | 'important' | 'medium' | 'low', TaskPriorityNumber> = {
-  urgent: 1,
-  important: 3,
-  medium: 5,
-  low: 9,
-};
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -88,7 +81,7 @@ async function listMyTasksImpl(
     conditions.push(eq(plans.group_id, filter.group_id));
   }
   if (filter.priority !== undefined) {
-    conditions.push(eq(tasks.priority_number, PRIORITY_MAP[filter.priority]));
+    conditions.push(eq(tasks.priority, filter.priority));
   }
   if (filter.due === 'overdue') {
     conditions.push(sql`${tasks.due_at} IS NOT NULL AND ${tasks.due_at} < ${startOfTodayUtc}`);

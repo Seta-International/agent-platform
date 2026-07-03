@@ -95,7 +95,7 @@ export async function getWorkflowRunSnapshot(
   if (!workflowsStore) return null;
 
   // workflow_runs.workflow_id stores Mastra's intrinsic workflow id, which is
-  // also the key Mastra's snapshot storage uses (`mastra_workflow_snapshot.workflow_name`).
+  // also the key Mastra's snapshot storage table indexes on (its workflow_name column).
   const snapshot = await workflowsStore.loadWorkflowSnapshot({
     workflowName: projection.workflowId,
     runId: opts.runId,

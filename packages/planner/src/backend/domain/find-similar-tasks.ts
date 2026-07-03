@@ -72,8 +72,8 @@ export async function findSimilarTasks(
   if (input.createdAfter) conditions.push(gte(tasks.created_at, input.createdAfter));
   if (input.createdBefore) conditions.push(lte(tasks.created_at, input.createdBefore));
   const cs = input.completionStatus ?? 'open';
-  if (cs === 'open') conditions.push(sql`${tasks.percent_complete} < 100`);
-  if (cs === 'completed') conditions.push(sql`${tasks.percent_complete} = 100`);
+  if (cs === 'open') conditions.push(sql`${tasks.progress} <> 'done'`);
+  if (cs === 'completed') conditions.push(sql`${tasks.progress} = 'done'`);
   if (input.onlyWithReviewState) conditions.push(isNotNull(tasks.review_state));
 
   const rows = await plannerDb()
@@ -81,7 +81,7 @@ export async function findSimilarTasks(
       id: tasks.id,
       group_id: plans.group_id,
       title: tasks.title,
-      percent_complete: tasks.percent_complete,
+      progress: tasks.progress,
       review_state: tasks.review_state,
       labels: sql<string[]>`COALESCE(
         ARRAY(
@@ -104,7 +104,7 @@ export async function findSimilarTasks(
       tasks.id,
       tasks.title,
       plans.group_id,
-      tasks.percent_complete,
+      tasks.progress,
       tasks.review_state,
       tasks.created_at,
     );
@@ -122,7 +122,7 @@ export async function findSimilarTasks(
       title: row.title,
       score: hit.score,
       assigneeUserIds: (row.assignee_ids ?? []).map(String),
-      status: (row.percent_complete ?? 0) >= 100 ? 'completed' : 'open',
+      status: row.progress === 'done' ? 'completed' : 'open',
       reviewState: row.review_state ?? null,
       labels: row.labels ?? [],
       createdAt:

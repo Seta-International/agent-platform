@@ -93,7 +93,7 @@ export function registerChatAttachmentRoutes(
     const s = gate(c);
     if (s instanceof Response) return s;
     const file_id = c.req.param('id');
-    if (!/^\d+$/.test(file_id)) return c.json({ error: 'invalid_id' }, 400);
+    if (!z.string().uuid().safeParse(file_id).success) return c.json({ error: 'invalid_id' }, 400);
     try {
       // Reject a corrupt/unreadable file here so the upload fails loudly instead
       // of silently 413/400-ing at the first turn that tries to use it.
@@ -122,7 +122,7 @@ export function registerChatAttachmentRoutes(
     const s = gate(c);
     if (s instanceof Response) return s;
     const file_id = c.req.param('id');
-    if (!/^\d+$/.test(file_id)) return c.json({ error: 'invalid_id' }, 400);
+    if (!z.string().uuid().safeParse(file_id).success) return c.json({ error: 'invalid_id' }, 400);
     await deleteChatAttachment({ tenant_id: s.tenant_id, file_id, uploaded_by: s.user_id }, {});
     return c.json({ ok: true });
   });

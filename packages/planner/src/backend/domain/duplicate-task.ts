@@ -18,6 +18,7 @@ import {
   taskReferences,
   tasks,
 } from '../db/schema.ts';
+import { priorityToNumber, progressToPercent } from '../db/task-enums.ts';
 import type {
   AssigneeRow,
   ChecklistItemRow,
@@ -26,7 +27,6 @@ import type {
   ReferencePreviewItem,
   TaskExternalSource,
   TaskPreviewType,
-  TaskPriorityNumber,
   TaskReferenceRow,
   TaskReferenceType,
   TaskWithAssigneesRow,
@@ -120,8 +120,8 @@ export async function duplicateTask(
           bucket_id: source.bucket_id,
           title: `Copy of ${source.title}`,
           description: opts.include_description ? source.description : null,
-          priority_number: source.priority_number,
-          percent_complete: 0,
+          priority: source.priority,
+          progress: 'not_started',
           is_deferred: source.is_deferred,
           preview_type: source.preview_type,
           review_state: source.review_state,
@@ -145,8 +145,8 @@ export async function duplicateTask(
           bucket_id: row.bucket_id,
           title: row.title,
           description: row.description,
-          priority_number: row.priority_number as TaskPriorityNumber,
-          percent_complete: row.percent_complete,
+          priority_number: priorityToNumber(row.priority),
+          percent_complete: progressToPercent(row.progress),
           is_deferred: row.is_deferred,
           preview_type: row.preview_type as TaskPreviewType,
           start_at: row.start_at ? row.start_at.toISOString() : null,
@@ -174,6 +174,7 @@ export async function duplicateTask(
           const [newItem] = await tx
             .insert(checklistItems)
             .values({
+              tenant_id: row.tenant_id,
               task_id: newTaskId,
               label: item.label,
               checked: item.checked,
@@ -214,6 +215,7 @@ export async function duplicateTask(
           const inserted = await tx
             .insert(taskLabels)
             .values({
+              tenant_id: row.tenant_id,
               task_id: newTaskId,
               label_id,
               applied_by: input.session.user_id,
@@ -244,6 +246,7 @@ export async function duplicateTask(
           const inserted = await tx
             .insert(taskAssignments)
             .values({
+              tenant_id: row.tenant_id,
               task_id: newTaskId,
               user_id: a.user_id,
               order_hint: a.order_hint,

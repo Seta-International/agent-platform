@@ -18,6 +18,9 @@ export interface ProviderRow {
   tenant_id: string;
   provider_id: SsoProviderId;
   enabled: boolean;
+  // Owned by integrations, projected in via the entra-linkage subscriber. Null until the
+  // tenant's M365 config has been set in integrations.
+  entra_tenant_id: string | null;
   config: MicrosoftEntraConfig;
   created_at: Date;
   updated_at: Date;
@@ -42,6 +45,7 @@ export async function getProviderRow(
     tenant_id: row.tenant_id,
     provider_id: row.provider_id as SsoProviderId,
     enabled: row.enabled,
+    entra_tenant_id: row.entra_tenant_id,
     config: row.config as MicrosoftEntraConfig,
     created_at: row.created_at,
     updated_at: row.updated_at,

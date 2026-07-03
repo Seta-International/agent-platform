@@ -9,7 +9,6 @@ import { setTenantEmailDomains } from './set-tenant-email-domains.ts';
 export interface RegisterSsoProviderInput {
   tenant_id: string;
   provider_id: SsoProviderId;
-  entra_tenant_id: string;
   email_domains: string[];
 }
 
@@ -33,10 +32,10 @@ export async function registerSsoProvider(
     new Set(input.email_domains.map((d) => d.toLowerCase().trim()).filter(Boolean)),
   ).sort();
 
-  // Preserve existing consent metadata when re-registering
+  // Preserve existing consent metadata when re-registering. entra_tenant_id is NOT set here:
+  // integrations owns it (projected into the entra_tenant_id column by the entra-linkage subscriber).
   const existing = await getProviderRow(input.tenant_id, 'microsoft-entra-id');
   const config: MicrosoftEntraConfig = {
-    entra_tenant_id: input.entra_tenant_id,
     consent_granted_at: existing?.config.consent_granted_at ?? null,
     consent_granted_by_oid: existing?.config.consent_granted_by_oid ?? null,
     consent_granted_by_email: existing?.config.consent_granted_by_email ?? null,
@@ -71,7 +70,6 @@ export async function registerSsoProvider(
         after: {
           tenant_id: input.tenant_id,
           provider_id: 'microsoft-entra-id',
-          entra_tenant_id: input.entra_tenant_id,
           email_domains: normalized,
         },
       },

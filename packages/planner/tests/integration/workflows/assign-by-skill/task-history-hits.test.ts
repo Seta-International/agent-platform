@@ -40,8 +40,8 @@ async function assign(
   assignedBy: string,
 ): Promise<void> {
   await pool.query(
-    `INSERT INTO planner.task_assignments (task_id, user_id, assigned_by)
-     VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+    `INSERT INTO planner.task_assignments (tenant_id, task_id, user_id, assigned_by)
+     VALUES ((SELECT tenant_id FROM planner.tasks WHERE id = $1), $1, $2, $3) ON CONFLICT DO NOTHING`,
     [taskId, userId, assignedBy],
   );
 }
