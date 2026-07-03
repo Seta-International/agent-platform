@@ -3,6 +3,7 @@
 // Every method here builds the composite `${tenantId}:${userId}` resourceId
 // and performs the ownership comparison internally — callers never build or
 // compare a raw resourceId themselves. Enforced by scripts/lint-mastra-access.mjs.
+import type { Pool } from 'pg';
 import {
   getMemoryStore,
   type MastraStoredMessage,
@@ -140,4 +141,28 @@ export class TenantGuardedMastraStore {
     if (!store) return;
     await store.saveMessages({ messages });
   }
+}
+
+/**
+ * Lifecycle table name for the AI tracing spans custom policy, exported so
+ * register.ts never has to spell out the raw mastra_* identifier itself
+ * (scripts/lint-mastra-access.mjs bans that outside this module).
+ */
+export const MASTRA_SPANS_LIFECYCLE_TABLE = 'agent.mastra_ai_spans';
+
+/**
+ * Retention for AI tracing spans — the lifecycle custom policy (see
+ * register.ts) calls this. Direct SQL against the raw mastra_* table name is
+ * allowed here only: this module is the one place scripts/lint-mastra-access.mjs
+ * exempts. Table may not exist yet (Mastra creates it lazily on first write);
+ * `to_regclass` guards a fresh DB.
+ */
+export async function deleteSpansOlderThan(pool: Pool, olderThan: string): Promise<void> {
+  const exists = await pool.query<{ present: boolean }>(
+    `SELECT to_regclass('agent.mastra_ai_spans') IS NOT NULL AS present`,
+  );
+  if (!exists.rows[0]?.present) return;
+  await pool.query(`DELETE FROM agent.mastra_ai_spans WHERE created_at < now() - $1::interval`, [
+    olderThan,
+  ]);
 }

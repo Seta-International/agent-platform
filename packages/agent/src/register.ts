@@ -13,6 +13,7 @@ import {
   setExecutionPolicy,
 } from '@seta/agent-sdk';
 import type { AgentSpec, ContributionRegistry } from '@seta/core';
+import { getLifecycleEntries, registerLifecycle } from '@seta/shared-db';
 import type { Hono } from 'hono';
 import type { Pool } from 'pg';
 import { buildBreakerEmitter } from './backend/breaker-emitter.ts';
@@ -20,7 +21,11 @@ import * as schema from './backend/db/schema.ts';
 import { getPendingAssignRunIdForTask } from './backend/domain/get-pending-assign-run-for-task.ts';
 import { agentEnv } from './backend/env.ts';
 import { initAgentRegistry } from './backend/init-registry.ts';
-import { agentJobs } from './backend/jobs/rate-limit-cleanup.ts';
+import { agentJobs, cleanupExpiredRateLimitBuckets } from './backend/jobs/rate-limit-cleanup.ts';
+import {
+  deleteSpansOlderThan,
+  MASTRA_SPANS_LIFECYCLE_TABLE,
+} from './backend/mastra-store/tenant-guarded-store.ts';
 import { buildEntitiesMemory, buildMemory } from './backend/memory.ts';
 import { type ModelTier, resolveModel } from './backend/model-registry.ts';
 import { validateModelEnv } from './backend/provider-config.ts';
@@ -33,6 +38,32 @@ import { agentRbac } from './rbac.ts';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 export function registerAgentContributions(reg: ContributionRegistry): void {
+  // Tests construct a fresh ContributionRegistry per call (often several times per
+  // process), but the shared-db lifecycle registry is process-global and throws on
+  // re-registering a table — skip if a prior call in this process already ran.
+  if (!getLifecycleEntries().some((e) => e.table === 'agent.rate_limits')) {
+    registerLifecycle([
+      {
+        table: 'agent.rate_limits',
+        policy: { kind: 'custom', run: (pool) => cleanupExpiredRateLimitBuckets(pool) },
+      },
+      {
+        table: 'agent.workflow_runs',
+        policy: { kind: 'ttl', column: 'finished_at', olderThan: '180 days' },
+      },
+      { table: 'agent.tenant_settings', policy: { kind: 'permanent' } },
+      { table: 'agent.workflow_run_steps', policy: { kind: 'permanent' } },
+      { table: 'agent.workflow_approvals', policy: { kind: 'permanent' } },
+      { table: 'agent.workflow_run_events_seen', policy: { kind: 'permanent' } },
+      {
+        // Mastra-owned table, not a drizzle export — direct SQL lives behind the
+        // containment module (tenant-guarded-store.ts), never here.
+        table: MASTRA_SPANS_LIFECYCLE_TABLE,
+        policy: { kind: 'custom', run: (pool) => deleteSpansOlderThan(pool, '180 days') },
+      },
+    ]);
+  }
+
   reg.module({
     name: 'agent',
     schema,
@@ -40,7 +71,6 @@ export function registerAgentContributions(reg: ContributionRegistry): void {
     rbac: agentRbac,
     subscribers: agentSubscribers(),
     jobs: agentJobs,
-    crontab: '* * * * * agent_rate_limits_cleanup',
   });
 }
 
