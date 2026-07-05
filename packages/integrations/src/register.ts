@@ -1,15 +1,17 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ContributionRegistry, SessionEnv, WorkerHandle } from '@seta/core';
+import type { ContributionRegistry, ErrorMapper, SessionEnv, WorkerHandle } from '@seta/core';
 import { getEntraTenantId } from '@seta/identity';
 import type { Crypto } from '@seta/shared-crypto';
 import { getLifecycleEntries, registerLifecycle } from '@seta/shared-db';
 import type { MailerEnv } from '@seta/shared-mailer';
 import { Hono } from 'hono';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import * as schema from './backend/db/schema/index.ts';
 import { registerMailTransportRoutes } from './backend/http/index.ts';
 import { buildM365Boot } from './backend/m365/boot.ts';
 import { buildM365Subscribers } from './backend/m365/subscribers.ts';
+import { IntegrationsError } from './backend/rbac.ts';
 import { integrationsRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -20,6 +22,19 @@ export interface IntegrationsRegisterDeps {
   webhookSecret?: string;
   getWorkers?: () => WorkerHandle;
 }
+
+export const integrationsErrorMapper: ErrorMapper = (err) => {
+  if (!(err instanceof IntegrationsError)) return null;
+  const status: ContentfulStatusCode =
+    err.code === 'FORBIDDEN'
+      ? 403
+      : err.code === 'NOT_FOUND'
+        ? 404
+        : err.code === 'TRANSPORT_VERIFY_FAILED'
+          ? 422
+          : 400;
+  return { status, body: { error: err.code, message: err.message } };
+};
 
 export function registerIntegrationsContributions(
   reg: ContributionRegistry,
@@ -75,6 +90,7 @@ export function registerIntegrationsContributions(
     migrationsDir: resolve(__dirname, '../drizzle/migrations'),
     rbac: integrationsRbac,
     subscribers: buildM365Subscribers(),
+    errorMapper: integrationsErrorMapper,
     ...(m365Boot ? { jobs: m365Boot.jobs } : {}),
     ...(routes ? { routes } : {}),
   });
