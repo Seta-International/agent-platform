@@ -34,6 +34,7 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
   }
 
   function submit() {
+    if (createPlan.isPending) return;
     const trimmed = name.trim();
     if (!trimmed) {
       setError('Give your plan a name.');
@@ -90,7 +91,10 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
               Cancel
             </Button>
             <DisabledActionTooltip disabled={!canCreatePlan} reason={PERMISSION_DENIED.plan.create}>
-              <Button onClick={submit} disabled={!canCreatePlan || !name.trim()}>
+              <Button
+                onClick={submit}
+                disabled={!canCreatePlan || !name.trim() || createPlan.isPending}
+              >
                 Create plan
               </Button>
             </DisabledActionTooltip>

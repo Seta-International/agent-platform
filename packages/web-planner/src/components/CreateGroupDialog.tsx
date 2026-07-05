@@ -67,6 +67,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
   }
 
   function submit() {
+    if (createGroup.isPending) return;
     const trimmed = name.trim();
     if (!trimmed) {
       setError('Give your group a name.');

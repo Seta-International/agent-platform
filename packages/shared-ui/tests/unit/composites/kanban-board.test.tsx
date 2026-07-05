@@ -54,6 +54,33 @@ describe('KanbanBoard', () => {
     expect(onAddBucket).toHaveBeenCalledTimes(2);
   });
 
+  it('does not create a second bucket when Enter fires again before the first submission resolves (FUT-390)', async () => {
+    let resolveAdd!: () => void;
+    const onAddBucket = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveAdd = resolve;
+        }),
+    );
+
+    render(
+      <KanbanBoard onAddBucket={onAddBucket}>
+        <div data-testid="col-1">Column 1</div>
+      </KanbanBoard>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /add another bucket/i }));
+    const input = screen.getByLabelText(/new bucket name/i);
+    fireEvent.change(input, { target: { value: 'Backlog' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    resolveAdd();
+    await waitFor(() =>
+      expect((screen.getByLabelText(/new bucket name/i) as HTMLInputElement).value).toBe(''),
+    );
+    expect(onAddBucket).toHaveBeenCalledTimes(1);
+  });
+
   it('trims whitespace and ignores empty submissions', async () => {
     const onAddBucket = vi.fn();
 

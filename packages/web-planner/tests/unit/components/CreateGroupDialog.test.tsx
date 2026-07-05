@@ -74,6 +74,29 @@ describe('CreateGroupDialog', () => {
     await waitFor(() => expect(captured.length).toBe(1));
   });
 
+  it('does not create a second group when cmd+enter fires again before the first submission resolves (FUT-390)', async () => {
+    const user = userEvent.setup();
+    const captured: unknown[] = [];
+    let releaseResponse!: () => void;
+    const held = new Promise<void>((resolve) => {
+      releaseResponse = resolve;
+    });
+    server.use(
+      http.post('*/api/planner/v1/groups', async ({ request }) => {
+        captured.push(await request.json());
+        await held;
+        return HttpResponse.json(makeGroup({ name: 'Hello' }), { status: 201 });
+      }),
+    );
+    wrap(<CreateGroupDialog open onOpenChange={() => {}} />);
+    await user.type(screen.getByLabelText(/Group name/i), 'Hello');
+    await user.keyboard('{Meta>}{Enter}{Enter}{/Meta}');
+    releaseResponse();
+    await waitFor(() => expect(captured.length).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(captured).toHaveLength(1);
+  });
+
   it('visibility radio cards toggle and reflect aria-checked', async () => {
     const user = userEvent.setup();
     wrap(<CreateGroupDialog open onOpenChange={() => {}} />);
