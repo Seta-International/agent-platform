@@ -1,5 +1,4 @@
 import type { SessionEnv } from '@seta/core';
-import { listMyEffectivePermissions } from '@seta/identity';
 import type { Crypto, EncryptedBlob } from '@seta/shared-crypto';
 import type { MailerEnv } from '@seta/shared-mailer';
 import type { Context, Hono } from 'hono';
@@ -46,13 +45,15 @@ const smtpInputSchema = z.object({
 const setSchema = z.discriminatedUnion('kind', [graphInputSchema, smtpInputSchema]);
 const verifySchema = z.object({ recipient: z.email() });
 
-async function buildActor(c: Context<SessionEnv>): Promise<IntegrationsActor> {
+// The session's own `permissions` (built by getSessionScope from both direct
+// role_assignments and access-group-derived grants) is the source of truth — do not
+// re-derive it from a direct-only DB lookup, which misses group-granted permissions.
+function buildActor(c: Context<SessionEnv>): IntegrationsActor {
   const scope = c.get('user');
-  const perms = await listMyEffectivePermissions({ type: 'user', user_id: scope.user_id });
   return {
     user_id: scope.user_id,
     tenantId: scope.tenant_id,
-    permissions: new Set(perms),
+    permissions: scope.permissions,
   };
 }
 
@@ -91,13 +92,13 @@ export function registerMailTransportRoutes(
   deps: MailTransportRoutesDeps,
 ): void {
   app.get('/api/integrations/v1/mail-transport', async (c) => {
-    const actor = await buildActor(c);
+    const actor = buildActor(c);
     const row = await getMailTransportConfig(actor.tenantId, actor);
     return c.json(sanitize(row));
   });
 
   app.put('/api/integrations/v1/mail-transport', async (c) => {
-    const actor = await buildActor(c);
+    const actor = buildActor(c);
     const body = await c.req.json().catch(() => ({}));
     const parsed = setSchema.safeParse(body);
     if (!parsed.success) return c.json({ error: 'invalid', details: parsed.error.issues }, 400);
@@ -111,13 +112,13 @@ export function registerMailTransportRoutes(
   });
 
   app.delete('/api/integrations/v1/mail-transport', async (c) => {
-    const actor = await buildActor(c);
+    const actor = buildActor(c);
     await disableMailTransportConfig({ tenantId: actor.tenantId, actor });
     return c.json({ ok: true });
   });
 
   app.post('/api/integrations/v1/mail-transport/verify', async (c) => {
-    const actor = await buildActor(c);
+    const actor = buildActor(c);
     const parsed = verifySchema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) return c.json({ error: 'invalid' }, 400);
     const result = await verifyMailTransport({
