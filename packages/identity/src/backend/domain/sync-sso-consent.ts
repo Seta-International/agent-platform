@@ -29,9 +29,10 @@ export async function syncSsoConsentFromGraph(
 
   const row = await requireProviderRow(input.tenant_id, input.provider_id);
   if (row.config.consent_granted_at) return row;
+  if (!row.entra_tenant_id) return row;
 
   try {
-    await graphGetDomains(row.config.entra_tenant_id);
+    await graphGetDomains(row.entra_tenant_id);
   } catch {
     return row;
   }
