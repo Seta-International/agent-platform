@@ -63,6 +63,13 @@ describe('syncSsoConsentFromGraph', () => {
             ok: true,
             json: async () => ({ value: [{ id: 'acme.com', isVerified: true }] }),
           } as Response);
+          // Seed the Entra tenant linkage the way the entra-linkage subscriber (owned by
+          // integrations) would have already projected it before an admin registers domains.
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
           await registerSsoProvider(
             {
               tenant_id: tenantId,
@@ -130,6 +137,13 @@ describe('syncSsoConsentFromGraph', () => {
             ok: true,
             json: async () => ({ value: [{ id: 'acme.com', isVerified: true }] }),
           } as Response);
+          // Seed the Entra tenant linkage the way the entra-linkage subscriber (owned by
+          // integrations) would have already projected it before an admin registers domains.
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
           await registerSsoProvider(
             {
               tenant_id: tenantId,
@@ -188,6 +202,13 @@ describe('syncSsoConsentFromGraph', () => {
             ok: true,
             json: async () => ({ value: [{ id: 'acme.com', isVerified: true }] }),
           } as Response);
+          // Seed the Entra tenant linkage the way the entra-linkage subscriber (owned by
+          // integrations) would have already projected it before an admin registers domains.
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
           await registerSsoProvider(
             {
               tenant_id: tenantId,

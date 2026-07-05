@@ -291,6 +291,37 @@ describe('<KanbanColumn> quick-create submit', () => {
     expect(onCreateTask).not.toHaveBeenCalled();
   });
 
+  it('does not create a second task when Enter fires again before the first submission resolves (FUT-390)', async () => {
+    let resolveCreate!: () => void;
+    const onCreateTask = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        onCreateTask={onCreateTask}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByText('+ Add a task'));
+    const input = screen.getByPlaceholderText('Task title');
+    fireEvent.change(input, { target: { value: 'Test' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    resolveCreate();
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText('Task title')).not.toBeInTheDocument(),
+    );
+    expect(onCreateTask).toHaveBeenCalledTimes(1);
+  });
+
   it('shows an inline error when onCreateTask rejects', async () => {
     render(
       <KanbanColumn
