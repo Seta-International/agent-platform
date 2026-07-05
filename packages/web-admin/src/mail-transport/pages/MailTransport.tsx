@@ -3,6 +3,7 @@ import {
   AlertDescription,
   Button,
   Card,
+  DisabledActionTooltip,
   Input,
   Label,
   PageChrome,
@@ -10,6 +11,7 @@ import {
   RadioGroupItem,
   Switch,
 } from '@seta/shared-ui';
+import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -105,7 +107,10 @@ function toInput(form: FormState): SetMailTransportInput {
   };
 }
 
+const CANNOT_CONFIGURE_REASON = "You don't have permission to configure mail transport.";
+
 export function MailTransport() {
+  const canConfigure = usePermission('integrations.mail.configure');
   const qc = useQueryClient();
   const { data, isLoading, error } = useQuery<MailTransportRow | null>({
     queryKey,
@@ -162,149 +167,164 @@ export function MailTransport() {
         )}
 
         <Card className="p-5 space-y-5">
-          <div>
-            <Label className="text-eyebrow uppercase text-ink-subtle">Transport</Label>
-            <RadioGroup
-              value={form.kind}
-              onValueChange={(v) => setKind(v as Kind)}
-              className="mt-2 flex gap-6"
-            >
-              <div className="flex items-center gap-2 text-body-sm">
-                <RadioGroupItem value="graph" id="transport-graph" />
-                <Label htmlFor="transport-graph">Microsoft Graph</Label>
-              </div>
-              <div className="flex items-center gap-2 text-body-sm">
-                <RadioGroupItem value="smtp" id="transport-smtp" />
-                <Label htmlFor="transport-smtp">SMTP</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
+          <DisabledActionTooltip
+            disabled={!canConfigure}
+            reason={CANNOT_CONFIGURE_REASON}
+            className="w-full space-y-5"
+          >
             <div>
-              <Label htmlFor="sender-address">Sender address</Label>
-              <Input
-                id="sender-address"
-                type="email"
-                value={form.senderAddress}
-                onChange={(e) => setForm((s) => ({ ...s, senderAddress: e.target.value }))}
-                placeholder="noreply@your-domain.com"
-              />
+              <Label className="text-eyebrow uppercase text-ink-subtle">Transport</Label>
+              <RadioGroup
+                value={form.kind}
+                onValueChange={(v) => setKind(v as Kind)}
+                disabled={!canConfigure}
+                className="mt-2 flex gap-6"
+              >
+                <div className="flex items-center gap-2 text-body-sm">
+                  <RadioGroupItem value="graph" id="transport-graph" />
+                  <Label htmlFor="transport-graph">Microsoft Graph</Label>
+                </div>
+                <div className="flex items-center gap-2 text-body-sm">
+                  <RadioGroupItem value="smtp" id="transport-smtp" />
+                  <Label htmlFor="transport-smtp">SMTP</Label>
+                </div>
+              </RadioGroup>
             </div>
-            <div>
-              <Label htmlFor="sender-name">Sender display name</Label>
-              <Input
-                id="sender-name"
-                value={form.senderDisplayName}
-                onChange={(e) => setForm((s) => ({ ...s, senderDisplayName: e.target.value }))}
-                placeholder="Acme"
-              />
-            </div>
-          </div>
 
-          {form.kind === 'graph' ? (
-            <div className="flex items-start gap-3 rounded-md border border-hairline p-3">
-              <Switch
-                checked={form.graphPolicyAcked}
-                onCheckedChange={(v) => setForm((s) => ({ ...s, graphPolicyAcked: v }))}
-                aria-label="Application access policy acknowledged"
-              />
-              <div className="min-w-0">
-                <div className="font-medium text-ink">Application access policy is in place</div>
-                <p className="text-body-sm text-ink-muted">
-                  Confirm an ApplicationAccessPolicy limits the Entra app to sending only from this
-                  mailbox. Required before you can turn on Graph send.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="smtp-host">Host</Label>
-                  <Input
-                    id="smtp-host"
-                    value={form.smtpHost}
-                    onChange={(e) => setForm((s) => ({ ...s, smtpHost: e.target.value }))}
-                    placeholder="smtp.your-provider.com"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="smtp-port">Port</Label>
-                  <RadioGroup
-                    value={String(form.smtpPort)}
-                    onValueChange={(v) =>
-                      setForm((s) => ({ ...s, smtpPort: Number(v) === 465 ? 465 : 587 }))
-                    }
-                    className="mt-2 flex gap-6"
-                  >
-                    <div className="flex items-center gap-2 text-body-sm">
-                      <RadioGroupItem value="587" id="smtp-port-587" />
-                      <Label htmlFor="smtp-port-587">587 (STARTTLS)</Label>
-                    </div>
-                    <div className="flex items-center gap-2 text-body-sm">
-                      <RadioGroupItem value="465" id="smtp-port-465" />
-                      <Label htmlFor="smtp-port-465">465 (TLS)</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="smtp-username">Username</Label>
-                  <Input
-                    id="smtp-username"
-                    value={form.smtpUsername}
-                    onChange={(e) => setForm((s) => ({ ...s, smtpUsername: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="smtp-password">Password</Label>
-                  <Input
-                    id="smtp-password"
-                    type="password"
-                    value={form.smtpPassword}
-                    onChange={(e) => setForm((s) => ({ ...s, smtpPassword: e.target.value }))}
-                    placeholder={enabled ? '(unchanged — leave blank to keep)' : ''}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-body-sm">
-                <Switch
-                  id="smtp-require-tls"
-                  checked={form.smtpRequireTls}
-                  onCheckedChange={(v) => setForm((s) => ({ ...s, smtpRequireTls: v }))}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="sender-address">Sender address</Label>
+                <Input
+                  id="sender-address"
+                  type="email"
+                  disabled={!canConfigure}
+                  value={form.senderAddress}
+                  onChange={(e) => setForm((s) => ({ ...s, senderAddress: e.target.value }))}
+                  placeholder="noreply@your-domain.com"
                 />
-                <Label htmlFor="smtp-require-tls">Require TLS</Label>
+              </div>
+              <div>
+                <Label htmlFor="sender-name">Sender display name</Label>
+                <Input
+                  id="sender-name"
+                  disabled={!canConfigure}
+                  value={form.senderDisplayName}
+                  onChange={(e) => setForm((s) => ({ ...s, senderDisplayName: e.target.value }))}
+                  placeholder="Acme"
+                />
               </div>
             </div>
-          )}
 
-          {save.error && (
-            <Alert variant="destructive">
-              <AlertDescription>{(save.error as Error).message}</AlertDescription>
-            </Alert>
-          )}
+            {form.kind === 'graph' ? (
+              <div className="flex items-start gap-3 rounded-md border border-hairline p-3">
+                <Switch
+                  checked={form.graphPolicyAcked}
+                  onCheckedChange={(v) => setForm((s) => ({ ...s, graphPolicyAcked: v }))}
+                  disabled={!canConfigure}
+                  aria-label="Application access policy acknowledged"
+                />
+                <div className="min-w-0">
+                  <div className="font-medium text-ink">Application access policy is in place</div>
+                  <p className="text-body-sm text-ink-muted">
+                    Confirm an ApplicationAccessPolicy limits the Entra app to sending only from
+                    this mailbox. Required before you can turn on Graph send.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="smtp-host">Host</Label>
+                    <Input
+                      id="smtp-host"
+                      disabled={!canConfigure}
+                      value={form.smtpHost}
+                      onChange={(e) => setForm((s) => ({ ...s, smtpHost: e.target.value }))}
+                      placeholder="smtp.your-provider.com"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="smtp-port">Port</Label>
+                    <RadioGroup
+                      value={String(form.smtpPort)}
+                      onValueChange={(v) =>
+                        setForm((s) => ({ ...s, smtpPort: Number(v) === 465 ? 465 : 587 }))
+                      }
+                      disabled={!canConfigure}
+                      className="mt-2 flex gap-6"
+                    >
+                      <div className="flex items-center gap-2 text-body-sm">
+                        <RadioGroupItem value="587" id="smtp-port-587" />
+                        <Label htmlFor="smtp-port-587">587 (STARTTLS)</Label>
+                      </div>
+                      <div className="flex items-center gap-2 text-body-sm">
+                        <RadioGroupItem value="465" id="smtp-port-465" />
+                        <Label htmlFor="smtp-port-465">465 (TLS)</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="smtp-username">Username</Label>
+                    <Input
+                      id="smtp-username"
+                      disabled={!canConfigure}
+                      value={form.smtpUsername}
+                      onChange={(e) => setForm((s) => ({ ...s, smtpUsername: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="smtp-password">Password</Label>
+                    <Input
+                      id="smtp-password"
+                      type="password"
+                      disabled={!canConfigure}
+                      value={form.smtpPassword}
+                      onChange={(e) => setForm((s) => ({ ...s, smtpPassword: e.target.value }))}
+                      placeholder={enabled ? '(unchanged — leave blank to keep)' : ''}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-body-sm">
+                  <Switch
+                    id="smtp-require-tls"
+                    checked={form.smtpRequireTls}
+                    onCheckedChange={(v) => setForm((s) => ({ ...s, smtpRequireTls: v }))}
+                    disabled={!canConfigure}
+                  />
+                  <Label htmlFor="smtp-require-tls">Require TLS</Label>
+                </div>
+              </div>
+            )}
 
-          <div className="flex items-center justify-end gap-2">
-            {enabled && (
+            {save.error && (
+              <Alert variant="destructive">
+                <AlertDescription>{(save.error as Error).message}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex items-center justify-end gap-2">
+              {enabled && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => disable.mutate()}
+                  disabled={disable.isPending || !canConfigure}
+                >
+                  Disable
+                </Button>
+              )}
               <Button
                 type="button"
-                variant="ghost"
-                onClick={() => disable.mutate()}
-                disabled={disable.isPending}
+                onClick={() => save.mutate(toInput(form))}
+                disabled={save.isPending || isLoading || !canConfigure}
               >
-                Disable
+                {enabled ? 'Save changes' : 'Enable'}
               </Button>
-            )}
-            <Button
-              type="button"
-              onClick={() => save.mutate(toInput(form))}
-              disabled={save.isPending || isLoading}
-            >
-              {enabled ? 'Save changes' : 'Enable'}
-            </Button>
-          </div>
+            </div>
+          </DisabledActionTooltip>
         </Card>
 
         <Card className="p-5 space-y-3">
@@ -314,23 +334,30 @@ export function MailTransport() {
               Send yourself a message to make sure your setup actually delivers.
             </p>
           </div>
-          <div className="flex gap-2">
-            <Input
-              type="email"
-              value={verifyEmail}
-              onChange={(e) => setVerifyEmail(e.target.value)}
-              placeholder="recipient@your-domain.com"
-              aria-label="Recipient email"
-            />
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => verify.mutate(verifyEmail)}
-              disabled={verify.isPending || !verifyEmail || !enabled}
-            >
-              Send test
-            </Button>
-          </div>
+          <DisabledActionTooltip
+            disabled={!canConfigure}
+            reason={CANNOT_CONFIGURE_REASON}
+            className="w-full"
+          >
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                value={verifyEmail}
+                onChange={(e) => setVerifyEmail(e.target.value)}
+                placeholder="recipient@your-domain.com"
+                aria-label="Recipient email"
+                disabled={!canConfigure}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => verify.mutate(verifyEmail)}
+                disabled={verify.isPending || !verifyEmail || !enabled || !canConfigure}
+              >
+                Send test
+              </Button>
+            </div>
+          </DisabledActionTooltip>
           {verify.data?.ok && (
             <Alert>
               <AlertDescription>
