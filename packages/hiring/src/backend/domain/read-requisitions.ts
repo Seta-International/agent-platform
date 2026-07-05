@@ -122,13 +122,14 @@ export interface OpenRequisitionsBoard {
 }
 
 /**
- * FUT-326/327/328 — the open-positions board.
+ * FUT-326/327/328/330 — the open-positions board.
  *
  * A requisition is a hiring-owned resource, so access is gated by `hiring.requisition.read`.
  * Row scoping delegates to `buildRequisitionScope` (the unified RBAC scope layer, FUT-378):
  * a tenant-wide `hiring.requisition.read` grant sees every non-filled requisition
  * company-wide; a scoped grant is limited to requisitions the viewer owns, is an assigned
- * recruiter on (via `@seta/pm`), or owns the project of as EM/TL/PM (FUT-328).
+ * recruiter or the AM on its account (via `@seta/pm` / `account_projection.am_worker_id`,
+ * FUT-330), or owns the project of as EM/TL/PM (FUT-328).
  * `scoped_account_names`/`scoped_project_names` are derived from the returned rows rather
  * than a second lookup, so they always match what's actually shown.
  */
