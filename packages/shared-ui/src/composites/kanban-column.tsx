@@ -427,7 +427,7 @@ export function KanbanColumn({
               if (titleError) setTitleError(null);
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') void submit();
+              if (e.key === 'Enter' && !isSubmitting) void submit();
               if (e.key === 'Escape') resetCompose();
             }}
           />
