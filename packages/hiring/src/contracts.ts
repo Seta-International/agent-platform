@@ -76,7 +76,15 @@ export const closeOpeningInput = z.object({
 });
 export type CloseOpeningInput = z.infer<typeof closeOpeningInput>;
 
-export const closeRequisitionInput = z.object({ status: z.enum(['filled', 'cancelled']) });
+export const closeRequisitionInput = z
+  .object({
+    status: z.enum(['filled', 'cancelled']),
+    close_reason_id: z.string().uuid().optional(),
+  })
+  .refine((data) => data.status !== 'cancelled' || !!data.close_reason_id, {
+    message: 'close_reason_id is required when cancelling',
+    path: ['close_reason_id'],
+  });
 export type CloseRequisitionInput = z.infer<typeof closeRequisitionInput>;
 
 export const jdTemplateInput = z.object({

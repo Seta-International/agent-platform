@@ -1,0 +1,2 @@
+ALTER TABLE "hiring"."requisition" ADD COLUMN "close_reason_id" uuid;--> statement-breakpoint
+ALTER TABLE "hiring"."requisition" ADD CONSTRAINT "requisition_close_reason_id_opening_close_reason_id_fk" FOREIGN KEY ("close_reason_id") REFERENCES "hiring"."opening_close_reason"("id") ON DELETE no action ON UPDATE no action;

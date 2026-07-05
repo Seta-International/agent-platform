@@ -287,6 +287,70 @@ describe('account-scoped requisitions board (FUT-327)', () => {
   });
 });
 
+describe('AM account-scoped requisitions board (FUT-330)', () => {
+  it('an AM sees only requisitions for accounts they manage, with a scope note', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const amUserId = crypto.randomUUID();
+        const amWorkerId = crypto.randomUUID();
+        const myAccount = crypto.randomUUID();
+        const otherAccount = crypto.randomUUID();
+
+        // account_projection.am_worker_id is normally synced from pm.account.am_worker_id by
+        // a subscriber; seed it directly here, same as the recruiter test above.
+        await hiringDb()
+          .insert(accountProjection)
+          .values([
+            {
+              account_id: myAccount,
+              tenant_id: t.tenant_id,
+              name: 'My Account',
+              am_worker_id: amWorkerId,
+            },
+            { account_id: otherAccount, tenant_id: t.tenant_id, name: 'Other Account' },
+          ]);
+
+        const { requisition_id: mine } = await openRequisition({
+          title: 'Req on my account',
+          kind: 'new',
+          account_id: myAccount,
+          session: t.adminSession,
+        });
+        await openRequisition({
+          title: 'Req on another account',
+          kind: 'new',
+          account_id: otherAccount,
+          session: t.adminSession,
+        });
+
+        const am = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: amUserId,
+          roles: ['hiring.viewer'],
+          assignments: [{ role_slug: 'hiring.viewer', scope_kind: 'self', scope_id: null }],
+          worker_id: amWorkerId,
+        });
+
+        const result = await listOpenRequisitions(am);
+        expect(result.scope).toBe('scoped');
+        expect(result.scoped_account_names).toEqual(['My Account']);
+        expect(result.scoped_project_names).toEqual([]);
+        expect(result.requisitions.map((r) => r.id)).toEqual([mine]);
+      } finally {
+        resetPmDb();
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+});
+
 describe('project-scoped requisitions board (FUT-328)', () => {
   it('EM/TL/PM sees only requisitions for projects they own, with a scope note', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {

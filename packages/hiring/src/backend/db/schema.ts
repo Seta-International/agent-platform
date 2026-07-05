@@ -78,6 +78,10 @@ export const requisition = hiringSchema.table(
     start_date: date('start_date'),
     note: text('note'),
     default_interview_mode: textEnum('default_interview_mode', INTERVIEW_MODES),
+    // Lazy column-level reference: opening_close_reason is declared after requisition below —
+    // a table-level foreignKey() would evaluate `openingCloseReason` eagerly and hit the TDZ.
+    // Only meaningful when status = 'cancelled' (see closeRequisition in requisition-lifecycle.ts).
+    close_reason_id: uuid('close_reason_id').references((): AnyPgColumn => openingCloseReason.id),
     closed_at: timestamp('closed_at', { withTimezone: true }),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

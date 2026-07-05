@@ -44,6 +44,7 @@ export interface RequisitionListRow {
   start_date: string | null;
   due_date: string | null;
   created_at: string;
+  updated_at: string;
   skills: RequisitionSkillSummary[];
   openings_total: number;
   openings_open: number;
@@ -71,6 +72,9 @@ const REQUISITION_LIST_COLUMNS = {
   start_date: requisition.start_date,
   due_date: requisition.due_date,
   created_at: sql<string>`${requisition.created_at}::text`,
+  // Bumped whenever the row is written, including by holdRequisition — used to show
+  // "Paused since {updated_at}" on the board card while on_hold.
+  updated_at: sql<string>`${requisition.updated_at}::text`,
   // Skills are surfaced on the list card (chips); aggregate them inline rather than
   // forcing a second round-trip to the detail endpoint.
   skills: sql<
@@ -122,13 +126,14 @@ export interface OpenRequisitionsBoard {
 }
 
 /**
- * FUT-326/327/328 — the open-positions board.
+ * FUT-326/327/328/330 — the open-positions board.
  *
  * A requisition is a hiring-owned resource, so access is gated by `hiring.requisition.read`.
  * Row scoping delegates to `buildRequisitionScope` (the unified RBAC scope layer, FUT-378):
  * a tenant-wide `hiring.requisition.read` grant sees every non-filled requisition
  * company-wide; a scoped grant is limited to requisitions the viewer owns, is an assigned
- * recruiter on (via `@seta/pm`), or owns the project of as EM/TL/PM (FUT-328).
+ * recruiter or the AM on its account (via `@seta/pm` / `account_projection.am_worker_id`,
+ * FUT-330), or owns the project of as EM/TL/PM (FUT-328).
  * `scoped_account_names`/`scoped_project_names` are derived from the returned rows rather
  * than a second lookup, so they always match what's actually shown.
  */

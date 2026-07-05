@@ -6,6 +6,11 @@ import {
   Input,
   PageChrome,
   SegmentedControl,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -14,8 +19,8 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { Briefcase } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Briefcase, Layers, Pause, Search, Users } from 'lucide-react';
+import { type ReactNode, useMemo, useState } from 'react';
 import {
   fetchOpenRequisitions,
   type OpenRequisitionsBoard,
@@ -23,7 +28,8 @@ import {
 } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { NewRequisitionDialog } from './new-requisition-dialog.tsx';
-import { RequisitionCard, STAGE_LABEL } from './requisition-card.tsx';
+import { RequisitionCard } from './requisition-card.tsx';
+import { STAGE_LABEL } from './requisition-format.ts';
 import { buildScopeNote } from './utils.ts';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -38,10 +44,16 @@ export function RequisitionsPage() {
   const canManage = usePermission('hiring.requisition.manage');
   // The "New requisition" button calls openRequisition, which the backend gates on
   // `.open` (see backend/domain/open-requisition.ts) — a distinct permission from `.manage`
-  // (edit/hold/close an existing requisition), even though every seed role grants both today.
+  // (edit/hold requisition), even though every seed role grants both today.
   const canCreate = usePermission('hiring.requisition.open');
+  // Mark Filled / Cancel call closeRequisition, gated on `.close` — distinct from `.manage`
+  // (stage/pause/resume), even though every seed role grants both today.
+  const canClose = usePermission('hiring.requisition.close');
   const [view, setView] = useState<'board' | 'list'>('board');
-  const [boardQuery, setBoardQuery] = useState('');
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [accountFilter, setAccountFilter] = useState('all');
+  const [kindFilter, setKindFilter] = useState('all');
 
   const { data, isLoading, error } = useQuery<OpenRequisitionsBoard>({
     queryKey: hiringKeys.requisitions(),
@@ -50,18 +62,43 @@ export function RequisitionsPage() {
   const rows = data?.requisitions ?? [];
   const scopeNote = buildScopeNote(data);
 
-  const boardRows = useMemo(() => {
-    const q = boardQuery.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      [r.title, r.account_name, r.project_name].some((v) => v?.toLowerCase().includes(q)),
-    );
-  }, [rows, boardQuery]);
+  const accountOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(rows.map((r) => r.account_name).filter((n): n is string => n != null)),
+      ).sort(),
+    [rows],
+  );
 
-  const stat = (label: string, value: number, valueClass = 'text-ink') => (
-    <div className="rounded-lg border border-hairline bg-surface-1 px-5 py-4">
-      <div className={`text-display-md font-semibold tabular-nums ${valueClass}`}>{value}</div>
-      <div className="mt-1 text-caption text-ink-muted">{label}</div>
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (q && ![r.title, r.account_name, r.project_name].some((v) => v?.toLowerCase().includes(q)))
+        return false;
+      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+      if (accountFilter !== 'all' && r.account_name !== accountFilter) return false;
+      if (kindFilter !== 'all' && r.kind !== kindFilter) return false;
+      return true;
+    });
+  }, [rows, query, statusFilter, accountFilter, kindFilter]);
+
+  const stat = (
+    label: string,
+    value: number,
+    icon: ReactNode,
+    iconClass: string,
+    valueClass = 'text-ink',
+  ) => (
+    <div className="flex items-center gap-4 rounded-lg border border-hairline bg-surface-1 px-5 py-4">
+      <div
+        className={`flex size-11 shrink-0 items-center justify-center rounded-full ${iconClass}`}
+      >
+        {icon}
+      </div>
+      <div>
+        <div className={`text-display-md font-semibold tabular-nums ${valueClass}`}>{value}</div>
+        <div className="mt-1 text-caption text-ink-muted">{label}</div>
+      </div>
     </div>
   );
 
@@ -189,24 +226,94 @@ export function RequisitionsPage() {
             <AlertDescription>{scopeNote}</AlertDescription>
           </Alert>
         )}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {stat('Open positions', openCount)}
-          {stat('Applicants', totalApplicants)}
-          {stat('On hold', onHold, 'text-warning')}
-          {stat('Total open', rows.length)}
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {stat(
+            'Open positions',
+            openCount,
+            <Briefcase className="size-5" aria-hidden />,
+            'bg-primary/12 text-primary',
+          )}
+          {stat(
+            'Applicants',
+            totalApplicants,
+            <Users className="size-5" aria-hidden />,
+            'bg-success-tint text-success-ink',
+          )}
+          {stat(
+            'On hold',
+            onHold,
+            <Pause className="size-5" aria-hidden />,
+            'bg-warning-tint text-warning-ink',
+            'text-warning',
+          )}
+          {stat(
+            'Total open',
+            rows.length,
+            <Layers className="size-5" aria-hidden />,
+            'bg-primary/12 text-primary',
+          )}
         </div>
-        <div className="flex items-center justify-between">
-          <div className="text-caption font-medium uppercase tracking-wide text-ink-muted">
-            Browse & manage open positions
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-[220px] max-w-sm flex-1">
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-ink-subtle"
+              aria-hidden
+            />
+            <Input
+              placeholder="Search requisitions…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-8"
+            />
           </div>
-          <SegmentedControl
-            value={view}
-            onValueChange={(v) => setView(v as 'board' | 'list')}
-            options={[
-              { value: 'board', label: 'Board' },
-              { value: 'list', label: 'List' },
-            ]}
-          />
+          {/* Filters cluster — grouped tighter (gap-2) than the gap-3 that separates this
+              cluster from the search box and the view toggle, so proximity signals the
+              relationship: search finds, filters narrow, toggle changes layout. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Status</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="on_hold">On hold</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={accountFilter} onValueChange={setAccountFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Account</SelectItem>
+                {accountOptions.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={kindFilter} onValueChange={setKindFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">More filters</SelectItem>
+                <SelectItem value="new">New</SelectItem>
+                <SelectItem value="replacement">Replacement</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="ml-auto">
+            <SegmentedControl
+              value={view}
+              onValueChange={(v) => setView(v as 'board' | 'list')}
+              options={[
+                { value: 'board', label: 'Board' },
+                { value: 'list', label: 'List' },
+              ]}
+            />
+          </div>
         </div>
         {error ? (
           <Alert variant="destructive">
@@ -215,16 +322,20 @@ export function RequisitionsPage() {
         ) : view === 'list' ? (
           <DataTable
             columns={columns}
-            data={rows}
+            data={filteredRows}
             isLoading={isLoading}
             getRowId={(r: RequisitionListRow) => r.id}
-            globalFilterPlaceholder="Search requisitions…"
+            enableGlobalFilter={false}
             pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
             emptyState={
               <EmptyState
                 icon={<Briefcase className="size-6" />}
-                title="No requisitions yet"
-                description="Open a requisition to get started."
+                title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
+                description={
+                  rows.length === 0
+                    ? 'Open a requisition to get started.'
+                    : 'Try different filters.'
+                }
               />
             }
             onRowClick={(row) =>
@@ -237,41 +348,29 @@ export function RequisitionsPage() {
               })
             }
           />
-        ) : (
-          <>
-            <Input
-              placeholder="Search requisitions…"
-              value={boardQuery}
-              onChange={(e) => setBoardQuery(e.target.value)}
-              className="max-w-sm"
-            />
-            {isLoading ? (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {[0, 1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
-                  />
-                ))}
-              </div>
-            ) : boardRows.length === 0 ? (
-              <EmptyState
-                icon={<Briefcase className="size-6" />}
-                title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
-                description={
-                  rows.length === 0
-                    ? 'Open a requisition to get started.'
-                    : 'Try a different search term.'
-                }
+        ) : isLoading ? (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
               />
-            ) : (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {boardRows.map((r) => (
-                  <RequisitionCard key={r.id} r={r} canManage={canManage} />
-                ))}
-              </div>
-            )}
-          </>
+            ))}
+          </div>
+        ) : filteredRows.length === 0 ? (
+          <EmptyState
+            icon={<Briefcase className="size-6" />}
+            title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
+            description={
+              rows.length === 0 ? 'Open a requisition to get started.' : 'Try different filters.'
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {filteredRows.map((r) => (
+              <RequisitionCard key={r.id} r={r} canManage={canManage} canClose={canClose} />
+            ))}
+          </div>
         )}
       </div>
     </PageChrome>
