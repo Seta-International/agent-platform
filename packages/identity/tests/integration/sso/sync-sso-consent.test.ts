@@ -49,6 +49,14 @@ describe('syncSsoConsentFromGraph', () => {
             [tenantId],
           );
 
+          // Integrations owns the Entra linkage; seed the column as the projection would, so
+          // registerSsoProvider's domain verification (via setTenantEmailDomains) runs.
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
+
           // Registration itself calls Graph once to verify domains.
           mockGraphToken(fetchMock);
           fetchMock.mockResolvedValueOnce({
@@ -59,7 +67,6 @@ describe('syncSsoConsentFromGraph', () => {
             {
               tenant_id: tenantId,
               provider_id: 'microsoft-entra-id',
-              entra_tenant_id: ENTRA_TID,
               email_domains: ['acme.com'],
             },
             CLI_ACTOR,
@@ -112,6 +119,12 @@ describe('syncSsoConsentFromGraph', () => {
             [tenantId],
           );
 
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
+
           mockGraphToken(fetchMock);
           fetchMock.mockResolvedValueOnce({
             ok: true,
@@ -121,7 +134,6 @@ describe('syncSsoConsentFromGraph', () => {
             {
               tenant_id: tenantId,
               provider_id: 'microsoft-entra-id',
-              entra_tenant_id: ENTRA_TID,
               email_domains: ['acme.com'],
             },
             CLI_ACTOR,
@@ -165,6 +177,12 @@ describe('syncSsoConsentFromGraph', () => {
             [tenantId],
           );
 
+          await pool.query(
+            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+            [tenantId, ENTRA_TID],
+          );
+
           mockGraphToken(fetchMock);
           fetchMock.mockResolvedValueOnce({
             ok: true,
@@ -174,7 +192,6 @@ describe('syncSsoConsentFromGraph', () => {
             {
               tenant_id: tenantId,
               provider_id: 'microsoft-entra-id',
-              entra_tenant_id: ENTRA_TID,
               email_domains: ['acme.com'],
             },
             CLI_ACTOR,
