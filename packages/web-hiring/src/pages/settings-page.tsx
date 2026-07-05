@@ -412,7 +412,7 @@ export function SettingsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Opening close-reasons</CardTitle>
+            <CardTitle>Close reasons</CardTitle>
             {canManage && <NewCloseReasonDialog />}
           </CardHeader>
           <CardContent>

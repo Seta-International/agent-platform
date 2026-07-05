@@ -1,11 +1,22 @@
 import {
   Alert,
   AlertDescription,
+  Avatar,
+  AvatarFallback,
   Badge,
   Button,
+  Calendar as DayPickerCalendar,
+  DisabledActionTooltip,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   EmptyState,
   Input,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   RichTextDisplay,
   RichTextEditor,
   Select,
@@ -17,19 +28,27 @@ import {
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
-import { useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
+import { Calendar as CalendarIcon, MoreHorizontal, Pencil, Share2, X } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 import {
   editRequisition,
   fetchAccounts,
   fetchProjects,
+  holdRequisition,
   type JdSectionKey,
   type JdVariant,
+  type OpenRequisitionsBoard,
+  resumeRequisition,
   setRequisitionJd,
   setRequisitionSkills,
 } from '../api/hiring-client.ts';
 import { GRADES } from '../lib/grades.ts';
+import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
+import { CancelRequisitionDialog } from './cancel-requisition-dialog.tsx';
+import { MarkFilledDialog } from './mark-filled-dialog.tsx';
+import { daysLeft, formatDate, STATUS_BADGE_CLASS, STATUS_LABEL } from './requisition-format.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 import { on409, useRequisition } from './utils.ts';
 
@@ -49,6 +68,50 @@ const SECTIONS: { key: JdSectionKey; label: string }[] = [
   { key: 'nice_to_have', label: 'Nice to have' },
 ];
 
+// application.stage badge colors on the applicants list — kept within the existing
+// success/primary/warning/neutral token set (no new accent color).
+const APPLICANT_STAGE_BADGE: Record<string, string> = {
+  new: 'bg-success-tint text-success-ink',
+  screening: 'bg-surface-2 text-ink-muted',
+  interview: 'bg-primary/12 text-primary',
+  offer: 'bg-warning-tint text-warning-ink',
+};
+
+// Display-only relabel: application.stage's first value is 'new' in the DB, but the
+// board card's stage track calls that same phase "Sourcing" — show the same word here
+// so they don't read as two different concepts. No stored value changes.
+const APPLICANT_STAGE_LABEL: Record<string, string> = {
+  new: 'Sourcing',
+  screening: 'Screening',
+  interview: 'Interview',
+  offer: 'Offer',
+};
+
+// The `date` column (and editRequisition's patch) wants a plain 'YYYY-MM-DD' string —
+// toISOString() shifts by the local UTC offset and can silently land on the wrong day.
+function toDateInputValue(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function relativeDays(dateStr: string): string {
+  const days = Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000));
+  if (days === 0) return 'today';
+  if (days === 1) return '1 day ago';
+  return `${days} days ago`;
+}
+
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
 // FUT-329: there's no variant switcher in the reference design, so this view picks
 // one variant to render. `external` is the default everywhere else (new-requisition
 // dialog, old jd-tab.tsx) and is where most content actually ends up, so prefer it —
@@ -63,7 +126,113 @@ function pickJdVariant(sections: { variant: JdVariant; body: string }[]): JdVari
 type SectionGrid = Record<JdSectionKey, string>;
 
 function emptySections(): SectionGrid {
-  return { about: '', responsibilities: '', requirements: '', nice_to_have: '' };
+  return {
+    about: '',
+    responsibilities: '',
+    requirements: '',
+    nice_to_have: '',
+  };
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-body-sm">
+      <span className="text-ink-muted">{label}</span>
+      <span className="font-medium text-ink">{value}</span>
+    </div>
+  );
+}
+
+function DateField({
+  label,
+  value,
+  editable,
+  canManage,
+  onChange,
+  extra,
+}: {
+  label: string;
+  value: string | null;
+  editable: boolean;
+  canManage: boolean;
+  onChange: (value: string) => void;
+  extra?: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex items-start gap-3">
+      <CalendarIcon className="mt-0.5 size-4 shrink-0 text-ink-subtle" aria-hidden />
+      <div>
+        <div className="text-caption text-ink-muted">{label}</div>
+        <DisabledActionTooltip
+          disabled={!editable}
+          reason={
+            !canManage
+              ? PERMISSION_DENIED.requisition.edit
+              : 'Only editable while the requisition is open.'
+          }
+        >
+          {editable ? (
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="text-body-sm font-medium text-ink underline decoration-dotted underline-offset-4 hover:text-primary"
+                >
+                  {value ? formatDate(value) : 'Set date'}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <DayPickerCalendar
+                  mode="single"
+                  selected={value ? new Date(value) : undefined}
+                  onSelect={(date) => {
+                    if (!date) return;
+                    onChange(toDateInputValue(date));
+                    setOpen(false);
+                  }}
+                  className="w-[280px] p-3"
+                />
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <span className="text-body-sm font-medium text-ink">
+              {value ? formatDate(value) : '—'}
+            </span>
+          )}
+        </DisabledActionTooltip>
+        {extra}
+      </div>
+    </div>
+  );
+}
+
+function QuickAction({
+  icon,
+  label,
+  onClick,
+  disabled,
+  destructive,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex flex-col items-center gap-2 rounded-lg border border-hairline px-2 py-3 text-center text-caption font-medium hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+        destructive ? 'text-danger-ink' : 'text-ink'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
 }
 
 interface Props {
@@ -73,8 +242,10 @@ interface Props {
 }
 
 export function RequisitionDetailView({ requisitionId, variant, onClose }: Props) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canManage = usePermission('hiring.requisition.manage');
+  const canClose = usePermission('hiring.requisition.close');
   const { data, isLoading, error } = useRequisition(requisitionId);
   const jdVariant: JdVariant = data ? pickJdVariant(data.jd_sections) : 'external';
 
@@ -85,6 +256,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const [projectId, setProjectId] = useState('');
   const [sections, setSections] = useState<SectionGrid>(emptySections());
   const [skills, setSkills] = useState<PickedSkill[]>([]);
+  const [showFillConfirm, setShowFillConfirm] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -98,9 +271,47 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   });
 
   const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: hiringKeys.requisition(requisitionId) });
+    void queryClient.invalidateQueries({
+      queryKey: hiringKeys.requisition(requisitionId),
+    });
     void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
   };
+
+  function onError(e: Error) {
+    on409(e, queryClient, hiringKeys.requisition(requisitionId));
+  }
+
+  const pause = useMutation({
+    mutationFn: () =>
+      holdRequisition(requisitionId, {
+        expected_version: data?.requisition.version,
+      }),
+    onSuccess: () => {
+      toast.success('Requisition paused');
+      refresh();
+    },
+    onError,
+  });
+  const resume = useMutation({
+    mutationFn: () =>
+      resumeRequisition(requisitionId, {
+        expected_version: data?.requisition.version,
+      }),
+    onSuccess: () => {
+      toast.success('Requisition resumed');
+      refresh();
+    },
+    onError,
+  });
+  const setDate = useMutation({
+    mutationFn: (patch: { start_date?: string; due_date?: string }) =>
+      editRequisition(requisitionId, {
+        expected_version: data?.requisition.version,
+        patch,
+      }),
+    onSuccess: refresh,
+    onError,
+  });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -143,7 +354,10 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
       const originalSkills = data.skills
         .filter((s): s is typeof s & { skill_id: string } => s.skill_id != null)
-        .map((s) => ({ skill_id: s.skill_id, level: s.min_level ?? undefined }));
+        .map((s) => ({
+          skill_id: s.skill_id,
+          level: s.min_level ?? undefined,
+        }));
       const normalizeSkills = (list: { skill_id: string; level?: number }[]) =>
         [...list]
           .sort((a, b) => a.skill_id.localeCompare(b.skill_id))
@@ -200,6 +414,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     onClose?.();
   }
 
+  function shareJob() {
+    const url = `${window.location.origin}/hiring/requisitions?selectedRequisitionId=${requisitionId}`;
+    void navigator.clipboard.writeText(url);
+    toast.success('Link copied to clipboard');
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col overflow-hidden">
@@ -218,18 +438,29 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   }
 
   const req = data.requisition;
+  const isTerminal = req.status === 'filled' || req.status === 'cancelled';
+  // Same "on hold/terminal freezes everything" rule the board card uses — dates only move
+  // while the requisition is actively open.
+  const datesEditable = canManage && req.status === 'open';
+
+  // The board list's row (already fetched for the page this modal is opened from) carries
+  // candidate name/role/applied-date that the detail endpoint's bare application rows don't
+  // — reuse it instead of a second round-trip. Falls back to nothing if opened without that
+  // cache warm (e.g. a direct link), and only "at Company" is skipped since no such field
+  // exists on a candidate.
+  const cachedRow = queryClient
+    .getQueryData<OpenRequisitionsBoard>(hiringKeys.requisitions())
+    ?.requisitions.find((r) => r.id === requisitionId);
+  const applicantRows = cachedRow?.applicants ?? [];
+
   // While editing, reflect the in-progress Account/Project/Grade selection instead of the
   // last-saved server values, so the subtitle updates live as the user picks a new one.
   const liveAccountName = editing
     ? (accounts?.find((a) => a.account_id === accountId)?.name ?? null)
     : data.account_name;
-  const liveProjectName = editing
-    ? (projects?.find((p) => p.project_id === projectId)?.name ?? null)
-    : data.project_name;
-  const liveGrade = editing ? grade : req.grade;
-  const subtitle = [liveAccountName, liveProjectName, liveGrade && `Grade ${liveGrade}`, req.kind]
+  const subtitle = [liveAccountName, data.project_name, req.grade ? `Grade ${req.grade}` : null]
     .filter(Boolean)
-    .join(' · ');
+    .join(' • ');
 
   const hasJdContent = SECTIONS.some((s) =>
     (
@@ -238,60 +469,30 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   );
   const hasAnyDetail = data.skills.length > 0 || hasJdContent;
 
-  return (
-    <div
-      className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
-    >
-      <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
-        <div className="min-w-0">
-          <h1 className="truncate text-section-title font-semibold text-ink">
-            {editing ? title : req.title}
-          </h1>
-          {subtitle && <p className="mt-0.5 truncate text-body-sm text-ink-muted">{subtitle}</p>}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {editing ? (
-            <>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={cancelEditing}
-                disabled={save.isPending}
-              >
-                Cancel
-              </Button>
-              <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
-                {save.isPending ? 'Saving…' : 'Save'}
-              </Button>
-            </>
-          ) : (
-            canManage && (
-              <Button size="sm" variant="secondary" onClick={startEditing}>
-                Edit
-              </Button>
-            )
-          )}
-          <button
-            type="button"
-            onClick={requestClose}
-            aria-label="Close dialog"
-            className="inline-flex size-8 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
-      </header>
-
-      <div className="min-h-0 flex-1 overflow-auto">
-        <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
-          {editing && (
+  if (editing) {
+    return (
+      <div
+        className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
+          <div className="min-w-0">
+            <h1 className="truncate text-section-title font-semibold text-ink">{title}</h1>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button size="sm" variant="secondary" onClick={cancelEditing} disabled={save.isPending}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
+              {save.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        </header>
+        <div className="min-h-0 flex-1 overflow-auto">
+          <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
             <div className="space-y-1">
               <Label htmlFor="jd-title">Job title</Label>
               <Input id="jd-title" value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
-          )}
-
-          {editing && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label htmlFor="jd-grade">Grade</Label>
@@ -345,93 +546,296 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 </Select>
               </div>
             </div>
-          )}
 
-          {!editing && !hasAnyDetail ? (
-            <EmptyState
-              title="No job description yet"
-              description="Skills and JD content haven't been added for this requisition."
-            />
-          ) : (
-            <>
-              {editing ? (
-                <SkillPicker value={skills} onChange={setSkills} />
-              ) : (
-                data.skills.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {data.skills.map((s) => (
-                      <Badge
-                        key={s.skill_name}
-                        variant="secondary"
-                        className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
-                      >
-                        {s.skill_name}
-                        {s.min_level != null ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
-                      </Badge>
-                    ))}
+            <SkillPicker value={skills} onChange={setSkills} />
+
+            {SECTIONS.map((s) => (
+              <div key={s.key}>
+                {s.key === 'about' ? (
+                  <div className="rounded-lg bg-primary/8 p-4">
+                    <div className="mb-1 font-semibold text-ink">{s.label}</div>
+                    <RichTextEditor
+                      value={sections[s.key]}
+                      onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
+                      placeholder="Write the about section…"
+                    />
                   </div>
-                )
-              )}
+                ) : (
+                  <div>
+                    <div
+                      className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                    >
+                      {s.label}
+                    </div>
+                    <RichTextEditor
+                      value={sections[s.key]}
+                      onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
+                      placeholder={`Write the ${s.label.toLowerCase()}…`}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-              {SECTIONS.map((s) => {
-                const body = editing
-                  ? sections[s.key]
-                  : (data.jd_sections.find((j) => j.variant === jdVariant && j.section === s.key)
-                      ?.body ?? '');
-                if (!editing && !body) return null;
-                return (
-                  <div key={s.key}>
-                    {s.key === 'about' ? (
-                      <div className="rounded-lg bg-primary/8 p-4">
-                        <div className="mb-1 font-semibold text-ink">{s.label}</div>
-                        {editing ? (
-                          <RichTextEditor
-                            value={sections[s.key]}
-                            onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
-                            placeholder="Write the about section…"
-                          />
-                        ) : (
-                          <RichTextDisplay value={body} />
-                        )}
-                      </div>
-                    ) : (
-                      <div>
+  return (
+    <div
+      className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
+    >
+      <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <button
+            type="button"
+            onClick={requestClose}
+            aria-label="Close dialog"
+            className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-hairline text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+          >
+            <X className="size-4" />
+          </button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-section-title font-semibold text-ink">{req.title}</h1>
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-1 text-caption font-medium ${STATUS_BADGE_CLASS[req.status]}`}
+              >
+                {STATUS_LABEL[req.status]}
+              </span>
+            </div>
+            {subtitle && <p className="mt-0.5 truncate text-body-sm text-ink-muted">{subtitle}</p>}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {!isTerminal && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="sm" disabled={!canManage && !canClose}>
+                  <MoreHorizontal className="mr-1.5 size-4" />
+                  More actions
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {req.status === 'open' && (
+                  <DropdownMenuItem disabled={!canManage} onSelect={() => pause.mutate()}>
+                    Pause
+                  </DropdownMenuItem>
+                )}
+                {req.status === 'on_hold' && (
+                  <DropdownMenuItem disabled={!canManage} onSelect={() => resume.mutate()}>
+                    Resume
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  disabled={!canClose}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setTimeout(() => setShowFillConfirm(true), 0);
+                  }}
+                >
+                  Mark filled
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!canClose}
+                  className="text-danger-ink"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setTimeout(() => setShowCancelDialog(true), 0);
+                  }}
+                >
+                  Cancel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-auto bg-surface-1">
+        <div className="grid grid-cols-1 gap-5 p-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-5">
+            {/* Full job description */}
+            <section
+              id="full-job-description"
+              className="rounded-xl border border-hairline bg-canvas p-5"
+            >
+              <h2 className="mb-4 font-semibold text-ink">Job description</h2>
+              {!hasAnyDetail ? (
+                <EmptyState
+                  title="No job description yet"
+                  description="Skills and JD content haven't been added for this requisition."
+                />
+              ) : (
+                <div className="space-y-5">
+                  {data.skills.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {data.skills.map((s) => (
+                        <Badge
+                          key={s.skill_name}
+                          variant="secondary"
+                          className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
+                        >
+                          {s.skill_name}
+                          {s.min_level != null
+                            ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}`
+                            : ''}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {SECTIONS.map((s) => {
+                    const body =
+                      data.jd_sections.find((j) => j.variant === jdVariant && j.section === s.key)
+                        ?.body ?? '';
+                    if (!body) return null;
+                    return (
+                      <div key={s.key}>
                         <div
                           className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
                         >
                           {s.label}
                         </div>
-                        {editing ? (
-                          <RichTextEditor
-                            value={sections[s.key]}
-                            onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
-                            placeholder={`Write the ${s.label.toLowerCase()}…`}
-                          />
-                        ) : (
-                          <RichTextDisplay value={body} />
-                        )}
+                        <RichTextDisplay value={body} />
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </>
-          )}
+                    );
+                  })}
+                </div>
+              )}
+              <p className="mt-5 text-caption text-ink-subtle">
+                Posted {req.created_at.slice(0, 10)}
+              </p>
+            </section>
 
-          <p className="text-caption text-ink-subtle">
-            Posted {req.created_at.slice(0, 10)}
-            {req.due_date ? ` · closes ${req.due_date}` : ''}
-          </p>
+            {/* Applicants */}
+            <section className="rounded-xl border border-hairline bg-canvas p-5">
+              <div className="mb-1 flex items-center justify-between">
+                <h2 className="font-semibold text-ink">Applicants ({data.applicants.length})</h2>
+                <button
+                  type="button"
+                  onClick={() => void navigate({ to: '/hiring/candidates' })}
+                  className="text-body-sm text-primary hover:underline"
+                >
+                  View all applicants
+                </button>
+              </div>
+              {applicantRows.length === 0 ? (
+                <p className="py-4 text-body-sm text-ink-subtle">No applicants yet.</p>
+              ) : (
+                <div className="divide-y divide-hairline">
+                  {applicantRows.slice(0, 5).map((a) => (
+                    <div
+                      key={`${a.name}-${a.applied_date}`}
+                      className="flex items-center gap-3 py-3"
+                    >
+                      <Avatar className="size-9">
+                        <AvatarFallback className="bg-primary/15 text-caption font-semibold text-primary">
+                          {initialsOf(a.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium text-ink">{a.name}</div>
+                        <div className="truncate text-body-sm text-ink-muted">
+                          {[a.role, `Applied ${relativeDays(a.applied_date)}`]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </div>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-caption font-medium ${
+                          APPLICANT_STAGE_BADGE[a.stage] ?? 'bg-surface-2 text-ink-muted'
+                        }`}
+                      >
+                        {APPLICANT_STAGE_LABEL[a.stage] ?? a.stage}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <div className="space-y-5">
+            {/* Timeline */}
+            <section className="rounded-xl border border-hairline bg-canvas p-5">
+              <h2 className="mb-4 font-semibold text-ink">Timeline</h2>
+              <div className="space-y-4">
+                <DateField
+                  label="Start date"
+                  value={req.start_date}
+                  editable={datesEditable}
+                  canManage={canManage}
+                  onChange={(start_date) => setDate.mutate({ start_date })}
+                />
+                <DateField
+                  label="Target hire date"
+                  value={req.due_date}
+                  editable={datesEditable}
+                  canManage={canManage}
+                  onChange={(due_date) => setDate.mutate({ due_date })}
+                  extra={
+                    req.due_date && (
+                      <span
+                        className={`ml-1.5 text-body-sm ${
+                          daysLeft(req.due_date) < 0 ? 'text-danger-ink' : 'text-warning-ink'
+                        }`}
+                      >
+                        (
+                        {daysLeft(req.due_date) >= 0
+                          ? `${daysLeft(req.due_date)} days left`
+                          : `${-daysLeft(req.due_date)}d overdue`}
+                        )
+                      </span>
+                    )
+                  }
+                />
+              </div>
+            </section>
+
+            {/* Job details */}
+            <section className="rounded-xl border border-hairline bg-canvas p-5">
+              <h2 className="mb-3 font-semibold text-ink">Job details</h2>
+              <div className="space-y-2.5">
+                <DetailRow label="Account" value={data.account_name ?? '—'} />
+                <DetailRow label="Project" value={data.project_name ?? '—'} />
+              </div>
+            </section>
+
+            {/* Quick actions */}
+            <section className="rounded-xl border border-hairline bg-canvas p-5">
+              <h2 className="mb-3 font-semibold text-ink">Quick actions</h2>
+              <div className="grid grid-cols-2 gap-2">
+                <QuickAction
+                  icon={<Pencil className="size-4" aria-hidden />}
+                  label="Edit JD"
+                  onClick={startEditing}
+                  disabled={!canManage}
+                />
+                <QuickAction
+                  icon={<Share2 className="size-4" aria-hidden />}
+                  label="Share Job"
+                  onClick={shareJob}
+                />
+              </div>
+            </section>
+          </div>
         </div>
       </div>
-
-      {!editing && (
-        <footer className="flex items-center justify-end border-t border-hairline bg-canvas px-6 py-3">
-          <Button size="sm" variant="secondary" onClick={requestClose}>
-            Close
-          </Button>
-        </footer>
-      )}
+      <MarkFilledDialog
+        requisitionId={requisitionId}
+        version={req.version}
+        open={showFillConfirm}
+        onOpenChange={setShowFillConfirm}
+        onDone={refresh}
+      />
+      <CancelRequisitionDialog
+        requisitionId={requisitionId}
+        version={req.version}
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        onDone={refresh}
+      />
     </div>
   );
 }

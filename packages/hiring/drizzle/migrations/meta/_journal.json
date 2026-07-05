@@ -22,6 +22,13 @@
       "when": 1783070797015,
       "tag": "0004_hiring_project_owner_projection",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783075587311,
+      "tag": "0006_fat_impossible_man",
+      "breakpoints": true
     }
   ]
 }

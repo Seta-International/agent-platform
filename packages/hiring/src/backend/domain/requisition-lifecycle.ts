@@ -4,7 +4,7 @@ import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, inArray } from 'drizzle-orm';
 import { HIRING_REQUISITION_CLOSED, HIRING_REQUISITION_UPDATED } from '../../events.ts';
 import { hiringDb } from '../db/client.ts';
-import { opening, type REQUISITION_STATUS, requisition } from '../db/schema.ts';
+import { opening, openingCloseReason, type REQUISITION_STATUS, requisition } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 
 type RequisitionStatus = (typeof REQUISITION_STATUS)[number];
@@ -93,6 +93,7 @@ export async function closeRequisition(input: {
   requisition_id: string;
   expected_version?: number;
   status: 'filled' | 'cancelled';
+  close_reason_id?: string;
   session: SessionScope;
 }): Promise<{ version: number }> {
   const { session, requisition_id, status } = input;
@@ -101,13 +102,37 @@ export async function closeRequisition(input: {
   if (!['open', 'on_hold'].includes(cur.status)) {
     throw new HiringError('CONFLICT', `cannot close from ${cur.status}`);
   }
+  // Cancelling always records why (feeds demand-metrics reporting); filling a requisition has
+  // no reason to record — the close_reason_id column is meaningless once a hire happened.
+  let close_reason_id: string | undefined;
+  if (status === 'cancelled') {
+    if (!input.close_reason_id) throw new HiringError('VALIDATION', 'close_reason_id is required');
+    const [reason] = await hiringDb()
+      .select({ id: openingCloseReason.id })
+      .from(openingCloseReason)
+      .where(
+        and(
+          eq(openingCloseReason.id, input.close_reason_id),
+          tenantScoped(openingCloseReason.tenant_id, session),
+        ),
+      )
+      .limit(1);
+    if (!reason) throw new HiringError('VALIDATION', 'unknown close reason');
+    close_reason_id = input.close_reason_id;
+  }
   const next = cur.version + 1;
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
       const updated = await tx
         .update(requisition)
-        .set({ status, closed_at: new Date(), version: next, updated_at: new Date() })
+        .set({
+          status,
+          close_reason_id,
+          closed_at: new Date(),
+          version: next,
+          updated_at: new Date(),
+        })
         .where(
           and(
             eq(requisition.id, requisition_id),
@@ -130,7 +155,7 @@ export async function closeRequisition(input: {
         aggregateId: requisition_id,
         eventType: HIRING_REQUISITION_CLOSED,
         eventVersion: 1,
-        payload: { requisition_id, tenant_id: session.tenant_id, status },
+        payload: { requisition_id, tenant_id: session.tenant_id, status, close_reason_id },
       });
     },
   );
