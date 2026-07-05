@@ -3,7 +3,8 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { resetHiringDb } from '../../src/backend/db/client.ts';
+import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
+import { accountProjection } from '../../src/backend/db/schema.ts';
 import {
   addCandidate,
   createRejectionReason,
@@ -249,6 +250,75 @@ describe('read candidates', () => {
         const ids = board.map((r) => r.application_id);
         expect(ids).toContain(appA);
         expect(ids).toContain(appB);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('an AM sees only candidates applying to roles on their own account (FUT-336)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const amWorkerId = crypto.randomUUID();
+        const myAccount = crypto.randomUUID();
+        const otherAccount = crypto.randomUUID();
+
+        await hiringDb()
+          .insert(accountProjection)
+          .values([
+            {
+              account_id: myAccount,
+              tenant_id: t.tenant_id,
+              name: 'My Account',
+              am_worker_id: amWorkerId,
+            },
+            { account_id: otherAccount, tenant_id: t.tenant_id, name: 'Other Account' },
+          ]);
+
+        const { requisition_id: myReq } = await openRequisition({
+          title: 'Req on my account',
+          kind: 'new',
+          headcount: 1,
+          account_id: myAccount,
+          session: t.adminSession,
+        });
+        const { requisition_id: otherReq } = await openRequisition({
+          title: 'Req on another account',
+          kind: 'new',
+          headcount: 1,
+          account_id: otherAccount,
+          session: t.adminSession,
+        });
+        const { application_id: mine } = await addCandidate({
+          requisition_id: myReq,
+          name: 'Alice',
+          skills: [],
+          session: t.adminSession,
+        });
+        await addCandidate({
+          requisition_id: otherReq,
+          name: 'Bob',
+          skills: [],
+          session: t.adminSession,
+        });
+
+        const am = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['hiring.viewer'],
+          assignments: [{ role_slug: 'hiring.viewer', scope_kind: 'self', scope_id: null }],
+          worker_id: amWorkerId,
+        });
+
+        const board = await listCandidates(am);
+        const ids = board.map((r) => r.application_id);
+        expect(ids).toEqual([mine]);
       } finally {
         resetHiringDb();
         resetCoreDb();
