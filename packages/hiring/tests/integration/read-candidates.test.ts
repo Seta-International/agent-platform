@@ -14,7 +14,7 @@ import {
   rejectApplication,
   setRequisitionSkills,
 } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { buildSession, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -194,6 +194,61 @@ describe('read candidates', () => {
         const rec = poolRow?.recommended.find((r) => r.requisition_id === req2);
         expect(rec?.fit).toBeDefined();
         expect(typeof rec?.fit.score).toBe('number');
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('a BOD/PMO session sees every candidate across accounts on the board (FUT-335)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const accountA = crypto.randomUUID();
+        const accountB = crypto.randomUUID();
+
+        const { requisition_id: reqA } = await openRequisition({
+          title: 'Req in account A',
+          kind: 'new',
+          headcount: 1,
+          account_id: accountA,
+          session: t.adminSession,
+        });
+        const { requisition_id: reqB } = await openRequisition({
+          title: 'Req in account B',
+          kind: 'new',
+          headcount: 1,
+          account_id: accountB,
+          session: t.adminSession,
+        });
+        const { application_id: appA } = await addCandidate({
+          requisition_id: reqA,
+          name: 'Alice',
+          skills: [],
+          session: t.adminSession,
+        });
+        const { application_id: appB } = await addCandidate({
+          requisition_id: reqB,
+          name: 'Bob',
+          skills: [],
+          session: t.adminSession,
+        });
+
+        const bod = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['pm.bod', 'hiring.viewer_all'],
+        });
+
+        const board = await listCandidates(bod);
+        const ids = board.map((r) => r.application_id);
+        expect(ids).toContain(appA);
+        expect(ids).toContain(appB);
       } finally {
         resetHiringDb();
         resetCoreDb();
