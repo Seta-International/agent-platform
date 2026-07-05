@@ -76,6 +76,8 @@ jobs:
           OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL }}
           VLLM_BASE_URL: ${{ vars.VLLM_BASE_URL }}
           VLLM_API_KEY: ${{ vars.VLLM_API_KEY }}
+          LLAMACPP_BASE_URL: ${{ vars.LLAMACPP_BASE_URL }}
+          LLAMACPP_API_KEY: ${{ vars.LLAMACPP_API_KEY }}
           EMBED_MODEL: ${{ vars.EMBED_MODEL }}
           MAILER_DEFAULT_TRANSPORT: ${{ vars.MAILER_DEFAULT_TRANSPORT }}
           MAILER_DEFAULT_SENDER: ${{ vars.MAILER_DEFAULT_SENDER }}
@@ -85,6 +87,7 @@ jobs:
           M365_GRAPH_CLIENT_ID: ${{ vars.M365_GRAPH_CLIENT_ID }}
           # ── Environment Secrets (sensitive) ──────────────────────────────
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_APP_URL: ${{ secrets.DATABASE_APP_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           CRYPTO_LOCAL_MASTER_KEY: ${{ secrets.CRYPTO_LOCAL_MASTER_KEY }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
@@ -112,10 +115,11 @@ jobs:
         run: docker compose -p "$COMPOSE_PROJECT" --env-file "$ENV_FILE" up -d --wait postgres
 
       - name: Pre-migration RDS snapshot (prod)
-        if: startsWith(inputs.environment, 'prod')
+        # Skipped until RDS_INSTANCE_ID is set (box role needs rds:CreateDBSnapshot).
+        if: ${{ startsWith(inputs.environment, 'prod') && vars.RDS_INSTANCE_ID != '' }}
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
-          DB_ID: ${{ vars.RDS_INSTANCE_ID }}   # e.g. seta-prod-pg
+          DB_ID: ${{ vars.RDS_INSTANCE_ID }}
         run: |
           set -euo pipefail
           SNAP="${DB_ID}-pre-${{ inputs.image_tag }}-$(date +%Y%m%d%H%M%S)"
@@ -136,7 +140,12 @@ jobs:
           set -euo pipefail
           dc() { docker compose -p "$COMPOSE_PROJECT" --env-file "$ENV_FILE" "$@"; }
 
-          dc pull
+          # Pull only the per-deploy app images from ECR. Public infra images
+          # (traefik, pgvector) are version-pinned and cached on the box; a blanket
+          # `dc pull` re-fetches them from Docker Hub every deploy, which hard-fails
+          # the box when Hub is unreachable (flaky IPv6). `dc up` below still pulls
+          # any genuinely-missing image via its default pull-if-missing policy.
+          dc pull server web worker migrator
           dc run --rm migrator
           dc up -d --remove-orphans --wait --wait-timeout 300 proxy server web worker
 
@@ -161,7 +170,9 @@ jobs:
           echo "✅ ${{ inputs.environment }} deploy healthy (image_tag=${{ inputs.image_tag }})"
 
       - name: Record last-good prod image
+        # Best-effort (needs variables:write); must never fail a healthy deploy.
         if: success() && inputs.environment == 'prod'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh variable set PROD_LAST_GOOD_TAG --body "${{ inputs.image_tag }}" -R "${{ github.repository }}"
