@@ -57,7 +57,7 @@ export async function candidatePool(
   deps?: CandidatePoolDeps,
 ): Promise<PoolCandidate[]> {
   const [exactRows, vectorOut, historyOut] = await Promise.all([
-    fetchExactOverlap(input.tenantId, input.task),
+    fetchExactHits(input.tenantId, input.callerUserId, input.callerRoleSummary, input.task),
     fetchVectorHits(input.tenantId, input.callerUserId, input.callerRoleSummary, input.task),
     deps
       ? fetchTaskHistoryHits({ tenantId: input.tenantId, task: input.task }, deps)
@@ -128,41 +128,100 @@ export async function candidatePool(
   return Array.from(byUser.values());
 }
 
-async function fetchExactOverlap(
+interface SkillTagSearchInput {
+  tags: string[];
+}
+interface SkillTagSearchOutput {
+  hits: Array<{ userId: string; matchedSkills: string[]; overlap: number }>;
+}
+
+function findSkillTagTool():
+  | CrossModuleReadToolSpec<SkillTagSearchInput, SkillTagSearchOutput>
+  | undefined {
+  return AgentRegistry.listCrossModuleReadTools().find(
+    (t) => t.id === 'people_searchUsersBySkillTags',
+  ) as CrossModuleReadToolSpec<SkillTagSearchInput, SkillTagSearchOutput> | undefined;
+}
+
+/**
+ * Exact skill-tag branch. Skills moved to People, so assignee_projection.skills
+ * is no longer event-populated — the match is delegated to People's
+ * people_searchUsersBySkillTags tool (case-insensitive tag ∩ person_skill). The
+ * returned user_ids are then joined against the planner projection for
+ * display_name and availability (deactivated / OOO), which the projection still
+ * owns.
+ */
+async function fetchExactHits(
   tenantId: string,
+  callerUserId: string,
+  callerRoleSummary: { roles: string[]; cross_tenant_read: boolean },
   task: LoadedTask,
 ): Promise<Array<{ user_id: string; display_name: string; skills: string[]; overlap: number }>> {
   if (task.labels.length === 0) return [];
+  const tool = findSkillTagTool();
+  if (!tool) return [];
 
-  // pg-driver serializes JS arrays as comma-separated scalars; inline as a
-  // SQL ARRAY[...]::text[] literal so the && operator works.
-  const tagsLiteral = sql.raw(
-    `ARRAY[${task.labels.map((t) => `'${t.replace(/'/g, "''")}'`).join(',')}]::text[]`,
+  let hits: SkillTagSearchOutput['hits'];
+  try {
+    const out = await tool.execute({
+      session: { tenant_id: tenantId, user_id: callerUserId, role_summary: callerRoleSummary },
+      input: { tags: task.labels },
+    });
+    hits = out.hits;
+  } catch {
+    return [];
+  }
+  if (hits.length === 0) return [];
+
+  const active = await fetchActiveProjections(
+    tenantId,
+    hits.map((h) => h.userId),
+    task.due_at,
   );
+  const byUser = new Map(active.map((r) => [r.user_id, r.display_name]));
 
+  const rows: Array<{ user_id: string; display_name: string; skills: string[]; overlap: number }> =
+    [];
+  for (const h of hits) {
+    const displayName = byUser.get(h.userId);
+    if (displayName === undefined) continue; // deactivated / OOO / no projection row
+    rows.push({
+      user_id: h.userId,
+      display_name: displayName,
+      skills: h.matchedSkills,
+      overlap: h.overlap,
+    });
+  }
+  rows.sort((a, b) => b.overlap - a.overlap);
+  return rows.slice(0, 30);
+}
+
+/**
+ * Active (not deactivated, not OOO-through-due-date) projection rows for a set
+ * of user_ids — the availability gate the exact SQL branch used to apply inline.
+ */
+async function fetchActiveProjections(
+  tenantId: string,
+  userIds: string[],
+  dueAt: Date | null,
+): Promise<Array<{ user_id: string; display_name: string }>> {
+  if (userIds.length === 0) return [];
   const db = plannerDb();
-  const overlapExpr = sql<number>`cardinality(
-    ARRAY(
-      SELECT unnest(${assigneeProjection.skills})
-      INTERSECT
-      SELECT unnest(${tagsLiteral})
-    )
-  )`.as('overlap');
-
-  const oooClause = task.due_at
+  const idsLiteral = sql.raw(
+    `ARRAY[${userIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(',')}]::uuid[]`,
+  );
+  const oooClause = dueAt
     ? or(
         ne(assigneeProjection.availability_status, 'ooo'),
         isNull(assigneeProjection.ooo_until),
-        gt(assigneeProjection.ooo_until, task.due_at),
+        gt(assigneeProjection.ooo_until, dueAt),
       )
     : ne(assigneeProjection.availability_status, 'ooo');
 
-  const rows = await db
+  return db
     .select({
       user_id: assigneeProjection.user_id,
       display_name: assigneeProjection.display_name,
-      skills: assigneeProjection.skills,
-      overlap: overlapExpr,
     })
     .from(assigneeProjection)
     .where(
@@ -170,13 +229,9 @@ async function fetchExactOverlap(
         eq(assigneeProjection.tenant_id, tenantId),
         isNull(assigneeProjection.deactivated_at),
         oooClause,
-        sql`${assigneeProjection.skills} && ${tagsLiteral}`,
+        sql`${assigneeProjection.user_id} = ANY(${idsLiteral})`,
       ),
-    )
-    .orderBy(sql`overlap DESC`)
-    .limit(30);
-
-  return rows;
+    );
 }
 
 async function fetchVectorHits(

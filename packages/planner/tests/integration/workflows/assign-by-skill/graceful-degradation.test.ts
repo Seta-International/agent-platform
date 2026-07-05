@@ -1,5 +1,5 @@
 import { PgVector } from '@mastra/pg';
-import { AgentRegistry } from '@seta/agent-sdk';
+import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
@@ -14,6 +14,7 @@ import {
 import { NoopReranker } from '@seta/shared-retrieval';
 import { FakeEmbeddingProvider } from '@seta/shared-testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { runSuggestAssignee } from '../../../../src/backend/workflows/assign-by-skill/workflow.ts';
 import { withAgentTestDb } from '../../agent-tools-helpers.ts';
 import { applyLabels } from '../../label-test-helpers.ts';
@@ -56,6 +57,32 @@ async function seedProjection(
      ON CONFLICT (user_id) DO UPDATE SET skills = EXCLUDED.skills`,
     [user_id, tenant_id, display_name, email, opts.skills ?? []],
   );
+}
+
+function registerFakeSkillTagTool(
+  hits: ReadonlyArray<{ userId: string; matchedSkills: string[]; overlap: number }>,
+): void {
+  const spec: CrossModuleReadToolSpec<
+    { tags: string[] },
+    { hits: Array<{ userId: string; matchedSkills: string[]; overlap: number }> }
+  > = {
+    id: 'people_searchUsersBySkillTags',
+    description: 'fake',
+    inputSchema: z.object({ tags: z.array(z.string()) }),
+    outputSchema: z.object({
+      hits: z.array(
+        z.object({
+          userId: z.string(),
+          matchedSkills: z.array(z.string()),
+          overlap: z.number(),
+        }),
+      ),
+    }),
+    rbac: 'people.worker.read',
+    availableTo: 'all-specialists',
+    execute: async () => ({ hits: [...hits] }),
+  };
+  AgentRegistry.registerCrossModuleReadTool(spec);
 }
 
 describe('assignBySkill graceful degradation', () => {
@@ -159,6 +186,10 @@ describe('assignBySkill graceful degradation', () => {
       await seedProjection(pool, tenant_id, rustacean.user_id, 'Rusty', 'r@d.local', {
         skills: ['rust'],
       });
+      // Exact skills now sourced from People, not the projection column.
+      registerFakeSkillTagTool([
+        { userId: rustacean.user_id, matchedSkills: ['rust'], overlap: 1 },
+      ]);
       AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });

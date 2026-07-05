@@ -64,6 +64,32 @@ async function seedProjection(
   );
 }
 
+function registerFakeSkillTagTool(
+  hits: ReadonlyArray<{ userId: string; matchedSkills: string[]; overlap: number }>,
+): void {
+  const spec: CrossModuleReadToolSpec<
+    { tags: string[] },
+    { hits: Array<{ userId: string; matchedSkills: string[]; overlap: number }> }
+  > = {
+    id: 'people_searchUsersBySkillTags',
+    description: 'fake',
+    inputSchema: z.object({ tags: z.array(z.string()) }),
+    outputSchema: z.object({
+      hits: z.array(
+        z.object({
+          userId: z.string(),
+          matchedSkills: z.array(z.string()),
+          overlap: z.number(),
+        }),
+      ),
+    }),
+    rbac: 'people.worker.read',
+    availableTo: 'all-specialists',
+    execute: async () => ({ hits: [...hits] }),
+  };
+  AgentRegistry.registerCrossModuleReadTool(spec);
+}
+
 function registerFakeVectorTool(hits: ReadonlyArray<{ userId: string; score: number }>): void {
   const spec: CrossModuleReadToolSpec<
     { queryText: string; topK: number; minScore?: number },
@@ -104,6 +130,9 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
         skills: ['react', 'auth'],
       });
 
+      registerFakeSkillTagTool([
+        { userId: alice.user_id, matchedSkills: ['react', 'auth'], overlap: 2 },
+      ]);
       registerFakeVectorTool([]);
       AgentRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);
       AgentRegistry.freeze();

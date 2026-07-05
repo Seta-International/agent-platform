@@ -1,0 +1,109 @@
+import { resetCoreDb } from '@seta/core/testing';
+import { closePools, initPools } from '@seta/shared-db';
+import { withTestDb } from '@seta/shared-testing';
+import { describe, expect, it } from 'vitest';
+import { buildSearchUsersBySkillTagsSpec } from '../../src/backend/agent-tools/search-users-by-skill-tags.ts';
+import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
+import { person } from '../../src/backend/db/schema.ts';
+import { addPersonSkill } from '../../src/index.ts';
+import { seedTenant } from '../helpers.ts';
+
+const ctx = {
+  templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+  baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+};
+
+async function seedCatalogSkill(
+  pool: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
+  tenantId: string,
+  name: string,
+): Promise<string> {
+  const catId = crypto.randomUUID();
+  const skillId = crypto.randomUUID();
+  await pool.query(`INSERT INTO core.skill_category (id, tenant_id, name) VALUES ($1,$2,$3)`, [
+    catId,
+    tenantId,
+    `Category ${name}`,
+  ]);
+  await pool.query(
+    `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
+    [skillId, tenantId, catId, name],
+  );
+  return skillId;
+}
+
+describe('people_searchUsersBySkillTags', () => {
+  it('matches skills case-insensitively and maps person → linked user', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const userId = crypto.randomUUID();
+
+        const pythonId = await seedCatalogSkill(pool, t.tenant_id, 'Python');
+        const javaId = await seedCatalogSkill(pool, t.tenant_id, 'Java');
+
+        // Person linked to a user account, catalog casing "Python" / "Java".
+        const [p] = await peopleDb()
+          .insert(person)
+          .values({ tenant_id: t.tenant_id, user_id: userId })
+          .returning();
+        const personId = p!.id;
+        await addPersonSkill({ person_id: personId, skill_id: pythonId, session: t.adminSession });
+        await addPersonSkill({ person_id: personId, skill_id: javaId, session: t.adminSession });
+
+        const tool = buildSearchUsersBySkillTagsSpec();
+        // Task labels arrive lowercase — must still match "Python"/"Java".
+        const out = await tool.execute({
+          session: {
+            tenant_id: t.tenant_id,
+            user_id: t.adminSession.user_id,
+            role_summary: t.adminSession.role_summary,
+          },
+          input: { tags: ['python', 'java'] },
+        });
+
+        expect(out.hits).toHaveLength(1);
+        expect(out.hits[0]?.userId).toBe(userId);
+        expect(out.hits[0]?.overlap).toBe(2);
+        expect([...(out.hits[0]?.matchedSkills ?? [])].sort()).toEqual(['Java', 'Python']);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('drops persons with no linked user account', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const skillId = await seedCatalogSkill(pool, t.tenant_id, 'Rust');
+
+        // Person with NO user_id — cannot be an assignment candidate.
+        const [p] = await peopleDb().insert(person).values({ tenant_id: t.tenant_id }).returning();
+        await addPersonSkill({ person_id: p!.id, skill_id: skillId, session: t.adminSession });
+
+        const out = await buildSearchUsersBySkillTagsSpec().execute({
+          session: {
+            tenant_id: t.tenant_id,
+            user_id: t.adminSession.user_id,
+            role_summary: t.adminSession.role_summary,
+          },
+          input: { tags: ['rust'] },
+        });
+        expect(out.hits).toHaveLength(0);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+});
