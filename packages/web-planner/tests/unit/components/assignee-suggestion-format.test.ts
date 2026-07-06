@@ -22,6 +22,11 @@ describe('assignee suggestion formatting', () => {
     expect(r).toContain('React');
     expect(r).toContain('12h');
   });
+  it('shows only the matched skills, not the person’s full skill list', () => {
+    const r = formatSuggestionReason({ ...base, matched_skills: ['React'] });
+    expect(r).toContain('React');
+    expect(r).not.toContain('TypeScript');
+  });
   it('banks the score into a qualitative match label', () => {
     expect(matchLabel(0.92)).toBe('Excellent match');
     expect(matchLabel(0.72)).toBe('Strong match');

@@ -9,6 +9,9 @@ export const CandidateUserSchema = z.object({
   userId: z.string(),
   displayName: z.string(),
   skills: z.array(z.string()),
+  /** The candidate's skills that matched the task's required skills — the subset
+   *  the UI shows, vs. the full `skills` list. */
+  matchedSkills: z.array(z.string()),
   exactOverlap: z.number().int().min(0),
   vectorScore: z.number().nullable(),
   historyScore: z.number().nullable(),
@@ -17,6 +20,9 @@ export const CandidateUserSchema = z.object({
   hoursAvailableThisWeek: z.number().nullable(),
   timezone: z.string().nullable(),
   finalScore: z.number().min(0).max(1),
+  /** Reserved for a per-candidate rationale; deterministic ranking sends null and
+   *  the web synthesizes an explanation from the match signals. */
+  rationale: z.string().nullable(),
 });
 export type CandidateUser = z.infer<typeof CandidateUserSchema>;
 

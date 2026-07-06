@@ -1,54 +1,28 @@
-import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import type { SpecializedAgentRunCtx } from '@seta/agent-sdk';
 import { defineAgentTool, recordEntityExposure, resolveTaskRef } from '@seta/agent-sdk';
 import { z } from 'zod';
+import type { CandidateUser } from '../../workflows/assign-by-skill/schemas.ts';
 import { buildAssignApprovalCard } from './approval-card.ts';
-import type { AssignPort, GroupScopePort, TaskAssigneesPort } from './ports.ts';
-import type {
-  AvailabilityResult,
-  CompletionStatus,
-  RankedCandidate,
-  Recommendation,
-  TaskAnalyzerIntent,
-  TaskAnalyzerOutput,
-} from './schemas.ts';
+import type { AssignPort, TaskAssigneesPort } from './ports.ts';
+import type { Recommendation } from './schemas.ts';
 
-type TaskAnalyzerSpec = SpecializedAgentSpec<
-  {
-    intent: TaskAnalyzerIntent;
-    query: string;
-    taskId: string | null;
-    completionStatus: CompletionStatus;
-  },
-  TaskAnalyzerOutput
->;
-type SkillMatcherSpec = SpecializedAgentSpec<
-  { taskId: string | null; skills: string[] },
-  { taskId: string | null; candidates: RankedCandidate[] }
->;
-type AvaiCheckerSpec = SpecializedAgentSpec<
-  { taskId: string | null; candidates: RankedCandidate[] },
-  { taskId: string | null; availability: AvailabilityResult[] }
->;
-type RecommenderSpec = SpecializedAgentSpec<
-  {
-    taskId: string | null;
-    skills: string[];
-    candidates: RankedCandidate[];
-    availability: AvailabilityResult[];
-  },
-  { taskId: string | null; recommendations: Recommendation[] }
->;
+/**
+ * Ranks assignee candidates for a single task. Injected so this tool shares the
+ * one assignBySkill engine (computeAssigneeSuggestions) with the inline
+ * suggestions endpoint — group-scoped, skills from People, reasoned — instead of
+ * a parallel pipeline. Test seam: unit tests stub it.
+ */
+export type SuggestAssignees = (input: {
+  taskId: string;
+  tenantId: string;
+  actorUserId: string;
+}) => Promise<{ task: { title: string }; candidates: CandidateUser[] }>;
 
 export interface ProposeAssignmentDeps {
-  taskAnalyzer: TaskAnalyzerSpec;
-  skillMatcher: SkillMatcherSpec;
-  avaiChecker: AvaiCheckerSpec;
-  recommender: RecommenderSpec;
+  /** Ranks candidates via the shared assignBySkill engine. */
+  suggest: SuggestAssignees;
   /** Performs the assignment once the approval card is approved. */
   assign: AssignPort;
-  /** Scopes suggestions to the task's owning-group members (candidate sources
-   *  are tenant-wide). */
-  groupScope: GroupScopePort;
   /** The task's current assignee set — excluded from suggestions. */
   taskAssignees: TaskAssigneesPort;
   /** The orchestrator's run ctx: tenant/actor/abort. */
@@ -83,16 +57,7 @@ const OutputSchema = z.object({
  * persisted approval-card row), never from in-process memory.
  */
 export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
-  const {
-    taskAnalyzer,
-    skillMatcher,
-    avaiChecker,
-    recommender,
-    assign,
-    groupScope,
-    taskAssignees,
-    ctx,
-  } = deps;
+  const { suggest, assign, taskAssignees, ctx } = deps;
 
   // Sub-agents run with the same tenant/actor. The per-turn model override rides
   // along so sub-agent LLM calls honor the user's pick.
@@ -144,55 +109,46 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
         return { assigned: true };
       }
 
-      // ── First pass: resolve the task, run the recommend pipeline, suspend. ──
+      // ── First pass: resolve the task, rank via the shared engine, suspend. ──
       const taskId = (await resolveTaskRef(toolCtx as never, taskRef)).taskId;
 
-      // resolve_task_skills (taskAnalyzer) — its result carries skills + title.
-      const analyzed = await taskAnalyzer.run(
-        { intent: 'resolve_task_skills', query: title ?? '', taskId, completionStatus: 'any' },
-        subCtx,
-      );
-      const skills = analyzed.result.skills ?? [];
-      const cardTitle = analyzed.result.title ?? title;
+      // One ranking engine, shared with the inline suggestions endpoint: the
+      // task's group members, skills from People, reasoned skill-fit. It already
+      // group-scopes and applies the availability gate, so the only extra rule
+      // here is subtracting anyone already assigned (suggesting them is noise).
+      const { task, candidates } = await suggest({
+        taskId,
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.actorUserId,
+      });
+      const cardTitle = task.title || title;
       // Server-owned exposure tracking (thread-scoped working memory): the
       // recorder no-ops without a registered conversation memory / RC_THREAD_ID
       // and swallows its own failures — never breaks the staffing answer.
       await recordEntityExposure(toolCtx as never, {
         lastDiscussedTaskId: taskId,
-        ...(analyzed.result.title
-          ? { recentTasks: [{ taskId, title: analyzed.result.title }] }
-          : {}),
+        ...(task.title ? { recentTasks: [{ taskId, title: task.title }] } : {}),
       });
 
-      // skillMatcher
-      const matched = await skillMatcher.run({ taskId, skills }, subCtx);
-
-      // avaiChecker
-      const avai = await avaiChecker.run({ taskId, candidates: matched.result.candidates }, subCtx);
-
-      // recommender
-      const recommended = await recommender.run(
-        {
-          taskId,
-          skills,
-          candidates: matched.result.candidates,
-          availability: avai.result.availability,
-        },
-        subCtx,
-      );
-
-      // Candidate gate (business rules): the skill/vector candidate sources are
-      // tenant-wide, so before proposing we (1) intersect the ranked
-      // recommendations against the task's owning-group members and (2) subtract
-      // anyone already assigned to the task — suggesting a current assignee is
-      // noise. Applied once here — the single chokepoint every proposeAssignment
-      // card flows through. Empty member set → empty list (over-restrict rather
-      // than leak).
-      const memberIds = new Set(await groupScope.memberIdsForTask(taskId, subCtx));
       const assignedIds = new Set(await taskAssignees.currentAssigneeIds(taskId, subCtx));
-      const recommendations = recommended.result.recommendations.filter(
-        (r) => memberIds.has(r.userId) && !assignedIds.has(r.userId),
-      );
+      const recommendations: Recommendation[] = candidates
+        .filter((c) => !assignedIds.has(c.userId))
+        .map((c) => {
+          // Show the skills that actually matched the task, not the person's whole
+          // skill list; fall back to all skills for a purely vector-based match.
+          const shown = c.matchedSkills.length > 0 ? c.matchedSkills : c.skills;
+          return {
+            userId: c.userId,
+            name: c.displayName,
+            // The engine gates OOO/deactivated out, so survivors are assignable.
+            status: 'available' as const,
+            availabilityScore: 1,
+            skillMatch: shown,
+            skillMatchCount: shown.length,
+            relevanceScore: c.finalScore,
+            score: c.finalScore,
+          };
+        });
       if (recommendations.length === 0) {
         // Nothing to propose — surface the empty recommend without suspending.
         return { assigned: false, recommendations: [] };

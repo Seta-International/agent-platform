@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type {
   AssignPort,
   AvailabilityPort,
-  GroupScopePort,
   SkillSearchPort,
   TaskAssigneesPort,
   TaskReaderPort,
@@ -27,7 +26,6 @@ const fakePorts = {
   } satisfies AvailabilityPort,
   userProfileLookup: { findByName: async () => [] } satisfies UserProfilePort,
   assign: { assign: async () => {} } satisfies AssignPort,
-  groupScope: { memberIdsForTask: async () => [] } satisfies GroupScopePort,
   taskAssignees: { currentAssigneeIds: async () => [] } satisfies TaskAssigneesPort,
 };
 

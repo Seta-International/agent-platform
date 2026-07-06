@@ -47,10 +47,13 @@ export interface AssigneeSuggestion {
   display_name: string;
   score: number;
   skills: string[];
+  matched_skills: string[];
   exact_overlap: number;
   open_task_count: number | null;
   hours_available_this_week: number | null;
   timezone: string | null;
+  /** One-sentence LLM explanation of the fit; null when ranked deterministically. */
+  rationale: string | null;
 }
 
 export interface DiscoverGroupsItem {

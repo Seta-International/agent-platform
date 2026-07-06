@@ -1,5 +1,11 @@
 import type { MastraModelConfig } from '@mastra/core/llm';
-import type { AgentResult, Citation, SpecializedAgentSpec, TrustEnvelope } from '@seta/agent-sdk';
+import type {
+  AgentResult,
+  Citation,
+  SpecializedAgentRunCtx,
+  SpecializedAgentSpec,
+  TrustEnvelope,
+} from '@seta/agent-sdk';
 import type { z } from 'zod';
 import type { SkillSearchHit, SkillSearchPort } from '../ports.ts';
 import {
@@ -20,6 +26,15 @@ export interface SkillMatcherDeps {
   topK?: number;
   /** Test seam for the skill-fit reasoning fallback; production runs the LLM. */
   judgeFit?: FitReasoner;
+  /**
+   * The task's group members with their skills. Unioned into the vector-search
+   * pool so a group-scoped suggestion always has the group's own people to judge,
+   * even when the tenant-wide search misses them (e.g. a task with no skill tags).
+   */
+  groupMembers?: (
+    taskId: string,
+    ctx: SpecializedAgentRunCtx,
+  ) => Promise<Array<{ userId: string; name: string | null; skills: string[] }>>;
 }
 
 /** Merge vector-search hits per user, unioning skills and keeping the best similarity. */
@@ -60,7 +75,20 @@ export function makeSkillMatcherAgent(deps: SkillMatcherDeps): SpecializedAgentS
     run: async (input, ctx): Promise<AgentResult<Out>> => {
       const topK = deps.topK ?? DEFAULT_TOP_K;
       const hits = await deps.skillSearch.search({ skills: input.skills, topK }, ctx);
-      const merged = mergeHits(hits);
+      const members =
+        deps.groupMembers && input.taskId ? await deps.groupMembers(input.taskId, ctx) : [];
+      // Union the group's members (bounded, always relevant to a group-scoped
+      // task) with the tenant-wide vector hits, then judge skill fit over both.
+      const merged = mergeHits([
+        ...hits,
+        ...members.map((m) => ({
+          userId: m.userId,
+          name: m.name,
+          skills: m.skills,
+          role: null,
+          similarity: 0,
+        })),
+      ]);
 
       const fit = await computeSkillFit({
         candidates: merged.map((m) => ({ userId: m.userId, name: m.name, skills: m.skills })),

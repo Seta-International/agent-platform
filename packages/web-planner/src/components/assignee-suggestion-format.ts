@@ -4,10 +4,17 @@ export function scorePercent(s: AssigneeSuggestion): number {
   return Math.round(s.score * 100);
 }
 
+/** The skills worth showing: those that matched the task, falling back to the
+ *  person's full list for a purely profile/vector-based suggestion. */
+export function displayedSkills(s: AssigneeSuggestion): string[] {
+  return s.matched_skills?.length ? s.matched_skills : s.skills;
+}
+
 /** Compact muted line under the name, e.g. "React · free 12h". */
 export function formatSuggestionReason(s: AssigneeSuggestion): string {
   const parts: string[] = [];
-  if (s.skills.length > 0) parts.push(s.skills.slice(0, 2).join(', '));
+  const skills = displayedSkills(s);
+  if (skills.length > 0) parts.push(skills.slice(0, 2).join(', '));
   if (s.hours_available_this_week != null)
     parts.push(`free ${Math.round(s.hours_available_this_week)}h`);
   else if (s.open_task_count != null) parts.push(`${s.open_task_count} open`);
@@ -22,8 +29,9 @@ export function matchLabel(score: number): string {
   return 'Possible match';
 }
 
-/** One-line rationale naming the dominant driver(s) behind the score. */
+/** One-line rationale: the model's own explanation when present, else a synthesized one. */
 export function matchRationale(s: AssigneeSuggestion): string {
+  if (s.rationale && s.rationale.trim()) return s.rationale.trim();
   const drivers: string[] = [];
   if (s.exact_overlap > 0) drivers.push('exact skill overlap');
   else if (s.skills.length > 0) drivers.push('related skills');

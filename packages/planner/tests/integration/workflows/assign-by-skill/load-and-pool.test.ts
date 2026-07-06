@@ -50,10 +50,10 @@ async function seedProjection(
 ): Promise<void> {
   await pool.query(
     `INSERT INTO planner.assignee_projection
-     (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-     VALUES ($1, $2, $3, $4, $5, 'available', $6)
-     ON CONFLICT (user_id) DO UPDATE SET skills = EXCLUDED.skills, timezone = EXCLUDED.timezone`,
-    [user_id, tenant_id, display_name, email, opts.skills ?? [], opts.timezone ?? 'UTC'],
+     (user_id, tenant_id, display_name, email, availability_status, timezone)
+     VALUES ($1, $2, $3, $4, 'available', $5)
+     ON CONFLICT (user_id) DO UPDATE SET timezone = EXCLUDED.timezone`,
+    [user_id, tenant_id, display_name, email, opts.timezone ?? 'UTC'],
   );
 }
 
@@ -79,6 +79,28 @@ function registerFakeSkillExactTool(
     rbac: 'people.worker.read',
     availableTo: 'all-specialists',
     execute: async () => ({ hits: [...hits] }),
+  };
+  AgentRegistry.registerCrossModuleReadTool(spec);
+}
+
+function registerFakeSkillsForUsersTool(
+  byUser: ReadonlyArray<{ userId: string; skills: string[] }>,
+): void {
+  const spec: CrossModuleReadToolSpec<
+    { userIds: string[] },
+    { users: Array<{ userId: string; skills: string[] }> }
+  > = {
+    id: 'people_getSkillsForUsers',
+    description: 'fake',
+    inputSchema: z.object({ userIds: z.array(z.string()) }),
+    outputSchema: z.object({
+      users: z.array(z.object({ userId: z.string(), skills: z.array(z.string()) })),
+    }),
+    rbac: 'people.worker.read',
+    availableTo: 'all-specialists',
+    execute: async ({ input }) => ({
+      users: byUser.filter((u) => input.userIds.includes(u.userId)),
+    }),
   };
   AgentRegistry.registerCrossModuleReadTool(spec);
 }
@@ -212,7 +234,7 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const pool_ = await candidatePool({
+      const { candidates: pool_ } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
@@ -251,6 +273,8 @@ describe('loadTask + candidatePool', () => {
       registerFakeSkillExactTool([
         { userId: anhId, matchedSkills: ['Python', 'Java'], overlap: 2 },
       ]);
+      // Skills are read from People (system of record), not the exact tool's tags.
+      registerFakeSkillsForUsersTool([{ userId: anhId, skills: ['Python', 'Java'] }]);
       AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
@@ -266,7 +290,7 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const pool_ = await candidatePool({
+      const { candidates: pool_ } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
@@ -345,7 +369,7 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const pool_ = await candidatePool({
+      const { candidates: pool_ } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
@@ -418,7 +442,7 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const pool_ = await candidatePool({
+      const { candidates: pool_ } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
@@ -431,7 +455,7 @@ describe('loadTask + candidatePool', () => {
     });
   });
 
-  it('returns [] when no labels and no vector tool registered', async () => {
+  it('seeds group members with no skill evidence when there are no labels or vector hits', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = adminSession({
@@ -452,13 +476,17 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const out = await candidatePool({
+      const { candidates: out } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
         task: t,
       });
-      expect(out).toEqual([]);
+      // The group's active members are the candidate universe, but with no
+      // label or vector signal they carry no skill evidence — downstream
+      // deterministic ranking is what decides whether any of them surface.
+      expect(out.map((c) => c.userId)).toEqual([admin_user_id]);
+      expect(out[0]).toMatchObject({ exactOverlap: 0, vectorScore: null, historyScore: null });
     });
   });
 });

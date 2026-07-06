@@ -63,8 +63,8 @@ describe('planner_listGroupMembers tool', () => {
       // surfaces in the member list (the projection is normally event-populated).
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-         VALUES ($1, $2, 'Alice', 'alice@demo.local', ARRAY[]::text[], 'available', 'UTC')
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
+         VALUES ($1, $2, 'Alice', 'alice@demo.local', 'available', 'UTC')
          ON CONFLICT (user_id) DO NOTHING`,
         [alice.user_id, tenant_id],
       );

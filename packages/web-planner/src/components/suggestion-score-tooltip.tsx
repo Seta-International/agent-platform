@@ -1,5 +1,10 @@
 import type { AssigneeSuggestion } from '../api/planner-client';
-import { matchLabel, matchRationale, scorePercent } from './assignee-suggestion-format';
+import {
+  displayedSkills,
+  matchLabel,
+  matchRationale,
+  scorePercent,
+} from './assignee-suggestion-format';
 
 // Shared with the score pill / AI-matches heading in TaskDetailAssigneesCard.
 const AI_GRADIENT = 'linear-gradient(120deg, #0047FF 0%, #6d5cff 46%, #22d3ee 100%)';
@@ -16,6 +21,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 /** Rich, structured hover card explaining why a person was suggested. */
 export function SuggestionScoreTooltip({ suggestion: s }: { suggestion: AssigneeSuggestion }) {
   const pct = scorePercent(s);
+  const skills = displayedSkills(s);
   return (
     <div className="flex w-56 flex-col gap-2 py-1 text-caption">
       <div className="flex items-center justify-between gap-3">
@@ -38,12 +44,12 @@ export function SuggestionScoreTooltip({ suggestion: s }: { suggestion: Assignee
       <p className="text-ink-muted">{matchRationale(s)}</p>
 
       <div className="flex flex-col gap-1 border-t border-hairline pt-1.5">
-        {s.skills.length > 0 && (
+        {skills.length > 0 && (
           <Row
             label="Skills"
             value={
               <span className="inline-flex flex-wrap justify-end gap-1">
-                {s.skills.join(', ')}
+                {skills.join(', ')}
                 {s.exact_overlap > 0 && (
                   <span className="rounded bg-primary-tint px-1 font-semibold text-primary-ink">
                     {s.exact_overlap} exact

@@ -1,3 +1,4 @@
+import type { SpecializedAgentRunCtx } from '@seta/agent-sdk';
 import { buildActorSession, listUsers } from '@seta/identity';
 import { getPersonSkills, matchUsersToTopic, readPresence } from '@seta/people';
 import { assignTask } from '../../domain/assign-task.ts';
@@ -7,19 +8,19 @@ import { listTasks } from '../../domain/list-tasks.ts';
 import { listTasksByLabel } from '../../domain/list-tasks-by-label.ts';
 import {
   getTaskGroupId,
-  listGroupMemberUserIds,
+  listActiveGroupMemberProfiles,
   listTaskAssigneeUserIds,
 } from '../../read-helpers.ts';
 import type {
   AssignPort,
   AvailabilityPort,
-  GroupScopePort,
   SkillSearchPort,
   TaskAssigneesPort,
   TaskReaderPort,
   TaskSearchPort,
   UserProfilePort,
 } from './ports.ts';
+import type { CandidateSkills } from './skill-fit.ts';
 
 // ---- TaskReader: planner.getTask under an actor session ----
 export function makeTaskReader(): TaskReaderPort {
@@ -104,6 +105,33 @@ export function makeSkillSearch(deps: SkillSearchDeps): SkillSearchPort {
   };
 }
 
+// ---- GroupMemberSkills: the task's group members + their People skills ----
+// The vector/skill search is tenant-wide and, intersected against a specific
+// group, often returns nobody for a small team — especially a task with no
+// skill tags. This supplies the group's members (with real skills) as a bounded
+// candidate set so skill-fit reasoning always has people to judge.
+export type GroupMemberSource = (
+  taskId: string,
+  ctx: SpecializedAgentRunCtx,
+) => Promise<CandidateSkills[]>;
+
+export function makeGroupMemberSkills(): GroupMemberSource {
+  return async (taskId, ctx) => {
+    const groupId = await getTaskGroupId(ctx.tenantId, taskId);
+    if (!groupId) return [];
+    const profiles = await listActiveGroupMemberProfiles(ctx.tenantId, groupId);
+    if (profiles.length === 0) return [];
+    const session = await buildActorSession({ user_id: ctx.actorUserId });
+    return Promise.all(
+      profiles.map(async (p) => ({
+        userId: p.user_id,
+        name: p.display_name,
+        skills: await getPersonSkills(session, { user_id: p.user_id }),
+      })),
+    );
+  };
+}
+
 // ---- UserProfileLookup: identity listUsers (name search) + getUserProfile ----
 const PROFILE_LOOKUP_DEFAULT_LIMIT = 5;
 
@@ -134,21 +162,6 @@ export function makeUserProfileLookup(): UserProfilePort {
         }),
       );
       return profiles;
-    },
-  };
-}
-
-// ---- GroupScope: task's owning-group members (planner read-helpers, no LLM) ----
-// The skill/vector search adapters are tenant-wide; this supplies the member set
-// the pipeline intersects against so only group members get proposed. Read
-// directly (tenant-bound joins) rather than via the RBAC-gated listGroupMembers:
-// the actor is proposing over their own task, not browsing group membership.
-export function makeGroupScope(): GroupScopePort {
-  return {
-    async memberIdsForTask(taskId, ctx) {
-      const groupId = await getTaskGroupId(ctx.tenantId, taskId);
-      if (!groupId) return [];
-      return listGroupMemberUserIds(ctx.tenantId, groupId);
     },
   };
 }

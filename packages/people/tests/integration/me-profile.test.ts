@@ -32,7 +32,7 @@ async function seedSkills(pool: Pool, tenantId: string, names: string[]): Promis
   ]);
   for (const name of names) {
     await pool.query(
-      `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
+      `INSERT INTO core.skill (id, tenant_id, category_id, name, slug) VALUES ($1,$2,$3,$4,lower(regexp_replace($4,'[^a-zA-Z0-9]','','g')))`,
       [crypto.randomUUID(), tenantId, catId, name],
     );
   }

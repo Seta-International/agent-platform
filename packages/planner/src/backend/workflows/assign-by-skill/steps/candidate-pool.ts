@@ -1,4 +1,5 @@
 import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
+import { extractSkillMentions } from '@seta/core';
 import { and, eq, gt, inArray, isNull, ne, or } from 'drizzle-orm';
 import { plannerDb } from '../../../db/index.ts';
 import { assigneeProjection } from '../../../db/schema.ts';
@@ -13,6 +14,9 @@ export interface PoolCandidate {
   userId: string;
   displayName: string;
   skills: string[];
+  /** The candidate's own catalog skills that matched the task's required skills
+   *  (labels ∪ text mentions) — the subset worth showing, vs. their full skill list. */
+  matchedSkills: string[];
   exactOverlap: number;
   vectorScore: number | null;
   historyScore: number | null;
@@ -38,19 +42,37 @@ function findVectorTool():
   ) as CrossModuleReadToolSpec<VectorSearchInput, VectorSearchOutput> | undefined;
 }
 
+interface SkillsForUsersInput {
+  userIds: string[];
+}
+interface SkillsForUsersOutput {
+  users: Array<{ userId: string; skills: string[] }>;
+}
+
+function findSkillsForUsersTool():
+  | CrossModuleReadToolSpec<SkillsForUsersInput, SkillsForUsersOutput>
+  | undefined {
+  return AgentRegistry.listCrossModuleReadTools().find(
+    (t) => t.id === 'people_getSkillsForUsers',
+  ) as CrossModuleReadToolSpec<SkillsForUsersInput, SkillsForUsersOutput> | undefined;
+}
+
 /**
- * Three signal branches run in parallel:
- * - **Exact** (SQL): task label names ∩ assignee_projection.skills, GIN-friendly
- *   via the && operator, then cardinality only for the matching subset.
- * - **Skill vector**: free-text search over People person-profile embeddings
- *   (catches role/bio matches when literal tags miss).
- * - **History vector** (optional): "who's worked on similar tasks before" —
- *   skill proxy when users haven't filled in their skills profile. Skipped
- *   when no history deps are provided.
- *
- * Results merged by userId. Vector-only hits whose projection is missing
- * (stale embedding) are dropped.
+ * Build the candidate pool for a task. Suggestions are always scoped to the
+ * task's plan group, so the group's **active members** are the candidate
+ * universe — seeded up front so a task with no labels (or no vector hits) still
+ * has people to rank. Exact-label overlap, person-profile
+ * vector similarity, and task history are layered on as ranking signals, and
+ * each candidate's skills are read from People (the system of record) rather
+ * than a stale local projection.
  */
+export interface CandidatePoolResult {
+  candidates: PoolCandidate[];
+  /** Distinct catalog skills the task calls for (labels ∪ text mentions) — the
+   *  denominator for the exact-overlap signal. */
+  requiredSkillCount: number;
+}
+
 export async function candidatePool(
   input: {
     tenantId: string;
@@ -59,9 +81,20 @@ export async function candidatePool(
     task: LoadedTask;
   },
   deps?: CandidatePoolDeps,
-): Promise<PoolCandidate[]> {
+): Promise<CandidatePoolResult> {
+  // The task's required skills come from its labels AND its title/description
+  // text, all resolved through the canonical catalog. This is what lets a
+  // label-less "Migrate the ReactJS front-end…" task still match React/Node.js
+  // holders deterministically — the exact signal no longer needs explicit labels.
+  const required = await extractSkillMentions(
+    { tenant_id: input.tenantId },
+    [input.task.title, input.task.description ?? '', input.task.labels.join(' ')].join('\n'),
+  );
+  const exactTerms = [...new Set([...input.task.labels, ...required.map((r) => r.name)])];
+  const requiredSkillCount = Math.max(required.length, input.task.labels.length);
+
   const [exactRows, vectorOut, historyOut, memberIds] = await Promise.all([
-    fetchExactHits(input.tenantId, input.callerUserId, input.callerRoleSummary, input.task),
+    fetchExactHits(input.tenantId, input.callerUserId, input.callerRoleSummary, exactTerms),
     fetchVectorHits(input.tenantId, input.callerUserId, input.callerRoleSummary, input.task),
     deps
       ? fetchTaskHistoryHits({ tenantId: input.tenantId, task: input.task }, deps)
@@ -69,72 +102,52 @@ export async function candidatePool(
     listGroupMemberUserIds(input.tenantId, input.task.groupId),
   ]);
 
+  // Candidate universe = active (not deactivated / not OOO-through-due) members.
+  const active = await fetchActiveProjections(input.tenantId, memberIds, input.task.due_at);
   const byUser = new Map<string, PoolCandidate>();
+  for (const m of active) {
+    byUser.set(m.user_id, {
+      userId: m.user_id,
+      displayName: m.display_name,
+      skills: [],
+      matchedSkills: [],
+      exactOverlap: 0,
+      vectorScore: null,
+      historyScore: null,
+      historyMatches: 0,
+    });
+  }
+
+  // Layer the tenant-wide signals onto members only (non-members are out of scope).
   for (const row of exactRows) {
-    byUser.set(row.user_id, {
-      userId: row.user_id,
-      displayName: row.display_name,
-      skills: row.skills ?? [],
-      exactOverlap: Number(row.overlap),
-      vectorScore: null,
-      historyScore: null,
-      historyMatches: 0,
-    });
+    const c = byUser.get(row.userId);
+    if (c) {
+      c.exactOverlap = Number(row.overlap);
+      c.matchedSkills = row.matchedSkills;
+    }
   }
-
-  const needsProfileLookup = new Set<string>();
-  for (const h of vectorOut) if (!byUser.has(h.userId)) needsProfileLookup.add(h.userId);
-  for (const h of historyOut) if (!byUser.has(h.userId)) needsProfileLookup.add(h.userId);
-
-  const profiles =
-    needsProfileLookup.size === 0
-      ? new Map<string, { display_name: string; skills: string[] }>()
-      : await fetchProjections(input.tenantId, Array.from(needsProfileLookup));
-
   for (const hit of vectorOut) {
-    const existing = byUser.get(hit.userId);
-    if (existing) {
-      existing.vectorScore = hit.score;
-      continue;
-    }
-    const prof = profiles.get(hit.userId);
-    if (!prof) continue;
-    byUser.set(hit.userId, {
-      userId: hit.userId,
-      displayName: prof.display_name,
-      skills: prof.skills,
-      exactOverlap: 0,
-      vectorScore: hit.score,
-      historyScore: null,
-      historyMatches: 0,
-    });
+    const c = byUser.get(hit.userId);
+    if (c) c.vectorScore = hit.score;
   }
-
   for (const hit of historyOut) {
-    const existing = byUser.get(hit.userId);
-    if (existing) {
-      existing.historyScore = hit.historyScore;
-      existing.historyMatches = hit.matches;
-      continue;
+    const c = byUser.get(hit.userId);
+    if (c) {
+      c.historyScore = hit.historyScore;
+      c.historyMatches = hit.matches;
     }
-    const prof = profiles.get(hit.userId);
-    if (!prof) continue;
-    byUser.set(hit.userId, {
-      userId: hit.userId,
-      displayName: prof.display_name,
-      skills: prof.skills,
-      exactOverlap: 0,
-      vectorScore: null,
-      historyScore: hit.historyScore,
-      historyMatches: hit.matches,
-    });
   }
 
-  // Group-membership gate (business rule): only members of the task's plan
-  // group may be suggested. Applied once over the merged map so it covers all
-  // three tenant-wide branches (exact, vector, history) uniformly.
-  const memberSet = new Set(memberIds);
-  return Array.from(byUser.values()).filter((c) => memberSet.has(c.userId));
+  // Skills come from People (system of record), one batched read for the pool.
+  const skillsByUser = await fetchMemberSkills(
+    input.tenantId,
+    input.callerUserId,
+    input.callerRoleSummary,
+    Array.from(byUser.keys()),
+  );
+  for (const [userId, c] of byUser) c.skills = skillsByUser.get(userId) ?? [];
+
+  return { candidates: Array.from(byUser.values()), requiredSkillCount };
 }
 
 interface SkillExactSearchInput {
@@ -153,56 +166,56 @@ function findSkillExactTool():
 }
 
 /**
- * Exact-match branch. Skills moved to People, so assignee_projection.skills
- * is no longer event-populated — the match is delegated to People's
- * people_searchUsersBySkillExact tool (case-insensitive task label ∩
- * person_skill). The returned user_ids are then joined against the planner
- * projection for display_name and availability (deactivated / OOO), which the
- * projection still owns.
+ * Exact-match signal: how many of the task's required skills (labels ∪ text
+ * mentions) each user's catalog skills cover. Delegated to People's
+ * people_searchUsersBySkillExact, which resolves the free-text terms to
+ * canonical core.skill ids (term "reactjs" ↔ catalog skill "React") and matches
+ * person_skill by id, not string equality. Returns per-user overlap counts; the
+ * caller intersects with the group and applies the availability gate.
  */
 async function fetchExactHits(
   tenantId: string,
   callerUserId: string,
   callerRoleSummary: { roles: string[]; cross_tenant_read: boolean },
-  task: LoadedTask,
-): Promise<Array<{ user_id: string; display_name: string; skills: string[]; overlap: number }>> {
-  if (task.labels.length === 0) return [];
+  terms: string[],
+): Promise<Array<{ userId: string; overlap: number; matchedSkills: string[] }>> {
+  if (terms.length === 0) return [];
   const tool = findSkillExactTool();
   if (!tool) return [];
-
-  let hits: SkillExactSearchOutput['hits'];
   try {
     const out = await tool.execute({
       session: { tenant_id: tenantId, user_id: callerUserId, role_summary: callerRoleSummary },
-      input: { labels: task.labels },
+      input: { labels: terms },
     });
-    hits = out.hits;
+    return out.hits.map((h) => ({
+      userId: h.userId,
+      overlap: h.overlap,
+      matchedSkills: h.matchedSkills,
+    }));
   } catch {
     return [];
   }
-  if (hits.length === 0) return [];
+}
 
-  const active = await fetchActiveProjections(
-    tenantId,
-    hits.map((h) => h.userId),
-    task.due_at,
-  );
-  const byUser = new Map(active.map((r) => [r.user_id, r.display_name]));
-
-  const rows: Array<{ user_id: string; display_name: string; skills: string[]; overlap: number }> =
-    [];
-  for (const h of hits) {
-    const displayName = byUser.get(h.userId);
-    if (displayName === undefined) continue; // deactivated / OOO / no projection row
-    rows.push({
-      user_id: h.userId,
-      display_name: displayName,
-      skills: h.matchedSkills,
-      overlap: h.overlap,
+/** Batched People read of catalog skills for the pooled members. */
+async function fetchMemberSkills(
+  tenantId: string,
+  callerUserId: string,
+  callerRoleSummary: { roles: string[]; cross_tenant_read: boolean },
+  userIds: string[],
+): Promise<Map<string, string[]>> {
+  if (userIds.length === 0) return new Map();
+  const tool = findSkillsForUsersTool();
+  if (!tool) return new Map();
+  try {
+    const out = await tool.execute({
+      session: { tenant_id: tenantId, user_id: callerUserId, role_summary: callerRoleSummary },
+      input: { userIds },
     });
+    return new Map(out.users.map((u) => [u.userId, u.skills]));
+  } catch {
+    return new Map();
   }
-  rows.sort((a, b) => b.overlap - a.overlap);
-  return rows.slice(0, 30);
 }
 
 /**
@@ -270,26 +283,4 @@ async function fetchVectorHits(
   } catch {
     return [];
   }
-}
-
-async function fetchProjections(
-  tenantId: string,
-  userIds: string[],
-): Promise<Map<string, { display_name: string; skills: string[] }>> {
-  const db = plannerDb();
-  const rows = await db
-    .select({
-      user_id: assigneeProjection.user_id,
-      display_name: assigneeProjection.display_name,
-      skills: assigneeProjection.skills,
-    })
-    .from(assigneeProjection)
-    .where(
-      and(
-        eq(assigneeProjection.tenant_id, tenantId),
-        isNull(assigneeProjection.deactivated_at),
-        inArray(assigneeProjection.user_id, userIds),
-      ),
-    );
-  return new Map(rows.map((r) => [r.user_id, { display_name: r.display_name, skills: r.skills }]));
 }

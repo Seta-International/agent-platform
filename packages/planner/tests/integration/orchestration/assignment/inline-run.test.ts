@@ -190,7 +190,6 @@ const portsWith = () => ({
   },
   userProfileLookup: { findByName: async () => [] },
   assign: { assign: async () => {} },
-  groupScope: { memberIdsForTask: async () => ['u1'] },
   taskAssignees: { currentAssigneeIds: async () => [] },
 });
 

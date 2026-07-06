@@ -8,6 +8,13 @@
       "when": 1783040105610,
       "tag": "0000_white_whistler",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783353029020,
+      "tag": "0002_drop_assignee_projection_skills",
+      "breakpoints": true
     }
   ]
 }

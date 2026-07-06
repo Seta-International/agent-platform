@@ -51,6 +51,10 @@ export interface SuggestAssigneeOutput {
  * FINAL_TOP_K = 5. Reduces cross-module RPCs roughly 3-5× on larger pools
  * without hurting top-5 fidelity (a candidate that doesn't make top-10 by
  * skill alone won't beat one that does on the load/tz signal).
+ *
+ * Ranking is deterministic end to end — no LLM in the scoring path — so the
+ * inline suggestions endpoint and the chat proposeAssignment card, which both
+ * call this, always return the same ranked list for a task.
  */
 export async function computeAssigneeSuggestions(
   input: Pick<RunSuggestAssigneeInput, 'taskId' | 'session'>,
@@ -61,9 +65,12 @@ export async function computeAssigneeSuggestions(
   const callerRoleSummary = input.session.roleSummary;
 
   const task = await loadTask({ tenantId, taskId: input.taskId });
-  const pool = await candidatePool({ tenantId, callerUserId, callerRoleSummary, task }, deps);
+  const { candidates: pool, requiredSkillCount } = await candidatePool(
+    { tenantId, callerUserId, callerRoleSummary, task },
+    deps,
+  );
 
-  const preRanked = preRank(pool, task.labels.length).slice(0, PRE_RANK_TOP_K);
+  const preRanked = preRank(pool, requiredSkillCount).slice(0, PRE_RANK_TOP_K);
   const enriched =
     preRanked.length === 0
       ? []
@@ -83,7 +90,7 @@ export async function computeAssigneeSuggestions(
       dueAt: task.due_at,
       referenceTz,
       priority: task.priority_number,
-      labelCount: task.labels.length,
+      labelCount: requiredSkillCount,
     },
     topK: FINAL_TOP_K,
   });

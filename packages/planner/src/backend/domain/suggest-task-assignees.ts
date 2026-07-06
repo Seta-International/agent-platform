@@ -15,10 +15,15 @@ export interface AssigneeSuggestion {
   /** finalScore in [0,1]. */
   score: number;
   skills: string[];
+  /** The candidate's skills that matched the task's required skills; the UI shows
+   *  these rather than the full `skills` list. Empty for a vector-only match. */
+  matched_skills: string[];
   exact_overlap: number;
   open_task_count: number | null;
   hours_available_this_week: number | null;
   timezone: string | null;
+  /** One-sentence reason the person fits, when reasoned; null when ranked deterministically. */
+  rationale: string | null;
 }
 
 /**
@@ -84,9 +89,11 @@ export async function suggestTaskAssignees(
     display_name: c.displayName,
     score: c.finalScore,
     skills: c.skills,
+    matched_skills: c.matchedSkills,
     exact_overlap: c.exactOverlap,
     open_task_count: c.openTaskCount,
     hours_available_this_week: c.hoursAvailableThisWeek,
     timezone: c.timezone,
+    rationale: c.rationale,
   }));
 }

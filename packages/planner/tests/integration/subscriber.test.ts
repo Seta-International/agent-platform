@@ -177,7 +177,6 @@ describe('applyUserCreated', () => {
                   email: 'out-of-order@example.test',
                   before: { skills: [] },
                   after: {
-                    skills: ['aws', 'kubernetes'],
                     availability_status: 'busy',
                     timezone: 'Asia/Ho_Chi_Minh',
                   },
@@ -210,14 +209,13 @@ describe('applyUserCreated', () => {
           });
 
           const { rows } = await pool.query(
-            `SELECT display_name, email, skills, availability_status, timezone
+            `SELECT display_name, email, availability_status, timezone
                FROM planner.assignee_projection WHERE user_id = $1`,
             [userId],
           );
           expect(rows).toHaveLength(1);
           expect(rows[0].display_name).toBe('Out Of Order');
           expect(rows[0].email).toBe('out-of-order@example.test');
-          expect(rows[0].skills).toEqual(['aws', 'kubernetes']);
           expect(rows[0].availability_status).toBe('busy');
           expect(rows[0].timezone).toBe('Asia/Ho_Chi_Minh');
         } finally {

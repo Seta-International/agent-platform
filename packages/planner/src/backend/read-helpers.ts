@@ -1,7 +1,14 @@
 import type { SessionScope } from '@seta/core';
 import { and, eq, isNull } from 'drizzle-orm';
 import { plannerDb } from './db/index.ts';
-import { groupMembers, groups, plans, taskAssignments, tasks } from './db/schema.ts';
+import {
+  assigneeProjection,
+  groupMembers,
+  groups,
+  plans,
+  taskAssignments,
+  tasks,
+} from './db/schema.ts';
 
 export function isTenantAdminish(session: SessionScope): boolean {
   return session.role_summary.roles.some(
@@ -39,6 +46,34 @@ export async function listGroupMemberUserIds(tenantId: string, groupId: string):
       ),
     );
   return rows.map((r) => r.user_id);
+}
+
+/**
+ * Active (not deactivated) members of a group with their display names, tenant-
+ * bound. Joins group membership to the assignee projection so a caller can build
+ * a bounded candidate set without a cross-module read for names.
+ */
+export async function listActiveGroupMemberProfiles(
+  tenantId: string,
+  groupId: string,
+): Promise<Array<{ user_id: string; display_name: string }>> {
+  return plannerDb()
+    .select({
+      user_id: groupMembers.user_id,
+      display_name: assigneeProjection.display_name,
+    })
+    .from(groupMembers)
+    .innerJoin(groups, eq(groups.id, groupMembers.group_id))
+    .innerJoin(assigneeProjection, eq(assigneeProjection.user_id, groupMembers.user_id))
+    .where(
+      and(
+        eq(groupMembers.group_id, groupId),
+        eq(groups.tenant_id, tenantId),
+        eq(assigneeProjection.tenant_id, tenantId),
+        isNull(groups.deleted_at),
+        isNull(assigneeProjection.deactivated_at),
+      ),
+    );
 }
 
 /** The owning group id of a task (via its plan), tenant-bound. Null when the

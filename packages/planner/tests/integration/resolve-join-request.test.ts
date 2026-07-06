@@ -37,8 +37,8 @@ describe('resolveJoinRequest', () => {
           );
           // assignee_projection is a read-model — subscriber not wired in tests; seed it manually.
           await pool.query(
-            `INSERT INTO planner.assignee_projection (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-             VALUES ($1, $2, $3, $4, ARRAY[]::text[], 'available', 'UTC') ON CONFLICT (user_id) DO NOTHING`,
+            `INSERT INTO planner.assignee_projection (user_id, tenant_id, display_name, email, availability_status, timezone)
+             VALUES ($1, $2, $3, $4, 'available', 'UTC') ON CONFLICT (user_id) DO NOTHING`,
             [requester.user_id, seeded.tenant_id, 'Rq', requesterEmail],
           );
           const requesterSession = buildSession({

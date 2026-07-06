@@ -88,9 +88,12 @@ describe('ProjectDetailPage org unit field', () => {
     expect(await screen.findByText('Engineering')).toBeInTheDocument();
   });
 
+  // `delay: null` removes userEvent's artificial inter-event wait; the wider
+  // timeout keeps this multi-interaction test from flaking on a loaded CI box
+  // (it runs in ~0.3s in isolation).
   it('includes org_unit_id in the patch payload when changed', async () => {
     mockFetch();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderPage();
 
     await user.click(await screen.findByText('Engineering'));
@@ -101,5 +104,5 @@ describe('ProjectDetailPage org unit field', () => {
     await waitFor(() => expect(editProjectMock).toHaveBeenCalled());
     const body = editProjectMock.mock.calls.at(-1)?.[0] as { patch: { org_unit_id?: string } };
     expect(body.patch.org_unit_id).toBe('ou-2');
-  });
+  }, 15_000);
 });

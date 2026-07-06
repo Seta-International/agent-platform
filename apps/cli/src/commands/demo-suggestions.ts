@@ -26,7 +26,9 @@ const BUCKET_NAME = 'To do';
  */
 const MEMBERS: Array<{ email: string; skills: string[] }> = [
   { email: 'hung.vu@seta-international.vn', skills: ['React', 'TypeScript'] },
-  { email: 'canh.ta@seta-international.vn', skills: ['Python', 'PostgreSQL'] },
+  // Mirrors prod: Canh holds React (catalog casing) — a task labelled "reactjs"
+  // must still surface him through the canonical catalog, not string equality.
+  { email: 'canh.ta@seta-international.vn', skills: ['React', 'Python', 'PostgreSQL'] },
   { email: 'son.tran@seta-international.vn', skills: ['AWS', 'Kubernetes', 'Docker'] },
   { email: 'anh.nguyennhat@seta-international.vn', skills: ['Figma'] },
   // Overlapping skills so tasks rank several competing candidates.
@@ -46,6 +48,31 @@ const MEMBERS: Array<{ email: string; skills: string[] }> = [
  * label-less (vector) path and the graceful "sparse signal" tooltip.
  */
 const TASKS: Array<{ title: string; labels: string[]; description?: string }> = [
+  {
+    // Reproduces the prod scenario: labels use a different vocabulary ("reactjs",
+    // "nodejs") than the catalog skills ("React", "Node.js"). Canonicalization
+    // (reactjs → React via alias, nodejs → Node.js via slug) is what surfaces the
+    // React/Node.js holders here — under the old string-equality match nobody did.
+    title: 'Create new monorepo with ReactJS',
+    labels: ['reactjs', 'nodejs'],
+    description: 'Set up a new monorepo scaffolded with ReactJS and a Node.js backend.',
+  },
+  {
+    // Same React/Node.js intent as the labelled task above, but with NO labels:
+    // the exact branch can't fire, so matching falls to the vector path over
+    // title + description. Compare its results against the labelled task.
+    title: 'Migrate the ReactJS front-end into a monorepo',
+    labels: [],
+    description: 'Consolidate our ReactJS app and Node.js services into a single monorepo.',
+  },
+  {
+    // Edge case: React intent in the TITLE only — no labels, no description.
+    // Sparsest signal; exercises the label-less/description-less path and the
+    // "weak signal" degradation. Strong reasoning over the title is what should
+    // still surface React people here.
+    title: 'Scaffold a ReactJS monorepo',
+    labels: [],
+  },
   {
     title: 'Build the React onboarding dashboard',
     labels: ['React', 'TypeScript'],
