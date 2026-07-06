@@ -102,6 +102,8 @@ export {
   type SetTaskAssigneesDeps,
   setTaskAssignees,
 } from './backend/domain/set-task-assignees.ts';
+export type { AssigneeSuggestion } from './backend/domain/suggest-task-assignees.ts';
+export { suggestTaskAssignees } from './backend/domain/suggest-task-assignees.ts';
 export { unapplyLabel } from './backend/domain/unapply-label.ts';
 export { unarchivePlan } from './backend/domain/unarchive-plan.ts';
 export { unassignTask } from './backend/domain/unassign-task.ts';
