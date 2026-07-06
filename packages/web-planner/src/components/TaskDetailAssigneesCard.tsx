@@ -14,6 +14,10 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@seta/shared-ui';
 import { usePermission, useSession } from '@seta/web-identity';
 import { GripVertical, Plus, X, Zap } from 'lucide-react';
@@ -22,10 +26,15 @@ import { useAssignTask } from '../hooks/mutations/assign-task';
 import { useMoveToTopOfMyList } from '../hooks/mutations/move-to-top-of-my-list';
 import { useReorderTaskAssignees } from '../hooks/mutations/reorder-task-assignees';
 import { useUnassignTask } from '../hooks/mutations/unassign-task';
+import { useAssigneeSuggestions } from '../hooks/queries/use-assignee-suggestions';
 import { useGroupMemberAssigneeSearch } from '../hooks/use-group-member-assignee-search';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { computeAssigneeReorder } from './assignee-reorder';
-import { SuggestAssigneeButton } from './SuggestAssigneeButton';
+import {
+  formatSuggestionReason,
+  formatSuggestionTooltip,
+  scorePercent,
+} from './assignee-suggestion-format';
 
 interface Props {
   task: TaskWithAssigneesRow & { pending_assign_workflow_run_id?: string | null };
@@ -76,6 +85,7 @@ export function TaskDetailAssigneesCard({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
   const memberQuery = useGroupMemberAssigneeSearch(groupId, search, pickerOpen);
+  const suggestionsQ = useAssigneeSuggestions(task.id, pickerOpen);
 
   const onDragEnd = (result: DropResult) => {
     if (!canAssign) return;
@@ -90,13 +100,6 @@ export function TaskDetailAssigneesCard({
     <section className="card" aria-label="Assignees">
       <header className="mb-2 flex items-center justify-between gap-2">
         <span className="t-sm subtle">Assignees</span>
-        {task.assignees.length === 0 && (
-          <SuggestAssigneeButton
-            taskId={task.id}
-            taskTitle={task.title}
-            pendingAssignWorkflowRunId={task.pending_assign_workflow_run_id ?? null}
-          />
-        )}
       </header>
 
       <DragDropContext onDragEnd={onDragEnd}>
@@ -174,7 +177,81 @@ export function TaskDetailAssigneesCard({
                 <CommandEmpty>
                   {memberQuery.isPending && search ? 'Searching…' : 'No group members found.'}
                 </CommandEmpty>
-                <CommandGroup>
+                <TooltipProvider delayDuration={200}>
+                  <CommandGroup heading="Suggested">
+                    {suggestionsQ.isPending && (
+                      <div className="px-2 py-1.5 text-caption text-ink-subtle">
+                        Loading suggestions…
+                      </div>
+                    )}
+                    {suggestionsQ.isError && (
+                      <div className="px-2 py-1.5 text-caption text-ink-subtle">
+                        Couldn't load suggestions
+                      </div>
+                    )}
+                    {suggestionsQ.isSuccess &&
+                      suggestionsQ.data.filter((s) => {
+                        const term = search.trim().toLowerCase();
+                        return term.length === 0 || s.display_name.toLowerCase().includes(term);
+                      }).length === 0 && (
+                        <div className="px-2 py-1.5 text-caption text-ink-subtle">
+                          No strong matches
+                        </div>
+                      )}
+                    {suggestionsQ.isSuccess &&
+                      suggestionsQ.data
+                        .filter((s) => {
+                          const term = search.trim().toLowerCase();
+                          return term.length === 0 || s.display_name.toLowerCase().includes(term);
+                        })
+                        .map((s) => {
+                          const already = task.assignees.some((a) => a.user_id === s.user_id);
+                          return (
+                            <CommandItem
+                              key={`suggested-${s.user_id}`}
+                              value={`suggested-${s.user_id}`}
+                              disabled={already}
+                              onSelect={() =>
+                                assign.mutate({
+                                  task_id: task.id,
+                                  user_id: s.user_id,
+                                  display_name: s.display_name,
+                                })
+                              }
+                              className="flex items-center gap-2.5"
+                            >
+                              <span
+                                aria-hidden
+                                className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                                style={userAvatarStyle(s.user_id)}
+                              >
+                                {initialsOf(s.display_name)}
+                              </span>
+                              <span className="flex min-w-0 flex-1 flex-col">
+                                <span className="truncate text-body-sm leading-tight text-ink">
+                                  {s.display_name}
+                                </span>
+                                <span className="truncate text-caption leading-tight text-ink-subtle">
+                                  {formatSuggestionReason(s)}
+                                </span>
+                              </span>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="shrink-0 rounded-full bg-primary-tint px-1.5 py-0.5 text-caption font-semibold text-primary-ink">
+                                    {scorePercent(s)}%
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{formatSuggestionTooltip(s)}</TooltipContent>
+                              </Tooltip>
+                              {already && (
+                                <span className="shrink-0 text-caption text-ink-subtle">Added</span>
+                              )}
+                            </CommandItem>
+                          );
+                        })}
+                  </CommandGroup>
+                </TooltipProvider>
+                <CommandGroup heading="All members">
                   {memberQuery.members.map((m) => {
                     const already = task.assignees.some((a) => a.user_id === m.user_id);
                     return (
@@ -189,8 +266,6 @@ export function TaskDetailAssigneesCard({
                             display_name: m.display_name,
                             email: m.email,
                           });
-                          setPickerOpen(false);
-                          setSearch('');
                         }}
                         className="flex items-center gap-2.5"
                       >
