@@ -42,6 +42,17 @@ export interface GroupJoinRequestRow {
   email: string;
 }
 
+export interface AssigneeSuggestion {
+  user_id: string;
+  display_name: string;
+  score: number;
+  skills: string[];
+  exact_overlap: number;
+  open_task_count: number | null;
+  hours_available_this_week: number | null;
+  timezone: string | null;
+}
+
 export interface DiscoverGroupsItem {
   id: string;
   name: string;
@@ -658,6 +669,12 @@ async function assignTask(input: { task_id: string; user_id: string }): Promise<
   });
 }
 
+async function getAssigneeSuggestions(task_id: string): Promise<AssigneeSuggestion[]> {
+  return (await request<AssigneeSuggestion[]>(
+    `/api/planner/v1/tasks/${task_id}/assignee-suggestions`,
+  )) as AssigneeSuggestion[];
+}
+
 async function unassignTask(input: { task_id: string; user_id: string }): Promise<void> {
   await request<void>(`/api/planner/v1/tasks/${input.task_id}/assignees/${input.user_id}`, {
     method: 'DELETE',
@@ -994,6 +1011,7 @@ export const plannerClient = {
   updateTask,
   moveTask,
   assignTask,
+  getAssigneeSuggestions,
   unassignTask,
   addTaskReference,
   removeTaskReference,
