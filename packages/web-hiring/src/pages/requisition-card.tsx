@@ -211,7 +211,9 @@ export function RequisitionCard({
           <div className="absolute inset-x-[12.5%] top-[19px] h-px bg-hairline-strong" />
           <div
             className="absolute inset-y-0 left-[12.5%] top-[19px] h-px bg-primary transition-[width]"
-            style={{ width: curIdx <= 0 ? 0 : `${(curIdx / (STAGES.length - 1)) * 75}%` }}
+            style={{
+              width: curIdx <= 0 ? 0 : `${(curIdx / (STAGES.length - 1)) * 75}%`,
+            }}
           />
           <div className="relative flex justify-between">
             {STAGES.map((s, i) => {
@@ -281,7 +283,7 @@ export function RequisitionCard({
           {r.applicants_count} Applicants
         </span>
         <Button size="sm" variant="secondary" onClick={go}>
-          View JD
+          View Detail
           <ExternalLink className="ml-1 size-3.5" aria-hidden />
         </Button>
       </div>
