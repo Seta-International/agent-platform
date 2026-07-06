@@ -1,7 +1,6 @@
-# Database health. postgres-exporter (pg_*) + cloudwatch-exporter (aws_rds_*).
-# cloudwatch-exporter exposes FreeStorageSpace (bytes) but NOT allocated storage
-# (allocated is not a CloudWatch metric), so RDS storage alerts use an absolute
-# byte floor, not a ratio. Scope: dev + uat (severity=warning).
+# Database health via postgres-exporter (pg_*). Scope: dev + uat (severity=warning).
+# RDS/cloudwatch storage alerts are PROD-ONLY (CloudWatch is monitored for prod
+# only) and land with prod in Phase 4 — not here.
 groups:
   - name: database
     rules:
@@ -20,20 +19,3 @@ groups:
         annotations:
           summary: "Postgres connections >80% ({{ $labels.env }})"
           description: "Active connections above 80% of max_connections for 10m."
-
-      # RDS free storage — absolute floors (bytes). uat RDS; prod added later.
-      - alert: RDSFreeStorageLow
-        expr: aws_rds_free_storage_space_average < 5e9
-        for: 10m
-        labels: { severity: warning }
-        annotations:
-          summary: "RDS free storage <5GB ({{ $labels.env }}/{{ $labels.dbinstance_identifier }})"
-          description: "RDS FreeStorageSpace below 5GB — the #1 small-instance killer."
-
-      - alert: RDSFreeStorageCritical
-        expr: aws_rds_free_storage_space_average < 2e9
-        for: 5m
-        labels: { severity: critical }
-        annotations:
-          summary: "RDS free storage <2GB ({{ $labels.env }}/{{ $labels.dbinstance_identifier }})"
-          description: "RDS FreeStorageSpace below 2GB — imminent write failure."
