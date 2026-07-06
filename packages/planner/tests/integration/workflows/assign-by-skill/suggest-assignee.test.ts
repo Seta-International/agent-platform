@@ -16,6 +16,7 @@ function makeCandidate(
     hoursAvailableThisWeek: null,
     timezone: null,
     finalScore: 0.5,
+    rationale: null,
     ...over,
   };
 }

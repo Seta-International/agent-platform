@@ -11,7 +11,7 @@ const ctx = { tenantId: 't1', actorUserId: 'a1' };
 // orchestrator via the runAgent seam, so the composite tool is bypassed.
 const noopAssign = { assign: async () => {} };
 // Same bypass applies to the group-scope gate; a noop satisfies the deps type.
-const noopGroupScope = { memberIdsForTask: async () => [] };
+const noopSuggest = async () => ({ task: { title: '' }, candidates: [] });
 const noopTaskAssignees = { currentAssigneeIds: async () => [] };
 
 // Sub-agent stubs are never called: every test uses the runAgent seam, so the
@@ -37,7 +37,7 @@ const make = (
     generalAnswer: stub('staffing.generalAnswer'),
     userProfileLookup: { findByName: async () => [] },
     assign: noopAssign,
-    groupScope: noopGroupScope,
+    suggest: noopSuggest,
     taskAssignees: noopTaskAssignees,
     resolveModel: () => ({}) as never,
     mastraStorage: new InMemoryStore(),
@@ -298,7 +298,7 @@ describe('orchestrator request-context wiring', () => {
       generalAnswer: stub('staffing.generalAnswer'),
       userProfileLookup: { findByName: async () => [] },
       assign: noopAssign,
-      groupScope: noopGroupScope,
+      suggest: noopSuggest,
       taskAssignees: noopTaskAssignees,
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
@@ -321,7 +321,7 @@ describe('orchestrator request-context wiring', () => {
       generalAnswer: stub('staffing.generalAnswer'),
       userProfileLookup: { findByName: async () => [] },
       assign: noopAssign,
-      groupScope: noopGroupScope,
+      suggest: noopSuggest,
       taskAssignees: noopTaskAssignees,
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
@@ -346,7 +346,7 @@ describe('orchestrator resource working memory', () => {
       generalAnswer: stub('staffing.generalAnswer'),
       userProfileLookup: { findByName: async () => [] },
       assign: noopAssign,
-      groupScope: noopGroupScope,
+      suggest: noopSuggest,
       taskAssignees: noopTaskAssignees,
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),

@@ -73,16 +73,6 @@ export interface AvailabilityPort {
   inProgressCount(userId: string, ctx: SpecializedAgentRunCtx): Promise<number>;
 }
 
-/** Resolves the member set a task's suggestions must be scoped to. The candidate
- *  sources (vector/skill search) are tenant-wide, so the pipeline intersects
- *  against this before proposing — only members of the task's owning group
- *  (plans.group_id) may be suggested. */
-export interface GroupScopePort {
-  /** user_ids of the task's owning group. Empty when the task has no resolvable
-   *  group or the group has no members (over-restricts rather than leaking). */
-  memberIdsForTask(taskId: string, ctx: SpecializedAgentRunCtx): Promise<string[]>;
-}
-
 /** Resolves the user_ids already assigned to a task, so the pipeline can exclude
  *  them from suggestions (proposing someone already on the task is noise). Wired
  *  by the app to planner's task_assignments read. */

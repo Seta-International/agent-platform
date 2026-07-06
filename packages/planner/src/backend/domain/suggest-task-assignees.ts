@@ -19,6 +19,8 @@ export interface AssigneeSuggestion {
   open_task_count: number | null;
   hours_available_this_week: number | null;
   timezone: string | null;
+  /** One-sentence reason the person fits, when reasoned; null when ranked deterministically. */
+  rationale: string | null;
 }
 
 /**
@@ -88,5 +90,6 @@ export async function suggestTaskAssignees(
     open_task_count: c.openTaskCount,
     hours_available_this_week: c.hoursAvailableThisWeek,
     timezone: c.timezone,
+    rationale: c.rationale,
   }));
 }

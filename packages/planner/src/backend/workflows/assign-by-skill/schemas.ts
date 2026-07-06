@@ -17,6 +17,9 @@ export const CandidateUserSchema = z.object({
   hoursAvailableThisWeek: z.number().nullable(),
   timezone: z.string().nullable(),
   finalScore: z.number().min(0).max(1),
+  /** Reserved for a per-candidate rationale; deterministic ranking sends null and
+   *  the web synthesizes an explanation from the match signals. */
+  rationale: z.string().nullable(),
 });
 export type CandidateUser = z.infer<typeof CandidateUserSchema>;
 

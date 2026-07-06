@@ -59,10 +59,10 @@ async function seedProjection(
 ): Promise<void> {
   await pool.query(
     `INSERT INTO planner.assignee_projection
-     (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-     VALUES ($1, $2, $3, $4, $5, 'available', 'UTC')
-     ON CONFLICT (user_id) DO UPDATE SET skills = EXCLUDED.skills`,
-    [user_id, tenant_id, display_name, email, opts.skills ?? []],
+     (user_id, tenant_id, display_name, email, availability_status, timezone)
+     VALUES ($1, $2, $3, $4, 'available', 'UTC')
+     ON CONFLICT (user_id) DO NOTHING`,
+    [user_id, tenant_id, display_name, email],
   );
 }
 
@@ -182,6 +182,75 @@ describe('computeAssigneeSuggestions', () => {
         expect(candidates[0]!.finalScore).toBeGreaterThanOrEqual(candidates.at(-1)!.finalScore);
         expect(candidates[0]).toHaveProperty('finalScore');
         expect(candidates[0]).toHaveProperty('displayName');
+      } finally {
+        await pgVector.disconnect().catch(() => {});
+      }
+    }));
+
+  it('ranks a no-label task deterministically by vector evidence', () =>
+    withAgentTestDb(async ({ pool, databaseUrl }) => {
+      const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+      const session = admin({ tenant_id, user_id: admin_user_id, email: 'a@d.local' });
+      await seedProjection(pool, tenant_id, admin_user_id, 'Admin', 'a@d.local');
+
+      const alice = await createUser(
+        { tenant_id, email: 'alice@d.local', name: 'Alice', password: 'ChangeMe@2026' },
+        { type: 'user', user_id: admin_user_id },
+      );
+      const bob = await createUser(
+        { tenant_id, email: 'bob@d.local', name: 'Bob', password: 'ChangeMe@2026' },
+        { type: 'user', user_id: admin_user_id },
+      );
+      await seedProjection(pool, tenant_id, alice.user_id, 'Alice', 'alice@d.local');
+      await seedProjection(pool, tenant_id, bob.user_id, 'Bob', 'bob@d.local');
+
+      // No exact hits and the task carries NO labels — both enter the pool via
+      // the vector branch alone. Deterministic ranking must still surface them
+      // from that evidence, with no LLM in the path and no rationale attached.
+      registerFakeSkillExactTool([]);
+      registerFakeVectorTool([
+        { userId: alice.user_id, score: 0.5 },
+        { userId: bob.user_id, score: 0.5 },
+      ]);
+      AgentRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);
+      AgentRegistry.freeze();
+
+      const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({
+        group_id: group.id,
+        members: [{ user_id: alice.user_id }, { user_id: bob.user_id }],
+        session,
+      });
+      const plan = await createPlan({ group_id: group.id, name: 'P', session });
+      const task = await createTask({
+        plan_id: plan.id,
+        title: 'Scaffold a ReactJS monorepo',
+        description: 'Set up the front-end.',
+        session,
+      });
+
+      const pgVector = new PgVector({
+        id: 'no-label-deterministic-test',
+        connectionString: databaseUrl,
+        schemaName: PLANNER_VECTOR_NAMESPACE,
+      });
+      try {
+        const { candidates } = await computeAssigneeSuggestions(
+          {
+            taskId: task.id,
+            session: {
+              tenantId: tenant_id,
+              userId: admin_user_id,
+              roleSummary: { roles: ['org.admin'], cross_tenant_read: false },
+            },
+          },
+          { provider: new FakeEmbeddingProvider(), pgVector, reranker: new NoopReranker() },
+        );
+
+        expect(new Set(candidates.map((c) => c.userId))).toEqual(
+          new Set([alice.user_id, bob.user_id]),
+        );
+        expect(candidates.every((c) => c.rationale === null)).toBe(true);
       } finally {
         await pgVector.disconnect().catch(() => {});
       }

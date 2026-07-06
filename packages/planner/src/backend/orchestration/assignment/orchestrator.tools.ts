@@ -1,8 +1,8 @@
 import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { defineAgentTool, recordEntityExposure, resolveTaskRef } from '@seta/agent-sdk';
 import { z } from 'zod';
-import type { AssignPort, GroupScopePort, TaskAssigneesPort, UserProfilePort } from './ports.ts';
-import { makeProposeAssignmentTool } from './propose-assignment.tool.ts';
+import type { AssignPort, TaskAssigneesPort, UserProfilePort } from './ports.ts';
+import { makeProposeAssignmentTool, type SuggestAssignees } from './propose-assignment.tool.ts';
 import {
   type AvailabilityResult,
   AvailabilityResultSchema,
@@ -57,8 +57,8 @@ export interface OrchestratorToolDeps {
   userProfileLookup: UserProfilePort;
   /** Performs the assignment a proposeAssignment approval confirms. */
   assign: AssignPort;
-  /** Scopes proposeAssignment suggestions to the task's owning-group members. */
-  groupScope: GroupScopePort;
+  /** Ranks candidates for proposeAssignment via the shared assignBySkill engine. */
+  suggest: SuggestAssignees;
   /** Excludes the task's current assignees from proposeAssignment suggestions. */
   taskAssignees: TaskAssigneesPort;
   /** The orchestrator's current user message — already carries any injected
@@ -79,7 +79,7 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     generalAnswer,
     userProfileLookup,
     assign,
-    groupScope,
+    suggest,
     taskAssignees,
     userText,
     ctx,
@@ -281,12 +281,8 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
   // for the single-task case. The match/availability/recommend tools above are kept
   // for the MULTI-task find+recommend and the people-search paths.
   const proposeAssignment = makeProposeAssignmentTool({
-    taskAnalyzer,
-    skillMatcher,
-    avaiChecker,
-    recommender,
+    suggest,
     assign,
-    groupScope,
     taskAssignees,
     ctx,
   });

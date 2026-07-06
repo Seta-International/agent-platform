@@ -111,20 +111,20 @@ describe('planner_searchGroupMembersBySkills tool', () => {
 
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
          VALUES
-           ($1, $2, 'Alice', 'alice@demo.local', ARRAY['TypeScript', 'React', 'PostgreSQL'], 'available', 'UTC'),
-           ($3, $2, 'Bob', 'bob@demo.local', ARRAY['TypeScript', 'Node.js'], 'available', 'UTC'),
-           ($4, $2, 'Charlie', 'charlie@demo.local', ARRAY['Python', 'Django'], 'available', 'UTC')
-         ON CONFLICT (user_id) DO UPDATE SET skills = EXCLUDED.skills`,
+           ($1, $2, 'Alice', 'alice@demo.local', 'available', 'UTC'),
+           ($3, $2, 'Bob', 'bob@demo.local', 'available', 'UTC'),
+           ($4, $2, 'Charlie', 'charlie@demo.local', 'available', 'UTC')
+         ON CONFLICT (user_id) DO NOTHING`,
         [alice.user_id, tenant_id, bob.user_id, charlie.user_id],
       );
 
       // Create assignee projection for admin
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-         VALUES ($1, $2, 'Admin', 'admin@demo.local', ARRAY[]::text[], 'available', 'UTC')
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
+         VALUES ($1, $2, 'Admin', 'admin@demo.local', 'available', 'UTC')
          ON CONFLICT (user_id) DO NOTHING`,
         [admin_user_id, tenant_id],
       );
@@ -206,19 +206,19 @@ describe('planner_searchGroupMembersBySkills tool', () => {
 
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
          VALUES
-           ($1, $2, 'Alice', 'alice@demo.local', ARRAY['TypeScript'], 'available', 'UTC'),
-           ($3, $2, 'Bob', 'bob@demo.local', ARRAY['TypeScript'], 'available', 'UTC'),
-           ($4, $2, 'Charlie', 'charlie@demo.local', ARRAY['TypeScript'], 'available', 'UTC')
-         ON CONFLICT (user_id) DO UPDATE SET skills = EXCLUDED.skills`,
+           ($1, $2, 'Alice', 'alice@demo.local', 'available', 'UTC'),
+           ($3, $2, 'Bob', 'bob@demo.local', 'available', 'UTC'),
+           ($4, $2, 'Charlie', 'charlie@demo.local', 'available', 'UTC')
+         ON CONFLICT (user_id) DO NOTHING`,
         [alice.user_id, tenant_id, bob.user_id, charlie.user_id],
       );
 
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-         VALUES ($1, $2, 'Admin', 'admin@demo.local', ARRAY[]::text[], 'available', 'UTC')
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
+         VALUES ($1, $2, 'Admin', 'admin@demo.local', 'available', 'UTC')
          ON CONFLICT (user_id) DO NOTHING`,
         [admin_user_id, tenant_id],
       );
@@ -281,12 +281,12 @@ describe('planner_searchGroupMembersBySkills tool', () => {
 
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
          VALUES
-           ($1, $2, 'Admin', 'admin@demo.local', ARRAY['AWS'], 'available', 'UTC'),
-           ($3, $2, 'Alice', 'alice@demo.local', ARRAY['AWS'], 'available', 'UTC'),
-           ($4, $2, 'Bob', 'bob@demo.local', ARRAY['AWS'], 'available', 'UTC')
-         ON CONFLICT (user_id) DO UPDATE SET skills = EXCLUDED.skills`,
+           ($1, $2, 'Admin', 'admin@demo.local', 'available', 'UTC'),
+           ($3, $2, 'Alice', 'alice@demo.local', 'available', 'UTC'),
+           ($4, $2, 'Bob', 'bob@demo.local', 'available', 'UTC')
+         ON CONFLICT (user_id) DO NOTHING`,
         [admin_user_id, tenant_id, alice.user_id, bob.user_id],
       );
 
@@ -346,11 +346,11 @@ describe('planner_searchGroupMembersBySkills tool', () => {
 
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
          VALUES
-           ($1, $2, 'Admin', 'admin@demo.local', ARRAY[]::text[], 'available', 'UTC'),
-           ($3, $2, 'Alice Projection', 'alice-profile@demo.local', ARRAY[]::text[], 'available', 'UTC')
-         ON CONFLICT (user_id) DO UPDATE SET skills = EXCLUDED.skills`,
+           ($1, $2, 'Admin', 'admin@demo.local', 'available', 'UTC'),
+           ($3, $2, 'Alice Projection', 'alice-profile@demo.local', 'available', 'UTC')
+         ON CONFLICT (user_id) DO NOTHING`,
         [admin_user_id, tenant_id, alice.user_id],
       );
 

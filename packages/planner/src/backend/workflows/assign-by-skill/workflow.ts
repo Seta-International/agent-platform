@@ -51,6 +51,10 @@ export interface SuggestAssigneeOutput {
  * FINAL_TOP_K = 5. Reduces cross-module RPCs roughly 3-5× on larger pools
  * without hurting top-5 fidelity (a candidate that doesn't make top-10 by
  * skill alone won't beat one that does on the load/tz signal).
+ *
+ * Ranking is deterministic end to end — no LLM in the scoring path — so the
+ * inline suggestions endpoint and the chat proposeAssignment card, which both
+ * call this, always return the same ranked list for a task.
  */
 export async function computeAssigneeSuggestions(
   input: Pick<RunSuggestAssigneeInput, 'taskId' | 'session'>,

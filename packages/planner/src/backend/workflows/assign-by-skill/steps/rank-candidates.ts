@@ -106,6 +106,14 @@ function priorityBoost(priority: number): { exact: number; vec: number } {
   return priority <= HIGH_PRIORITY_THRESHOLD ? { exact: 1.2, vec: 0.9 } : { exact: 1, vec: 1 };
 }
 
+/**
+ * Rank the shortlist deterministically from DB-derived signals only —
+ * canonical exact-label overlap, person-profile vector similarity, task
+ * history, load, and timezone. No LLM sits in the scoring path, so the inline
+ * suggestions panel and the chat approval card rank a given task identically
+ * on every call. `rationale` is left null; the web synthesizes a deterministic
+ * explanation from these same signals.
+ */
 export function rankCandidates(input: {
   candidates: EnrichedCandidate[];
   weights: RankWeights;
@@ -128,9 +136,10 @@ export function rankCandidates(input: {
     const normalizer = w.exact * pri.exact + w.vec * pri.vec + w.load + w.tz * tzMult;
     const finalScore = normalizer > 0 ? Math.min(1, weighted / normalizer) : 0;
 
-    return { ...c, finalScore } satisfies CandidateUser;
+    return { ...c, finalScore, rationale: null } satisfies CandidateUser;
   });
 
-  scored.sort((a, b) => b.finalScore - a.finalScore);
+  // Stable tie-break by userId so clustered scores never reshuffle between calls.
+  scored.sort((a, b) => b.finalScore - a.finalScore || a.userId.localeCompare(b.userId));
   return scored.slice(0, input.topK ?? 5);
 }
