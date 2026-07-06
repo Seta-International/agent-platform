@@ -36,22 +36,22 @@ test('create a candidate and it appears on the board', async ({ page }) => {
   await page.getByRole('button', { name: 'New candidate' }).click();
   // Label text is "Full name *" — the asterisk is part of the rendered label text.
   await page.getByLabel('Full name *').fill(CAND);
-  // Position applied is a native <select> linked via id="cand-req" to label "Position applied *".
-  await page.getByLabel('Position applied *').selectOption({ label: REQ_A });
+  // Position applied is a shared-ui Select (Radix combobox), not a native <select> — open it
+  // and pick the option by its accessible role rather than .selectOption().
+  await page.getByLabel('Position applied *').click();
+  await page.getByRole('option', { name: REQ_A }).click();
   await page.getByRole('button', { name: 'Save candidate' }).click();
 
   await expect(page.getByText('Candidate added')).toBeVisible({ timeout: 8_000 });
-  // Board cards are <button type="button"> elements whose text content includes the candidate name.
-  // The react-beautiful-dnd Draggable wrapper also renders a div[role="button"] drag handle,
-  // so we scope to the actual <button> element to avoid strict-mode violations.
-  await expect(page.locator('button[type="button"]', { hasText: CAND })).toBeVisible();
+  // Board cards render via KanbanCardShell — a div[role="button"] (not a native <button>; native
+  // interactive elements block @hello-pangea/dnd drag), accessible-named "Candidate: {name}".
+  await expect(page.getByRole('button', { name: `Candidate: ${CAND}` })).toBeVisible();
 });
 
 test('move the candidate to Interview and the timeline records it', async ({ page }) => {
   await page.goto('/hiring/candidates');
-  // Open the candidate detail drawer via the board card button (scoped to <button type="button">
-  // to avoid the react-beautiful-dnd drag-handle div[role="button"]).
-  await page.locator('button[type="button"]', { hasText: CAND }).click();
+  // Open the candidate detail drawer via the board card (KanbanCardShell's div[role="button"]).
+  await page.getByRole('button', { name: `Candidate: ${CAND}` }).click();
   // Stage controls in the drawer are four buttons: New / Screening / Interview / Offer.
   // The Sheet uses @radix-ui/react-dialog and its SheetTitle renders as <h2> → dialog name.
   const drawer = page.getByRole('dialog', { name: CAND });
@@ -64,7 +64,7 @@ test('move the candidate to Interview and the timeline records it', async ({ pag
 
 test('reject the candidate with a reason', async ({ page }) => {
   await page.goto('/hiring/candidates');
-  await page.locator('button[type="button"]', { hasText: CAND }).click();
+  await page.getByRole('button', { name: `Candidate: ${CAND}` }).click();
 
   const drawer = page.getByRole('dialog', { name: CAND });
   // The drawer footer has a "Reject" destructive button that opens the RejectDialog.
@@ -74,7 +74,9 @@ test('reject the candidate with a reason', async ({ page }) => {
   // Scope subsequent actions to that dialog to avoid strict-mode collision with the drawer's
   // own "Reject" trigger button (there are two elements named "Reject" in the DOM at this point).
   const rejectDialog = page.getByRole('dialog', { name: 'Reject candidate' });
-  await rejectDialog.getByLabel('Reason').selectOption({ label: REASON });
+  // Reason is a shared-ui Select (Radix combobox); its listbox content portals to the page root.
+  await rejectDialog.getByLabel('Reason').click();
+  await page.getByRole('option', { name: REASON }).click();
   // Confirm button text is "Reject" (not "Reject candidate") — scope to the dialog to be safe.
   await rejectDialog.getByRole('button', { name: 'Reject', exact: true }).click();
 
