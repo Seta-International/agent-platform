@@ -193,6 +193,12 @@ services:
       LOKI_URL: ${LOKI_URL:-}
       REMOTE_WRITE_USERNAME: ${REMOTE_WRITE_USERNAME:-}
       REMOTE_WRITE_PASSWORD: ${REMOTE_WRITE_PASSWORD:-}
+      # RDS cloudwatch-exporter target — set only where an RDS exists (uat/prod);
+      # empty for dev (bundled Postgres) so Alloy scrapes no phantom target.
+      CLOUDWATCH_TARGET: ${CLOUDWATCH_TARGET:-}
+      # DCGM GPU exporter target — set only on the dev agent (co-located with the
+      # future inference box); empty elsewhere.
+      DCGM_TARGET: ${DCGM_TARGET:-}
     volumes:
       - ./infra/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
