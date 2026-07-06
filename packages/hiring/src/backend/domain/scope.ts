@@ -104,21 +104,32 @@ export function buildRequisitionScope(session: SessionScope): Promise<SQL | null
 
 /**
  * Row-scope predicate for `hiring.application` reads (candidate board, candidate detail,
- * talent pool). SECURITY-CRITICAL. Same arms as `buildRequisitionScope`, expressed as a
- * requisition-id subquery so it composes against any query filtering on
+ * talent pool). SECURITY-CRITICAL. Same arms as `buildRequisitionScope` — owner, assigned
+ * recruiter/AM account, or owned project as EM/TL/PM (`project_owner_projection`, FUT-337) —
+ * expressed as a requisition-id subquery so it composes against any query filtering on
  * `application.requisition_id`.
  */
 export function buildCandidateScope(session: SessionScope): Promise<SQL | null> {
-  return buildScope(session, 'hiring.candidate.read', (ids) => ({
-    relationships: [
-      () =>
-        sql`${application.requisition_id} IN (SELECT ${requisition.id} FROM ${requisition}
-          WHERE ${requisition.tenant_id} = ${session.tenant_id} AND ${requisition.owner_user_id} = ${session.user_id})`,
-      () =>
-        ids.length > 0
-          ? sql`${application.requisition_id} IN (SELECT ${requisition.id} FROM ${requisition}
-              WHERE ${requisition.tenant_id} = ${session.tenant_id} AND ${inArray(requisition.account_id, ids)})`
-          : null,
-    ],
-  }));
+  return buildScope(
+    session,
+    'hiring.candidate.read',
+    (accountIds, projectIds) => ({
+      relationships: [
+        () =>
+          sql`${application.requisition_id} IN (SELECT ${requisition.id} FROM ${requisition}
+            WHERE ${requisition.tenant_id} = ${session.tenant_id} AND ${requisition.owner_user_id} = ${session.user_id})`,
+        () =>
+          accountIds.length > 0
+            ? sql`${application.requisition_id} IN (SELECT ${requisition.id} FROM ${requisition}
+                WHERE ${requisition.tenant_id} = ${session.tenant_id} AND ${inArray(requisition.account_id, accountIds)})`
+            : null,
+        () =>
+          projectIds.length > 0
+            ? sql`${application.requisition_id} IN (SELECT ${requisition.id} FROM ${requisition}
+                WHERE ${requisition.tenant_id} = ${session.tenant_id} AND ${inArray(requisition.project_id, projectIds)})`
+            : null,
+      ],
+    }),
+    { includeProjects: true },
+  );
 }
