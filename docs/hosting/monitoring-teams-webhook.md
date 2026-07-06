@@ -9,22 +9,23 @@ Adaptive Card to a **Power Automate Workflow** webhook. (Microsoft retired the o
 
 Pick the template that matches where you want alerts posted:
 
-- **Group chat (or 1:1 chat):** "Post to a chat when a webhook request is received".
-- **Channel:** "Post to a channel when a webhook request is received".
+- **Group chat (or 1:1 chat):** "Send webhook alerts to a chat".
+- **Channel:** "Send webhook alerts to a channel".
 
-Steps (group chat shown; the channel flow is identical bar the last selection):
+Steps (group chat shown; the channel flow is identical bar the destination):
 
 1. In Teams: **Apps → Workflows → Create** (or open the target group chat →
    **⋯ (more options) → Workflows**).
-2. Choose **"Post to a chat when a webhook request is received"**.
+2. Choose the template **"Send webhook alerts to a chat"**.
 3. Confirm the connection (sign in), then **Next**.
-4. For **"Post in"** select **Group chat**, then pick the existing group chat to post
-   to. (You must be a member of that chat.)
+4. On the destination page, select the target **Chat** (the group chat to post to —
+   you must be a member).
 5. **Create**. Copy the generated **HTTP POST URL** — that is `TEAMS_WEBHOOK_URL`.
 
-Treat the URL as a secret: anyone holding it can post to the chat. To rotate, delete
-the workflow and create a new one. Exact labels shift as Microsoft updates the UI; the
-constant is the "Post to a chat … when a webhook request is received" trigger.
+Group-chat delivery only works when every member is in the same org; a group chat with
+federated/external guests will fail. Treat the URL as a secret — anyone holding it can
+post to the chat. To rotate, delete the workflow and create a new one. Exact template
+labels shift as Microsoft updates the UI; the constant is the incoming-webhook trigger.
 
 ## Install it
 
