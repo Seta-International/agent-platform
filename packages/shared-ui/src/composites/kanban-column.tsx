@@ -267,7 +267,7 @@ export function KanbanColumn({
                 <button
                   type="button"
                   className="kanban-column__action-btn"
-                  title="Add task (C)"
+                  title="Add task"
                   onClick={() => setComposing(true)}
                   disabled={Boolean(createTaskDisabledReason)}
                 >
@@ -308,7 +308,6 @@ export function KanbanColumn({
                   disabled={Boolean(renameDisabledReason)}
                 >
                   Rename bucket
-                  <span className="kanban-column__menu-kbd">R</span>
                 </button>
               </DisabledActionTooltip>
             )}
@@ -328,7 +327,6 @@ export function KanbanColumn({
                   disabled={Boolean(createTaskDisabledReason)}
                 >
                   Add task here
-                  <span className="kanban-column__menu-kbd">C</span>
                 </button>
               </DisabledActionTooltip>
             )}
@@ -406,11 +404,10 @@ export function KanbanColumn({
             type="button"
             className="kanban-column__quick-create"
             onClick={() => setComposing(true)}
-            title="Add a task (C)"
+            title="Add a task"
             disabled={Boolean(createTaskDisabledReason)}
           >
             + Add a task
-            <KbdHint keys={['C']} className="ml-1" />
           </button>
         </DisabledActionTooltip>
       )}

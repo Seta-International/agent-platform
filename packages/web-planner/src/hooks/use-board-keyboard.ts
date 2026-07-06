@@ -1,14 +1,13 @@
 import { useEffect } from 'react';
 
 export interface BoardKeyboardOpts {
-  onCreateTask?: () => void;
   onOpenFocused?: () => void;
   onMoveFocus?: (dir: 'up' | 'down' | 'left' | 'right') => void;
   disabled?: boolean;
 }
 
 export function useBoardKeyboard(opts: BoardKeyboardOpts) {
-  const { disabled, onCreateTask, onOpenFocused, onMoveFocus } = opts;
+  const { disabled, onOpenFocused, onMoveFocus } = opts;
   useEffect(() => {
     if (disabled) return;
     function onKey(e: KeyboardEvent) {
@@ -21,10 +20,6 @@ export function useBoardKeyboard(opts: BoardKeyboardOpts) {
       )
         return;
       switch (e.key) {
-        case 'c':
-        case 'C':
-          onCreateTask?.();
-          break;
         case 'Enter':
           onOpenFocused?.();
           break;
@@ -54,5 +49,5 @@ export function useBoardKeyboard(opts: BoardKeyboardOpts) {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [disabled, onCreateTask, onOpenFocused, onMoveFocus]);
+  }, [disabled, onOpenFocused, onMoveFocus]);
 }
