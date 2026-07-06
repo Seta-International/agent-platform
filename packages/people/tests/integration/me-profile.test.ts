@@ -11,6 +11,7 @@ import {
   provisionWorker,
   readMyProfile,
   setBio,
+  setMySkillLevel,
   setMySkills,
   setPresence,
 } from '../../src/index.ts';
@@ -131,13 +132,48 @@ describe('People self-service /me profile', () => {
         const me = await readMyProfile(t.adminSession);
         expect(me.availability_status).toBe('busy');
         expect(me.timezone).toBe('Asia/Ho_Chi_Minh');
-        expect(me.skills).toEqual(['TypeScript']);
+        expect(me.skills.map((s) => s.name)).toEqual(['TypeScript']);
+        expect(me.skills[0]?.level).toBeNull();
         expect(me.bio).toBe('Builds platforms.');
         expect(me.full_name).toBe('Profile Worker');
 
         // empty bio clears it
         await setBio(t.adminSession, { bio: '   ' });
         expect((await readMyProfile(t.adminSession)).bio).toBeNull();
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('setMySkillLevel rates one of my own skills, reflected in readMyProfile', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        await seedSkills(pool, t.tenant_id, ['TypeScript', 'Go']);
+        const { worker_id } = await provisionWorker({
+          full_name: 'Rating Worker',
+          start_date: '2026-01-01',
+          employment_type: 'full_time',
+          session: t.adminSession,
+        });
+        await linkSelf(worker_id, t.admin_user_id);
+        await setMySkills(t.adminSession, { skills: ['TypeScript', 'Go'] });
+
+        const before = await readMyProfile(t.adminSession);
+        const ts = before.skills.find((s) => s.name === 'TypeScript');
+        expect(ts?.level).toBeNull();
+
+        await setMySkillLevel(t.adminSession, { skill_id: ts!.id, level: 4 });
+        const after = await readMyProfile(t.adminSession);
+        expect(after.skills.find((s) => s.name === 'TypeScript')?.level).toBe(4);
+        // untouched skill stays unrated
+        expect(after.skills.find((s) => s.name === 'Go')?.level).toBeNull();
       } finally {
         resetPeopleDb();
         resetCoreDb();

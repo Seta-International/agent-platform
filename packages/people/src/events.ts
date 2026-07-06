@@ -38,6 +38,14 @@ export const personSkillRemovedPayload = z.object({
 });
 export type PersonSkillRemovedPayload = z.infer<typeof personSkillRemovedPayload>;
 
+export const personSkillLevelSetPayload = z.object({
+  person_id: z.string().uuid(),
+  skill_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  level: z.number().int().min(1).max(5).nullable(),
+});
+export type PersonSkillLevelSetPayload = z.infer<typeof personSkillLevelSetPayload>;
+
 export const workerLifecyclePayload = z.object({
   worker_id: z.string().uuid(),
   person_id: z.string().uuid(),
@@ -70,6 +78,7 @@ export const PEOPLE_EVENTS = {
   [PEOPLE_WORKER_UPDATED]: workerUpdatedPayload,
   'people.person.skill.added': personSkillAddedPayload,
   'people.person.skill.removed': personSkillRemovedPayload,
+  'people.person.skill.level.set': personSkillLevelSetPayload,
   'people.worker.terminated': workerLifecyclePayload,
   'people.worker.reinstated': workerLifecyclePayload,
   [PEOPLE_ORG_UNIT_CREATED]: orgUnitCreatedPayload,
