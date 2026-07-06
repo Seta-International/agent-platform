@@ -87,6 +87,7 @@ export function makeSkillMatcherAgent(deps: SkillMatcherDeps): SpecializedAgentS
           role: m.role,
           skillMatch: m.skillMatch,
           skillMatchCount: m.skillMatch.length,
+          relevanceScore: m.relevanceScore,
           rank: i + 1,
         }));
 
