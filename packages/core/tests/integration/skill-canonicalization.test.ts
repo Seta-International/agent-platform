@@ -4,6 +4,7 @@ import {
   createSkill,
   createSkillAlias,
   createSkillCategory,
+  extractSkillMentions,
   slugifySkill,
 } from '../../src/index.ts';
 import { buildSkillAdminSession, withCoreTestDb } from '../helpers.ts';
@@ -129,6 +130,79 @@ describe('canonicalizeSkill', () => {
 
       expect((await canonicalizeSkill(sessionA, 'reactjs'))?.skill_id).toBe(reactA);
       expect(await canonicalizeSkill(sessionB, 'reactjs')).toBeNull();
+    });
+  });
+});
+
+describe('extractSkillMentions', () => {
+  it('mines catalog skills from a label-less task title/description', async () => {
+    await withCoreTestDb(async ({ pool }) => {
+      const tenant = await seedTenant(pool);
+      const session = buildSkillAdminSession(tenant);
+      const { id: catId } = await createSkillCategory({ input: { name: 'Frontend' }, session });
+      const { id: reactId } = await createSkill({
+        input: { category_id: catId, name: 'React' },
+        session,
+      });
+      const { id: nodeId } = await createSkill({
+        input: { category_id: catId, name: 'Node.js' },
+        session,
+      });
+      await createSkillAlias({ input: { skill_id: reactId, alias: 'reactjs' }, session });
+
+      const found = await extractSkillMentions(
+        session,
+        'Migrate the ReactJS front-end into a monorepo. Consolidate our ReactJS app and Node.js services into a single monorepo.',
+      );
+      // "reactjs" resolves through the alias, "Node.js" through its own slug —
+      // exactly the label-less prod scenario, with no labels present.
+      expect(found.map((s) => s.skill_id).sort()).toEqual([reactId, nodeId].sort());
+      // "ReactJS" appears twice but resolves to one distinct skill.
+      expect(found.filter((s) => s.skill_id === reactId)).toHaveLength(1);
+    });
+  });
+
+  it('matches multi-word skills and ignores non-skill prose', async () => {
+    await withCoreTestDb(async ({ pool }) => {
+      const tenant = await seedTenant(pool);
+      const session = buildSkillAdminSession(tenant);
+      const { id: catId } = await createSkillCategory({ input: { name: 'Backend' }, session });
+      const { id: restId } = await createSkill({
+        input: { category_id: catId, name: 'REST APIs' },
+        session,
+      });
+
+      // A 2-word window ("REST APIs") slugs to "restapis" and resolves.
+      expect(
+        (await extractSkillMentions(session, 'Design and document the REST APIs for billing.')).map(
+          (s) => s.skill_id,
+        ),
+      ).toEqual([restId]);
+      // Prose with no catalog skill yields nothing.
+      expect(await extractSkillMentions(session, 'Write the quarterly planning summary.')).toEqual(
+        [],
+      );
+    });
+  });
+
+  it('skips sub-3-char windows so common words never collide with short skills', async () => {
+    await withCoreTestDb(async ({ pool }) => {
+      const tenant = await seedTenant(pool);
+      const session = buildSkillAdminSession(tenant);
+      const { id: catId } = await createSkillCategory({ input: { name: 'Lang' }, session });
+      await createSkill({ input: { category_id: catId, name: 'Go' }, session });
+      const { id: reactId } = await createSkill({
+        input: { category_id: catId, name: 'React' },
+        session,
+      });
+
+      // "go" (slug length 2) must not match the Go skill from ordinary prose;
+      // "React" (>= 3 chars) still resolves.
+      expect(
+        (await extractSkillMentions(session, 'We need to go and finish the React migration.')).map(
+          (s) => s.skill_id,
+        ),
+      ).toEqual([reactId]);
     });
   });
 });

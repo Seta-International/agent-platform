@@ -10,6 +10,7 @@ export {
   canonicalizeSkill,
   canonicalizeSkills,
   createSkillAlias,
+  extractSkillMentions,
   slugifySkill,
 } from './backend/skills/canonicalize.ts';
 export {
