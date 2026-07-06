@@ -5,7 +5,6 @@ import { createStep } from '@mastra/core/workflows';
 // and agent.workflow_approvals. The default engine runs inline and never
 // emits those events, leaving runs stuck in the projected `running` state.
 import { createWorkflow } from '@mastra/core/workflows/evented';
-import type { PgVector } from '@mastra/pg';
 import {
   ApprovalCardSchema,
   getPendingAssignRunIdForTask,
@@ -13,27 +12,15 @@ import {
   type WorkflowSpec,
 } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
-import { type EmbeddingProvider, resolveEmbeddingProvider } from '@seta/shared-embeddings';
-import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
 import { assignTask } from '../../domain/assign-task.ts';
-import { getPlannerVectorStore } from '../../embeddings/vector-store.ts';
+import { defaultAssignBySkillDeps } from './deps.ts';
 import {
   AssignBySkillInputSchema,
   AssignBySkillOutputSchema,
   AssignDecisionSchema,
 } from './schemas.ts';
 import { applyAssignDecision, runSuggestAssignee } from './workflow.ts';
-
-function getProvider(): EmbeddingProvider {
-  return resolveEmbeddingProvider();
-}
-
-function getPgVector(): PgVector {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error('DATABASE_URL required for assignBySkill workflow');
-  return getPlannerVectorStore(databaseUrl);
-}
 
 const ComputeOutputSchema = z.object({
   taskId: z.string().uuid(),
@@ -58,11 +45,7 @@ const computeStep = createStep({
         },
         toolCallId: `workflow:${runId}`,
       },
-      {
-        provider: getProvider(),
-        pgVector: getPgVector(),
-        reranker: resolveReranker(),
-      },
+      defaultAssignBySkillDeps(),
     );
     return { taskId: inputData.taskId, card };
   },
