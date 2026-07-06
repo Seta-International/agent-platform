@@ -10,10 +10,9 @@ prometheus.scrape "app" {
   forward_to   = [prometheus.remote_write.central.receiver]
 }
 
-// RDS metrics — only where an RDS/cloudwatch-exporter exists (uat/prod). dev leaves
-// CLOUDWATCH_TARGET empty; the relabel drops the empty-address target → no targets →
-// no phantom "up==0" for a missing service. (Alloy has no ternary; drop-on-empty is
-// the idiomatic conditional-target pattern.)
+// RDS metrics, prod-only (CloudWatch is monitored for prod alone). dev/uat leave
+// CLOUDWATCH_TARGET empty; the relabel drops the empty-address target so nothing is
+// scraped. (Alloy has no ternary — drop-on-empty is the conditional-target pattern.)
 discovery.relabel "rds" {
   targets = [{ __address__ = sys.env("CLOUDWATCH_TARGET") }]
   rule {
