@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatSuggestionReason,
-  formatSuggestionTooltip,
+  matchLabel,
+  matchRationale,
 } from '../../../src/components/assignee-suggestion-format';
 
 const base = {
@@ -21,21 +22,26 @@ describe('assignee suggestion formatting', () => {
     expect(r).toContain('React');
     expect(r).toContain('12h');
   });
-  it('tooltip explains the score with the signal breakdown', () => {
-    const t = formatSuggestionTooltip(base);
-    expect(t).toContain('92%');
-    expect(t).toContain('React');
-    expect(t).toContain('2 open');
+  it('banks the score into a qualitative match label', () => {
+    expect(matchLabel(0.92)).toBe('Excellent match');
+    expect(matchLabel(0.72)).toBe('Strong match');
+    expect(matchLabel(0.55)).toBe('Good match');
+    expect(matchLabel(0.2)).toBe('Possible match');
   });
-  it('omits missing signals gracefully', () => {
-    const t = formatSuggestionTooltip({
+  it('rationale names exact overlap and spare capacity as drivers', () => {
+    const r = matchRationale(base);
+    expect(r).toContain('exact skill overlap');
+    expect(r).toContain('available capacity');
+  });
+  it('rationale falls back to overall fit when no signals stand out', () => {
+    const r = matchRationale({
       ...base,
+      skills: [],
+      exact_overlap: 0,
       open_task_count: null,
       hours_available_this_week: null,
-      timezone: null,
     });
-    expect(t).toContain('92%');
-    expect(t).not.toContain('null');
+    expect(r).toBe('Ranked by overall fit for this task.');
   });
   it('falls back to a non-empty reason when no signals are available', () => {
     const r = formatSuggestionReason({

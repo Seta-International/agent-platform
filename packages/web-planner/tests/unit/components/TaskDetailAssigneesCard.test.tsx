@@ -215,7 +215,7 @@ describe('TaskDetailAssigneesCard', () => {
     await waitFor(() => expect(assignMutate).toHaveBeenCalledOnce());
   });
 
-  it('renders a Suggested group above an "All members" group', async () => {
+  it('renders an AI matches group above an "All members" group', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
 
@@ -224,7 +224,7 @@ describe('TaskDetailAssigneesCard', () => {
     await user.click(screen.getByRole('button', { name: /Add assignee/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Suggested')).toBeInTheDocument();
+      expect(screen.getByText('AI matches')).toBeInTheDocument();
       expect(screen.getByText('Zara')).toBeInTheDocument();
       expect(screen.getByText('92%')).toBeInTheDocument();
     });
