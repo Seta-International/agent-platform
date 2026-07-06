@@ -1,4 +1,3 @@
-import { getPendingAssignRunIdForTask } from '@seta/agent-sdk';
 import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import { z } from 'zod';
@@ -272,11 +271,7 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/planner/v1/tasks/:id', async (c) => {
     const session = c.get('user');
     const taskId = c.req.param('id');
-    const [task, pendingAssignWorkflowRunId] = await Promise.all([
-      getTask({ task_id: taskId, session }),
-      getPendingAssignRunIdForTask({ taskId, tenantId: session.tenant_id }),
-    ]);
-    return c.json({ ...task, pending_assign_workflow_run_id: pendingAssignWorkflowRunId });
+    return c.json(await getTask({ task_id: taskId, session }));
   });
 
   app.post('/api/planner/v1/tasks', async (c) => {
