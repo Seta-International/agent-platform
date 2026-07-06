@@ -20,7 +20,7 @@ import {
   TooltipTrigger,
 } from '@seta/shared-ui';
 import { usePermission, useSession } from '@seta/web-identity';
-import { GripVertical, Plus, X, Zap } from 'lucide-react';
+import { GripVertical, Plus, Sparkles, X, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { useAssignTask } from '../hooks/mutations/assign-task';
 import { useMoveToTopOfMyList } from '../hooks/mutations/move-to-top-of-my-list';
@@ -30,11 +30,8 @@ import { useAssigneeSuggestions } from '../hooks/queries/use-assignee-suggestion
 import { useGroupMemberAssigneeSearch } from '../hooks/use-group-member-assignee-search';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { computeAssigneeReorder } from './assignee-reorder';
-import {
-  formatSuggestionReason,
-  formatSuggestionTooltip,
-  scorePercent,
-} from './assignee-suggestion-format';
+import { formatSuggestionReason, scorePercent } from './assignee-suggestion-format';
+import { SuggestionScoreTooltip } from './suggestion-score-tooltip';
 
 interface Props {
   task: TaskWithAssigneesRow;
@@ -42,6 +39,10 @@ interface Props {
   groupId: string;
   isLinkedToM365?: boolean;
 }
+
+// Brand-cohesive "intelligence" gradient: Seta blue → indigo → cyan.
+// Signals the AI-matched zone without the cliché purple-on-white slop.
+const AI_GRADIENT = 'linear-gradient(120deg, #0047FF 0%, #6d5cff 46%, #22d3ee 100%)';
 
 function initialsOf(name: string): string {
   const parts = name.split(/\s+/).filter(Boolean);
@@ -183,7 +184,23 @@ export function TaskDetailAssigneesCard({
                   {memberQuery.isPending && search ? 'Searching…' : 'No group members found.'}
                 </CommandEmpty>
                 <TooltipProvider delayDuration={200}>
-                  <CommandGroup heading="Suggested">
+                  <CommandGroup
+                    heading={
+                      <span className="inline-flex items-center gap-1.5 uppercase tracking-wide">
+                        <Sparkles
+                          className="size-3 animate-pulse"
+                          style={{ color: '#6d5cff' }}
+                          aria-hidden
+                        />
+                        <span
+                          className="bg-clip-text font-semibold text-transparent"
+                          style={{ backgroundImage: AI_GRADIENT }}
+                        >
+                          AI matches
+                        </span>
+                      </span>
+                    }
+                  >
                     {suggestionsQ.isPending && (
                       <div className="px-2 py-1.5 text-caption text-ink-subtle">
                         Loading suggestions…
@@ -237,7 +254,14 @@ export function TaskDetailAssigneesCard({
                                   {scorePercent(s)}%
                                 </span>
                               </TooltipTrigger>
-                              <TooltipContent>{formatSuggestionTooltip(s)}</TooltipContent>
+                              <TooltipContent
+                                side="left"
+                                align="center"
+                                collisionPadding={12}
+                                className="px-3 py-2"
+                              >
+                                <SuggestionScoreTooltip suggestion={s} />
+                              </TooltipContent>
                             </Tooltip>
                             {already && (
                               <span className="shrink-0 text-caption text-ink-subtle">Added</span>

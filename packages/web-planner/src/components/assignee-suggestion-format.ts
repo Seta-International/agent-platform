@@ -14,18 +14,23 @@ export function formatSuggestionReason(s: AssigneeSuggestion): string {
   return parts.length > 0 ? parts.join(' · ') : 'Suggested';
 }
 
-/** Full hover explanation, e.g.
- * "Match 92% — Skills: React, TypeScript (2 exact) · 2 open tasks · ~12h free · GMT+7". */
-export function formatSuggestionTooltip(s: AssigneeSuggestion): string {
-  const parts: string[] = [];
-  if (s.skills.length > 0) {
-    const exact = s.exact_overlap > 0 ? ` (${s.exact_overlap} exact)` : '';
-    parts.push(`Skills: ${s.skills.join(', ')}${exact}`);
-  }
-  if (s.open_task_count != null) parts.push(`${s.open_task_count} open tasks`);
-  if (s.hours_available_this_week != null)
-    parts.push(`~${Math.round(s.hours_available_this_week)}h free this week`);
-  if (s.timezone) parts.push(s.timezone);
-  const detail = parts.length > 0 ? ` — ${parts.join(' · ')}` : '';
-  return `Match ${scorePercent(s)}%${detail}`;
+/** Qualitative band for the numeric match score, used as the tooltip title. */
+export function matchLabel(score: number): string {
+  if (score >= 0.85) return 'Excellent match';
+  if (score >= 0.7) return 'Strong match';
+  if (score >= 0.5) return 'Good match';
+  return 'Possible match';
+}
+
+/** One-line rationale naming the dominant driver(s) behind the score. */
+export function matchRationale(s: AssigneeSuggestion): string {
+  const drivers: string[] = [];
+  if (s.exact_overlap > 0) drivers.push('exact skill overlap');
+  else if (s.skills.length > 0) drivers.push('related skills');
+  const light =
+    (s.hours_available_this_week != null && s.hours_available_this_week >= 8) ||
+    (s.open_task_count != null && s.open_task_count <= 2);
+  if (light) drivers.push('available capacity');
+  if (drivers.length === 0) return 'Ranked by overall fit for this task.';
+  return `Driven by ${drivers.join(' and ')}.`;
 }
