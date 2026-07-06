@@ -50,6 +50,7 @@ export * from './composites/progress-bar';
 export * from './composites/resolve-plan-conflicts-dialog';
 export * from './composites/segmented-control';
 export * from './composites/side-panel';
+export * from './composites/skill-level-rating';
 export * from './composites/status-pill';
 export * from './composites/sync-badge';
 export * from './composites/task-conflict-group';

@@ -37,6 +37,12 @@ export interface AppManifest {
   routeNamespace: string;
   /** Optional launcher-tile accent colour (CSS colour string). */
   color?: string;
+  /**
+   * System apps (e.g. Settings) drive shell chrome — breadcrumb + left nav —
+   * but are reached from the account menu, not the 9-dot launcher grid. When
+   * true, the launcher omits this app while active-app resolution still finds it.
+   */
+  hideInLauncher?: boolean;
   requiredPermissions: PermissionKey[];
   /**
    * Sections grouping nav items inside this module. Every manifest must declare

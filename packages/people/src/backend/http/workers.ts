@@ -11,6 +11,7 @@ import {
   listWorkers,
   reinstateWorker,
   removePersonSkill,
+  setPersonSkillLevel,
   terminateWorker,
 } from '../../index.ts';
 
@@ -22,6 +23,10 @@ const editBody = z.object({
 const addSkillBody = z.object({
   skill_id: z.string().uuid(),
   level: z.number().int().min(1).max(5).optional(),
+});
+
+const skillLevelBody = z.object({
+  level: z.number().int().min(1).max(5).nullable(),
 });
 
 export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
@@ -95,6 +100,18 @@ export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
       session: c.get('user'),
     });
     return c.body(null, 201);
+  });
+  app.patch('/api/people/v1/workers/:id/skills/:skillId', async (c) => {
+    const parsed = skillLevelBody.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    await setPersonSkillLevel({
+      person_id: c.req.param('id'),
+      skill_id: c.req.param('skillId'),
+      level: parsed.data.level,
+      session: c.get('user'),
+    });
+    return c.body(null, 204);
   });
   app.delete('/api/people/v1/workers/:id/skills/:skillId', async (c) => {
     await removePersonSkill({

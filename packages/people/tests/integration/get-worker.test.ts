@@ -96,6 +96,7 @@ describe('getWorker enriched fields', () => {
         person_id: worker_id,
         skill_id: skillId,
         skill_name: 'TypeScript',
+        level: 3,
       });
 
       const w = await getWorker({ worker_id, session: t.adminSession });
@@ -105,7 +106,7 @@ describe('getWorker enriched fields', () => {
       expect(w.org_unit_id).toBe(unit);
       expect(w.org_unit_name).toBe('Delivery');
       expect(w.accounts).toEqual([{ id: accountId, name: 'Test Account' }]);
-      expect(w.skills).toEqual([{ id: skillId, name: 'TypeScript' }]);
+      expect(w.skills).toEqual([{ id: skillId, name: 'TypeScript', level: 3 }]);
     });
   });
 
@@ -236,11 +237,49 @@ describe('person-skill HTTP routes', () => {
       expect(res.status).toBe(201);
 
       const w = await getWorker({ worker_id, session: t.adminSession });
-      expect(w.skills).toEqual([{ id: skillId, name: 'Go' }]);
+      expect(w.skills).toEqual([{ id: skillId, name: 'Go', level: null }]);
 
       const events = await readEvents(pool, t.tenant_id, 'people.person.skill.added');
       expect(events).toHaveLength(1);
       expect(events[0]?.aggregate_id).toBe(worker_id);
+    });
+  });
+
+  it('PATCH /workers/:id/skills/:skillId sets the level, visible in getWorker', async () => {
+    await withDb(async ({ pool, t }) => {
+      const { worker_id } = await createWorker({
+        full_name: 'Level Skill Worker',
+        session: t.adminSession,
+      });
+
+      const catId = crypto.randomUUID();
+      const skillId = crypto.randomUUID();
+      await pool.query(`INSERT INTO core.skill_category (id, tenant_id, name) VALUES ($1,$2,$3)`, [
+        catId,
+        t.tenant_id,
+        'Engineering',
+      ]);
+      await pool.query(
+        `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
+        [skillId, t.tenant_id, catId, 'Kotlin'],
+      );
+
+      const app = buildApp(t.adminSession);
+      await app.request(`/api/people/v1/workers/${worker_id}/skills`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ skill_id: skillId }),
+      });
+
+      const res = await app.request(`/api/people/v1/workers/${worker_id}/skills/${skillId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ level: 5 }),
+      });
+      expect(res.status).toBe(204);
+
+      const w = await getWorker({ worker_id, session: t.adminSession });
+      expect(w.skills).toEqual([{ id: skillId, name: 'Kotlin', level: 5 }]);
     });
   });
 

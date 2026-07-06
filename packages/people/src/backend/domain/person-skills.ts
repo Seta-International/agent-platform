@@ -2,7 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { listSkills } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { person, personSkill } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
@@ -18,6 +18,23 @@ export async function fetchPersonSkillNames(tenantId: string, userId: string): P
     .where(and(eq(personSkill.tenant_id, tenantId), eq(person.user_id, userId)))
     .orderBy(personSkill.skill_name);
   return rows.map((r) => r.skill_name);
+}
+
+export interface PersonSkill {
+  id: string;
+  name: string;
+  level: number | null;
+}
+
+// Ungated skill read with id + proficiency level (callers gate), for the caller's
+// own profile page. Ordered by name for a stable, non-jumping list.
+export async function fetchPersonSkills(tenantId: string, userId: string): Promise<PersonSkill[]> {
+  return peopleDb()
+    .select({ id: personSkill.skill_id, name: personSkill.skill_name, level: personSkill.level })
+    .from(personSkill)
+    .innerJoin(person, eq(person.id, personSkill.person_id))
+    .where(and(eq(personSkill.tenant_id, tenantId), eq(person.user_id, userId)))
+    .orderBy(personSkill.skill_name);
 }
 
 // Public read used by self-service profile + cross-module callers (planner/staffing).
@@ -156,6 +173,71 @@ export async function addPersonSkill(input: {
       });
     },
   );
+}
+
+// Guarded UPDATE of a person_skill's proficiency level. Separate from addPersonSkill
+// because that path is onConflictDoNothing and can't mutate an existing row.
+// level null = "not rated". Shared by the manager (setPersonSkillLevel) and
+// self-service (setMySkillLevel) paths; each gates the permission before calling.
+async function applySkillLevel(
+  session: SessionScope,
+  person_id: string,
+  skill_id: string,
+  level: number | null,
+): Promise<void> {
+  if (level !== null && (!Number.isInteger(level) || level < 1 || level > 5)) {
+    throw new PeopleError('VALIDATION', `level must be an integer 1-5 or null: ${level}`);
+  }
+
+  await withEmit(
+    { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+    async (tx) => {
+      const updated = await tx
+        .update(personSkill)
+        .set({ level, version: sql`${personSkill.version} + 1`, updated_at: new Date() })
+        .where(
+          and(
+            eq(personSkill.tenant_id, session.tenant_id),
+            eq(personSkill.person_id, person_id),
+            eq(personSkill.skill_id, skill_id),
+          ),
+        )
+        .returning({ id: personSkill.id });
+      if (updated.length === 0) {
+        throw new PeopleError('NOT_FOUND', `skill not assigned to worker: ${skill_id}`);
+      }
+      await emit({
+        tenantId: session.tenant_id,
+        aggregateType: 'people.person',
+        aggregateId: person_id,
+        eventType: 'people.person.skill.level.set',
+        eventVersion: 1,
+        payload: { person_id, skill_id, level, tenant_id: session.tenant_id },
+      });
+    },
+  );
+}
+
+// Manager path: rate any worker's skill (gated on people.worker.update).
+export async function setPersonSkillLevel(input: {
+  person_id: string;
+  skill_id: string;
+  level: number | null;
+  session: SessionScope;
+}): Promise<void> {
+  const { person_id, skill_id, level, session } = input;
+  requirePermission(session, 'people.worker.update');
+  await applySkillLevel(session, person_id, skill_id, level);
+}
+
+// Self-service path: rate one of my own skills (gated on people.self.manage).
+export async function setMySkillLevel(
+  session: SessionScope,
+  input: { skill_id: string; level: number | null },
+): Promise<void> {
+  requirePermission(session, 'people.self.manage');
+  const personId = await resolveSelfPersonId(session);
+  await applySkillLevel(session, personId, input.skill_id, input.level);
 }
 
 export async function removePersonSkill(input: {

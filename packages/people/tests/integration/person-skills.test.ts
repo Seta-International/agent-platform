@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { person, personSkill } from '../../src/backend/db/schema.ts';
-import { addPersonSkill, removePersonSkill } from '../../src/index.ts';
+import { addPersonSkill, removePersonSkill, setPersonSkillLevel } from '../../src/index.ts';
 import { readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -154,6 +154,119 @@ describe('addPersonSkill / removePersonSkill', () => {
         expect(events).toHaveLength(1);
         expect(events[0]?.aggregate_id).toBe(personId);
         expect(events[0]?.payload).toMatchObject({ person_id: personId, skill_id: skillId });
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('setPersonSkillLevel updates the level and emits people.person.skill.level.set', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+
+        const catId = crypto.randomUUID();
+        const skillId = crypto.randomUUID();
+        await pool.query(
+          `INSERT INTO core.skill_category (id, tenant_id, name) VALUES ($1,$2,$3)`,
+          [catId, t.tenant_id, 'Engineering'],
+        );
+        await pool.query(
+          `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
+          [skillId, t.tenant_id, catId, 'Redis'],
+        );
+
+        const [p] = await peopleDb().insert(person).values({ tenant_id: t.tenant_id }).returning();
+        const personId = p!.id;
+
+        await addPersonSkill({ person_id: personId, skill_id: skillId, session: t.adminSession });
+        await setPersonSkillLevel({
+          person_id: personId,
+          skill_id: skillId,
+          level: 4,
+          session: t.adminSession,
+        });
+
+        const where = and(
+          eq(personSkill.tenant_id, t.tenant_id),
+          eq(personSkill.person_id, personId),
+          eq(personSkill.skill_id, skillId),
+        );
+        let rows = await peopleDb().select().from(personSkill).where(where);
+        expect(rows[0]?.level).toBe(4);
+
+        const events = await readEvents(pool, t.tenant_id, 'people.person.skill.level.set');
+        expect(events).toHaveLength(1);
+        expect(events[0]?.payload).toMatchObject({
+          person_id: personId,
+          skill_id: skillId,
+          level: 4,
+        });
+
+        // null clears the rating back to "not rated"
+        await setPersonSkillLevel({
+          person_id: personId,
+          skill_id: skillId,
+          level: null,
+          session: t.adminSession,
+        });
+        rows = await peopleDb().select().from(personSkill).where(where);
+        expect(rows[0]?.level).toBeNull();
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('setPersonSkillLevel throws NOT_FOUND when the skill is not assigned', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const [p] = await peopleDb().insert(person).values({ tenant_id: t.tenant_id }).returning();
+
+        await expect(
+          setPersonSkillLevel({
+            person_id: p!.id,
+            skill_id: crypto.randomUUID(),
+            level: 3,
+            session: t.adminSession,
+          }),
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('setPersonSkillLevel throws VALIDATION for out-of-range level', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const [p] = await peopleDb().insert(person).values({ tenant_id: t.tenant_id }).returning();
+
+        await expect(
+          setPersonSkillLevel({
+            person_id: p!.id,
+            skill_id: crypto.randomUUID(),
+            level: 9,
+            session: t.adminSession,
+          }),
+        ).rejects.toMatchObject({ code: 'VALIDATION' });
       } finally {
         resetPeopleDb();
         resetCoreDb();
