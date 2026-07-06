@@ -1,6 +1,8 @@
 # Central observability stack (runs on the VPS). Receives remote_write (metrics)
 # + loki push (logs) from every env's Alloy agent; single Grafana over all envs.
-# Alertmanager wiring (email + MS 365 Teams) is the separate follow-up slice.
+# Deployed by .github/workflows/deploy-monitoring.yml (manual). Alertmanager routes
+# to MS Teams; the webhook secret is provisioned by that workflow.
+name: seta-monitoring
 services:
   prometheus:
     image: prom/prometheus:v3.4.0
@@ -38,11 +40,8 @@ services:
       - seta-monitoring-grafana-data:/var/lib/grafana
     depends_on: [prometheus, loki]
 
-  # Routes Prometheus alerts to MS Teams (Power Automate Workflow webhook). The
-  # webhook URL is a file secret placed on the VPS out-of-band (never committed):
-  #   docker volume create seta-monitoring-alertmanager-secrets
-  #   printf '%s' '<POWER_AUTOMATE_WEBHOOK_URL>' | docker run --rm -i \
-  #     -v seta-monitoring-alertmanager-secrets:/s busybox sh -c 'cat > /s/teams_webhook_url'
+  # Routes Prometheus alerts to MS Teams. The webhook secret volume is provisioned
+  # by deploy-monitoring.yml from the TEAMS_WEBHOOK_URL environment secret.
   alertmanager:
     image: prom/alertmanager:v0.28.0
     restart: unless-stopped
