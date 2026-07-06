@@ -22,8 +22,9 @@ export function matchLabel(score: number): string {
   return 'Possible match';
 }
 
-/** One-line rationale naming the dominant driver(s) behind the score. */
+/** One-line rationale: the model's own explanation when present, else a synthesized one. */
 export function matchRationale(s: AssigneeSuggestion): string {
+  if (s.rationale && s.rationale.trim()) return s.rationale.trim();
   const drivers: string[] = [];
   if (s.exact_overlap > 0) drivers.push('exact skill overlap');
   else if (s.skills.length > 0) drivers.push('related skills');

@@ -258,7 +258,7 @@ export function TaskDetailAssigneesCard({
                                 side="left"
                                 align="center"
                                 collisionPadding={12}
-                                className="px-3 py-2"
+                                className="z-[200] px-3 py-2"
                               >
                                 <SuggestionScoreTooltip suggestion={s} />
                               </TooltipContent>
