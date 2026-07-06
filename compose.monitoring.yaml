@@ -13,6 +13,7 @@ services:
     ports: ["9090:9090"]
     volumes:
       - ./infra/prometheus/prometheus.central.yml:/etc/prometheus/prometheus.central.yml:ro
+      - ./infra/prometheus/rules:/etc/prometheus/rules:ro
       - seta-monitoring-prometheus-data:/prometheus
 
   loki:
@@ -36,7 +37,26 @@ services:
       - seta-monitoring-grafana-data:/var/lib/grafana
     depends_on: [prometheus, loki]
 
+  # Routes Prometheus alerts to MS Teams (Power Automate Workflow webhook). The
+  # webhook URL is a file secret placed on the VPS out-of-band (never committed):
+  #   docker volume create seta-monitoring-alertmanager-secrets
+  #   printf '%s' '<POWER_AUTOMATE_WEBHOOK_URL>' | docker run --rm -i \
+  #     -v seta-monitoring-alertmanager-secrets:/s busybox sh -c 'cat > /s/teams_webhook_url'
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    restart: unless-stopped
+    command: [--config.file=/etc/alertmanager/alertmanager.yml]
+    ports: ["9093:9093"]
+    volumes:
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - seta-monitoring-alertmanager-secrets:/etc/alertmanager/secrets:ro
+      - seta-monitoring-alertmanager-data:/alertmanager
+
 volumes:
   seta-monitoring-prometheus-data:
   seta-monitoring-loki-data:
   seta-monitoring-grafana-data:
+  seta-monitoring-alertmanager-data:
+  # Created out-of-band on the VPS with the Teams webhook URL (see alertmanager notes).
+  seta-monitoring-alertmanager-secrets:
+    external: true

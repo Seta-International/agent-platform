@@ -1,0 +1,18 @@
+# Monitoring self-health. Watchdog is the standard kube-prometheus "always firing"
+# heartbeat: if its periodic Teams card STOPS arriving, the alert pipeline itself
+# (Prometheus rules → Alertmanager → Teams) is broken.
+#
+# A remote-write / Loki-ingestion error alert is intentionally NOT added here: those
+# signals live on the agents' / Loki's own /metrics, which the central Prometheus
+# does not scrape, so we cannot alert on them with verified series. Loki push errors
+# are fixed at the source (infra/loki/loki-config.yml). Adding pipeline-error alerts
+# is a documented follow-up once agent self-metrics are scraped.
+groups:
+  - name: meta
+    rules:
+      - alert: Watchdog
+        expr: vector(1)
+        labels: { severity: none }
+        annotations:
+          summary: "Watchdog heartbeat"
+          description: "Always firing. Its absence in Teams means the monitoring pipeline is down."

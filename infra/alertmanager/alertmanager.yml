@@ -1,0 +1,32 @@
+# Alertmanager — single MS Teams receiver (Power Automate Workflow webhook).
+# Routing by env+severity; the webhook URL is a mounted secret (never committed).
+route:
+  receiver: teams
+  group_by: [env, alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    # Heartbeat: send often so its absence in Teams is quickly noticeable.
+    - receiver: teams
+      matchers: [ alertname="Watchdog" ]
+      group_wait: 0s
+      group_interval: 5m
+      repeat_interval: 5m
+    # Critical: notify fast.
+    - receiver: teams
+      matchers: [ severity="critical" ]
+      group_wait: 10s
+
+# When an env goes fully dark, send one "env not reporting" alert instead of a
+# storm of per-target down alerts for that same env.
+inhibit_rules:
+  - source_matchers: [ alertname="EnvNotReporting" ]
+    target_matchers: [ alertname=~"HostDown|PostgresDown|AppTargetDown" ]
+    equal: [ env ]
+
+receivers:
+  - name: teams
+    msteamsv2_configs:
+      - send_resolved: true
+        webhook_url_file: /etc/alertmanager/secrets/teams_webhook_url

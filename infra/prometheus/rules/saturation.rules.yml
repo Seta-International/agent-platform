@@ -1,0 +1,21 @@
+# Resource saturation. node-exporter mixin, trimmed. Scope: dev + uat.
+groups:
+  - name: saturation
+    rules:
+      - alert: DiskWillFillSoon
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|ramfs"}[6h], 24 * 3600) < 0
+          and node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|ramfs"} / node_filesystem_size_bytes < 0.30
+        for: 1h
+        labels: { severity: warning }
+        annotations:
+          summary: "Disk fills within 24h ({{ $labels.env }}/{{ $labels.mountpoint }})"
+          description: "Linear projection of free space crosses zero within 24h."
+
+      - alert: DiskCritical
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|ramfs"} / node_filesystem_size_bytes < 0.05
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: "Disk <5% free ({{ $labels.env }}/{{ $labels.mountpoint }})"
+          description: "Filesystem below 5% free."
