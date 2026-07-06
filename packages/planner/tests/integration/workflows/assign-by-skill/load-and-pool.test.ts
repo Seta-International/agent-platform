@@ -57,16 +57,16 @@ async function seedProjection(
   );
 }
 
-function registerFakeSkillTagTool(
+function registerFakeSkillExactTool(
   hits: ReadonlyArray<{ userId: string; matchedSkills: string[]; overlap: number }>,
 ): void {
   const spec: CrossModuleReadToolSpec<
-    { tags: string[] },
+    { labels: string[] },
     { hits: Array<{ userId: string; matchedSkills: string[]; overlap: number }> }
   > = {
-    id: 'people_searchUsersBySkillTags',
+    id: 'people_searchUsersBySkillExact',
     description: 'fake',
-    inputSchema: z.object({ tags: z.array(z.string()) }),
+    inputSchema: z.object({ labels: z.array(z.string()) }),
     outputSchema: z.object({
       hits: z.array(
         z.object({
@@ -179,7 +179,9 @@ describe('loadTask + candidatePool', () => {
       });
 
       // Exact branch now sources skills from People — Alice matches both tags.
-      registerFakeSkillTagTool([{ userId: aliceId, matchedSkills: ['react', 'auth'], overlap: 2 }]);
+      registerFakeSkillExactTool([
+        { userId: aliceId, matchedSkills: ['react', 'auth'], overlap: 2 },
+      ]);
       // Stub the vector branch — Bob shows up only here, Alice's score is
       // additive on top of her exact overlap.
       registerFakeVectorTool([
@@ -246,7 +248,9 @@ describe('loadTask + candidatePool', () => {
       // Projection skills intentionally EMPTY — skills live in People now. The
       // exact branch must still find Anh via the skill-tag tool.
       await seedProjection(pool, tenant_id, anhId, 'Anh', 'anh@d.local', { skills: [] });
-      registerFakeSkillTagTool([{ userId: anhId, matchedSkills: ['Python', 'Java'], overlap: 2 }]);
+      registerFakeSkillExactTool([
+        { userId: anhId, matchedSkills: ['Python', 'Java'], overlap: 2 },
+      ]);
       AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
@@ -314,7 +318,7 @@ describe('loadTask + candidatePool', () => {
 
       // Both surface from the exact branch; the projection availability gate
       // (deactivated / OOO) must drop them.
-      registerFakeSkillTagTool([
+      registerFakeSkillExactTool([
         { userId: dz, matchedSkills: ['rust'], overlap: 1 },
         { userId: ooo, matchedSkills: ['rust'], overlap: 1 },
       ]);
@@ -386,7 +390,7 @@ describe('loadTask + candidatePool', () => {
         skills: ['react', 'auth'],
       });
 
-      registerFakeSkillTagTool([
+      registerFakeSkillExactTool([
         { userId: aliceId, matchedSkills: ['react', 'auth'], overlap: 2 },
         { userId: bobId, matchedSkills: ['react', 'auth'], overlap: 2 },
       ]);

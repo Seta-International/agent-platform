@@ -2,7 +2,7 @@ import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
-import { buildSearchUsersBySkillTagsSpec } from '../../src/backend/agent-tools/search-users-by-skill-tags.ts';
+import { buildSearchUsersBySkillExactSpec } from '../../src/backend/agent-tools/search-users-by-skill-exact.ts';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { person } from '../../src/backend/db/schema.ts';
 import { addPersonSkill } from '../../src/index.ts';
@@ -32,7 +32,7 @@ async function seedCatalogSkill(
   return skillId;
 }
 
-describe('people_searchUsersBySkillTags', () => {
+describe('people_searchUsersBySkillExact', () => {
   it('matches skills case-insensitively and maps person → linked user', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
@@ -54,7 +54,7 @@ describe('people_searchUsersBySkillTags', () => {
         await addPersonSkill({ person_id: personId, skill_id: pythonId, session: t.adminSession });
         await addPersonSkill({ person_id: personId, skill_id: javaId, session: t.adminSession });
 
-        const tool = buildSearchUsersBySkillTagsSpec();
+        const tool = buildSearchUsersBySkillExactSpec();
         // Task labels arrive lowercase — must still match "Python"/"Java".
         const out = await tool.execute({
           session: {
@@ -62,7 +62,7 @@ describe('people_searchUsersBySkillTags', () => {
             user_id: t.adminSession.user_id,
             role_summary: t.adminSession.role_summary,
           },
-          input: { tags: ['python', 'java'] },
+          input: { labels: ['python', 'java'] },
         });
 
         expect(out.hits).toHaveLength(1);
@@ -90,13 +90,13 @@ describe('people_searchUsersBySkillTags', () => {
         const [p] = await peopleDb().insert(person).values({ tenant_id: t.tenant_id }).returning();
         await addPersonSkill({ person_id: p!.id, skill_id: skillId, session: t.adminSession });
 
-        const out = await buildSearchUsersBySkillTagsSpec().execute({
+        const out = await buildSearchUsersBySkillExactSpec().execute({
           session: {
             tenant_id: t.tenant_id,
             user_id: t.adminSession.user_id,
             role_summary: t.adminSession.role_summary,
           },
-          input: { tags: ['rust'] },
+          input: { labels: ['rust'] },
         });
         expect(out.hits).toHaveLength(0);
       } finally {

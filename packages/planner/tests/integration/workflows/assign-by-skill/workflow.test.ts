@@ -70,16 +70,16 @@ async function seedProjection(
   );
 }
 
-function registerFakeSkillTagTool(
+function registerFakeSkillExactTool(
   hits: ReadonlyArray<{ userId: string; matchedSkills: string[]; overlap: number }>,
 ): void {
   const spec: CrossModuleReadToolSpec<
-    { tags: string[] },
+    { labels: string[] },
     { hits: Array<{ userId: string; matchedSkills: string[]; overlap: number }> }
   > = {
-    id: 'people_searchUsersBySkillTags',
+    id: 'people_searchUsersBySkillExact',
     description: 'fake',
-    inputSchema: z.object({ tags: z.array(z.string()) }),
+    inputSchema: z.object({ labels: z.array(z.string()) }),
     outputSchema: z.object({
       hits: z.array(
         z.object({
@@ -136,7 +136,7 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
         skills: ['react', 'auth'],
       });
 
-      registerFakeSkillTagTool([
+      registerFakeSkillExactTool([
         { userId: alice.user_id, matchedSkills: ['react', 'auth'], overlap: 2 },
       ]);
       registerFakeVectorTool([]);

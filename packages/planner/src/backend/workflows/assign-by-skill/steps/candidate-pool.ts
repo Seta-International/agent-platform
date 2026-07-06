@@ -134,28 +134,28 @@ export async function candidatePool(
   return Array.from(byUser.values()).filter((c) => memberSet.has(c.userId));
 }
 
-interface SkillTagSearchInput {
-  tags: string[];
+interface SkillExactSearchInput {
+  labels: string[];
 }
-interface SkillTagSearchOutput {
+interface SkillExactSearchOutput {
   hits: Array<{ userId: string; matchedSkills: string[]; overlap: number }>;
 }
 
-function findSkillTagTool():
-  | CrossModuleReadToolSpec<SkillTagSearchInput, SkillTagSearchOutput>
+function findSkillExactTool():
+  | CrossModuleReadToolSpec<SkillExactSearchInput, SkillExactSearchOutput>
   | undefined {
   return AgentRegistry.listCrossModuleReadTools().find(
-    (t) => t.id === 'people_searchUsersBySkillTags',
-  ) as CrossModuleReadToolSpec<SkillTagSearchInput, SkillTagSearchOutput> | undefined;
+    (t) => t.id === 'people_searchUsersBySkillExact',
+  ) as CrossModuleReadToolSpec<SkillExactSearchInput, SkillExactSearchOutput> | undefined;
 }
 
 /**
- * Exact skill-tag branch. Skills moved to People, so assignee_projection.skills
+ * Exact-match branch. Skills moved to People, so assignee_projection.skills
  * is no longer event-populated — the match is delegated to People's
- * people_searchUsersBySkillTags tool (case-insensitive tag ∩ person_skill). The
- * returned user_ids are then joined against the planner projection for
- * display_name and availability (deactivated / OOO), which the projection still
- * owns.
+ * people_searchUsersBySkillExact tool (case-insensitive task label ∩
+ * person_skill). The returned user_ids are then joined against the planner
+ * projection for display_name and availability (deactivated / OOO), which the
+ * projection still owns.
  */
 async function fetchExactHits(
   tenantId: string,
@@ -164,14 +164,14 @@ async function fetchExactHits(
   task: LoadedTask,
 ): Promise<Array<{ user_id: string; display_name: string; skills: string[]; overlap: number }>> {
   if (task.labels.length === 0) return [];
-  const tool = findSkillTagTool();
+  const tool = findSkillExactTool();
   if (!tool) return [];
 
-  let hits: SkillTagSearchOutput['hits'];
+  let hits: SkillExactSearchOutput['hits'];
   try {
     const out = await tool.execute({
       session: { tenant_id: tenantId, user_id: callerUserId, role_summary: callerRoleSummary },
-      input: { tags: task.labels },
+      input: { labels: task.labels },
     });
     hits = out.hits;
   } catch {

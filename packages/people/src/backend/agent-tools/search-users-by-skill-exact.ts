@@ -6,7 +6,9 @@ import { peopleDb } from '../db/client.ts';
 import { person, personSkill } from '../db/schema.ts';
 
 const inputSchema = z.object({
-  tags: z.array(z.string().min(1)).describe('Skill tag names to match (case-insensitive)'),
+  labels: z
+    .array(z.string().min(1))
+    .describe('Task label names to match against people skills (case-insensitive)'),
 });
 
 const outputSchema = z.object({
@@ -19,12 +21,12 @@ const outputSchema = z.object({
   ),
 });
 
-export type SearchUsersBySkillTagsInput = z.infer<typeof inputSchema>;
-export type SearchUsersBySkillTagsOutput = z.infer<typeof outputSchema>;
+export type SearchUsersBySkillExactInput = z.infer<typeof inputSchema>;
+export type SearchUsersBySkillExactOutput = z.infer<typeof outputSchema>;
 
 /**
- * Cross-module read tool: exact skill-tag match (case-insensitive) over People
- * person_skill, keyed to linked user accounts.
+ * Cross-module read tool: exact match (case-insensitive) of task labels against
+ * People person_skill (a person's techstack), keyed to linked user accounts.
  *
  * Consumed by planner.assignBySkill (exact branch). It replaces the dead
  * assignee_projection.skills read: worker skills moved to People, so the planner
@@ -33,21 +35,21 @@ export type SearchUsersBySkillTagsOutput = z.infer<typeof outputSchema>;
  * downstream assigns to a user_id. Availability (ooo/busy) is enforced by the
  * caller against its own projection.
  */
-export function buildSearchUsersBySkillTagsSpec(): CrossModuleReadToolSpec<
-  SearchUsersBySkillTagsInput,
-  SearchUsersBySkillTagsOutput
+export function buildSearchUsersBySkillExactSpec(): CrossModuleReadToolSpec<
+  SearchUsersBySkillExactInput,
+  SearchUsersBySkillExactOutput
 > {
   return {
-    id: 'people_searchUsersBySkillTags',
+    id: 'people_searchUsersBySkillExact',
     description:
-      'Exact skill-tag match (case-insensitive) → userId + matched skills + overlap count. ' +
+      'Exact match (case-insensitive) of task labels against people skills → userId + matched skills + overlap count. ' +
       'Workflow use only (not LLM-visible). For semantic/topic search use people_matchUsersByTopic.',
     inputSchema,
     outputSchema,
     rbac: 'people.worker.read',
     availableTo: 'all-specialists',
     execute: async ({ session, input }) => {
-      const norm = input.tags.map((t) => t.toLowerCase().trim()).filter((t) => t.length > 0);
+      const norm = input.labels.map((t) => t.toLowerCase().trim()).filter((t) => t.length > 0);
       if (norm.length === 0) return { hits: [] };
 
       // Workflow callers hold no request-pinned tenant connection, so set the
