@@ -35,6 +35,8 @@ describe('skillMatcher agent (deterministic match → fit → rank)', () => {
     expect(res.result.candidates[0]?.skills.sort()).toEqual(['aws', 'linux']);
     expect(res.result.candidates[0]?.skillMatch).toEqual(['aws']);
     expect(res.result.candidates[0]?.skillMatchCount).toBe(1);
+    // Fit coverage propagates on the candidate (1 of 1 required area covered).
+    expect(res.result.candidates[0]?.relevanceScore).toBe(1);
     expect(res.result.candidates[0]?.rank).toBe(1);
     expect(noReasoning).not.toHaveBeenCalled();
     expect(res.trust.confidenceScore).toBeCloseTo(0.6);

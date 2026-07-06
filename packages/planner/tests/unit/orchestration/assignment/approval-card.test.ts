@@ -10,6 +10,8 @@ const REC = (over: Partial<Recommendation> = {}): Recommendation => ({
   skillMatchCount: 2,
   status: 'available',
   availabilityScore: 0.9,
+  relevanceScore: 1,
+  score: 0.93,
   ...over,
 });
 
@@ -44,7 +46,7 @@ describe('buildAssignApprovalCard', () => {
     expect(card.meta.userId).toBe('actor1');
   });
 
-  it('renders candidates with skills, status, and availability score; null title falls back to the taskId', () => {
+  it('renders candidates with skills, status, and the blended score; null title falls back to the taskId', () => {
     const card = buildAssignApprovalCard({
       taskId: 't-1',
       title: null,
@@ -56,19 +58,19 @@ describe('buildAssignApprovalCard', () => {
     expect(card.details).toEqual([
       {
         kind: 'entityList',
-        select: 'multi',
+        select: 'single',
         items: [
           {
             id: 'u1',
             type: 'user',
             label: 'Alice',
             secondary: 'skills: aws, docker · available',
-            score: 0.9,
+            score: 0.93,
             primary: true,
           },
         ],
       },
-      { kind: 'confidence', score: 0.9 },
+      { kind: 'confidence', score: 0.93 },
     ]);
   });
 
