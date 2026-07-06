@@ -17,6 +17,7 @@ function candidate(over: {
     userId: over.userId,
     displayName: over.displayName ?? 'Alice',
     skills: over.skills ?? ['aws'],
+    matchedSkills: over.skills ?? ['aws'],
     exactOverlap: 1,
     vectorScore: null,
     historyScore: null,

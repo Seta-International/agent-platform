@@ -8,6 +8,7 @@ function makeCandidate(
 ): CandidateUser {
   return {
     skills: [],
+    matchedSkills: [],
     exactOverlap: 0,
     vectorScore: null,
     historyScore: null,

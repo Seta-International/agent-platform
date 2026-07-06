@@ -1,4 +1,5 @@
 import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
+import { extractSkillMentions } from '@seta/core';
 import { and, eq, gt, inArray, isNull, ne, or } from 'drizzle-orm';
 import { plannerDb } from '../../../db/index.ts';
 import { assigneeProjection } from '../../../db/schema.ts';
@@ -13,6 +14,9 @@ export interface PoolCandidate {
   userId: string;
   displayName: string;
   skills: string[];
+  /** The candidate's own catalog skills that matched the task's required skills
+   *  (labels ∪ text mentions) — the subset worth showing, vs. their full skill list. */
+  matchedSkills: string[];
   exactOverlap: number;
   vectorScore: number | null;
   historyScore: number | null;
@@ -62,6 +66,13 @@ function findSkillsForUsersTool():
  * each candidate's skills are read from People (the system of record) rather
  * than a stale local projection.
  */
+export interface CandidatePoolResult {
+  candidates: PoolCandidate[];
+  /** Distinct catalog skills the task calls for (labels ∪ text mentions) — the
+   *  denominator for the exact-overlap signal. */
+  requiredSkillCount: number;
+}
+
 export async function candidatePool(
   input: {
     tenantId: string;
@@ -70,9 +81,20 @@ export async function candidatePool(
     task: LoadedTask;
   },
   deps?: CandidatePoolDeps,
-): Promise<PoolCandidate[]> {
+): Promise<CandidatePoolResult> {
+  // The task's required skills come from its labels AND its title/description
+  // text, all resolved through the canonical catalog. This is what lets a
+  // label-less "Migrate the ReactJS front-end…" task still match React/Node.js
+  // holders deterministically — the exact signal no longer needs explicit labels.
+  const required = await extractSkillMentions(
+    { tenant_id: input.tenantId },
+    [input.task.title, input.task.description ?? '', input.task.labels.join(' ')].join('\n'),
+  );
+  const exactTerms = [...new Set([...input.task.labels, ...required.map((r) => r.name)])];
+  const requiredSkillCount = Math.max(required.length, input.task.labels.length);
+
   const [exactRows, vectorOut, historyOut, memberIds] = await Promise.all([
-    fetchExactHits(input.tenantId, input.callerUserId, input.callerRoleSummary, input.task),
+    fetchExactHits(input.tenantId, input.callerUserId, input.callerRoleSummary, exactTerms),
     fetchVectorHits(input.tenantId, input.callerUserId, input.callerRoleSummary, input.task),
     deps
       ? fetchTaskHistoryHits({ tenantId: input.tenantId, task: input.task }, deps)
@@ -88,6 +110,7 @@ export async function candidatePool(
       userId: m.user_id,
       displayName: m.display_name,
       skills: [],
+      matchedSkills: [],
       exactOverlap: 0,
       vectorScore: null,
       historyScore: null,
@@ -98,7 +121,10 @@ export async function candidatePool(
   // Layer the tenant-wide signals onto members only (non-members are out of scope).
   for (const row of exactRows) {
     const c = byUser.get(row.userId);
-    if (c) c.exactOverlap = Number(row.overlap);
+    if (c) {
+      c.exactOverlap = Number(row.overlap);
+      c.matchedSkills = row.matchedSkills;
+    }
   }
   for (const hit of vectorOut) {
     const c = byUser.get(hit.userId);
@@ -121,7 +147,7 @@ export async function candidatePool(
   );
   for (const [userId, c] of byUser) c.skills = skillsByUser.get(userId) ?? [];
 
-  return Array.from(byUser.values());
+  return { candidates: Array.from(byUser.values()), requiredSkillCount };
 }
 
 interface SkillExactSearchInput {
@@ -140,28 +166,32 @@ function findSkillExactTool():
 }
 
 /**
- * Exact-match signal: how many of the task's labels each user's catalog skills
- * cover. Delegated to People's people_searchUsersBySkillExact, which resolves
- * the free-text labels to canonical core.skill ids (label "reactjs" ↔ catalog
- * skill "React") and matches person_skill by id, not string equality. Returns
- * per-user overlap counts; the caller intersects with the group and applies the
- * availability gate.
+ * Exact-match signal: how many of the task's required skills (labels ∪ text
+ * mentions) each user's catalog skills cover. Delegated to People's
+ * people_searchUsersBySkillExact, which resolves the free-text terms to
+ * canonical core.skill ids (term "reactjs" ↔ catalog skill "React") and matches
+ * person_skill by id, not string equality. Returns per-user overlap counts; the
+ * caller intersects with the group and applies the availability gate.
  */
 async function fetchExactHits(
   tenantId: string,
   callerUserId: string,
   callerRoleSummary: { roles: string[]; cross_tenant_read: boolean },
-  task: LoadedTask,
-): Promise<Array<{ userId: string; overlap: number }>> {
-  if (task.labels.length === 0) return [];
+  terms: string[],
+): Promise<Array<{ userId: string; overlap: number; matchedSkills: string[] }>> {
+  if (terms.length === 0) return [];
   const tool = findSkillExactTool();
   if (!tool) return [];
   try {
     const out = await tool.execute({
       session: { tenant_id: tenantId, user_id: callerUserId, role_summary: callerRoleSummary },
-      input: { labels: task.labels },
+      input: { labels: terms },
     });
-    return out.hits.map((h) => ({ userId: h.userId, overlap: h.overlap }));
+    return out.hits.map((h) => ({
+      userId: h.userId,
+      overlap: h.overlap,
+      matchedSkills: h.matchedSkills,
+    }));
   } catch {
     return [];
   }

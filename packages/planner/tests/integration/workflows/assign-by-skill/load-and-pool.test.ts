@@ -234,7 +234,7 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const pool_ = await candidatePool({
+      const { candidates: pool_ } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
@@ -290,7 +290,7 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const pool_ = await candidatePool({
+      const { candidates: pool_ } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
@@ -369,7 +369,7 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const pool_ = await candidatePool({
+      const { candidates: pool_ } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
@@ -442,7 +442,7 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const pool_ = await candidatePool({
+      const { candidates: pool_ } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
@@ -476,7 +476,7 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const out = await candidatePool({
+      const { candidates: out } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },

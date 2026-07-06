@@ -9,6 +9,9 @@ export const CandidateUserSchema = z.object({
   userId: z.string(),
   displayName: z.string(),
   skills: z.array(z.string()),
+  /** The candidate's skills that matched the task's required skills — the subset
+   *  the UI shows, vs. the full `skills` list. */
+  matchedSkills: z.array(z.string()),
   exactOverlap: z.number().int().min(0),
   vectorScore: z.number().nullable(),
   historyScore: z.number().nullable(),

@@ -133,17 +133,22 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
       const assignedIds = new Set(await taskAssignees.currentAssigneeIds(taskId, subCtx));
       const recommendations: Recommendation[] = candidates
         .filter((c) => !assignedIds.has(c.userId))
-        .map((c) => ({
-          userId: c.userId,
-          name: c.displayName,
-          // The engine gates OOO/deactivated out, so survivors are assignable.
-          status: 'available' as const,
-          availabilityScore: 1,
-          skillMatch: c.skills,
-          skillMatchCount: c.skills.length,
-          relevanceScore: c.finalScore,
-          score: c.finalScore,
-        }));
+        .map((c) => {
+          // Show the skills that actually matched the task, not the person's whole
+          // skill list; fall back to all skills for a purely vector-based match.
+          const shown = c.matchedSkills.length > 0 ? c.matchedSkills : c.skills;
+          return {
+            userId: c.userId,
+            name: c.displayName,
+            // The engine gates OOO/deactivated out, so survivors are assignable.
+            status: 'available' as const,
+            availabilityScore: 1,
+            skillMatch: shown,
+            skillMatchCount: shown.length,
+            relevanceScore: c.finalScore,
+            score: c.finalScore,
+          };
+        });
       if (recommendations.length === 0) {
         // Nothing to propose — surface the empty recommend without suspending.
         return { assigned: false, recommendations: [] };

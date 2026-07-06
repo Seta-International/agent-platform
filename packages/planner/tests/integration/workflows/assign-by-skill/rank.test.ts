@@ -19,6 +19,7 @@ function c(opts: CtorOpts) {
     userId: opts.id,
     displayName: opts.id.toUpperCase(),
     skills: [] as string[],
+    matchedSkills: [] as string[],
     exactOverlap: opts.exact ?? 0,
     vectorScore: opts.vector ?? null,
     historyScore: opts.history ?? null,
