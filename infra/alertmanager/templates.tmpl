@@ -1,0 +1,15 @@
+{{/* Clean MS Teams card for msteamsv2. Overrides the verbose default template. */}}
+
+{{ define "teams.title" -}}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }} {{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}{{ with .CommonLabels.env }} · {{ . }}{{ end }}
+{{- end }}
+
+{{ define "teams.text" -}}
+{{ range .Alerts }}**{{ .Annotations.summary }}**
+
+{{ .Annotations.description }}
+
+severity: {{ .Labels.severity }} · env: {{ .Labels.env }}{{ with .Labels.instance }} · {{ . }}{{ end }} · since {{ .StartsAt.Format "15:04 MST" }}
+
+{{ end }}[Open Grafana dashboards](https://grafana-future.seta-international.com/dashboards)
+{{- end }}

@@ -49,6 +49,7 @@ services:
     ports: ["9093:9093"]
     volumes:
       - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./infra/alertmanager/templates.tmpl:/etc/alertmanager/templates.tmpl:ro
       - seta-monitoring-alertmanager-secrets:/etc/alertmanager/secrets:ro
       - seta-monitoring-alertmanager-data:/alertmanager
 

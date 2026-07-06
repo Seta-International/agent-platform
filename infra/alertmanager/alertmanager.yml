@@ -1,5 +1,9 @@
 # Alertmanager — single MS Teams receiver (Power Automate Workflow webhook).
 # Routing by env+severity; the webhook URL is a mounted secret (never committed).
+# Card layout comes from templates.tmpl (teams.title / teams.text).
+templates:
+  - /etc/alertmanager/templates.tmpl
+
 route:
   receiver: teams
   group_by: [env, alertname]
@@ -7,12 +11,12 @@ route:
   group_interval: 5m
   repeat_interval: 4h
   routes:
-    # Heartbeat: send often so its absence in Teams is quickly noticeable.
+    # Heartbeat: a twice-daily "pipeline alive" ping (not chat spam). Its absence
+    # is the signal; a true dead-man's-snitch (healthchecks.io) is the lever.
     - receiver: teams
       matchers: [ alertname="Watchdog" ]
       group_wait: 0s
-      group_interval: 5m
-      repeat_interval: 5m
+      repeat_interval: 12h
     # Critical: notify fast.
     - receiver: teams
       matchers: [ severity="critical" ]
@@ -30,3 +34,5 @@ receivers:
     msteamsv2_configs:
       - send_resolved: true
         webhook_url_file: /etc/alertmanager/secrets/teams_webhook_url
+        title: '{{ template "teams.title" . }}'
+        text: '{{ template "teams.text" . }}'
