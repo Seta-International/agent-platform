@@ -43,7 +43,23 @@ jobs:
             echo "::error::Deploys are restricted to repo admins. '${ACTOR}' has '${perm}' permission."
             exit 1
           fi
-          echo "✅ ${ACTOR} is a repo admin — proceeding."
+          echo "${ACTOR} is a repo admin, proceeding"
+
+      - name: Enforce release branch for prod
+        # prod may only ship from a release/* branch. prod-recovery is exempt:
+        # self-heal re-runs it from main's schedule to redeploy a pinned image.
+        if: ${{ inputs.environment == 'prod' }}
+        env:
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$REF" in
+            release/*) echo "ref '$REF' is a release branch" ;;
+            *)
+              echo "::error::prod deploys must run from a release/* branch (got '$REF')"
+              exit 1
+              ;;
+          esac
 
   deploy:
     name: Deploy to ${{ inputs.environment }}
@@ -186,8 +202,8 @@ jobs:
             echo "  attempt $i/12: HTTP $code — retrying in 5s…"
             sleep 5
           done
-          [ "$code" = "200" ] || { echo "❌ smoke failed (last HTTP $code)"; exit 1; }
-          echo "✅ ${{ inputs.environment }} deploy healthy (image_tag=${{ inputs.image_tag }})"
+          [ "$code" = "200" ] || { echo "smoke failed (last HTTP $code)"; exit 1; }
+          echo "${{ inputs.environment }} deploy healthy (image_tag=${{ inputs.image_tag }})"
 
       - name: Record last-good prod image
         # Best-effort (needs variables:write); must never fail a healthy deploy.
