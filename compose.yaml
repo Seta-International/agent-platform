@@ -225,5 +225,9 @@ services:
     profiles: [obs-agent]
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: ${DATABASE_URL}
+      # The exporter's Go pq driver rejects the app's sslmode=no-verify, so it
+      # needs a dedicated DSN with a supported sslmode: disable for bundled
+      # Postgres (dev, no server SSL), require for RDS (uat/prod, encrypt over
+      # the internet). Falls back to DATABASE_URL for local dev where SSL is off.
+      DATA_SOURCE_NAME: ${POSTGRES_EXPORTER_DSN:-${DATABASE_URL}}
     networks: [seta-internal, seta-edge]
