@@ -45,6 +45,8 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.28.0
     restart: unless-stopped
+    environment:
+      TZ: Asia/Ho_Chi_Minh   # card timestamps render as UTC+7 via .Local
     command: [--config.file=/etc/alertmanager/alertmanager.yml]
     ports: ["9093:9093"]
     volumes:
