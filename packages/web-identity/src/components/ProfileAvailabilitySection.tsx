@@ -2,8 +2,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Input,
   Label,
   RadioGroup,
@@ -60,10 +58,7 @@ export function ProfileAvailabilitySection({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Availability</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-6">
         <RadioGroup
           value={status}
           onValueChange={(v) => setStatus(v as typeof status)}
