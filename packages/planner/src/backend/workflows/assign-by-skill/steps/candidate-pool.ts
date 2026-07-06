@@ -2,6 +2,7 @@ import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { and, eq, gt, isNull, ne, or, sql } from 'drizzle-orm';
 import { plannerDb } from '../../../db/index.ts';
 import { assigneeProjection } from '../../../db/schema.ts';
+import { listGroupMemberUserIds } from '../../../read-helpers.ts';
 import type { LoadedTask } from './load-task.ts';
 import { fetchTaskHistoryHits, type TaskHistoryDeps } from './task-history-hits.ts';
 
@@ -56,12 +57,13 @@ export async function candidatePool(
   },
   deps?: CandidatePoolDeps,
 ): Promise<PoolCandidate[]> {
-  const [exactRows, vectorOut, historyOut] = await Promise.all([
+  const [exactRows, vectorOut, historyOut, memberIds] = await Promise.all([
     fetchExactHits(input.tenantId, input.callerUserId, input.callerRoleSummary, input.task),
     fetchVectorHits(input.tenantId, input.callerUserId, input.callerRoleSummary, input.task),
     deps
       ? fetchTaskHistoryHits({ tenantId: input.tenantId, task: input.task }, deps)
       : Promise.resolve([]),
+    listGroupMemberUserIds(input.tenantId, input.task.groupId),
   ]);
 
   const byUser = new Map<string, PoolCandidate>();
@@ -125,7 +127,11 @@ export async function candidatePool(
     });
   }
 
-  return Array.from(byUser.values());
+  // Group-membership gate (business rule): only members of the task's plan
+  // group may be suggested. Applied once over the merged map so it covers all
+  // three tenant-wide branches (exact, vector, history) uniformly.
+  const memberSet = new Set(memberIds);
+  return Array.from(byUser.values()).filter((c) => memberSet.has(c.userId));
 }
 
 interface SkillTagSearchInput {
