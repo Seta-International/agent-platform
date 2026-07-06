@@ -2,13 +2,15 @@ import { createSkill, createSkillCategory } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
+import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
-import { accountProjection } from '../../src/backend/db/schema.ts';
+import { accountProjection, application } from '../../src/backend/db/schema.ts';
 import {
   addCandidate,
   createRejectionReason,
   getCandidate,
+  getCandidateStageCounts,
   listCandidates,
   listTalentPool,
   openRequisition,
@@ -60,6 +62,8 @@ describe('read candidates', () => {
         const board = await listCandidates(t.adminSession);
         const row = board.find((r) => r.application_id === application_id);
         expect(row?.fit.strong).toBe(true);
+        expect(row?.applied_at).toBeInstanceOf(Date);
+        expect(row?.skills).toEqual([{ skill_id: react.id, skill_name: 'React', level: 4 }]);
 
         const detail = await getCandidate({ candidate_id, session: t.adminSession });
         expect(detail.timeline.length).toBeGreaterThan(0);
@@ -319,6 +323,76 @@ describe('read candidates', () => {
         const board = await listCandidates(am);
         const ids = board.map((r) => r.application_id);
         expect(ids).toEqual([mine]);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('stage counts include hired applications and bucket rejected/transferred as cancelled', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { requisition_id } = await openRequisition({
+          title: 'Stage counts req',
+          kind: 'new',
+          headcount: 3,
+          session: t.adminSession,
+        });
+        const { application_id: newAppId } = await addCandidate({
+          requisition_id,
+          name: 'Newbie',
+          skills: [],
+          session: t.adminSession,
+        });
+        const { application_id: hiredAppId } = await addCandidate({
+          requisition_id,
+          name: 'Hired One',
+          skills: [],
+          session: t.adminSession,
+        });
+        const { application_id: rejectedAppId } = await addCandidate({
+          requisition_id,
+          name: 'Rejected One',
+          skills: [],
+          session: t.adminSession,
+        });
+
+        // No "mark as hired" mutation exists yet — set the status directly to simulate the
+        // future hire flow and prove the read side already surfaces it correctly.
+        await hiringDb()
+          .update(application)
+          .set({ status: 'hired' })
+          .where(eq(application.id, hiredAppId));
+
+        const reason = await createRejectionReason({
+          input: { label: 'Not a fit', category: 'other' },
+          session: t.adminSession,
+        });
+        await rejectApplication({
+          application_id: rejectedAppId,
+          expected_version: 1,
+          input: { reason_id: reason.id, tags: [] },
+          session: t.adminSession,
+        });
+
+        const counts = await getCandidateStageCounts(t.adminSession);
+        expect(counts.new).toBe(1);
+        expect(counts.hired).toBe(1);
+        expect(counts.cancelled).toBe(1);
+        expect(counts.screening + counts.interview + counts.offer).toBe(0);
+
+        const board = await listCandidates(t.adminSession);
+        const ids = board.map((r) => r.application_id);
+        expect(ids).toContain(newAppId);
+        expect(ids).toContain(hiredAppId);
+        expect(ids).not.toContain(rejectedAppId);
+        expect(board.find((r) => r.application_id === hiredAppId)?.status).toBe('hired');
       } finally {
         resetHiringDb();
         resetCoreDb();

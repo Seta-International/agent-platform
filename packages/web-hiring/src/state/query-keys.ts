@@ -10,6 +10,7 @@ export const hiringKeys = {
   jdTemplates: () => [...hiringKeys.all, 'jd-templates'] as const,
   closeReasons: () => [...hiringKeys.all, 'close-reasons'] as const,
   candidates: () => [...hiringKeys.all, 'candidates'] as const,
+  candidateStageCounts: () => [...hiringKeys.all, 'candidate-stage-counts'] as const,
   candidate: (id: string) => [...hiringKeys.all, 'candidate', id] as const,
   rejectionReasons: () => [...hiringKeys.all, 'rejection-reasons'] as const,
   skillCatalog: () => [...hiringKeys.all, 'skill-catalog'] as const,

@@ -357,6 +357,8 @@ export interface CandidateListItem {
   status: CandStatus;
   rating: number | null;
   version: number;
+  applied_at: string;
+  skills: CandidateSkillRow[];
   fit: Fit;
 }
 
@@ -382,6 +384,8 @@ export interface CandidateApplication {
   rating: number | null;
   tags: string[];
   version: number;
+  applied_at: string;
+  note: string | null;
   fit: Fit;
 }
 export interface CandidateDetail {
@@ -393,7 +397,7 @@ export interface CandidateDetail {
     segment: string | null;
     dob: string | null;
     gender: string | null;
-    note: string | null;
+    cv_storage_key: string | null;
     contact: { email?: string; phone?: string } | null;
     version: number;
   };
@@ -439,10 +443,23 @@ export interface AddCandidatePayload {
   skills: { skill_id: string; skill_name: string; level?: number }[];
 }
 
+export interface CandidateStageCounts {
+  new: number;
+  screening: number;
+  interview: number;
+  offer: number;
+  hired: number;
+  cancelled: number;
+}
+
 // ---- Candidate reads ----
 export async function fetchCandidates(): Promise<CandidateListItem[]> {
   const res = await fetch('/api/hiring/v1/candidates', { credentials: 'include' });
   return (await handleResponse<{ candidates: CandidateListItem[] }>(res)).candidates;
+}
+export async function fetchCandidateStageCounts(): Promise<CandidateStageCounts> {
+  const res = await fetch('/api/hiring/v1/candidates/stage-counts', { credentials: 'include' });
+  return handleResponse<CandidateStageCounts>(res);
 }
 export async function fetchCandidate(id: string): Promise<CandidateDetail> {
   const res = await fetch(`/api/hiring/v1/candidates/${id}`, { credentials: 'include' });

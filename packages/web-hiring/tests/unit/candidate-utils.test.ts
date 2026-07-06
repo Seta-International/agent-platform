@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { CandidateListItem } from '../../src/api/hiring-client.ts';
-import { boardColumns, fitLabel, resolveStageDrop } from '../../src/pages/candidate-utils.ts';
+import {
+  boardColumns,
+  fitLabel,
+  fitScoreBadge,
+  resolveStageDrop,
+} from '../../src/pages/candidate-utils.ts';
 
 function item(over: Partial<CandidateListItem>): CandidateListItem {
   return {
@@ -15,6 +20,8 @@ function item(over: Partial<CandidateListItem>): CandidateListItem {
     status: 'active',
     rating: 0,
     version: 1,
+    applied_at: '2024-01-01T00:00:00.000Z',
+    skills: [],
     fit: { met: 0, required: 0, score: 0, strong: false },
     ...over,
   };
@@ -55,6 +62,27 @@ describe('fitLabel', () => {
     expect(fitLabel({ met: 2, required: 2, score: 1, strong: true })).toEqual({
       text: '2/2 skills',
       strong: true,
+    });
+  });
+});
+
+describe('fitScoreBadge', () => {
+  it('bands the score into success/warning/secondary and renders a percentage', () => {
+    expect(fitScoreBadge({ met: 0, required: 0, score: 0, strong: false })).toEqual({
+      text: '—',
+      variant: 'secondary',
+    });
+    expect(fitScoreBadge({ met: 1, required: 2, score: 0.5, strong: false })).toEqual({
+      text: '50%',
+      variant: 'secondary',
+    });
+    expect(fitScoreBadge({ met: 3, required: 4, score: 0.75, strong: false })).toEqual({
+      text: '75%',
+      variant: 'warning',
+    });
+    expect(fitScoreBadge({ met: 2, required: 2, score: 1, strong: true })).toEqual({
+      text: '100%',
+      variant: 'success',
     });
   });
 });

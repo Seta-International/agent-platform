@@ -13,6 +13,7 @@ import {
   addCandidate,
   editCandidate,
   getCandidate,
+  getCandidateStageCounts,
   listCandidates,
   listTalentPool,
   moveApplicationStage,
@@ -33,6 +34,9 @@ const transferBody = version.extend({ input: transferApplicationInput });
 export function registerHiringCandidateRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/hiring/v1/candidates', async (c) =>
     c.json({ candidates: await listCandidates(c.get('user')) }),
+  );
+  app.get('/api/hiring/v1/candidates/stage-counts', async (c) =>
+    c.json(await getCandidateStageCounts(c.get('user'))),
   );
   app.get('/api/hiring/v1/talent-pool', async (c) =>
     c.json({ pool: await listTalentPool(c.get('user')) }),

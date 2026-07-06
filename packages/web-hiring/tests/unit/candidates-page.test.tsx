@@ -11,6 +11,8 @@ const fetchCandidates = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   fetchCandidates: () => fetchCandidates(),
+  fetchCandidateStageCounts: () =>
+    Promise.resolve({ new: 1, screening: 0, interview: 0, offer: 0, hired: 0, cancelled: 0 }),
   fetchRequisitions: () => Promise.resolve([{ id: 'r1', title: 'Backend Eng', status: 'open' }]),
 }));
 
@@ -29,6 +31,8 @@ const rows: CandidateListItem[] = [
     status: 'active',
     rating: 0,
     version: 1,
+    applied_at: '2024-01-01T00:00:00.000Z',
+    skills: [],
     fit: { met: 1, required: 2, score: 0.5, strong: false },
   },
 ];
@@ -45,7 +49,11 @@ describe('CandidatesPage', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidatesPage />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
-    expect(screen.getByText('New')).toBeInTheDocument();
+    // "New"/"Screening"/"Hired" each appear twice (stat segment label + board column name).
+    expect(screen.getAllByText('New').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('Screening').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Interview')).toBeInTheDocument();
+    expect(screen.getByText('Offer')).toBeInTheDocument();
     expect(screen.getAllByText('Hired').length).toBeGreaterThanOrEqual(2);
   });
 
@@ -55,6 +63,6 @@ describe('CandidatesPage', () => {
     render(<CandidatesPage />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('tab', { name: 'List' }));
-    expect(screen.getByText('Seniority')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Seniority' })).toBeInTheDocument();
   });
 });

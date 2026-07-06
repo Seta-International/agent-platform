@@ -1,14 +1,38 @@
 import {
+  Avatar,
+  AvatarFallback,
   Badge,
   Button,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  formatRelative,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Building2,
+  Cake,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  Copy,
+  FileText,
+  Globe,
+  Mail,
+  MoreHorizontal,
+  Phone,
+  RefreshCw,
+  User,
+  VenusAndMars,
+  X,
+} from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { type CandStage, fetchCandidate, moveApplicationStage } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
@@ -24,6 +48,103 @@ const STAGES: { id: CandStage; label: string }[] = [
   { id: 'interview', label: 'Interview' },
   { id: 'offer', label: 'Offer' },
 ];
+
+function appliedLabel(appliedAt: string): string {
+  const rel = formatRelative(appliedAt);
+  return rel === 'now' ? 'just now' : `${rel} ago`;
+}
+
+function NoData() {
+  return <span className="text-caption italic text-ink-subtle">No Data</span>;
+}
+
+function DetailCard({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-hairline bg-surface-1 p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-body-sm font-semibold text-ink">{title}</h3>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function DetailRow({
+  icon,
+  label,
+  value,
+  onCopy,
+}: {
+  icon?: ReactNode;
+  label: string;
+  value: ReactNode;
+  onCopy?: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-hairline py-2 last:border-b-0">
+      <span className="flex items-center gap-1.5 text-caption text-ink-muted">
+        {icon}
+        {label}
+      </span>
+      <span className="flex items-center gap-1.5 text-body-sm text-ink">
+        {value}
+        {onCopy && (
+          <button
+            type="button"
+            onClick={onCopy}
+            aria-label={`Copy ${label}`}
+            className="text-ink-subtle hover:text-ink"
+          >
+            <Copy className="size-3.5" />
+          </button>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function PipelineStepper({ stage }: { stage: CandStage | undefined }) {
+  const curIdx = stage ? STAGES.findIndex((s) => s.id === stage) : -1;
+  return (
+    <div className="relative">
+      <div className="absolute inset-x-[12.5%] top-[9px] h-px bg-hairline-strong" />
+      <div
+        className="absolute inset-y-0 left-[12.5%] top-[9px] h-px bg-primary transition-[width]"
+        style={{ width: curIdx <= 0 ? 0 : `${(curIdx / (STAGES.length - 1)) * 75}%` }}
+      />
+      <div className="relative flex justify-between">
+        {STAGES.map((s, i) => {
+          const reached = i <= curIdx;
+          return (
+            <div key={s.id} className="flex flex-col items-center gap-1.5">
+              <span
+                className={`flex size-[18px] items-center justify-center rounded-full text-on-primary ${
+                  reached ? 'bg-primary' : 'border-2 border-hairline-strong bg-canvas'
+                }`}
+              >
+                {reached && <Check className="size-2.5" aria-hidden />}
+              </span>
+              <span
+                className={`text-caption font-medium ${i === curIdx ? 'text-ink' : 'text-ink-subtle'}`}
+              >
+                {s.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function CandidateDetailDrawer({
   candidateId,
@@ -65,140 +186,259 @@ export function CandidateDetailDrawer({
   });
   const terminal = app ? app.status !== 'active' : true;
   const fit = app ? fitLabel(app.fit) : null;
+  const hasMoreActions = (canTransfer && !terminal) || (canReject && !terminal);
 
   return (
-    <Sheet open={!!candidateId} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-[420px] overflow-y-auto sm:max-w-[420px]">
+    <Dialog open={!!candidateId} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent
+        hideClose
+        unstyled
+        className="flex max-h-[90vh] w-[min(1040px,94vw)] flex-col overflow-hidden rounded-xl p-0"
+      >
+        <DialogTitle className="sr-only">
+          Candidate: {data?.candidate.name ?? 'Loading'}
+        </DialogTitle>
         {isLoading || !data ? (
           <div className="p-6 text-ink-muted">Loading…</div>
         ) : (
           <>
-            <SheetHeader>
-              <SheetTitle>{data.candidate.name}</SheetTitle>
-              <div className="text-caption text-ink-muted">
-                {data.candidate.seniority ?? '—'} · applying for {app?.requisition_title ?? '—'}
+            <div className="flex items-start justify-between gap-4 border-b border-hairline px-6 py-5">
+              <div className="flex items-start gap-3">
+                <Avatar className="size-14">
+                  <AvatarFallback>
+                    <User className="size-6" />
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="text-card-title font-semibold text-ink">
+                    {data.candidate.name}
+                  </div>
+                  <div className="text-body-sm text-ink-muted">
+                    {data.candidate.seniority ?? '—'} · applying for {app?.requisition_title ?? '—'}
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-3 text-caption text-ink-subtle">
+                    <span className="inline-flex items-center gap-1">
+                      <Building2 className="size-3.5" aria-hidden />
+                      {data.candidate.source ?? '—'}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <CalendarDays className="size-3.5" aria-hidden />
+                      {app ? `Applied ${appliedLabel(app.applied_at)}` : '—'}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </SheetHeader>
+              <div className="flex flex-none items-center gap-1">
+                {hasMoreActions && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" aria-label="More actions">
+                        <MoreHorizontal className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {canTransfer && !terminal && (
+                        <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
+                          Move to another role
+                        </DropdownMenuItem>
+                      )}
+                      {canReject && !terminal && (
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onSelect={() => setRejectOpen(true)}
+                        >
+                          Reject
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose}>
+                  <X className="size-4" />
+                </Button>
+              </div>
+            </div>
 
-            <div className="space-y-5 px-4 py-4">
-              <section>
-                <h4 className="mb-2 text-eyebrow uppercase text-ink-muted">Pipeline stage</h4>
-                <div className="flex flex-wrap gap-2">
+            <div className="border-b border-hairline px-6 py-4">
+              <PipelineStepper stage={app?.stage} />
+              {terminal && (
+                <p className="mt-3 text-caption text-ink-muted">
+                  This candidate is {app?.status} and can no longer be moved.
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-6 py-3">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={!canManage || terminal || move.isPending}
+                  >
+                    <RefreshCw className="size-3.5" aria-hidden />
+                    Move stage
+                    <ChevronDown className="size-3.5" aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
                   {STAGES.map((s) => (
-                    <Button
+                    <DropdownMenuItem
                       key={s.id}
-                      size="sm"
-                      variant={app?.stage === s.id ? 'default' : 'secondary'}
-                      disabled={!canManage || terminal || move.isPending}
-                      onClick={() => move.mutate(s.id)}
+                      disabled={app?.stage === s.id}
+                      onSelect={() => move.mutate(s.id)}
                     >
                       {s.label}
-                    </Button>
+                    </DropdownMenuItem>
                   ))}
-                </div>
-                {terminal && (
-                  <p className="mt-2 text-caption text-ink-muted">
-                    This candidate is {app?.status} and can no longer be moved.
-                  </p>
-                )}
-              </section>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
-              <section>
-                <h4 className="mb-2 text-eyebrow uppercase text-ink-muted">Contact</h4>
-                <Row k="Email" v={data.candidate.contact?.email ?? '—'} />
-                <Row k="Phone" v={data.candidate.contact?.phone ?? '—'} />
-                <Row k="Source" v={data.candidate.source ?? '—'} />
-              </section>
+            <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto px-6 py-4 lg:grid-cols-[1.4fr_1fr]">
+              <div className="space-y-4">
+                <DetailCard title="Contact">
+                  <DetailRow
+                    icon={<Mail className="size-3.5" aria-hidden />}
+                    label="Email"
+                    value={data.candidate.contact?.email ?? '—'}
+                    onCopy={
+                      data.candidate.contact?.email
+                        ? () =>
+                            void navigator.clipboard.writeText(data.candidate.contact?.email ?? '')
+                        : undefined
+                    }
+                  />
+                  <DetailRow
+                    icon={<Phone className="size-3.5" aria-hidden />}
+                    label="Phone"
+                    value={data.candidate.contact?.phone ?? '—'}
+                    onCopy={
+                      data.candidate.contact?.phone
+                        ? () =>
+                            void navigator.clipboard.writeText(data.candidate.contact?.phone ?? '')
+                        : undefined
+                    }
+                  />
+                  <DetailRow
+                    icon={<Globe className="size-3.5" aria-hidden />}
+                    label="Source"
+                    value={data.candidate.source ?? '—'}
+                  />
+                  <DetailRow
+                    icon={<Cake className="size-3.5" aria-hidden />}
+                    label="Date of birth"
+                    value={data.candidate.dob ?? '—'}
+                  />
+                  <DetailRow
+                    icon={<VenusAndMars className="size-3.5" aria-hidden />}
+                    label="Gender"
+                    value={data.candidate.gender ?? '—'}
+                  />
+                </DetailCard>
 
-              <section>
-                <h4 className="mb-2 text-eyebrow uppercase text-ink-muted">CV</h4>
-                <div className="rounded border border-hairline bg-surface-2 px-3 py-2 text-caption text-ink-muted">
-                  CV auto-fill coming soon.
-                </div>
-              </section>
+                <DetailCard
+                  title="Skills"
+                  action={
+                    fit && <Badge variant={fit.strong ? 'success' : 'secondary'}>{fit.text}</Badge>
+                  }
+                >
+                  <div className="flex flex-wrap gap-1.5">
+                    {data.skills.length === 0 ? (
+                      <span className="text-caption text-ink-muted">No skills recorded.</span>
+                    ) : (
+                      data.skills.map((s) => (
+                        <Badge key={s.skill_id} variant="secondary">
+                          <span>{s.skill_name}</span>
+                          {s.level != null ? <span>{` · L${s.level}`}</span> : null}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                </DetailCard>
 
-              <section>
-                <h4 className="mb-2 flex items-center gap-2 text-eyebrow uppercase text-ink-muted">
-                  Skills
-                  {fit && <Badge variant={fit.strong ? 'success' : 'secondary'}>{fit.text}</Badge>}
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {data.skills.length === 0 ? (
-                    <span className="text-caption text-ink-muted">No skills recorded.</span>
+                <DetailCard title="Resume / CV">
+                  {data.candidate.cv_storage_key ? (
+                    <div className="space-y-2 text-body-sm">
+                      <div className="flex items-center gap-2 text-ink">
+                        <FileText className="size-4 text-ink-subtle" aria-hidden />A CV is on file.
+                      </div>
+                      <DetailRow label="Filename" value={<NoData />} />
+                      <DetailRow label="Size" value={<NoData />} />
+                      <DetailRow label="Uploaded" value={<NoData />} />
+                    </div>
                   ) : (
-                    data.skills.map((s) => (
-                      <Badge key={s.skill_id} variant="outline">
-                        <span>{s.skill_name}</span>
-                        {s.level != null ? <span>{` · L${s.level}`}</span> : null}
-                      </Badge>
-                    ))
+                    <p className="text-caption text-ink-muted">No CV uploaded.</p>
                   )}
-                </div>
-              </section>
+                </DetailCard>
 
-              <section>
-                <h4 className="mb-2 text-eyebrow uppercase text-ink-muted">Notes</h4>
-                <p className="text-body text-ink">{data.candidate.note ?? '—'}</p>
-              </section>
+                <DetailCard title="Notes">
+                  {app?.note ? (
+                    <p className="text-body-sm text-ink">{app.note}</p>
+                  ) : (
+                    <p className="text-caption text-ink-muted">No notes yet.</p>
+                  )}
+                </DetailCard>
+              </div>
 
-              <section>
-                <h4 className="mb-2 text-eyebrow uppercase text-ink-muted">Interviews</h4>
-                <p className="text-caption text-ink-muted">No interviews yet.</p>
-              </section>
+              <div className="space-y-4">
+                <DetailCard title="Application details">
+                  <DetailRow label="Requisition" value={app?.requisition_title ?? '—'} />
+                  <DetailRow
+                    label="Requisition ID"
+                    value={
+                      app ? (
+                        <span className="font-mono text-caption">{app.requisition_id}</span>
+                      ) : (
+                        '—'
+                      )
+                    }
+                  />
+                  <DetailRow
+                    label="Applied date"
+                    value={app ? new Date(app.applied_at).toLocaleString() : '—'}
+                  />
+                  <DetailRow
+                    label="Current stage"
+                    value={app ? STAGES.find((s) => s.id === app.stage)?.label : '—'}
+                  />
+                  <DetailRow
+                    label="Rating"
+                    value={app?.rating != null ? `${app.rating}/5` : 'Not rated'}
+                  />
+                </DetailCard>
 
-              <section>
-                <h4 className="mb-2 text-eyebrow uppercase text-ink-muted">Activity</h4>
-                <CandidateTimeline events={data.timeline} />
-              </section>
+                <DetailCard title="Activity timeline">
+                  <CandidateTimeline events={data.timeline} />
+                </DetailCard>
+              </div>
             </div>
-
-            <div className="flex justify-end gap-2 border-t border-hairline px-4 py-3">
-              {canTransfer && !terminal && (
-                <Button variant="secondary" onClick={() => setTransferOpen(true)}>
-                  Move to another role
-                </Button>
-              )}
-              {canReject && !terminal && (
-                <Button variant="destructive" onClick={() => setRejectOpen(true)}>
-                  Reject
-                </Button>
-              )}
-            </div>
-
-            {app && (
-              <>
-                <RejectDialog
-                  applicationId={app.application_id}
-                  version={app.version}
-                  open={rejectOpen}
-                  onOpenChange={setRejectOpen}
-                  onDone={refresh}
-                />
-                <TransferDialog
-                  applicationId={app.application_id}
-                  version={app.version}
-                  currentRequisitionId={app.requisition_id}
-                  open={transferOpen}
-                  onOpenChange={setTransferOpen}
-                  onDone={() => {
-                    refresh();
-                    onClose();
-                  }}
-                />
-              </>
-            )}
           </>
         )}
-      </SheetContent>
-    </Sheet>
-  );
-}
+      </DialogContent>
 
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex justify-between border-b border-hairline py-1.5">
-      <span className="text-ink-muted">{k}</span>
-      <span className="text-ink">{v}</span>
-    </div>
+      {app && (
+        <>
+          <RejectDialog
+            applicationId={app.application_id}
+            version={app.version}
+            open={rejectOpen}
+            onOpenChange={setRejectOpen}
+            onDone={refresh}
+          />
+          <TransferDialog
+            applicationId={app.application_id}
+            version={app.version}
+            currentRequisitionId={app.requisition_id}
+            open={transferOpen}
+            onOpenChange={setTransferOpen}
+            onDone={() => {
+              refresh();
+              onClose();
+            }}
+          />
+        </>
+      )}
+    </Dialog>
   );
 }
