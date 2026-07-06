@@ -28,7 +28,9 @@ import { orchestratorSpec } from './orchestrator-spec.ts';
 import type {
   AssignPort,
   AvailabilityPort,
+  GroupScopePort,
   SkillSearchPort,
+  TaskAssigneesPort,
   TaskReaderPort,
   TaskSearchPort,
   UserProfilePort,
@@ -41,6 +43,8 @@ export interface AssignmentPorts {
   availability: AvailabilityPort;
   userProfileLookup: UserProfilePort;
   assign: AssignPort;
+  groupScope: GroupScopePort;
+  taskAssignees: TaskAssigneesPort;
 }
 
 export interface AssignmentOrchestrationRuntime {
@@ -109,6 +113,8 @@ export function buildAssignmentOrchestrationRuntime(deps: {
     generalAnswer,
     userProfileLookup: ports.userProfileLookup,
     assign: ports.assign,
+    groupScope: ports.groupScope,
+    taskAssignees: ports.taskAssignees,
     resolveModel,
     mastraStorage,
   };

@@ -167,6 +167,7 @@ const CANDIDATE = {
   skills: ['aws'],
   role: null,
   skillMatchCount: 1,
+  relevanceScore: 1,
   rank: 1,
 };
 const portsWith = () => ({
@@ -189,6 +190,8 @@ const portsWith = () => ({
   },
   userProfileLookup: { findByName: async () => [] },
   assign: { assign: async () => {} },
+  groupScope: { memberIdsForTask: async () => ['u1'] },
+  taskAssignees: { currentAssigneeIds: async () => [] },
 });
 
 afterEach(() => {

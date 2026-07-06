@@ -5,10 +5,17 @@ import { getTask } from '../../domain/get-task.ts';
 import { listDistinctLabels } from '../../domain/list-distinct-labels.ts';
 import { listTasks } from '../../domain/list-tasks.ts';
 import { listTasksByLabel } from '../../domain/list-tasks-by-label.ts';
+import {
+  getTaskGroupId,
+  listGroupMemberUserIds,
+  listTaskAssigneeUserIds,
+} from '../../read-helpers.ts';
 import type {
   AssignPort,
   AvailabilityPort,
+  GroupScopePort,
   SkillSearchPort,
+  TaskAssigneesPort,
   TaskReaderPort,
   TaskSearchPort,
   UserProfilePort,
@@ -127,6 +134,33 @@ export function makeUserProfileLookup(): UserProfilePort {
         }),
       );
       return profiles;
+    },
+  };
+}
+
+// ---- GroupScope: task's owning-group members (planner read-helpers, no LLM) ----
+// The skill/vector search adapters are tenant-wide; this supplies the member set
+// the pipeline intersects against so only group members get proposed. Read
+// directly (tenant-bound joins) rather than via the RBAC-gated listGroupMembers:
+// the actor is proposing over their own task, not browsing group membership.
+export function makeGroupScope(): GroupScopePort {
+  return {
+    async memberIdsForTask(taskId, ctx) {
+      const groupId = await getTaskGroupId(ctx.tenantId, taskId);
+      if (!groupId) return [];
+      return listGroupMemberUserIds(ctx.tenantId, groupId);
+    },
+  };
+}
+
+// ---- TaskAssignees: the task's current assignee set (planner read-helper, no
+// LLM). The candidate sources are tenant-wide and unaware of the task, so the
+// pipeline subtracts this set before proposing — a person already on the task is
+// never suggested. Tenant-bound read (actor is acting over their own task). ----
+export function makeTaskAssignees(): TaskAssigneesPort {
+  return {
+    async currentAssigneeIds(taskId, ctx) {
+      return listTaskAssigneeUserIds(ctx.tenantId, taskId);
     },
   };
 }
