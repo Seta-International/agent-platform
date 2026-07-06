@@ -34,6 +34,7 @@ services:
     ports: ["3000:3000"]
     volumes:
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - seta-monitoring-grafana-data:/var/lib/grafana
     depends_on: [prometheus, loki]
 
