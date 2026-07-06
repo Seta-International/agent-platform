@@ -3,14 +3,13 @@ import { Card } from '@seta/shared-ui';
 export function ProfileRolesCard({ roles }: { roles: string[] }) {
   return (
     <Card className="p-5">
-      <div className="flex items-baseline justify-between mb-1">
-        <h2 className="text-base font-semibold tracking-tight">Roles</h2>
-        <span className="text-xs text-ink-subtle">Your admin manages these.</span>
+      <div className="flex items-baseline justify-between gap-4 mb-3.5">
+        <p className="text-sm text-ink-muted m-0">
+          What you can see and change in this app. Need a different role?{' '}
+          <span className="text-primary">Ask your admin</span>.
+        </p>
+        <span className="flex-none text-xs text-ink-subtle">Your admin manages these.</span>
       </div>
-      <p className="text-sm text-ink-muted mt-0 mb-3.5">
-        What you can see and change in this app. Need a different role?{' '}
-        <span className="text-primary">Ask your admin</span>.
-      </p>
 
       {roles.length === 0 ? (
         <div className="rounded-md border border-hairline px-3.5 py-3 text-sm text-ink-muted">

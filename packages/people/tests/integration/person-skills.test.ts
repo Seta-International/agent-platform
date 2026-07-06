@@ -172,11 +172,10 @@ describe('addPersonSkill / removePersonSkill', () => {
 
         const catId = crypto.randomUUID();
         const skillId = crypto.randomUUID();
-        await pool.query(`INSERT INTO core.skill_category (id, tenant_id, name) VALUES ($1,$2,$3)`, [
-          catId,
-          t.tenant_id,
-          'Engineering',
-        ]);
+        await pool.query(
+          `INSERT INTO core.skill_category (id, tenant_id, name) VALUES ($1,$2,$3)`,
+          [catId, t.tenant_id, 'Engineering'],
+        );
         await pool.query(
           `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
           [skillId, t.tenant_id, catId, 'Redis'],
@@ -203,7 +202,11 @@ describe('addPersonSkill / removePersonSkill', () => {
 
         const events = await readEvents(pool, t.tenant_id, 'people.person.skill.level.set');
         expect(events).toHaveLength(1);
-        expect(events[0]?.payload).toMatchObject({ person_id: personId, skill_id: skillId, level: 4 });
+        expect(events[0]?.payload).toMatchObject({
+          person_id: personId,
+          skill_id: skillId,
+          level: 4,
+        });
 
         // null clears the rating back to "not rated"
         await setPersonSkillLevel({

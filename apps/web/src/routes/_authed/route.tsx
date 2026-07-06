@@ -22,6 +22,7 @@ import { useMemo } from 'react';
 import { clearLastApp, writeLastApp } from '@/shell/last-app.ts';
 import { activeAppId, activeNavId, visibleManifests } from '@/shell/manifest-registry.ts';
 import { ALL_MANIFESTS } from '@/shell/manifests.ts';
+import { settingsAppManifest } from '@/shell/settings-manifest.ts';
 import { fetchEnabledModules } from '../../shell/enabled-modules.ts';
 
 function ShellLink({ href, ...rest }: ShellLinkProps) {
@@ -77,8 +78,12 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
     );
   }, [enabledQuery.data, session]);
 
-  const activeId = activeNavId(navModules, pathname);
-  const activeApp = activeAppId(navModules, pathname);
+  // Settings is a system app: it drives chrome for /settings/* but stays out of
+  // the launcher (hideInLauncher) and the enabled-modules/product-access gating.
+  const chromeManifests = useMemo(() => [...navModules, settingsAppManifest], [navModules]);
+
+  const activeId = activeNavId(chromeManifests, pathname);
+  const activeApp = activeAppId(chromeManifests, pathname);
 
   const navigate = useNavigate();
   const onAppSelect = (id: string) => {
@@ -95,8 +100,8 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
 
   return (
     <AppShell
-      apps={navModules}
-      activeAppId={activeApp ?? navModules[0]?.id ?? ''}
+      apps={chromeManifests}
+      activeAppId={activeApp ?? ''}
       activeItemId={activeId}
       onAppSelect={onAppSelect}
       linkComponent={ShellLink}

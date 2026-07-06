@@ -2,8 +2,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Command,
   CommandItem,
   CommandList,
@@ -146,10 +144,7 @@ export function ProfileSkillsSection({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Skills</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-6">
         <div className="relative">
           <div className="flex items-center gap-2">
             <Search className="size-4 shrink-0 text-ink-subtle" />
