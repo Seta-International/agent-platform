@@ -37,7 +37,7 @@ import {
 } from './assignee-suggestion-format';
 
 interface Props {
-  task: TaskWithAssigneesRow & { pending_assign_workflow_run_id?: string | null };
+  task: TaskWithAssigneesRow;
   planId: string;
   groupId: string;
   isLinkedToM365?: boolean;
@@ -86,6 +86,11 @@ export function TaskDetailAssigneesCard({
   const [search, setSearch] = useState('');
   const memberQuery = useGroupMemberAssigneeSearch(groupId, search, pickerOpen);
   const suggestionsQ = useAssigneeSuggestions(task.id, pickerOpen);
+
+  const filteredSuggestions = (suggestionsQ.data ?? []).filter((s) => {
+    const term = search.trim().toLowerCase();
+    return term.length === 0 || s.display_name.toLowerCase().includes(term);
+  });
 
   const onDragEnd = (result: DropResult) => {
     if (!canAssign) return;
@@ -189,66 +194,57 @@ export function TaskDetailAssigneesCard({
                         Couldn't load suggestions
                       </div>
                     )}
+                    {suggestionsQ.isSuccess && filteredSuggestions.length === 0 && (
+                      <div className="px-2 py-1.5 text-caption text-ink-subtle">
+                        No strong matches
+                      </div>
+                    )}
                     {suggestionsQ.isSuccess &&
-                      suggestionsQ.data.filter((s) => {
-                        const term = search.trim().toLowerCase();
-                        return term.length === 0 || s.display_name.toLowerCase().includes(term);
-                      }).length === 0 && (
-                        <div className="px-2 py-1.5 text-caption text-ink-subtle">
-                          No strong matches
-                        </div>
-                      )}
-                    {suggestionsQ.isSuccess &&
-                      suggestionsQ.data
-                        .filter((s) => {
-                          const term = search.trim().toLowerCase();
-                          return term.length === 0 || s.display_name.toLowerCase().includes(term);
-                        })
-                        .map((s) => {
-                          const already = task.assignees.some((a) => a.user_id === s.user_id);
-                          return (
-                            <CommandItem
-                              key={`suggested-${s.user_id}`}
-                              value={`suggested-${s.user_id}`}
-                              disabled={already}
-                              onSelect={() =>
-                                assign.mutate({
-                                  task_id: task.id,
-                                  user_id: s.user_id,
-                                  display_name: s.display_name,
-                                })
-                              }
-                              className="flex items-center gap-2.5"
+                      filteredSuggestions.map((s) => {
+                        const already = task.assignees.some((a) => a.user_id === s.user_id);
+                        return (
+                          <CommandItem
+                            key={`suggested-${s.user_id}`}
+                            value={`suggested-${s.user_id}`}
+                            disabled={already}
+                            onSelect={() =>
+                              assign.mutate({
+                                task_id: task.id,
+                                user_id: s.user_id,
+                                display_name: s.display_name,
+                              })
+                            }
+                            className="flex items-center gap-2.5"
+                          >
+                            <span
+                              aria-hidden
+                              className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                              style={userAvatarStyle(s.user_id)}
                             >
-                              <span
-                                aria-hidden
-                                className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                                style={userAvatarStyle(s.user_id)}
-                              >
-                                {initialsOf(s.display_name)}
+                              {initialsOf(s.display_name)}
+                            </span>
+                            <span className="flex min-w-0 flex-1 flex-col">
+                              <span className="truncate text-body-sm leading-tight text-ink">
+                                {s.display_name}
                               </span>
-                              <span className="flex min-w-0 flex-1 flex-col">
-                                <span className="truncate text-body-sm leading-tight text-ink">
-                                  {s.display_name}
-                                </span>
-                                <span className="truncate text-caption leading-tight text-ink-subtle">
-                                  {formatSuggestionReason(s)}
-                                </span>
+                              <span className="truncate text-caption leading-tight text-ink-subtle">
+                                {formatSuggestionReason(s)}
                               </span>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="shrink-0 rounded-full bg-primary-tint px-1.5 py-0.5 text-caption font-semibold text-primary-ink">
-                                    {scorePercent(s)}%
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>{formatSuggestionTooltip(s)}</TooltipContent>
-                              </Tooltip>
-                              {already && (
-                                <span className="shrink-0 text-caption text-ink-subtle">Added</span>
-                              )}
-                            </CommandItem>
-                          );
-                        })}
+                            </span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="shrink-0 rounded-full bg-primary-tint px-1.5 py-0.5 text-caption font-semibold text-primary-ink">
+                                  {scorePercent(s)}%
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>{formatSuggestionTooltip(s)}</TooltipContent>
+                            </Tooltip>
+                            {already && (
+                              <span className="shrink-0 text-caption text-ink-subtle">Added</span>
+                            )}
+                          </CommandItem>
+                        );
+                      })}
                   </CommandGroup>
                 </TooltipProvider>
                 <CommandGroup heading="All members">

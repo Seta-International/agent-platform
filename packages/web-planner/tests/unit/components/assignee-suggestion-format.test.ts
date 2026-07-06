@@ -37,4 +37,13 @@ describe('assignee suggestion formatting', () => {
     expect(t).toContain('92%');
     expect(t).not.toContain('null');
   });
+  it('falls back to a non-empty reason when no signals are available', () => {
+    const r = formatSuggestionReason({
+      ...base,
+      skills: [],
+      open_task_count: null,
+      hours_available_this_week: null,
+    });
+    expect(r).toBe('Suggested');
+  });
 });

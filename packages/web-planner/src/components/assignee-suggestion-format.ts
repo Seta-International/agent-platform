@@ -11,7 +11,7 @@ export function formatSuggestionReason(s: AssigneeSuggestion): string {
   if (s.hours_available_this_week != null)
     parts.push(`free ${Math.round(s.hours_available_this_week)}h`);
   else if (s.open_task_count != null) parts.push(`${s.open_task_count} open`);
-  return parts.join(' · ');
+  return parts.length > 0 ? parts.join(' · ') : 'Suggested';
 }
 
 /** Full hover explanation, e.g.
