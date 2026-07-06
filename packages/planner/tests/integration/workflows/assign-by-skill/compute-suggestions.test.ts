@@ -3,7 +3,13 @@ import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { createGroup, createPlan, createTask, PLANNER_VECTOR_NAMESPACE } from '@seta/planner';
+import {
+  addGroupMembers,
+  createGroup,
+  createPlan,
+  createTask,
+  PLANNER_VECTOR_NAMESPACE,
+} from '@seta/planner';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -60,6 +66,32 @@ async function seedProjection(
   );
 }
 
+function registerFakeSkillExactTool(
+  hits: ReadonlyArray<{ userId: string; matchedSkills: string[]; overlap: number }>,
+): void {
+  const spec: CrossModuleReadToolSpec<
+    { labels: string[] },
+    { hits: Array<{ userId: string; matchedSkills: string[]; overlap: number }> }
+  > = {
+    id: 'people_searchUsersBySkillExact',
+    description: 'fake',
+    inputSchema: z.object({ labels: z.array(z.string()) }),
+    outputSchema: z.object({
+      hits: z.array(
+        z.object({
+          userId: z.string(),
+          matchedSkills: z.array(z.string()),
+          overlap: z.number(),
+        }),
+      ),
+    }),
+    rbac: 'identity.user.read',
+    availableTo: 'all-specialists',
+    execute: async () => ({ hits: [...hits] }),
+  };
+  AgentRegistry.registerCrossModuleReadTool(spec);
+}
+
 function registerFakeVectorTool(hits: ReadonlyArray<{ userId: string; score: number }>): void {
   const spec: CrossModuleReadToolSpec<
     { queryText: string; topK: number; minScore?: number },
@@ -100,11 +132,17 @@ describe('computeAssigneeSuggestions', () => {
         skills: ['react', 'auth'],
       });
 
+      // Alice legitimately matches the task's labels — the only path that now
+      // qualifies a candidate for the list (no skill evidence → no suggestion).
+      registerFakeSkillExactTool([
+        { userId: alice.user_id, matchedSkills: ['react', 'auth'], overlap: 2 },
+      ]);
       registerFakeVectorTool([]);
       AgentRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);
       AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({ group_id: group.id, members: [{ user_id: alice.user_id }], session });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
       const task = await createTask({
         plan_id: plan.id,
@@ -140,6 +178,7 @@ describe('computeAssigneeSuggestions', () => {
 
         expect(loaded.taskId).toBe(task.id);
         expect(candidates.length).toBeGreaterThan(0);
+        expect(candidates.some((cand) => cand.userId === alice.user_id)).toBe(true);
         expect(candidates[0]!.finalScore).toBeGreaterThanOrEqual(candidates.at(-1)!.finalScore);
         expect(candidates[0]).toHaveProperty('finalScore');
         expect(candidates[0]).toHaveProperty('displayName');

@@ -1,4 +1,5 @@
 import { PgVector } from '@mastra/pg';
+import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import type { SessionEnv } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
@@ -6,6 +7,34 @@ import { NoopReranker } from '@seta/shared-retrieval';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+
+// The exact-overlap branch delegates to People's people_searchUsersBySkillExact
+// tool, which is only registered when the People module is imported. This
+// planner-only harness never imports it, so register a fake that matches the
+// admin on the task's label — otherwise the pool is empty by construction.
+function registerFakeSkillExactTool(
+  hits: ReadonlyArray<{ userId: string; matchedSkills: string[]; overlap: number }>,
+): void {
+  const spec: CrossModuleReadToolSpec<
+    { labels: string[] },
+    { hits: Array<{ userId: string; matchedSkills: string[]; overlap: number }> }
+  > = {
+    id: 'people_searchUsersBySkillExact',
+    description: 'fake',
+    inputSchema: z.object({ labels: z.array(z.string()) }),
+    outputSchema: z.object({
+      hits: z.array(
+        z.object({ userId: z.string(), matchedSkills: z.array(z.string()), overlap: z.number() }),
+      ),
+    }),
+    rbac: 'identity.user.read',
+    availableTo: 'all-specialists',
+    execute: async () => ({ hits: [...hits] }),
+  };
+  AgentRegistry.registerCrossModuleReadTool(spec);
+}
+
 import { registerPlannerTasksRoutes } from '../../src/backend/http/index.ts';
 import * as assignBySkillDeps from '../../src/backend/workflows/assign-by-skill/deps.ts';
 import { createGroup, createPlan, createTask, PLANNER_VECTOR_NAMESPACE } from '../../src/index.ts';
@@ -78,13 +107,12 @@ describe('GET /api/planner/v1/tasks/:id/assignee-suggestions', () => {
           names: ['react'],
         });
 
-        // The group creator (admin) is auto-added as owner by createGroup; give
-        // them a matching skill so the exact-overlap branch (pure SQL, no
-        // vector/cross-module calls) surfaces at least one candidate.
-        await pool.query(
-          `UPDATE planner.assignee_projection SET skills = ARRAY['react']::text[] WHERE user_id = $1`,
-          [seeded.admin.user_id],
-        );
+        // The group creator (admin) is auto-added as owner by createGroup;
+        // register an exact-overlap hit for them so the pool has a candidate.
+        AgentRegistry.__resetForTests();
+        registerFakeSkillExactTool([
+          { userId: seeded.admin.user_id, matchedSkills: ['react'], overlap: 1 },
+        ]);
 
         const res = await app.request(`/api/planner/v1/tasks/${task.id}/assignee-suggestions`);
         expect(res.status).toBe(200);
@@ -94,6 +122,7 @@ describe('GET /api/planner/v1/tasks/:id/assignee-suggestions', () => {
         expect(body[0]).toHaveProperty('user_id');
         expect(body[0]).toHaveProperty('score');
       } finally {
+        AgentRegistry.__resetForTests();
         await pgVector.disconnect().catch(() => {});
         resetCoreDb();
         await closePools();
