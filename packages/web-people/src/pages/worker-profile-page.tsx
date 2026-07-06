@@ -21,12 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  SkillLevelRating,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
-import { ChevronLeft, Clock } from 'lucide-react';
+import { ChevronLeft, Clock, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import { searchOrgUnits } from '../api/org-client.ts';
 import {
@@ -38,6 +39,7 @@ import {
   genderLabel,
   removeWorkerSkill,
   searchSkills,
+  setWorkerSkillLevel,
   type WorkerPatch,
 } from '../api/people-client.ts';
 import { peopleKeys } from '../state/query-keys.ts';
@@ -81,6 +83,9 @@ export function WorkerProfilePage() {
   const canEdit = usePermission('people.worker.update');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<WorkerPatch>({});
+  const [skillDraft, setSkillDraft] = useState<
+    Array<{ id: string; name: string; level: number | null }>
+  >([]);
   const [editError, setEditError] = useState<string | null>(null);
 
   const {
@@ -98,7 +103,7 @@ export function WorkerProfilePage() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!worker) throw new Error('No worker data');
       const patch: WorkerPatch = {};
       if (draft.full_name !== undefined && draft.full_name !== worker.full_name)
@@ -119,12 +124,31 @@ export function WorkerProfilePage() {
         patch.job_title = draft.job_title || null;
       if (draft.org_unit_id !== undefined && draft.org_unit_id !== (worker.org_unit_id ?? null))
         patch.org_unit_id = draft.org_unit_id;
-      return editWorker(workerId, { expected_version: worker.version, patch });
+
+      // Profile fields carry the optimistic-concurrency guard; only call when dirty.
+      if (Object.keys(patch).length > 0) {
+        await editWorker(workerId, { expected_version: worker.version, patch });
+      }
+
+      // Reconcile staged skill changes against the persisted set.
+      const origById = new Map(worker.skills.map((s) => [s.id, s]));
+      const draftById = new Map(skillDraft.map((s) => [s.id, s]));
+      const removes = worker.skills.filter((s) => !draftById.has(s.id)).map((s) => s.id);
+      const adds = skillDraft.filter((s) => !origById.has(s.id));
+      const levelChanges = skillDraft.filter(
+        (s) => origById.has(s.id) && origById.get(s.id)?.level !== s.level,
+      );
+      await Promise.all([
+        ...removes.map((id) => removeWorkerSkill(workerId, id)),
+        ...adds.map((s) => addWorkerSkill(workerId, s.id, s.level ?? undefined)),
+        ...levelChanges.map((s) => setWorkerSkillLevel(workerId, s.id, s.level)),
+      ]);
     },
     onSuccess: () => {
       toast.success('Changes saved');
       setEditing(false);
       setDraft({});
+      setSkillDraft([]);
       setEditError(null);
       void queryClient.invalidateQueries({ queryKey: peopleKeys.worker(workerId) });
       void queryClient.invalidateQueries({ queryKey: peopleKeys.history(workerId) });
@@ -139,18 +163,24 @@ export function WorkerProfilePage() {
     },
   });
 
-  const skillsMutation = useMutation({
-    mutationFn: async ({ adds, removes }: { adds: string[]; removes: string[] }) => {
-      await Promise.all([
-        ...removes.map((id) => removeWorkerSkill(workerId, id)),
-        ...adds.map((id) => addWorkerSkill(workerId, id)),
-      ]);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: peopleKeys.worker(workerId) });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  // Skill edits stage into skillDraft and commit with the page's Save button.
+  async function addSkillToDraft(id: string) {
+    if (skillDraft.some((s) => s.id === id)) return;
+    const [opt] = await searchSkills.resolveByIds([id]);
+    setSkillDraft((prev) =>
+      prev.some((s) => s.id === id)
+        ? prev
+        : [...prev, { id, name: opt?.label ?? '…', level: null }],
+    );
+  }
+
+  function removeSkillFromDraft(id: string) {
+    setSkillDraft((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  function rateSkillInDraft(id: string, level: number | null) {
+    setSkillDraft((prev) => prev.map((s) => (s.id === id ? { ...s, level } : s)));
+  }
 
   function startEdit() {
     if (!worker) return;
@@ -164,6 +194,7 @@ export function WorkerProfilePage() {
       job_title: worker.job_title ?? '',
       org_unit_id: worker.org_unit_id ?? null,
     });
+    setSkillDraft(worker.skills.map((s) => ({ ...s })));
     setEditError(null);
     setEditing(true);
   }
@@ -171,6 +202,7 @@ export function WorkerProfilePage() {
   function cancelEdit() {
     setEditing(false);
     setDraft({});
+    setSkillDraft([]);
     setEditError(null);
   }
 
@@ -246,7 +278,9 @@ export function WorkerProfilePage() {
     );
   }
 
-  const currentSkillIds = worker.skills.map((s) => s.id);
+  // In edit mode the Techstack renders the staged draft; otherwise the persisted set.
+  const displaySkills = editing ? skillDraft : worker.skills;
+  const currentSkillIds = displaySkills.map((s) => s.id);
 
   return (
     <PageChrome title={worker.full_name} breadcrumb={[backLink]} actions={headerActions}>
@@ -386,47 +420,72 @@ export function WorkerProfilePage() {
               <CardTitle>Techstack</CardTitle>
             </CardHeader>
             <CardContent>
-              {worker.skills.length === 0 && !canEdit ? (
+              {worker.skills.length === 0 && !editing ? (
                 <span className="text-body-sm text-ink-muted">—</span>
               ) : (
-                <div className="space-y-3">
-                  {worker.skills.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {worker.skills.map((s) => (
-                        <Badge key={s.id} variant="secondary" className="flex items-center gap-1">
-                          {s.name}
-                          {canEdit && (
-                            <button
-                              type="button"
-                              aria-label={`Remove ${s.name}`}
-                              className="ml-1 text-ink-muted hover:text-ink transition-colors leading-none"
-                              onClick={() => {
-                                skillsMutation.mutate({ adds: [], removes: [s.id] });
-                              }}
-                            >
-                              ×
-                            </button>
-                          )}
-                        </Badge>
-                      ))}
+                <div className="space-y-4">
+                  {editing && (
+                    <div className="flex items-center gap-2">
+                      <Search className="size-4 shrink-0 text-ink-subtle" />
+                      <AsyncCombobox
+                        search={searchSkills.search}
+                        resolveByIds={searchSkills.resolveByIds}
+                        value={null}
+                        onChange={(id) => {
+                          if (id && !currentSkillIds.includes(id)) void addSkillToDraft(id);
+                        }}
+                        placeholder="Search to add a skill…"
+                        className="flex-1"
+                      />
                     </div>
                   )}
-                  {canEdit && (
-                    <AsyncCombobox
-                      multiple
-                      search={searchSkills.search}
-                      resolveByIds={searchSkills.resolveByIds}
-                      value={currentSkillIds}
-                      onChange={(next) => {
-                        const prev = new Set(currentSkillIds);
-                        const nextSet = new Set(next);
-                        const adds = next.filter((id) => !prev.has(id));
-                        const removes = currentSkillIds.filter((id) => !nextSet.has(id));
-                        if (adds.length === 0 && removes.length === 0) return;
-                        skillsMutation.mutate({ adds, removes });
-                      }}
-                      placeholder="Add skills…"
-                    />
+                  {displaySkills.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                      {displaySkills.map((s) => (
+                        <div
+                          key={s.id}
+                          className="group flex flex-col gap-2 rounded-md border border-hairline bg-surface-2 px-3 py-2.5 transition-colors hover:bg-surface-3"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-body-sm font-medium text-ink truncate">
+                              {s.name}
+                            </span>
+                            {editing ? (
+                              <button
+                                type="button"
+                                aria-label={`Remove ${s.name}`}
+                                className="shrink-0 rounded text-ink-subtle opacity-0 transition-opacity hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
+                                onClick={() => removeSkillFromDraft(s.id)}
+                              >
+                                <X className="size-3.5" />
+                              </button>
+                            ) : (
+                              <span className="shrink-0 text-caption tabular-nums text-ink-subtle">
+                                {s.level ? `${s.level}/5` : '—'}
+                              </span>
+                            )}
+                          </div>
+                          <SkillLevelRating
+                            level={s.level}
+                            onChange={
+                              editing ? (level) => rateSkillInDraft(s.id, level) : undefined
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    editing && (
+                      <p className="text-body-sm text-ink-muted">
+                        No skills yet — search above to add one.
+                      </p>
+                    )
+                  )}
+                  {editing && displaySkills.length > 0 && (
+                    <p className="text-caption text-ink-subtle">
+                      Click a segment to rate proficiency · 1 = novice, 5 = expert · click the
+                      active level to clear
+                    </p>
                   )}
                 </div>
               )}

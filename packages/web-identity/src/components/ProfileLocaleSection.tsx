@@ -140,9 +140,11 @@ export function ProfileLocaleSection({
             </div>
           )
         )}
-        <Button onClick={save} disabled={saving || !dirty || Boolean(whInvalid)}>
-          Save
-        </Button>
+        <div className="flex justify-end pt-1">
+          <Button onClick={save} disabled={saving || !dirty || Boolean(whInvalid)}>
+            Save changes
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
