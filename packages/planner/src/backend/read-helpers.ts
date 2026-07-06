@@ -25,6 +25,22 @@ export async function listMemberGroupIds(userId: string, tenantId: string): Prom
   return rows.map((r) => r.group_id);
 }
 
+/** user_ids belonging to a group, tenant-bound via the groups join. */
+export async function listGroupMemberUserIds(tenantId: string, groupId: string): Promise<string[]> {
+  const rows = await plannerDb()
+    .select({ user_id: groupMembers.user_id })
+    .from(groupMembers)
+    .innerJoin(groups, eq(groups.id, groupMembers.group_id))
+    .where(
+      and(
+        eq(groupMembers.group_id, groupId),
+        eq(groups.tenant_id, tenantId),
+        isNull(groups.deleted_at),
+      ),
+    );
+  return rows.map((r) => r.user_id);
+}
+
 export async function groupFilterFor(session: SessionScope): Promise<readonly string[] | null> {
   if (isTenantAdminish(session) || session.role_summary.cross_tenant_read) return null;
   return listMemberGroupIds(session.user_id, session.tenant_id);

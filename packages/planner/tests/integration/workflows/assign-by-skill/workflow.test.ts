@@ -3,7 +3,13 @@ import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { createGroup, createPlan, createTask, PLANNER_VECTOR_NAMESPACE } from '@seta/planner';
+import {
+  addGroupMembers,
+  createGroup,
+  createPlan,
+  createTask,
+  PLANNER_VECTOR_NAMESPACE,
+} from '@seta/planner';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -138,6 +144,11 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
       AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({
+        group_id: group.id,
+        members: [{ user_id: alice.user_id }],
+        session,
+      });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
       const task = await createTask({
         plan_id: plan.id,

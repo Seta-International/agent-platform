@@ -2,7 +2,7 @@ import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { createGroup, createPlan, createTask } from '@seta/planner';
+import { addGroupMembers, createGroup, createPlan, createTask } from '@seta/planner';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -189,6 +189,11 @@ describe('loadTask + candidatePool', () => {
       AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({
+        group_id: group.id,
+        members: [{ user_id: aliceId }, { user_id: bobId }],
+        session,
+      });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
       const task = await createTask({
         plan_id: plan.id,
@@ -245,6 +250,7 @@ describe('loadTask + candidatePool', () => {
       AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({ group_id: group.id, members: [{ user_id: anhId }], session });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
       const task = await createTask({ plan_id: plan.id, title: 'AI setup', session });
       await applyLabels(pool, {
@@ -315,6 +321,11 @@ describe('loadTask + candidatePool', () => {
       AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({
+        group_id: group.id,
+        members: [{ user_id: dz }, { user_id: ooo }],
+        session,
+      });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
       const task = await createTask({
         plan_id: plan.id,
@@ -339,6 +350,80 @@ describe('loadTask + candidatePool', () => {
       const ids = pool_.map((c) => c.userId);
       expect(ids).not.toContain(dz);
       expect(ids).not.toContain(ooo);
+    });
+  });
+
+  it('excludes candidates who are not members of the task group', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+      const session = adminSession({
+        tenant_id,
+        user_id: admin_user_id,
+        email: 'admin@d.local',
+      });
+      await seedProjection(pool, tenant_id, admin_user_id, 'Admin', 'admin@d.local');
+
+      // Alice is a group member; Bob is not. Both surface from the skill/vector
+      // tools with matching skills, but only members of the task's group may be
+      // suggested.
+      const aliceId = (
+        await createUser(
+          { tenant_id, email: 'a@d.local', name: 'Alice', password: 'ChangeMe@2026' },
+          { type: 'user', user_id: admin_user_id },
+        )
+      ).user_id;
+      await seedProjection(pool, tenant_id, aliceId, 'Alice', 'a@d.local', {
+        skills: ['react', 'auth'],
+      });
+
+      const bobId = (
+        await createUser(
+          { tenant_id, email: 'b@d.local', name: 'Bob', password: 'ChangeMe@2026' },
+          { type: 'user', user_id: admin_user_id },
+        )
+      ).user_id;
+      await seedProjection(pool, tenant_id, bobId, 'Bob', 'b@d.local', {
+        skills: ['react', 'auth'],
+      });
+
+      registerFakeSkillTagTool([
+        { userId: aliceId, matchedSkills: ['react', 'auth'], overlap: 2 },
+        { userId: bobId, matchedSkills: ['react', 'auth'], overlap: 2 },
+      ]);
+      registerFakeVectorTool([
+        { userId: aliceId, score: 0.85 },
+        { userId: bobId, score: 0.72 },
+      ]);
+      AgentRegistry.freeze();
+
+      const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({ group_id: group.id, members: [{ user_id: aliceId }], session });
+      const plan = await createPlan({ group_id: group.id, name: 'P', session });
+      const task = await createTask({
+        plan_id: plan.id,
+        title: 'Fix login',
+        description: 'oauth flow',
+        session,
+      });
+      await applyLabels(pool, {
+        tenant_id,
+        plan_id: plan.id,
+        task_id: task.id,
+        applied_by: admin_user_id,
+        names: ['react', 'auth'],
+      });
+
+      const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
+      const pool_ = await candidatePool({
+        tenantId: tenant_id,
+        callerUserId: admin_user_id,
+        callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
+        task: t,
+      });
+
+      const ids = pool_.map((c) => c.userId);
+      expect(ids).toContain(aliceId);
+      expect(ids).not.toContain(bobId);
     });
   });
 
