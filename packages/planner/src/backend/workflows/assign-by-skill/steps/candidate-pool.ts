@@ -1,10 +1,13 @@
 import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
-import { and, eq, gt, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, ne, or } from 'drizzle-orm';
 import { plannerDb } from '../../../db/index.ts';
 import { assigneeProjection } from '../../../db/schema.ts';
 import { listGroupMemberUserIds } from '../../../read-helpers.ts';
 import type { LoadedTask } from './load-task.ts';
 import { fetchTaskHistoryHits, type TaskHistoryDeps } from './task-history-hits.ts';
+
+/** Minimum person-profile vector similarity for a fuzzy hit to enter the pool. */
+const VECTOR_MIN_SCORE = 0.4;
 
 export interface PoolCandidate {
   userId: string;
@@ -213,9 +216,6 @@ async function fetchActiveProjections(
 ): Promise<Array<{ user_id: string; display_name: string }>> {
   if (userIds.length === 0) return [];
   const db = plannerDb();
-  const idsLiteral = sql.raw(
-    `ARRAY[${userIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(',')}]::uuid[]`,
-  );
   const oooClause = dueAt
     ? or(
         ne(assigneeProjection.availability_status, 'ooo'),
@@ -235,7 +235,7 @@ async function fetchActiveProjections(
         eq(assigneeProjection.tenant_id, tenantId),
         isNull(assigneeProjection.deactivated_at),
         oooClause,
-        sql`${assigneeProjection.user_id} = ANY(${idsLiteral})`,
+        inArray(assigneeProjection.user_id, userIds),
       ),
     );
 }
@@ -261,7 +261,10 @@ async function fetchVectorHits(
   try {
     const out = await tool.execute({
       session: { tenant_id: tenantId, user_id: callerUserId, role_summary: callerRoleSummary },
-      input: { queryText, topK: 20, minScore: 0 },
+      // Relevance floor: without a minimum score the top-20 neighbours always
+      // come back, admitting weakly-related people who then float up on the
+      // load signal. The rank-level evidence gate is the backstop.
+      input: { queryText, topK: 20, minScore: VECTOR_MIN_SCORE },
     });
     return out.hits;
   } catch {
@@ -274,9 +277,6 @@ async function fetchProjections(
   userIds: string[],
 ): Promise<Map<string, { display_name: string; skills: string[] }>> {
   const db = plannerDb();
-  const idsLiteral = sql.raw(
-    `ARRAY[${userIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(',')}]::uuid[]`,
-  );
   const rows = await db
     .select({
       user_id: assigneeProjection.user_id,
@@ -288,7 +288,7 @@ async function fetchProjections(
       and(
         eq(assigneeProjection.tenant_id, tenantId),
         isNull(assigneeProjection.deactivated_at),
-        sql`${assigneeProjection.user_id} = ANY(${idsLiteral})`,
+        inArray(assigneeProjection.user_id, userIds),
       ),
     );
   return new Map(rows.map((r) => [r.user_id, { display_name: r.display_name, skills: r.skills }]));

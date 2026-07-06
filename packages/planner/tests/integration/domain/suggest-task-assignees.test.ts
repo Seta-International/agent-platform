@@ -71,6 +71,28 @@ async function seedProjection(
   );
 }
 
+function registerFakeSkillExactTool(
+  hits: ReadonlyArray<{ userId: string; matchedSkills: string[]; overlap: number }>,
+): void {
+  const spec: CrossModuleReadToolSpec<
+    { labels: string[] },
+    { hits: Array<{ userId: string; matchedSkills: string[]; overlap: number }> }
+  > = {
+    id: 'people_searchUsersBySkillExact',
+    description: 'fake',
+    inputSchema: z.object({ labels: z.array(z.string()) }),
+    outputSchema: z.object({
+      hits: z.array(
+        z.object({ userId: z.string(), matchedSkills: z.array(z.string()), overlap: z.number() }),
+      ),
+    }),
+    rbac: 'identity.user.read',
+    availableTo: 'all-specialists',
+    execute: async () => ({ hits: [...hits] }),
+  };
+  AgentRegistry.registerCrossModuleReadTool(spec);
+}
+
 function registerFakeVectorTool(hits: ReadonlyArray<{ userId: string; score: number }>): void {
   const spec: CrossModuleReadToolSpec<
     { queryText: string; topK: number; minScore?: number },
@@ -134,6 +156,14 @@ describe('suggestTaskAssignees', () => {
         skills: ['react', 'auth'],
       });
 
+      // Skill evidence for the three skilled users; the outsider matches too,
+      // proving the group-membership gate (not a missing skill) is what
+      // excludes them.
+      registerFakeSkillExactTool([
+        { userId: alice.user_id, matchedSkills: ['react', 'auth'], overlap: 2 },
+        { userId: bob.user_id, matchedSkills: ['react'], overlap: 1 },
+        { userId: outsider.user_id, matchedSkills: ['react', 'auth'], overlap: 2 },
+      ]);
       registerFakeVectorTool([]);
       AgentRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);
       AgentRegistry.freeze();

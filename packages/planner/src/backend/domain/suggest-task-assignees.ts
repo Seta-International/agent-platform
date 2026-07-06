@@ -8,7 +8,6 @@ import {
   type AssignBySkillDeps,
   computeAssigneeSuggestions,
 } from '../workflows/assign-by-skill/workflow.ts';
-import { listGroupMembers } from './list-group-members.ts';
 
 export interface AssigneeSuggestion {
   user_id: string;
@@ -77,23 +76,17 @@ export async function suggestTaskAssignees(
     deps ?? defaultAssignBySkillDeps(),
   );
 
-  const { members } = await listGroupMembers({
-    group_id: plan.group_id,
-    limit: 500,
-    session: input.session,
-  });
-  const memberIds = new Set(members.map((m) => m.user_id));
-
-  return candidates
-    .filter((c) => memberIds.has(c.userId))
-    .map((c) => ({
-      user_id: c.userId,
-      display_name: c.displayName,
-      score: c.finalScore,
-      skills: c.skills,
-      exact_overlap: c.exactOverlap,
-      open_task_count: c.openTaskCount,
-      hours_available_this_week: c.hoursAvailableThisWeek,
-      timezone: c.timezone,
-    }));
+  // candidatePool already gates to the task group's members (unbounded); no
+  // second membership pass — a 500-capped re-filter here could drop valid
+  // candidates in large groups.
+  return candidates.map((c) => ({
+    user_id: c.userId,
+    display_name: c.displayName,
+    score: c.finalScore,
+    skills: c.skills,
+    exact_overlap: c.exactOverlap,
+    open_task_count: c.openTaskCount,
+    hours_available_this_week: c.hoursAvailableThisWeek,
+    timezone: c.timezone,
+  }));
 }

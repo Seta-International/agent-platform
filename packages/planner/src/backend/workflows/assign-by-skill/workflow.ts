@@ -8,7 +8,7 @@ import {
 } from './steps/candidate-pool.ts';
 import { enrichWithLoadAndCapacity } from './steps/enrich-with-load-capacity.ts';
 import { type LoadedTask, loadTask } from './steps/load-task.ts';
-import { type RankWeights, rankCandidates } from './steps/rank-candidates.ts';
+import { modalTimezone, type RankWeights, rankCandidates } from './steps/rank-candidates.ts';
 import { buildSuggestAssigneeCard } from './steps/suggest-assignee.ts';
 
 const PRE_RANK_TOP_K = 10;
@@ -63,7 +63,7 @@ export async function computeAssigneeSuggestions(
   const task = await loadTask({ tenantId, taskId: input.taskId });
   const pool = await candidatePool({ tenantId, callerUserId, callerRoleSummary, task }, deps);
 
-  const preRanked = preRank(pool).slice(0, PRE_RANK_TOP_K);
+  const preRanked = preRank(pool, task.labels.length).slice(0, PRE_RANK_TOP_K);
   const enriched =
     preRanked.length === 0
       ? []
@@ -74,12 +74,17 @@ export async function computeAssigneeSuggestions(
           candidates: preRanked,
         });
 
-  const callerTz = fetchCallerTimezone(callerUserId, enriched);
+  const referenceTz = modalTimezone(enriched);
 
   const candidates = rankCandidates({
     candidates: enriched,
     weights: deps.weights ?? DEFAULT_ASSIGN_WEIGHTS,
-    task: { dueAt: task.due_at, tenantTz: callerTz, priority: task.priority_number },
+    task: {
+      dueAt: task.due_at,
+      referenceTz,
+      priority: task.priority_number,
+      labelCount: task.labels.length,
+    },
     topK: FINAL_TOP_K,
   });
 
@@ -104,24 +109,17 @@ export async function runSuggestAssignee(
   return { task, candidates, card };
 }
 
-function preRank(pool: PoolCandidate[]): PoolCandidate[] {
+function preRank(pool: PoolCandidate[], labelCount: number): PoolCandidate[] {
+  const denom = Math.min(Math.max(labelCount, 1), 3);
   return pool
     .map((c) => ({
       c,
       s:
-        Math.min(1, c.exactOverlap / 3) * 0.5 +
+        Math.min(1, c.exactOverlap / denom) * 0.5 +
         Math.max(c.vectorScore ?? 0, c.historyScore ?? 0) * 0.5,
     }))
     .sort((a, b) => b.s - a.s)
     .map((x) => x.c);
-}
-
-function fetchCallerTimezone(
-  callerId: string,
-  enriched: ReadonlyArray<{ userId: string; timezone: string | null }>,
-): string {
-  const me = enriched.find((c) => c.userId === callerId);
-  return me?.timezone ?? 'UTC';
 }
 
 /**
