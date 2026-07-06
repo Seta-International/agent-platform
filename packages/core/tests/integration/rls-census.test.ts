@@ -22,6 +22,11 @@ const CORE_RLS_ALLOWLIST = [
   // Idempotency cache keyed by caller-supplied `idempotency_key` across modules/methods — no
   // tenant_id column; the RPC caller may run outside a tenant-scoped session (e.g. worker/cron).
   'rpc_idempotency',
+  // Session→scope cache keyed by `session_id`, read during auth/session resolution BEFORE the
+  // tenant GUC exists (the tenant_id is discovered from this row). Its tenant_id is a payload
+  // attribute, not an RLS scoping key — a forced tenant policy would return 0 rows to the auth
+  // path under seta_app and break session resolution. Pre-tenant, like `tenants`.
+  'session_scope_cache',
 ] as const;
 
 describe('core RLS census', () => {
