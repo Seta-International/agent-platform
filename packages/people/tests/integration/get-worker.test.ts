@@ -224,7 +224,7 @@ describe('person-skill HTTP routes', () => {
         'Engineering',
       ]);
       await pool.query(
-        `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
+        `INSERT INTO core.skill (id, tenant_id, category_id, name, slug) VALUES ($1,$2,$3,$4,lower(regexp_replace($4,'[^a-zA-Z0-9]','','g')))`,
         [skillId, t.tenant_id, catId, 'Go'],
       );
 
@@ -260,7 +260,7 @@ describe('person-skill HTTP routes', () => {
         'Engineering',
       ]);
       await pool.query(
-        `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
+        `INSERT INTO core.skill (id, tenant_id, category_id, name, slug) VALUES ($1,$2,$3,$4,lower(regexp_replace($4,'[^a-zA-Z0-9]','','g')))`,
         [skillId, t.tenant_id, catId, 'Kotlin'],
       );
 
@@ -298,7 +298,7 @@ describe('person-skill HTTP routes', () => {
         'Engineering',
       ]);
       await pool.query(
-        `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
+        `INSERT INTO core.skill (id, tenant_id, category_id, name, slug) VALUES ($1,$2,$3,$4,lower(regexp_replace($4,'[^a-zA-Z0-9]','','g')))`,
         [skillId, t.tenant_id, catId, 'Rust'],
       );
 
@@ -334,7 +334,7 @@ describe('person-skill HTTP routes', () => {
         'Engineering',
       ]);
       await pool.query(
-        `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
+        `INSERT INTO core.skill (id, tenant_id, category_id, name, slug) VALUES ($1,$2,$3,$4,lower(regexp_replace($4,'[^a-zA-Z0-9]','','g')))`,
         [skillId, t.tenant_id, catId, 'Java'],
       );
 
