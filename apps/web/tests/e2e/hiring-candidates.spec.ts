@@ -15,6 +15,9 @@ test('setup: two open roles and a rejection reason exist', async ({ page }) => {
     await page.goto('/hiring/requisitions');
     await page.getByRole('button', { name: 'New requisition' }).click();
     await page.getByPlaceholder('e.g. Senior Backend Engineer').fill(title);
+    await page
+      .getByPlaceholder('One short paragraph on the role and its context…')
+      .fill('Own the platform roadmap and mentor the team.');
     await page.getByRole('button', { name: 'Create requisition' }).click();
     await expect(page.getByText('Requisition created')).toBeVisible({ timeout: 8_000 });
   }
