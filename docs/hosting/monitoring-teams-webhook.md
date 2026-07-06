@@ -7,17 +7,24 @@ Adaptive Card to a **Power Automate Workflow** webhook. (Microsoft retired the o
 
 ## Create the webhook
 
-1. In Teams, open the channel that should receive alerts → **⋯ (more options) → Workflows**
-   (or **Teams → Apps → Workflows**).
-2. Pick the template **"Post to a channel when a webhook request is received"**
-   (choose the *channel* variant, not the chat one).
+Pick the template that matches where you want alerts posted:
+
+- **Group chat (or 1:1 chat):** "Post to a chat when a webhook request is received".
+- **Channel:** "Post to a channel when a webhook request is received".
+
+Steps (group chat shown; the channel flow is identical bar the last selection):
+
+1. In Teams: **Apps → Workflows → Create** (or open the target group chat →
+   **⋯ (more options) → Workflows**).
+2. Choose **"Post to a chat when a webhook request is received"**.
 3. Confirm the connection (sign in), then **Next**.
-4. Select the target **Team** and **Channel**.
+4. For **"Post in"** select **Group chat**, then pick the existing group chat to post
+   to. (You must be a member of that chat.)
 5. **Create**. Copy the generated **HTTP POST URL** — that is `TEAMS_WEBHOOK_URL`.
 
-Treat the URL as a secret: anyone holding it can post to the channel. To rotate,
-delete the workflow and create a new one. Exact labels shift as Microsoft updates the
-UI; the constant is the "webhook request is received" trigger.
+Treat the URL as a secret: anyone holding it can post to the chat. To rotate, delete
+the workflow and create a new one. Exact labels shift as Microsoft updates the UI; the
+constant is the "Post to a chat … when a webhook request is received" trigger.
 
 ## Install it
 
@@ -41,7 +48,7 @@ docker restart seta-monitoring-alertmanager-1
 ## Verify
 
 Alertmanager always fires a `Watchdog` alert (routed on a short interval), so within a
-few minutes of a valid webhook a heartbeat card appears in the channel. To force one:
+few minutes of a valid webhook a heartbeat card appears in the target chat. To force one:
 
 ```bash
 # on the box — send a synthetic alert through Alertmanager
