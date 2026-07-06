@@ -6,6 +6,13 @@ export {
   queryAudit,
 } from './backend/audit.ts';
 export {
+  type CanonicalSkill,
+  canonicalizeSkill,
+  canonicalizeSkills,
+  createSkillAlias,
+  slugifySkill,
+} from './backend/skills/canonicalize.ts';
+export {
   archiveSkillCategory,
   createSkillCategory,
   editSkillCategory,
