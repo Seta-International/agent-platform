@@ -24,6 +24,7 @@ const candidate = (userId: string, name: string | null = userId): RankedCandidat
   skills: [],
   role: null,
   skillMatchCount: 0,
+  relevanceScore: 0,
   rank: 1,
 });
 
