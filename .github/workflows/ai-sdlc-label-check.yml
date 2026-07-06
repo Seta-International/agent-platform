@@ -25,31 +25,56 @@ jobs:
             if (agentCreated) desired.push('ai-agent');
 
             const existing = context.payload.pull_request.labels.map(l => l.name);
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const usesAI = desired.length > 0
+              || existing.includes('ai-assisted') || existing.includes('ai-agent');
 
+            // Post a reminder at most once per PR, keyed by a hidden marker
+            // comment, so re-runs on synchronize/edited don't spam the thread.
+            const commentOnce = async (marker, lines) => {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner, repo, issue_number, per_page: 100,
+              });
+              if (comments.some(c => c.body && c.body.includes(marker))) return;
+              await github.rest.issues.createComment({
+                owner, repo, issue_number,
+                body: [marker, ...lines].join('\n'),
+              });
+            };
+
+            // 1) Sync labels from the checkboxes, or nag if none are set.
             if (desired.length === 0) {
-              if (!existing.includes('ai-assisted') && !existing.includes('ai-agent')) {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: [
-                    '⚠️ **AI label missing** — please check a box in the PR template\'s "AI usage" section:',
-                    '- `ai-assisted` if AI helped with any part of this PR',
-                    '- `ai-assisted` **+ `ai-agent`** if an agent (Claude Code) created this PR',
-                    '',
-                    'This keeps the AI SDLC metrics accurate. You can merge without it — this is a reminder only.',
-                  ].join('\n'),
-                });
+              if (!usesAI) {
+                await commentOnce('<!-- ai-label-reminder -->', [
+                  '⚠️ **AI label missing** — please check a box in the PR template\'s "AI usage" section:',
+                  '- `ai-assisted` if AI helped with any part of this PR',
+                  '- `ai-assisted` **+ `ai-agent`** if an agent (Claude Code) created this PR',
+                  '',
+                  'This keeps the AI SDLC metrics accurate. You can merge without it — this is a reminder only.',
+                ]);
               }
-              return;
+            } else {
+              const toAdd = desired.filter(l => !existing.includes(l));
+              if (toAdd.length > 0) {
+                await github.rest.issues.addLabels({ owner, repo, issue_number, labels: toAdd });
+              }
             }
 
-            const toAdd = desired.filter(l => !existing.includes(l));
-            if (toAdd.length > 0) {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                labels: toAdd,
-              });
+            // 2) For AI PRs, nudge for the "AI time saved (hours)" line — it
+            // feeds the Jira AI Time Saved field and the ROI dashboard. Same
+            // regex the collector uses (collector/ticket_extract.py), so the
+            // reminder fires exactly when the collector would find no value.
+            if (usesAI) {
+              const hasHours = /ai time saved\s*\(hours\)\s*:\s*[0-9]+(\.[0-9]+)?/i.test(body);
+              if (!hasHours) {
+                await commentOnce('<!-- ai-time-saved-reminder -->', [
+                  '💡 **AI time saved not recorded** — this PR is AI-assisted but the',
+                  '"AI time saved (hours)" line in the description is blank. Add it, e.g.:',
+                  '',
+                  '> AI time saved (hours): 3',
+                  '',
+                  'It flows to the Jira ticket and the ROI dashboard. Optional — a reminder only.',
+                ]);
+              }
             }

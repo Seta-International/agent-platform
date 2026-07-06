@@ -27,10 +27,13 @@ permissions:
 
 jobs:
   authorize:
-    name: Authorize (repo admins only)
+    name: Authorize (prod gates only)
     runs-on: ubuntu-latest
     steps:
       - name: Verify triggering actor is a repo admin
+        # Admin gate is prod-only. dev/uat are open to any write collaborator;
+        # prod-recovery stays ungated so self-heal can redeploy unattended.
+        if: ${{ inputs.environment == 'prod' }}
         env:
           GH_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}

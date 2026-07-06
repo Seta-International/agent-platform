@@ -45,10 +45,13 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.28.0
     restart: unless-stopped
+    environment:
+      TZ: Asia/Ho_Chi_Minh   # card timestamps render as UTC+7 via .Local
     command: [--config.file=/etc/alertmanager/alertmanager.yml]
     ports: ["9093:9093"]
     volumes:
       - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./infra/alertmanager/templates.tmpl:/etc/alertmanager/templates.tmpl:ro
       - seta-monitoring-alertmanager-secrets:/etc/alertmanager/secrets:ro
       - seta-monitoring-alertmanager-data:/alertmanager
 
