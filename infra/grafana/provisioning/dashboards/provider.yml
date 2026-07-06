@@ -1,0 +1,15 @@
+apiVersion: 1
+# Single provider (replaces the former duplicate dashboards.yaml + default.yml).
+# Loads version-controlled JSON from /var/lib/grafana/dashboards (bind-mounted
+# from infra/grafana/dashboards by compose.monitoring.yaml). Dashboards are code:
+# UI edits do not persist.
+providers:
+  - name: seta
+    orgId: 1
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
