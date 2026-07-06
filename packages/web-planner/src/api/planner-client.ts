@@ -47,6 +47,7 @@ export interface AssigneeSuggestion {
   display_name: string;
   score: number;
   skills: string[];
+  matched_skills: string[];
   exact_overlap: number;
   open_task_count: number | null;
   hours_available_this_week: number | null;
