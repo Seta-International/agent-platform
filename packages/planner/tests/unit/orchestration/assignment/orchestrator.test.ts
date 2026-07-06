@@ -10,6 +10,9 @@ const ctx = { tenantId: 't1', actorUserId: 'a1' };
 // proposeAssignment's assign port — never exercised here: every test drives the
 // orchestrator via the runAgent seam, so the composite tool is bypassed.
 const noopAssign = { assign: async () => {} };
+// Same bypass applies to the group-scope gate; a noop satisfies the deps type.
+const noopGroupScope = { memberIdsForTask: async () => [] };
+const noopTaskAssignees = { currentAssigneeIds: async () => [] };
 
 // Sub-agent stubs are never called: every test uses the runAgent seam, so the
 // orchestrator's real tools (which would call these) are bypassed.
@@ -34,6 +37,8 @@ const make = (
     generalAnswer: stub('staffing.generalAnswer'),
     userProfileLookup: { findByName: async () => [] },
     assign: noopAssign,
+    groupScope: noopGroupScope,
+    taskAssignees: noopTaskAssignees,
     resolveModel: () => ({}) as never,
     mastraStorage: new InMemoryStore(),
     runAgent: async () => ({ toolCalls, toolResults, text }),
@@ -293,6 +298,8 @@ describe('orchestrator request-context wiring', () => {
       generalAnswer: stub('staffing.generalAnswer'),
       userProfileLookup: { findByName: async () => [] },
       assign: noopAssign,
+      groupScope: noopGroupScope,
+      taskAssignees: noopTaskAssignees,
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       runAgent: async ({ requestContext }) => {
@@ -314,6 +321,8 @@ describe('orchestrator request-context wiring', () => {
       generalAnswer: stub('staffing.generalAnswer'),
       userProfileLookup: { findByName: async () => [] },
       assign: noopAssign,
+      groupScope: noopGroupScope,
+      taskAssignees: noopTaskAssignees,
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       runAgent: async ({ requestContext }) => {
@@ -337,6 +346,8 @@ describe('orchestrator resource working memory', () => {
       generalAnswer: stub('staffing.generalAnswer'),
       userProfileLookup: { findByName: async () => [] },
       assign: noopAssign,
+      groupScope: noopGroupScope,
+      taskAssignees: noopTaskAssignees,
       resolveModel: () => ({}) as never,
       mastraStorage: new InMemoryStore(),
       runAgent: async (args) => {

@@ -29,9 +29,13 @@ const RECOMMENDATION = {
   skillMatchCount: 1,
   status: 'available' as const,
   availabilityScore: 0.9,
+  relevanceScore: 1,
+  score: 0.97,
 };
 
-function build(opts: { recommendations?: unknown[] } = {}) {
+function build(
+  opts: { recommendations?: unknown[]; memberIds?: string[]; assignedIds?: string[] } = {},
+) {
   const taskAnalyzer = capturingStub('staffing.taskAnalyzer', {
     skills: ['aws'],
     title: 'AWS migration',
@@ -43,15 +47,36 @@ function build(opts: { recommendations?: unknown[] } = {}) {
     recommendations: opts.recommendations ?? [RECOMMENDATION],
   });
   const assign = { assign: vi.fn(async () => {}) };
+  // Group-scope gate double: returns the task's owning-group member userIds.
+  // Defaults to [U1] so the happy-path suspends as before.
+  const groupScope = {
+    memberIdsForTask: vi.fn(async () => opts.memberIds ?? [U1]),
+  };
+  // TaskAssignees gate double: user_ids already on the task, excluded from the
+  // suggestion set. Defaults to [] so the happy-path suspends unchanged.
+  const taskAssignees = {
+    currentAssigneeIds: vi.fn(async () => opts.assignedIds ?? []),
+  };
   const tool = makeProposeAssignmentTool({
     taskAnalyzer: taskAnalyzer.spec as never,
     skillMatcher: skillMatcher.spec as never,
     avaiChecker: avaiChecker.spec as never,
     recommender: recommender.spec as never,
     assign,
+    groupScope,
+    taskAssignees,
     ctx: { tenantId: 't1', actorUserId: 'a1' },
   });
-  return { tool, taskAnalyzer, skillMatcher, avaiChecker, recommender, assign };
+  return {
+    tool,
+    taskAnalyzer,
+    skillMatcher,
+    avaiChecker,
+    recommender,
+    assign,
+    groupScope,
+    taskAssignees,
+  };
 }
 
 function rc() {
@@ -100,6 +125,87 @@ describe('proposeAssignment composite tool', () => {
       assigneeUserIds: [U1],
       taskId: TASK_ID,
     });
+  });
+
+  it('first call: drops recommendations whose user is NOT in the task group, and does NOT suspend when none remain', async () => {
+    // Recommender surfaces U1, but U1 is not a member of the task's owning group.
+    const { tool, groupScope } = build({ memberIds: ['someone-else'] });
+    const suspend = vi.fn(async () => {});
+    const out = (await tool.execute!(
+      { taskId: TASK_ID, title: 'AWS migration' } as never,
+      firstPassCtx(suspend),
+    )) as { assigned: boolean; recommendations?: unknown[] };
+    expect(groupScope.memberIdsForTask).toHaveBeenCalledWith(
+      TASK_ID,
+      expect.objectContaining({ tenantId: 't1', actorUserId: 'a1' }),
+    );
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out).toEqual({ assigned: false, recommendations: [] });
+  });
+
+  it('first call: keeps only in-group recommendations in the suspend card', async () => {
+    const U2 = 'c0ffee00-0000-4000-8000-000000000002';
+    const OTHER = { ...RECOMMENDATION, userId: U2, name: 'Bob' };
+    // Two recommendations; only U1 is a group member → card carries U1 alone.
+    const { tool } = build({ recommendations: [OTHER, RECOMMENDATION], memberIds: [U1] });
+    let suspended: { card?: unknown } | undefined;
+    const suspend = vi.fn(async (payload: unknown) => {
+      suspended = payload as { card?: unknown };
+    });
+    await tool.execute!(
+      { taskId: TASK_ID, title: 'AWS migration' } as never,
+      firstPassCtx(suspend),
+    );
+    expect(suspend).toHaveBeenCalledTimes(1);
+    const card = suspended?.card as {
+      primary: { argsPatch: Record<string, unknown> };
+      details: Array<{ kind: string; items?: Array<{ id: string }> }>;
+    };
+    expect(card.primary.argsPatch.assigneeUserIds).toEqual([U1]);
+    const list = card.details.find((d) => d.kind === 'entityList');
+    expect(list?.items?.map((i) => i.id)).toEqual([U1]);
+  });
+
+  it('first call: drops recommendations whose user is ALREADY assigned to the task', async () => {
+    const U2 = 'c0ffee00-0000-4000-8000-000000000002';
+    const OTHER = { ...RECOMMENDATION, userId: U2, name: 'Bob' };
+    // Both in-group, but U1 is already assigned → card carries U2 alone.
+    const { tool, taskAssignees } = build({
+      recommendations: [RECOMMENDATION, OTHER],
+      memberIds: [U1, U2],
+      assignedIds: [U1],
+    });
+    let suspended: { card?: unknown } | undefined;
+    const suspend = vi.fn(async (payload: unknown) => {
+      suspended = payload as { card?: unknown };
+    });
+    await tool.execute!(
+      { taskId: TASK_ID, title: 'AWS migration' } as never,
+      firstPassCtx(suspend),
+    );
+    expect(taskAssignees.currentAssigneeIds).toHaveBeenCalledWith(
+      TASK_ID,
+      expect.objectContaining({ tenantId: 't1', actorUserId: 'a1' }),
+    );
+    expect(suspend).toHaveBeenCalledTimes(1);
+    const card = suspended?.card as {
+      primary: { argsPatch: Record<string, unknown> };
+      details: Array<{ kind: string; items?: Array<{ id: string }> }>;
+    };
+    expect(card.primary.argsPatch.assigneeUserIds).toEqual([U2]);
+    const list = card.details.find((d) => d.kind === 'entityList');
+    expect(list?.items?.map((i) => i.id)).toEqual([U2]);
+  });
+
+  it('first call: does NOT suspend when every recommendation is already assigned', async () => {
+    const { tool } = build({ memberIds: [U1], assignedIds: [U1] });
+    const suspend = vi.fn(async () => {});
+    const out = (await tool.execute!(
+      { taskId: TASK_ID, title: 'AWS migration' } as never,
+      firstPassCtx(suspend),
+    )) as { assigned: boolean; recommendations?: unknown[] };
+    expect(suspend).not.toHaveBeenCalled();
+    expect(out).toEqual({ assigned: false, recommendations: [] });
   });
 
   it('first call with empty recommendations: returns { assigned:false } and does NOT suspend', async () => {

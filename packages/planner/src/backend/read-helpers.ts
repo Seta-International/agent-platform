@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { and, eq, isNull } from 'drizzle-orm';
 import { plannerDb } from './db/index.ts';
-import { groupMembers, groups } from './db/schema.ts';
+import { groupMembers, groups, plans, taskAssignments, tasks } from './db/schema.ts';
 
 export function isTenantAdminish(session: SessionScope): boolean {
   return session.role_summary.roles.some(
@@ -36,6 +36,36 @@ export async function listGroupMemberUserIds(tenantId: string, groupId: string):
         eq(groupMembers.group_id, groupId),
         eq(groups.tenant_id, tenantId),
         isNull(groups.deleted_at),
+      ),
+    );
+  return rows.map((r) => r.user_id);
+}
+
+/** The owning group id of a task (via its plan), tenant-bound. Null when the
+ *  task is missing/deleted or outside the tenant. */
+export async function getTaskGroupId(tenantId: string, taskId: string): Promise<string | null> {
+  const rows = await plannerDb()
+    .select({ group_id: plans.group_id })
+    .from(tasks)
+    .innerJoin(plans, eq(plans.id, tasks.plan_id))
+    .where(and(eq(tasks.id, taskId), eq(tasks.tenant_id, tenantId), isNull(tasks.deleted_at)))
+    .limit(1);
+  return rows[0]?.group_id ?? null;
+}
+
+/** user_ids currently assigned to a task, tenant-bound. Empty when the task is
+ *  missing/deleted or outside the tenant. Used to exclude people already on the
+ *  task from assignee suggestions. */
+export async function listTaskAssigneeUserIds(tenantId: string, taskId: string): Promise<string[]> {
+  const rows = await plannerDb()
+    .select({ user_id: taskAssignments.user_id })
+    .from(taskAssignments)
+    .innerJoin(tasks, eq(tasks.id, taskAssignments.task_id))
+    .where(
+      and(
+        eq(taskAssignments.task_id, taskId),
+        eq(taskAssignments.tenant_id, tenantId),
+        isNull(tasks.deleted_at),
       ),
     );
   return rows.map((r) => r.user_id);
