@@ -52,10 +52,10 @@ export interface SuggestAssigneeOutput {
  * without hurting top-5 fidelity (a candidate that doesn't make top-10 by
  * skill alone won't beat one that does on the load/tz signal).
  */
-export async function runSuggestAssignee(
-  input: RunSuggestAssigneeInput,
+export async function computeAssigneeSuggestions(
+  input: Pick<RunSuggestAssigneeInput, 'taskId' | 'session'>,
   deps: AssignBySkillDeps,
-): Promise<SuggestAssigneeOutput> {
+): Promise<{ task: LoadedTask; candidates: CandidateUser[] }> {
   const tenantId = input.session.tenantId;
   const callerUserId = input.session.userId;
   const callerRoleSummary = input.session.roleSummary;
@@ -76,26 +76,32 @@ export async function runSuggestAssignee(
 
   const callerTz = fetchCallerTimezone(callerUserId, enriched);
 
-  const ranked = rankCandidates({
+  const candidates = rankCandidates({
     candidates: enriched,
     weights: deps.weights ?? DEFAULT_ASSIGN_WEIGHTS,
-    task: {
-      dueAt: task.due_at,
-      tenantTz: callerTz,
-      priority: task.priority_number,
-    },
+    task: { dueAt: task.due_at, tenantTz: callerTz, priority: task.priority_number },
     topK: FINAL_TOP_K,
   });
 
+  return { task, candidates };
+}
+
+export async function runSuggestAssignee(
+  input: RunSuggestAssigneeInput,
+  deps: AssignBySkillDeps,
+): Promise<SuggestAssigneeOutput> {
+  const { task, candidates } = await computeAssigneeSuggestions(
+    { taskId: input.taskId, session: input.session },
+    deps,
+  );
   const card = buildSuggestAssigneeCard({
     taskId: task.taskId,
     taskTitle: task.title,
-    candidates: ranked,
-    session: { tenantId, userId: callerUserId },
+    candidates,
+    session: { tenantId: input.session.tenantId, userId: input.session.userId },
     toolCallId: input.toolCallId,
   });
-
-  return { task, candidates: ranked, card };
+  return { task, candidates, card };
 }
 
 function preRank(pool: PoolCandidate[]): PoolCandidate[] {
