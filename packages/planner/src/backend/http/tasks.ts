@@ -29,6 +29,7 @@ import {
   restoreTask,
   setAssigneePriority,
   setTaskAssignees,
+  suggestTaskAssignees,
   unapplyLabel,
   unassignTask,
   updateChecklistItem,
@@ -341,6 +342,12 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
     await assignTask({ task_id: c.req.param('id'), user_id: parsed.data.user_id, session });
     return c.body(null, 204);
+  });
+
+  app.get('/api/planner/v1/tasks/:id/assignee-suggestions', async (c) => {
+    const session = c.get('user');
+    const suggestions = await suggestTaskAssignees({ task_id: c.req.param('id'), session });
+    return c.json(suggestions);
   });
 
   app.delete('/api/planner/v1/tasks/:id/assignees/:userId', async (c) => {
