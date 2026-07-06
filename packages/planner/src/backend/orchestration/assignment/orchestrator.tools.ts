@@ -1,7 +1,7 @@
 import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { defineAgentTool, recordEntityExposure, resolveTaskRef } from '@seta/agent-sdk';
 import { z } from 'zod';
-import type { AssignPort, UserProfilePort } from './ports.ts';
+import type { AssignPort, GroupScopePort, TaskAssigneesPort, UserProfilePort } from './ports.ts';
 import { makeProposeAssignmentTool } from './propose-assignment.tool.ts';
 import {
   type AvailabilityResult,
@@ -57,6 +57,10 @@ export interface OrchestratorToolDeps {
   userProfileLookup: UserProfilePort;
   /** Performs the assignment a proposeAssignment approval confirms. */
   assign: AssignPort;
+  /** Scopes proposeAssignment suggestions to the task's owning-group members. */
+  groupScope: GroupScopePort;
+  /** Excludes the task's current assignees from proposeAssignment suggestions. */
+  taskAssignees: TaskAssigneesPort;
   /** The orchestrator's current user message — already carries any injected
    *  `Context:` file block. Passed verbatim to the general-answer sub-agent so
    *  the routing LLM cannot paraphrase or truncate the document into a tool arg. */
@@ -75,6 +79,8 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     generalAnswer,
     userProfileLookup,
     assign,
+    groupScope,
+    taskAssignees,
     userText,
     ctx,
   } = deps;
@@ -280,6 +286,8 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     avaiChecker,
     recommender,
     assign,
+    groupScope,
+    taskAssignees,
     ctx,
   });
 

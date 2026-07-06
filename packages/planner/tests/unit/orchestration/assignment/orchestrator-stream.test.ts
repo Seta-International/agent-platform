@@ -26,6 +26,8 @@ const baseDeps: Omit<OrchestratorDeps, 'streamAgent' | 'resumeAgent' | 'runAgent
   recommender: stub('staffing.recommender'),
   generalAnswer: stub('staffing.generalAnswer'),
   assign: { assign: async () => {} },
+  groupScope: { memberIdsForTask: async () => [] },
+  taskAssignees: { currentAssigneeIds: async () => [] },
   userProfileLookup: { findByName: async () => [] },
   resolveModel: () => ({}) as never,
   mastraStorage: new InMemoryStore(),

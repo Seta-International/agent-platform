@@ -2,7 +2,7 @@ import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-s
 import { defineAgentTool, recordEntityExposure, resolveTaskRef } from '@seta/agent-sdk';
 import { z } from 'zod';
 import { buildAssignApprovalCard } from './approval-card.ts';
-import type { AssignPort } from './ports.ts';
+import type { AssignPort, GroupScopePort, TaskAssigneesPort } from './ports.ts';
 import type {
   AvailabilityResult,
   CompletionStatus,
@@ -46,6 +46,11 @@ export interface ProposeAssignmentDeps {
   recommender: RecommenderSpec;
   /** Performs the assignment once the approval card is approved. */
   assign: AssignPort;
+  /** Scopes suggestions to the task's owning-group members (candidate sources
+   *  are tenant-wide). */
+  groupScope: GroupScopePort;
+  /** The task's current assignee set — excluded from suggestions. */
+  taskAssignees: TaskAssigneesPort;
   /** The orchestrator's run ctx: tenant/actor/abort. */
   ctx: SpecializedAgentRunCtx;
 }
@@ -78,7 +83,16 @@ const OutputSchema = z.object({
  * persisted approval-card row), never from in-process memory.
  */
 export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
-  const { taskAnalyzer, skillMatcher, avaiChecker, recommender, assign, ctx } = deps;
+  const {
+    taskAnalyzer,
+    skillMatcher,
+    avaiChecker,
+    recommender,
+    assign,
+    groupScope,
+    taskAssignees,
+    ctx,
+  } = deps;
 
   // Sub-agents run with the same tenant/actor. The per-turn model override rides
   // along so sub-agent LLM calls honor the user's pick.
@@ -167,7 +181,18 @@ export function makeProposeAssignmentTool(deps: ProposeAssignmentDeps) {
         subCtx,
       );
 
-      const recommendations = recommended.result.recommendations;
+      // Candidate gate (business rules): the skill/vector candidate sources are
+      // tenant-wide, so before proposing we (1) intersect the ranked
+      // recommendations against the task's owning-group members and (2) subtract
+      // anyone already assigned to the task — suggesting a current assignee is
+      // noise. Applied once here — the single chokepoint every proposeAssignment
+      // card flows through. Empty member set → empty list (over-restrict rather
+      // than leak).
+      const memberIds = new Set(await groupScope.memberIdsForTask(taskId, subCtx));
+      const assignedIds = new Set(await taskAssignees.currentAssigneeIds(taskId, subCtx));
+      const recommendations = recommended.result.recommendations.filter(
+        (r) => memberIds.has(r.userId) && !assignedIds.has(r.userId),
+      );
       if (recommendations.length === 0) {
         // Nothing to propose — surface the empty recommend without suspending.
         return { assigned: false, recommendations: [] };

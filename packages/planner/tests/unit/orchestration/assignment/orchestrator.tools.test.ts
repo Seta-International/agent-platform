@@ -95,6 +95,8 @@ function buildTools(
       },
     },
     assign: { assign: async () => {} },
+    groupScope: { memberIdsForTask: async () => [] },
+    taskAssignees: { currentAssigneeIds: async () => [] },
     userText: overrides.userText ?? '',
     ctx: { tenantId: 't1', actorUserId: 'a1' },
   });
