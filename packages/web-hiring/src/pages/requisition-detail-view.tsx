@@ -661,7 +661,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               id="full-job-description"
               className="rounded-xl border border-hairline bg-canvas p-5"
             >
-              <h2 className="mb-4 font-semibold text-ink">Job description</h2>
+              <h2 className="mb-4 text-section-title font-semibold text-ink">Job description</h2>
               {!hasAnyDetail ? (
                 <EmptyState
                   title="No job description yet"
@@ -670,19 +670,22 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               ) : (
                 <div className="space-y-5">
                   {data.skills.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {data.skills.map((s) => (
-                        <Badge
-                          key={s.skill_name}
-                          variant="secondary"
-                          className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
-                        >
-                          {s.skill_name}
-                          {s.min_level != null
-                            ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}`
-                            : ''}
-                        </Badge>
-                      ))}
+                    <div>
+                      <div className="mb-1 font-semibold text-ink">Tech stack</div>
+                      <div className="flex flex-wrap gap-2">
+                        {data.skills.map((s) => (
+                          <Badge
+                            key={s.skill_name}
+                            variant="secondary"
+                            className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
+                          >
+                            {s.skill_name}
+                            {s.min_level != null
+                              ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}`
+                              : ''}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                   )}
                   {SECTIONS.map((s) => {
