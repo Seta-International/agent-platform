@@ -8,7 +8,11 @@
   "annotations": {},
   "title": "Fleet Overview",
   "uid": "fleet-overview",
-  "tags": ["generated", "seta", "observability"],
+  "tags": [
+    "generated",
+    "seta",
+    "observability"
+  ],
   "refresh": "30s",
   "time": {
     "from": "now-6h",
@@ -40,7 +44,9 @@
         "wideLayout": true,
         "showPercentChange": false,
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "values": false
         },
         "percentChangeColorMode": "standard",
@@ -121,7 +127,9 @@
         "wideLayout": true,
         "showPercentChange": false,
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "values": false
         },
         "percentChangeColorMode": "standard",
@@ -202,7 +210,9 @@
         "wideLayout": true,
         "showPercentChange": false,
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "values": false
         },
         "percentChangeColorMode": "standard",
@@ -283,7 +293,9 @@
         "wideLayout": true,
         "showPercentChange": false,
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "values": false
         },
         "percentChangeColorMode": "standard",
@@ -347,7 +359,9 @@
         "wideLayout": true,
         "showPercentChange": false,
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "values": false
         },
         "percentChangeColorMode": "standard",
@@ -411,7 +425,9 @@
         "wideLayout": true,
         "showPercentChange": false,
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "values": false
         },
         "percentChangeColorMode": "standard",
@@ -475,7 +491,9 @@
         "wideLayout": true,
         "showPercentChange": false,
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "values": false
         },
         "percentChangeColorMode": "standard",
@@ -539,7 +557,9 @@
         "wideLayout": true,
         "showPercentChange": false,
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "values": false
         },
         "percentChangeColorMode": "standard",

@@ -1,13 +1,14 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildAppService } from './boards/app-service';
 import { buildFleet } from './boards/fleet';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, '..', 'dashboards');
 
 // Register every board here as it lands.
-const boards = [buildFleet];
+const boards = [buildFleet, buildAppService];
 
 for (const build of boards) {
   const dash = build().build();
