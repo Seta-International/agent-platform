@@ -28,6 +28,10 @@ inhibit_rules:
   - source_matchers: [ alertname="EnvNotReporting" ]
     target_matchers: [ alertname=~"HostDown|PostgresDown|AppTargetDown" ]
     equal: [ env ]
+  # A dark GPU box: send GpuNotReporting, mute the stale temp/VRAM alerts it spawns.
+  - source_matchers: [ alertname="GpuNotReporting" ]
+    target_matchers: [ alertname=~"GpuHot|GpuVramCritical" ]
+    equal: [ env ]
 
 receivers:
   - name: teams
