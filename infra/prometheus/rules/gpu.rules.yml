@@ -1,0 +1,32 @@
+# GPU / inference host (on-prem, env=infra-future). Metrics from dcgm-exporter.
+# Temp/VRAM carry env+gpu labels; GpuNotReporting is an absent() check so it must
+# set env explicitly. Routing is by severity (critical pages fast).
+groups:
+  - name: gpu
+    rules:
+      - alert: GpuNotReporting
+        expr: absent(DCGM_FI_DEV_GPU_UTIL)
+        for: 5m
+        labels: { severity: warning, env: infra-future }
+        annotations:
+          summary: "GPU metrics not reporting (infra-future)"
+          description: "dcgm-exporter has published no GPU util for 5m — the inference box or the exporter is down."
+
+      - alert: GpuHot
+        expr: max by (env, gpu) (DCGM_FI_DEV_GPU_TEMP) > 85
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "GPU hot >85C ({{ $labels.env }}/gpu {{ $labels.gpu }})"
+          description: "GPU temperature above 85C for 5m — thermal risk; check cooling / load."
+
+      - alert: GpuVramCritical
+        expr: |
+          max by (env, gpu) (
+            DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE) * 100
+          ) > 95
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "GPU VRAM >95% ({{ $labels.env }}/gpu {{ $labels.gpu }})"
+          description: "Framebuffer usage above 95% for 10m — risk of OOM on the inference server."
