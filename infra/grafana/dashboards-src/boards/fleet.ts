@@ -139,9 +139,14 @@ export const buildFleet = () =>
     .withPanel(
       trend({
         title: 'Error-budget burn (× budget)',
-        description: '5xx ratio ÷ 0.5% budget. > 1 burns the 99.5% availability budget.',
+        description: `5xx ratio ÷ ${(100 - SLO.availabilityPct).toFixed(1)}% budget. > 1 burns the ${SLO.availabilityPct}% availability budget. Inlined SLI so the panel works without the slo.rules.yml recording rules loaded.`,
         unit: 'none',
         softMax: 1,
-        targets: [prom('slo:http_error_ratio:rate5m * 100 / (100 - 99.5)', '{{env}}')],
+        targets: [
+          prom(
+            `(sum by (env)(rate(http_server_duration_count{http_status_code=~"5.."}[5m])) / sum by (env)(rate(http_server_duration_count[5m]))) * 100 / (100 - ${SLO.availabilityPct})`,
+            '{{env}}',
+          ),
+        ],
       }),
     );
