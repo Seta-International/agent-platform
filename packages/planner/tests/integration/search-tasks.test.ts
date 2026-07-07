@@ -119,6 +119,49 @@ describe('searchTasks', () => {
       expect(reranker).toBe('fallback');
     }));
 
+  it('plan scope — plan_id filter excludes matching tasks from other plans in the same tenant', () =>
+    withDb(async ({ pool, pgVector }) => {
+      const provider = new FakeEmbeddingProvider();
+
+      const taskOpts = {
+        title: 'kubernetes review',
+        description: 'review prod cluster for kubernetes deployment issues',
+        labels: ['kubernetes'] as string[],
+      };
+
+      // Task A in its own fresh tenant + plan A.
+      const taskA = await seedTaskForTest(pool, taskOpts);
+      // Task B: same tenant, different plan (seedTaskForTest makes a new plan per call).
+      const taskB = await seedTaskForTest(pool, { ...taskOpts, tenant_id: taskA.tenant_id, pool });
+
+      for (const t of [taskA, taskB]) {
+        await embedTaskForTest({
+          tenant_id: t.tenant_id,
+          task_id: t.task_id,
+          plan_id: t.plan_id,
+          title: taskOpts.title,
+          description: taskOpts.description,
+          labels: taskOpts.labels,
+          provider,
+          pgVector,
+        });
+      }
+
+      const { hits } = await searchTasks(
+        {
+          query: 'kubernetes review prod cluster',
+          tenant_id: taskA.tenant_id,
+          plan_id: taskA.plan_id,
+          limit: 10,
+        },
+        { provider, pgVector, reranker: new NoopReranker() },
+      );
+
+      const ids = hits.map((h) => h.item.task_id);
+      expect(ids).toContain(taskA.task_id);
+      expect(ids).not.toContain(taskB.task_id);
+    }));
+
   it('empty results — tenant with no tasks or embeddings returns []', () =>
     withDb(async ({ pgVector }) => {
       const provider = new FakeEmbeddingProvider();

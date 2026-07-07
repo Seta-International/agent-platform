@@ -22,7 +22,10 @@ export async function findDupCandidates(
   deps: DedupDeps,
 ): Promise<DupSearchResult> {
   const queryText = `${input.task.title}\n\n${input.task.description}`.trim();
-  const { candidates } = await searchSimilar({ tenantId: input.session.tenantId, queryText }, deps);
+  const { candidates } = await searchSimilar(
+    { tenantId: input.session.tenantId, queryText, planId: input.task.plan_id },
+    deps,
+  );
   // Filter out the task itself from candidates
   const filtered = candidates.filter((c) => c.taskId !== input.task.taskId);
   const { classification, top } = classifyByThreshold({ candidates: filtered }, deps.thresholds);

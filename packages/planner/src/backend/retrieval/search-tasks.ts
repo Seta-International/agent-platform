@@ -22,6 +22,8 @@ export interface TaskRetrievalItem {
 export interface SearchTasksInput {
   query: string;
   tenant_id: string;
+  /** When set, restrict results to a single plan (used by dedup-on-create). */
+  plan_id?: string;
   limit: number;
 }
 
@@ -64,7 +66,10 @@ export async function searchTasks(
     indexName: PLANNER_VECTOR_INDEX,
     queryVector,
     topK: stage1Limit,
-    filter: { tenant_id: { $eq: input.tenant_id } },
+    filter: {
+      tenant_id: { $eq: input.tenant_id },
+      ...(input.plan_id ? { plan_id: { $eq: input.plan_id } } : {}),
+    },
   });
 
   const stage1: RetrievalHit<TaskRetrievalItem>[] = queryResults
