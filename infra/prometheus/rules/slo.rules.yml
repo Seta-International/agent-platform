@@ -1,14 +1,64 @@
-# SLI recording rules — feed Fleet's error-budget panel. See
-# docs/superpowers/specs/2026-07-07-observability-dashboards-redesign-design.md.
+# SLO SLIs + multiwindow burn-rate alerts. Objective: 99.5% availability
+# (0.5% error budget). SLIs feed Fleet's error-budget panel; burn-rate alerts
+# page/ticket on how fast the budget is being spent (Google SRE workbook).
+# See docs/superpowers/specs/2026-07-07-observability-dashboards-redesign-design.md.
 groups:
   - name: slo_http
     interval: 30s
     rules:
+      # Request rate over multiple windows (also the low-traffic gate for alerts).
       - record: slo:http_request:rate5m
         expr: sum by (env) (rate(http_server_duration_count[5m]))
+      - record: slo:http_request:rate1h
+        expr: sum by (env) (rate(http_server_duration_count[1h]))
+      # 5xx error ratio over the windows the burn-rate alerts pair up.
       - record: slo:http_error_ratio:rate5m
         expr: |
           sum by (env) (rate(http_server_duration_count{http_status_code=~"5.."}[5m]))
           / sum by (env) (rate(http_server_duration_count[5m]))
+      - record: slo:http_error_ratio:rate30m
+        expr: |
+          sum by (env) (rate(http_server_duration_count{http_status_code=~"5.."}[30m]))
+          / sum by (env) (rate(http_server_duration_count[30m]))
+      - record: slo:http_error_ratio:rate1h
+        expr: |
+          sum by (env) (rate(http_server_duration_count{http_status_code=~"5.."}[1h]))
+          / sum by (env) (rate(http_server_duration_count[1h]))
+      - record: slo:http_error_ratio:rate6h
+        expr: |
+          sum by (env) (rate(http_server_duration_count{http_status_code=~"5.."}[6h]))
+          / sum by (env) (rate(http_server_duration_count[6h]))
       - record: slo:http_latency_p95:5m
         expr: histogram_quantile(0.95, sum by (le, env) (rate(http_server_duration_bucket[5m])))
+
+  # Multiwindow multi-burn-rate. Budget = 1 - 0.995 = 0.005; a burn rate of N
+  # spends N x budget. Long+short window pairing avoids flapping; the request-rate
+  # floor (0.05 req/s ~ 3 req/min) stops a single error from paging an idle env.
+  - name: slo_burn_rate
+    rules:
+      # 14.4x burn = 2% of the 30-day budget in 1h → page.
+      - alert: SLOErrorBudgetFastBurn
+        expr: |
+          (
+            slo:http_error_ratio:rate1h > 0.072
+            and slo:http_error_ratio:rate5m > 0.072
+          )
+          and slo:http_request:rate1h > 0.05
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "SLO fast burn ({{ $labels.env }})"
+          description: "5xx burn rate >14.4x the 99.5% budget over 1h and 5m — the error budget is draining ~50x too fast."
+      # 6x burn = 5% of the budget in 6h → ticket.
+      - alert: SLOErrorBudgetSlowBurn
+        expr: |
+          (
+            slo:http_error_ratio:rate6h > 0.03
+            and slo:http_error_ratio:rate30m > 0.03
+          )
+          and slo:http_request:rate1h > 0.05
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "SLO slow burn ({{ $labels.env }})"
+          description: "5xx burn rate >6x the 99.5% budget over 6h and 30m — sustained budget drain, investigate."
