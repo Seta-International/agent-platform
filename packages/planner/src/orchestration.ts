@@ -4,6 +4,7 @@ export {
   makeAssign,
   makeAvailability,
   makeSkillSearch,
+  makeTaskAssignees,
   makeTaskReader,
   makeTaskSearch,
   makeUserProfileLookup,

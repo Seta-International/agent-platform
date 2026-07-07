@@ -16,16 +16,18 @@ describe('orchestration schemas', () => {
     });
     expect(r.skills).toEqual([]);
   });
-  it('RankedCandidate requires skillMatchCount + rank', () => {
+  it('RankedCandidate requires skillMatchCount + relevanceScore + rank', () => {
     const c = RankedCandidateSchema.parse({
       userId: 'u1',
       name: 'A',
       skills: ['x'],
       role: null,
       skillMatchCount: 1,
+      relevanceScore: 0.5,
       rank: 1,
     });
     expect(c.rank).toBe(1);
+    expect(c.relevanceScore).toBe(0.5);
   });
   it('AvailabilityResult constrains status enum', () => {
     expect(() =>
@@ -38,7 +40,7 @@ describe('orchestration schemas', () => {
       }),
     ).toThrow();
   });
-  it('Recommendation carries skillMatch + status + availabilityScore', () => {
+  it('Recommendation carries skillMatch + status + availabilityScore + relevanceScore + score', () => {
     const r = RecommendationSchema.parse({
       userId: 'u1',
       name: 'A',
@@ -46,9 +48,13 @@ describe('orchestration schemas', () => {
       skillMatchCount: 1,
       status: 'available',
       availabilityScore: 0.5,
+      relevanceScore: 1,
+      score: 0.85,
     });
     expect(r.skillMatch).toEqual(['x']);
     expect(r.availabilityScore).toBe(0.5);
+    expect(r.relevanceScore).toBe(1);
+    expect(r.score).toBe(0.85);
   });
   it('SkillRequirement accepts an optional tasks list (find_tasks result)', () => {
     const r = SkillRequirementSchema.parse({
@@ -82,6 +88,7 @@ describe('orchestration schemas', () => {
           skills: ['aws', 'docker'],
           role: 'Backend Dev',
           skillMatchCount: 2,
+          relevanceScore: 1,
           rank: 1,
         },
       ],

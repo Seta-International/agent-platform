@@ -53,8 +53,8 @@ describe('planner_getTask tool', () => {
       // Create assignee projection for admin (required by planner domain functions)
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-         VALUES ($1, $2, 'Admin', 'admin@demo.local', ARRAY[]::text[], 'available', 'UTC')
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
+         VALUES ($1, $2, 'Admin', 'admin@demo.local', 'available', 'UTC')
          ON CONFLICT (user_id) DO NOTHING`,
         [admin_user_id, tenant_id],
       );

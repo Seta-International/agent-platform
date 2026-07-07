@@ -19,13 +19,19 @@ export async function fetchMe(signal?: AbortSignal): Promise<SessionScopeProject
   return res.json() as Promise<SessionScopeProjection>;
 }
 
+export interface ProfileSkill {
+  id: string;
+  name: string;
+  level: number | null;
+}
+
 // Shape returned by GET /api/people/v1/me/profile
 export interface PeopleMyProfile {
   availability_status: 'available' | 'busy' | 'ooo';
   ooo_until: string | null;
   timezone: string;
   working_hours: { start: string; end: string } | null;
-  skills: string[];
+  skills: ProfileSkill[];
   bio: string | null;
   full_name: string | null;
 }
@@ -46,7 +52,7 @@ export interface ProfileDto {
   ooo_until: string | null;
   timezone: string;
   working_hours: { start: string; end: string } | null;
-  skills: string[];
+  skills: ProfileSkill[];
   bio: string | null;
   updated_at: string;
   deactivated_at: string | null;
@@ -58,6 +64,7 @@ export interface ProfilePatch {
   ooo_until?: string | null;
   timezone?: string;
   working_hours?: { start: string; end: string } | null;
+  // Whole-list skill membership, by canonical catalog name (add/remove).
   skills?: string[];
   bio?: string | null;
 }
@@ -152,6 +159,17 @@ export async function patchProfile(patch: ProfilePatch): Promise<ProfileDto> {
 
   await Promise.all(calls);
   return fetchProfile();
+}
+
+// Set (or clear, with null) the proficiency level of one of my own skills.
+export async function setMySkillLevelApi(skillId: string, level: number | null): Promise<void> {
+  const res = await fetch(`/api/people/v1/me/skills/${skillId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ level }),
+  });
+  if (!res.ok) throw new Error(`skill level patch failed: ${res.status}`);
 }
 
 // Skill catalog search via People; returns catalog names (catalog-constrained for PUT /me/skills)

@@ -1,0 +1,12 @@
+# Monitoring self-health. Watchdog always fires; if its Teams card stops arriving,
+# the alert pipeline is down. No remote-write/Loki-error alert here: those metrics
+# live on the agents' /metrics, which central Prometheus does not scrape.
+groups:
+  - name: meta
+    rules:
+      - alert: Watchdog
+        expr: vector(1)
+        labels: { severity: none }
+        annotations:
+          summary: "Watchdog heartbeat"
+          description: "Always firing. Its absence in Teams means the monitoring pipeline is down."

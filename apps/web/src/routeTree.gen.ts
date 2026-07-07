@@ -12,9 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as routesLoginRouteImport } from './routes/login'
 import { Route as routes403RouteImport } from './routes/403'
 import { Route as routesAuthedRouteRouteImport } from './routes/_authed/route'
+import { Route as routesAuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as routesAuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as DevDatatableRouteImport } from './routes/dev/datatable'
-import { Route as routesAuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as PmRouteRouteImport } from './../../../packages/web-pm/src/routes/route'
 import { Route as PlannerRouteRouteImport } from './../../../packages/web-planner/src/routes/route'
 import { Route as PeopleRouteRouteImport } from './../../../packages/web-people/src/routes/route'
@@ -27,6 +27,12 @@ import { Route as PeopleIndexRouteImport } from './../../../packages/web-people/
 import { Route as HiringIndexRouteImport } from './../../../packages/web-hiring/src/routes/index'
 import { Route as AgentIndexRouteImport } from './../../../packages/web-agent/src/routes/index'
 import { Route as AdminIndexRouteImport } from './../../../packages/web-admin/src/routes/index'
+import { Route as routesAuthedSettingsSkillsRouteImport } from './routes/_authed/settings/skills'
+import { Route as routesAuthedSettingsSecurityRouteImport } from './routes/_authed/settings/security'
+import { Route as routesAuthedSettingsRolesRouteImport } from './routes/_authed/settings/roles'
+import { Route as routesAuthedSettingsProfileRouteImport } from './routes/_authed/settings/profile'
+import { Route as routesAuthedSettingsNotificationsRouteImport } from './routes/_authed/settings/notifications'
+import { Route as routesAuthedSettingsAvailabilityRouteImport } from './routes/_authed/settings/availability'
 import { Route as PlannerTrashRouteImport } from './../../../packages/web-planner/src/routes/trash'
 import { Route as PlannerMyTasksRouteImport } from './../../../packages/web-planner/src/routes/my-tasks'
 import { Route as PlannerGroupsRouteImport } from './../../../packages/web-planner/src/routes/groups'
@@ -88,6 +94,12 @@ const routesAuthedRouteRoute = routesAuthedRouteRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const routesAuthedSettingsIndexRoute =
+  routesAuthedSettingsIndexRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => routesAuthedRouteRoute,
+  } as any)
 const routesAuthedIndexRoute = routesAuthedIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -97,11 +109,6 @@ const DevDatatableRoute = DevDatatableRouteImport.update({
   id: '/dev/datatable',
   path: '/dev/datatable',
   getParentRoute: () => rootRouteImport,
-} as any)
-const routesAuthedProfileRoute = routesAuthedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => routesAuthedRouteRoute,
 } as any)
 const PmRouteRoute = PmRouteRouteImport.update({
   id: '/pm',
@@ -163,6 +170,42 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const routesAuthedSettingsSkillsRoute =
+  routesAuthedSettingsSkillsRouteImport.update({
+    id: '/settings/skills',
+    path: '/settings/skills',
+    getParentRoute: () => routesAuthedRouteRoute,
+  } as any)
+const routesAuthedSettingsSecurityRoute =
+  routesAuthedSettingsSecurityRouteImport.update({
+    id: '/settings/security',
+    path: '/settings/security',
+    getParentRoute: () => routesAuthedRouteRoute,
+  } as any)
+const routesAuthedSettingsRolesRoute =
+  routesAuthedSettingsRolesRouteImport.update({
+    id: '/settings/roles',
+    path: '/settings/roles',
+    getParentRoute: () => routesAuthedRouteRoute,
+  } as any)
+const routesAuthedSettingsProfileRoute =
+  routesAuthedSettingsProfileRouteImport.update({
+    id: '/settings/profile',
+    path: '/settings/profile',
+    getParentRoute: () => routesAuthedRouteRoute,
+  } as any)
+const routesAuthedSettingsNotificationsRoute =
+  routesAuthedSettingsNotificationsRouteImport.update({
+    id: '/settings/notifications',
+    path: '/settings/notifications',
+    getParentRoute: () => routesAuthedRouteRoute,
+  } as any)
+const routesAuthedSettingsAvailabilityRoute =
+  routesAuthedSettingsAvailabilityRouteImport.update({
+    id: '/settings/availability',
+    path: '/settings/availability',
+    getParentRoute: () => routesAuthedRouteRoute,
+  } as any)
 const PlannerTrashRoute = PlannerTrashRouteImport.update({
   id: '/trash',
   path: '/trash',
@@ -407,8 +450,8 @@ export interface FileRoutesByFullPath {
   '/people': typeof PeopleRouteRouteWithChildren
   '/planner': typeof PlannerRouteRouteWithChildren
   '/pm': typeof PmRouteRouteWithChildren
-  '/profile': typeof routesAuthedProfileRoute
   '/dev/datatable': typeof DevDatatableRoute
+  '/settings': typeof routesAuthedSettingsIndexRoute
   '/agent/workflows': typeof AgentWorkflowsRouteRouteWithChildren
   '/admin/audit': typeof AdminAuditRoute
   '/admin/groups': typeof AdminGroupsRoute
@@ -430,6 +473,12 @@ export interface FileRoutesByFullPath {
   '/planner/groups': typeof PlannerGroupsRoute
   '/planner/my-tasks': typeof PlannerMyTasksRoute
   '/planner/trash': typeof PlannerTrashRoute
+  '/settings/availability': typeof routesAuthedSettingsAvailabilityRoute
+  '/settings/notifications': typeof routesAuthedSettingsNotificationsRoute
+  '/settings/profile': typeof routesAuthedSettingsProfileRoute
+  '/settings/roles': typeof routesAuthedSettingsRolesRoute
+  '/settings/security': typeof routesAuthedSettingsSecurityRoute
+  '/settings/skills': typeof routesAuthedSettingsSkillsRoute
   '/admin/': typeof AdminIndexRoute
   '/agent/': typeof AgentIndexRoute
   '/hiring/': typeof HiringIndexRoute
@@ -465,9 +514,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/403': typeof routes403Route
   '/login': typeof routesLoginRoute
-  '/profile': typeof routesAuthedProfileRoute
   '/dev/datatable': typeof DevDatatableRoute
   '/': typeof routesAuthedIndexRoute
+  '/settings': typeof routesAuthedSettingsIndexRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/groups': typeof AdminGroupsRoute
   '/admin/mail': typeof AdminMailRoute
@@ -488,6 +537,12 @@ export interface FileRoutesByTo {
   '/planner/groups': typeof PlannerGroupsRoute
   '/planner/my-tasks': typeof PlannerMyTasksRoute
   '/planner/trash': typeof PlannerTrashRoute
+  '/settings/availability': typeof routesAuthedSettingsAvailabilityRoute
+  '/settings/notifications': typeof routesAuthedSettingsNotificationsRoute
+  '/settings/profile': typeof routesAuthedSettingsProfileRoute
+  '/settings/roles': typeof routesAuthedSettingsRolesRoute
+  '/settings/security': typeof routesAuthedSettingsSecurityRoute
+  '/settings/skills': typeof routesAuthedSettingsSkillsRoute
   '/admin': typeof AdminIndexRoute
   '/agent': typeof AgentIndexRoute
   '/hiring': typeof HiringIndexRoute
@@ -531,9 +586,9 @@ export interface FileRoutesById {
   '/_authed/people': typeof PeopleRouteRouteWithChildren
   '/_authed/planner': typeof PlannerRouteRouteWithChildren
   '/_authed/pm': typeof PmRouteRouteWithChildren
-  '/_authed/profile': typeof routesAuthedProfileRoute
   '/dev/datatable': typeof DevDatatableRoute
   '/_authed/': typeof routesAuthedIndexRoute
+  '/_authed/settings': typeof routesAuthedSettingsIndexRoute
   '/_authed/agent/workflows': typeof AgentWorkflowsRouteRouteWithChildren
   '/_authed/admin/audit': typeof AdminAuditRoute
   '/_authed/admin/groups': typeof AdminGroupsRoute
@@ -555,6 +610,12 @@ export interface FileRoutesById {
   '/_authed/planner/groups': typeof PlannerGroupsRoute
   '/_authed/planner/my-tasks': typeof PlannerMyTasksRoute
   '/_authed/planner/trash': typeof PlannerTrashRoute
+  '/_authed/settings/availability': typeof routesAuthedSettingsAvailabilityRoute
+  '/_authed/settings/notifications': typeof routesAuthedSettingsNotificationsRoute
+  '/_authed/settings/profile': typeof routesAuthedSettingsProfileRoute
+  '/_authed/settings/roles': typeof routesAuthedSettingsRolesRoute
+  '/_authed/settings/security': typeof routesAuthedSettingsSecurityRoute
+  '/_authed/settings/skills': typeof routesAuthedSettingsSkillsRoute
   '/_authed/admin/': typeof AdminIndexRoute
   '/_authed/agent/': typeof AgentIndexRoute
   '/_authed/hiring/': typeof HiringIndexRoute
@@ -599,8 +660,8 @@ export interface FileRouteTypes {
     | '/people'
     | '/planner'
     | '/pm'
-    | '/profile'
     | '/dev/datatable'
+    | '/settings'
     | '/agent/workflows'
     | '/admin/audit'
     | '/admin/groups'
@@ -622,6 +683,12 @@ export interface FileRouteTypes {
     | '/planner/groups'
     | '/planner/my-tasks'
     | '/planner/trash'
+    | '/settings/availability'
+    | '/settings/notifications'
+    | '/settings/profile'
+    | '/settings/roles'
+    | '/settings/security'
+    | '/settings/skills'
     | '/admin/'
     | '/agent/'
     | '/hiring/'
@@ -657,9 +724,9 @@ export interface FileRouteTypes {
   to:
     | '/403'
     | '/login'
-    | '/profile'
     | '/dev/datatable'
     | '/'
+    | '/settings'
     | '/admin/audit'
     | '/admin/groups'
     | '/admin/mail'
@@ -680,6 +747,12 @@ export interface FileRouteTypes {
     | '/planner/groups'
     | '/planner/my-tasks'
     | '/planner/trash'
+    | '/settings/availability'
+    | '/settings/notifications'
+    | '/settings/profile'
+    | '/settings/roles'
+    | '/settings/security'
+    | '/settings/skills'
     | '/admin'
     | '/agent'
     | '/hiring'
@@ -722,9 +795,9 @@ export interface FileRouteTypes {
     | '/_authed/people'
     | '/_authed/planner'
     | '/_authed/pm'
-    | '/_authed/profile'
     | '/dev/datatable'
     | '/_authed/'
+    | '/_authed/settings'
     | '/_authed/agent/workflows'
     | '/_authed/admin/audit'
     | '/_authed/admin/groups'
@@ -746,6 +819,12 @@ export interface FileRouteTypes {
     | '/_authed/planner/groups'
     | '/_authed/planner/my-tasks'
     | '/_authed/planner/trash'
+    | '/_authed/settings/availability'
+    | '/_authed/settings/notifications'
+    | '/_authed/settings/profile'
+    | '/_authed/settings/roles'
+    | '/_authed/settings/security'
+    | '/_authed/settings/skills'
     | '/_authed/admin/'
     | '/_authed/agent/'
     | '/_authed/hiring/'
@@ -809,6 +888,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof routesAuthedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/settings': {
+      id: '/_authed/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof routesAuthedSettingsIndexRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
     '/_authed/': {
       id: '/_authed/'
       path: '/'
@@ -822,13 +908,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/dev/datatable'
       preLoaderRoute: typeof DevDatatableRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authed/profile': {
-      id: '/_authed/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof routesAuthedProfileRouteImport
-      parentRoute: typeof routesAuthedRouteRoute
     }
     '/_authed/pm': {
       id: '/_authed/pm'
@@ -913,6 +992,48 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRouteRoute
+    }
+    '/_authed/settings/skills': {
+      id: '/_authed/settings/skills'
+      path: '/settings/skills'
+      fullPath: '/settings/skills'
+      preLoaderRoute: typeof routesAuthedSettingsSkillsRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/settings/security': {
+      id: '/_authed/settings/security'
+      path: '/settings/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof routesAuthedSettingsSecurityRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/settings/roles': {
+      id: '/_authed/settings/roles'
+      path: '/settings/roles'
+      fullPath: '/settings/roles'
+      preLoaderRoute: typeof routesAuthedSettingsRolesRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/settings/profile': {
+      id: '/_authed/settings/profile'
+      path: '/settings/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof routesAuthedSettingsProfileRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/settings/notifications': {
+      id: '/_authed/settings/notifications'
+      path: '/settings/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof routesAuthedSettingsNotificationsRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
+    }
+    '/_authed/settings/availability': {
+      id: '/_authed/settings/availability'
+      path: '/settings/availability'
+      fullPath: '/settings/availability'
+      preLoaderRoute: typeof routesAuthedSettingsAvailabilityRouteImport
+      parentRoute: typeof routesAuthedRouteRoute
     }
     '/_authed/planner/trash': {
       id: '/_authed/planner/trash'
@@ -1419,8 +1540,14 @@ interface routesAuthedRouteRouteChildren {
   PeopleRouteRoute: typeof PeopleRouteRouteWithChildren
   PlannerRouteRoute: typeof PlannerRouteRouteWithChildren
   PmRouteRoute: typeof PmRouteRouteWithChildren
-  routesAuthedProfileRoute: typeof routesAuthedProfileRoute
   routesAuthedIndexRoute: typeof routesAuthedIndexRoute
+  routesAuthedSettingsIndexRoute: typeof routesAuthedSettingsIndexRoute
+  routesAuthedSettingsAvailabilityRoute: typeof routesAuthedSettingsAvailabilityRoute
+  routesAuthedSettingsNotificationsRoute: typeof routesAuthedSettingsNotificationsRoute
+  routesAuthedSettingsProfileRoute: typeof routesAuthedSettingsProfileRoute
+  routesAuthedSettingsRolesRoute: typeof routesAuthedSettingsRolesRoute
+  routesAuthedSettingsSecurityRoute: typeof routesAuthedSettingsSecurityRoute
+  routesAuthedSettingsSkillsRoute: typeof routesAuthedSettingsSkillsRoute
 }
 
 const routesAuthedRouteRouteChildren: routesAuthedRouteRouteChildren = {
@@ -1430,8 +1557,15 @@ const routesAuthedRouteRouteChildren: routesAuthedRouteRouteChildren = {
   PeopleRouteRoute: PeopleRouteRouteWithChildren,
   PlannerRouteRoute: PlannerRouteRouteWithChildren,
   PmRouteRoute: PmRouteRouteWithChildren,
-  routesAuthedProfileRoute: routesAuthedProfileRoute,
   routesAuthedIndexRoute: routesAuthedIndexRoute,
+  routesAuthedSettingsIndexRoute: routesAuthedSettingsIndexRoute,
+  routesAuthedSettingsAvailabilityRoute: routesAuthedSettingsAvailabilityRoute,
+  routesAuthedSettingsNotificationsRoute:
+    routesAuthedSettingsNotificationsRoute,
+  routesAuthedSettingsProfileRoute: routesAuthedSettingsProfileRoute,
+  routesAuthedSettingsRolesRoute: routesAuthedSettingsRolesRoute,
+  routesAuthedSettingsSecurityRoute: routesAuthedSettingsSecurityRoute,
+  routesAuthedSettingsSkillsRoute: routesAuthedSettingsSkillsRoute,
 }
 
 const routesAuthedRouteRouteWithChildren =

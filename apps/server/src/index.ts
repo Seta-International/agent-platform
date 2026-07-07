@@ -31,6 +31,7 @@ import {
   makeAssign,
   makeAvailability,
   makeSkillSearch,
+  makeTaskAssignees,
   makeTaskReader,
   makeTaskSearch,
   makeUserProfileLookup,
@@ -161,6 +162,7 @@ const assignmentOrchestration = buildAssignmentOrchestrationRuntime({
     availability: makeAvailability(),
     userProfileLookup: makeUserProfileLookup(),
     assign: makeAssign(),
+    taskAssignees: makeTaskAssignees(),
   },
 });
 

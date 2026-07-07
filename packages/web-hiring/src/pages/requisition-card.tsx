@@ -278,10 +278,12 @@ export function RequisitionCard({
       {/* Applicants + View JD — mt-auto pins the footer to the bottom so cards of different
           content height still align their footers within the same grid row. */}
       <div className="mt-auto flex items-center justify-between border-t border-hairline pt-4">
-        <span className="flex items-center gap-1.5 text-body-sm text-ink-muted">
-          <Users className="size-4" aria-hidden />
-          {r.applicants_count} Applicants
-        </span>
+        <div>
+          <span className="flex items-center gap-1.5 text-body-sm text-ink-muted">
+            <Users className="size-4" aria-hidden />
+            {r.applicants_count} Applicants
+          </span>
+        </div>
         <Button size="sm" variant="secondary" onClick={go}>
           View Detail
           <ExternalLink className="ml-1 size-3.5" aria-hidden />

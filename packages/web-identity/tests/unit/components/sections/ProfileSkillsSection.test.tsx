@@ -14,7 +14,7 @@ function makeProfile(overrides: Partial<ProfileDto> = {}): ProfileDto {
     ooo_until: null,
     timezone: 'UTC',
     working_hours: null,
-    skills: ['TypeScript'],
+    skills: [{ id: 's-ts', name: 'TypeScript', level: null }],
     bio: null,
     updated_at: '2026-06-01T00:00:00Z',
     deactivated_at: null,
@@ -28,7 +28,12 @@ describe('ProfileSkillsSection', () => {
   it('renders existing skills as badges', () => {
     render(
       <ProfileSkillsSection
-        profile={makeProfile({ skills: ['TypeScript', 'React'] })}
+        profile={makeProfile({
+          skills: [
+            { id: 's-ts', name: 'TypeScript', level: null },
+            { id: 's-react', name: 'React', level: null },
+          ],
+        })}
         onSave={vi.fn()}
         onUpdate={vi.fn()}
       />,
@@ -42,13 +47,13 @@ describe('ProfileSkillsSection', () => {
     const clientModule = await import('../../../../src/api/client.ts');
     vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue(['Go']);
 
-    const updated = makeProfile({ skills: ['Go'] });
+    const updated = makeProfile({ skills: [{ id: 's-go', name: 'Go', level: null }] });
     const onSave = vi.fn().mockResolvedValue(updated);
     const onUpdate = vi.fn();
 
     render(
       <ProfileSkillsSection
-        profile={makeProfile({ skills: ['TypeScript'] })}
+        profile={makeProfile({ skills: [{ id: 's-ts', name: 'TypeScript', level: null }] })}
         onSave={onSave}
         onUpdate={onUpdate}
       />,
@@ -56,7 +61,7 @@ describe('ProfileSkillsSection', () => {
 
     // Remove TypeScript, add catalog skill "Go"
     await user.click(screen.getByRole('button', { name: /remove typescript/i }));
-    const input = screen.getByPlaceholderText(/type a skill/i);
+    const input = screen.getByPlaceholderText(/search to add a skill/i);
     await user.type(input, 'Go');
     await new Promise((r) => setTimeout(r, 300)); // debounce
     await user.keyboard('{Enter}');
@@ -82,7 +87,7 @@ describe('ProfileSkillsSection', () => {
       />,
     );
 
-    const input = screen.getByPlaceholderText(/type a skill/i);
+    const input = screen.getByPlaceholderText(/search to add a skill/i);
     await user.type(input, 'ru');
 
     // Wait for debounce (200ms)
@@ -106,7 +111,7 @@ describe('ProfileSkillsSection', () => {
       />,
     );
 
-    const input = screen.getByPlaceholderText(/type a skill/i);
+    const input = screen.getByPlaceholderText(/search to add a skill/i);
     await user.type(input, 'type'); // lowercase partial
     await new Promise((r) => setTimeout(r, 300)); // debounce -> suggestions = ['TypeScript']
     await user.keyboard('{Enter}');
@@ -133,7 +138,7 @@ describe('ProfileSkillsSection', () => {
       />,
     );
 
-    const input = screen.getByPlaceholderText(/type a skill/i);
+    const input = screen.getByPlaceholderText(/search to add a skill/i);
     await user.type(input, 'notacatalogskill');
     await new Promise((r) => setTimeout(r, 300)); // debounce -> suggestions = []
     await user.keyboard('{Enter}');

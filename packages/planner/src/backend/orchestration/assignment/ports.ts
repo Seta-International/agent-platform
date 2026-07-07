@@ -73,6 +73,14 @@ export interface AvailabilityPort {
   inProgressCount(userId: string, ctx: SpecializedAgentRunCtx): Promise<number>;
 }
 
+/** Resolves the user_ids already assigned to a task, so the pipeline can exclude
+ *  them from suggestions (proposing someone already on the task is noise). Wired
+ *  by the app to planner's task_assignments read. */
+export interface TaskAssigneesPort {
+  /** user_ids currently assigned to the task. Empty when none / task unresolved. */
+  currentAssigneeIds(taskId: string, ctx: SpecializedAgentRunCtx): Promise<string[]>;
+}
+
 /** Performs the assignment a proposeAssignment card approves. Wired by the app
  *  to planner's public assignTask surface (RBAC re-checked at the callee). */
 export interface AssignPort {

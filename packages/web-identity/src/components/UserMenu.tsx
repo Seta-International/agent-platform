@@ -55,13 +55,8 @@ export function UserMenu({ onSignOut }: { onSignOut?: () => void } = {}) {
           </div>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() =>
-            // Route added in a later task; cast avoids premature route-tree types
-            navigate({ to: '/profile' as '/' })
-          }
-        >
-          Profile &amp; settings
+        <DropdownMenuItem onSelect={() => navigate({ to: '/settings/profile' as '/' })}>
+          Settings
         </DropdownMenuItem>
         {theme && (
           <DropdownMenuSub>

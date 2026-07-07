@@ -1,0 +1,1 @@
+ALTER TABLE "planner"."assignee_projection" DROP COLUMN "skills";

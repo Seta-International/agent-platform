@@ -54,8 +54,8 @@ describe('planner_assignTask tool', () => {
       // Create assignee projection for admin
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-         VALUES ($1, $2, 'Admin', 'admin@demo.local', ARRAY[]::text[], 'available', 'UTC')
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
+         VALUES ($1, $2, 'Admin', 'admin@demo.local', 'available', 'UTC')
          ON CONFLICT (user_id) DO NOTHING`,
         [admin_user_id, tenant_id],
       );
@@ -74,8 +74,8 @@ describe('planner_assignTask tool', () => {
       // Create assignee projection for the assignee
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-         VALUES ($1, $2, 'Assignee User', 'assignee@demo.local', ARRAY[]::text[], 'available', 'UTC')
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
+         VALUES ($1, $2, 'Assignee User', 'assignee@demo.local', 'available', 'UTC')
          ON CONFLICT (user_id) DO NOTHING`,
         [assigneeResult.user_id, tenant_id],
       );
@@ -128,8 +128,8 @@ describe('planner_assignTask tool', () => {
       // Create assignee projection for admin
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-         VALUES ($1, $2, 'Admin', 'admin@demo.local', ARRAY[]::text[], 'available', 'UTC')
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
+         VALUES ($1, $2, 'Admin', 'admin@demo.local', 'available', 'UTC')
          ON CONFLICT (user_id) DO NOTHING`,
         [admin_user_id, tenant_id],
       );
@@ -147,8 +147,8 @@ describe('planner_assignTask tool', () => {
 
       await pool.query(
         `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-         VALUES ($1, $2, 'Contributor', 'contributor@demo.local', ARRAY[]::text[], 'available', 'UTC')
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
+         VALUES ($1, $2, 'Contributor', 'contributor@demo.local', 'available', 'UTC')
          ON CONFLICT (user_id) DO NOTHING`,
         [contributorResult.user_id, tenant_id],
       );

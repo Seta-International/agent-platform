@@ -10,7 +10,7 @@ describe('hitl block renderers', () => {
   });
 
   it('entityList multi renders checkboxes + a top-match badge', () => {
-    const EntityList = blockRenderers.entityList;
+    const EntityList = blockRenderers.entityList!;
     render(
       <EntityList
         block={{

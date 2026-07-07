@@ -8,6 +8,7 @@ function makeCandidate(
 ): CandidateUser {
   return {
     skills: [],
+    matchedSkills: [],
     exactOverlap: 0,
     vectorScore: null,
     historyScore: null,
@@ -16,6 +17,7 @@ function makeCandidate(
     hoursAvailableThisWeek: null,
     timezone: null,
     finalScore: 0.5,
+    rationale: null,
     ...over,
   };
 }

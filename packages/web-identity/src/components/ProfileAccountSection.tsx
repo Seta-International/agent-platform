@@ -45,9 +45,11 @@ export function ProfileAccountSection({
           </div>
         )}
         {passwordHint && <p className="text-sm text-ink-muted">{passwordHint}</p>}
-        <Button onClick={save} disabled={saving || name === profile.display_name}>
-          Save
-        </Button>
+        <div className="flex justify-end pt-1">
+          <Button onClick={save} disabled={saving || name === profile.display_name}>
+            Save changes
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

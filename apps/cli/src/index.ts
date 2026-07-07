@@ -13,6 +13,7 @@ import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/sh
 import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
+import { demoSuggestionsCommand } from './commands/demo-suggestions.ts';
 import { runEmbedBackfill } from './commands/embed-backfill.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
@@ -277,6 +278,21 @@ program
   );
 
 plannerCommand(program);
+
+program
+  .command('demo-suggestions')
+  .description(
+    'Seed a self-contained "AI Suggestions Demo" board: grants catalog skills to a few real members, then creates skill-labelled tasks plus missing-label / missing-description edge cases for end-to-end testing of inline assignee suggestions. Idempotent; never for prod.',
+  )
+  .requiredOption('--tenant <slug>', 'tenant slug', 'seta-international')
+  .option('--admin-email <email>', 'bootstrap admin', 'hung.vu@seta-international.vn')
+  .action(async (opts: { tenant: string; adminEmail: string }) => {
+    try {
+      await demoSuggestionsCommand({ tenant: opts.tenant, adminEmail: opts.adminEmail });
+    } finally {
+      await closePools();
+    }
+  });
 
 program
   .command('embed-backfill')

@@ -2,8 +2,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Input,
   Label,
   RadioGroup,
@@ -60,10 +58,7 @@ export function ProfileAvailabilitySection({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Availability</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-6">
         <RadioGroup
           value={status}
           onValueChange={(v) => setStatus(v as typeof status)}
@@ -99,9 +94,11 @@ export function ProfileAvailabilitySection({
             />
           </div>
         )}
-        <Button onClick={save} disabled={saving || !dirty}>
-          Save
-        </Button>
+        <div className="flex justify-end pt-1">
+          <Button onClick={save} disabled={saving || !dirty}>
+            Save changes
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

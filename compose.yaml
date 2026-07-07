@@ -193,6 +193,17 @@ services:
       LOKI_URL: ${LOKI_URL:-}
       REMOTE_WRITE_USERNAME: ${REMOTE_WRITE_USERNAME:-}
       REMOTE_WRITE_PASSWORD: ${REMOTE_WRITE_PASSWORD:-}
+      # RDS cloudwatch-exporter target — CloudWatch is monitored for PROD only, so
+      # this is set solely in the prod env; empty for dev/uat → no phantom target.
+      CLOUDWATCH_TARGET: ${CLOUDWATCH_TARGET:-}
+      # DCGM GPU exporter target — set only on the dev agent (co-located with the
+      # on-prem GPU box). dcgm-exporter publishes :9400 on the host, so reach it via
+      # the host gateway: DCGM_TARGET=host.docker.internal:9400. Empty elsewhere.
+      DCGM_TARGET: ${DCGM_TARGET:-}
+    # Lets the agent reach host-published exporter ports (e.g. dcgm-exporter:9400,
+    # which lives on the default bridge, not this compose network).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./infra/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -214,5 +225,9 @@ services:
     profiles: [obs-agent]
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: ${DATABASE_URL}
+      # The exporter's Go pq driver rejects the app's sslmode=no-verify, so it
+      # needs a dedicated DSN with a supported sslmode: disable for bundled
+      # Postgres (dev, no server SSL), require for RDS (uat/prod, encrypt over
+      # the internet). Falls back to DATABASE_URL for local dev where SSL is off.
+      DATA_SOURCE_NAME: ${POSTGRES_EXPORTER_DSN:-${DATABASE_URL}}
     networks: [seta-internal, seta-edge]

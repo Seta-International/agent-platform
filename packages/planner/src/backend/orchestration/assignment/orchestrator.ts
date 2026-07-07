@@ -17,7 +17,8 @@ import type { ChatStreamRun } from '@seta/shared-orchestration';
 import type { z } from 'zod';
 import { pickModel } from './model.ts';
 import { makeOrchestratorTools } from './orchestrator.tools.ts';
-import type { AssignPort, TaskSummary, UserProfilePort } from './ports.ts';
+import type { AssignPort, TaskAssigneesPort, TaskSummary, UserProfilePort } from './ports.ts';
+import type { SuggestAssignees } from './propose-assignment.tool.ts';
 import {
   type AvailabilityResult,
   type CompletionStatus,
@@ -75,6 +76,10 @@ export interface OrchestratorDeps {
   /** Performs the assignment a proposeAssignment approval confirms. Threaded
    *  into the composite tool. */
   assign: AssignPort;
+  /** Ranks candidates for proposeAssignment via the shared assignBySkill engine. */
+  suggest: SuggestAssignees;
+  /** Excludes the task's current assignees from proposeAssignment suggestions. */
+  taskAssignees: TaskAssigneesPort;
   resolveModel: () => MastraModelConfig;
   /**
    * Store the per-turn Mastra wraps the orchestrator agent in so its
@@ -266,6 +271,8 @@ async function buildOrchestrator(
     generalAnswer: deps.generalAnswer,
     userProfileLookup: deps.userProfileLookup,
     assign: deps.assign,
+    suggest: deps.suggest,
+    taskAssignees: deps.taskAssignees,
     userText: input.userText,
     ctx,
   });

@@ -67,8 +67,8 @@ export async function seedTenant(
 
   await pool.query(
     `INSERT INTO planner.assignee_projection
-       (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-       VALUES ($1, $2, $3, $4, ARRAY[]::text[], 'available', 'UTC')
+       (user_id, tenant_id, display_name, email, availability_status, timezone)
+       VALUES ($1, $2, $3, $4, 'available', 'UTC')
        ON CONFLICT (user_id) DO NOTHING`,
     [admin.user_id, tenantId, admin.name, admin.email],
   );
@@ -91,8 +91,8 @@ export async function seedTenant(
 
     await pool.query(
       `INSERT INTO planner.assignee_projection
-         (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-         VALUES ($1, $2, $3, $4, ARRAY[]::text[], 'available', 'UTC')
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
+         VALUES ($1, $2, $3, $4, 'available', 'UTC')
          ON CONFLICT (user_id) DO NOTHING`,
       [r.user_id, tenantId, u.name, normalizedEmail],
     );
@@ -237,8 +237,8 @@ export async function makeMemberSession(
 
   await pool.query(
     `INSERT INTO planner.assignee_projection
-       (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-       VALUES ($1, $2, $3, $4, ARRAY[]::text[], 'available', 'UTC')
+       (user_id, tenant_id, display_name, email, availability_status, timezone)
+       VALUES ($1, $2, $3, $4, 'available', 'UTC')
        ON CONFLICT (user_id) DO NOTHING`,
     [r.user_id, opts.tenant_id, `User ${tag}`, email],
   );

@@ -28,8 +28,11 @@ export { getOrgCompany, getOrgDelivery, getOrgStructure } from './backend/domain
 export {
   addPersonSkill,
   getPersonSkills,
+  type PersonSkill,
   removePersonSkill,
+  setMySkillLevel,
   setMySkills,
+  setPersonSkillLevel,
 } from './backend/domain/person-skills.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
 export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';

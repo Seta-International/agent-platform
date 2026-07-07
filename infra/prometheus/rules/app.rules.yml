@@ -1,0 +1,25 @@
+# Application health. Metric = http_server_duration (OTel histogram), durations in ms,
+# status label http_status_code. No graphile-worker job metric exists, so worker
+# health rides on AppTargetDown (worker:9464). p95 latency is a dashboard panel, not
+# an alert: no http_route label to exclude streaming routes, so it would flap.
+# Scope: dev + uat (severity=warning).
+groups:
+  - name: app
+    rules:
+      - alert: AppTargetDown
+        expr: up{instance=~"(server|worker).*"} == 0
+        for: 2m
+        labels: { severity: warning }
+        annotations:
+          summary: "App target down ({{ $labels.env }}/{{ $labels.instance }})"
+          description: "server/worker scrape down for 2m — app process down (the EC2-only ASG health check can't see this)."
+
+      - alert: AppHighErrorRate
+        expr: |
+          sum by (env) (rate(http_server_duration_count{http_status_code=~"5.."}[5m]))
+            / sum by (env) (rate(http_server_duration_count[5m])) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "HTTP 5xx >5% ({{ $labels.env }})"
+          description: "Server 5xx ratio above 5% for 5m."

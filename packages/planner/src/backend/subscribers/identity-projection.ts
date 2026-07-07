@@ -20,7 +20,6 @@ export async function applyUserCreated(
       tenant_id: e.payload.after.tenant_id,
       display_name: e.payload.after.name,
       email: e.payload.after.email,
-      skills: [],
       availability_status: 'available',
       timezone: 'UTC',
       ooo_until: null,
@@ -49,18 +48,11 @@ export async function applyProfileUpdated(
   // Upsert: if the projection row doesn't exist yet (race with user.created subscriber —
   // both events fire within milliseconds at seed time), insert it from the event payload
   // alone. ON CONFLICT applies the same partial update so the net result is identical
-  // whether the row existed or not.
-  //
-  // Arrays must be passed as a PG array-literal string ($1::text[]) because Drizzle's
-  // sql`` template expands a JS array to a row literal ($1,$2,...) which PG rejects as
-  // "expression is of type record". toPgArrayLiteral() serialises to e.g. '{aws,docker}'.
-  const skillsLiteral = after.skills !== undefined ? toPgArrayLiteral(after.skills) : null;
-
-  // Build the ON CONFLICT SET clause from whichever fields are present.
+  // whether the row existed or not. Skills are owned by People and read from there at
+  // ranking time; this projection only carries display + availability.
   const conflictClauses: SQL[] = [sql`projection_built_at = NOW()`];
   if (after.display_name !== undefined)
     conflictClauses.push(sql`display_name = ${after.display_name}`);
-  if (skillsLiteral !== null) conflictClauses.push(sql`skills = ${skillsLiteral}::text[]`);
   if (after.availability_status !== undefined)
     conflictClauses.push(sql`availability_status = ${after.availability_status}`);
   if (after.ooo_until !== undefined)
@@ -74,29 +66,18 @@ export async function applyProfileUpdated(
 
   await ctx.tx.execute(sql`
     INSERT INTO planner.assignee_projection
-      (user_id, tenant_id, display_name, email, skills, availability_status, timezone, projection_built_at)
+      (user_id, tenant_id, display_name, email, availability_status, timezone, projection_built_at)
     VALUES (
       ${userId},
       ${e.tenantId},
       ${displayNameSeed},
       ${e.payload.email},
-      ${skillsLiteral !== null ? sql`${skillsLiteral}::text[]` : sql`'{}'::text[]`},
       ${after.availability_status !== undefined ? after.availability_status : 'available'},
       ${after.timezone !== undefined ? after.timezone : 'UTC'},
       NOW()
     )
     ON CONFLICT (user_id) DO UPDATE SET ${sql.join(conflictClauses, sql`, `)}
   `);
-}
-
-/**
- * Serialise a JS string array to a PostgreSQL array literal, e.g.
- * ['aws', 'system design'] → '{"aws","system design"}'.
- * Elements are double-quote-escaped so the literal is safe for any string content.
- */
-function toPgArrayLiteral(arr: string[]): string {
-  const escaped = arr.map((s) => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
-  return `{${escaped.join(',')}}`;
 }
 
 export async function applyDeactivated(
@@ -126,7 +107,6 @@ export async function applyEmailChanged(
 function hasAnyProjectedField(after: IdentityUserProfileUpdated['payload']['after']): boolean {
   return (
     after.display_name !== undefined ||
-    after.skills !== undefined ||
     after.availability_status !== undefined ||
     after.ooo_until !== undefined ||
     after.timezone !== undefined

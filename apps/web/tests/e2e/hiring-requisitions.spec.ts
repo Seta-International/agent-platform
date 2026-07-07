@@ -14,7 +14,11 @@ test('admin opens a requisition and it appears on the board', async ({ page }) =
   await expect(page.getByRole('heading', { name: 'New requisition' })).toBeVisible();
 
   await page.getByPlaceholder('e.g. Senior Backend Engineer').fill(TITLE);
-  await page.getByPlaceholder('React, TypeScript, AWS').fill('Go, Postgres');
+  await page
+    .getByPlaceholder('One short paragraph on the role and its context…')
+    .fill('Own the platform roadmap and mentor the team.');
+  // Tech stack is optional and SkillPicker now opens via an "Add skill" button + command
+  // palette rather than a directly-fillable input — pre-existing drift, tracked separately.
   await page.getByRole('button', { name: 'Create requisition' }).click();
 
   await expect(page.getByText('Requisition created')).toBeVisible({ timeout: 8_000 });

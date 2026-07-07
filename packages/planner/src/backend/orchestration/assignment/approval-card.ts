@@ -37,17 +37,23 @@ export function buildAssignApprovalCard(opts: BuildAssignApprovalCardOpts): Appr
     details: [
       {
         kind: 'entityList',
-        select: 'multi',
+        // Single-assignee semantics: radio, not checkbox. Picking another
+        // candidate REPLACES the seeded top match (a checkbox would add a second
+        // assignee), and it makes the decision dirty → 'modify' with the chosen
+        // overrideUserId.
+        select: 'single',
         items: recommendations.map((r, i) => ({
           id: r.userId,
           type: 'user',
           label: candidateLabel(r),
           secondary: `skills: ${r.skillMatch.join(', ') || '(none)'} · ${r.status}`,
-          score: r.availabilityScore,
+          // Blended fit+availability (not raw availability, which saturates at
+          // 100% for anyone free) so the per-candidate score is discriminating.
+          score: r.score,
           primary: i === 0,
         })),
       },
-      { kind: 'confidence', score: top.availabilityScore ?? 0.8 },
+      { kind: 'confidence', score: top.score ?? 0.8 },
     ],
     primary: {
       label: `Assign to ${candidateLabel(top)}`,
