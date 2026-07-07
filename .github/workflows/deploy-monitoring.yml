@@ -92,6 +92,7 @@ jobs:
             [ -f /tls/cert.pem ] && [ -f /tls/key.pem ] || openssl req -x509 -nodes -days 3650 \
               -newkey rsa:2048 -keyout /tls/key.pem -out /tls/cert.pem \
               -subj "/CN=future-ingest.seta-international.com"
+            chmod 644 /tls/cert.pem /tls/key.pem
           '
 
       - name: Deploy the monitoring stack
