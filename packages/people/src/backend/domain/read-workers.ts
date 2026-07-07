@@ -19,8 +19,11 @@ export interface WorkerRow {
   offboarding_date: string | null;
   manager_id: string | null;
   manager_name: string | null;
+  org_unit_id: string | null;
+  org_unit_name: string | null;
   accounts: Array<{ id: string; name: string }>;
-  skills: Array<{ id: string; name: string; level: number | null }>;
+  projects: Array<{ id: string; name: string }>;
+  skills: Array<{ id: string; name: string }>;
 }
 
 export interface ListWorkersQuery {
@@ -173,6 +176,18 @@ export async function listWorkers(
     WHERE ps.person_id = ${worker.person_id} AND ps.tenant_id = ${tenantId}
   )`;
 
+  // Project names come from the local pm read-model (project_projection), never a cross-schema join.
+  const projectsAgg = sql<Array<{ id: string; name: string }>>`(
+    SELECT coalesce(
+      jsonb_agg(DISTINCT jsonb_build_object('id', wap.project_id, 'name', coalesce(pp.name, '')))
+        FILTER (WHERE wap.project_id IS NOT NULL),
+      '[]'::jsonb)
+    FROM people.worker_allocation_projection wap
+    LEFT JOIN people.project_projection pp
+      ON pp.project_id = wap.project_id AND pp.tenant_id = wap.tenant_id
+    WHERE wap.worker_id = ${worker.person_id} AND wap.active AND wap.tenant_id = ${tenantId}
+  )`;
+
   const selection = {
     worker_id: worker.person_id,
     full_name: worker.full_name,
@@ -186,7 +201,10 @@ export async function listWorkers(
     offboarding_date: employmentPeriod.end_date,
     manager_name: managerName,
     manager_id: derivedManagerIdSql(tenantId),
+    org_unit_id: worker.org_unit_id,
+    org_unit_name: derivedOrgUnitNameSql(tenantId),
     accounts: accountsAgg,
+    projects: projectsAgg,
     skills: skillsAgg,
   };
 

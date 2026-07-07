@@ -10,6 +10,7 @@ import {
   type LIFECYCLE_STAGES,
   person,
   personSkill,
+  projectProjection,
   worker,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
@@ -415,6 +416,48 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
       // search "charlie" + status "active" → nobody (Charlie is onboarding)
       const empty = await listWorkers(admin(t), { search: 'charlie', status: ['active'] });
       expect(empty.rows).toHaveLength(0);
+    });
+  });
+});
+
+describe('listWorkers work fields', () => {
+  it('returns org_unit and projects for directory columns', async () => {
+    await withDb(async ({ t }) => {
+      const unitId = await seedOrgUnit({
+        tenant_id: t.tenant_id,
+        name: 'Engineering',
+        kind: 'delivery',
+      });
+      const w = await makeWorker(t, { name: 'Eng Anna', orgUnitId: unitId });
+      const projectId = crypto.randomUUID();
+      await peopleDb().insert(projectProjection).values({
+        project_id: projectId,
+        tenant_id: t.tenant_id,
+        account_id: crypto.randomUUID(),
+        name: 'Web Platform',
+      });
+      await addAllocation(t, {
+        workerId: w,
+        projectId,
+        accountId: crypto.randomUUID(),
+        accountName: 'ACME',
+      });
+
+      const { rows } = await listWorkers(t.adminSession, { ids: [w] });
+      expect(rows[0]?.org_unit_id).toBe(unitId);
+      expect(rows[0]?.org_unit_name).toBe('Engineering');
+      expect(rows[0]?.projects).toEqual([{ id: projectId, name: 'Web Platform' }]);
+      expect(rows[0]?.accounts).toEqual([expect.objectContaining({ name: 'ACME' })]);
+    });
+  });
+
+  it('returns empty projects and null org_unit when unassigned', async () => {
+    await withDb(async ({ t }) => {
+      const w = await makeWorker(t, { name: 'Bare Bob' });
+      const { rows } = await listWorkers(t.adminSession, { ids: [w] });
+      expect(rows[0]?.org_unit_id).toBeNull();
+      expect(rows[0]?.org_unit_name).toBeNull();
+      expect(rows[0]?.projects).toEqual([]);
     });
   });
 });

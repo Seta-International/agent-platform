@@ -15,6 +15,7 @@ export function registerPmAllocationsRoutes(app: Hono<SessionEnv>): void {
       allocations: await listAllocations({
         account_id: c.req.query('account_id'),
         project_id: c.req.query('project_id'),
+        worker_id: c.req.query('worker_id'),
         active_from: c.req.query('active_from'),
         active_to: c.req.query('active_to'),
         q: c.req.query('q'),
