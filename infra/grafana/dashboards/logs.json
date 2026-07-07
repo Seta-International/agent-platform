@@ -48,6 +48,38 @@
           "type": 1
         },
         "refresh": 2
+      },
+      {
+        "type": "custom",
+        "name": "level",
+        "skipUrlSync": false,
+        "multi": false,
+        "allowCustomValue": true,
+        "includeAll": true,
+        "auto": false,
+        "auto_min": "10s",
+        "auto_count": 30,
+        "label": "level",
+        "query": "error,warn,info,debug",
+        "allValue": "error|warn|info|debug",
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        }
+      },
+      {
+        "type": "textbox",
+        "name": "search",
+        "skipUrlSync": false,
+        "multi": false,
+        "allowCustomValue": true,
+        "includeAll": false,
+        "auto": false,
+        "auto_min": "10s",
+        "auto_count": 30,
+        "label": "search",
+        "query": ""
       }
     ]
   },
@@ -162,7 +194,7 @@
       },
       "targets": [
         {
-          "expr": "{env=~\"$env\", container=~\"$container\", container!~\".*(monitoring|alloy|ai-sdlc-metrics).*\"}",
+          "expr": "{env=~\"$env\", container=~\"$container\", container!~\".*(monitoring|alloy|ai-sdlc-metrics).*\"} |~ \"(?i)(level=($level)|\\\"level\\\":\\\"($level)\\\")\" |= \"$search\"",
           "datasource": {
             "type": "loki",
             "uid": "loki"
