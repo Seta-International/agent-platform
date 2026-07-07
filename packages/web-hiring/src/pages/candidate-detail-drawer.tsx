@@ -22,7 +22,6 @@ import {
   Check,
   ChevronDown,
   Copy,
-  FileText,
   Globe,
   Mail,
   MoreHorizontal,
@@ -34,7 +33,15 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { type CandStage, fetchCandidate, moveApplicationStage } from '../api/hiring-client.ts';
+import {
+  type CandStage,
+  editCandidate,
+  fetchCandidate,
+  getCandidateCvDownloadUrl,
+  moveApplicationStage,
+  putCvToS3,
+  requestCandidateCvUpload,
+} from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { CandidateTimeline } from './candidate-timeline.tsx';
 import { fitLabel } from './candidate-utils.ts';
@@ -52,10 +59,6 @@ const STAGES: { id: CandStage; label: string }[] = [
 function appliedLabel(appliedAt: string): string {
   const rel = formatRelative(appliedAt);
   return rel === 'now' ? 'just now' : `${rel} ago`;
-}
-
-function NoData() {
-  return <span className="text-caption italic text-ink-subtle">No Data</span>;
 }
 
 function DetailCard({
@@ -300,12 +303,14 @@ export function CandidateDetailDrawer({
                 <DetailCard title="Contact">
                   <DetailRow
                     icon={<Mail className="size-3.5" aria-hidden />}
-                    label="Email"
-                    value={data.candidate.contact?.email ?? '—'}
+                    label="Personal email"
+                    value={data.candidate.contact?.personal_email ?? '—'}
                     onCopy={
-                      data.candidate.contact?.email
+                      data.candidate.contact?.personal_email
                         ? () =>
-                            void navigator.clipboard.writeText(data.candidate.contact?.email ?? '')
+                            void navigator.clipboard.writeText(
+                              data.candidate.contact?.personal_email ?? '',
+                            )
                         : undefined
                     }
                   />
@@ -358,18 +363,16 @@ export function CandidateDetailDrawer({
                 </DetailCard>
 
                 <DetailCard title="Resume / CV">
-                  {data.candidate.cv_storage_key ? (
-                    <div className="space-y-2 text-body-sm">
-                      <div className="flex items-center gap-2 text-ink">
-                        <FileText className="size-4 text-ink-subtle" aria-hidden />A CV is on file.
-                      </div>
-                      <DetailRow label="Filename" value={<NoData />} />
-                      <DetailRow label="Size" value={<NoData />} />
-                      <DetailRow label="Uploaded" value={<NoData />} />
-                    </div>
-                  ) : (
-                    <p className="text-caption text-ink-muted">No CV uploaded.</p>
-                  )}
+                  <CandidateCvActions
+                    candidateId={data.candidate.id}
+                    hasCv={Boolean(data.candidate.cv_storage_key)}
+                    canManage={canManage}
+                    onChanged={() =>
+                      void queryClient.invalidateQueries({
+                        queryKey: hiringKeys.candidate(data.candidate.id),
+                      })
+                    }
+                  />
                 </DetailCard>
 
                 <DetailCard title="Notes">
@@ -440,5 +443,74 @@ export function CandidateDetailDrawer({
         </>
       )}
     </Dialog>
+  );
+}
+
+function CandidateCvActions({
+  candidateId,
+  hasCv,
+  canManage,
+  onChanged,
+}: {
+  candidateId: string;
+  hasCv: boolean;
+  canManage: boolean;
+  onChanged: () => void;
+}) {
+  const download = useMutation({
+    mutationFn: () => getCandidateCvDownloadUrl(candidateId),
+    onSuccess: (url) => window.open(url, '_blank', 'noopener'),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const replace = useMutation({
+    mutationFn: async (file: File) => {
+      const { upload_url, s3_key } = await requestCandidateCvUpload(
+        candidateId,
+        file.name,
+        file.type || 'application/octet-stream',
+      );
+      await putCvToS3(upload_url, file);
+      await editCandidate(candidateId, { patch: { cv_storage_key: s3_key } });
+    },
+    onSuccess: () => {
+      toast.success('CV updated');
+      onChanged();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="flex items-center gap-3 text-body-sm">
+      {hasCv ? (
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0"
+          disabled={download.isPending}
+          onClick={() => download.mutate()}
+        >
+          Download CV
+        </Button>
+      ) : (
+        <span className="text-ink-muted">No CV on file</span>
+      )}
+      {canManage && (
+        <label className="cursor-pointer text-primary hover:underline">
+          {replace.isPending ? 'Uploading…' : hasCv ? 'Replace' : 'Upload'}
+          <input
+            type="file"
+            accept=".pdf,.docx"
+            className="hidden"
+            disabled={replace.isPending}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) replace.mutate(f);
+              e.target.value = '';
+            }}
+          />
+        </label>
+      )}
+    </div>
   );
 }

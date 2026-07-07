@@ -52,6 +52,14 @@ export {
   knowledgeVectorId,
   resetKnowledgeVectorStore,
 } from './backend/embeddings/vector-store.ts';
+export {
+  CvParseError,
+  type CvParseErrorCode,
+  type CvProfileDraft,
+  cvProfileDraft,
+  type ParseCvProfileDeps,
+  parseCvProfile,
+} from './backend/parse/cv-profile.ts';
 export { KnowledgeError, requirePermission as requireKnowledgePermission } from './backend/rbac.ts';
 export {
   type ConsumedAttachment,

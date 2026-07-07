@@ -20,10 +20,12 @@ if ! [[ "$MEMBER_COUNT" =~ ^[0-9]+$ ]]; then
 fi
 
 if [ -f .env ]; then
-  set -a
+  # .env interpolates optional deploy vars (e.g. ${ECR_REGISTRY} in PLATFORM_IMAGE_*)
+  # that dev boxes never set — suspend nounset while sourcing or the script dies.
+  set -a +u
   # shellcheck disable=SC1091
   source .env
-  set +a
+  set +a -u
 fi
 
 echo "→ creating tenant ${SLUG} (admin ${ADMIN_EMAIL})"

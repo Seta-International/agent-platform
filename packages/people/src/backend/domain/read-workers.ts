@@ -11,6 +11,7 @@ export interface WorkerRow {
   full_name: string;
   job_title: string | null;
   work_email: string | null;
+  personal_email: string | null;
   phone: string | null;
   gender: string | null;
   lifecycle_stage: string | null;
@@ -192,6 +193,7 @@ export async function listWorkers(
     full_name: worker.full_name,
     job_title: worker.job_title,
     work_email: worker.work_email,
+    personal_email: worker.personal_email,
     phone: worker.phone,
     gender: worker.gender,
     lifecycle_stage: employmentPeriod.lifecycle_stage,
@@ -256,6 +258,8 @@ export async function getWorker({
   worker_id: string;
   full_name: string;
   work_email: string | null;
+  personal_email: string | null;
+  cv_storage_key: string | null;
   dob: string | null;
   gender: string | null;
   phone: string | null;
@@ -303,6 +307,8 @@ export async function getWorker({
       worker_id: worker.person_id,
       full_name: worker.full_name,
       work_email: worker.work_email,
+      personal_email: worker.personal_email,
+      cv_storage_key: worker.cv_storage_key,
       dob: worker.dob,
       gender: worker.gender,
       phone: worker.phone,

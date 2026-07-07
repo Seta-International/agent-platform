@@ -9,6 +9,7 @@ export interface InsertWorkerArgs {
   full_name: string;
   employee_no?: string | null;
   work_email?: string | null;
+  personal_email?: string | null;
   start_date?: string | null;
   employment_type?: string | null;
   dob?: string | null;
@@ -50,6 +51,7 @@ export async function insertWorkerAggregate(
     employee_no: args.employee_no ?? null,
     full_name: args.full_name,
     work_email: args.work_email ?? null,
+    personal_email: args.personal_email ?? null,
     dob: args.dob ?? null,
     gender: args.gender ?? null,
     phone: args.phone ?? null,

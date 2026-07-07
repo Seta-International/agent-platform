@@ -109,7 +109,7 @@ export type CandidateSkillInput = z.infer<typeof candidateSkillInput>;
 export const addCandidateInput = z.object({
   requisition_id: z.string().uuid(),
   name: z.string().min(1),
-  email: z.string().email().optional(),
+  personal_email: z.string().email().optional(),
   phone: z.string().optional(),
   dob: z.string().optional(),
   gender: genderValue.optional(),
@@ -124,7 +124,8 @@ export type AddCandidateInput = z.input<typeof addCandidateInput>;
 export const editCandidatePatch = z
   .object({
     name: z.string().min(1),
-    email: z.string().email(),
+    personal_email: z.string().email(),
+    cv_storage_key: z.string().min(1).nullable(),
     phone: z.string(),
     dob: z.string(),
     gender: genderValue,
