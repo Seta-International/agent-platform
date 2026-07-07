@@ -16,4 +16,7 @@ describe('fleet overview', () => {
   it('uses UP/DOWN mappings for availability', () => {
     expect(JSON.stringify(d.panels)).toContain('DOWN');
   });
+  it('links summary tiles to detail boards', () => {
+    expect(JSON.stringify(d.panels)).toContain('/d/app-service');
+  });
 });

@@ -15,6 +15,9 @@ export const buildFleet = () =>
         steps: stepsDesc(1, 1),
         mappings: upMappings(),
         legend: '{{env}}',
+        links: [
+          { title: 'App Service', url: '/d/app-service/app-service?var-env=${__field.labels.env}' },
+        ],
       }),
     )
     .withPanel(
@@ -26,6 +29,9 @@ export const buildFleet = () =>
         steps: stepsDesc(1, 1),
         mappings: upMappings(),
         legend: '{{env}}',
+        links: [
+          { title: 'PostgreSQL', url: '/d/postgresql/postgresql?var-env=${__field.labels.env}' },
+        ],
       }),
     )
     .withPanel(
@@ -37,6 +43,7 @@ export const buildFleet = () =>
         steps: stepsDesc(1, 1),
         mappings: upMappings(),
         legend: '{{env}}',
+        links: [{ title: 'Host', url: '/d/host/host?var-env=${__field.labels.env}' }],
       }),
     )
     .withPanel(
@@ -47,6 +54,9 @@ export const buildFleet = () =>
         unit: UNIT.percent,
         steps: stepsAsc(SLO.httpErrorRatioPct.warn, SLO.httpErrorRatioPct.crit),
         legend: '{{env}}',
+        links: [
+          { title: 'App Service', url: '/d/app-service/app-service?var-env=${__field.labels.env}' },
+        ],
       }),
     )
     .withPanel(
@@ -57,6 +67,9 @@ export const buildFleet = () =>
         unit: UNIT.ms,
         steps: stepsAsc(SLO.httpLatencyP95Ms.warn, SLO.httpLatencyP95Ms.crit),
         legend: '{{env}}',
+        links: [
+          { title: 'App Service', url: '/d/app-service/app-service?var-env=${__field.labels.env}' },
+        ],
       }),
     )
     .withPanel(
@@ -67,6 +80,7 @@ export const buildFleet = () =>
         unit: UNIT.percent,
         steps: stepsAsc(SLO.cpuBusyPct.warn, SLO.cpuBusyPct.crit),
         legend: '{{env}}',
+        links: [{ title: 'Host', url: '/d/host/host?var-env=${__field.labels.env}' }],
       }),
     )
     .withPanel(
@@ -77,6 +91,7 @@ export const buildFleet = () =>
         unit: UNIT.percent,
         steps: stepsDesc(SLO.diskFreePct.warn, SLO.diskFreePct.crit),
         legend: '{{env}}',
+        links: [{ title: 'Host', url: '/d/host/host?var-env=${__field.labels.env}' }],
       }),
     )
     .withPanel(
@@ -87,6 +102,9 @@ export const buildFleet = () =>
         unit: UNIT.percent,
         steps: stepsAsc(SLO.dbConnPct.warn, SLO.dbConnPct.crit),
         legend: '{{env}}',
+        links: [
+          { title: 'PostgreSQL', url: '/d/postgresql/postgresql?var-env=${__field.labels.env}' },
+        ],
       }),
     )
     .withRow(new RowBuilder('Trends'))
@@ -116,5 +134,14 @@ export const buildFleet = () =>
             '{{env}}',
           ),
         ],
+      }),
+    )
+    .withPanel(
+      trend({
+        title: 'Error-budget burn (× budget)',
+        description: '5xx ratio ÷ 0.5% budget. > 1 burns the 99.5% availability budget.',
+        unit: 'none',
+        softMax: 1,
+        targets: [prom('slo:http_error_ratio:rate5m * 100 / (100 - 99.5)', '{{env}}')],
       }),
     );

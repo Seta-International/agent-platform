@@ -94,6 +94,21 @@
                 }
               }
             }
+          ],
+          "links": [
+            {
+              "title": "App Service",
+              "type": "link",
+              "icon": "",
+              "tooltip": "",
+              "tags": [],
+              "asDropdown": false,
+              "placement": "inControlsMenu",
+              "targetBlank": false,
+              "includeVars": false,
+              "keepTime": false,
+              "url": "/d/app-service/app-service?var-env=${__field.labels.env}"
+            }
           ]
         },
         "overrides": []
@@ -176,6 +191,21 @@
                   "index": 0
                 }
               }
+            }
+          ],
+          "links": [
+            {
+              "title": "PostgreSQL",
+              "type": "link",
+              "icon": "",
+              "tooltip": "",
+              "tags": [],
+              "asDropdown": false,
+              "placement": "inControlsMenu",
+              "targetBlank": false,
+              "includeVars": false,
+              "keepTime": false,
+              "url": "/d/postgresql/postgresql?var-env=${__field.labels.env}"
             }
           ]
         },
@@ -260,6 +290,21 @@
                 }
               }
             }
+          ],
+          "links": [
+            {
+              "title": "Host",
+              "type": "link",
+              "icon": "",
+              "tooltip": "",
+              "tags": [],
+              "asDropdown": false,
+              "placement": "inControlsMenu",
+              "targetBlank": false,
+              "includeVars": false,
+              "keepTime": false,
+              "url": "/d/host/host?var-env=${__field.labels.env}"
+            }
           ]
         },
         "overrides": []
@@ -326,7 +371,22 @@
                 "color": "red"
               }
             ]
-          }
+          },
+          "links": [
+            {
+              "title": "App Service",
+              "type": "link",
+              "icon": "",
+              "tooltip": "",
+              "tags": [],
+              "asDropdown": false,
+              "placement": "inControlsMenu",
+              "targetBlank": false,
+              "includeVars": false,
+              "keepTime": false,
+              "url": "/d/app-service/app-service?var-env=${__field.labels.env}"
+            }
+          ]
         },
         "overrides": []
       },
@@ -392,7 +452,22 @@
                 "color": "red"
               }
             ]
-          }
+          },
+          "links": [
+            {
+              "title": "App Service",
+              "type": "link",
+              "icon": "",
+              "tooltip": "",
+              "tags": [],
+              "asDropdown": false,
+              "placement": "inControlsMenu",
+              "targetBlank": false,
+              "includeVars": false,
+              "keepTime": false,
+              "url": "/d/app-service/app-service?var-env=${__field.labels.env}"
+            }
+          ]
         },
         "overrides": []
       },
@@ -458,7 +533,22 @@
                 "color": "red"
               }
             ]
-          }
+          },
+          "links": [
+            {
+              "title": "Host",
+              "type": "link",
+              "icon": "",
+              "tooltip": "",
+              "tags": [],
+              "asDropdown": false,
+              "placement": "inControlsMenu",
+              "targetBlank": false,
+              "includeVars": false,
+              "keepTime": false,
+              "url": "/d/host/host?var-env=${__field.labels.env}"
+            }
+          ]
         },
         "overrides": []
       },
@@ -524,7 +614,22 @@
                 "color": "green"
               }
             ]
-          }
+          },
+          "links": [
+            {
+              "title": "Host",
+              "type": "link",
+              "icon": "",
+              "tooltip": "",
+              "tags": [],
+              "asDropdown": false,
+              "placement": "inControlsMenu",
+              "targetBlank": false,
+              "includeVars": false,
+              "keepTime": false,
+              "url": "/d/host/host?var-env=${__field.labels.env}"
+            }
+          ]
         },
         "overrides": []
       },
@@ -590,7 +695,22 @@
                 "color": "red"
               }
             ]
-          }
+          },
+          "links": [
+            {
+              "title": "PostgreSQL",
+              "type": "link",
+              "icon": "",
+              "tooltip": "",
+              "tags": [],
+              "asDropdown": false,
+              "placement": "inControlsMenu",
+              "targetBlank": false,
+              "includeVars": false,
+              "keepTime": false,
+              "url": "/d/postgresql/postgresql?var-env=${__field.labels.env}"
+            }
+          ]
         },
         "overrides": []
       },
@@ -752,6 +872,71 @@
         "w": 12,
         "x": 12,
         "y": 38
+      }
+    },
+    {
+      "type": "timeseries",
+      "transparent": false,
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "asc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "transparent"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "title": "Error-budget burn (× budget)",
+      "description": "5xx ratio ÷ 0.5% budget. > 1 burns the 99.5% availability budget.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "slo:http_error_ratio:rate5m * 100 / (100 - 99.5)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{env}}"
+        }
+      ],
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 47
       }
     }
   ]
