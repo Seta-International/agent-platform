@@ -102,6 +102,6 @@ jobs:
           curl -sf http://localhost:3000/api/health >/dev/null && echo "grafana healthy"
           rules=$(curl -s http://localhost:9090/api/v1/rules | python3 -c "import sys,json;print(sum(len(g['rules']) for g in json.load(sys.stdin)['data']['groups']))")
           echo "prometheus rules loaded: ${rules}"
-          ingest_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/v1/write)
+          ingest_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8091/api/v1/write)
           [ "$ingest_code" = "401" ] && echo "monitoring-ingest auth enforced" \
             || { echo "::error::monitoring-ingest expected 401 without auth, got ${ingest_code}"; exit 1; }
