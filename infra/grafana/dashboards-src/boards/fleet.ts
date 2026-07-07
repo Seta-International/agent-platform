@@ -107,6 +107,16 @@ export const buildFleet = () =>
         ],
       }),
     )
+    .withPanel(
+      statTile({
+        title: 'RDS free storage',
+        description: 'Prod-only (CloudWatch is monitored for prod alone). Amber < 5GB, red < 2GB.',
+        expr: 'aws_rds_free_storage_space_average',
+        unit: UNIT.bytes,
+        steps: stepsDesc(SLO.rdsFreeStorageBytes.warn, SLO.rdsFreeStorageBytes.crit),
+        legend: '{{env}}',
+      }),
+    )
     .withRow(new RowBuilder('Trends'))
     .withPanel(
       trend({

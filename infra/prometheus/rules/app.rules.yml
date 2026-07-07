@@ -3,14 +3,22 @@
 # health rides on AppTargetDown (worker:9464). p95 latency is a dashboard panel, not
 # an alert: no http_route label to exclude streaming routes, so it would flap.
 # 5xx alerting lives in slo.rules.yml as multiwindow burn-rate (supersedes the old
-# naive AppHighErrorRate). Scope: dev + uat (severity=warning).
+# naive AppHighErrorRate). dev+uat = warning; prod gets its own critical duplicate.
 groups:
   - name: app
     rules:
       - alert: AppTargetDown
-        expr: up{instance=~"(server|worker).*"} == 0
+        expr: up{env!="prod", instance=~"(server|worker).*"} == 0
         for: 2m
         labels: { severity: warning }
         annotations:
           summary: "App target down ({{ $labels.env }}/{{ $labels.instance }})"
+          description: "server/worker scrape down for 2m — app process down (the EC2-only ASG health check can't see this)."
+
+      - alert: AppTargetDown
+        expr: up{env="prod", instance=~"(server|worker).*"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "[PROD] App target down ({{ $labels.instance }})"
           description: "server/worker scrape down for 2m — app process down (the EC2-only ASG health check can't see this)."

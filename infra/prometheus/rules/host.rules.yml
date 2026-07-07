@@ -1,18 +1,26 @@
 # Host / instance health. Sourced from the node-exporter mixin, trimmed.
-# Scope: dev + uat (severity=warning). Prod-critical duplicates are added later.
+# dev+uat = warning; prod gets its own critical duplicates.
 groups:
   - name: host
     rules:
       - alert: HostDown
-        expr: up{instance=~"node-exporter.*"} == 0
+        expr: up{env!="prod", instance=~"node-exporter.*"} == 0
         for: 2m
         labels: { severity: warning }
         annotations:
           summary: "Host down ({{ $labels.env }}/{{ $labels.instance }})"
           description: "node-exporter has been unreachable for 2m — host or box down."
 
+      - alert: HostDown
+        expr: up{env="prod", instance=~"node-exporter.*"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "[PROD] Host down ({{ $labels.instance }})"
+          description: "node-exporter has been unreachable for 2m — host or box down."
+
       # Whole env stopped reporting → box down / Alloy dead / network cut.
-      # One alert per deployed env with an exporter (dev, uat). Prod added later.
+      # One alert per deployed env with an exporter (dev, uat, prod).
       - alert: EnvNotReporting
         expr: absent(up{env="uat", instance=~"node-exporter.*"})
         for: 5m
@@ -20,6 +28,14 @@ groups:
         annotations:
           summary: "uat is not reporting metrics"
           description: "No node-exporter series for env=uat for 5m — box down, Alloy dead, or network cut."
+
+      - alert: EnvNotReporting
+        expr: absent(up{env="prod", instance=~"node-exporter.*"})
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "[PROD] prod is not reporting metrics"
+          description: "No node-exporter series for env=prod for 5m — box down, Alloy dead, or network cut."
 
       - alert: HostHighCpu
         expr: 100 - (avg by (env, instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
