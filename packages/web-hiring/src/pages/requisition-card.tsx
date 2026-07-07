@@ -10,18 +10,13 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Calendar, Check, ExternalLink, MoreHorizontal, Users } from 'lucide-react';
-import { useState } from 'react';
 import {
-  editRequisition,
   holdRequisition,
-  type ReqStage,
   type RequisitionListRow,
   resumeRequisition,
 } from '../api/hiring-client.ts';
 import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
-import { CancelRequisitionDialog } from './cancel-requisition-dialog.tsx';
-import { MarkFilledDialog } from './mark-filled-dialog.tsx';
 import {
   daysLeft,
   formatDate,
@@ -46,15 +41,17 @@ export function RequisitionCard({
   r,
   canManage,
   canClose,
+  onRequestMarkFilled,
+  onRequestCancel,
 }: {
   r: RequisitionListRow;
   canManage: boolean;
   canClose: boolean;
+  onRequestMarkFilled: () => void;
+  onRequestCancel: () => void;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [showFillConfirm, setShowFillConfirm] = useState(false);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const invalidate = () =>
     void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
 
@@ -62,12 +59,6 @@ export function RequisitionCard({
     on409(e, queryClient, hiringKeys.requisitions());
   }
 
-  const setStage = useMutation({
-    mutationFn: (stage: ReqStage) =>
-      editRequisition(r.id, { expected_version: r.version, patch: { stage } }),
-    onSuccess: () => invalidate(),
-    onError,
-  });
   const pause = useMutation({
     mutationFn: () => holdRequisition(r.id, { expected_version: r.version }),
     onSuccess: () => {
@@ -85,13 +76,12 @@ export function RequisitionCard({
     onError,
   });
 
-  // On hold means everything about the requisition is frozen — stage stays locked until an
-  // explicit Resume from the status menu, no implicit resume-on-click. Terminal
-  // (filled/cancelled) statuses lock the same way, for good.
-  const stageClickable = canManage && r.status === 'open' && !setStage.isPending;
   const isTerminal = r.status === 'filled' || r.status === 'cancelled';
-  const curIdx = STAGES.indexOf(r.stage);
+  // Per-stage applicant counts (cumulative — see funnelCounts), not the requisition's own
+  // `stage` field: this is a read-only funnel of where candidates actually are, not an
+  // editable "current stage" pointer, so a step lights up once anyone has reached it.
   const counts = funnelCounts(r.applicants_count, r.applicants);
+  const lastReachedIdx = counts.reduce((acc, c, i) => (c > 0 ? i : acc), -1);
 
   // Account/project names come from local pm projections (null until pm emits / the
   // requisition links a project); grade is always local. Falls back gracefully.
@@ -166,7 +156,7 @@ export function RequisitionCard({
                     // body pointer-events stuck off (page looks frozen until a refresh).
                     onSelect={(e) => {
                       e.preventDefault();
-                      setTimeout(() => setShowFillConfirm(true), 0);
+                      setTimeout(onRequestMarkFilled, 0);
                     }}
                   >
                     Mark filled
@@ -176,7 +166,7 @@ export function RequisitionCard({
                     className="text-danger-ink"
                     onSelect={(e) => {
                       e.preventDefault();
-                      setTimeout(() => setShowCancelDialog(true), 0);
+                      setTimeout(onRequestCancel, 0);
                     }}
                   >
                     Cancel
@@ -204,51 +194,40 @@ export function RequisitionCard({
         </div>
       )}
 
-      {/* Stage funnel + timing — click a step to jump straight to that stage. Only
-          meaningful while open; locked on_hold (Resume first) or filled/cancelled (for good). */}
+      {/* Stage funnel + timing — read-only: each step lights up once at least one candidate has
+          reached it (cumulative applicant counts), independent of the requisition's own status. */}
       <div className="mt-5 flex items-start gap-4">
         <div className="relative flex-[3] pt-2.5">
           <div className="absolute inset-x-[12.5%] top-[19px] h-px bg-hairline-strong" />
           <div
             className="absolute inset-y-0 left-[12.5%] top-[19px] h-px bg-primary transition-[width]"
             style={{
-              width: curIdx <= 0 ? 0 : `${(curIdx / (STAGES.length - 1)) * 75}%`,
+              width: lastReachedIdx <= 0 ? 0 : `${(lastReachedIdx / (STAGES.length - 1)) * 75}%`,
             }}
           />
           <div className="relative flex justify-between">
             {STAGES.map((s, i) => {
-              const reached = i <= curIdx;
+              const reached = (counts[i] ?? 0) > 0;
               return (
-                <DisabledActionTooltip
-                  key={s}
-                  disabled={!canManage}
-                  reason={PERMISSION_DENIED.requisition.edit}
-                >
-                  <button
-                    type="button"
-                    disabled={!stageClickable}
-                    onClick={() => setStage.mutate(s)}
-                    className={`flex flex-col items-center gap-1.5 ${stageClickable ? 'cursor-pointer' : 'cursor-default'}`}
+                <div key={s} className="flex flex-col items-center gap-1.5">
+                  <span
+                    className={`flex size-5 items-center justify-center rounded-full text-on-primary ${
+                      reached
+                        ? r.status === 'on_hold'
+                          ? 'bg-warning'
+                          : 'bg-primary'
+                        : 'border-2 border-hairline-strong bg-canvas'
+                    }`}
                   >
-                    <span
-                      className={`flex size-5 items-center justify-center rounded-full text-on-primary ${
-                        reached
-                          ? r.status === 'on_hold'
-                            ? 'bg-warning'
-                            : 'bg-primary'
-                          : 'border-2 border-hairline-strong bg-canvas'
-                      }`}
-                    >
-                      {reached && <Check className="size-3" aria-hidden />}
-                    </span>
-                    <span
-                      className={`text-caption font-medium ${i === curIdx ? 'text-ink' : 'text-ink-subtle'}`}
-                    >
-                      {STAGE_LABEL[s]}
-                    </span>
-                    <span className="text-caption tabular-nums text-ink-subtle">{counts[i]}</span>
-                  </button>
-                </DisabledActionTooltip>
+                    {reached && <Check className="size-3" aria-hidden />}
+                  </span>
+                  <span
+                    className={`text-caption font-medium ${i === lastReachedIdx ? 'text-ink' : 'text-ink-subtle'}`}
+                  >
+                    {STAGE_LABEL[s]}
+                  </span>
+                  <span className="text-caption tabular-nums text-ink-subtle">{counts[i]}</span>
+                </div>
               );
             })}
           </div>
@@ -289,20 +268,6 @@ export function RequisitionCard({
           <ExternalLink className="ml-1 size-3.5" aria-hidden />
         </Button>
       </div>
-      <MarkFilledDialog
-        requisitionId={r.id}
-        version={r.version}
-        open={showFillConfirm}
-        onOpenChange={setShowFillConfirm}
-        onDone={invalidate}
-      />
-      <CancelRequisitionDialog
-        requisitionId={r.id}
-        version={r.version}
-        open={showCancelDialog}
-        onOpenChange={setShowCancelDialog}
-        onDone={invalidate}
-      />
     </div>
   );
 }

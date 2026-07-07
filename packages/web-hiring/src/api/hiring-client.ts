@@ -434,7 +434,8 @@ export interface SkillCatalog {
 export interface AddCandidatePayload {
   requisition_id: string;
   name: string;
-  contact?: { email?: string; phone?: string };
+  email?: string;
+  phone?: string;
   dob?: string;
   gender?: string;
   seniority?: string;

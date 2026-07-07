@@ -4,19 +4,18 @@ import {
   Button,
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
   DisabledActionTooltip,
   Input,
   Label,
+  RichTextEditor,
   SegmentedControl,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Textarea,
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -31,37 +30,16 @@ import {
 import { GRADES } from '../lib/grades.ts';
 import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
+import { isRichTextEmpty } from './requisition-format.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
-const SECTIONS: {
-  key: JdSectionKey;
-  label: string;
-  hint?: string;
-  placeholder: string;
-}[] = [
-  {
-    key: 'about',
-    label: 'About the role *',
-    placeholder: 'One short paragraph on the role and its context…',
-  },
-  {
-    key: 'responsibilities',
-    label: 'Responsibilities',
-    hint: 'one per line, optional',
-    placeholder: 'Design and build…\nReview PRs…',
-  },
-  {
-    key: 'requirements',
-    label: 'Requirements',
-    hint: 'one per line, optional',
-    placeholder: '5+ years…\nStrong…',
-  },
-  {
-    key: 'nice_to_have',
-    label: 'Nice to have',
-    hint: 'one per line, optional',
-    placeholder: 'Domain experience…',
-  },
+// Mirrors RequisitionDetailView's editing-mode SECTIONS — kept in sync by hand so the
+// create and edit forms read as the same layout (see FUT-404).
+const SECTIONS: { key: JdSectionKey; label: string }[] = [
+  { key: 'about', label: 'About the role' },
+  { key: 'responsibilities', label: 'Responsibilities' },
+  { key: 'requirements', label: 'Requirements' },
+  { key: 'nice_to_have', label: 'Nice to have' },
 ];
 
 export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean }) {
@@ -79,7 +57,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
   const [headcount, setHeadcount] = useState(1);
   const [skills, setSkills] = useState<PickedSkill[]>([]);
-  const [variant, setVariant] = useState<JdVariant>('external');
+  const [variant, setVariant] = useState<JdVariant>('internal');
   const [jd, setJd] = useState<Record<JdSectionKey, string>>({
     about: '',
     responsibilities: '',
@@ -88,10 +66,10 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   });
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  const missingRequired = !title.trim() || !jd.about.trim();
+  const missingRequired = !title.trim() || isRichTextEmpty(jd.about);
   const requiredError =
     submitAttempted && missingRequired
-      ? !title.trim() && !jd.about.trim()
+      ? !title.trim() && isRichTextEmpty(jd.about)
         ? 'Job title and About the role are required.'
         : !title.trim()
           ? 'Job title is required.'
@@ -120,7 +98,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     setDue('');
     setHeadcount(1);
     setSkills([]);
-    setVariant('external');
+    setVariant('internal');
     setJd({
       about: '',
       responsibilities: '',
@@ -133,7 +111,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
   const mutation = useMutation({
     mutationFn: () => {
-      const jd_sections = SECTIONS.filter((s) => jd[s.key].trim()).map((s) => ({
+      const jd_sections = SECTIONS.filter((s) => !isRichTextEmpty(jd[s.key])).map((s) => ({
         variant,
         section: s.key,
         body: jd[s.key],
@@ -167,6 +145,12 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     onError: (e: Error) => setError(e.message),
   });
 
+  function submit() {
+    setSubmitAttempted(true);
+    if (missingRequired || dateError) return;
+    mutation.mutate();
+  }
+
   return (
     <Dialog
       open={open}
@@ -182,187 +166,217 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
           </Button>
         </DialogTrigger>
       </DisabledActionTooltip>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New requisition</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-          <div className="space-y-1">
-            <Label>Job title *</Label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Senior Backend Engineer"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Grade</Label>
-              <Select value={grade} onValueChange={setGrade}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {GRADES.map((g) => (
-                    <SelectItem key={g} value={g}>
-                      {g}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      <DialogContent
+        hideClose
+        unstyled
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="w-[min(1100px,94vw)]"
+      >
+        <DialogTitle className="sr-only">New requisition</DialogTitle>
+        <div className="flex max-h-[88vh] flex-col overflow-hidden rounded-xl">
+          <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
+            <div className="min-w-0">
+              <h1 className="truncate text-section-title font-semibold text-ink">
+                {title.trim() || 'New requisition'}
+              </h1>
             </div>
-            <div className="space-y-1">
-              <Label>Type</Label>
-              <Select value={kind} onValueChange={(v) => setKind(v as 'new' | 'replacement')}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new">New</SelectItem>
-                  <SelectItem value="replacement">Replacement</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setOpen(false)}
+                  disabled={mutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={submit} disabled={mutation.isPending}>
+                  {mutation.isPending ? 'Creating…' : 'Create'}
+                </Button>
+              </div>
+              {requiredError && <p className="text-caption text-danger-ink">{requiredError}</p>}
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Account</Label>
-              <Select
-                value={accountId}
-                onValueChange={(v) => {
-                  setAccountId(v);
-                  setProjectId('');
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(accounts ?? []).map((a) => (
-                    <SelectItem key={a.account_id} value={a.account_id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          </header>
+          <div className="min-h-0 flex-1 overflow-auto">
+            <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
+              <div className="space-y-1">
+                <Label htmlFor="new-req-title">Job title *</Label>
+                <Input
+                  id="new-req-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Senior Backend Engineer"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="new-req-grade">Grade</Label>
+                  <Select value={grade} onValueChange={setGrade}>
+                    <SelectTrigger id="new-req-grade" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GRADES.map((g) => (
+                        <SelectItem key={g} value={g}>
+                          {g}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="new-req-type">Type</Label>
+                  <Select value={kind} onValueChange={(v) => setKind(v as 'new' | 'replacement')}>
+                    <SelectTrigger id="new-req-type" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">New</SelectItem>
+                      <SelectItem value="replacement">Replacement</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="new-req-account">Account</Label>
+                  <Select
+                    value={accountId}
+                    onValueChange={(v) => {
+                      setAccountId(v);
+                      setProjectId('');
+                    }}
+                  >
+                    <SelectTrigger id="new-req-account" className="w-full">
+                      <SelectValue placeholder="No account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(accounts ?? []).map((a) => (
+                        <SelectItem key={a.account_id} value={a.account_id}>
+                          {a.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="new-req-project">Project</Label>
+                  <Select value={projectId} onValueChange={setProjectId} disabled={!accountId}>
+                    <SelectTrigger id="new-req-project" className="w-full">
+                      <SelectValue
+                        placeholder={accountId ? 'No project' : 'Pick an account first'}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(projects ?? []).map((p) => (
+                        <SelectItem key={p.project_id} value={p.project_id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="new-req-mode">Interview mode</Label>
+                  <Select
+                    value={mode}
+                    onValueChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
+                  >
+                    <SelectTrigger id="new-req-mode" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="online">Online (Teams)</SelectItem>
+                      <SelectItem value="onsite">Onsite</SelectItem>
+                      <SelectItem value="either">Either</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="new-req-headcount">Headcount (openings)</Label>
+                  <Input
+                    id="new-req-headcount"
+                    type="number"
+                    min={1}
+                    value={headcount}
+                    onChange={(e) => setHeadcount(Math.max(1, Number(e.target.value) || 1))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="new-req-start">Start date</Label>
+                  <Input
+                    id="new-req-start"
+                    type="date"
+                    value={start}
+                    max={due || undefined}
+                    onChange={(e) => setStart(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="new-req-due">Due date</Label>
+                  <Input
+                    id="new-req-due"
+                    type="date"
+                    value={due}
+                    min={start || undefined}
+                    onChange={(e) => setDue(e.target.value)}
+                  />
+                </div>
+              </div>
+              {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
+
+              <SkillPicker value={skills} onChange={setSkills} />
+
+              <div className="flex items-center justify-between">
+                <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
+                <SegmentedControl
+                  value={variant}
+                  onValueChange={(v) => setVariant(v as JdVariant)}
+                  options={[
+                    { value: 'external', label: 'External' },
+                    { value: 'internal', label: 'Internal' },
+                  ]}
+                />
+              </div>
+
+              {SECTIONS.map((s) => (
+                <div key={s.key}>
+                  {s.key === 'about' ? (
+                    <div className="rounded-lg bg-primary/8 p-4">
+                      <div className="mb-1 font-semibold text-ink">About the role *</div>
+                      <RichTextEditor
+                        value={jd[s.key]}
+                        onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
+                        placeholder="Write the about section…"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <div
+                        className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                      >
+                        {s.label}
+                      </div>
+                      <RichTextEditor
+                        value={jd[s.key]}
+                        onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
+                        placeholder={`Write the ${s.label.toLowerCase()}…`}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
             </div>
-            <div className="space-y-1">
-              <Label>Project</Label>
-              <Select value={projectId} onValueChange={setProjectId} disabled={!accountId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={accountId ? 'No project' : 'Pick an account first'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(projects ?? []).map((p) => (
-                    <SelectItem key={p.project_id} value={p.project_id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Interview mode</Label>
-              <Select
-                value={mode}
-                onValueChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="online">Online (Teams)</SelectItem>
-                  <SelectItem value="onsite">Onsite</SelectItem>
-                  <SelectItem value="either">Either</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Headcount (openings)</Label>
-              <Input
-                type="number"
-                min={1}
-                value={headcount}
-                onChange={(e) => setHeadcount(Math.max(1, Number(e.target.value) || 1))}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Start date</Label>
-              <Input
-                type="date"
-                value={start}
-                max={due || undefined}
-                onChange={(e) => setStart(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Due date</Label>
-              <Input
-                type="date"
-                value={due}
-                min={start || undefined}
-                onChange={(e) => setDue(e.target.value)}
-              />
-            </div>
-          </div>
-          {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
-          <div className="space-y-1">
-            <Label>Tech stack</Label>
-            <SkillPicker value={skills} onChange={setSkills} />
-          </div>
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
-            <SegmentedControl
-              value={variant}
-              onValueChange={(v) => setVariant(v as JdVariant)}
-              options={[
-                { value: 'external', label: 'External' },
-                {
-                  value: 'internal',
-                  label: 'Internal',
-                  disabled: true,
-                  disabledReason: 'Coming soon',
-                },
-              ]}
-            />
-          </div>
-          {SECTIONS.map((s) => (
-            <div key={s.key} className="space-y-1">
-              <Label>
-                {s.label}
-                {s.hint && <span className="ml-1 font-normal text-ink-subtle">— {s.hint}</span>}
-              </Label>
-              <Textarea
-                value={jd[s.key]}
-                onChange={(e) => setJd((d) => ({ ...d, [s.key]: e.target.value }))}
-                placeholder={s.placeholder}
-              />
-            </div>
-          ))}
-          {requiredError && <p className="text-body-sm text-danger-ink">{requiredError}</p>}
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setSubmitAttempted(true);
-                if (missingRequired || dateError) return;
-                mutation.mutate();
-              }}
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending ? 'Creating…' : 'Create requisition'}
-            </Button>
           </div>
         </div>
       </DialogContent>

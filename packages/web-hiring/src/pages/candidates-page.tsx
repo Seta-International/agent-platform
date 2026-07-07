@@ -187,6 +187,7 @@ export function CandidatesPage() {
     onSuccess: () => {
       toast.success('Stage updated');
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.candidateStageCounts() });
     },
     onError: (e: Error) => on409(e, queryClient, hiringKeys.candidates()),
   });
@@ -367,7 +368,7 @@ export function CandidatesPage() {
             data={rows}
             isLoading={isLoading}
             getRowId={(r: CandidateListItem) => r.application_id}
-            globalFilterPlaceholder="Search candidates…"
+            enableGlobalFilter={false}
             pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
             emptyState={
               <EmptyState

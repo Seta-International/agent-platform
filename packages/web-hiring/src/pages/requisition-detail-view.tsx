@@ -19,6 +19,7 @@ import {
   PopoverTrigger,
   RichTextDisplay,
   RichTextEditor,
+  SegmentedControl,
   Select,
   SelectContent,
   SelectItem,
@@ -47,7 +48,13 @@ import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { CancelRequisitionDialog } from './cancel-requisition-dialog.tsx';
 import { MarkFilledDialog } from './mark-filled-dialog.tsx';
-import { daysLeft, formatDate, STATUS_BADGE_CLASS, STATUS_LABEL } from './requisition-format.ts';
+import {
+  daysLeft,
+  formatDate,
+  isRichTextEmpty,
+  STATUS_BADGE_CLASS,
+  STATUS_LABEL,
+} from './requisition-format.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 import { on409, useRequisition } from './utils.ts';
 
@@ -128,8 +135,8 @@ function initialsOf(name: string): string {
 // only fall back to `internal` when a requisition has internal content and no
 // external content at all.
 function pickJdVariant(sections: { variant: JdVariant; body: string }[]): JdVariant {
-  const hasExternal = sections.some((s) => s.variant === 'external' && s.body.trim());
-  const hasInternal = sections.some((s) => s.variant === 'internal' && s.body.trim());
+  const hasExternal = sections.some((s) => s.variant === 'external' && !isRichTextEmpty(s.body));
+  const hasInternal = sections.some((s) => s.variant === 'internal' && !isRichTextEmpty(s.body));
   return hasInternal && !hasExternal ? 'internal' : 'external';
 }
 
@@ -261,12 +268,29 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [grade, setGrade] = useState('');
+  const [kind, setKind] = useState<'new' | 'replacement'>('new');
+  const [mode, setMode] = useState<'online' | 'onsite' | 'either'>('online');
   const [accountId, setAccountId] = useState('');
   const [projectId, setProjectId] = useState('');
+  const [start, setStart] = useState('');
+  const [due, setDue] = useState('');
+  const [editVariant, setEditVariant] = useState<JdVariant>('external');
   const [sections, setSections] = useState<SectionGrid>(emptySections());
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [showFillConfirm, setShowFillConfirm] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
+  const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
+  const missingRequired = !title.trim() || isRichTextEmpty(sections.about);
+  const requiredError =
+    submitAttempted && missingRequired
+      ? !title.trim() && isRichTextEmpty(sections.about)
+        ? 'Job title and About the role are required.'
+        : !title.trim()
+          ? 'Job title is required.'
+          : 'About the role is required.'
+      : null;
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -329,16 +353,24 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       const fieldsChanged =
         title !== data.requisition.title ||
         grade !== (data.requisition.grade ?? '') ||
+        kind !== data.requisition.kind ||
+        mode !== (data.requisition.default_interview_mode ?? 'online') ||
         accountId !== (data.requisition.account_id ?? '') ||
-        projectId !== (data.requisition.project_id ?? '');
+        projectId !== (data.requisition.project_id ?? '') ||
+        start !== (data.requisition.start_date ?? '') ||
+        due !== (data.requisition.due_date ?? '');
       if (fieldsChanged) {
         const res = await editRequisition(requisitionId, {
           expected_version: version,
           patch: {
             title,
             grade,
+            kind,
+            default_interview_mode: mode,
             account_id: accountId || undefined,
             project_id: projectId || undefined,
+            start_date: start || undefined,
+            due_date: due || undefined,
           },
         });
         version = res.version;
@@ -346,14 +378,14 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
       const originalSections = emptySections();
       for (const s of data.jd_sections)
-        if (s.variant === jdVariant) originalSections[s.section] = s.body;
+        if (s.variant === editVariant) originalSections[s.section] = s.body;
       const jdChanged = SECTIONS.some((s) => sections[s.key] !== originalSections[s.key]);
       if (jdChanged) {
         const jdRes = await setRequisitionJd(requisitionId, {
           expected_version: version,
-          sections: SECTIONS.filter((s) => sections[s.key].trim()).map((s) => ({
+          sections: SECTIONS.filter((s) => !isRichTextEmpty(sections[s.key])).map((s) => ({
             requisition_id: requisitionId,
-            variant: jdVariant,
+            variant: editVariant,
             section: s.key,
             body: sections[s.key],
           })),
@@ -396,8 +428,13 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     if (!data) return;
     setTitle(data.requisition.title);
     setGrade(data.requisition.grade ?? '');
+    setKind((data.requisition.kind as 'new' | 'replacement') ?? 'new');
+    setMode((data.requisition.default_interview_mode as typeof mode) ?? 'online');
     setAccountId(data.requisition.account_id ?? '');
     setProjectId(data.requisition.project_id ?? '');
+    setStart(data.requisition.start_date ?? '');
+    setDue(data.requisition.due_date ?? '');
+    setEditVariant(jdVariant);
     const grid = emptySections();
     for (const s of data.jd_sections) if (s.variant === jdVariant) grid[s.section] = s.body;
     setSections(grid);
@@ -410,7 +447,14 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           level: s.min_level ?? undefined,
         })),
     );
+    setSubmitAttempted(false);
     setEditing(true);
+  }
+
+  function submitEdit() {
+    setSubmitAttempted(true);
+    if (missingRequired || dateError) return;
+    save.mutate();
   }
 
   function cancelEditing() {
@@ -471,10 +515,11 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     .filter(Boolean)
     .join(' • ');
 
-  const hasJdContent = SECTIONS.some((s) =>
-    (
-      data.jd_sections.find((j) => j.variant === jdVariant && j.section === s.key)?.body ?? ''
-    ).trim(),
+  const hasJdContent = SECTIONS.some(
+    (s) =>
+      !isRichTextEmpty(
+        data.jd_sections.find((j) => j.variant === jdVariant && j.section === s.key)?.body,
+      ),
   );
   const hasAnyDetail = data.skills.length > 0 || hasJdContent;
 
@@ -487,19 +532,27 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           <div className="min-w-0">
             <h1 className="truncate text-section-title font-semibold text-ink">{title}</h1>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button size="sm" variant="secondary" onClick={cancelEditing} disabled={save.isPending}>
-              Cancel
-            </Button>
-            <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
-              {save.isPending ? 'Saving…' : 'Save'}
-            </Button>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={cancelEditing}
+                disabled={save.isPending}
+              >
+                Cancel
+              </Button>
+              <Button size="sm" onClick={submitEdit} disabled={save.isPending}>
+                {save.isPending ? 'Updating…' : 'Update'}
+              </Button>
+            </div>
+            {requiredError && <p className="text-caption text-danger-ink">{requiredError}</p>}
           </div>
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
           <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
             <div className="space-y-1">
-              <Label htmlFor="jd-title">Job title</Label>
+              <Label htmlFor="jd-title">Job title *</Label>
               <Input id="jd-title" value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -518,6 +571,20 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <Label htmlFor="jd-type">Type</Label>
+                <Select value={kind} onValueChange={(v) => setKind(v as 'new' | 'replacement')}>
+                  <SelectTrigger id="jd-type" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="replacement">Replacement</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label htmlFor="jd-account">Account</Label>
                 <Select
@@ -555,14 +622,67 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="jd-mode">Interview mode</Label>
+                <Select
+                  value={mode}
+                  onValueChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
+                >
+                  <SelectTrigger id="jd-mode" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="online">Online (Teams)</SelectItem>
+                    <SelectItem value="onsite">Onsite</SelectItem>
+                    <SelectItem value="either">Either</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="jd-start">Start date</Label>
+                <Input
+                  id="jd-start"
+                  type="date"
+                  value={start}
+                  max={due || undefined}
+                  onChange={(e) => setStart(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="jd-due">Due date</Label>
+                <Input
+                  id="jd-due"
+                  type="date"
+                  value={due}
+                  min={start || undefined}
+                  onChange={(e) => setDue(e.target.value)}
+                />
+              </div>
+            </div>
+            {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
 
             <SkillPicker value={skills} onChange={setSkills} />
+
+            <div className="flex items-center justify-between">
+              <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
+              <SegmentedControl
+                value={editVariant}
+                onValueChange={(v) => setEditVariant(v as JdVariant)}
+                options={[
+                  { value: 'external', label: 'External' },
+                  { value: 'internal', label: 'Internal' },
+                ]}
+              />
+            </div>
 
             {SECTIONS.map((s) => (
               <div key={s.key}>
                 {s.key === 'about' ? (
                   <div className="rounded-lg bg-primary/8 p-4">
-                    <div className="mb-1 font-semibold text-ink">{s.label}</div>
+                    <div className="mb-1 font-semibold text-ink">About the role *</div>
                     <RichTextEditor
                       value={sections[s.key]}
                       onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
@@ -672,10 +792,14 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             >
               <h1 className="mb-4 text-section-title font-semibold text-ink">Job description</h1>
               {!hasAnyDetail ? (
-                <EmptyState
-                  title="No job description yet"
-                  description="Skills and JD content haven't been added for this requisition."
-                />
+                req.note?.trim() ? (
+                  <p className="text-body-sm text-ink">{req.note}</p>
+                ) : (
+                  <EmptyState
+                    title="No job description yet"
+                    description="Skills and JD content haven't been added for this requisition."
+                  />
+                )
               ) : (
                 <div className="space-y-5">
                   {data.skills.length > 0 && (
@@ -701,7 +825,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     const body =
                       data.jd_sections.find((j) => j.variant === jdVariant && j.section === s.key)
                         ?.body ?? '';
-                    if (!body) return null;
+                    if (isRichTextEmpty(body)) return null;
                     return (
                       <div key={s.key}>
                         <div
@@ -811,12 +935,18 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             <section className="rounded-xl border border-hairline bg-canvas p-5">
               <h2 className="mb-3 font-semibold text-ink">Quick actions</h2>
               <div className="grid grid-cols-2 gap-2">
-                <QuickAction
-                  icon={<Pencil className="size-4" aria-hidden />}
-                  label="Edit JD"
-                  onClick={startEditing}
+                <DisabledActionTooltip
                   disabled={!canManage}
-                />
+                  reason={PERMISSION_DENIED.requisition.edit}
+                  className="w-full"
+                >
+                  <QuickAction
+                    icon={<Pencil className="size-4" aria-hidden />}
+                    label="Edit JD"
+                    onClick={startEditing}
+                    disabled={!canManage}
+                  />
+                </DisabledActionTooltip>
                 <QuickAction
                   icon={<Share2 className="size-4" aria-hidden />}
                   label="Share Job"

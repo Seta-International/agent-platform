@@ -152,7 +152,7 @@ export function AppShell({
           </div>
         </>
       )}
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         {activeApp && (
           <div className="hidden md:flex">
             <LeftNav
@@ -190,8 +190,8 @@ export function AppShell({
           {children}
         </main>
         {!hideAgent && agentOpen && (
-          <div className="hidden lg:flex">
-            <AgentPanel>{agentPanel}</AgentPanel>
+          <div className="absolute inset-y-0 right-0 z-20 hidden lg:flex">
+            <AgentPanel className="shadow-lg">{agentPanel}</AgentPanel>
           </div>
         )}
       </div>
