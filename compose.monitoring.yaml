@@ -40,6 +40,20 @@ services:
       - seta-monitoring-grafana-data:/var/lib/grafana
     depends_on: [prometheus, loki]
 
+  # Public ingest surface for remote envs (prod) that can't reach the LAN directly —
+  # fronted by a Cloudflare Tunnel routed to this service alone. The htpasswd
+  # volume is provisioned by deploy-monitoring.yml from the same
+  # REMOTE_WRITE_USERNAME/REMOTE_WRITE_PASSWORD credentials the remote Alloy
+  # agent presents, so the pair only needs to be chosen once.
+  monitoring-ingest:
+    image: nginxinc/nginx-unprivileged:alpine
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    volumes:
+      - ./infra/nginx/monitoring-ingest.conf:/etc/nginx/conf.d/default.conf:ro
+      - seta-monitoring-ingest-secrets:/etc/nginx/secrets:ro
+    depends_on: [prometheus, loki]
+
   # Routes Prometheus alerts to MS Teams. The webhook secret volume is provisioned
   # by deploy-monitoring.yml from the TEAMS_WEBHOOK_URL environment secret.
   alertmanager:
@@ -62,4 +76,8 @@ volumes:
   seta-monitoring-alertmanager-data:
   # Created out-of-band on the VPS with the Teams webhook URL (see alertmanager notes).
   seta-monitoring-alertmanager-secrets:
+    external: true
+  # Created out-of-band on the VPS with the ingest basic-auth htpasswd (see
+  # deploy-monitoring.yml).
+  seta-monitoring-ingest-secrets:
     external: true
