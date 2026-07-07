@@ -15,7 +15,7 @@ Concise delivery tracker for the Hiring module. The canonical scope/sequencing i
 | 7.1 Requisitions | HIR-2 Requisition + **Openings** CRUD + JD (resolves OQ-11: req owns 1..N openings, shared pipeline) | ✅ |
 | 7.1 Requisitions | HIR-4 Requisition approval + funded-headcount gate | ⬜ |
 | 7.1 Requisitions | HIR-5 Open Roles (employee view) + recommended | ⬜ |
-| 7.2 Candidates & pipeline | HIR-6 Candidate intake + fit indicator (manual; CV-parse deferred) | ✅ |
+| 7.2 Candidates & pipeline | HIR-6 Candidate intake + fit indicator (CV upload/parse auto-fill shipped in FUT-316) | ✅ |
 | 7.2 Candidates & pipeline | HIR-7 Candidate pipeline + reject + detail + transfer + talent pool | ✅ |
 | 7.3 Interviews | Scheduling, scorecards, feedback | ⬜ |
 | 7.4 Offers | Offer drafting, approval, accept/decline | ⬜ |
@@ -30,7 +30,7 @@ Concise delivery tracker for the Hiring module. The canonical scope/sequencing i
 ## Recently shipped
 
 - **HIR-1** Module foundation: the three foundation tables (`requisition`/`candidate`/`application`) with the FK-free cross-module-uuid pattern and the unified-application one-subject CHECK; application-layer tenant isolation; the `hiring.requisition.opened` domain event proven through the `core` outbox with an atomicity test; RBAC tiers (strategic/recruiter/viewer) wired into the authoritative inventory; the inbound-subscriber framework; and the `web-hiring` placeholder launcher app.
-- **HIR-6/7** Candidates & pipeline: the shared `core` skill catalog (2-level category→skill, level 0–5 on assignments); manual candidate intake + `candidate_skill` + deterministic fit indicator; the board/list pipeline with stage transitions, `candidate_event` activity feed, reject-with-taxonomy + tags, move-to-another-role (new application on target), and the talent pool. CV upload/parse + all LLM (incl. fit fallback), the `hired`/offer handoff, interviews, and internal-mobility pipeline remain deferred.
+- **HIR-6/7** Candidates & pipeline: the shared `core` skill catalog (2-level category→skill, level 0–5 on assignments); manual candidate intake + `candidate_skill` + deterministic fit indicator; the board/list pipeline with stage transitions, `candidate_event` activity feed, reject-with-taxonomy + tags, move-to-another-role (new application on target), and the talent pool. CV upload/parse auto-fill shipped (FUT-316: LLM draft → recruiter review → save, with the CV stored per candidate). Remaining LLM work (fit fallback), the `hired`/offer handoff, interviews, and internal-mobility pipeline stay deferred.
 
 ## Pointers
 

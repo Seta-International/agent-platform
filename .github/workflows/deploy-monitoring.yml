@@ -47,9 +47,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --entrypoint promtool -v "$PWD/infra/prometheus/rules:/r:ro" \
-            prom/prometheus:v3.4.0 check rules \
-            /r/host.rules.yml /r/database.rules.yml /r/app.rules.yml /r/saturation.rules.yml /r/meta.rules.yml
+          # Glob so every rule file (incl. new ones like slo.rules.yml) is validated
+          # without hand-maintaining a list. sh entrypoint expands the glob in-container.
+          docker run --rm --entrypoint sh -v "$PWD/infra/prometheus/rules:/r:ro" \
+            prom/prometheus:v3.4.0 -c 'promtool check rules /r/*.yml'
           docker run --rm --entrypoint amtool \
             -v "$PWD/infra/alertmanager/alertmanager.yml:/am.yml:ro" \
             prom/alertmanager:v0.28.0 check-config /am.yml
@@ -65,14 +66,31 @@ jobs:
             -v seta-monitoring-alertmanager-secrets:/s busybox \
             sh -c 'cat > /s/teams_webhook_url'
 
+      - name: Provision the ingest basic-auth htpasswd volume
+        # Same REMOTE_WRITE_USERNAME/PASSWORD the remote (prod) Alloy agent presents
+        # to the Cloudflare-proxied monitoring-ingest proxy (FUT-388 Phase 4).
+        shell: bash
+        env:
+          REMOTE_WRITE_USERNAME: ${{ secrets.REMOTE_WRITE_USERNAME }}
+          REMOTE_WRITE_PASSWORD: ${{ secrets.REMOTE_WRITE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          docker volume create seta-monitoring-ingest-secrets >/dev/null
+          docker run --rm httpd:alpine htpasswd -Bbn "$REMOTE_WRITE_USERNAME" "$REMOTE_WRITE_PASSWORD" \
+            | docker run --rm -i -v seta-monitoring-ingest-secrets:/s busybox sh -c 'cat > /s/.htpasswd'
+
       - name: Deploy the monitoring stack
         shell: bash
         env:
           GF_ADMIN_PASSWORD: ${{ secrets.GF_ADMIN_PASSWORD }}
         run: |
           set -euo pipefail
+          # --force-recreate so config-only changes (bind-mounted dashboards,
+          # datasource provisioning, rules) are always re-read. Without it, compose
+          # sees no service-spec change and leaves the old containers running, so
+          # datasource/rule edits silently don't apply until a manual restart.
           docker compose -p seta-monitoring -f compose.monitoring.yaml \
-            up -d --remove-orphans --wait --wait-timeout 120
+            up -d --remove-orphans --force-recreate --wait --wait-timeout 120
 
       - name: Post-deploy health check
         shell: bash
@@ -84,3 +102,6 @@ jobs:
           curl -sf http://localhost:3000/api/health >/dev/null && echo "grafana healthy"
           rules=$(curl -s http://localhost:9090/api/v1/rules | python3 -c "import sys,json;print(sum(len(g['rules']) for g in json.load(sys.stdin)['data']['groups']))")
           echo "prometheus rules loaded: ${rules}"
+          ingest_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:2096/api/v1/write)
+          [ "$ingest_code" = "401" ] && echo "monitoring-ingest auth enforced" \
+            || { echo "::error::monitoring-ingest expected 401 without auth, got ${ingest_code}"; exit 1; }

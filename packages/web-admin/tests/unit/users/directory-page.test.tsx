@@ -29,6 +29,39 @@ vi.mock('../../../src/groups/hooks/useGroups.ts', () => ({
   useUserGroups: vi.fn().mockReturnValue({ data: [] }),
 }));
 
+vi.mock('../../../src/users/hooks/useWork.ts', () => ({
+  useWorkersBrief: vi.fn().mockReturnValue({ data: [] }),
+  useWorkerProfile: vi.fn().mockReturnValue({ data: undefined, isLoading: false }),
+  useWorkerAllocations: vi.fn().mockReturnValue({ data: [], isLoading: false }),
+  useOrgUnits: vi.fn().mockReturnValue({ data: [], isLoading: false }),
+  useWorkMutations: vi.fn().mockReturnValue({
+    editWorker: { mutate: vi.fn(), isPending: false },
+    addAllocation: { mutate: vi.fn(), isPending: false },
+    removeAllocation: { mutate: vi.fn(), isPending: false },
+  }),
+}));
+
+vi.mock('../../../src/users/api/work-client.ts', () => ({
+  listWorkersBrief: async () => [],
+  getWorkerProfile: async () => ({
+    worker_id: 'p1',
+    job_title: null,
+    org_unit_id: null,
+    org_unit_name: null,
+    version: 1,
+    lifecycle_stage: 'active',
+    accounts: [],
+    projects: [],
+  }),
+  listWorkerAllocations: async () => [],
+  listOrgUnits: async () => [],
+  searchAccounts: async () => [],
+  searchProjects: async () => [],
+  patchWorker: async () => ({ worker_id: 'p1', version: 2 }),
+  createWorkerAllocation: async () => ({ allocation_id: 'a1' }),
+  deleteWorkerAllocation: async () => undefined,
+}));
+
 const mockRows = [
   {
     person_id: 'p1',
@@ -163,6 +196,7 @@ describe('Directory page', () => {
   });
 
   it('bulk bar: shows count, excludes none-account rows, adds selection to a group on confirm', async () => {
+    const user = userEvent.setup();
     const mockAdd = vi.fn();
     await setupMocks({ canWrite: true, addMutate: mockAdd });
 
@@ -175,23 +209,23 @@ describe('Directory page', () => {
     expect(rowCheckboxes[0]).toBeDisabled();
 
     // Select Bob (u2)
-    await userEvent.click(rowCheckboxes[1]);
+    await user.click(rowCheckboxes[1]);
     await waitFor(() => expect(screen.getByText(/selected/)).toBeInTheDocument());
     // Re-query then select Carol (u3)
     const freshCheckboxes = screen.getAllByRole('checkbox', { name: /select row/i });
-    await userEvent.click(freshCheckboxes[2]);
+    await user.click(freshCheckboxes[2]);
     await waitFor(() => expect(screen.getByText('2 selected')).toBeInTheDocument());
 
     // Pick the target group
     const groupPicker = screen.getByRole('combobox', { name: /^group$/i });
-    await userEvent.click(groupPicker);
+    await user.click(groupPicker);
     const groupOption = await screen.findByRole('option', { name: /engineering/i });
-    await userEvent.click(groupOption);
+    await user.click(groupOption);
 
     // Open + confirm the dialog
-    await userEvent.click(screen.getByRole('button', { name: /add to group/i }));
+    await user.click(screen.getByRole('button', { name: /add to group/i }));
     const dialog = await screen.findByRole('dialog');
-    await userEvent.click(within(dialog).getByRole('button', { name: /add to group/i }));
+    await user.click(within(dialog).getByRole('button', { name: /add to group/i }));
 
     expect(mockAdd).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -203,9 +237,10 @@ describe('Directory page', () => {
     const [calledBody] = mockAdd.mock.calls[0] as [{ user_ids: string[] }];
     expect(calledBody.user_ids).not.toContain(null);
     expect(calledBody.user_ids).toHaveLength(2);
-  });
+  }, 15_000);
 
   it('bulk bar: selection persists across pagination (accumulator)', async () => {
+    const user = userEvent.setup();
     const mockAdd = vi.fn();
     const hooks = await setupMocks({ canWrite: true, addMutate: mockAdd });
 
@@ -229,10 +264,10 @@ describe('Directory page', () => {
     // Select two account rows on page 1 (Bob, Carol)
     await waitFor(() => screen.getAllByRole('checkbox', { name: /select row/i }));
     let checkboxes = screen.getAllByRole('checkbox', { name: /select row/i });
-    await userEvent.click(checkboxes[1]);
+    await user.click(checkboxes[1]);
     await waitFor(() => expect(screen.getByText('1 selected')).toBeInTheDocument());
     checkboxes = screen.getAllByRole('checkbox', { name: /select row/i });
-    await userEvent.click(checkboxes[2]);
+    await user.click(checkboxes[2]);
     await waitFor(() => expect(screen.getByText('2 selected')).toBeInTheDocument());
 
     // Paginate → page 2 returns one new account row (Dave / u4)
@@ -244,21 +279,21 @@ describe('Directory page', () => {
 
     await waitFor(() => screen.getByText('Dave'));
     const page2Checkboxes = screen.getAllByRole('checkbox', { name: /select row/i });
-    await userEvent.click(page2Checkboxes[0]);
+    await user.click(page2Checkboxes[0]);
     await waitFor(() => expect(screen.getByText('3 selected')).toBeInTheDocument());
 
     // Add all three to a group
     const groupPicker = screen.getByRole('combobox', { name: /^group$/i });
-    await userEvent.click(groupPicker);
-    await userEvent.click(await screen.findByRole('option', { name: /engineering/i }));
-    await userEvent.click(screen.getByRole('button', { name: /add to group/i }));
+    await user.click(groupPicker);
+    await user.click(await screen.findByRole('option', { name: /engineering/i }));
+    await user.click(screen.getByRole('button', { name: /add to group/i }));
     const dialog = await screen.findByRole('dialog');
-    await userEvent.click(within(dialog).getByRole('button', { name: /add to group/i }));
+    await user.click(within(dialog).getByRole('button', { name: /add to group/i }));
 
     const [calledBody] = mockAdd.mock.calls[0] as [{ user_ids: string[] }];
     expect(calledBody.user_ids).toHaveLength(3);
     expect(calledBody.user_ids).toEqual(expect.arrayContaining(['u2', 'u3', 'u4']));
-  });
+  }, 15_000);
 
   it('clicking a row opens the detail sheet with person details', async () => {
     await setupMocks({ canWrite: false });

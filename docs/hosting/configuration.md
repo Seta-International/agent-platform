@@ -1,6 +1,6 @@
 # Configuration reference
 
-Every environment variable the `platform-server` and `platform-web` images read is listed here. The source of truth is `.env.example` at the repo root — if a variable is in `.env.example`, it must be documented on this page. `pnpm docs:hosting:check` enforces.
+Every environment variable the `platform-server` and `platform-web` images read is listed here. The source of truth is `.env.example` at the repo root — if a variable is in `.env.example`, it must be documented on this page.
 
 Each entry shows: required/optional, type, default, and a short paragraph of meaning. For values that depend on deployment shape (single-VPS vs. split modules), the entry calls that out explicitly.
 
@@ -357,4 +357,4 @@ Leave blank for local MinIO — the compose override defaults it to `true` (path
 
 ## Sync-check contract
 
-This page must list every variable in `.env.example` exactly once, with a heading of the form `### VAR_NAME` (uppercase letters, digits, and underscores only). Run `pnpm docs:hosting:check` locally — or wait for CI — to detect drift. If you add a var, add a section here in the same PR.
+This page must list every variable in `.env.example` exactly once, with a heading of the form `### VAR_NAME` (uppercase letters, digits, and underscores only). If you add a var, add a section here in the same PR.

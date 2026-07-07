@@ -37,6 +37,11 @@ type BaseProps = {
   loading?: boolean;
   'aria-label'?: string;
   triggerPrefix?: string;
+  /**
+   * Set when rendered inside a modal Dialog/Sheet: a non-modal Popover loses the
+   * focus fight with the dialog's FocusScope and dismisses as soon as it opens.
+   */
+  modal?: boolean;
 };
 
 type SingleProps = BaseProps & {
@@ -69,6 +74,7 @@ export function Combobox(props: ComboboxProps) {
     className,
     onSearchChange,
     loading,
+    modal,
   } = props;
 
   const [open, setOpen] = useState(false);
@@ -112,7 +118,7 @@ export function Combobox(props: ComboboxProps) {
   }
 
   return (
-    <Popover open={open} onOpenChange={commit}>
+    <Popover open={open} onOpenChange={commit} modal={modal}>
       <PopoverTrigger asChild disabled={disabled}>
         {multiple && !props.triggerPrefix ? (
           <div

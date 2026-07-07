@@ -90,7 +90,7 @@ export async function addCandidate(
           tenant_id: session.tenant_id,
           name: input.name,
           source: input.source,
-          contact: { email: input.email ?? null, phone: input.phone ?? null },
+          contact: { personal_email: input.personal_email ?? null, phone: input.phone ?? null },
           dob: input.dob,
           gender: input.gender,
           seniority: input.seniority,
@@ -180,7 +180,10 @@ export async function editCandidate(input: {
     .limit(1);
   if (!cur) throw new HiringError('NOT_FOUND', 'candidate not found');
   const contact = {
-    email: patch.email ?? (cur.contact as { email?: string } | null)?.email ?? null,
+    personal_email:
+      patch.personal_email ??
+      (cur.contact as { personal_email?: string } | null)?.personal_email ??
+      null,
     phone: patch.phone ?? (cur.contact as { phone?: string } | null)?.phone ?? null,
   };
   await withEmit(
@@ -196,6 +199,8 @@ export async function editCandidate(input: {
           gender: patch.gender ?? cur.gender,
           seniority: patch.seniority ?? cur.seniority,
           segment: patch.segment ?? cur.segment,
+          cv_storage_key:
+            patch.cv_storage_key === undefined ? cur.cv_storage_key : patch.cv_storage_key,
           updated_at: new Date(),
         })
         .where(

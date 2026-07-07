@@ -42,7 +42,7 @@ describe('addCandidate', () => {
         const res = await addCandidate({
           requisition_id,
           name: 'Ada Lovelace',
-          email: 'ada@example.test',
+          personal_email: 'ada@example.test',
           seniority: 'Senior',
           skills: [{ skill_id: skill.id, skill_name: 'React', level: 4 }],
           session: t.adminSession,

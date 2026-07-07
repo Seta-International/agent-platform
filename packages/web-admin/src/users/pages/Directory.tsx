@@ -35,6 +35,7 @@ import { BulkGroupBar } from '../components/BulkGroupBar.tsx';
 import { UserDetailSheet } from '../components/UserDetailSheet.tsx';
 import type { DirectorySearch } from '../directory-search.ts';
 import { useDirectory, useProvision, useReactivate, useSuspend } from '../hooks/useDirectory.ts';
+import { useWorkersBrief } from '../hooks/useWork.ts';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All accounts' },
@@ -104,6 +105,23 @@ const EMPLOYMENT_LABEL: Record<DirectoryRow['employment_status'], string> = {
 };
 
 const DEFAULT_PAGE_SIZE = 25;
+
+/** Compact chip list for name collections (groups, accounts, projects) with +N overflow. */
+function ChipList({ items }: { items: string[] }) {
+  if (items.length === 0) return <span className="text-ink-tertiary">{'—'}</span>;
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {items.slice(0, 2).map((label) => (
+        <Badge key={label} variant="secondary">
+          {label}
+        </Badge>
+      ))}
+      {items.length > 2 && (
+        <span className="text-caption text-ink-tertiary">+{items.length - 2}</span>
+      )}
+    </div>
+  );
+}
 
 interface DirectoryProps {
   search: DirectorySearch;
@@ -175,6 +193,11 @@ export function Directory({ search, onSearch }: DirectoryProps) {
 
   const rows = data?.rows ?? [];
 
+  // Work enrichment (department, accounts, projects) joins people projections onto the page rows.
+  const personIds = useMemo(() => rows.map((r) => r.person_id), [rows]);
+  const { data: briefs = [] } = useWorkersBrief(personIds);
+  const briefById = useMemo(() => new Map(briefs.map((b) => [b.worker_id, b])), [briefs]);
+
   // Accumulator: person_id → user_id, surviving pagination. rowSelection drives
   // the table checkboxes per page; selectedUsers is the durable cross-page set.
   const [selectedUsers, setSelectedUsers] = useState<Record<string, string>>({});
@@ -237,13 +260,22 @@ export function Directory({ search, onSearch }: DirectoryProps) {
       {
         id: 'job_title',
         accessorKey: 'job_title',
-        header: 'Job title',
-        cell: ({ row }) =>
-          row.original.job_title ? (
-            <span>{row.original.job_title}</span>
-          ) : (
-            <span className="text-ink-tertiary">{'—'}</span>
-          ),
+        header: 'Position',
+        cell: ({ row }) => {
+          const department = briefById.get(row.original.person_id)?.org_unit_name;
+          return (
+            <div className="flex min-w-0 flex-col">
+              {row.original.job_title ? (
+                <span className="truncate">{row.original.job_title}</span>
+              ) : (
+                <span className="text-ink-tertiary">{'—'}</span>
+              )}
+              {department && (
+                <span className="truncate text-caption text-ink-tertiary">{department}</span>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: 'employment_status',
@@ -257,7 +289,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
       },
       {
         id: 'account_status',
-        header: 'Account',
+        header: 'Account status',
         enableSorting: false,
         cell: ({ row }) => (
           <Badge variant={ACCOUNT_STATUS_BADGE[row.original.account_status]}>
@@ -266,25 +298,30 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         ),
       },
       {
+        id: 'accounts',
+        header: 'Accounts',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <ChipList
+            items={(briefById.get(row.original.person_id)?.accounts ?? []).map((a) => a.name)}
+          />
+        ),
+      },
+      {
+        id: 'projects',
+        header: 'Projects',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <ChipList
+            items={(briefById.get(row.original.person_id)?.projects ?? []).map((p) => p.name)}
+          />
+        ),
+      },
+      {
         id: 'groups',
         header: 'Groups',
         enableSorting: false,
-        cell: ({ row }) => {
-          const groups = row.original.groups ?? [];
-          if (groups.length === 0) return <span className="text-ink-tertiary">{'—'}</span>;
-          return (
-            <div className="flex flex-wrap items-center gap-1">
-              {groups.slice(0, 2).map((g) => (
-                <Badge key={g} variant="secondary">
-                  {g}
-                </Badge>
-              ))}
-              {groups.length > 2 && (
-                <span className="text-caption text-ink-tertiary">+{groups.length - 2}</span>
-              )}
-            </div>
-          );
-        },
+        cell: ({ row }) => <ChipList items={row.original.groups ?? []} />,
       },
       {
         id: 'actions',
@@ -330,7 +367,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         },
       },
     ],
-    [canWrite, provision, reactivate],
+    [canWrite, provision, reactivate, briefById],
   );
 
   const subtitle = isLoading

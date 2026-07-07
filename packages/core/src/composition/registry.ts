@@ -22,6 +22,14 @@ export interface RouteBuildDeps {
     error: (obj: unknown, msg?: string) => void;
     warn: (obj: unknown, msg?: string) => void;
   };
+  /**
+   * Composition-root hook returning a Mastra model config for modules that run
+   * LLM tasks inside HTTP handlers (e.g. CV extraction). Typed loosely — core
+   * does not depend on Mastra; consumers narrow the return type. Feature
+   * modules must not import @seta/agent directly (depcruise-enforced), so the
+   * server injects this instead.
+   */
+  resolveModel?: (opts?: { tierHint?: 'fast' | 'balanced' | 'reasoning' }) => unknown;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Hono's env generic is invariant; route builders return Hono<SessionEnv> and we collect them via this widened any.

@@ -90,6 +90,10 @@ services:
       - traefik-acme:/letsencrypt
     environment:
       PLATFORM_ACME_EMAIL: ${PLATFORM_ACME_EMAIL}
+    # Lets the monitoring-ingest route (routes.yml) reach the host-published
+    # port of a container in a different compose project (FUT-388 Phase 4).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks: [seta-edge]
 
   web:

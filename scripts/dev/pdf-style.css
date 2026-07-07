@@ -1,0 +1,232 @@
+/* Print stylesheet for scripts/dev/export-pdf.sh — handbook / docs PDF export.
+   Self-contained: replaces md-to-pdf's default github-markdown-css. */
+
+:root {
+  --brand: #0047ff;
+  --brand-dark: #0036c4;
+  --ink: #1b2230;
+  --muted: #5b6472;
+  --line: #dfe3ec;
+  --soft: #f7f8fa; /* very faint neutral fill */
+  --soft-2: #eef0f4; /* inline-code chip */
+  --th-bg: #eceef3; /* table header — light grey, dark text */
+  --zebra: #fafbfc; /* barely-there row stripe */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  font-size: 10.5pt;
+  line-height: 1.6;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- Headings ---------------------------------------------------------- */
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 700;
+  line-height: 1.25;
+  break-after: avoid;
+}
+
+/* Every top-level section (each "# Part", Appendix, Further reading)
+   starts on a fresh page. */
+h1 {
+  page-break-before: always;
+  break-before: page;
+  font-size: 19pt;
+  color: var(--brand);
+  letter-spacing: -0.01em;
+  margin: 0 0 0.7em;
+  padding-bottom: 0.28em;
+  border-bottom: 2px solid var(--line);
+}
+
+/* …except the very first heading, which is the document title. */
+body > h1:first-of-type {
+  page-break-before: avoid;
+  break-before: avoid;
+  font-size: 28pt;
+  margin: 0.3em 0 0.15em;
+  padding-bottom: 0.32em;
+  border-bottom: 3px solid var(--brand);
+}
+
+/* The "### subtitle" right under the title, and section lead questions. */
+body > h1:first-of-type + h3 {
+  page-break-before: avoid;
+  break-before: avoid;
+  color: var(--muted);
+  font-size: 13pt;
+  font-weight: 500;
+  border: none;
+  margin: 0 0 1.4em;
+  padding: 0;
+}
+
+/* ---- Body copy --------------------------------------------------------- */
+
+p {
+  margin: 0.55em 0 0.85em;
+}
+
+/* Italic lead line that opens each Part. */
+h1 + p em,
+h1 + p {
+  color: var(--muted);
+}
+h1 + p {
+  font-size: 11pt;
+  margin: -0.15em 0 1.2em;
+}
+
+h2 {
+  font-size: 14.5pt;
+  color: var(--ink);
+  margin: 1.7em 0 0.5em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--line);
+}
+
+h3 {
+  font-size: 12pt;
+  color: var(--brand-dark);
+  margin: 1.3em 0 0.4em;
+}
+
+strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+ul,
+ol {
+  margin: 0.5em 0 1em;
+  padding-left: 1.4em;
+}
+li {
+  margin: 0.25em 0;
+}
+li::marker {
+  color: var(--brand);
+}
+
+/* ---- Inline & block code ---------------------------------------------- */
+
+code {
+  font-family: "SF Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.86em;
+  background: var(--soft-2);
+  color: #233;
+  padding: 0.1em 0.38em;
+  border-radius: 4px;
+  border: 1px solid #e2e6f0;
+}
+pre {
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  break-inside: avoid;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.82em;
+}
+
+/* ---- Tables ------------------------------------------------------------ */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.8pt;
+  margin: 1em 0 1.5em;
+  break-inside: auto;
+}
+th,
+td {
+  border: 1px solid var(--line);
+  padding: 6px 9px;
+  vertical-align: top;
+  line-height: 1.4;
+}
+thead {
+  display: table-header-group;
+} /* repeat header across page breaks */
+thead th {
+  background: var(--th-bg);
+  color: var(--ink);
+  font-weight: 700;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-bottom: 2px solid var(--brand);
+}
+tbody tr {
+  break-inside: avoid;
+}
+tbody tr:nth-child(even) {
+  background: var(--zebra);
+}
+table code {
+  font-size: 0.82em;
+}
+
+/* ---- Blockquotes (callouts) ------------------------------------------- */
+
+blockquote {
+  margin: 1.2em 0;
+  padding: 0.7em 1.1em;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand);
+  border-radius: 0 6px 6px 0;
+  color: var(--ink);
+  break-inside: avoid;
+}
+blockquote p {
+  margin: 0.3em 0;
+}
+blockquote p:first-child {
+  margin-top: 0;
+}
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---- Diagrams (pre-rendered mermaid SVG) ------------------------------ */
+
+img,
+svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.2em auto;
+}
+p:has(img),
+p:has(svg) {
+  text-align: center;
+}
+
+/* ---- Rules ------------------------------------------------------------- */
+
+/* Section dividers are redundant now that each Part owns a page. */
+hr {
+  display: none;
+}

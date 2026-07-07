@@ -108,7 +108,7 @@ test.describe('admin directory', () => {
 
   test('provision: no-account person → status Active', async ({ page }) => {
     await page.goto('/admin/users');
-    await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByRole('heading', { name: 'Directory' })).toBeVisible({ timeout: 8_000 });
 
     // Search by email (unique per tenant) so only one row is visible.
     await page.getByPlaceholder('Search people…').fill(provisionTarget.work_email!);
@@ -129,7 +129,7 @@ test.describe('admin directory', () => {
 
   test('suspend: active account → status Suspended', async ({ page }) => {
     await page.goto('/admin/users');
-    await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByRole('heading', { name: 'Directory' })).toBeVisible({ timeout: 8_000 });
 
     await page.getByPlaceholder('Search people…').fill(suspendTarget.work_email!);
     const row = page.getByRole('row').filter({ hasText: suspendTarget.full_name });
@@ -155,7 +155,7 @@ test.describe('admin directory', () => {
     page,
   }) => {
     await page.goto('/admin/users');
-    await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByRole('heading', { name: 'Directory' })).toBeVisible({ timeout: 8_000 });
 
     // Filter the status dropdown to Active so both bulk targets are visible together.
     // The SelectTrigger renders as role="combobox"; there is only one Select on the

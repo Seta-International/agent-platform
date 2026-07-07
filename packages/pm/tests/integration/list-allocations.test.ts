@@ -90,6 +90,42 @@ describe('listAllocations', () => {
     });
   });
 
+  it('filters by worker_id', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const p = await seedProject(t.adminSession, 'WorkerFilterCo');
+        const workerA = crypto.randomUUID();
+        const workerB = crypto.randomUUID();
+        const mk = (workerId: string) =>
+          createAllocation({
+            project_id: p.projectId,
+            worker_id: workerId,
+            role: 'DEV',
+            date_from: '2026-01-01',
+            date_to: '2026-06-30',
+            bucket: 'billable',
+            planned_pct: 50,
+            status: 'committed',
+            session: t.adminSession,
+          });
+        await mk(workerA);
+        await mk(workerB);
+
+        const mine = await listAllocations({ worker_id: workerA, session: t.adminSession });
+        expect(mine).toHaveLength(1);
+        expect(mine[0]?.worker_id).toBe(workerA);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('returns worker_name from projection and supports q search', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

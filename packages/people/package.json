@@ -30,6 +30,7 @@
     "@seta/shared-config": "workspace:^",
     "@seta/shared-testing": "workspace:^",
     "@types/pg": "^8.20.0",
+    "ai": "^6.0.200",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
@@ -37,12 +38,14 @@
   "dependencies": {
     "@mastra/pg": "^1.13.0",
     "@seta/agent-sdk": "workspace:^",
-    "@seta/shared-embeddings": "workspace:^",
     "@seta/core": "workspace:^",
+    "@seta/knowledge": "workspace:^",
     "@seta/pm": "workspace:*",
     "@seta/shared-db": "workspace:^",
+    "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-retrieval": "workspace:^",
+    "@seta/shared-storage": "workspace:^",
     "@seta/shared-types": "workspace:^",
     "drizzle-orm": "^0.45.2",
     "graphile-worker": "^0.16.6",

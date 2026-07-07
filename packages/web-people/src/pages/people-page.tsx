@@ -4,14 +4,8 @@ import {
   Avatar,
   AvatarFallback,
   Badge,
-  Button,
   CounterBadgePopover,
   DataTable,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -20,24 +14,22 @@ import {
   DropdownMenuTrigger,
   EmptyState,
   Input,
-  Label,
   PageChrome,
   SegmentedControl,
-  toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { OnChangeFn, PaginationState, SortingState } from '@tanstack/react-table';
 import { LayoutGrid, List, Settings2, User, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  createWorker,
   fetchWorkers,
   genderLabel,
   type WorkerListRow,
   type WorkersQuery,
 } from '../api/people-client.ts';
+import { CreateWorkerDialog } from '../components/create-worker-dialog.tsx';
 import { PeopleCardGrid } from '../components/people-card-grid.tsx';
 import { PeopleFilterBar } from '../components/people-filter-bar.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
@@ -63,79 +55,6 @@ function LifecycleBadge({ stage }: { stage: string | null }) {
     <Badge variant={variant} className="capitalize">
       {stage}
     </Badge>
-  );
-}
-
-function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [workEmail, setWorkEmail] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      createWorker({
-        full_name: fullName,
-        work_email: workEmail || undefined,
-      }),
-    onSuccess: () => {
-      toast.success('Worker created');
-      onCreated();
-      setOpen(false);
-      reset();
-    },
-    onError: (e: Error) => setError(e.message),
-  });
-
-  function reset() {
-    setFullName('');
-    setWorkEmail('');
-    setError(null);
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm">New worker</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add worker</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>Full name *</Label>
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label>Work email</Label>
-            <Input value={workEmail} onChange={(e) => setWorkEmail(e.target.value)} type="email" />
-          </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !fullName.trim()}
-            >
-              {mutation.isPending ? 'Creating…' : 'Create'}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 
