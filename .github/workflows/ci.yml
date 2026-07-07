@@ -70,6 +70,12 @@ jobs:
           # testcontainers needs to find Docker; default socket on ubuntu-latest.
           TESTCONTAINERS_RYUK_DISABLED: 'true'
 
+      - name: Dashboards match source (no drift)
+        run: |
+          pnpm gen:dashboards
+          git diff --exit-code infra/grafana/dashboards \
+            || (echo "::error::infra/grafana/dashboards is out of sync with dashboards-src — run 'pnpm gen:dashboards'"; exit 1)
+
       - name: Build web bundle
         run: pnpm --filter @seta/web build
 
@@ -109,7 +115,7 @@ jobs:
           set -euo pipefail
           docker run --rm --entrypoint promtool \
             -v "$PWD/infra/prometheus/rules:/r:ro" prom/prometheus:v3.4.0 \
-            check rules /r/host.rules.yml /r/database.rules.yml /r/app.rules.yml /r/saturation.rules.yml /r/meta.rules.yml
+            check rules /r/host.rules.yml /r/database.rules.yml /r/app.rules.yml /r/saturation.rules.yml /r/meta.rules.yml /r/slo.rules.yml
           docker run --rm --entrypoint amtool \
             -v "$PWD/infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro" \
             -v "$PWD/infra/alertmanager/templates.tmpl:/etc/alertmanager/templates.tmpl:ro" \

@@ -37,7 +37,8 @@
     "docs:hosting:check": "./scripts/check-env-doc-sync.sh",
     "docs:hosting:links": "for f in docs/hosting/*.md; do pnpm dlx markdown-link-check --quiet \"$f\" || exit 1; done",
     "release:check": "bash scripts/release-check.sh --no-build",
-    "release:check:full": "bash scripts/release-check.sh"
+    "release:check:full": "bash scripts/release-check.sh",
+    "gen:dashboards": "pnpm -F @seta/grafana-dashboards run gen"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.2",

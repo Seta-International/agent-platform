@@ -564,6 +564,22 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.3)(typescript@6.0.3))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  infra/grafana/dashboards-src:
+    dependencies:
+      '@grafana/grafana-foundation-sdk':
+        specifier: ^0.0.18
+        version: 0.0.18
+    devDependencies:
+      '@types/node':
+        specifier: ^25.9.3
+        version: 25.9.3
+      tsx:
+        specifier: ^4.22.4
+        version: 4.22.4
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.9.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@25.9.3)(typescript@6.0.3))(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
   packages/agent:
     dependencies:
       '@mastra/ai-sdk':
@@ -4131,6 +4147,9 @@ packages:
       '@fullcalendar/core': ~6.1.20
       react: ^16.7.0 || ^17 || ^18 || ^19
       react-dom: ^16.7.0 || ^17 || ^18 || ^19
+
+  '@grafana/grafana-foundation-sdk@0.0.18':
+    resolution: {integrity: sha512-cxJw+VXHNQGbR6x76FiNxJBR2XUrElHHXEV3jOb/oVDEhajYm3VxpfPCzeOIcHiNfRvLgVVsEtBje3yW4+Tiew==}
 
   '@graphile/logger@0.2.0':
     resolution: {integrity: sha512-jjcWBokl9eb1gVJ85QmoaQ73CQ52xAaOCF29ukRbYNl6lY+ts0ErTaDYOBlejcbUs2OpaiqYLO5uDhyLFzWw4w==}
@@ -13813,6 +13832,10 @@ snapshots:
       '@fullcalendar/core': 6.1.20
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
+
+  '@grafana/grafana-foundation-sdk@0.0.18':
+    dependencies:
+      tslib: 2.8.1
 
   '@graphile/logger@0.2.0': {}
 

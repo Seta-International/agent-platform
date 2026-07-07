@@ -1,0 +1,14 @@
+# SLI recording rules — feed Fleet's error-budget panel. See
+# docs/superpowers/specs/2026-07-07-observability-dashboards-redesign-design.md.
+groups:
+  - name: slo_http
+    interval: 30s
+    rules:
+      - record: slo:http_request:rate5m
+        expr: sum by (env) (rate(http_server_duration_count[5m]))
+      - record: slo:http_error_ratio:rate5m
+        expr: |
+          sum by (env) (rate(http_server_duration_count{http_status_code=~"5.."}[5m]))
+          / sum by (env) (rate(http_server_duration_count[5m]))
+      - record: slo:http_latency_p95:5m
+        expr: histogram_quantile(0.95, sum by (le, env) (rate(http_server_duration_bucket[5m])))
