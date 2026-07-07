@@ -5,8 +5,8 @@
 # and the Mastra AI-tracing spans. Turns multi-query DB archaeology into one
 # command.
 #
-# Usage:   scripts/trace-thread.sh <threadId>
-#          scripts/trace-thread.sh            # lists the most recent threads
+# Usage:   scripts/dev/trace-thread.sh <threadId>
+#          scripts/dev/trace-thread.sh            # lists the most recent threads
 #
 # Env:     PG_CONTAINER  (default: seta-ap-postgres-dev)
 #          PG_USER/PG_DB (default: seta/seta)
@@ -27,7 +27,7 @@ if [[ -z "$THREAD" ]]; then
       FROM agent.mastra_threads
      ORDER BY \"createdAt\" DESC
      LIMIT 15;"
-  echo "Re-run: scripts/trace-thread.sh <id>"
+  echo "Re-run: scripts/dev/trace-thread.sh <id>"
   exit 0
 fi
 

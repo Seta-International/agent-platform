@@ -1,4 +1,4 @@
-/* Print stylesheet for scripts/export-pdf.sh — handbook / docs PDF export.
+/* Print stylesheet for scripts/dev/export-pdf.sh — handbook / docs PDF export.
    Self-contained: replaces md-to-pdf's default github-markdown-css. */
 
 :root {

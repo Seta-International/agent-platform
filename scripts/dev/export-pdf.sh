@@ -7,7 +7,7 @@
 # heavy is downloaded.
 #
 # Usage:
-#   scripts/export-pdf.sh <input.md> [output.pdf]
+#   scripts/dev/export-pdf.sh <input.md> [output.pdf]
 #
 # Defaults the output to <input>.pdf next to the source.
 #
@@ -21,7 +21,7 @@ log() { printf 'export-pdf: %s\n' "$*" >&2; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STYLE_CSS="$SCRIPT_DIR/pdf-style.css"
 
-[ $# -ge 1 ] || { log "usage: scripts/export-pdf.sh <input.md> [output.pdf]"; exit 2; }
+[ $# -ge 1 ] || { log "usage: scripts/dev/export-pdf.sh <input.md> [output.pdf]"; exit 2; }
 IN="$1"
 [ -f "$IN" ] || { log "input not found: $IN"; exit 2; }
 

@@ -12,7 +12,7 @@
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-repo_root="$(cd "$here/.." && pwd)"
+repo_root="$(cd "$here/../.." && pwd)"
 cd "$repo_root"
 
 PLATFORM_IMAGE_SERVER="${PLATFORM_IMAGE_SERVER:-seta-server:local}"

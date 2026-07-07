@@ -3,7 +3,7 @@
 # per-app `tsx` binary so we can observe what the entrypoint *would* exec.
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ENTRYPOINT="${REPO_ROOT}/infra/docker/entrypoint.sh"
 
 if [ ! -x "${ENTRYPOINT}" ]; then

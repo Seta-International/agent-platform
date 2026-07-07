@@ -3,7 +3,7 @@
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-const modules = JSON.parse(readFileSync('scripts/db-drift-modules.json', 'utf8'));
+const modules = JSON.parse(readFileSync('scripts/lint/db-drift-modules.json', 'utf8'));
 if (modules.length === 0) {
   console.log('db-drift: no modules enrolled yet');
   process.exit(0);

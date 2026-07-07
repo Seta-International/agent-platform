@@ -2,7 +2,7 @@
 // (mastra_threads / mastra_messages / ...) on behalf of chat/thread routes.
 // Every method here builds the composite `${tenantId}:${userId}` resourceId
 // and performs the ownership comparison internally — callers never build or
-// compare a raw resourceId themselves. Enforced by scripts/lint-mastra-access.mjs.
+// compare a raw resourceId themselves. Enforced by scripts/lint/lint-mastra-access.mjs.
 import type { Pool } from 'pg';
 import {
   getMemoryStore,
@@ -146,14 +146,14 @@ export class TenantGuardedMastraStore {
 /**
  * Lifecycle table name for the AI tracing spans custom policy, exported so
  * register.ts never has to spell out the raw mastra_* identifier itself
- * (scripts/lint-mastra-access.mjs bans that outside this module).
+ * (scripts/lint/lint-mastra-access.mjs bans that outside this module).
  */
 export const MASTRA_SPANS_LIFECYCLE_TABLE = 'agent.mastra_ai_spans';
 
 /**
  * Retention for AI tracing spans — the lifecycle custom policy (see
  * register.ts) calls this. Direct SQL against the raw mastra_* table name is
- * allowed here only: this module is the one place scripts/lint-mastra-access.mjs
+ * allowed here only: this module is the one place scripts/lint/lint-mastra-access.mjs
  * exempts. Table may not exist yet (Mastra creates it lazily on first write);
  * `to_regclass` guards a fresh DB.
  */

@@ -1,4 +1,4 @@
-// scripts/lint-mastra-access.mjs
+// scripts/lint/lint-mastra-access.mjs
 //
 // Mastra's shared engine tables (mastra_threads, mastra_messages, ...) are
 // reachable only through packages/agent/src/backend/mastra-store/ — the

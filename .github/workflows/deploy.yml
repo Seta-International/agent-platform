@@ -141,7 +141,7 @@ jobs:
           M365_GRAPH_CLIENT_SECRET: ${{ secrets.M365_GRAPH_CLIENT_SECRET }}
           MAILER_DEFAULT_SMTP_URL: ${{ secrets.MAILER_DEFAULT_SMTP_URL }}
           MAILER_GRAPH_CLIENT_SECRET: ${{ secrets.MAILER_GRAPH_CLIENT_SECRET }}
-        run: bash scripts/render-env.sh "$ENV_FILE"
+        run: bash scripts/release/render-env.sh "$ENV_FILE"
 
       - name: Start bundled data (only when bundled-db profile is on)
         if: contains(vars.COMPOSE_PROFILES, 'bundled-db')
