@@ -15,7 +15,7 @@
   ],
   "refresh": "30s",
   "time": {
-    "from": "now-6h",
+    "from": "now-24h",
     "to": "now"
   },
   "panels": [
@@ -917,14 +917,14 @@
         "overrides": []
       },
       "title": "Error-budget burn (× budget)",
-      "description": "5xx ratio ÷ 0.5% budget. > 1 burns the 99.5% availability budget.",
+      "description": "5xx ratio ÷ 0.5% budget. > 1 burns the 99.5% availability budget. Inlined SLI so the panel works without the slo.rules.yml recording rules loaded.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "targets": [
         {
-          "expr": "slo:http_error_ratio:rate5m * 100 / (100 - 99.5)",
+          "expr": "(sum by (env)(rate(http_server_duration_count{http_status_code=~\"5..\"}[5m])) / sum by (env)(rate(http_server_duration_count[5m]))) * 100 / (100 - 99.5)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

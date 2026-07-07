@@ -50,7 +50,7 @@ export const board = (
     .uid(uid)
     .tags(['generated', 'seta', 'observability'])
     .refresh(opts.refresh ?? '30s')
-    .time({ from: opts.from ?? 'now-6h', to: 'now' })
+    .time({ from: opts.from ?? 'now-24h', to: 'now' })
     .timezone('browser');
 
 export const prom = (expr: string, legend?: string) => {

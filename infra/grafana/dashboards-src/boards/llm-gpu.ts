@@ -7,15 +7,16 @@ const T = '{tenant=~"$tenant"}';
 const vramPct = 'DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE) * 100';
 
 export const buildLlmGpu = () =>
-  board('LLM & GPU', 'llm-gpu', { refresh: '10s', from: 'now-1h' })
+  board('LLM & GPU', 'llm-gpu', { refresh: '10s' })
     .withVariable(labelVar('tenant', 'agent_llm_output_tokens_total'))
     .withVariable(labelVar('model', 'agent_llm_output_tokens_total'))
     .withRow(new RowBuilder('Agent inference — now'))
     .withPanel(
       statTile({
         title: 'TTFT p95',
-        description: 'Time to first token, p95. SLO < 2s.',
-        expr: `histogram_quantile(0.95, sum by (le)(rate(agent_llm_ttft_seconds_bucket${TM}[5m])))`,
+        description:
+          'Time to first token, p95 over the selected range. SLO < 2s. agent_llm_* is sparse (only while inference runs).',
+        expr: `histogram_quantile(0.95, sum by (le)(increase(agent_llm_ttft_seconds_bucket${TM}[$__range])))`,
         unit: UNIT.s,
         steps: stepsAsc(SLO.llmTtftP95S.warn, SLO.llmTtftP95S.crit),
       }),
@@ -23,8 +24,9 @@ export const buildLlmGpu = () =>
     .withPanel(
       statTile({
         title: 'Avg decode tok/s',
-        description: 'Mean per-request output rate.',
-        expr: `sum(rate(agent_llm_output_tokens_per_second_sum${T}[5m])) / sum(rate(agent_llm_output_tokens_per_second_count${T}[5m]))`,
+        description:
+          'Mean per-request output rate over the selected range. agent_llm_* is sparse (only while inference runs).',
+        expr: `sum(increase(agent_llm_output_tokens_per_second_sum${T}[$__range])) / sum(increase(agent_llm_output_tokens_per_second_count${T}[$__range]))`,
         unit: UNIT.TOKS,
         steps: [{ value: null, color: 'green' }],
       }),

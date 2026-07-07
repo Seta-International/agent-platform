@@ -44,10 +44,42 @@
         },
         "query": {
           "label": "container",
-          "stream": "{env=~\"$env\"}",
+          "stream": "{env=~\"$env\", container!~\".*(monitoring|alloy|ai-sdlc-metrics).*\"}",
           "type": 1
         },
         "refresh": 2
+      },
+      {
+        "type": "custom",
+        "name": "level",
+        "skipUrlSync": false,
+        "multi": false,
+        "allowCustomValue": true,
+        "includeAll": true,
+        "auto": false,
+        "auto_min": "10s",
+        "auto_count": 30,
+        "label": "level",
+        "query": "error,warn,info,debug",
+        "allValue": "error|warn|info|debug",
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        }
+      },
+      {
+        "type": "textbox",
+        "name": "search",
+        "skipUrlSync": false,
+        "multi": false,
+        "allowCustomValue": true,
+        "includeAll": false,
+        "auto": false,
+        "auto_min": "10s",
+        "auto_count": 30,
+        "label": "search",
+        "query": ""
       }
     ]
   },
@@ -61,7 +93,7 @@
   ],
   "refresh": "30s",
   "time": {
-    "from": "now-1h",
+    "from": "now-24h",
     "to": "now"
   },
   "panels": [
@@ -112,7 +144,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (container)(rate({env=~\"$env\", container=~\"$container\"} |~ \"(?i)level=error|\\\"level\\\":\\\"error\\\"\" [5m]))",
+          "expr": "sum by (container)(rate({env=~\"$env\", container=~\"$container\", container!~\".*(monitoring|alloy|ai-sdlc-metrics).*\"} |~ \"(?i)level=error|\\\"level\\\":\\\"error\\\"\" [5m]))",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -121,8 +153,8 @@
         }
       ],
       "gridPos": {
-        "h": 9,
-        "w": 12,
+        "h": 8,
+        "w": 24,
         "x": 0,
         "y": 1
       }
@@ -135,7 +167,7 @@
       "title": "Live",
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 9,
         "h": 1,
         "w": 24
       }
@@ -162,7 +194,7 @@
       },
       "targets": [
         {
-          "expr": "{env=~\"$env\", container=~\"$container\"}",
+          "expr": "{env=~\"$env\", container=~\"$container\", container!~\".*(monitoring|alloy|ai-sdlc-metrics).*\"} |~ \"(?i)(level=($level)|\\\"level\\\":\\\"($level)\\\")\" |= \"$search\"",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -170,10 +202,10 @@
         }
       ],
       "gridPos": {
-        "h": 9,
-        "w": 12,
+        "h": 24,
+        "w": 24,
         "x": 0,
-        "y": 11
+        "y": 10
       }
     }
   ]

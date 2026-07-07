@@ -39,7 +39,7 @@
   ],
   "refresh": "30s",
   "time": {
-    "from": "now-6h",
+    "from": "now-24h",
     "to": "now"
   },
   "panels": [
@@ -222,7 +222,7 @@
         "orientation": "auto"
       },
       "title": "Cache hit ratio",
-      "description": "Buffer cache hit %. Red < 95%.",
+      "description": "Cumulative buffer cache hit %. Green > 99%, amber > 95%, red < 95%.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -230,7 +230,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "min": 0,
+          "min": 90,
           "max": 100,
           "thresholds": {
             "mode": "absolute",
@@ -254,7 +254,7 @@
       },
       "targets": [
         {
-          "expr": "avg(rate(pg_stat_database_blks_hit{env=~\"$env\"}[5m]) / (rate(pg_stat_database_blks_hit{env=~\"$env\"}[5m]) + rate(pg_stat_database_blks_read{env=~\"$env\"}[5m])) * 100)",
+          "expr": "sum(pg_stat_database_blks_hit{env=~\"$env\"}) / (sum(pg_stat_database_blks_hit{env=~\"$env\"}) + sum(pg_stat_database_blks_read{env=~\"$env\"})) * 100",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

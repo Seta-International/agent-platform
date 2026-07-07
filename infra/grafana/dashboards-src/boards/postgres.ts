@@ -4,11 +4,15 @@ import { SLO, stepsAsc, stepsDesc, UNIT } from '../tokens';
 
 const connPct =
   'sum(pg_stat_activity_count{env=~"$env"}) / max(pg_settings_max_connections{env=~"$env"}) * 100';
+// Windowed ratio for the trend (shows variation over time).
 const cacheHit =
   'rate(pg_stat_database_blks_hit{env=~"$env"}[5m]) / (rate(pg_stat_database_blks_hit{env=~"$env"}[5m]) + rate(pg_stat_database_blks_read{env=~"$env"}[5m])) * 100';
+// Cumulative ratio for the summary gauge — always defined (the rate form is 0/0=NaN on idle windows).
+const cacheHitCumulative =
+  'sum(pg_stat_database_blks_hit{env=~"$env"}) / (sum(pg_stat_database_blks_hit{env=~"$env"}) + sum(pg_stat_database_blks_read{env=~"$env"})) * 100';
 
 export const buildPostgres = () =>
-  board('PostgreSQL', 'postgresql', { from: 'now-6h' })
+  board('PostgreSQL', 'postgresql')
     .withVariable(envVar('pg_up'))
     .withRow(new RowBuilder('Health now'))
     .withPanel(
@@ -33,10 +37,12 @@ export const buildPostgres = () =>
     .withPanel(
       gaugeTile({
         title: 'Cache hit ratio',
-        description: 'Buffer cache hit %. Red < 95%.',
-        expr: `avg(${cacheHit})`,
+        description: 'Cumulative buffer cache hit %. Green > 99%, amber > 95%, red < 95%.',
+        expr: cacheHitCumulative,
         unit: UNIT.percent,
         steps: stepsDesc(SLO.dbCacheHitPct.warn, SLO.dbCacheHitPct.crit),
+        min: 90,
+        max: 100,
       }),
     )
     .withPanel(
