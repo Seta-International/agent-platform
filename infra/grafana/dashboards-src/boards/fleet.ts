@@ -4,7 +4,7 @@ import { SLO, stepsAsc, stepsDesc, UNIT } from '../tokens';
 
 // Single pane of glass: per-env golden-signal health matrix.
 export const buildFleet = () =>
-  board('Fleet Overview', 'fleet-overview', { from: 'now-6h' })
+  board('Fleet Overview', 'fleet-overview')
     .withRow(new RowBuilder('Health by environment'))
     .withPanel(
       statTile({

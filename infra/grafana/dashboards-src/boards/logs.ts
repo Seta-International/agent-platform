@@ -5,7 +5,7 @@ const SEL = '{env=~"$env", container=~"$container"}';
 const ERR = `${SEL} |~ "(?i)level=error|\\"level\\":\\"error\\""`;
 
 export const buildLogs = () =>
-  board('Logs', 'logs', { from: 'now-1h' })
+  board('Logs', 'logs')
     .withVariable(lokiLabelVar('env'))
     .withVariable(lokiLabelVar('container', '{env=~"$env"}'))
     .withRow(new RowBuilder('Errors'))

@@ -5,7 +5,7 @@ import { SLO, stepsAsc, stepsDesc, UNIT } from '../tokens';
 const E = '{env=~"$env"}';
 
 export const buildAppService = () =>
-  board('App Service', 'app-service', { from: 'now-3h' })
+  board('App Service', 'app-service')
     .withVariable(envVar('node_uname_info'))
     .withRow(new RowBuilder('Health now'))
     .withPanel(

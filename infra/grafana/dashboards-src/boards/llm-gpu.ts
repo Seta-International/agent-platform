@@ -7,7 +7,7 @@ const T = '{tenant=~"$tenant"}';
 const vramPct = 'DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE) * 100';
 
 export const buildLlmGpu = () =>
-  board('LLM & GPU', 'llm-gpu', { refresh: '10s', from: 'now-6h' })
+  board('LLM & GPU', 'llm-gpu', { refresh: '10s' })
     .withVariable(labelVar('tenant', 'agent_llm_output_tokens_total'))
     .withVariable(labelVar('model', 'agent_llm_output_tokens_total'))
     .withRow(new RowBuilder('Agent inference — now'))

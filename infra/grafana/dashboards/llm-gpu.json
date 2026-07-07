@@ -60,7 +60,7 @@
   ],
   "refresh": "10s",
   "time": {
-    "from": "now-6h",
+    "from": "now-24h",
     "to": "now"
   },
   "panels": [

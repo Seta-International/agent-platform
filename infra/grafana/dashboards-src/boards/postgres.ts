@@ -12,7 +12,7 @@ const cacheHitCumulative =
   'sum(pg_stat_database_blks_hit{env=~"$env"}) / (sum(pg_stat_database_blks_hit{env=~"$env"}) + sum(pg_stat_database_blks_read{env=~"$env"})) * 100';
 
 export const buildPostgres = () =>
-  board('PostgreSQL', 'postgresql', { from: 'now-6h' })
+  board('PostgreSQL', 'postgresql')
     .withVariable(envVar('pg_up'))
     .withRow(new RowBuilder('Health now'))
     .withPanel(

@@ -10,7 +10,7 @@ const diskFree =
   'node_filesystem_avail_bytes{env=~"$env",fstype!~"tmpfs|overlay|ramfs"} / node_filesystem_size_bytes * 100';
 
 export const buildHost = () =>
-  board('Host', 'host', { from: 'now-6h' })
+  board('Host', 'host')
     .withVariable(envVar('node_uname_info'))
     .withRow(new RowBuilder('Saturation now'))
     .withPanel(
