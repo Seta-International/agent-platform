@@ -6,16 +6,16 @@ name: AI SDLC — Metrics Collection (Future)
 
 on:
   schedule:
-    - cron: '0 * * * *'    # hourly: current sprint
-    - cron: '30 0 1 * *'   # monthly: previous calendar month
+    - cron: '0 * * * *'    # hourly: current month running totals
+    - cron: '30 0 1 * *'   # monthly: finalize previous calendar month
     - cron: '45 1 1 1,4,7,10 *'  # quarterly: governance auto-check
   pull_request:
     types: [closed]
   deployment_status:
   workflow_dispatch:
     inputs:
-      sprint:
-        description: 'Re-collect a specific sprint (e.g. S3); blank = current'
+      month:
+        description: 'Re-collect a specific month (YYYY-MM); blank = current month'
         required: false
       manual_period:
         description: 'Manual input period (YYYY-MM or YYYY-Q<n>)'
@@ -25,7 +25,7 @@ on:
         required: false
 
 jobs:
-  collect-sprint:
+  collect-current-month:
     if: >
       github.event_name != 'workflow_dispatch' && github.event.schedule != '30 0 1 * *' &&
       github.event.schedule != '45 1 1 1,4,7,10 *' &&
@@ -37,13 +37,9 @@ jobs:
       gh-repo: ${{ github.repository }}
       jira-project: FUT
       jira-base: ${{ vars.JIRA_BASE }}
-      sprint-anchor: '2026-06-29'
-      sprint-length-days: '14'
-      prod-env: 'dev,uat'              # no production environment yet (spec §6.1)
+      prod-env: 'dev,uat,prod'
       deploy-strategy: 'deployments'
-      jira-board-id: ''                # blank = auto-detect the FUT scrum board
-      sprint: ${{ inputs.sprint || '' }}
-      mode: sprint
+      month: ${{ inputs.month || '' }}
     secrets:
       jira-email: ${{ secrets.JIRA_EMAIL }}
       jira-token: ${{ secrets.JIRA_TOKEN }}
@@ -52,7 +48,7 @@ jobs:
       jira-ai-tool-field: ${{ secrets.JIRA_AI_TOOL_FIELD }}
       jira-ai-time-saved-field: ${{ secrets.JIRA_AI_TIME_SAVED_FIELD }}
 
-  collect-month:
+  collect-previous-month:
     if: github.event_name == 'schedule' && github.event.schedule == '30 0 1 * *'
     uses: Seta-International/ai-sdlc-metrics/.github/workflows/collect.yml@main
     with:
@@ -60,11 +56,9 @@ jobs:
       gh-repo: ${{ github.repository }}
       jira-project: FUT
       jira-base: ${{ vars.JIRA_BASE }}
-      sprint-anchor: '2026-06-29'
-      prod-env: 'dev,uat'
+      prod-env: 'dev,uat,prod'
       deploy-strategy: 'deployments'
-      jira-board-id: ''
-      mode: previous-month
+      month: previous
     secrets:
       jira-email: ${{ secrets.JIRA_EMAIL }}
       jira-token: ${{ secrets.JIRA_TOKEN }}
