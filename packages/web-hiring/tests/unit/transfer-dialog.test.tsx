@@ -41,7 +41,7 @@ describe('TransferDialog', () => {
     );
     // Wait for query to load so effectiveTarget resolves to r2 (excludes current r1)
     await waitFor(() =>
-      expect(qc.getQueryState(['hiring', 'requisitions'])?.status).toBe('success'),
+      expect(qc.getQueryState(['hiring', 'requisition-options'])?.status).toBe('success'),
     );
     // The trigger shows the selected value (Frontend Eng = r2, since r1 is excluded)
     await waitFor(() =>
@@ -57,5 +57,29 @@ describe('TransferDialog', () => {
       }),
     );
     expect(onDone).toHaveBeenCalled();
+  });
+
+  it('does not crash when the requisitions-board query already cached an object under the shared key (FUT-335)', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(['hiring', 'requisitions'], {
+      scope: 'all',
+      scoped_account_names: [],
+      scoped_project_names: [],
+      requisitions: [],
+    });
+    render(
+      <TransferDialog
+        applicationId="a1"
+        version={3}
+        currentRequisitionId="r1"
+        open
+        onOpenChange={() => {}}
+        onDone={vi.fn()}
+      />,
+      { wrapper: wrap(qc) },
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /target role/i })).toBeInTheDocument(),
+    );
   });
 });

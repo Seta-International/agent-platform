@@ -33,7 +33,7 @@ describe('NewCandidateDialog', () => {
     await userEvent.type(screen.getByLabelText(/full name/i), 'Ada Lovelace');
     // Wait for requisitions query to load so effectiveReq resolves to r1 (Backend Eng)
     await waitFor(() =>
-      expect(qc.getQueryState(['hiring', 'requisitions'])?.status).toBe('success'),
+      expect(qc.getQueryState(['hiring', 'requisition-options'])?.status).toBe('success'),
     );
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
@@ -44,6 +44,24 @@ describe('NewCandidateDialog', () => {
       expect(addCandidate).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'Ada Lovelace', requisition_id: 'r1' }),
       ),
+    );
+  });
+
+  it('does not crash when the requisitions-board query already cached an object under the shared key (FUT-335)', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    // Simulates having visited the Requisitions board first: requisitions-page.tsx caches an
+    // `OpenRequisitionsBoard` object (not an array) under the same ['hiring','requisitions'] key
+    // that fetchRequisitions() (a plain array) also used before this fix.
+    qc.setQueryData(['hiring', 'requisitions'], {
+      scope: 'all',
+      scoped_account_names: [],
+      scoped_project_names: [],
+      requisitions: [],
+    });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
     );
   });
 });

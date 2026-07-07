@@ -37,7 +37,7 @@ export function TransferDialog({
   const [targetId, setTargetId] = useState('');
 
   const { data: reqs } = useQuery({
-    queryKey: hiringKeys.requisitions(),
+    queryKey: hiringKeys.requisitionOptions(),
     queryFn: fetchRequisitions,
   });
   const targets = (reqs ?? []).filter(

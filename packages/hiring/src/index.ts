@@ -27,7 +27,9 @@ export {
 export {
   type CandidateDetail,
   type CandidateListRow,
+  type CandidateStageCounts,
   getCandidate,
+  getCandidateStageCounts,
   listCandidates,
   listTalentPool,
   type TalentPoolRow,

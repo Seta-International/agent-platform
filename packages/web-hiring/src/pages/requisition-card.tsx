@@ -285,7 +285,7 @@ export function RequisitionCard({
           </span>
         </div>
         <Button size="sm" variant="secondary" onClick={go}>
-          View JD
+          View Detail
           <ExternalLink className="ml-1 size-3.5" aria-hidden />
         </Button>
       </div>

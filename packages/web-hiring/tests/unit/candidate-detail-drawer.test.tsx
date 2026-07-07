@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -27,9 +27,9 @@ const detail: CandidateDetail = {
     source: 'Referral',
     seniority: 'Senior',
     segment: null,
-    dob: null,
-    gender: null,
-    note: 'Strong fundamentals',
+    dob: '1998-05-12',
+    gender: 'female',
+    cv_storage_key: 'cv/ada-lovelace.pdf',
     contact: { email: 'ada@example.com', phone: '+1' },
     version: 1,
   },
@@ -44,6 +44,8 @@ const detail: CandidateDetail = {
       rating: 3,
       tags: [],
       version: 4,
+      applied_at: '2026-06-18T10:00:00Z',
+      note: 'Strong fundamentals',
       fit: { met: 2, required: 3, score: 0.66, strong: false },
     },
   ],
@@ -66,7 +68,7 @@ const wrap =
   );
 
 describe('CandidateDetailDrawer', () => {
-  it('shows profile, skills, fit, and the activity timeline', async () => {
+  it('shows profile, skills, fit, note, and the activity timeline', async () => {
     fetchCandidate.mockResolvedValue(detail);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
@@ -74,16 +76,22 @@ describe('CandidateDetailDrawer', () => {
     expect(screen.getByText('TypeScript')).toBeInTheDocument();
     expect(screen.getByText('2/3 skills')).toBeInTheDocument();
     expect(screen.getByText('Candidate created')).toBeInTheDocument();
-    expect(screen.getByText(/No interviews yet/i)).toBeInTheDocument();
+    expect(screen.getByText('1998-05-12')).toBeInTheDocument();
+    expect(screen.getByText('female')).toBeInTheDocument();
+    expect(screen.getByText('Strong fundamentals')).toBeInTheDocument();
+    expect(screen.getByText('3/5')).toBeInTheDocument();
+    // Fields with no schema support are labeled honestly instead of fabricated.
+    expect(screen.getAllByText('No Data').length).toBeGreaterThan(0);
   });
 
-  it('moves stage when a pipeline-stage button is clicked', async () => {
+  it('moves stage from the Move stage menu', async () => {
     fetchCandidate.mockResolvedValue(detail);
     moveApplicationStage.mockResolvedValueOnce({ version: 5 });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
-    await userEvent.click(screen.getByRole('button', { name: 'Interview' }));
+    await userEvent.click(screen.getByRole('button', { name: /Move stage/i }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Interview' }));
     await waitFor(() =>
       expect(moveApplicationStage).toHaveBeenCalledWith('a1', {
         expected_version: 4,
