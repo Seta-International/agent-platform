@@ -2,7 +2,7 @@
 
 Operational CLI for the Seta platform — database lifecycle and
 tenant/user provisioning. Used both interactively and by the standard
-onboarding contract (`pnpm db:migrate`, `bash scripts/tenant-bootstrap.sh`).
+onboarding contract (`pnpm db:migrate`, `bash scripts/dev/tenant-bootstrap.sh`).
 
 ## Commands
 

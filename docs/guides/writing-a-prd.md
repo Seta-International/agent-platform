@@ -185,7 +185,7 @@ Then describe roles as **two dimensions** (membership label vs access role) and 
 Plain markdown→PDF tools leave mermaid as raw code. Use the repo script, which pre-renders each diagram to SVG locally (the mermaid library is bundled — no network) and embeds it, reusing an installed browser so nothing heavy downloads:
 
 ```bash
-scripts/export-pdf.sh docs/modules/<module>-prd.md
+scripts/dev/export-pdf.sh docs/modules/<module>-prd.md
 # → docs/modules/<module>-prd.pdf  (pass a second arg for a custom output path)
 ```
 

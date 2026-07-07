@@ -6,13 +6,13 @@
 // so you can watch the OTEL metrics rise and fall in Grafana.
 //
 // Usage:
-//   node scripts/stress-pool.mjs
-//   SERVER_URL=http://localhost:3000 CONCURRENCY=50 DURATION_S=60 node scripts/stress-pool.mjs
+//   node scripts/dev/stress-pool.mjs
+//   SERVER_URL=http://localhost:3000 CONCURRENCY=50 DURATION_S=60 node scripts/dev/stress-pool.mjs
 //
 // Before running:
 //   1. docker compose -f compose.monitoring.yaml up -d prometheus grafana
 //   2. pnpm dev   (starts server on :3000 with PrometheusExporter on :9464)
-//   3. node scripts/stress-pool.mjs
+//   3. node scripts/dev/stress-pool.mjs
 //   4. Open Grafana at http://localhost:3000  (admin / $GF_ADMIN_PASSWORD)
 //      Explore → Prometheus → platform_db_pool_*
 

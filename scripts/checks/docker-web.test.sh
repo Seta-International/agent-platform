@@ -7,7 +7,7 @@
 #  5. tear down
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 IMAGE_TAG="seta-web:smoke-$(date +%s)"
 CONTAINER_NAME="seta-web-smoke-$$"
 

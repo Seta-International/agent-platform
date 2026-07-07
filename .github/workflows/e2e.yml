@@ -43,7 +43,7 @@ jobs:
           ENV_FILE: ${{ vars.ENV_FILE }}
         run: |
           set -euo pipefail
-          bash scripts/write-e2e-route.sh
+          bash scripts/dev/write-e2e-route.sh
           docker compose -p "$COMPOSE_PROJECT" --profile e2e-report --env-file "$ENV_FILE" \
             up -d e2e-report
 

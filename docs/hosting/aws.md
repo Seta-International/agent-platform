@@ -133,7 +133,7 @@ Prod uses the same **build-once → ECR → deploy-by-pull** pipeline as dev/uat
 1. **Build** — `build.yml` (manual) builds `linux/amd64` server + web images, pushes `server-git-<sha>` / `web-git-<sha>` (immutable) plus a moving `-latest` to the shared ECR repo.
 2. **Deploy** — run `deploy.yml` with `environment=prod` and `image_tag=<git-sha or latest>`. Because `prod` has a required reviewer, the run pauses for approval before the job starts. Once approved, the job:
    - logs into ECR (box's instance role — no static keys),
-   - renders `prod.env` from the `prod` Environment's Variables/Secrets (`scripts/render-env.sh`),
+   - renders `prod.env` from the `prod` Environment's Variables/Secrets (`scripts/release/render-env.sh`),
    - takes a **pre-migration RDS snapshot** (`aws rds create-db-snapshot`, named `seta-prod-pg-pre-<image_tag>-<timestamp>`, waits for `available`) — see [§7](#7-runbook-backup--restore),
    - `docker compose pull`, `docker compose run --rm migrator` — this runs Drizzle migrations, including `CREATE EXTENSION vector` (RDS Postgres ships the `vector` extension; no Terraform parameter-group change is needed — the extension is created at migration time, not provisioning time),
    - `docker compose up -d --wait proxy server web worker`,

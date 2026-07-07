@@ -64,9 +64,9 @@ Useful flags: `--tenant <slug>`, `--admin-email <email>`, `--dir <path>`, `--pas
 ### Option B — empty sandbox tenant (fastest)
 
 ```bash
-bash scripts/tenant-bootstrap.sh                  # admin + 1 member
-MEMBER_COUNT=5 bash scripts/tenant-bootstrap.sh   # admin + 5 members
-SLUG=widgets bash scripts/tenant-bootstrap.sh     # custom slug
+bash scripts/dev/tenant-bootstrap.sh                  # admin + 1 member
+MEMBER_COUNT=5 bash scripts/dev/tenant-bootstrap.sh   # admin + 5 members
+SLUG=widgets bash scripts/dev/tenant-bootstrap.sh     # custom slug
 ```
 
 Sign in as `admin@example.com` / `ChangeMe@2026`, or as a member `member1@example.test` / `ChangeMe@2026`. Each member is seeded with `planner.member`, `knowledge.member`, and `agent.member`, so Planner, Knowledge, and Chat are usable out of the box (nav is permission-gated).

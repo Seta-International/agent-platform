@@ -1,8 +1,8 @@
-// scripts/lint-db.mjs
+// scripts/lint/lint-db.mjs
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const BASELINE_PATH = 'scripts/lint-db-baseline.json';
+const BASELINE_PATH = 'scripts/lint/lint-db-baseline.json';
 const UPDATE = process.argv.includes('--update-baseline');
 
 // spec §3.1 global-table allowlist + projection/junction shapes exempt from single rules

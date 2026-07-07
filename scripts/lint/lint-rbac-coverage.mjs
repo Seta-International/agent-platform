@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/lint-rbac-coverage.mjs
+// scripts/lint/lint-rbac-coverage.mjs
 //
 // Walks each module's src/backend/domain/ for exported functions. Any function
 // whose name starts with a mutation verb (i.e. NOT a read prefix and not in the

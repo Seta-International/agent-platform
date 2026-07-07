@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sanity tests for release-check.sh. Run with: bash scripts/release-check.test.sh
+# Sanity tests for release-check.sh. Run with: bash scripts/release/release-check.test.sh
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -2,7 +2,7 @@
 
 This document describes the database as it exists. The authoritative source is the code: each module's Drizzle `schema.ts` plus its one hand-written baseline SQL file define every table, column, and constraint. This page is the map over that code — read it to understand the shape of the whole database and the rules every schema obeys; read the schema files for exact column-level truth.
 
-- **Authoritative DDL for a standalone review DB** (DBeaver, offline inspection): [`review-schema.sql`](./review-schema.sql), regenerated from a freshly migrated dev database by [`scripts/dump-review-schema.sh`](../../scripts/dump-review-schema.sh). Populate it with sample data using `pnpm db:seed`.
+- **Authoritative DDL for a standalone review DB** (DBeaver, offline inspection): [`review-schema.sql`](./review-schema.sql), regenerated from a freshly migrated dev database by [`scripts/dev/dump-review-schema.sh`](../../scripts/dev/dump-review-schema.sh). Populate it with sample data using `pnpm db:seed`.
 - **The event/integration backbone** — how modules talk without sharing tables — is [`ddd-design.md`](./ddd-design.md).
 
 The database holds ten module schemas: `core`, `identity`, `people`, `hiring`, `pm`, `planner`, `knowledge`, `agent`, `integrations`, `notifications`. Better-auth owns five tables inside `identity` (`user`, `session`, `account`, `verification`, `rate_limit`); everything else is authored here.
@@ -56,7 +56,7 @@ Every table declares a lifecycle class in the `shared-db` registry (`packages/sh
 
 Each module is squashed to **one generated baseline** (from `schema.ts`) plus **one hand-written SQL file** for what Drizzle cannot model: extensions, `core.events` range partitioning, the `updated_at` trigger install, RLS enable + policies, `EXCLUDE USING gist` / `btree_gist`, `knowledge.chunks` LIST partitioning, and the `search_tsv` generated column. Each hand-written file opens with a one-line comment naming the limitation. CI enforces unique numeric prefixes per module and a regenerate-and-diff drift check (`schema.ts` → codegen → no diff against the committed baseline). The custom runner (`shared-db/migrate.ts`, filename-lexical and checksummed) applies them; drizzle journals are unused.
 
-Two CI ratchets keep the constitution from eroding: `pnpm lint:db` (`scripts/lint-db.mjs`) scans every `schema.ts` for missing `tenant_id`, missing `created_at`, inline text-enums, and non-tenant-led uniques, diffing against a shrink-only baseline (`scripts/lint-db-baseline.json`) that holds the few deliberate exceptions — junction and projection tables whose timestamps live on the source row, and person/plan-scoped uniques. The drift check re-runs codegen for all ten modules listed in `scripts/db-drift-modules.json`.
+Two CI ratchets keep the constitution from eroding: `pnpm lint:db` (`scripts/lint/lint-db.mjs`) scans every `schema.ts` for missing `tenant_id`, missing `created_at`, inline text-enums, and non-tenant-led uniques, diffing against a shrink-only baseline (`scripts/lint/lint-db-baseline.json`) that holds the few deliberate exceptions — junction and projection tables whose timestamps live on the source row, and person/plan-scoped uniques. The drift check re-runs codegen for all ten modules listed in `scripts/lint/db-drift-modules.json`.
 
 ---
 
