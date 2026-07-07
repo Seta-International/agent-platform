@@ -19,5 +19,5 @@ services:
       AWS_REGION: ${AWS_REGION}
     volumes:
       - ./infra/cloudwatch-exporter/rds.yml:/config/config.yml:ro
-    command: ["9106", "/config/config.yml"]
+    command: ["/config/config.yml", "9106"]
     networks: [seta-internal, seta-edge]

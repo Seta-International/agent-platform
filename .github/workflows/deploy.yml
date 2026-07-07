@@ -123,6 +123,14 @@ jobs:
           MAILER_GRAPH_CLIENT_ID: ${{ vars.MAILER_GRAPH_CLIENT_ID }}
           M365_GRAPH_TENANT_ID: ${{ vars.M365_GRAPH_TENANT_ID }}
           M365_GRAPH_CLIENT_ID: ${{ vars.M365_GRAPH_CLIENT_ID }}
+          # obs-agent profile (FUT-388): Alloy remote_write/loki.write target + the
+          # per-env exporter targets it scrapes. Empty everywhere the profile is off.
+          MONITORING_ENV: ${{ vars.MONITORING_ENV }}
+          REMOTE_WRITE_URL: ${{ vars.REMOTE_WRITE_URL }}
+          REMOTE_WRITE_USERNAME: ${{ vars.REMOTE_WRITE_USERNAME }}
+          LOKI_URL: ${{ vars.LOKI_URL }}
+          CLOUDWATCH_TARGET: ${{ vars.CLOUDWATCH_TARGET }}
+          DCGM_TARGET: ${{ vars.DCGM_TARGET }}
           # ── Environment Secrets (sensitive) ──────────────────────────────
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_APP_URL: ${{ secrets.DATABASE_APP_URL }}
@@ -141,6 +149,8 @@ jobs:
           M365_GRAPH_CLIENT_SECRET: ${{ secrets.M365_GRAPH_CLIENT_SECRET }}
           MAILER_DEFAULT_SMTP_URL: ${{ secrets.MAILER_DEFAULT_SMTP_URL }}
           MAILER_GRAPH_CLIENT_SECRET: ${{ secrets.MAILER_GRAPH_CLIENT_SECRET }}
+          REMOTE_WRITE_PASSWORD: ${{ secrets.REMOTE_WRITE_PASSWORD }}
+          POSTGRES_EXPORTER_DSN: ${{ secrets.POSTGRES_EXPORTER_DSN }}
         run: bash scripts/release/render-env.sh "$ENV_FILE"
 
       - name: Start bundled data (only when bundled-db profile is on)
@@ -186,7 +196,18 @@ jobs:
           # any genuinely-missing image via its default pull-if-missing policy.
           dc pull server web worker migrator
           dc run --rm migrator
-          dc up -d --remove-orphans --wait --wait-timeout 300 proxy server web worker
+
+          # obs-agent services are profile-gated (off by default) but Compose only
+          # starts a profiled service if it's named explicitly on the command line —
+          # naming it here overrides the profile filter regardless of COMPOSE_PROFILES,
+          # so only add the names when the profile is actually enabled.
+          services="proxy server web worker"
+          if [[ "$COMPOSE_PROFILES" == *obs-agent* ]]; then
+            services="$services alloy node-exporter postgres-exporter"
+            # cloudwatch-exporter is only defined in compose.prod.yaml.
+            [[ "$COMPOSE_FILE" == *compose.prod.yaml* ]] && services="$services cloudwatch-exporter"
+          fi
+          dc up -d --remove-orphans --wait --wait-timeout 300 $services
 
       - name: Smoke test (/health/ready)
         shell: bash

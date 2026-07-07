@@ -66,6 +66,35 @@ jobs:
             -v seta-monitoring-alertmanager-secrets:/s busybox \
             sh -c 'cat > /s/teams_webhook_url'
 
+      - name: Provision the ingest basic-auth htpasswd volume
+        # Same REMOTE_WRITE_USERNAME/PASSWORD the remote (prod) Alloy agent presents
+        # to the Cloudflare-proxied monitoring-ingest proxy (FUT-388 Phase 4).
+        shell: bash
+        env:
+          REMOTE_WRITE_USERNAME: ${{ secrets.REMOTE_WRITE_USERNAME }}
+          REMOTE_WRITE_PASSWORD: ${{ secrets.REMOTE_WRITE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          docker volume create seta-monitoring-ingest-secrets >/dev/null
+          docker run --rm httpd:alpine htpasswd -Bbn "$REMOTE_WRITE_USERNAME" "$REMOTE_WRITE_PASSWORD" \
+            | docker run --rm -i -v seta-monitoring-ingest-secrets:/s busybox sh -c 'cat > /s/.htpasswd'
+
+      - name: Provision the ingest TLS self-signed cert volume
+        # Cloudflare "Full" SSL mode needs the origin to speak HTTPS but doesn't
+        # validate the chain — a self-signed cert (10y, regenerated only if
+        # missing so it survives redeploys) matches dev/uat's Traefik setup.
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker volume create seta-monitoring-ingest-tls >/dev/null
+          docker run --rm -v seta-monitoring-ingest-tls:/tls alpine:3.20 sh -c '
+            apk add --no-cache openssl >/dev/null
+            [ -f /tls/cert.pem ] && [ -f /tls/key.pem ] || openssl req -x509 -nodes -days 3650 \
+              -newkey rsa:2048 -keyout /tls/key.pem -out /tls/cert.pem \
+              -subj "/CN=future-ingest.seta-international.com"
+            chmod 644 /tls/cert.pem /tls/key.pem
+          '
+
       - name: Deploy the monitoring stack
         shell: bash
         env:
@@ -89,3 +118,6 @@ jobs:
           curl -sf http://localhost:3000/api/health >/dev/null && echo "grafana healthy"
           rules=$(curl -s http://localhost:9090/api/v1/rules | python3 -c "import sys,json;print(sum(len(g['rules']) for g in json.load(sys.stdin)['data']['groups']))")
           echo "prometheus rules loaded: ${rules}"
+          ingest_code=$(curl -sk -o /dev/null -w "%{http_code}" https://localhost:2096/api/v1/write)
+          [ "$ingest_code" = "401" ] && echo "monitoring-ingest auth enforced" \
+            || { echo "::error::monitoring-ingest expected 401 without auth, got ${ingest_code}"; exit 1; }

@@ -732,6 +732,72 @@
       }
     },
     {
+      "type": "stat",
+      "transparent": false,
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "area",
+        "colorMode": "background",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": "auto"
+      },
+      "title": "RDS free storage",
+      "description": "Prod-only (CloudWatch is monitored for prod alone). Amber < 5GB, red < 2GB.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "red"
+              },
+              {
+                "value": 2000000000,
+                "color": "yellow"
+              },
+              {
+                "value": 5000000000,
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "aws_rds_free_storage_space_average",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{env}}"
+        }
+      ],
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      }
+    },
+    {
       "type": "row",
       "collapsed": false,
       "id": 0,
@@ -739,7 +805,7 @@
       "title": "Trends",
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 46,
         "h": 1,
         "w": 24
       }
@@ -806,7 +872,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 38
+        "y": 47
       }
     },
     {
@@ -871,7 +937,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 38
+        "y": 47
       }
     },
     {
@@ -936,7 +1002,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 47
+        "y": 56
       }
     }
   ]

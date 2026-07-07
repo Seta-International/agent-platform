@@ -12,6 +12,7 @@ export const SLO = {
   gpuTempC: { warn: 75, crit: 85 },
   vramUsedPct: { warn: 85, crit: 95 },
   llmTtftP95S: { warn: 2, crit: 5 },
+  rdsFreeStorageBytes: { warn: 5e9, crit: 2e9 }, // reversed: higher is better
   availabilityPct: 99.5,
 } as const;
 

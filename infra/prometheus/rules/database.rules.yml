@@ -1,15 +1,22 @@
-# Database health via postgres-exporter (pg_*). Scope: dev + uat (severity=warning).
-# RDS/cloudwatch storage alerts are PROD-ONLY (CloudWatch is monitored for prod
-# only) and land with prod in Phase 4 — not here.
+# Database health via postgres-exporter (pg_*). dev+uat = warning; prod gets its
+# own critical duplicate below plus RDS/cloudwatch storage alerts (Phase 4).
 groups:
   - name: database
     rules:
       - alert: PostgresDown
-        expr: pg_up == 0
+        expr: pg_up{env!="prod"} == 0
         for: 1m
         labels: { severity: warning }
         annotations:
           summary: "Postgres down ({{ $labels.env }})"
+          description: "pg_up==0 for 1m — DB unreachable from the exporter."
+
+      - alert: PostgresDown
+        expr: pg_up{env="prod"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "[PROD] Postgres down"
           description: "pg_up==0 for 1m — DB unreachable from the exporter."
 
       - alert: PostgresTooManyConns
@@ -19,3 +26,21 @@ groups:
         annotations:
           summary: "Postgres connections >80% ({{ $labels.env }})"
           description: "Active connections above 80% of max_connections for 10m."
+
+      # RDS is prod-only (CloudWatch is monitored for prod alone). Storage-fill is
+      # the #1 single-box-RDS killer — same threshold philosophy as HostHighDisk.
+      - alert: RDSFreeStorageLow
+        expr: aws_rds_free_storage_space_average < 5e9
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "[PROD] RDS free storage < 5GB"
+          description: "aws_rds_free_storage_space_average below 5GB for 10m — plan a storage increase."
+
+      - alert: RDSFreeStorageCritical
+        expr: aws_rds_free_storage_space_average < 2e9
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "[PROD] RDS free storage < 2GB"
+          description: "aws_rds_free_storage_space_average below 2GB for 5m — imminent risk of write failures."
