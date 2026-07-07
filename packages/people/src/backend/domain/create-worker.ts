@@ -58,6 +58,7 @@ export async function createWorker(
           full_name: input.full_name.trim(),
           employee_no: input.employee_no?.trim() || null,
           work_email: workEmail,
+          personal_email: input.personal_email?.toLowerCase().trim() || null,
           start_date: input.start_date ?? null,
           employment_type: input.employment_type ?? null,
           dob: input.dob ?? null,

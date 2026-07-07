@@ -398,7 +398,7 @@ export interface CandidateDetail {
     dob: string | null;
     gender: string | null;
     cv_storage_key: string | null;
-    contact: { email?: string; phone?: string } | null;
+    contact: { personal_email?: string; phone?: string } | null;
     version: number;
   };
   applications: CandidateApplication[];
@@ -434,7 +434,8 @@ export interface SkillCatalog {
 export interface AddCandidatePayload {
   requisition_id: string;
   name: string;
-  contact?: { email?: string; phone?: string };
+  personal_email?: string;
+  phone?: string;
   dob?: string;
   gender?: string;
   seniority?: string;
@@ -502,7 +503,16 @@ export async function addCandidate(
 export async function editCandidate(
   id: string,
   input: {
-    patch: { name?: string; note?: string; seniority?: string; source?: string; segment?: string };
+    patch: {
+      name?: string;
+      note?: string;
+      seniority?: string;
+      source?: string;
+      segment?: string;
+      personal_email?: string;
+      phone?: string;
+      cv_storage_key?: string | null;
+    };
   },
 ): Promise<{ ok: true }> {
   return handleResponse(await fetch(`/api/hiring/v1/candidates/${id}`, json('PATCH', input)));
@@ -578,4 +588,60 @@ export interface TalentPoolRow {
 export async function fetchTalentPool(): Promise<TalentPoolRow[]> {
   const res = await fetch('/api/hiring/v1/talent-pool', { credentials: 'include' });
   return (await handleResponse<{ pool: TalentPoolRow[] }>(res)).pool;
+}
+
+// ---- CV parse & storage ----
+
+export interface CandidateCvDraft {
+  name: string | null;
+  personal_email: string | null;
+  phone: string | null;
+  dob: string | null;
+  gender: 'male' | 'female' | null;
+  seniority: string | null;
+  note: string | null;
+  skills: Array<{ skill_id: string; skill_name: string }>;
+  skill_suggestions: string[];
+}
+
+/** Stateless parse: nothing is stored until the recruiter saves the form. */
+export async function parseCandidateCvDraft(file: File): Promise<CandidateCvDraft> {
+  const fd = new FormData();
+  fd.set('file', file);
+  const res = await fetch('/api/hiring/v1/cv/parse-draft', {
+    method: 'POST',
+    credentials: 'include',
+    body: fd,
+  });
+  return (await handleResponse<{ draft: CandidateCvDraft }>(res)).draft;
+}
+
+export async function requestCandidateCvUpload(
+  candidateId: string,
+  filename: string,
+  contentType: string,
+): Promise<{ upload_url: string; s3_key: string }> {
+  const res = await fetch(`/api/hiring/v1/candidates/${candidateId}/cv/upload-url`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, content_type: contentType }),
+  });
+  return handleResponse<{ upload_url: string; s3_key: string }>(res);
+}
+
+export async function getCandidateCvDownloadUrl(candidateId: string): Promise<string> {
+  const res = await fetch(`/api/hiring/v1/candidates/${candidateId}/cv/download-url`, {
+    credentials: 'include',
+  });
+  return (await handleResponse<{ download_url: string }>(res)).download_url;
+}
+
+export async function putCvToS3(uploadUrl: string, file: File): Promise<void> {
+  const res = await fetch(uploadUrl, {
+    method: 'PUT',
+    body: file,
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+  });
+  if (!res.ok) throw new Error(`CV upload failed: HTTP ${res.status}`);
 }

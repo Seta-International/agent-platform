@@ -32,6 +32,8 @@ export interface WorkerListRow {
 
 export interface WorkerDetail extends WorkerListRow {
   dob: string | null;
+  personal_email: string | null;
+  cv_storage_key: string | null;
   emergency_contact: string | null;
   version: number;
   org_unit_id: string | null;
@@ -61,17 +63,23 @@ export interface WorkersQuery {
 export interface CreateWorkerInput {
   full_name: string;
   work_email?: string;
+  personal_email?: string;
+  employee_no?: string;
   start_date?: string;
   employment_type?: string;
   dob?: string;
   gender?: string;
   phone?: string;
   emergency_contact?: unknown;
+  job_title?: string;
+  org_unit_id?: string;
 }
 
 export interface WorkerPatch {
   full_name?: string;
   work_email?: string;
+  personal_email?: string | null;
+  cv_storage_key?: string | null;
   phone?: string;
   dob?: string;
   gender?: string;
@@ -255,3 +263,59 @@ export const projectSearch = {
     mapRow: (r) => ({ value: r.id, label: r.name }),
   }).resolveByIds,
 };
+
+// ---- CV parse & storage ----
+
+export interface WorkerCvDraft {
+  full_name: string | null;
+  personal_email: string | null;
+  phone: string | null;
+  dob: string | null;
+  gender: 'male' | 'female' | null;
+  job_title: string | null;
+  skills: Array<{ skill_id: string; skill_name: string }>;
+  skill_suggestions: string[];
+  summary: string | null;
+}
+
+/** Stateless parse: nothing is stored until the reviewer saves the form. */
+export async function parseWorkerCvDraft(file: File): Promise<WorkerCvDraft> {
+  const fd = new FormData();
+  fd.set('file', file);
+  const res = await fetch('/api/people/v1/cv/parse-draft', {
+    method: 'POST',
+    credentials: 'include',
+    body: fd,
+  });
+  return (await handleResponse<{ draft: WorkerCvDraft }>(res)).draft;
+}
+
+export async function requestWorkerCvUpload(
+  workerId: string,
+  filename: string,
+  contentType: string,
+): Promise<{ upload_url: string; s3_key: string }> {
+  const res = await fetch(`/api/people/v1/workers/${workerId}/cv/upload-url`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, content_type: contentType }),
+  });
+  return handleResponse<{ upload_url: string; s3_key: string }>(res);
+}
+
+export async function getWorkerCvDownloadUrl(workerId: string): Promise<string> {
+  const res = await fetch(`/api/people/v1/workers/${workerId}/cv/download-url`, {
+    credentials: 'include',
+  });
+  return (await handleResponse<{ download_url: string }>(res)).download_url;
+}
+
+export async function putToS3(uploadUrl: string, file: File): Promise<void> {
+  const res = await fetch(uploadUrl, {
+    method: 'PUT',
+    body: file,
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+  });
+  if (!res.ok) throw new Error(`CV upload failed: HTTP ${res.status}`);
+}

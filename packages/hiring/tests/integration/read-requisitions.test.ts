@@ -81,7 +81,7 @@ describe('read requisitions', () => {
         await addCandidate({
           requisition_id,
           name: 'Pham Tien Manh',
-          email: 'manh@example.test',
+          personal_email: 'manh@example.test',
           seniority: 'Frontend Engineer',
           session: t.adminSession,
         });

@@ -761,6 +761,9 @@ importers:
       '@seta/core':
         specifier: workspace:^
         version: link:../core
+      '@seta/knowledge':
+        specifier: workspace:^
+        version: link:../knowledge
       '@seta/people':
         specifier: workspace:^
         version: link:../people
@@ -773,6 +776,9 @@ importers:
       '@seta/shared-rbac':
         specifier: workspace:^
         version: link:../shared-rbac
+      '@seta/shared-storage':
+        specifier: workspace:^
+        version: link:../shared-storage
       '@seta/shared-types':
         specifier: workspace:^
         version: link:../shared-types
@@ -804,6 +810,9 @@ importers:
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
+      ai:
+        specifier: ^6.0.200
+        version: 6.0.200(zod@4.4.3)
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
@@ -1065,6 +1074,9 @@ importers:
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
+      ai:
+        specifier: ^6.0.200
+        version: 6.0.200(zod@4.4.3)
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
@@ -1135,6 +1147,9 @@ importers:
       '@seta/core':
         specifier: workspace:^
         version: link:../core
+      '@seta/knowledge':
+        specifier: workspace:^
+        version: link:../knowledge
       '@seta/pm':
         specifier: workspace:*
         version: link:../pm
@@ -1150,6 +1165,9 @@ importers:
       '@seta/shared-retrieval':
         specifier: workspace:^
         version: link:../shared-retrieval
+      '@seta/shared-storage':
+        specifier: workspace:^
+        version: link:../shared-storage
       '@seta/shared-types':
         specifier: workspace:^
         version: link:../shared-types
@@ -1184,6 +1202,9 @@ importers:
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
+      ai:
+        specifier: ^6.0.200
+        version: 6.0.200(zod@4.4.3)
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
