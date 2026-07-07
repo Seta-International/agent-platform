@@ -27,6 +27,12 @@ export async function editRequisition(input: {
     throw new HiringError('CONFLICT', 'version mismatch');
   }
 
+  const effectiveStart = patch.start_date ?? current.start_date;
+  const effectiveDue = patch.due_date ?? current.due_date;
+  if (effectiveStart && effectiveDue && effectiveStart >= effectiveDue) {
+    throw new HiringError('VALIDATION', 'start_date must be before due_date');
+  }
+
   const entries = Object.entries(patch).filter(([, v]) => v !== undefined) as [string, unknown][];
   const changes = entries.filter(
     ([f, v]) => JSON.stringify((current as Record<string, unknown>)[f]) !== JSON.stringify(v),

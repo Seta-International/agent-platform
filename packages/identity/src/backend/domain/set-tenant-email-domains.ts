@@ -1,10 +1,40 @@
 import { emit, withEmit } from '@seta/core/events';
+import type { NodeTx } from '@seta/shared-db';
 import { sql } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import { graphGetDomains } from '../sso/graph.ts';
 import { getProviderRow, toEmitActor, toEventActor } from '../sso/helpers.ts';
 import type { Actor } from './create-user.ts';
+
+// Serializes the check-then-write below (see rejectIfDomainsTaken's second call site):
+// two concurrent callers claiming the same domain for different tenants must not both pass
+// the conflict check before either commits. A fixed advisory-lock key applied inside the
+// write transaction turns "check, then write" into an atomic unit for this one operation —
+// unrelated writes elsewhere are unaffected, and the lock auto-releases at commit/rollback.
+const EMAIL_DOMAINS_LOCK_KEY = sql`hashtext('core.tenants.email_domains')::bigint`;
+
+async function rejectIfDomainsTaken(
+  db: ReturnType<typeof identityDb> | NodeTx,
+  tenantId: string,
+  normalized: string[],
+): Promise<void> {
+  const conflicts = await db.execute<{ id: string }>(sql`
+    SELECT id FROM core.tenants -- cross-schema-read: core.tenants is owned by core; identity reads it for domain routing.
+    WHERE id <> ${tenantId}
+      AND email_domains && ARRAY[${sql.join(
+        normalized.map((d) => sql`${d}`),
+        sql`, `,
+      )}]::text[]
+    LIMIT 1
+  `);
+  if (conflicts.rows.length > 0) {
+    throw new IdentityError(
+      'DOMAIN_TAKEN',
+      'One or more domains are already claimed by another tenant',
+    );
+  }
+}
 
 export async function setTenantEmailDomains(
   args: { tenant_id: string; email_domains: string[] },
@@ -20,22 +50,9 @@ export async function setTenantEmailDomains(
   ).sort();
 
   if (normalized.length > 0) {
-    // Cross-tenant uniqueness (anti-takeover): no other tenant may claim these domains.
-    const conflicts = await identityDb().execute<{ id: string }>(sql`
-      SELECT id FROM core.tenants -- cross-schema-read: core.tenants is owned by core; identity reads it for domain routing.
-      WHERE id <> ${args.tenant_id}
-        AND email_domains && ARRAY[${sql.join(
-          normalized.map((d) => sql`${d}`),
-          sql`, `,
-        )}]::text[]
-      LIMIT 1
-    `);
-    if (conflicts.rows.length > 0) {
-      throw new IdentityError(
-        'DOMAIN_TAKEN',
-        'One or more domains are already claimed by another tenant',
-      );
-    }
+    // Fast pre-flight check (not itself race-safe — see the locked re-check right before the
+    // write, below) so an obviously-taken domain fails before paying for a Graph round-trip.
+    await rejectIfDomainsTaken(identityDb(), args.tenant_id, normalized);
 
     // When the tenant has an Entra provider, every domain must be verified in the Entra tenant.
     // Fail CLOSED if the linkage isn't projected in yet: we cannot verify domain ownership without
@@ -64,16 +81,25 @@ export async function setTenantEmailDomains(
     }
   }
 
-  await withEmit({ actor: toEmitActor(actor, args.tenant_id) }, async () => {
+  await withEmit({ actor: toEmitActor(actor, args.tenant_id) }, async (tx: NodeTx) => {
+    if (normalized.length > 0) {
+      // Close the race: hold the lock for exactly the check-and-write below, on the same
+      // transaction (`tx`, not a separate identityDb() connection) so a concurrent caller
+      // claiming the same domain either sees this write committed (and gets DOMAIN_TAKEN
+      // from its own re-check) or is blocked until this transaction ends.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(${EMAIL_DOMAINS_LOCK_KEY})`);
+      await rejectIfDomainsTaken(tx, args.tenant_id, normalized);
+    }
+
     // Raw SQL to update core.tenants — identity reaches across schemas by SQL,
     // not by importing core's Drizzle client (preserves modular-monolith boundary).
     if (normalized.length === 0) {
       // sql.join on an empty array produces invalid SQL — write the literal instead.
-      await identityDb().execute(sql`
+      await tx.execute(sql`
         UPDATE core.tenants SET email_domains = '{}'::text[] WHERE id = ${args.tenant_id}
       `);
     } else {
-      await identityDb().execute(sql`
+      await tx.execute(sql`
         UPDATE core.tenants SET email_domains = ARRAY[${sql.join(
           normalized.map((d) => sql`${d}`),
           sql`, `,

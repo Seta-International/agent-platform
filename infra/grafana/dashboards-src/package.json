@@ -1,0 +1,18 @@
+{
+  "name": "@seta/grafana-dashboards",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen": "tsx build.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@grafana/grafana-foundation-sdk": "^0.0.18"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "tsx": "^4.22.4",
+    "vitest": "^4.1.9"
+  }
+}

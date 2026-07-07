@@ -97,7 +97,11 @@ export async function setProjectAccess(
           aggregateId: project_id,
           eventType: PM_PROJECT_ACCESS_CHANGED,
           eventVersion: 1,
-          payload: { project_id, tenant_id: session.tenant_id },
+          payload: {
+            project_id,
+            tenant_id: session.tenant_id,
+            owner_worker_ids: grants.filter((g) => g.level === 'owner').map((g) => g.worker_id),
+          },
         });
       }
     },

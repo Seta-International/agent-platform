@@ -161,4 +161,21 @@ describe('activeAppId', () => {
   it('returns undefined when no namespace matches', () => {
     expect(activeAppId(appsForActive, '/account')).toBeUndefined();
   });
+  it('resolves a hideInLauncher system app (Settings) for chrome', () => {
+    const withSettings = [
+      ...appsForActive,
+      {
+        id: 'settings',
+        label: 'Settings',
+        icon: LayoutDashboard,
+        routeNamespace: '/settings',
+        requiredPermissions: [],
+        hideInLauncher: true,
+        useNavExtensions: () => [],
+        nav: [],
+      },
+    ] as AppManifest[];
+    expect(activeAppId(withSettings, '/settings/profile')).toBe('settings');
+    expect(activeAppId(withSettings, '/settings')).toBe('settings');
+  });
 });

@@ -1,3 +1,4 @@
+import { invalidateUserSessions } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
@@ -60,4 +61,6 @@ export async function revokeRole(assignmentId: string, actor: Actor): Promise<vo
       });
     },
   );
+
+  await invalidateUserSessions(assignment.user_id);
 }

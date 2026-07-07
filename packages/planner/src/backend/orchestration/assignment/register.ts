@@ -1,6 +1,7 @@
 import type { MastraModelConfig } from '@mastra/core/llm';
 import type { MastraCompositeStore } from '@mastra/core/storage';
 import { SpecializedAgentRegistry } from '@seta/agent-sdk';
+import { buildActorSession } from '@seta/identity';
 import {
   type AddJob,
   type ChatStreamRun,
@@ -11,6 +12,9 @@ import {
   type RunStateRepository,
   runOrchestrationInline,
 } from '@seta/shared-orchestration';
+import { defaultAssignBySkillDeps } from '../../workflows/assign-by-skill/deps.ts';
+import { computeAssigneeSuggestions } from '../../workflows/assign-by-skill/workflow.ts';
+import { makeGroupMemberSkills } from './adapters.ts';
 import {
   makeAvaiCheckerAgent,
   makeGeneralAnswerAgent,
@@ -29,10 +33,12 @@ import type {
   AssignPort,
   AvailabilityPort,
   SkillSearchPort,
+  TaskAssigneesPort,
   TaskReaderPort,
   TaskSearchPort,
   UserProfilePort,
 } from './ports.ts';
+import type { SuggestAssignees } from './propose-assignment.tool.ts';
 
 export interface AssignmentPorts {
   taskReader: TaskReaderPort;
@@ -41,6 +47,7 @@ export interface AssignmentPorts {
   availability: AvailabilityPort;
   userProfileLookup: UserProfilePort;
   assign: AssignPort;
+  taskAssignees: TaskAssigneesPort;
 }
 
 export interface AssignmentOrchestrationRuntime {
@@ -97,10 +104,23 @@ export function buildAssignmentOrchestrationRuntime(deps: {
     taskSearch: ports.taskSearch,
     resolveModel,
   });
-  const skillMatcher = makeSkillMatcherAgent({ skillSearch: ports.skillSearch, resolveModel });
+  const skillMatcher = makeSkillMatcherAgent({
+    skillSearch: ports.skillSearch,
+    resolveModel,
+    groupMembers: makeGroupMemberSkills(),
+  });
   const avaiChecker = makeAvaiCheckerAgent({ availability: ports.availability });
   const recommender = makeRecommenderAgent();
   const generalAnswer = makeGeneralAnswerAgent({ resolveModel });
+  // Single-task recommend shares the inline suggestions engine: resolve the
+  // actor's session (for its role summary → RBAC), then run computeAssigneeSuggestions.
+  const suggest: SuggestAssignees = async ({ taskId, tenantId, actorUserId }) => {
+    const session = await buildActorSession({ user_id: actorUserId });
+    return computeAssigneeSuggestions(
+      { taskId, session: { tenantId, userId: actorUserId, roleSummary: session.role_summary } },
+      defaultAssignBySkillDeps(),
+    );
+  };
   const orchestratorDeps = {
     taskAnalyzer,
     skillMatcher,
@@ -109,6 +129,8 @@ export function buildAssignmentOrchestrationRuntime(deps: {
     generalAnswer,
     userProfileLookup: ports.userProfileLookup,
     assign: ports.assign,
+    suggest,
+    taskAssignees: ports.taskAssignees,
     resolveModel,
     mastraStorage,
   };

@@ -34,12 +34,6 @@ const Env = z.object({
         .filter(Boolean),
     ),
   SESSION_COOKIE_SAMESITE: z.enum(['strict', 'lax']).default('strict'),
-  CLAMAV_HOST: z.string().default('localhost'),
-  CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
-  KNOWLEDGE_AV_REQUIRED: z
-    .enum(['true', 'false'])
-    .default('true')
-    .transform((s) => s === 'true'),
 });
 
 export function parseEnv(raw: NodeJS.ProcessEnv) {

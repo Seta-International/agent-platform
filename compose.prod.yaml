@@ -1,0 +1,23 @@
+# PROD: Cloudflare (SSL "Full") proxies to the origin's public :443; Traefik
+# serves a self-signed cert, so no origin ACME is needed.
+services:
+  proxy:
+    ports: !override
+      - "80:80"
+      - "443:443"
+    environment:
+      PLATFORM_TLS_MODE: self-signed
+
+  # RDS infra metrics (storage-fill / burst-balance / connections) — these live
+  # ONLY in CloudWatch. Read-only metric API via the instance role (~$1-2/mo at
+  # 300s). NOT CloudWatch Logs. Scraped by Alloy at cloudwatch-exporter:9106.
+  cloudwatch-exporter:
+    image: prom/cloudwatch-exporter:v0.16.0
+    profiles: [obs-agent]
+    restart: unless-stopped
+    environment:
+      AWS_REGION: ${AWS_REGION}
+    volumes:
+      - ./infra/cloudwatch-exporter/rds.yml:/config/config.yml:ro
+    command: ["9106", "/config/config.yml"]
+    networks: [seta-internal, seta-edge]

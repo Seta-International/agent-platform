@@ -6,19 +6,19 @@ Seta is not officially supported on Coolify, Dokploy, Kamal, or other compose-wr
 
 - We do not run CI against these platforms.
 - Issues whose root cause is the platform's compose-wrapping behavior will be closed with a pointer to the upstream platform's support.
-- Compose YAML is treated as a portable contract; platform-specific extensions (`x-coolify-*`, `x-dokploy-*`) will not be added to the supported `compose.yml`.
+- Compose YAML is treated as a portable contract; platform-specific extensions (`x-coolify-*`, `x-dokploy-*`) will not be added to the supported `compose.yaml`.
 
 ## What you can do
 
-- Treat Seta's `compose.yml` as a starting point. Most compose-wrappers ingest standard compose files cleanly.
+- Treat Seta's `compose.yaml` as a starting point. Most compose-wrappers ingest standard compose files cleanly.
 - Map env vars to the platform's secret store. Do not commit `.env` to the platform's UI as plain config if it offers a separate secrets surface.
-- For traffic routing, prefer the platform's own reverse-proxy if it has one (Coolify ships Traefik; Dokploy ships Caddy) — strip the `proxy` service from `compose.yml` and let the platform terminate TLS.
+- For traffic routing, prefer the platform's own reverse-proxy if it has one (Coolify ships Traefik; Dokploy ships Caddy) — strip the `proxy` service from `compose.yaml` and let the platform terminate TLS.
 
 ## Coolify
 
 - Coolify's compose support handles `pull_policy: always` and `depends_on` cleanly.
 - The `migrator` one-shot pattern works as a Coolify "Run Command" in the resource UI.
-- Persistent volumes: declare them in `compose.yml`; Coolify provisions backing storage.
+- Persistent volumes: declare them in `compose.yaml`; Coolify provisions backing storage.
 - Coolify ships its own Traefik. Remove Seta's `proxy` service and let Coolify route to `platform-web` and `platform-server` directly.
 
 ## Dokploy

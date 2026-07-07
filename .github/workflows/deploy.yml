@@ -1,4 +1,4 @@
-name: Deploy (Dev/UAT)
+name: Deploy
 
 # Pull the prebuilt image from ECR and deploy to the chosen environment.
 # Environment is an input mapped to a GitHub Environment (scoped vars/secrets).
@@ -11,7 +11,7 @@ on:
         description: 'Target environment'
         required: true
         type: choice
-        options: [dev, uat]
+        options: [dev, uat, prod, prod-recovery]
       image_tag:
         description: 'Image tag to deploy: latest or a git-<sha>'
         required: false
@@ -26,9 +26,48 @@ permissions:
   contents: read
 
 jobs:
+  authorize:
+    name: Authorize (prod gates only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify triggering actor is a repo admin
+        # Admin gate is prod-only. dev/uat are open to any write collaborator;
+        # prod-recovery stays ungated so self-heal can redeploy unattended.
+        if: ${{ inputs.environment == 'prod' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          perm=$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" --jq '.permission')
+          echo "actor=${ACTOR} permission=${perm}"
+          if [ "$perm" != "admin" ]; then
+            echo "::error::Deploys are restricted to repo admins. '${ACTOR}' has '${perm}' permission."
+            exit 1
+          fi
+          echo "${ACTOR} is a repo admin, proceeding"
+
+      - name: Enforce release branch for prod
+        # prod may only ship from a release/* branch. prod-recovery is exempt:
+        # self-heal re-runs it from main's schedule to redeploy a pinned image.
+        if: ${{ inputs.environment == 'prod' }}
+        env:
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$REF" in
+            release/*) echo "ref '$REF' is a release branch" ;;
+            *)
+              echo "::error::prod deploys must run from a release/* branch (got '$REF')"
+              exit 1
+              ;;
+          esac
+
   deploy:
     name: Deploy to ${{ inputs.environment }}
-    runs-on: [self-hosted, "${{ inputs.environment }}"]
+    needs: authorize
+    runs-on: [self-hosted, "${{ inputs.environment == 'prod-recovery' && 'prod' || inputs.environment }}"]
     environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -76,6 +115,7 @@ jobs:
           OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL }}
           VLLM_BASE_URL: ${{ vars.VLLM_BASE_URL }}
           VLLM_API_KEY: ${{ vars.VLLM_API_KEY }}
+          LLAMACPP_BASE_URL: ${{ vars.LLAMACPP_BASE_URL }}
           EMBED_MODEL: ${{ vars.EMBED_MODEL }}
           MAILER_DEFAULT_TRANSPORT: ${{ vars.MAILER_DEFAULT_TRANSPORT }}
           MAILER_DEFAULT_SENDER: ${{ vars.MAILER_DEFAULT_SENDER }}
@@ -85,6 +125,7 @@ jobs:
           M365_GRAPH_CLIENT_ID: ${{ vars.M365_GRAPH_CLIENT_ID }}
           # ── Environment Secrets (sensitive) ──────────────────────────────
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_APP_URL: ${{ secrets.DATABASE_APP_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           CRYPTO_LOCAL_MASTER_KEY: ${{ secrets.CRYPTO_LOCAL_MASTER_KEY }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
@@ -93,35 +134,57 @@ jobs:
           S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
           S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LLAMACPP_API_KEY: ${{ secrets.LLAMACPP_API_KEY }}
           MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
           MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
           M365_WEBHOOK_SECRET: ${{ secrets.M365_WEBHOOK_SECRET }}
           M365_GRAPH_CLIENT_SECRET: ${{ secrets.M365_GRAPH_CLIENT_SECRET }}
           MAILER_DEFAULT_SMTP_URL: ${{ secrets.MAILER_DEFAULT_SMTP_URL }}
           MAILER_GRAPH_CLIENT_SECRET: ${{ secrets.MAILER_GRAPH_CLIENT_SECRET }}
-        run: bash scripts/render-env.sh "$ENV_FILE"
+        run: bash scripts/release/render-env.sh "$ENV_FILE"
+
+      - name: Start bundled data (only when bundled-db profile is on)
+        if: contains(vars.COMPOSE_PROFILES, 'bundled-db')
+        shell: bash
+        env:
+          COMPOSE_FILE: ${{ vars.COMPOSE_FILE }}
+          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
+          ENV_FILE: ${{ vars.ENV_FILE }}
+          COMPOSE_PROJECT: ${{ vars.COMPOSE_PROJECT }}
+        run: docker compose -p "$COMPOSE_PROJECT" --env-file "$ENV_FILE" up -d --wait postgres
+
+      - name: Pre-migration RDS snapshot (prod)
+        # Skipped until RDS_INSTANCE_ID is set (box role needs rds:CreateDBSnapshot).
+        if: ${{ startsWith(inputs.environment, 'prod') && vars.RDS_INSTANCE_ID != '' }}
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          DB_ID: ${{ vars.RDS_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          SNAP="${DB_ID}-pre-${{ inputs.image_tag }}-$(date +%Y%m%d%H%M%S)"
+          SNAP=$(echo "$SNAP" | tr -c 'a-zA-Z0-9-' '-' | cut -c1-255)
+          aws rds create-db-snapshot --region "$AWS_REGION" \
+            --db-instance-identifier "$DB_ID" --db-snapshot-identifier "$SNAP"
+          aws rds wait db-snapshot-available --region "$AWS_REGION" --db-snapshot-identifier "$SNAP"
+          echo "Pre-migration snapshot: $SNAP"
 
       - name: Pull, migrate, and bring up the stack
         shell: bash
         env:
+          COMPOSE_FILE: ${{ vars.COMPOSE_FILE }}
+          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
           ENV_FILE: ${{ vars.ENV_FILE }}
           COMPOSE_PROJECT: ${{ vars.COMPOSE_PROJECT }}
-          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
         run: |
           set -euo pipefail
-          PROFILE_ARGS=()
-          [ -n "${COMPOSE_PROFILES:-}" ] && PROFILE_ARGS=(--profile "$COMPOSE_PROFILES")
-          dc() { docker compose -p "$COMPOSE_PROJECT" "${PROFILE_ARGS[@]}" --env-file "$ENV_FILE" "$@"; }
+          dc() { docker compose -p "$COMPOSE_PROJECT" --env-file "$ENV_FILE" "$@"; }
 
-          dc pull
-
-          # Bundled data services (dev only). When COMPOSE_PROFILES is empty (UAT),
-          # postgres/minio are profile-excluded and the stack uses external RDS/S3.
-          if [ -n "${COMPOSE_PROFILES:-}" ]; then
-            dc up -d --wait postgres minio
-            dc run --rm minio-setup
-          fi
-
+          # Pull only the per-deploy app images from ECR. Public infra images
+          # (traefik, pgvector) are version-pinned and cached on the box; a blanket
+          # `dc pull` re-fetches them from Docker Hub every deploy, which hard-fails
+          # the box when Hub is unreachable (flaky IPv6). `dc up` below still pulls
+          # any genuinely-missing image via its default pull-if-missing policy.
+          dc pull server web worker migrator
           dc run --rm migrator
           dc up -d --remove-orphans --wait --wait-timeout 300 proxy server web worker
 
@@ -142,8 +205,16 @@ jobs:
             echo "  attempt $i/12: HTTP $code — retrying in 5s…"
             sleep 5
           done
-          [ "$code" = "200" ] || { echo "❌ smoke failed (last HTTP $code)"; exit 1; }
-          echo "✅ ${{ inputs.environment }} deploy healthy (image_tag=${{ inputs.image_tag }})"
+          [ "$code" = "200" ] || { echo "smoke failed (last HTTP $code)"; exit 1; }
+          echo "${{ inputs.environment }} deploy healthy (image_tag=${{ inputs.image_tag }})"
+
+      - name: Record last-good prod image
+        # Best-effort (needs variables:write); must never fail a healthy deploy.
+        if: success() && inputs.environment == 'prod'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh variable set PROD_LAST_GOOD_TAG --body "${{ inputs.image_tag }}" -R "${{ github.repository }}"
 
   e2e:
     name: E2E (uat only)

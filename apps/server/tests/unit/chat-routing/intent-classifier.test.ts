@@ -66,4 +66,38 @@ describe('chat intent classifier (tier 2: assignment vs planner_qna)', () => {
     expect(llm).toHaveBeenCalledOnce();
     expect(out).toBe('assignment');
   });
+
+  it('routes weekly-planning intents to weekly_planner by rules (no LLM call)', async () => {
+    const phrases = [
+      'plan my week',
+      'Plan my week please',
+      'can you plan next week for me',
+      'weekly plan for my tasks',
+      'organize my week',
+      'organise my tasks',
+      'schedule my week',
+      'prioritize my tasks',
+      'lập kế hoạch tuần này',
+      'sắp xếp công việc tuần sau',
+    ];
+    for (const p of phrases) {
+      expect(await classify(p), p).toBe('weekly_planner');
+    }
+  });
+
+  it('weekly phrasing wins over ACTION_RE overlaps', async () => {
+    // "prioritize my tasks" contains "tasks" but is planning, not assignment.
+    expect(await classify('help me prioritize my tasks for this week')).toBe('weekly_planner');
+  });
+
+  it('non-planning task queries still route as before', async () => {
+    expect(await classify('what are my open tasks?')).toBe('planner_qna');
+    expect(await classify('who should I assign to this task?')).toBe('assignment');
+  });
+
+  it('LLM fallback can return weekly_planner', async () => {
+    const llm = vi.fn(async () => 'weekly_planner' as const);
+    const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+    expect(await c('hmm')).toBe('weekly_planner');
+  });
 });

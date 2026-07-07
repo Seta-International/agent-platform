@@ -17,8 +17,8 @@ describe('skill catalog schema', () => {
         'Frontend',
       ]);
       await pool.query(
-        `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
-        [crypto.randomUUID(), tenant, cat, 'React'],
+        `INSERT INTO core.skill (id, tenant_id, category_id, name, slug) VALUES ($1,$2,$3,$4,$5)`,
+        [crypto.randomUUID(), tenant, cat, 'React', 'react'],
       );
 
       const { rows } = await pool.query(
@@ -31,8 +31,8 @@ describe('skill catalog schema', () => {
 
       await expect(
         pool.query(
-          `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
-          [crypto.randomUUID(), tenant, cat, 'React'],
+          `INSERT INTO core.skill (id, tenant_id, category_id, name, slug) VALUES ($1,$2,$3,$4,$5)`,
+          [crypto.randomUUID(), tenant, cat, 'React', 'react'],
         ),
       ).rejects.toThrow(/duplicate key/);
     });

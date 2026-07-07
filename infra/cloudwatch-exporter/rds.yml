@@ -1,0 +1,27 @@
+region: ap-southeast-1
+period_seconds: 300
+metrics:
+  - aws_namespace: AWS/RDS
+    aws_metric_name: FreeStorageSpace
+    aws_dimensions: [DBInstanceIdentifier]
+    aws_statistics: [Average]
+  - aws_namespace: AWS/RDS
+    aws_metric_name: CPUUtilization
+    aws_dimensions: [DBInstanceIdentifier]
+    aws_statistics: [Average]
+  - aws_namespace: AWS/RDS
+    aws_metric_name: DatabaseConnections
+    aws_dimensions: [DBInstanceIdentifier]
+    aws_statistics: [Average, Maximum]
+  - aws_namespace: AWS/RDS
+    aws_metric_name: FreeableMemory
+    aws_dimensions: [DBInstanceIdentifier]
+    aws_statistics: [Average]
+  - aws_namespace: AWS/RDS
+    aws_metric_name: CPUCreditBalance
+    aws_dimensions: [DBInstanceIdentifier]
+    aws_statistics: [Average]
+  - aws_namespace: AWS/RDS
+    aws_metric_name: EBSByteBalance%
+    aws_dimensions: [DBInstanceIdentifier]
+    aws_statistics: [Average]

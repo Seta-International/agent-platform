@@ -1,7 +1,7 @@
 import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import { z } from 'zod';
-import { readMyProfile, setBio, setMySkills, setPresence } from '../../index.ts';
+import { readMyProfile, setBio, setMySkillLevel, setMySkills, setPresence } from '../../index.ts';
 
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -16,6 +16,7 @@ const presenceBody = z.object({
 });
 
 const skillsBody = z.object({ skills: z.array(z.string()) });
+const skillLevelBody = z.object({ level: z.number().int().min(1).max(5).nullable() });
 const bioBody = z.object({ bio: z.string().max(500).nullable() });
 
 // Self-service profile: every route resolves the caller's own person via the
@@ -41,6 +42,17 @@ export function registerPeopleMeRoutes(app: Hono<SessionEnv>): void {
     if (!parsed.success)
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
     await setMySkills(c.get('user'), { skills: parsed.data.skills });
+    return c.body(null, 204);
+  });
+
+  app.patch('/api/people/v1/me/skills/:skillId', async (c) => {
+    const parsed = skillLevelBody.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
+    await setMySkillLevel(c.get('user'), {
+      skill_id: c.req.param('skillId'),
+      level: parsed.data.level,
+    });
     return c.body(null, 204);
   });
 

@@ -13,6 +13,7 @@ import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/sh
 import { closePools, initPools } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
+import { demoSuggestionsCommand } from './commands/demo-suggestions.ts';
 import { runEmbedBackfill } from './commands/embed-backfill.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
@@ -238,28 +239,60 @@ program
 program
   .command('seed')
   .description(
-    'Seed the cross-module dev fixture (tenant + admin, people, PM, planner, hiring) from the private/ workbook. Auto-creates the tenant + admin; degrades to tenant + admin only when the gitignored workbook is absent. Idempotent.',
+    'Seed the cross-module fixture (tenant + admin, people, PM, planner boards, org structure) from the private/ workbook. The tenant admin is the first ADMIN-role employee in the workbook (override with --admin-email). Degrades to tenant + admin only when the gitignored workbook is absent. Real data only by default; pass --demo to add synthetic planner tasks, hiring candidates, and edge cases (never in prod). Idempotent.',
   )
   .requiredOption('--tenant <slug>', 'tenant slug', 'seta-international')
   .option('--dir <dir>', 'fixture workbook dir', 'private')
-  .option('--admin-email <email>', 'admin email', 'admin@example.com')
+  .option(
+    '--admin-email <email>',
+    'bootstrap admin (defaults to first ADMIN-role workbook employee)',
+  )
   .option('--password <pw>', 'default password for seeded logins', 'ChangeMe@2026')
-  .action(async (o: { tenant: string; dir: string; adminEmail: string; password?: string }) => {
+  .option(
+    '--demo',
+    'also seed synthetic demo data (planner tasks, hiring, edge cases) — never in prod',
+    false,
+  )
+  .action(
+    async (o: {
+      tenant: string;
+      dir: string;
+      adminEmail?: string;
+      password?: string;
+      demo?: boolean;
+    }) => {
+      try {
+        const base = process.env.INIT_CWD ?? process.cwd();
+        const { resolve } = await import('node:path');
+        await seedFixtureCommand({
+          tenant: o.tenant,
+          dir: resolve(base, o.dir),
+          adminEmail: o.adminEmail,
+          password: o.password,
+          demo: o.demo,
+        });
+      } finally {
+        await closePools();
+      }
+    },
+  );
+
+plannerCommand(program);
+
+program
+  .command('demo-suggestions')
+  .description(
+    'Seed a self-contained "AI Suggestions Demo" board: grants catalog skills to a few real members, then creates skill-labelled tasks plus missing-label / missing-description edge cases for end-to-end testing of inline assignee suggestions. Idempotent; never for prod.',
+  )
+  .requiredOption('--tenant <slug>', 'tenant slug', 'seta-international')
+  .option('--admin-email <email>', 'bootstrap admin', 'hung.vu@seta-international.vn')
+  .action(async (opts: { tenant: string; adminEmail: string }) => {
     try {
-      const base = process.env.INIT_CWD ?? process.cwd();
-      const { resolve } = await import('node:path');
-      await seedFixtureCommand({
-        tenant: o.tenant,
-        dir: resolve(base, o.dir),
-        adminEmail: o.adminEmail,
-        password: o.password,
-      });
+      await demoSuggestionsCommand({ tenant: opts.tenant, adminEmail: opts.adminEmail });
     } finally {
       await closePools();
     }
   });
-
-plannerCommand(program);
 
 program
   .command('embed-backfill')

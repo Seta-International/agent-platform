@@ -10,7 +10,7 @@ Get from a fresh `git clone` to a running app with seeded data. On a machine tha
 | pnpm | 11+ | `pnpm --version` (`corepack enable` if missing) |
 | Docker | running | `docker info` |
 
-Postgres, Redis, and the telemetry stack all run in Docker — you do not install them locally.
+Postgres runs in Docker — you do not install it locally.
 
 ## 1. Clone and install
 
@@ -39,7 +39,7 @@ Everything else (SSO, mail, S3, telemetry, AV scanning) is optional for local de
 ## 3. Start Postgres and run migrations
 
 ```bash
-pnpm db:up        # starts Postgres (host port 5542), Redis, telemetry
+pnpm db:up        # starts Postgres (host port 5542)
 pnpm db:migrate   # applies all module migrations
 ```
 
@@ -64,9 +64,9 @@ Useful flags: `--tenant <slug>`, `--admin-email <email>`, `--dir <path>`, `--pas
 ### Option B — empty sandbox tenant (fastest)
 
 ```bash
-bash scripts/tenant-bootstrap.sh                  # admin + 1 member
-MEMBER_COUNT=5 bash scripts/tenant-bootstrap.sh   # admin + 5 members
-SLUG=widgets bash scripts/tenant-bootstrap.sh     # custom slug
+bash scripts/dev/tenant-bootstrap.sh                  # admin + 1 member
+MEMBER_COUNT=5 bash scripts/dev/tenant-bootstrap.sh   # admin + 5 members
+SLUG=widgets bash scripts/dev/tenant-bootstrap.sh     # custom slug
 ```
 
 Sign in as `admin@example.com` / `ChangeMe@2026`, or as a member `member1@example.test` / `ChangeMe@2026`. Each member is seeded with `planner.member`, `knowledge.member`, and `agent.member`, so Planner, Knowledge, and Chat are usable out of the box (nav is permission-gated).
@@ -87,7 +87,7 @@ Open <http://localhost:5173/login> and sign in with the credentials from step 4.
 |---|---|
 | `ECONNREFUSED ... 5542` or migrations hang | Postgres isn't up. Run `pnpm db:up` and wait a few seconds, then retry. |
 | Login page rejects valid-looking credentials | No tenant/user provisioned yet — run step 4. There is no self-signup. |
-| Port `5542`/`6489`/`5173` already in use | Another stack is bound to it. Stop it, or change the host port in `infra/docker/compose.dev.yml`. |
+| Port `5542`/`5173` already in use | Another stack is bound to it. Stop it, or change the host port via `POSTGRES_HOST_PORT` in `.env`. |
 | `BETTER_AUTH_SECRET`/`CRYPTO_LOCAL_MASTER_KEY` errors at boot | The secret is unset or too short — regenerate per step 2. |
 | Cookies/redirects misbehave | Confirm `.env` has `NODE_ENV=development` and `PUBLIC_URL=http://localhost:5173` (the local defaults). |
 | Start completely over | `pnpm db:reset` tears the volume down, re-migrates, and re-seeds. |

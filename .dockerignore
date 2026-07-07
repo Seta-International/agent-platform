@@ -58,5 +58,4 @@ AGENTS.md
 CLAUDE.md
 
 # Local dev infrastructure that should not be in the image build context
-infra/docker/compose.dev.yml
 infra/docker/otel-collector-config.yaml

@@ -39,6 +39,7 @@ describe('assign-by-skill schemas', () => {
         hoursAvailableThisWeek: null,
         timezone: null,
         finalScore: 1.5,
+        rationale: null,
       }),
     ).toThrow();
   });

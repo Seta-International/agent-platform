@@ -71,7 +71,9 @@ export function AppShell({
   );
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const [launcherOpen, setLauncherOpen] = React.useState(false);
-  const activeApp = apps.find((a) => a.id === activeAppId) ?? apps[0];
+  // No match → chrome-less (bare brand crumb, no left nav). Never silently
+  // adopt the first app, which would mislabel global pages like Settings.
+  const activeApp = apps.find((a) => a.id === activeAppId);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -119,8 +119,8 @@ The shape below is calibrated for this envelope. Outside it, the trade-offs in �
 | AI SDK | Vercel AI SDK v6 | [§11](./tech-stack.md#11-ai-sdk-v6) |
 | Chat UI | assistant-ui v0.14 | [§12](./tech-stack.md#12-assistant-ui) |
 | Frontend | React 19 + TanStack Router + Query + shadcn/ui + Tailwind 4 | [§14–17](./tech-stack.md#14-react-19) |
-| Cloud | AWS ECS Fargate + RDS + S3 + Secrets Manager | [§18](./tech-stack.md#18-aws-ecs-fargate) |
-| IaC | OpenTofu | [§19](./tech-stack.md#19-opentofu) |
+| Cloud | AWS ECS Fargate + RDS + S3 + Secrets Manager | [§18](./tech-stack.md#18-ecs-fargate) |
+| IaC | Terraform | [§19](./tech-stack.md#19-terraform) |
 | Observability | OpenTelemetry + pino + CloudWatch | [§20](./tech-stack.md#20-opentelemetry--pino) |
 
 ---
@@ -157,7 +157,7 @@ sdks/
 
 infra/
 ├── docker/    # Dockerfile + compose
-└── opentofu/  # AWS reference IaC
+└── terraform/ # AWS reference IaC
 ```
 
 ---

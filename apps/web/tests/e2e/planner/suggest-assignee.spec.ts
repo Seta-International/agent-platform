@@ -1,74 +1,94 @@
-// End-to-end coverage for PR3 §4.2 (Suggest button → workflow REST → inbox)
-// and §5.8 (chat-vs-button coexistence via pending_assign_workflow_run_id).
+// End-to-end coverage for FUT-397: the inline "Suggested" section inside the
+// Add-assignee popover (GET /api/planner/v1/tasks/:id/assignee-suggestions),
+// which replaces the old "Suggest assignee" button that started a standalone
+// workflow run and surfaced it via the inbox.
 //
-// Prereq: full dev stack reachable + sandbox tenant seeded. The Suggest
-// workflow's first step calls the embedding provider, so OPENAI_API_KEY (or a
-// stubbed embedder) must be set in the dev env for the happy path.
+// Prereq: full dev stack reachable + sandbox tenant seeded. Suggestion
+// ranking runs the same computeAssigneeSuggestions pipeline the old
+// assignBySkill workflow used: its skill-vector signal calls the embedding
+// provider (OPENAI_API_KEY or a stubbed embedder), and its exact-overlap
+// signal needs planner.assignee_projection.skills populated for a group
+// member — neither is guaranteed by the plain e2e fixture tenant, so the
+// Suggested section may legitimately settle on "No strong matches" here.
+// This spec always asserts the merged-popover contract (the heading renders;
+// a suggested row, when present, carries a % score badge and assigns without
+// closing the popover) and falls back to the "All members" list — governed
+// by the identical assign-and-keep-open CommandItem — so Task 5's core
+// regression is exercised even when no candidate clears the ranking bar.
 import { expect, test } from '@playwright/test';
 import { resolveFirstTaskId, resolvePlanId } from '../helpers/ids';
 
-test('Suggest button posts to REST and surfaces the run via the inbox toast', async ({
+test('inline assignee suggestions assign from the Add-assignee popover', async ({
   page,
   request,
 }) => {
   const planId = await resolvePlanId(request, 'Engineering', 'Q2 Infrastructure');
   const taskId = await resolveFirstTaskId(request, planId);
 
-  // Ensure the task has no assignees so the Suggest button renders.
+  // Start from a clean slate so "Add assignee" is available and no row is
+  // pre-marked "Added".
   await request.put(`/api/planner/v1/tasks/${taskId}/assignees`, {
     data: { assignees: [] },
   });
 
-  // Capture the workflow-start POST so we can assert the contract.
-  const startReq = page.waitForRequest(
-    (r) =>
-      r.url().endsWith('/api/agent/v1/workflows/runs/assignBySkill/start') && r.method() === 'POST',
-  );
-  const startResp = page.waitForResponse(
-    (r) =>
-      r.url().endsWith('/api/agent/v1/workflows/runs/assignBySkill/start') &&
-      r.request().method() === 'POST',
-  );
-
   await page.goto(`/planner/plans/${planId}/tasks/${taskId}`);
-  await page.getByRole('button', { name: /Suggest assignee/i }).click();
+  await page.getByRole('button', { name: 'Add assignee' }).click();
 
-  const req = await startReq;
-  expect(req.postDataJSON()).toMatchObject({ taskId });
-  const resp = await startResp;
-  expect(resp.status()).toBe(200);
-  const body = (await resp.json()) as { runId: string };
-  expect(body.runId).toMatch(/^[0-9a-f-]{36}$/);
+  const searchInput = page.getByPlaceholder('Search group members');
+  await expect(searchInput).toBeVisible();
+  await expect(page.getByText('Suggested')).toBeVisible();
 
-  await expect(page.getByText(/Suggest started/i)).toBeVisible();
-  const inboxLink = page.getByRole('button', { name: /Open in inbox/i });
-  await expect(inboxLink).toBeVisible();
-  await inboxLink.click();
-  await page.waitForURL(new RegExp(`/agent/workflows/runs/${body.runId}`));
-});
+  // cmdk renders each CommandGroup as a `[cmdk-group]` element (its
+  // documented styling hook); scope by heading text to tell the "Suggested"
+  // rows apart from "All members" without depending on DOM order.
+  const suggestedGroup = page.locator('[cmdk-group]').filter({ hasText: 'Suggested' });
+  const allMembersGroup = page.locator('[cmdk-group]').filter({ hasText: 'All members' });
 
-test('task card shows the in-progress link when a Suggest run is already pending', async ({
-  page,
-  request,
-}) => {
-  const planId = await resolvePlanId(request, 'Engineering', 'Q2 Infrastructure');
-  const taskId = await resolveFirstTaskId(request, planId);
-  await request.put(`/api/planner/v1/tasks/${taskId}/assignees`, {
-    data: { assignees: [] },
-  });
+  // The group-member list always resolves to at least one row (the
+  // signed-in admin, auto-added as the group's owner on creation).
+  await expect(allMembersGroup.getByRole('option').first()).toBeVisible();
 
-  // Start a Suggest run by clicking the button once. The workflow's
-  // first step may fail without an embedding provider, but the
-  // workflow_runs row is written at run-started (before any step
-  // executes) so pending_assign_workflow_run_id resolves on re-fetch.
-  await page.goto(`/planner/plans/${planId}/tasks/${taskId}`);
-  await page.getByRole('button', { name: /Suggest assignee/i }).click();
-  await expect(page.getByText(/Suggest started/i)).toBeVisible();
+  // The suggestions query settles into either real rows or an empty/error
+  // note; wait for either before deciding which list to act on.
+  await expect(
+    suggestedGroup
+      .getByRole('option')
+      .first()
+      .or(suggestedGroup.getByText(/No strong matches|Couldn't load suggestions/)),
+  ).toBeVisible({ timeout: 15_000 });
 
-  // Re-load the detail page so the task query refetches and sees the
-  // pending workflow run.
-  await page.reload();
-  const link = page.getByTestId('suggest-in-progress-link');
-  await expect(link).toBeVisible();
-  await expect(link).toContainText(/Suggest in progress/i);
+  const suggestedOptions = suggestedGroup.getByRole('option');
+  const hasSuggestion = (await suggestedOptions.count()) > 0;
+  if (hasSuggestion) {
+    // Score badge, e.g. "82%".
+    await expect(suggestedOptions.first()).toContainText('%');
+  }
+  const candidate = hasSuggestion
+    ? suggestedOptions.first()
+    : allMembersGroup.getByRole('option').first();
+
+  const assignReqP = page.waitForRequest(
+    (r) => r.url().endsWith('/assign') && r.method() === 'POST',
+  );
+  await candidate.click();
+  const assignReq = await assignReqP;
+  const { user_id: assignedUserId } = assignReq.postDataJSON() as { user_id: string };
+
+  // Assigning keeps the popover open — the search box is still visible, and
+  // the picked row now reads "Added" rather than the popover closing.
+  await expect(searchInput).toBeVisible();
+  await expect(candidate).toContainText('Added');
+
+  await page.keyboard.press('Escape');
+
+  const taskRes = await request.get(`/api/planner/v1/tasks/${taskId}`);
+  expect(taskRes.ok()).toBe(true);
+  const { assignees } = (await taskRes.json()) as {
+    assignees: Array<{ user_id: string; display_name: string }>;
+  };
+  const assigned = assignees.find((a) => a.user_id === assignedUserId);
+  expect(assigned).toBeTruthy();
+  await expect(page.getByRole('region', { name: 'Assignees' })).toContainText(
+    assigned!.display_name,
+  );
 });

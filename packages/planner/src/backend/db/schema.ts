@@ -438,7 +438,6 @@ export const assigneeProjection = plannerSchema.table(
     tenant_id: uuid('tenant_id').notNull(),
     display_name: text('display_name').notNull(),
     email: text('email').notNull(),
-    skills: text('skills').array().default([]).notNull(),
     availability_status: textEnum('availability_status', AVAILABILITY_STATUS).notNull(),
     timezone: text('timezone').notNull(),
     ooo_until: timestamp('ooo_until', { withTimezone: true }),

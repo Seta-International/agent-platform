@@ -41,7 +41,7 @@ export function NewCandidateDialog() {
   const [error, setError] = useState<string | null>(null);
 
   const { data: reqs } = useQuery({
-    queryKey: hiringKeys.requisitions(),
+    queryKey: hiringKeys.requisitionOptions(),
     queryFn: fetchRequisitions,
   });
   const openReqs = (reqs ?? []).filter((r) => r.status === 'open' || r.status === 'on_hold');

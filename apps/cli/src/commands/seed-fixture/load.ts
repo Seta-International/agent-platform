@@ -14,6 +14,20 @@ export interface EmployeeRec {
   phone: string;
   gender: string;
   hire_date: string;
+  /**
+   * Persona group slugs this employee joins (in addition to the base `member` group), read
+   * verbatim from the workbook's `access_groups` column. Authoritative — edit the workbook to
+   * change who lands in admin/hr/pmo/bod/am/team-lead-pm. Empty ⇒ member only.
+   */
+  access_groups: string[];
+}
+
+/** Split a workbook `access_groups` cell (`"admin;hr"`) into trimmed, non-empty persona slugs. */
+function parseAccessGroups(cell: string | undefined): string[] {
+  return (cell ?? '')
+    .split(/[;,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export interface ProjectRec {
@@ -56,9 +70,27 @@ function sheet(wb: _XLSX.WorkBook, name: string): Record<string, string>[] {
   });
 }
 
+/**
+ * Bootstrap-admin identity: the first workbook employee whose primary_role is ADMIN.
+ * Seeding runs under this person's session, so the tenant admin is a real employee
+ * (later reconciled idempotently by the people+identity phase) rather than a synthetic
+ * account. Returns undefined when the sheet has no ADMIN-role row.
+ */
+export function firstAdminEmployee(
+  employees: EmployeeRec[],
+): { email: string; name: string } | undefined {
+  const e = employees.find(
+    (x) => x.primary_role?.trim().toUpperCase() === 'ADMIN' && x.work_email?.trim(),
+  );
+  return e ? { email: e.work_email.trim(), name: e.full_name.trim() } : undefined;
+}
+
 export function loadFixtures(dir: string) {
   const wb = XLSX.readFile(join(dir, FIXTURE_FILE));
-  const employees = sheet(wb, 'Employees') as unknown as EmployeeRec[];
+  const employees: EmployeeRec[] = sheet(wb, 'Employees').map((r) => ({
+    ...(r as unknown as EmployeeRec),
+    access_groups: parseAccessGroups(r.access_groups),
+  }));
   const projects = sheet(wb, 'Projects') as unknown as ProjectRec[];
   const allocations: AllocationRec[] = sheet(wb, 'Allocations').map((r) => ({
     employee_id: r.employee_id ?? '',

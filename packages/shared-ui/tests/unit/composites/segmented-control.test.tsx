@@ -79,4 +79,27 @@ describe('SegmentedControl', () => {
     expect(firstTab.className).toMatch(/\bpx-3\b/);
     expect(firstTab.className).toMatch(/\btext-sm\b/);
   });
+
+  it('disables an option and explains why on hover, without blocking other options', async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    const optsWithDisabled = [
+      { value: 'list' as const, label: 'List' },
+      { value: 'grid' as const, label: 'Grid', disabled: true, disabledReason: 'Coming soon' },
+    ];
+    render(
+      <SegmentedControl value="list" onValueChange={onValueChange} options={optsWithDisabled} />,
+    );
+    const gridTab = screen.getByRole('tab', { name: 'Grid' });
+    expect(gridTab).toBeDisabled();
+
+    await user.click(gridTab);
+    expect(onValueChange).not.toHaveBeenCalled();
+
+    await user.hover(gridTab);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Coming soon');
+
+    await user.click(screen.getByRole('tab', { name: 'List' }));
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
 });

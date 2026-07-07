@@ -40,7 +40,7 @@ describe('<KanbanColumn> header', () => {
 
   it('shows Add task and More options buttons when callbacks provided', () => {
     col({ onCreateTask: vi.fn(), onDelete: vi.fn() });
-    expect(screen.getByTitle('Add task (C)')).toBeInTheDocument();
+    expect(screen.getByTitle('Add task')).toBeInTheDocument();
     expect(screen.getByTitle('More options')).toBeInTheDocument();
   });
 });
@@ -127,7 +127,7 @@ describe('<KanbanColumn> inline rename', () => {
     col({ onRename: vi.fn(), onCreateTask: vi.fn() });
     fireEvent.click(screen.getByTitle('More options'));
     fireEvent.click(screen.getByRole('menuitem', { name: /rename bucket/i }));
-    expect(screen.queryByTitle('Add task (C)')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Add task')).not.toBeInTheDocument();
     expect(screen.queryByTitle('More options')).not.toBeInTheDocument();
   });
 
@@ -289,6 +289,37 @@ describe('<KanbanColumn> quick-create submit', () => {
     );
     expect(screen.getByPlaceholderText('Task title')).toBeInTheDocument();
     expect(onCreateTask).not.toHaveBeenCalled();
+  });
+
+  it('does not create a second task when Enter fires again before the first submission resolves (FUT-390)', async () => {
+    let resolveCreate!: () => void;
+    const onCreateTask = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+    render(
+      <KanbanColumn
+        name="Todo"
+        count={0}
+        onCreateTask={onCreateTask}
+        droppable={{}}
+        draggableHandle={{}}
+      >
+        <span />
+      </KanbanColumn>,
+    );
+    fireEvent.click(screen.getByText('+ Add a task'));
+    const input = screen.getByPlaceholderText('Task title');
+    fireEvent.change(input, { target: { value: 'Test' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    resolveCreate();
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText('Task title')).not.toBeInTheDocument(),
+    );
+    expect(onCreateTask).toHaveBeenCalledTimes(1);
   });
 
   it('shows an inline error when onCreateTask rejects', async () => {

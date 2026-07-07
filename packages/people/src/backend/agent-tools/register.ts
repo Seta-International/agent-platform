@@ -3,8 +3,10 @@ import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
 import { peopleGetAvailabilitySpec } from './get-availability-for-user.ts';
+import { buildGetSkillsForUsersSpec } from './get-skills-for-users.ts';
 import { peopleGetTimezoneSpec } from './get-timezone-for-user.ts';
 import { matchUsersToTopicTool } from './match-users-by-topic.ts';
+import { buildSearchUsersBySkillExactSpec } from './search-users-by-skill-exact.ts';
 import { buildSearchUsersBySkillVectorSpec } from './search-users-by-skill-vector.ts';
 
 // Lazy so a missing EMBED config doesn't break module load — only first use.
@@ -51,6 +53,8 @@ AgentRegistry.registerSpecialist({
 
 AgentRegistry.registerCrossModuleReadTool(peopleGetAvailabilitySpec);
 AgentRegistry.registerCrossModuleReadTool(peopleGetTimezoneSpec);
+AgentRegistry.registerCrossModuleReadTool(buildGetSkillsForUsersSpec());
+AgentRegistry.registerCrossModuleReadTool(buildSearchUsersBySkillExactSpec());
 AgentRegistry.registerCrossModuleReadTool(
   buildSearchUsersBySkillVectorSpec({
     provider: lazyProvider,

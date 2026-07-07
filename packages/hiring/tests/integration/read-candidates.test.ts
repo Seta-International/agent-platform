@@ -1,20 +1,28 @@
 import { createSkill, createSkillCategory } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
+import { resetPmDb } from '@seta/pm/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
+import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { resetHiringDb } from '../../src/backend/db/client.ts';
+import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
+import {
+  accountProjection,
+  application,
+  projectOwnerProjection,
+} from '../../src/backend/db/schema.ts';
 import {
   addCandidate,
   createRejectionReason,
   getCandidate,
+  getCandidateStageCounts,
   listCandidates,
   listTalentPool,
   openRequisition,
   rejectApplication,
   setRequisitionSkills,
 } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { buildSession, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -59,6 +67,8 @@ describe('read candidates', () => {
         const board = await listCandidates(t.adminSession);
         const row = board.find((r) => r.application_id === application_id);
         expect(row?.fit.strong).toBe(true);
+        expect(row?.applied_at).toBeInstanceOf(Date);
+        expect(row?.skills).toEqual([{ skill_id: react.id, skill_name: 'React', level: 4 }]);
 
         const detail = await getCandidate({ candidate_id, session: t.adminSession });
         expect(detail.timeline.length).toBeGreaterThan(0);
@@ -194,6 +204,265 @@ describe('read candidates', () => {
         const rec = poolRow?.recommended.find((r) => r.requisition_id === req2);
         expect(rec?.fit).toBeDefined();
         expect(typeof rec?.fit.score).toBe('number');
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('a BOD/PMO session sees every candidate across accounts on the board (FUT-335)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const accountA = crypto.randomUUID();
+        const accountB = crypto.randomUUID();
+
+        const { requisition_id: reqA } = await openRequisition({
+          title: 'Req in account A',
+          kind: 'new',
+          headcount: 1,
+          account_id: accountA,
+          session: t.adminSession,
+        });
+        const { requisition_id: reqB } = await openRequisition({
+          title: 'Req in account B',
+          kind: 'new',
+          headcount: 1,
+          account_id: accountB,
+          session: t.adminSession,
+        });
+        const { application_id: appA } = await addCandidate({
+          requisition_id: reqA,
+          name: 'Alice',
+          skills: [],
+          session: t.adminSession,
+        });
+        const { application_id: appB } = await addCandidate({
+          requisition_id: reqB,
+          name: 'Bob',
+          skills: [],
+          session: t.adminSession,
+        });
+
+        const bod = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['pm.bod', 'hiring.viewer_all'],
+        });
+
+        const board = await listCandidates(bod);
+        const ids = board.map((r) => r.application_id);
+        expect(ids).toContain(appA);
+        expect(ids).toContain(appB);
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('an AM sees only candidates applying to roles on their own account (FUT-336)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const amWorkerId = crypto.randomUUID();
+        const myAccount = crypto.randomUUID();
+        const otherAccount = crypto.randomUUID();
+
+        await hiringDb()
+          .insert(accountProjection)
+          .values([
+            {
+              account_id: myAccount,
+              tenant_id: t.tenant_id,
+              name: 'My Account',
+              am_worker_id: amWorkerId,
+            },
+            { account_id: otherAccount, tenant_id: t.tenant_id, name: 'Other Account' },
+          ]);
+
+        const { requisition_id: myReq } = await openRequisition({
+          title: 'Req on my account',
+          kind: 'new',
+          headcount: 1,
+          account_id: myAccount,
+          session: t.adminSession,
+        });
+        const { requisition_id: otherReq } = await openRequisition({
+          title: 'Req on another account',
+          kind: 'new',
+          headcount: 1,
+          account_id: otherAccount,
+          session: t.adminSession,
+        });
+        const { application_id: mine } = await addCandidate({
+          requisition_id: myReq,
+          name: 'Alice',
+          skills: [],
+          session: t.adminSession,
+        });
+        await addCandidate({
+          requisition_id: otherReq,
+          name: 'Bob',
+          skills: [],
+          session: t.adminSession,
+        });
+
+        const am = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['hiring.viewer'],
+          assignments: [{ role_slug: 'hiring.viewer', scope_kind: 'self', scope_id: null }],
+          worker_id: amWorkerId,
+        });
+
+        const board = await listCandidates(am);
+        const ids = board.map((r) => r.application_id);
+        expect(ids).toEqual([mine]);
+      } finally {
+        resetPmDb();
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('an EM/TL/PM sees only candidates applying to roles on their own project (FUT-337)', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const ownerWorkerId = crypto.randomUUID();
+        const myProject = crypto.randomUUID();
+        const otherProject = crypto.randomUUID();
+
+        await hiringDb()
+          .insert(projectOwnerProjection)
+          .values({ project_id: myProject, tenant_id: t.tenant_id, worker_id: ownerWorkerId });
+
+        const { requisition_id: myReq } = await openRequisition({
+          title: 'Req on my project',
+          kind: 'new',
+          headcount: 1,
+          project_id: myProject,
+          session: t.adminSession,
+        });
+        const { requisition_id: otherReq } = await openRequisition({
+          title: 'Req on another project',
+          kind: 'new',
+          headcount: 1,
+          project_id: otherProject,
+          session: t.adminSession,
+        });
+        const { application_id: mine } = await addCandidate({
+          requisition_id: myReq,
+          name: 'Alice',
+          skills: [],
+          session: t.adminSession,
+        });
+        await addCandidate({
+          requisition_id: otherReq,
+          name: 'Bob',
+          skills: [],
+          session: t.adminSession,
+        });
+
+        const owner = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['hiring.viewer'],
+          assignments: [{ role_slug: 'hiring.viewer', scope_kind: 'self', scope_id: null }],
+          worker_id: ownerWorkerId,
+        });
+
+        const board = await listCandidates(owner);
+        const ids = board.map((r) => r.application_id);
+        expect(ids).toEqual([mine]);
+      } finally {
+        resetPmDb();
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('stage counts include hired applications and bucket rejected/transferred as cancelled', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { requisition_id } = await openRequisition({
+          title: 'Stage counts req',
+          kind: 'new',
+          headcount: 3,
+          session: t.adminSession,
+        });
+        const { application_id: newAppId } = await addCandidate({
+          requisition_id,
+          name: 'Newbie',
+          skills: [],
+          session: t.adminSession,
+        });
+        const { application_id: hiredAppId } = await addCandidate({
+          requisition_id,
+          name: 'Hired One',
+          skills: [],
+          session: t.adminSession,
+        });
+        const { application_id: rejectedAppId } = await addCandidate({
+          requisition_id,
+          name: 'Rejected One',
+          skills: [],
+          session: t.adminSession,
+        });
+
+        // No "mark as hired" mutation exists yet — set the status directly to simulate the
+        // future hire flow and prove the read side already surfaces it correctly.
+        await hiringDb()
+          .update(application)
+          .set({ status: 'hired' })
+          .where(eq(application.id, hiredAppId));
+
+        const reason = await createRejectionReason({
+          input: { label: 'Not a fit', category: 'other' },
+          session: t.adminSession,
+        });
+        await rejectApplication({
+          application_id: rejectedAppId,
+          expected_version: 1,
+          input: { reason_id: reason.id, tags: [] },
+          session: t.adminSession,
+        });
+
+        const counts = await getCandidateStageCounts(t.adminSession);
+        expect(counts.new).toBe(1);
+        expect(counts.hired).toBe(1);
+        expect(counts.cancelled).toBe(1);
+        expect(counts.screening + counts.interview + counts.offer).toBe(0);
+
+        const board = await listCandidates(t.adminSession);
+        const ids = board.map((r) => r.application_id);
+        expect(ids).toContain(newAppId);
+        expect(ids).toContain(hiredAppId);
+        expect(ids).not.toContain(rejectedAppId);
+        expect(board.find((r) => r.application_id === hiredAppId)?.status).toBe('hired');
       } finally {
         resetHiringDb();
         resetCoreDb();
