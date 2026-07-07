@@ -1,7 +1,13 @@
 import type { SessionScope } from '@seta/core';
-import { createSkill, createSkillCategory, listSkillCategories, listSkills } from '@seta/core';
+import {
+  createSkill,
+  createSkillAlias,
+  createSkillCategory,
+  listSkillCategories,
+  listSkills,
+} from '@seta/core';
 import pino from 'pino';
-import { SKILL_CATALOG } from './skill-catalog.ts';
+import { SKILL_ALIASES, SKILL_CATALOG } from './skill-catalog.ts';
 
 const log = pino({ name: 'cli/seed-fixture/skills' });
 
@@ -37,8 +43,23 @@ export async function seedSkillCatalog(session: SessionScope): Promise<Map<strin
     }
   }
 
+  let aliasesCreated = 0;
+  for (const [canonical, variants] of Object.entries(SKILL_ALIASES)) {
+    const skill = byName.get(canonical.toLowerCase());
+    if (!skill) continue;
+    for (const alias of variants) {
+      await createSkillAlias({ input: { skill_id: skill.id, alias }, session });
+      aliasesCreated++;
+    }
+  }
+
   log.info(
-    { categories_created: catsCreated, skills_created: skillsCreated, total: byName.size },
+    {
+      categories_created: catsCreated,
+      skills_created: skillsCreated,
+      aliases_created: aliasesCreated,
+      total: byName.size,
+    },
     'phase-skills done',
   );
   return byName;

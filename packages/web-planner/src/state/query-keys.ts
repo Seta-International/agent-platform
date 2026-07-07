@@ -61,6 +61,8 @@ export const plannerKeys = {
   taskChecklist: (id: string) => [...plannerKeys.task(id), 'checklist'] as const,
   taskComments: (id: string) => [...plannerKeys.task(id), 'comments'] as const,
   taskSyncStatus: (taskId: string) => [...plannerKeys.task(taskId), 'syncStatus'] as const,
+  taskAssigneeSuggestions: (id: string) =>
+    [...plannerKeys.task(id), 'assignee-suggestions'] as const,
   myAssigned: () => [...plannerKeys.all, 'mine'] as const,
   myTasks: (filters: MyTasksFilters) =>
     [...plannerKeys.all, 'myTasks', serializeFilters(filters as Record<string, unknown>)] as const,

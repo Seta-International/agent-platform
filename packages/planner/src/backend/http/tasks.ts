@@ -1,4 +1,3 @@
-import { getPendingAssignRunIdForTask } from '@seta/agent-sdk';
 import type { SessionEnv } from '@seta/core';
 import type { Hono } from 'hono';
 import { z } from 'zod';
@@ -29,6 +28,7 @@ import {
   restoreTask,
   setAssigneePriority,
   setTaskAssignees,
+  suggestTaskAssignees,
   unapplyLabel,
   unassignTask,
   updateChecklistItem,
@@ -271,11 +271,7 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
   app.get('/api/planner/v1/tasks/:id', async (c) => {
     const session = c.get('user');
     const taskId = c.req.param('id');
-    const [task, pendingAssignWorkflowRunId] = await Promise.all([
-      getTask({ task_id: taskId, session }),
-      getPendingAssignRunIdForTask({ taskId, tenantId: session.tenant_id }),
-    ]);
-    return c.json({ ...task, pending_assign_workflow_run_id: pendingAssignWorkflowRunId });
+    return c.json(await getTask({ task_id: taskId, session }));
   });
 
   app.post('/api/planner/v1/tasks', async (c) => {
@@ -341,6 +337,12 @@ export function registerPlannerTasksRoutes(app: Hono<SessionEnv>): void {
       return c.json({ error: 'VALIDATION', details: parsed.error.flatten() }, 400);
     await assignTask({ task_id: c.req.param('id'), user_id: parsed.data.user_id, session });
     return c.body(null, 204);
+  });
+
+  app.get('/api/planner/v1/tasks/:id/assignee-suggestions', async (c) => {
+    const session = c.get('user');
+    const suggestions = await suggestTaskAssignees({ task_id: c.req.param('id'), session });
+    return c.json(suggestions);
   });
 
   app.delete('/api/planner/v1/tasks/:id/assignees/:userId', async (c) => {

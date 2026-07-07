@@ -1,0 +1,91 @@
+name: Deploy Monitoring
+
+# Deploys the central observability stack (Prometheus + Loki + Grafana +
+# Alertmanager) to the on-prem box that hosts it. Manual only, config-only —
+# no image build, no app env. Mirrors deploy.yml's repo-admin authorize gate.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-monitoring
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  authorize:
+    name: Authorize (repo admins only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify triggering actor is a repo admin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          perm=$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" --jq '.permission')
+          echo "actor=${ACTOR} permission=${perm}"
+          if [ "$perm" != "admin" ]; then
+            echo "::error::Deploys are restricted to repo admins. '${ACTOR}' has '${perm}' permission."
+            exit 1
+          fi
+          echo "${ACTOR} is a repo admin."
+
+  deploy:
+    name: Deploy monitoring stack
+    needs: authorize
+    # The dev runner lives on the box that hosts the central monitoring stack.
+    runs-on: [self-hosted, dev]
+    environment: monitoring
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Validate rules + routing before applying
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Glob so every rule file (incl. new ones like slo.rules.yml) is validated
+          # without hand-maintaining a list. sh entrypoint expands the glob in-container.
+          docker run --rm --entrypoint sh -v "$PWD/infra/prometheus/rules:/r:ro" \
+            prom/prometheus:v3.4.0 -c 'promtool check rules /r/*.yml'
+          docker run --rm --entrypoint amtool \
+            -v "$PWD/infra/alertmanager/alertmanager.yml:/am.yml:ro" \
+            prom/alertmanager:v0.28.0 check-config /am.yml
+
+      - name: Provision the Teams webhook secret volume
+        shell: bash
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          docker volume create seta-monitoring-alertmanager-secrets >/dev/null
+          printf '%s' "$TEAMS_WEBHOOK_URL" | docker run --rm -i \
+            -v seta-monitoring-alertmanager-secrets:/s busybox \
+            sh -c 'cat > /s/teams_webhook_url'
+
+      - name: Deploy the monitoring stack
+        shell: bash
+        env:
+          GF_ADMIN_PASSWORD: ${{ secrets.GF_ADMIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # --force-recreate so config-only changes (bind-mounted dashboards,
+          # datasource provisioning, rules) are always re-read. Without it, compose
+          # sees no service-spec change and leaves the old containers running, so
+          # datasource/rule edits silently don't apply until a manual restart.
+          docker compose -p seta-monitoring -f compose.monitoring.yaml \
+            up -d --remove-orphans --force-recreate --wait --wait-timeout 120
+
+      - name: Post-deploy health check
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 5
+          curl -sf http://localhost:9090/-/ready  >/dev/null && echo "prometheus ready"
+          curl -sf http://localhost:9093/-/ready  >/dev/null && echo "alertmanager ready"
+          curl -sf http://localhost:3000/api/health >/dev/null && echo "grafana healthy"
+          rules=$(curl -s http://localhost:9090/api/v1/rules | python3 -c "import sys,json;print(sum(len(g['rules']) for g in json.load(sys.stdin)['data']['groups']))")
+          echo "prometheus rules loaded: ${rules}"

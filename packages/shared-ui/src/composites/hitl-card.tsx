@@ -1,5 +1,5 @@
 import { Check, Clock, Sparkles } from 'lucide-react';
-import { type ComponentType, type ReactNode, useEffect, useState } from 'react';
+import { type ComponentType, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useHitlDecision } from '../hooks/use-hitl-decision';
 import { type BlockProps, blockRenderers, type EntityRef } from './hitl-blocks';
 
@@ -8,8 +8,8 @@ interface CardShape {
   riskBadge?: 'write' | 'destructive' | 'external';
   summary?: string;
   details: Array<{ kind: string } & Record<string, unknown>>;
-  primary: { label: string };
-  alternates?: Array<{ label: string }>;
+  primary: { label: string; argsPatch?: { assigneeUserIds?: string[] } };
+  alternates?: Array<{ label: string; argsPatch?: { assigneeUserIds?: string[] } }>;
   decline: { label: string };
 }
 
@@ -83,6 +83,26 @@ export function HitlCard({
   const { selectedIds, toggle, toDecision } = useHitlDecision(card);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [note, setNote] = useState('');
+
+  // The primary button label must reflect the CURRENT selection, not the frozen
+  // top-match label the backend baked in. Map each candidate's userId → its own
+  // "<verb> <name>" label (already on primary/alternates as per-candidate patches)
+  // so the verb stays backend-owned and this stays card-type agnostic. Fall back
+  // to the static label whenever a selected id can't be resolved (cards without
+  // per-candidate patches) or nothing is selected.
+  const primaryLabel = useMemo(() => {
+    if (selectedIds.length === 0) return card.primary.label;
+    const byUser = new Map<string, string>();
+    const topId = card.primary.argsPatch?.assigneeUserIds?.[0];
+    if (topId) byUser.set(topId, card.primary.label);
+    for (const alt of card.alternates ?? []) {
+      const uid = alt.argsPatch?.assigneeUserIds?.[0];
+      if (uid && alt.label) byUser.set(uid, alt.label);
+    }
+    const labels = selectedIds.map((id) => byUser.get(id));
+    if (!labels.every((l): l is string => Boolean(l))) return card.primary.label;
+    return labels.join(' · ');
+  }, [card, selectedIds]);
 
   // Drive the countdown + expired flag with a 1s tick, but only when an
   // expiry is supplied — no timer (and never expired) when expiresAt is absent.
@@ -160,7 +180,7 @@ export function HitlCard({
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-body-sm font-semibold text-on-primary shadow-sm transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Check className="size-3.5" aria-hidden />
-              {pending ? 'Working…' : card.primary.label}
+              {pending ? 'Working…' : primaryLabel}
             </button>
             <button
               type="button"

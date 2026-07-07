@@ -61,6 +61,27 @@ export const SKILL_CATALOG: SkillCategorySeed[] = [
   },
 ];
 
+/**
+ * Curated synonyms → canonical catalog skill name. Task labels are free text
+ * ("reactjs", "nodejs", "k8s") that rarely equal the catalog casing ("React",
+ * "Node.js", "Kubernetes"). Slug normalization already unifies punctuation/case
+ * (Node.js ↔ nodejs), so this list only needs the variants a slug can't bridge.
+ */
+export const SKILL_ALIASES: Record<string, string[]> = {
+  React: ['reactjs', 'react js'],
+  'Next.js': ['nextjs', 'next'],
+  Vue: ['vuejs'],
+  'Node.js': ['node', 'nodejs server'],
+  TypeScript: ['ts'],
+  JavaScript: ['js'],
+  PostgreSQL: ['postgres', 'psql'],
+  'REST APIs': ['rest', 'rest api', 'restful'],
+  Kubernetes: ['k8s'],
+  'CI/CD': ['cicd', 'ci cd'],
+  'Test Automation': ['automation testing', 'automated testing'],
+  LLMs: ['llm', 'large language models'],
+};
+
 // xlsx Roll (uppercased) → catalog skill names the holder is assumed to have.
 export const ROLE_SKILLS: Record<string, string[]> = {
   DEV: ['TypeScript', 'React', 'Node.js', 'PostgreSQL', 'REST APIs'],

@@ -2,7 +2,7 @@ import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { createGroup, createPlan, createTask } from '@seta/planner';
+import { addGroupMembers, createGroup, createPlan, createTask } from '@seta/planner';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -50,11 +50,59 @@ async function seedProjection(
 ): Promise<void> {
   await pool.query(
     `INSERT INTO planner.assignee_projection
-     (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-     VALUES ($1, $2, $3, $4, $5, 'available', $6)
-     ON CONFLICT (user_id) DO UPDATE SET skills = EXCLUDED.skills, timezone = EXCLUDED.timezone`,
-    [user_id, tenant_id, display_name, email, opts.skills ?? [], opts.timezone ?? 'UTC'],
+     (user_id, tenant_id, display_name, email, availability_status, timezone)
+     VALUES ($1, $2, $3, $4, 'available', $5)
+     ON CONFLICT (user_id) DO UPDATE SET timezone = EXCLUDED.timezone`,
+    [user_id, tenant_id, display_name, email, opts.timezone ?? 'UTC'],
   );
+}
+
+function registerFakeSkillExactTool(
+  hits: ReadonlyArray<{ userId: string; matchedSkills: string[]; overlap: number }>,
+): void {
+  const spec: CrossModuleReadToolSpec<
+    { labels: string[] },
+    { hits: Array<{ userId: string; matchedSkills: string[]; overlap: number }> }
+  > = {
+    id: 'people_searchUsersBySkillExact',
+    description: 'fake',
+    inputSchema: z.object({ labels: z.array(z.string()) }),
+    outputSchema: z.object({
+      hits: z.array(
+        z.object({
+          userId: z.string(),
+          matchedSkills: z.array(z.string()),
+          overlap: z.number(),
+        }),
+      ),
+    }),
+    rbac: 'people.worker.read',
+    availableTo: 'all-specialists',
+    execute: async () => ({ hits: [...hits] }),
+  };
+  AgentRegistry.registerCrossModuleReadTool(spec);
+}
+
+function registerFakeSkillsForUsersTool(
+  byUser: ReadonlyArray<{ userId: string; skills: string[] }>,
+): void {
+  const spec: CrossModuleReadToolSpec<
+    { userIds: string[] },
+    { users: Array<{ userId: string; skills: string[] }> }
+  > = {
+    id: 'people_getSkillsForUsers',
+    description: 'fake',
+    inputSchema: z.object({ userIds: z.array(z.string()) }),
+    outputSchema: z.object({
+      users: z.array(z.object({ userId: z.string(), skills: z.array(z.string()) })),
+    }),
+    rbac: 'people.worker.read',
+    availableTo: 'all-specialists',
+    execute: async ({ input }) => ({
+      users: byUser.filter((u) => input.userIds.includes(u.userId)),
+    }),
+  };
+  AgentRegistry.registerCrossModuleReadTool(spec);
 }
 
 function registerFakeVectorTool(
@@ -122,7 +170,7 @@ describe('loadTask + candidatePool', () => {
     });
   });
 
-  it('candidatePool merges SQL exact-overlap and vector hits by userId', async () => {
+  it('candidatePool merges exact skill-tag and vector hits by userId', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = adminSession({
@@ -152,6 +200,10 @@ describe('loadTask + candidatePool', () => {
         skills: ['frontend', 'oauth'],
       });
 
+      // Exact branch now sources skills from People — Alice matches both tags.
+      registerFakeSkillExactTool([
+        { userId: aliceId, matchedSkills: ['react', 'auth'], overlap: 2 },
+      ]);
       // Stub the vector branch — Bob shows up only here, Alice's score is
       // additive on top of her exact overlap.
       registerFakeVectorTool([
@@ -161,6 +213,11 @@ describe('loadTask + candidatePool', () => {
       AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({
+        group_id: group.id,
+        members: [{ user_id: aliceId }, { user_id: bobId }],
+        session,
+      });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
       const task = await createTask({
         plan_id: plan.id,
@@ -177,7 +234,7 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const pool_ = await candidatePool({
+      const { candidates: pool_ } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
@@ -198,7 +255,58 @@ describe('loadTask + candidatePool', () => {
     });
   });
 
-  it('excludes deactivated and OOO users from SQL branch', async () => {
+  it('sources exact overlap from People skill tags, not the (dead) projection skills column', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+      const session = adminSession({ tenant_id, user_id: admin_user_id, email: 'admin@d.local' });
+      await seedProjection(pool, tenant_id, admin_user_id, 'Admin', 'admin@d.local');
+
+      const anhId = (
+        await createUser(
+          { tenant_id, email: 'anh@d.local', name: 'Anh', password: 'ChangeMe@2026' },
+          { type: 'user', user_id: admin_user_id },
+        )
+      ).user_id;
+      // Projection skills intentionally EMPTY — skills live in People now. The
+      // exact branch must still find Anh via the skill-tag tool.
+      await seedProjection(pool, tenant_id, anhId, 'Anh', 'anh@d.local', { skills: [] });
+      registerFakeSkillExactTool([
+        { userId: anhId, matchedSkills: ['Python', 'Java'], overlap: 2 },
+      ]);
+      // Skills are read from People (system of record), not the exact tool's tags.
+      registerFakeSkillsForUsersTool([{ userId: anhId, skills: ['Python', 'Java'] }]);
+      AgentRegistry.freeze();
+
+      const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({ group_id: group.id, members: [{ user_id: anhId }], session });
+      const plan = await createPlan({ group_id: group.id, name: 'P', session });
+      const task = await createTask({ plan_id: plan.id, title: 'AI setup', session });
+      await applyLabels(pool, {
+        tenant_id,
+        plan_id: plan.id,
+        task_id: task.id,
+        applied_by: admin_user_id,
+        names: ['python', 'java'],
+      });
+
+      const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
+      const { candidates: pool_ } = await candidatePool({
+        tenantId: tenant_id,
+        callerUserId: admin_user_id,
+        callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
+        task: t,
+      });
+
+      const byId = new Map(pool_.map((c) => [c.userId, c]));
+      expect(byId.get(anhId)).toMatchObject({
+        displayName: 'Anh',
+        exactOverlap: 2,
+        skills: ['Python', 'Java'],
+      });
+    });
+  });
+
+  it('excludes deactivated and OOO users from exact branch', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = adminSession({
@@ -232,9 +340,20 @@ describe('loadTask + candidatePool', () => {
         [ooo],
       );
 
+      // Both surface from the exact branch; the projection availability gate
+      // (deactivated / OOO) must drop them.
+      registerFakeSkillExactTool([
+        { userId: dz, matchedSkills: ['rust'], overlap: 1 },
+        { userId: ooo, matchedSkills: ['rust'], overlap: 1 },
+      ]);
       AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({
+        group_id: group.id,
+        members: [{ user_id: dz }, { user_id: ooo }],
+        session,
+      });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
       const task = await createTask({
         plan_id: plan.id,
@@ -250,7 +369,7 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const pool_ = await candidatePool({
+      const { candidates: pool_ } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
@@ -262,7 +381,81 @@ describe('loadTask + candidatePool', () => {
     });
   });
 
-  it('returns [] when no labels and no vector tool registered', async () => {
+  it('excludes candidates who are not members of the task group', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+      const session = adminSession({
+        tenant_id,
+        user_id: admin_user_id,
+        email: 'admin@d.local',
+      });
+      await seedProjection(pool, tenant_id, admin_user_id, 'Admin', 'admin@d.local');
+
+      // Alice is a group member; Bob is not. Both surface from the skill/vector
+      // tools with matching skills, but only members of the task's group may be
+      // suggested.
+      const aliceId = (
+        await createUser(
+          { tenant_id, email: 'a@d.local', name: 'Alice', password: 'ChangeMe@2026' },
+          { type: 'user', user_id: admin_user_id },
+        )
+      ).user_id;
+      await seedProjection(pool, tenant_id, aliceId, 'Alice', 'a@d.local', {
+        skills: ['react', 'auth'],
+      });
+
+      const bobId = (
+        await createUser(
+          { tenant_id, email: 'b@d.local', name: 'Bob', password: 'ChangeMe@2026' },
+          { type: 'user', user_id: admin_user_id },
+        )
+      ).user_id;
+      await seedProjection(pool, tenant_id, bobId, 'Bob', 'b@d.local', {
+        skills: ['react', 'auth'],
+      });
+
+      registerFakeSkillExactTool([
+        { userId: aliceId, matchedSkills: ['react', 'auth'], overlap: 2 },
+        { userId: bobId, matchedSkills: ['react', 'auth'], overlap: 2 },
+      ]);
+      registerFakeVectorTool([
+        { userId: aliceId, score: 0.85 },
+        { userId: bobId, score: 0.72 },
+      ]);
+      AgentRegistry.freeze();
+
+      const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({ group_id: group.id, members: [{ user_id: aliceId }], session });
+      const plan = await createPlan({ group_id: group.id, name: 'P', session });
+      const task = await createTask({
+        plan_id: plan.id,
+        title: 'Fix login',
+        description: 'oauth flow',
+        session,
+      });
+      await applyLabels(pool, {
+        tenant_id,
+        plan_id: plan.id,
+        task_id: task.id,
+        applied_by: admin_user_id,
+        names: ['react', 'auth'],
+      });
+
+      const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
+      const { candidates: pool_ } = await candidatePool({
+        tenantId: tenant_id,
+        callerUserId: admin_user_id,
+        callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
+        task: t,
+      });
+
+      const ids = pool_.map((c) => c.userId);
+      expect(ids).toContain(aliceId);
+      expect(ids).not.toContain(bobId);
+    });
+  });
+
+  it('seeds group members with no skill evidence when there are no labels or vector hits', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = adminSession({
@@ -283,13 +476,17 @@ describe('loadTask + candidatePool', () => {
       });
 
       const t = await loadTask({ tenantId: tenant_id, taskId: task.id });
-      const out = await candidatePool({
+      const { candidates: out } = await candidatePool({
         tenantId: tenant_id,
         callerUserId: admin_user_id,
         callerRoleSummary: { roles: ['org.admin'], cross_tenant_read: false },
         task: t,
       });
-      expect(out).toEqual([]);
+      // The group's active members are the candidate universe, but with no
+      // label or vector signal they carry no skill evidence — downstream
+      // deterministic ranking is what decides whether any of them surface.
+      expect(out.map((c) => c.userId)).toEqual([admin_user_id]);
+      expect(out[0]).toMatchObject({ exactOverlap: 0, vectorScore: null, historyScore: null });
     });
   });
 });

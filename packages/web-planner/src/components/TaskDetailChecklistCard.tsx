@@ -64,7 +64,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
   };
 
   const onSubmitDraft = () => {
-    if (!canUpdate) return;
+    if (!canUpdate || add.isPending) return;
     const label = draft.trim();
     if (!label) return;
     // Trello/Planner-style loop: clear the field and keep focus for the next item.

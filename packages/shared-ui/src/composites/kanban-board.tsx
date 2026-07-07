@@ -168,7 +168,7 @@ function AddBucket({
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
-            void submit();
+            if (!isSubmitting) void submit();
           } else if (e.key === 'Escape') {
             e.preventDefault();
             cancel();

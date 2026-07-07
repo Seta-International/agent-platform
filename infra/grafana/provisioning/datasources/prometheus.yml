@@ -8,3 +8,7 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: false
+    jsonData:
+      # Alloy scrapes every 60s; declare it so $__rate_interval >= 4x scrape (240s)
+      # instead of collapsing to the sample spacing and starving rate() of points.
+      timeInterval: 60s

@@ -6,6 +6,7 @@ import type {
   AssignPort,
   AvailabilityPort,
   SkillSearchPort,
+  TaskAssigneesPort,
   TaskReaderPort,
   TaskSearchPort,
   UserProfilePort,
@@ -25,6 +26,7 @@ const fakePorts = {
   } satisfies AvailabilityPort,
   userProfileLookup: { findByName: async () => [] } satisfies UserProfilePort,
   assign: { assign: async () => {} } satisfies AssignPort,
+  taskAssignees: { currentAssigneeIds: async () => [] } satisfies TaskAssigneesPort,
 };
 
 afterEach(() => {

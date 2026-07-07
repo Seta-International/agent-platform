@@ -67,12 +67,12 @@ Declared via `"setaTier"` in `package.json` (informational, not a separate enfor
   - **Exception — SQL Drizzle cannot model** (partitioning, deferred constraint triggers, `pg_notify` wiring, partitioned indexes): hand-written `.sql` files live alongside generated ones in `drizzle/migrations/`. Each begins with a one-line comment naming the limitation. The runner walks lexically; both formats coexist. Never edit a committed migration — write a new numbered one.
 - **Module shape comes from `pnpm gen module`** — see [`docs/guides/creating-modules.md`](docs/guides/creating-modules.md). Don't invent commands; the `pnpm` scripts in root `package.json` are the contract.
 - **`docs/superpowers/` is gitignored — never `git add -f` or push it.** Specs and plans under that path are local working documents only. Commit design docs there freely; they will not appear in the remote repo.
-- **Onboarding contract**: `clone → install → db:up → db:migrate → bash scripts/tenant-bootstrap.sh → dev` yields a working demo in 5 min on a fresh machine. Don't break it.
+- **Onboarding contract**: `clone → install → db:up → db:migrate → bash scripts/dev/tenant-bootstrap.sh → dev` yields a working demo in 5 min on a fresh machine. Don't break it.
 
 ## Conventions worth knowing
 
 - **Inspect the DB (dev):** `docker exec seta-ap-postgres-dev psql -U seta -d seta -c '<SQL>'`. Postgres is also reachable at `localhost:5542` (mapped by `compose.override.yaml`). Schemas: `agent`, `core`, `identity`, `planner`, `notifications`, `staffing`, etc.
-- **Debug the agent (dev):** `scripts/trace-thread.sh <threadId>` dumps a chat turn's lifecycle (messages, approvals, snapshot status, spans). App logs persist to `logs/{server,worker}.log` (NDJSON). Per-turn tool-calls/suspends/resumes trace to `agent.mastra_ai_spans`; raise Mastra's logger with `MASTRA_LOG_LEVEL`.
+- **Debug the agent (dev):** `scripts/dev/trace-thread.sh <threadId>` dumps a chat turn's lifecycle (messages, approvals, snapshot status, spans). App logs persist to `logs/{server,worker}.log` (NDJSON). Per-turn tool-calls/suspends/resumes trace to `agent.mastra_ai_spans`; raise Mastra's logger with `MASTRA_LOG_LEVEL`.
 - **HITL on every write tool.** AI SDK v6 `needsApproval: true` + assistant-ui Interactable confirmation card, wired via `registerToolPermission` from `@seta/agent-sdk`. Read tools execute directly. Native-suspend chat cards resume via `POST /chat/resume`; `/workflows/approvals/:id/decide` only records the decision (no resume).
 - **Subscribers must be idempotent**, keyed on `event_id`. At-least-once delivery; per-aggregate ordering only.
 - **Production-grade only, never quick hacks.** Diagnose the root cause and ship the optimized solution; "small patch now, real fix later" is rejected on review.

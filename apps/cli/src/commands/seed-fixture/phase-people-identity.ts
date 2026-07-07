@@ -7,7 +7,6 @@ import { addPersonSkill, createWorker, genderValue } from '@seta/people';
 import { sql } from 'drizzle-orm';
 import type { EmployeeRec } from './load.ts';
 import type { SeededSkill } from './phase-skills.ts';
-import { personaGroupsFor } from './rbac-map.ts';
 import { techStackFor } from './skill-catalog.ts';
 
 // createWorker returns person_id as the canonical worker identity (so does
@@ -94,7 +93,7 @@ export async function seedPeopleIdentity(
     );
     await ensureLocalLogin({ user_id: userId, tenant_id: session.tenant_id, password }, actor);
 
-    for (const slug of ['member', ...personaGroupsFor(e.primary_role)]) {
+    for (const slug of ['member', ...e.access_groups]) {
       const gid = groups.get(slug);
       if (gid)
         await addGroupMembers(

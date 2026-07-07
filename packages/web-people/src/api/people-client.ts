@@ -27,7 +27,7 @@ export interface WorkerListRow {
   manager_id: string | null;
   manager_name: string | null;
   accounts: { id: string; name: string }[];
-  skills: { id: string; name: string }[];
+  skills: { id: string; name: string; level: number | null }[];
 }
 
 export interface WorkerDetail extends WorkerListRow {
@@ -166,6 +166,29 @@ export async function addWorkerSkill(
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(level !== undefined ? { skill_id, level } : { skill_id }),
+  });
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try {
+      const body = (await res.json()) as { message?: string };
+      if (body.message) message = body.message;
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(message);
+  }
+}
+
+export async function setWorkerSkillLevel(
+  workerId: string,
+  skill_id: string,
+  level: number | null,
+): Promise<void> {
+  const res = await fetch(`/api/people/v1/workers/${workerId}/skills/${skill_id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ level }),
   });
   if (!res.ok) {
     let message = `HTTP ${res.status}`;

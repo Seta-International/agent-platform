@@ -1,6 +1,8 @@
 # Central observability stack (runs on the VPS). Receives remote_write (metrics)
 # + loki push (logs) from every env's Alloy agent; single Grafana over all envs.
-# Alertmanager wiring (email + MS 365 Teams) is the separate follow-up slice.
+# Deployed by .github/workflows/deploy-monitoring.yml (manual). Alertmanager routes
+# to MS Teams; the webhook secret is provisioned by that workflow.
+name: seta-monitoring
 services:
   prometheus:
     image: prom/prometheus:v3.4.0
@@ -13,6 +15,7 @@ services:
     ports: ["9090:9090"]
     volumes:
       - ./infra/prometheus/prometheus.central.yml:/etc/prometheus/prometheus.central.yml:ro
+      - ./infra/prometheus/rules:/etc/prometheus/rules:ro
       - seta-monitoring-prometheus-data:/prometheus
 
   loki:
@@ -33,10 +36,30 @@ services:
     ports: ["3000:3000"]
     volumes:
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - seta-monitoring-grafana-data:/var/lib/grafana
     depends_on: [prometheus, loki]
+
+  # Routes Prometheus alerts to MS Teams. The webhook secret volume is provisioned
+  # by deploy-monitoring.yml from the TEAMS_WEBHOOK_URL environment secret.
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Ho_Chi_Minh   # card timestamps render as UTC+7 via .Local
+    command: [--config.file=/etc/alertmanager/alertmanager.yml]
+    ports: ["9093:9093"]
+    volumes:
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./infra/alertmanager/templates.tmpl:/etc/alertmanager/templates.tmpl:ro
+      - seta-monitoring-alertmanager-secrets:/etc/alertmanager/secrets:ro
+      - seta-monitoring-alertmanager-data:/alertmanager
 
 volumes:
   seta-monitoring-prometheus-data:
   seta-monitoring-loki-data:
   seta-monitoring-grafana-data:
+  seta-monitoring-alertmanager-data:
+  # Created out-of-band on the VPS with the Teams webhook URL (see alertmanager notes).
+  seta-monitoring-alertmanager-secrets:
+    external: true

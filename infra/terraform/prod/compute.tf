@@ -1,94 +1,79 @@
-data "aws_ami" "al2023" {
-  most_recent = true
-  owners      = ["amazon"]
-  filter {
-    name   = "name"
-    values = ["al2023-ami-*-x86_64"]
-  }
-  filter {
-    name   = "architecture"
-    values = ["x86_64"]
-  }
+# Models the real future-app-prod EC2 box (i-0ea6b8e2668eb3245) and its
+# security group (sg-0fae4934473ffc573). Adopted via import — a single
+# aws_instance, NOT an ASG/launch template (there never was one).
+
+resource "aws_security_group" "app" {
+  name        = "future-app-prod-ec2-sg"
+  description = "EC2 future-app-prod - SSH tu IP cong ty + rule bo sung"
+  vpc_id      = aws_vpc.main.id
+  tags        = { Name = "future-app-prod-ec2-sg" }
 }
 
-# Egress-only security group: ZERO inbound rules.
-resource "aws_security_group" "app" {
-  name        = "${var.name}-app"
-  description = "App box: egress-only, no inbound (tunnel + SSM)."
-  vpc_id      = aws_vpc.main.id
-  tags        = { Name = "${var.name}-app" }
+# --- ingress: SSH from the two office IPs ---
+resource "aws_vpc_security_group_ingress_rule" "app_ssh_1" {
+  security_group_id = aws_security_group.app.id
+  description       = "SSH tu IP cong ty"
+  cidr_ipv4         = "118.70.190.230/32"
+  from_port         = 22
+  to_port           = 22
+  ip_protocol       = "tcp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "app_ssh_2" {
+  security_group_id = aws_security_group.app.id
+  description       = "SSH tu IP cong ty"
+  cidr_ipv4         = "113.190.252.197/32"
+  from_port         = 22
+  to_port           = 22
+  ip_protocol       = "tcp"
+}
+
+# --- ingress: public HTTPS for future.seta-international.com ---
+resource "aws_vpc_security_group_ingress_rule" "app_https" {
+  security_group_id = aws_security_group.app.id
+  description       = "HTTPS public - future.seta-international.com"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
 }
 
 resource "aws_vpc_security_group_egress_rule" "app_all_ipv4" {
   security_group_id = aws_security_group.app.id
+  description       = "Allow all outbound"
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1"
 }
 
-resource "aws_launch_template" "app" {
-  name_prefix   = "${var.name}-"
-  image_id      = data.aws_ami.al2023.id
-  instance_type = var.instance_type
-
-  iam_instance_profile {
-    name = aws_iam_instance_profile.app.name
-  }
-
+resource "aws_instance" "app" {
+  ami                    = "ami-0ef5fc922c3794ed9" # Ubuntu 24.04 noble amd64
+  instance_type          = var.instance_type
+  key_name               = "future-app-prod-key"
+  subnet_id              = aws_subnet.public[0].id # ap-southeast-1a
   vpc_security_group_ids = [aws_security_group.app.id]
+  iam_instance_profile   = aws_iam_instance_profile.app.name
 
   metadata_options {
     http_tokens                 = "required" # IMDSv2 only
     http_endpoint               = "enabled"
-    http_put_response_hop_limit = 2 # REQUIRED: app runs in a container (+1 hop) — hop_limit 1 blocks instance-role creds → prod S3 auth fails at runtime
+    http_put_response_hop_limit = 2
   }
 
-  block_device_mappings {
-    device_name = "/dev/xvda"
-    ebs {
-      volume_size = 40
-      volume_type = "gp3"
-      encrypted   = true
-    }
+  root_block_device {
+    volume_size = 40
+    volume_type = "gp3"
+    encrypted   = true
+    kms_key_id  = "arn:aws:kms:ap-southeast-1:555146423830:key/e8cbd487-07e9-448d-bf09-65d94b0172de"
+    tags        = local.tags # volume carries only the account default tags, no Name
   }
 
-  user_data = base64encode(templatefile("${path.module}/user-data.sh.tftpl", {
-    github_runner_url = var.github_runner_url
-    region            = var.region
-  }))
+  user_data_replace_on_change = false
 
-  tag_specifications {
-    resource_type = "instance"
-    tags          = { Name = "${var.name}-app" }
-  }
-}
+  tags = { Name = "future-app-prod-ec2" }
 
-resource "aws_autoscaling_group" "app" {
-  name                = "${var.name}-app"
-  min_size            = 1
-  max_size            = 1
-  desired_capacity    = 1
-  vpc_zone_identifier = aws_subnet.public[*].id
-  health_check_type   = "EC2"
-
-  launch_template {
-    id      = aws_launch_template.app.id
-    version = aws_launch_template.app.latest_version
-  }
-
-  instance_refresh {
-    strategy = "Rolling"
-    preferences {
-      # Size 1: cannot keep half healthy during a roll.
-      min_healthy_percentage = 0
-    }
-    # No `triggers` needed: because launch_template.version = latest_version,
-    # a template change bumps the version and auto-triggers the refresh.
-    # (`$Latest` would NOT — per AWS provider docs.)
-  }
-
-  tag {
-    key                 = "Name"
-    value               = "${var.name}-app"
-    propagate_at_launch = true
+  lifecycle {
+    # AMI updates and any future user-data are applied by replacing the
+    # box out-of-band (ClickOps/SSM), not by Terraform recreating it.
+    ignore_changes = [ami, user_data]
   }
 }

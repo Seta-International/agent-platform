@@ -49,8 +49,8 @@ async function seedProjection(
 ): Promise<void> {
   await pool.query(
     `INSERT INTO planner.assignee_projection
-     (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-     VALUES ($1, $2, $3, $4, ARRAY[]::text[], 'available', $5)
+     (user_id, tenant_id, display_name, email, availability_status, timezone)
+     VALUES ($1, $2, $3, $4, 'available', $5)
      ON CONFLICT (user_id) DO NOTHING`,
     [user_id, tenant_id, display_name, email, opts.timezone ?? 'UTC'],
   );
@@ -104,6 +104,7 @@ describe('enrichWithLoadAndCapacity', () => {
             userId: assignee.user_id,
             displayName: 'A',
             skills: [],
+            matchedSkills: [],
             exactOverlap: 0,
             vectorScore: null,
             historyScore: null,
@@ -129,6 +130,7 @@ describe('enrichWithLoadAndCapacity', () => {
             userId: crypto.randomUUID(),
             displayName: 'X',
             skills: [],
+            matchedSkills: [],
             exactOverlap: 0,
             vectorScore: null,
             historyScore: null,

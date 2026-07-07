@@ -19,20 +19,26 @@ export const skillInput = z.object({
 });
 export type SkillInput = z.infer<typeof skillInput>;
 
-export const openRequisitionInput = z.object({
-  title: z.string().min(1),
-  kind: z.enum(['replacement', 'new']).default('new'),
-  role_title: z.string().optional(),
-  grade: z.string().optional(),
-  account_id: z.string().uuid().optional(),
-  due_date: z.string().optional(),
-  start_date: z.string().optional(),
-  note: z.string().optional(),
-  default_interview_mode: interviewMode.optional(),
-  headcount: z.number().int().min(1).default(1),
-  jd_sections: z.array(jdSectionInput).optional(),
-  skills: z.array(skillInput).optional(),
-});
+export const openRequisitionInput = z
+  .object({
+    title: z.string().min(1),
+    kind: z.enum(['replacement', 'new']).default('new'),
+    role_title: z.string().optional(),
+    grade: z.string().optional(),
+    account_id: z.string().uuid().optional(),
+    project_id: z.string().uuid().optional(),
+    due_date: z.string().optional(),
+    start_date: z.string().optional(),
+    note: z.string().optional(),
+    default_interview_mode: interviewMode.optional(),
+    headcount: z.number().int().min(1).default(1),
+    jd_sections: z.array(jdSectionInput).optional(),
+    skills: z.array(skillInput).optional(),
+  })
+  .refine((data) => !data.start_date || !data.due_date || data.start_date < data.due_date, {
+    message: 'start_date must be before due_date',
+    path: ['start_date'],
+  });
 export type OpenRequisitionInput = z.input<typeof openRequisitionInput>;
 
 export const editRequisitionPatch = z
@@ -41,6 +47,7 @@ export const editRequisitionPatch = z
     role_title: z.string(),
     grade: z.string(),
     account_id: z.string().uuid(),
+    project_id: z.string().uuid(),
     kind: z.enum(['replacement', 'new']),
     due_date: z.string(),
     start_date: z.string(),
@@ -48,7 +55,13 @@ export const editRequisitionPatch = z
     default_interview_mode: interviewMode,
     stage: z.enum(['sourcing', 'screening', 'interview', 'offer']),
   })
-  .partial();
+  .partial()
+  // Only catches a patch that sets both fields at once — a patch touching just one of them is
+  // checked against the stored counterpart in edit-requisition.ts, which has the current row.
+  .refine((data) => !data.start_date || !data.due_date || data.start_date < data.due_date, {
+    message: 'start_date must be before due_date',
+    path: ['start_date'],
+  });
 export type EditRequisitionPatch = z.infer<typeof editRequisitionPatch>;
 
 export const addOpeningInput = z.object({
@@ -63,7 +76,15 @@ export const closeOpeningInput = z.object({
 });
 export type CloseOpeningInput = z.infer<typeof closeOpeningInput>;
 
-export const closeRequisitionInput = z.object({ status: z.enum(['filled', 'cancelled']) });
+export const closeRequisitionInput = z
+  .object({
+    status: z.enum(['filled', 'cancelled']),
+    close_reason_id: z.string().uuid().optional(),
+  })
+  .refine((data) => data.status !== 'cancelled' || !!data.close_reason_id, {
+    message: 'close_reason_id is required when cancelling',
+    path: ['close_reason_id'],
+  });
 export type CloseRequisitionInput = z.infer<typeof closeRequisitionInput>;
 
 export const jdTemplateInput = z.object({

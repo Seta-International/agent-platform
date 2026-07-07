@@ -52,6 +52,14 @@ export async function startConsent(): Promise<{ admin_consent_url: string }> {
   return (await jsonOrThrow(res)) as { admin_consent_url: string };
 }
 
+export async function syncConsent(): Promise<SsoProviderRowDto> {
+  const res = await fetch('/api/identity/v1/sso/consent/microsoft/sync', {
+    method: 'POST',
+    credentials: 'include',
+  });
+  return (await jsonOrThrow(res)) as SsoProviderRowDto;
+}
+
 export async function setProviderEnabled(enabled: boolean): Promise<SsoProviderRowDto> {
   const action = enabled ? 'enable' : 'disable';
   const res = await fetch(`/api/identity/v1/sso/providers/microsoft-entra-id/${action}`, {

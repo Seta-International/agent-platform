@@ -20,7 +20,7 @@ export interface WorkerRow {
   manager_id: string | null;
   manager_name: string | null;
   accounts: Array<{ id: string; name: string }>;
-  skills: Array<{ id: string; name: string }>;
+  skills: Array<{ id: string; name: string; level: number | null }>;
 }
 
 export interface ListWorkersQuery {
@@ -162,10 +162,12 @@ export async function listWorkers(
     WHERE wap.worker_id = ${worker.person_id} AND wap.active AND wap.tenant_id = ${tenantId}
   )`;
 
-  const skillsAgg = sql<Array<{ id: string; name: string }>>`(
+  const skillsAgg = sql<Array<{ id: string; name: string; level: number | null }>>`(
     SELECT coalesce(
-      jsonb_agg(DISTINCT jsonb_build_object('id', ps.skill_id, 'name', ps.skill_name))
-        FILTER (WHERE ps.skill_id IS NOT NULL),
+      jsonb_agg(
+        jsonb_build_object('id', ps.skill_id, 'name', ps.skill_name, 'level', ps.level)
+        ORDER BY ps.skill_name
+      ) FILTER (WHERE ps.skill_id IS NOT NULL),
       '[]'::jsonb)
     FROM people.person_skill ps
     WHERE ps.person_id = ${worker.person_id} AND ps.tenant_id = ${tenantId}
@@ -254,7 +256,7 @@ export async function getWorker({
   org_unit_id: string | null;
   org_unit_name: string | null;
   accounts: Array<{ id: string; name: string }>;
-  skills: Array<{ id: string; name: string }>;
+  skills: Array<{ id: string; name: string; level: number | null }>;
 }> {
   requirePermission(session, 'people.worker.read');
   const tenantId = session.tenant_id;
@@ -270,10 +272,12 @@ export async function getWorker({
     WHERE wap.worker_id = ${worker.person_id} AND wap.active AND wap.tenant_id = ${tenantId}
   )`;
 
-  const skillsAgg = sql<Array<{ id: string; name: string }>>`(
+  const skillsAgg = sql<Array<{ id: string; name: string; level: number | null }>>`(
     SELECT coalesce(
-      jsonb_agg(DISTINCT jsonb_build_object('id', ps.skill_id, 'name', ps.skill_name))
-        FILTER (WHERE ps.skill_id IS NOT NULL),
+      jsonb_agg(
+        jsonb_build_object('id', ps.skill_id, 'name', ps.skill_name, 'level', ps.level)
+        ORDER BY ps.skill_name
+      ) FILTER (WHERE ps.skill_id IS NOT NULL),
       '[]'::jsonb)
     FROM people.person_skill ps
     WHERE ps.person_id = ${worker.person_id} AND ps.tenant_id = ${tenantId}

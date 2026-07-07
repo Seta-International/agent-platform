@@ -4,22 +4,23 @@ import { and, eq } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import { person, worker } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
-import { fetchPersonSkillNames } from './person-skills.ts';
+import { fetchPersonSkills, type PersonSkill } from './person-skills.ts';
 import { fetchPresenceByUserId, type PresenceResult } from './read-presence.ts';
 
 export interface MyProfile extends PresenceResult {
-  skills: string[];
+  skills: PersonSkill[];
   bio: string | null;
   full_name: string | null;
 }
 
 // Self-service composite read for the caller's own profile page: presence +
-// catalog skills + bio + display name, all keyed off session.user_id.
+// catalog skills (with proficiency level) + bio + display name, all keyed off
+// session.user_id.
 export async function readMyProfile(session: SessionScope): Promise<MyProfile> {
   requirePermission(session, 'people.self.read');
 
   const presence = await fetchPresenceByUserId(session.tenant_id, session.user_id);
-  const skills = await fetchPersonSkillNames(session.tenant_id, session.user_id);
+  const skills = await fetchPersonSkills(session.tenant_id, session.user_id);
 
   const [row] = await peopleDb()
     .select({ bio: person.bio, full_name: worker.full_name })

@@ -59,6 +59,24 @@ describe('AppLauncher', () => {
     await userEvent.click(screen.getByRole('button', { name: /Agent Studio/ }));
     expect(onSelect).toHaveBeenCalledWith('agent');
   });
+  it('omits apps flagged hideInLauncher', () => {
+    const withSystem: AppManifest[] = [
+      ...APPS,
+      {
+        id: 'settings',
+        label: 'Settings',
+        icon: Settings,
+        routeNamespace: '/settings',
+        requiredPermissions: [],
+        hideInLauncher: true,
+        useNavExtensions: noNavExtensions,
+        nav: [],
+      },
+    ];
+    render(<AppLauncher apps={withSystem} currentAppId="planner" onSelect={() => {}} />);
+    expect(screen.queryByRole('button', { name: /Settings/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Planner/ })).toBeInTheDocument();
+  });
   it('renders disabled apps as non-interactive with a "Soon" marker', async () => {
     const onSelect = vi.fn();
     const withSoon = [

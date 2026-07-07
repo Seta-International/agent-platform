@@ -8,20 +8,19 @@ import {
 } from '../../../src/backend/sso/tenant-resolution.ts';
 
 describe('resolveSetaTenantFromEmail', () => {
-  async function setup(
+  // Inserts one tenant + its SSO provider row — no pool setup, safe to call more than once
+  // per test (unlike `setup`, which initializes pools and must run exactly once).
+  async function insertTenant(
     pool: import('pg').Pool,
-    databaseUrl: string,
     opts: { enabled: boolean; domains: string[] },
   ) {
-    resetCoreDb();
-    initPools({ databaseUrl });
-
     const tenantId = crypto.randomUUID();
     const entraTid = '11111111-2222-3333-4444-555555555555';
+    const slug = `acme-${tenantId.slice(0, 8)}`;
     // email_domains now live on core.tenants (PPL-3); routing JOINs the provider for enabled state.
     await pool.query(
-      `INSERT INTO core.tenants (id, name, slug, email_domains) VALUES ($1, 'Acme', 'acme', $2)`,
-      [tenantId, opts.domains],
+      `INSERT INTO core.tenants (id, name, slug, email_domains) VALUES ($1, 'Acme', $2, $3)`,
+      [tenantId, slug, opts.domains],
     );
     await pool.query(
       `
@@ -40,6 +39,16 @@ describe('resolveSetaTenantFromEmail', () => {
       ],
     );
     return { tenantId, entraTid };
+  }
+
+  async function setup(
+    pool: import('pg').Pool,
+    databaseUrl: string,
+    opts: { enabled: boolean; domains: string[] },
+  ) {
+    resetCoreDb();
+    initPools({ databaseUrl });
+    return insertTenant(pool, opts);
   }
 
   it('returns row for matching domain when enabled', async () => {
@@ -132,6 +141,64 @@ describe('resolveSetaTenantFromEmail', () => {
         });
         try {
           const out = await resolveSetaTenantFromEmail('bob@acme.com');
+          expect(out).toBeNull();
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('returns null when two tenants both claim the same domain (ambiguous, fails closed)', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        await setup(pool, databaseUrl, { enabled: true, domains: ['acme.com'] });
+        try {
+          // Simulates a past race in setTenantEmailDomains: a second tenant also ends up
+          // listing the same domain.
+          await insertTenant(pool, { enabled: true, domains: ['acme.com'] });
+          const out = await resolveSetaTenantFromEmail('bob@acme.com');
+          expect(out).toBeNull();
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('returns null when the fallback matches pre-provisioned users in two different tenants (ambiguous, fails closed)', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        const { tenantId: tenantA } = await setup(pool, databaseUrl, {
+          enabled: true,
+          domains: [],
+        });
+        try {
+          const { tenantId: tenantB } = await insertTenant(pool, {
+            enabled: true,
+            domains: [],
+          });
+          // Same email pre-provisioned in two tenants (e.g. a contractor engaged by both) —
+          // neither tenant has claimed the domain, so resolution falls back to a user-email
+          // match, which now matches both tenants.
+          for (const tenantId of [tenantA, tenantB]) {
+            await pool.query(
+              `INSERT INTO identity."user" (id, email, name, email_verified, tenant_id)
+               VALUES ($1, $2, $3, $4, $5)`,
+              [crypto.randomUUID(), 'shared@example.com', 'Shared Contractor', true, tenantId],
+            );
+          }
+          const out = await resolveSetaTenantFromEmail('shared@example.com');
           expect(out).toBeNull();
         } finally {
           resetCoreDb();

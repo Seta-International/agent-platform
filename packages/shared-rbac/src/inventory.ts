@@ -353,7 +353,7 @@ export const INVENTORY: StatementSpec[] = [
   {
     module: 'hiring',
     statement: {
-      'hiring.requisition': ['read', 'open', 'manage', 'close'],
+      'hiring.requisition': ['read', 'read.all', 'open', 'manage', 'close'],
       'hiring.jd_template': ['read', 'manage'],
       'hiring.candidate': ['read', 'create', 'manage', 'reject', 'transfer'],
       'hiring.rejection_reason': ['read', 'manage'],
@@ -364,6 +364,7 @@ export const INVENTORY: StatementSpec[] = [
         description: 'Hiring management across the granted scope',
         permissions: [
           'hiring.requisition.read',
+          'hiring.requisition.read.all',
           'hiring.requisition.open',
           'hiring.requisition.manage',
           'hiring.requisition.close',
@@ -384,6 +385,7 @@ export const INVENTORY: StatementSpec[] = [
         description: 'Run requisitions, candidates, interviews, offers',
         permissions: [
           'hiring.requisition.read',
+          'hiring.requisition.read.all',
           'hiring.requisition.open',
           'hiring.requisition.manage',
           'hiring.requisition.close',
@@ -401,9 +403,20 @@ export const INVENTORY: StatementSpec[] = [
       },
       {
         slug: 'hiring.viewer',
-        description: 'Read hiring records',
+        description: 'Read hiring records (account-scoped for AM/EM/TL/PM personas)',
         permissions: [
           'hiring.requisition.read',
+          'hiring.jd_template.read',
+          'hiring.candidate.read',
+          'hiring.rejection_reason.read',
+        ],
+      },
+      {
+        slug: 'hiring.viewer_all',
+        description: 'Read every hiring record, unscoped (BOD/PMO)',
+        permissions: [
+          'hiring.requisition.read',
+          'hiring.requisition.read.all',
           'hiring.jd_template.read',
           'hiring.candidate.read',
           'hiring.rejection_reason.read',

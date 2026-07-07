@@ -104,6 +104,51 @@ describe('setTenantEmailDomains', () => {
     );
   });
 
+  it('serializes concurrent claims of the same domain — exactly one wins, the other is DOMAIN_TAKEN', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const tenantA = crypto.randomUUID();
+          const tenantB = crypto.randomUUID();
+          await pool.query(
+            `INSERT INTO core.tenants (id, name, slug) VALUES ($1::uuid, 'TenantA', 'race-a-' || $1::text), ($2::uuid, 'TenantB', 'race-b-' || $2::text)`,
+            [tenantA, tenantB],
+          );
+
+          const results = await Promise.allSettled([
+            setTenantEmailDomains({ tenant_id: tenantA, email_domains: ['race.com'] }, CLI_ACTOR),
+            setTenantEmailDomains({ tenant_id: tenantB, email_domains: ['race.com'] }, CLI_ACTOR),
+          ]);
+
+          const fulfilled = results.filter((r) => r.status === 'fulfilled');
+          const rejected = results.filter((r) => r.status === 'rejected');
+          expect(fulfilled).toHaveLength(1);
+          expect(rejected).toHaveLength(1);
+          expect(
+            (rejected[0] as PromiseRejectedResult).reason instanceof IdentityError &&
+              (rejected[0] as PromiseRejectedResult).reason.code === 'DOMAIN_TAKEN',
+          ).toBe(true);
+
+          // Only the winning tenant actually persisted the domain — no split-brain state.
+          const [aDomains, bDomains] = await Promise.all([
+            getTenantEmailDomains(tenantA),
+            getTenantEmailDomains(tenantB),
+          ]);
+          expect([aDomains, bDomains].filter((d) => d.includes('race.com'))).toHaveLength(1);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('requires core.tenant.update (non-admin user actor → FORBIDDEN)', async () => {
     await withTestDb(
       {

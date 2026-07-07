@@ -24,7 +24,15 @@ export interface CandidateApplication {
   rating: number | null;
   tags: string[];
   version: number;
+  applied_at: Date;
+  note: string | null;
   fit: FitResult;
+}
+
+export interface CandidateSkillBrief {
+  skill_id: string;
+  skill_name: string;
+  level: number | null;
 }
 
 export interface CandidateListRow {
@@ -39,6 +47,8 @@ export interface CandidateListRow {
   status: string;
   rating: number | null;
   version: number;
+  applied_at: Date;
+  skills: CandidateSkillBrief[];
   fit: FitResult;
 }
 
@@ -48,10 +58,10 @@ async function fitFor(
   candIds: string[],
 ): Promise<{
   reqSkills: Map<string, { skill_id: string; min_level: number | null }[]>;
-  candSkills: Map<string, { skill_id: string; level: number | null }[]>;
+  candSkills: Map<string, CandidateSkillBrief[]>;
 }> {
   const reqSkills = new Map<string, { skill_id: string; min_level: number | null }[]>();
-  const candSkills = new Map<string, { skill_id: string; level: number | null }[]>();
+  const candSkills = new Map<string, CandidateSkillBrief[]>();
   if (reqIds.length) {
     const rs = await hiringDb()
       .select({
@@ -77,6 +87,7 @@ async function fitFor(
       .select({
         candidate_id: candidateSkill.candidate_id,
         skill_id: candidateSkill.skill_id,
+        skill_name: candidateSkill.skill_name,
         level: candidateSkill.level,
       })
       .from(candidateSkill)
@@ -88,7 +99,7 @@ async function fitFor(
       );
     for (const c of cs) {
       const list = candSkills.get(c.candidate_id) ?? [];
-      list.push({ skill_id: c.skill_id, level: c.level });
+      list.push({ skill_id: c.skill_id, skill_name: c.skill_name, level: c.level });
       candSkills.set(c.candidate_id, list);
     }
   }
@@ -99,7 +110,7 @@ export async function listCandidates(session: SessionScope): Promise<CandidateLi
   requirePermission(session, 'hiring.candidate.read');
   const conds = [
     eq(application.kind, 'external'),
-    eq(application.status, 'active'),
+    inArray(application.status, ['active', 'hired']),
     tenantScoped(application.tenant_id, session),
     isNull(candidate.deleted_at),
   ];
@@ -118,6 +129,7 @@ export async function listCandidates(session: SessionScope): Promise<CandidateLi
       status: application.status,
       rating: application.rating,
       version: application.version,
+      applied_at: application.created_at,
     })
     .from(application)
     .innerJoin(candidate, eq(candidate.id, application.candidate_id))
@@ -131,11 +143,63 @@ export async function listCandidates(session: SessionScope): Promise<CandidateLi
   return rows.map((r) => ({
     ...r,
     candidate_id: r.candidate_id as string,
+    skills: candSkills.get(r.candidate_id as string) ?? [],
     fit: computeFit(
       reqSkills.get(r.requisition_id) ?? [],
       candSkills.get(r.candidate_id as string) ?? [],
     ),
   }));
+}
+
+export interface CandidateStageCounts {
+  new: number;
+  screening: number;
+  interview: number;
+  offer: number;
+  hired: number;
+  cancelled: number;
+}
+
+// Purpose-built aggregate for the board's stat bar — kept separate from listCandidates so
+// that query stays scoped to active+hired applications (what the board/list renders) while
+// this one also counts rejected/transferred ("cancelled") without pulling those rows into
+// the board's row set.
+export async function getCandidateStageCounts(
+  session: SessionScope,
+): Promise<CandidateStageCounts> {
+  requirePermission(session, 'hiring.candidate.read');
+  const conds = [
+    eq(application.kind, 'external'),
+    tenantScoped(application.tenant_id, session),
+    isNull(candidate.deleted_at),
+  ];
+  const scope = await buildCandidateScope(session);
+  if (scope) conds.push(scope);
+  const rows = await hiringDb()
+    .select({
+      status: application.status,
+      stage: application.stage,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(application)
+    .innerJoin(candidate, eq(candidate.id, application.candidate_id))
+    .where(and(...conds))
+    .groupBy(application.status, application.stage);
+
+  const counts: CandidateStageCounts = {
+    new: 0,
+    screening: 0,
+    interview: 0,
+    offer: 0,
+    hired: 0,
+    cancelled: 0,
+  };
+  for (const r of rows) {
+    if (r.status === 'active') counts[r.stage as keyof typeof counts] += r.count;
+    else if (r.status === 'hired') counts.hired += r.count;
+    else if (r.status === 'rejected' || r.status === 'transferred') counts.cancelled += r.count;
+  }
+  return counts;
 }
 
 export interface CandidateDetail {
@@ -197,6 +261,7 @@ export async function getCandidate(input: {
         tags: application.tags,
         version: application.version,
         created_at: application.created_at,
+        note: application.note,
       })
       .from(application)
       .innerJoin(requisition, eq(requisition.id, application.requisition_id))
@@ -230,6 +295,8 @@ export async function getCandidate(input: {
     rating: a.rating,
     tags: (a.tags as string[]) ?? [],
     version: a.version,
+    applied_at: a.created_at,
+    note: a.note,
     fit: computeFit(reqSkills.get(a.requisition_id) ?? [], candSkills.get(candidate_id) ?? []),
   }));
 

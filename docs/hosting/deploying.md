@@ -39,7 +39,7 @@ Two environments can share one host: the proxy's published ports are parameteriz
 - **`COMPOSE_FILE` pins the merge, per environment.** Deploy runners set `COMPOSE_FILE=compose.yaml:compose.<env>.yaml` (a GitHub Environment Variable, e.g. `compose.yaml:compose.dev.yaml`) so the run only ever merges the base with that env's overlay. `compose.override.yaml` — the file that brings in bundled **MinIO** — is a *local-laptop* convenience auto-loaded by a bare `docker compose up`; it is never named in a deployed box's `COMPOSE_FILE`, so MinIO never runs there. All deployed envs (dev/uat/prod) talk to real **AWS S3**: `seta-dev-app-apse1`, `seta-uat-app-apse1`, `seta-prod-app-apse1`.
 - **`bundled-db` profile** (`compose.yaml`): the bundled `postgres` sits behind this profile, **off by default**. dev sets `COMPOSE_PROFILES=bundled-db`; uat leaves it empty and uses external RDS. `server`/`worker`/`migrator` declare the bundled `postgres` dependency as `required: false`, so the stack starts cleanly when the profile is off. There is no bundled MinIO/`minio-setup` on deployed boxes — those services only exist in `compose.override.yaml`.
 - **Egress for an external DB:** `migrator` and `seeder` join `seta-edge` (not just the internal-only network) so they can resolve and reach a public **RDS** endpoint. Without this they fail with `EAI_AGAIN`.
-- **Env file** is a **generated artifact**: `deploy.yml` renders it from the GitHub Environment on every deploy via `scripts/render-env.sh` (`chmod 600`, no secret echoed). **Do not hand-edit it.** Path is the `ENV_FILE` variable (the live deployment uses `/home/ubuntu/seta/<env>.env` because the runner user has no passwordless `sudo` for `/etc`).
+- **Env file** is a **generated artifact**: `deploy.yml` renders it from the GitHub Environment on every deploy via `scripts/release/render-env.sh` (`chmod 600`, no secret echoed). **Do not hand-edit it.** Path is the `ENV_FILE` variable (the live deployment uses `/home/ubuntu/seta/<env>.env` because the runner user has no passwordless `sudo` for `/etc`).
 
 ## One-time prerequisites
 
@@ -118,8 +118,9 @@ docker run --rm --network <project>_seta-edge \
   seed --dir /seed
 ```
 
-- Admin defaults: `--admin-email admin@example.com`, `--password ChangeMe@2026` (idempotent; auto-creates tenant + admin; degrades to tenant+admin only if the workbook is absent).
-- **Do not pipe the seeder to `| tail`** — that masks its exit code; a truncated run can look successful while leaving planner/hiring unseeded. Redirect to a log and check the exit code instead.
+- Admin: the tenant admin is the **first `ADMIN`-role employee in the workbook** — no synthetic account is created. Override with `--admin-email <email>` (must match a real employee; required if the workbook is absent). Default login password is `--password ChangeMe@2026`. Idempotent; auto-creates the tenant; degrades to tenant + admin only if the workbook is absent.
+- **Real data only by default.** Synthetic demo artifacts (faker planner tasks, hiring candidates, and edge cases like a deactivated user / on-hold requisition / over-allocation) are seeded **only** when you pass `--demo`. Never pass `--demo` in production.
+- **Do not pipe the seeder to `| tail`** — that masks its exit code; a truncated run can look successful while leaving data unseeded. Redirect to a log and check the exit code instead.
 
 ## Operational notes
 

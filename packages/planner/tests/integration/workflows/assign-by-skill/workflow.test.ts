@@ -3,7 +3,13 @@ import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
-import { createGroup, createPlan, createTask, PLANNER_VECTOR_NAMESPACE } from '@seta/planner';
+import {
+  addGroupMembers,
+  createGroup,
+  createPlan,
+  createTask,
+  PLANNER_VECTOR_NAMESPACE,
+} from '@seta/planner';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -57,11 +63,37 @@ async function seedProjection(
 ): Promise<void> {
   await pool.query(
     `INSERT INTO planner.assignee_projection
-     (user_id, tenant_id, display_name, email, skills, availability_status, timezone)
-     VALUES ($1, $2, $3, $4, $5, 'available', 'UTC')
-     ON CONFLICT (user_id) DO UPDATE SET skills = EXCLUDED.skills`,
-    [user_id, tenant_id, display_name, email, opts.skills ?? []],
+     (user_id, tenant_id, display_name, email, availability_status, timezone)
+     VALUES ($1, $2, $3, $4, 'available', 'UTC')
+     ON CONFLICT (user_id) DO NOTHING`,
+    [user_id, tenant_id, display_name, email],
   );
+}
+
+function registerFakeSkillExactTool(
+  hits: ReadonlyArray<{ userId: string; matchedSkills: string[]; overlap: number }>,
+): void {
+  const spec: CrossModuleReadToolSpec<
+    { labels: string[] },
+    { hits: Array<{ userId: string; matchedSkills: string[]; overlap: number }> }
+  > = {
+    id: 'people_searchUsersBySkillExact',
+    description: 'fake',
+    inputSchema: z.object({ labels: z.array(z.string()) }),
+    outputSchema: z.object({
+      hits: z.array(
+        z.object({
+          userId: z.string(),
+          matchedSkills: z.array(z.string()),
+          overlap: z.number(),
+        }),
+      ),
+    }),
+    rbac: 'people.worker.read',
+    availableTo: 'all-specialists',
+    execute: async () => ({ hits: [...hits] }),
+  };
+  AgentRegistry.registerCrossModuleReadTool(spec);
 }
 
 function registerFakeVectorTool(hits: ReadonlyArray<{ userId: string; score: number }>): void {
@@ -104,11 +136,19 @@ describe('runSuggestAssignee + applyAssignDecision', () => {
         skills: ['react', 'auth'],
       });
 
+      registerFakeSkillExactTool([
+        { userId: alice.user_id, matchedSkills: ['react', 'auth'], overlap: 2 },
+      ]);
       registerFakeVectorTool([]);
       AgentRegistry.registerCrossModuleReadTool(plannerGetOpenTaskCountSpec);
       AgentRegistry.freeze();
 
       const group = await createGroup({ tenant_id, name: 'G', session });
+      await addGroupMembers({
+        group_id: group.id,
+        members: [{ user_id: alice.user_id }],
+        session,
+      });
       const plan = await createPlan({ group_id: group.id, name: 'P', session });
       const task = await createTask({
         plan_id: plan.id,

@@ -27,7 +27,7 @@ import type { KnowledgeStreamHub } from '@seta/knowledge/stream';
 import { registerNotificationsRoutes } from '@seta/notifications/http';
 import { NotificationStreamHub } from '@seta/notifications/stream';
 import { getWorkerIdForUser } from '@seta/people';
-import { getPool } from '@seta/shared-db';
+import { getPool, runRequestTenant } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -239,6 +239,14 @@ export function buildServerApp(
 
   // Session middleware gates everything registered after this point
   app.use('*', sessionMiddleware);
+
+  // Bind the request's tenant onto the RLS web connection so seta_app reads pass
+  // the tenant_isolation policy. Runs after sessionMiddleware (tenant resolved).
+  app.use('*', async (c, next) => {
+    const tenantId = c.get('user')?.tenant_id;
+    if (!tenantId) return next();
+    return runRequestTenant(tenantId, next);
+  });
 
   // Cross-cutting protected routes that stay in apps/server.
   registerMeRoute(app);

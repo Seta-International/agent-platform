@@ -32,6 +32,8 @@ export const RankedCandidateSchema = z.object({
   /** Candidate's own skills judged relevant to the required areas (literal or reasoned). */
   skillMatch: z.array(z.string()).optional(),
   skillMatchCount: z.number().int(),
+  /** Skill-fit coverage 0..1 from computeSkillFit (literal or reasoned). */
+  relevanceScore: z.number().min(0).max(1),
   rank: z.number().int(),
 });
 export type RankedCandidate = z.infer<typeof RankedCandidateSchema>;
@@ -52,6 +54,10 @@ export const RecommendationSchema = z.object({
   skillMatchCount: z.number().int(),
   status: AvailabilityStatus,
   availabilityScore: z.number().min(0).max(1),
+  /** Skill-fit coverage 0..1 carried through from the skillMatcher. */
+  relevanceScore: z.number().min(0).max(1),
+  /** Blended fit+availability score shown on the approval card (0..1). */
+  score: z.number().min(0).max(1),
 });
 export type Recommendation = z.infer<typeof RecommendationSchema>;
 

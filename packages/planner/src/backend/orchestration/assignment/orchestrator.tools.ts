@@ -1,8 +1,8 @@
 import type { SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { defineAgentTool, recordEntityExposure, resolveTaskRef } from '@seta/agent-sdk';
 import { z } from 'zod';
-import type { AssignPort, UserProfilePort } from './ports.ts';
-import { makeProposeAssignmentTool } from './propose-assignment.tool.ts';
+import type { AssignPort, TaskAssigneesPort, UserProfilePort } from './ports.ts';
+import { makeProposeAssignmentTool, type SuggestAssignees } from './propose-assignment.tool.ts';
 import {
   type AvailabilityResult,
   AvailabilityResultSchema,
@@ -57,6 +57,10 @@ export interface OrchestratorToolDeps {
   userProfileLookup: UserProfilePort;
   /** Performs the assignment a proposeAssignment approval confirms. */
   assign: AssignPort;
+  /** Ranks candidates for proposeAssignment via the shared assignBySkill engine. */
+  suggest: SuggestAssignees;
+  /** Excludes the task's current assignees from proposeAssignment suggestions. */
+  taskAssignees: TaskAssigneesPort;
   /** The orchestrator's current user message — already carries any injected
    *  `Context:` file block. Passed verbatim to the general-answer sub-agent so
    *  the routing LLM cannot paraphrase or truncate the document into a tool arg. */
@@ -75,6 +79,8 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
     generalAnswer,
     userProfileLookup,
     assign,
+    suggest,
+    taskAssignees,
     userText,
     ctx,
   } = deps;
@@ -275,11 +281,9 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
   // for the single-task case. The match/availability/recommend tools above are kept
   // for the MULTI-task find+recommend and the people-search paths.
   const proposeAssignment = makeProposeAssignmentTool({
-    taskAnalyzer,
-    skillMatcher,
-    avaiChecker,
-    recommender,
+    suggest,
     assign,
+    taskAssignees,
     ctx,
   });
 

@@ -8,7 +8,7 @@ import {
 } from './steps/candidate-pool.ts';
 import { enrichWithLoadAndCapacity } from './steps/enrich-with-load-capacity.ts';
 import { type LoadedTask, loadTask } from './steps/load-task.ts';
-import { type RankWeights, rankCandidates } from './steps/rank-candidates.ts';
+import { modalTimezone, type RankWeights, rankCandidates } from './steps/rank-candidates.ts';
 import { buildSuggestAssigneeCard } from './steps/suggest-assignee.ts';
 
 const PRE_RANK_TOP_K = 10;
@@ -51,19 +51,26 @@ export interface SuggestAssigneeOutput {
  * FINAL_TOP_K = 5. Reduces cross-module RPCs roughly 3-5× on larger pools
  * without hurting top-5 fidelity (a candidate that doesn't make top-10 by
  * skill alone won't beat one that does on the load/tz signal).
+ *
+ * Ranking is deterministic end to end — no LLM in the scoring path — so the
+ * inline suggestions endpoint and the chat proposeAssignment card, which both
+ * call this, always return the same ranked list for a task.
  */
-export async function runSuggestAssignee(
-  input: RunSuggestAssigneeInput,
+export async function computeAssigneeSuggestions(
+  input: Pick<RunSuggestAssigneeInput, 'taskId' | 'session'>,
   deps: AssignBySkillDeps,
-): Promise<SuggestAssigneeOutput> {
+): Promise<{ task: LoadedTask; candidates: CandidateUser[] }> {
   const tenantId = input.session.tenantId;
   const callerUserId = input.session.userId;
   const callerRoleSummary = input.session.roleSummary;
 
   const task = await loadTask({ tenantId, taskId: input.taskId });
-  const pool = await candidatePool({ tenantId, callerUserId, callerRoleSummary, task }, deps);
+  const { candidates: pool, requiredSkillCount } = await candidatePool(
+    { tenantId, callerUserId, callerRoleSummary, task },
+    deps,
+  );
 
-  const preRanked = preRank(pool).slice(0, PRE_RANK_TOP_K);
+  const preRanked = preRank(pool, requiredSkillCount).slice(0, PRE_RANK_TOP_K);
   const enriched =
     preRanked.length === 0
       ? []
@@ -74,48 +81,52 @@ export async function runSuggestAssignee(
           candidates: preRanked,
         });
 
-  const callerTz = fetchCallerTimezone(callerUserId, enriched);
+  const referenceTz = modalTimezone(enriched);
 
-  const ranked = rankCandidates({
+  const candidates = rankCandidates({
     candidates: enriched,
     weights: deps.weights ?? DEFAULT_ASSIGN_WEIGHTS,
     task: {
       dueAt: task.due_at,
-      tenantTz: callerTz,
+      referenceTz,
       priority: task.priority_number,
+      labelCount: requiredSkillCount,
     },
     topK: FINAL_TOP_K,
   });
 
+  return { task, candidates };
+}
+
+export async function runSuggestAssignee(
+  input: RunSuggestAssigneeInput,
+  deps: AssignBySkillDeps,
+): Promise<SuggestAssigneeOutput> {
+  const { task, candidates } = await computeAssigneeSuggestions(
+    { taskId: input.taskId, session: input.session },
+    deps,
+  );
   const card = buildSuggestAssigneeCard({
     taskId: task.taskId,
     taskTitle: task.title,
-    candidates: ranked,
-    session: { tenantId, userId: callerUserId },
+    candidates,
+    session: { tenantId: input.session.tenantId, userId: input.session.userId },
     toolCallId: input.toolCallId,
   });
-
-  return { task, candidates: ranked, card };
+  return { task, candidates, card };
 }
 
-function preRank(pool: PoolCandidate[]): PoolCandidate[] {
+function preRank(pool: PoolCandidate[], labelCount: number): PoolCandidate[] {
+  const denom = Math.min(Math.max(labelCount, 1), 3);
   return pool
     .map((c) => ({
       c,
       s:
-        Math.min(1, c.exactOverlap / 3) * 0.5 +
+        Math.min(1, c.exactOverlap / denom) * 0.5 +
         Math.max(c.vectorScore ?? 0, c.historyScore ?? 0) * 0.5,
     }))
     .sort((a, b) => b.s - a.s)
     .map((x) => x.c);
-}
-
-function fetchCallerTimezone(
-  callerId: string,
-  enriched: ReadonlyArray<{ userId: string; timezone: string | null }>,
-): string {
-  const me = enriched.find((c) => c.userId === callerId);
-  return me?.timezone ?? 'UTC';
 }
 
 /**

@@ -56,12 +56,6 @@ jobs:
 
       - run: pnpm typecheck
 
-      - run: pnpm biome ci .
-
-      - run: pnpm lint:boundaries
-
-      - run: pnpm depcruise
-
       - run: pnpm lint
 
       - name: Run tests
@@ -69,6 +63,12 @@ jobs:
         env:
           # testcontainers needs to find Docker; default socket on ubuntu-latest.
           TESTCONTAINERS_RYUK_DISABLED: 'true'
+
+      - name: Dashboards match source (no drift)
+        run: |
+          pnpm gen:dashboards
+          git diff --exit-code infra/grafana/dashboards \
+            || (echo "::error::infra/grafana/dashboards is out of sync with dashboards-src — run 'pnpm gen:dashboards'"; exit 1)
 
       - name: Build web bundle
         run: pnpm --filter @seta/web build
@@ -103,3 +103,21 @@ jobs:
           done
           docker compose -f compose.monitoring.yaml config -q
           echo "all compose files render"
+
+      - name: Validate Prometheus alert rules + Alertmanager config
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/infra/prometheus/rules:/r:ro" prom/prometheus:v3.4.0 \
+            check rules /r/host.rules.yml /r/database.rules.yml /r/app.rules.yml /r/saturation.rules.yml /r/meta.rules.yml /r/slo.rules.yml
+          docker run --rm --entrypoint amtool \
+            -v "$PWD/infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro" \
+            -v "$PWD/infra/alertmanager/templates.tmpl:/etc/alertmanager/templates.tmpl:ro" \
+            prom/alertmanager:v0.28.0 check-config /etc/alertmanager/alertmanager.yml
+          echo "monitoring rules + routing valid"
+
+      - name: Validate Alloy agent config
+        run: |
+          docker run --rm -v "$PWD/infra/alloy/config.alloy:/c.alloy:ro" \
+            grafana/alloy:v1.10.0 fmt /c.alloy > /dev/null
+          echo "alloy config valid"

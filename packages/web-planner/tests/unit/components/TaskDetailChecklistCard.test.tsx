@@ -165,6 +165,33 @@ describe('TaskDetailChecklistCard', () => {
     await user.type(input, 'new step{Enter}');
     expect(captured.mock.calls[0]?.[0]).toMatchObject({ label: 'new step' });
   });
+
+  it('does not add a second item when Enter fires again before the first submission resolves (FUT-390)', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    const captured = vi.fn<(body: Record<string, unknown>) => void>();
+    let releaseResponse!: () => void;
+    const held = new Promise<void>((resolve) => {
+      releaseResponse = resolve;
+    });
+    server.use(
+      http.post('/api/planner/v1/tasks/t1/checklist', async ({ request }) => {
+        captured((await request.json()) as Record<string, unknown>);
+        await held;
+        return HttpResponse.json(item({ id: 'cNew', label: 'new step' }));
+      }),
+    );
+
+    renderWithClient(<TaskDetailChecklistCard task={makeDetail([])} planId="p1" />);
+    const input = screen.getByRole('textbox', { name: /New checklist item/i });
+    await user.type(input, 'new step');
+    await user.keyboard('{Enter}');
+    await user.keyboard('{Enter}');
+    releaseResponse();
+    await waitFor(() => expect(captured).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(captured).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('computeReorderHint', () => {

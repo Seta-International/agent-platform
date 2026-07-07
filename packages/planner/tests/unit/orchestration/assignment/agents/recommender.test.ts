@@ -18,6 +18,7 @@ describe('recommender agent', () => {
         role: null,
         skillMatch: ['Terraform', 'AWS'],
         skillMatchCount: 2,
+        relevanceScore: 1, // covers both required areas
         rank: 1,
       },
       {
@@ -27,6 +28,7 @@ describe('recommender agent', () => {
         role: null,
         skillMatch: ['Terraform'],
         skillMatchCount: 1,
+        relevanceScore: 0.5, // covers one of two required areas
         rank: 2,
       },
     ];
@@ -40,13 +42,20 @@ describe('recommender agent', () => {
       CTX,
     );
     const recs = res.result.recommendations;
-    // u1 wins on fit (2 vs 1) even though it is less available.
+    // u1 wins on the blended score: its fit lead (1.0 vs 0.5, weighted 0.7)
+    // outweighs u2's availability lead (1 vs 0.1, weighted 0.3).
+    // u1 = 0.7*1 + 0.3*0.1 = 0.73 ; u2 = 0.7*0.5 + 0.3*1 = 0.65.
     expect(recs[0]!.userId).toBe('u1');
     expect(recs[0]!.skillMatch.sort()).toEqual(['AWS', 'Terraform']);
+    expect(recs[0]!.score).toBeCloseTo(0.73, 5);
     expect(recs[1]!.userId).toBe('u2');
+    expect(recs[1]!.score).toBeCloseTo(0.65, 5);
   });
 
-  it('breaks fit ties by availabilityScore (higher first)', async () => {
+  it('equal skill fit: separates candidates by availability so scores do not all saturate', async () => {
+    // Both fully cover the required skill (relevanceScore 1) — the exact scenario
+    // where the old availability-only score read 100% for everyone. The blend now
+    // pulls the busier candidate down, so the two scores differ.
     const candidates: RankedCandidate[] = [
       {
         userId: 'u1',
@@ -55,6 +64,7 @@ describe('recommender agent', () => {
         role: null,
         skillMatch: ['Terraform'],
         skillMatchCount: 1,
+        relevanceScore: 1,
         rank: 1,
       },
       {
@@ -64,6 +74,7 @@ describe('recommender agent', () => {
         role: null,
         skillMatch: ['Terraform'],
         skillMatchCount: 1,
+        relevanceScore: 1,
         rank: 2,
       },
     ];
@@ -77,9 +88,13 @@ describe('recommender agent', () => {
       CTX,
     );
     const recs = res.result.recommendations;
+    // u1 = 0.7*1 + 0.3*0.2 = 0.76 ; u2 = 0.7*1 + 0.3*1 = 1.0.
     expect(recs[0]!.userId).toBe('u2');
-    expect(recs[0]!.availabilityScore).toBe(1);
+    expect(recs[0]!.score).toBeCloseTo(1, 5);
     expect(recs[1]!.userId).toBe('u1');
+    expect(recs[1]!.score).toBeCloseTo(0.76, 5);
+    // The busier candidate is NOT at 100% — the de-saturation the fix targets.
+    expect(recs[1]!.score).toBeLessThan(1);
   });
 
   it('falls back to literal overlap when a candidate carries no upstream skillMatch', async () => {
@@ -91,6 +106,7 @@ describe('recommender agent', () => {
         skills: ['Terraform', 'AWS'],
         role: null,
         skillMatchCount: 0,
+        relevanceScore: 0,
         rank: 1,
       },
     ];
@@ -113,6 +129,7 @@ describe('recommender agent', () => {
         role: null,
         skillMatch: ['Terraform'],
         skillMatchCount: 1,
+        relevanceScore: 1,
         rank: 1,
       },
     ];

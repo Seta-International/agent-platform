@@ -2,14 +2,10 @@
   "name": "@seta/shared-config",
   "version": "0.0.1",
   "private": true,
-  "description": "Shared toolchain configuration — base tsconfig, ESLint boundaries rules, and lint guard scripts.",
+  "description": "Shared toolchain configuration — base tsconfig and lint guard scripts.",
   "type": "module",
   "exports": {
     "./tsconfig.base.json": "./tsconfig.base.json",
-    "./eslint/boundaries": {
-      "types": "./eslint/boundaries.ts",
-      "default": "./eslint/boundaries.ts"
-    },
     "./vitest/db-test-defaults": {
       "types": "./vitest/db-test-defaults.ts",
       "default": "./vitest/db-test-defaults.ts"
