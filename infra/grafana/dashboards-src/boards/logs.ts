@@ -16,7 +16,9 @@ export const buildLogs = () =>
         unit: 'logs',
         expr: `sum by (container)(rate(${ERR} [5m]))`,
         legend: '{{container}}',
-      }),
+      })
+        .span(24)
+        .height(8),
     )
     .withRow(new RowBuilder('Live'))
-    .withPanel(logsPanel({ title: 'Logs', expr: SEL }));
+    .withPanel(logsPanel({ title: 'Logs', expr: SEL }).span(24).height(24));
