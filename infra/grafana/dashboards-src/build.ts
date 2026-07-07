@@ -4,13 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { buildAppService } from './boards/app-service';
 import { buildFleet } from './boards/fleet';
 import { buildHost } from './boards/host';
+import { buildLlmGpu } from './boards/llm-gpu';
 import { buildPostgres } from './boards/postgres';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, '..', 'dashboards');
 
 // Register every board here as it lands.
-const boards = [buildFleet, buildAppService, buildHost, buildPostgres];
+const boards = [buildFleet, buildAppService, buildHost, buildPostgres, buildLlmGpu];
 
 for (const build of boards) {
   const dash = build().build();
