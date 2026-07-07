@@ -6,6 +6,8 @@ datasources:
     access: proxy
     url: http://host.docker.internal:9090
     isDefault: true
+    jsonData:
+      timeInterval: 60s
   - name: Loki
     type: loki
     uid: loki
