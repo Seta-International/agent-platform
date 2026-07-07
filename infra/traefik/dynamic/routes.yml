@@ -67,6 +67,21 @@ http:
       service: web
       tls: {}
 
+    # FUT-388 Phase 4: routes future-ingest.seta-international.com (prod's
+    # Alloy → central monitoring, since Cloudflare's proxy only relays a fixed
+    # port whitelist and this box's port 443 is already the only one the
+    # office router forwards) to monitoring-ingest, a separate compose project
+    # reached via the host (see the service below). Host() must outrank the
+    # host-agnostic PathPrefix rules above, which would otherwise intercept
+    # this hostname's /api-prefixed paths.
+    monitoring-ingest:
+      rule: "Host(`future-ingest.seta-international.com`)"
+      entryPoints:
+        - websecure
+      service: monitoring-ingest
+      priority: 200
+      tls: {}
+
   services:
     # traces:
     #   loadBalancer:
@@ -84,3 +99,7 @@ http:
       loadBalancer:
         servers:
           - url: "http://web:8080"
+    monitoring-ingest:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:2096"
