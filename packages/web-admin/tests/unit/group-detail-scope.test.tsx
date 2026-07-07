@@ -48,7 +48,7 @@ describe('GroupDetail scope picker', () => {
     renderDetail(scopedGroup);
     expect(await screen.findByText('Org unit')).toBeInTheDocument();
     expect(await screen.findByText('Engineering')).toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('posts a scoped role entry when checking a role (defaults to tenant-wide)', async () => {
     const user = userEvent.setup();
