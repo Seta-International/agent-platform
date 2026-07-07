@@ -1,7 +1,7 @@
 import { emit } from '@seta/core/events';
 import type { DomainEvent, SubscriberCtx } from '@seta/shared-types';
 
-import { eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import type {
   PlannerBucketCreated,
   PlannerBucketDeleted,
@@ -54,12 +54,22 @@ async function requestNotification(
 async function getGroupMembersToNotify(
   ctx: SubscriberCtx,
   groupId: string,
-  _actorUserId: string | null,
+  actorUserId: string | null,
 ): Promise<string[]> {
+  // If no actor, return all members
+  if (!actorUserId) {
+    const members = await ctx.tx
+      .select({ user_id: groupMembers.user_id })
+      .from(groupMembers)
+      .where(eq(groupMembers.group_id, groupId));
+    return members.map((m) => m.user_id);
+  }
+
+  // Exclude actor from query (DB-level optimization)
   const members = await ctx.tx
     .select({ user_id: groupMembers.user_id })
     .from(groupMembers)
-    .where(eq(groupMembers.group_id, groupId));
+    .where(and(eq(groupMembers.group_id, groupId), ne(groupMembers.user_id, actorUserId)));
 
   return members.map((m) => m.user_id);
 }
