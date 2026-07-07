@@ -44,7 +44,7 @@
         },
         "query": {
           "label": "container",
-          "stream": "{env=~\"$env\"}",
+          "stream": "{env=~\"$env\", container!~\".*(monitoring|alloy|ai-sdlc-metrics).*\"}",
           "type": 1
         },
         "refresh": 2
@@ -112,7 +112,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (container)(rate({env=~\"$env\", container=~\"$container\"} |~ \"(?i)level=error|\\\"level\\\":\\\"error\\\"\" [5m]))",
+          "expr": "sum by (container)(rate({env=~\"$env\", container=~\"$container\", container!~\".*(monitoring|alloy|ai-sdlc-metrics).*\"} |~ \"(?i)level=error|\\\"level\\\":\\\"error\\\"\" [5m]))",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -162,7 +162,7 @@
       },
       "targets": [
         {
-          "expr": "{env=~\"$env\", container=~\"$container\"}",
+          "expr": "{env=~\"$env\", container=~\"$container\", container!~\".*(monitoring|alloy|ai-sdlc-metrics).*\"}",
           "datasource": {
             "type": "loki",
             "uid": "loki"
