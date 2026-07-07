@@ -33,22 +33,27 @@ import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
-const SECTIONS: { key: JdSectionKey; label: string; hint?: string; placeholder: string }[] = [
+const SECTIONS: {
+  key: JdSectionKey;
+  label: string;
+  hint?: string;
+  placeholder: string;
+}[] = [
   {
     key: 'about',
-    label: 'About the role',
+    label: 'About the role *',
     placeholder: 'One short paragraph on the role and its context…',
   },
   {
     key: 'responsibilities',
     label: 'Responsibilities',
-    hint: 'one per line',
+    hint: 'one per line, optional',
     placeholder: 'Design and build…\nReview PRs…',
   },
   {
     key: 'requirements',
     label: 'Requirements',
-    hint: 'one per line',
+    hint: 'one per line, optional',
     placeholder: '5+ years…\nStrong…',
   },
   {
@@ -82,6 +87,16 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     nice_to_have: '',
   });
   const [error, setError] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const missingRequired = !title.trim() || !jd.about.trim();
+  const requiredError =
+    submitAttempted && missingRequired
+      ? !title.trim() && !jd.about.trim()
+        ? 'Job title and About the role are required.'
+        : !title.trim()
+          ? 'Job title is required.'
+          : 'About the role is required.'
+      : null;
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -106,8 +121,14 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     setHeadcount(1);
     setSkills([]);
     setVariant('external');
-    setJd({ about: '', responsibilities: '', requirements: '', nice_to_have: '' });
+    setJd({
+      about: '',
+      responsibilities: '',
+      requirements: '',
+      nice_to_have: '',
+    });
     setError(null);
+    setSubmitAttempted(false);
   }
 
   const mutation = useMutation({
@@ -137,7 +158,9 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     },
     onSuccess: () => {
       toast.success('Requisition created');
-      void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
+      void queryClient.invalidateQueries({
+        queryKey: hiringKeys.requisitions(),
+      });
       setOpen(false);
       reset();
     },
@@ -298,7 +321,12 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               onValueChange={(v) => setVariant(v as JdVariant)}
               options={[
                 { value: 'external', label: 'External' },
-                { value: 'internal', label: 'Internal' },
+                {
+                  value: 'internal',
+                  label: 'Internal',
+                  disabled: true,
+                  disabledReason: 'Coming soon',
+                },
               ]}
             />
           </div>
@@ -315,6 +343,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               />
             </div>
           ))}
+          {requiredError && <p className="text-body-sm text-danger-ink">{requiredError}</p>}
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -325,8 +354,12 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               Cancel
             </Button>
             <Button
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !title.trim() || !!dateError}
+              onClick={() => {
+                setSubmitAttempted(true);
+                if (missingRequired || dateError) return;
+                mutation.mutate();
+              }}
+              disabled={mutation.isPending}
             >
               {mutation.isPending ? 'Creating…' : 'Create requisition'}
             </Button>

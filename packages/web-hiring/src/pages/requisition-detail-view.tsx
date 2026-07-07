@@ -28,7 +28,6 @@ import {
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { Calendar as CalendarIcon, MoreHorizontal, Pencil, Share2, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import {
@@ -96,11 +95,22 @@ function toDateInputValue(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+function daysSince(dateStr: string): number {
+  return Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000));
+}
+
 function relativeDays(dateStr: string): string {
-  const days = Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000));
+  const days = daysSince(dateStr);
   if (days === 0) return 'today';
   if (days === 1) return '1 day ago';
   return `${days} days ago`;
+}
+
+function openDaysLabel(dateStr: string): string {
+  const days = daysSince(dateStr);
+  if (days === 0) return 'Open today';
+  if (days === 1) return 'Open 1 day';
+  return `Open ${days} days`;
 }
 
 function initialsOf(name: string): string {
@@ -242,7 +252,6 @@ interface Props {
 }
 
 export function RequisitionDetailView({ requisitionId, variant, onClose }: Props) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canManage = usePermission('hiring.requisition.manage');
   const canClose = usePermission('hiring.requisition.close');
@@ -661,7 +670,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               id="full-job-description"
               className="rounded-xl border border-hairline bg-canvas p-5"
             >
-              <h2 className="mb-4 font-semibold text-ink">Job description</h2>
+              <h1 className="mb-4 text-section-title font-semibold text-ink">Job description</h1>
               {!hasAnyDetail ? (
                 <EmptyState
                   title="No job description yet"
@@ -670,19 +679,22 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               ) : (
                 <div className="space-y-5">
                   {data.skills.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {data.skills.map((s) => (
-                        <Badge
-                          key={s.skill_name}
-                          variant="secondary"
-                          className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
-                        >
-                          {s.skill_name}
-                          {s.min_level != null
-                            ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}`
-                            : ''}
-                        </Badge>
-                      ))}
+                    <div>
+                      <div className="mb-2 font-semibold text-ink">Tech stack</div>
+                      <div className="flex flex-wrap gap-2">
+                        {data.skills.map((s) => (
+                          <Badge
+                            key={s.skill_name}
+                            variant="secondary"
+                            className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
+                          >
+                            {s.skill_name}
+                            {s.min_level != null
+                              ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}`
+                              : ''}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                   )}
                   {SECTIONS.map((s) => {
@@ -704,7 +716,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 </div>
               )}
               <p className="mt-5 text-caption text-ink-subtle">
-                Posted {req.created_at.slice(0, 10)}
+                Posted {req.created_at.slice(0, 10)} · {openDaysLabel(req.created_at)}
               </p>
             </section>
 
@@ -712,13 +724,6 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             <section className="rounded-xl border border-hairline bg-canvas p-5">
               <div className="mb-1 flex items-center justify-between">
                 <h2 className="font-semibold text-ink">Applicants ({data.applicants.length})</h2>
-                <button
-                  type="button"
-                  onClick={() => void navigate({ to: '/hiring/candidates' })}
-                  className="text-body-sm text-primary hover:underline"
-                >
-                  View all applicants
-                </button>
               </div>
               {applicantRows.length === 0 ? (
                 <p className="py-4 text-body-sm text-ink-subtle">No applicants yet.</p>
@@ -769,7 +774,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   onChange={(start_date) => setDate.mutate({ start_date })}
                 />
                 <DateField
-                  label="Target hire date"
+                  label="Due date"
                   value={req.due_date}
                   editable={datesEditable}
                   canManage={canManage}
