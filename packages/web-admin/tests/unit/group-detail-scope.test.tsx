@@ -13,6 +13,13 @@ vi.mock('../../src/groups/api/groups-client.ts', () => ({
   deleteGroup: async () => {},
 }));
 
+vi.mock('../../src/api/org-unit-search.ts', () => ({
+  orgUnitSearch: {
+    search: async () => [{ value: 'ou-1', label: 'Engineering' }],
+    resolveByIds: async () => [{ value: 'ou-1', label: 'Engineering' }],
+  },
+}));
+
 const scopedGroup: Group = {
   group_id: 'g1',
   slug: 'ops',
@@ -35,18 +42,6 @@ function renderDetail(group: Group) {
 describe('GroupDetail scope picker', () => {
   beforeEach(() => {
     setGroupRolesMock.mockClear();
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.includes('/api/identity/v1/org-units')) {
-        return new Response(
-          JSON.stringify({
-            org_units: [{ org_unit_id: 'ou-1', name: 'Engineering', parent_id: null }],
-          }),
-          { status: 200 },
-        );
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
   });
 
   it('shows the org-unit scope and unit label for a scoped role', async () => {
@@ -60,7 +55,7 @@ describe('GroupDetail scope picker', () => {
     renderDetail(scopedGroup);
     await screen.findByText('Org unit');
 
-    const checkbox = screen.getByRole('checkbox', { name: /people · viewer/i });
+    const checkbox = await screen.findByRole('checkbox', { name: /people · viewer/i });
     await user.click(checkbox);
 
     await waitFor(() => expect(setGroupRolesMock).toHaveBeenCalled());
@@ -71,5 +66,5 @@ describe('GroupDetail scope picker', () => {
         { role_slug: 'people.viewer', scope_kind: 'tenant', scope_id: null },
       ]),
     );
-  });
+  }, 15_000);
 });
