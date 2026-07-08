@@ -3,6 +3,8 @@ import { useNavigate } from '@tanstack/react-router';
 import {
   CheckCircle,
   FilePlus,
+  FolderMinus,
+  FolderPlus,
   RotateCcw,
   Shield,
   Trash2,
@@ -68,6 +70,56 @@ export const plannerRenderers: RendererSpec[] = [
     eventType: 'planner.plan.deleted',
     icon: <Trash2 className="size-4" aria-hidden />,
     getHref: groupHref,
+  },
+  {
+    eventType: 'planner.task.created',
+    icon: <FilePlus className="size-4" aria-hidden />,
+    getHref: taskHref,
+  },
+  {
+    eventType: 'planner.task.deleted',
+    icon: <Trash2 className="size-4" aria-hidden />,
+    getHref: planHref,
+  },
+  {
+    eventType: 'planner.task.reopened.not-started',
+    icon: <RotateCcw className="size-4" aria-hidden />,
+    getHref: taskHref,
+  },
+  {
+    eventType: 'planner.task.reopened.in-progress',
+    icon: <RotateCcw className="size-4" aria-hidden />,
+    getHref: taskHref,
+  },
+  {
+    eventType: 'planner.task.status.not-started',
+    icon: <RotateCcw className="size-4" aria-hidden />,
+    getHref: taskHref,
+  },
+  {
+    eventType: 'planner.task.status.in-progress',
+    icon: <RotateCcw className="size-4" aria-hidden />,
+    getHref: taskHref,
+  },
+  {
+    eventType: 'planner.bucket.created',
+    icon: <FolderPlus className="size-4" aria-hidden />,
+    getHref: planHref,
+  },
+  {
+    eventType: 'planner.bucket.deleted',
+    icon: <FolderMinus className="size-4" aria-hidden />,
+    getHref: planHref,
+  },
+  {
+    eventType: 'planner.group.created',
+    icon: <Users className="size-4" aria-hidden />,
+    getHref: groupHref,
+  },
+  {
+    eventType: 'planner.group.deleted',
+    icon: <Trash2 className="size-4" aria-hidden />,
+    getHref: () => '/planner',
   },
 ];
 

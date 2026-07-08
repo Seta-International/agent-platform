@@ -2,12 +2,15 @@ import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
 import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import { buildActorSession } from '@seta/identity';
 import {
+  plannerGetGroupOverviewTool,
   plannerListBucketsTool,
-  plannerListGroupMembersTool,
   plannerListPlansTool,
   plannerSearchGroupMembersBySkillsTool,
 } from '@seta/planner/agent-tools';
+import { listPlans } from '../../domain/list-plans.ts';
+import { listMemberGroupIds } from '../../read-helpers.ts';
 import { pickModel } from '../model.ts';
 import {
   type QnaSubAgentInput as In,
@@ -17,7 +20,7 @@ import {
 } from '../schemas.ts';
 
 export const TEAM_INFO_TOOL_IDS = [
-  'planner_listGroupMembers',
+  'planner_getGroupOverview',
   'planner_listPlans',
   'planner_listBuckets',
   'planner_searchGroupMembersBySkills',
@@ -28,19 +31,37 @@ export interface QnaTeamInfoDeps {
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
 }
 
-const INSTRUCTIONS = `You answer questions about org structure and people in prose:
+function buildInstructions({ requestContext }: { requestContext: RequestContext }): string {
+  const groupIds = requestContext.get<'caller_group_ids', string[]>('caller_group_ids') ?? [];
+  const planIds = requestContext.get<'caller_plan_ids', string[]>('caller_plan_ids') ?? [];
+  const resolved =
+    groupIds.length || planIds.length
+      ? `\n\nThe caller's own group(s)/plan(s), pre-resolved (internal ids, not for the user):\n` +
+        [...groupIds.map((id) => `- group ${id}`), ...planIds.map((id) => `- plan ${id}`)].join(
+          '\n',
+        ) +
+        `\nUse these directly for "my group/team/plan" questions — no need to ask. ` +
+        `If several are listed and the question doesn't say which, call planner_getGroupOverview ` +
+        `/ planner_listPlans to get their names, then ask the user to pick by name — never by id.\n`
+      : '';
+
+  return `You answer questions about org structure and people in prose:
 group members + roles, the plans in a group, the buckets in a plan, and who has
 which skills.
 
 Tools:
-- planner_listGroupMembers(groupId): members + roles + total count.
+- planner_getGroupOverview(groupId): group name + members/roles/total count + plans in the group.
 - planner_listPlans(groupId?): plans in a group (or all accessible).
 - planner_listBuckets(planId): buckets in a plan.
 - planner_searchGroupMembersBySkills(groupId, skills): rank members by skill.
-
-Resolve groupId / planId from the "[Context: ...]" prefix or a prior list result.
+${resolved}
+Otherwise resolve groupId / planId from the "[Context: ...]" prefix or a prior list result.
 If an id is required and cannot be resolved, ask the user instead of guessing.
+groupId / planId / userId are internal tool handles only — never print a raw id/UUID
+in your answer. Always refer to groups, plans, and people by name; resolve the name
+via a tool call first if you don't already have it.
 Read-only.`;
+}
 
 export function makeQnaTeamInfoAgent(deps: QnaTeamInfoDeps): SpecializedAgentSpec<In, Out> {
   return {
@@ -57,13 +78,27 @@ export function makeQnaTeamInfoAgent(deps: QnaTeamInfoDeps): SpecializedAgentSpe
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
+            // Pre-resolve caller's own group(s)/plan(s) into rc — getGroupOverview/
+            // listBuckets/searchGroupMembersBySkills require an explicit id with no
+            // self-resolution (unlike listPlans(groupId?)), so without this the
+            // sub-agent has nothing to answer "my group/team/plan" cold and asks
+            // the user for an id instead.
+            const groupIds = await listMemberGroupIds(ctx.actorUserId, ctx.tenantId);
+            const session = await buildActorSession({ user_id: ctx.actorUserId });
+            const myPlans = await listPlans({ session });
+            rc.set('caller_group_ids', groupIds);
+            rc.set(
+              'caller_plan_ids',
+              myPlans.map((p) => p.id),
+            );
+
             const agent = new Agent({
               id: 'planner.qna.teamInfo',
               name: 'Planner Team Info',
-              instructions: INSTRUCTIONS,
+              instructions: buildInstructions,
               model: pickModel(ctx, deps.resolveModel),
               tools: {
-                planner_listGroupMembers: plannerListGroupMembersTool,
+                planner_getGroupOverview: plannerGetGroupOverviewTool,
                 planner_listPlans: plannerListPlansTool,
                 planner_listBuckets: plannerListBucketsTool,
                 planner_searchGroupMembersBySkills: plannerSearchGroupMembersBySkillsTool,

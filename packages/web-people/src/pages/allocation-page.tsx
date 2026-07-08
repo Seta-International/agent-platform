@@ -40,6 +40,11 @@ function heatStyle(v: number | null | undefined): CSSProperties {
   return { background: 'var(--color-danger-tint)', color: 'var(--color-danger-ink)' };
 }
 
+function formatLoad(pct: number): string {
+  const frac = pct / 100;
+  return Number.isInteger(frac) ? frac.toFixed(1) : String(frac);
+}
+
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   const first = parts[0]?.[0] ?? '';
@@ -235,7 +240,7 @@ export function AllocationPage() {
               title={isOver ? `Total ${total}% this month` : undefined}
               style={style}
             >
-              {v == null ? '' : v}
+              {v == null ? '' : formatLoad(v)}
             </span>
           </div>
         );
@@ -282,20 +287,6 @@ export function AllocationPage() {
           ),
       },
       ...monthCols,
-      {
-        accessorKey: 'ytd_pct',
-        header: () => <div className="text-center">YTD%</div>,
-        cell: ({ row }) => (
-          <div className="text-center font-mono text-[12px]">{row.original.ytd_pct}</div>
-        ),
-      },
-      {
-        accessorKey: 'fy_pct',
-        header: () => <div className="text-center">FY%</div>,
-        cell: ({ row }) => (
-          <div className="text-center font-mono text-[12px]">{row.original.fy_pct}</div>
-        ),
-      },
       {
         accessorKey: 'total_mm',
         header: () => <div className="text-center">MM</div>,

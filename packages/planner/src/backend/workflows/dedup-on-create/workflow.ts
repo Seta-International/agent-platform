@@ -1,6 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import type { Candidate, Classification, DedupInput, DedupOutput, DupAction } from './schemas.ts';
 import { classifyByThreshold } from './steps/classify-by-threshold.ts';
+import { resolveGroupPlanIds } from './steps/resolve-group-plan-ids.ts';
 import { type SearchSimilarDeps, searchSimilar } from './steps/search-similar.ts';
 
 export interface DupSearchResult {
@@ -21,8 +22,15 @@ export async function findDupCandidates(
   input: { task: DedupInput; session: { tenantId: string; userId: string } },
   deps: DedupDeps,
 ): Promise<DupSearchResult> {
+  const planIds = await resolveGroupPlanIds({
+    tenantId: input.session.tenantId,
+    planId: input.task.plan_id,
+  });
   const queryText = `${input.task.title}\n\n${input.task.description}`.trim();
-  const { candidates } = await searchSimilar({ tenantId: input.session.tenantId, queryText }, deps);
+  const { candidates } = await searchSimilar(
+    { tenantId: input.session.tenantId, queryText, planIds },
+    deps,
+  );
   // Filter out the task itself from candidates
   const filtered = candidates.filter((c) => c.taskId !== input.task.taskId);
   const { classification, top } = classifyByThreshold({ candidates: filtered }, deps.thresholds);

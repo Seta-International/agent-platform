@@ -8,6 +8,7 @@ import { groupFilterFor } from '../read-helpers.ts';
 import { isM365SystemActor } from './_actor.ts';
 
 export interface GroupMembersPage {
+  group: { id: string; name: string };
   members: GroupMemberRow[];
   total: number;
 }
@@ -69,6 +70,7 @@ export async function listGroupMembers(input: {
   ]);
 
   return {
+    group: { id: group.id, name: group.name },
     total: countRow?.total ?? 0,
     members: rows.map((r) => ({
       group_id: r.group_id,

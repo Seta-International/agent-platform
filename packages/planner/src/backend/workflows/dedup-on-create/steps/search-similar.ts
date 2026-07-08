@@ -7,6 +7,8 @@ import type { Candidate } from '../schemas.ts';
 export interface SearchSimilarInput {
   tenantId: string;
   queryText: string;
+  /** Restrict candidates to plans in the task's group; omit for tenant-wide search. */
+  planIds?: string[];
   topK?: number;
 }
 
@@ -28,6 +30,7 @@ export async function searchSimilar(
     {
       query: input.queryText,
       tenant_id: input.tenantId,
+      plan_ids: input.planIds,
       limit: input.topK ?? 5,
     },
     deps,
