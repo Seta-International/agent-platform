@@ -3,7 +3,7 @@ import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import { createTestTenantWithAdmin } from '@seta/identity/testing';
 import { addGroupMember, createGroup } from '@seta/planner';
-import { plannerListGroupMembersTool } from '@seta/planner/agent-tools';
+import { plannerGetGroupOverviewTool } from '@seta/planner/agent-tools';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -41,12 +41,12 @@ function buildAdminSession(opts: {
   };
 }
 
-describe('planner_listGroupMembers tool', () => {
+describe('planner_getGroupOverview tool', () => {
   it('declares the group.member.read permission', () => {
-    expect(requiredPermissionFor(plannerListGroupMembersTool)).toBe('planner.group.member.read');
+    expect(requiredPermissionFor(plannerGetGroupOverviewTool)).toBe('planner.group.member.read');
   });
 
-  it('returns members with roles and a total count', async () => {
+  it('returns group name, members with roles, a total count, and plans', async () => {
     await withAgentTestDb(async ({ pool }) => {
       const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
       const session = buildAdminSession({
@@ -72,14 +72,21 @@ describe('planner_listGroupMembers tool', () => {
       const group = await createGroup({ tenant_id, name: 'Engineering', session });
       await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
 
-      const result = (await plannerListGroupMembersTool.execute!(
+      const result = (await plannerGetGroupOverviewTool.execute!(
         { groupId: group.id },
         makeToolContext({ user_id: admin_user_id, tenant_id }),
-      )) as { members: { userId: string; displayName: string; role: string }[]; total: number };
+      )) as {
+        group: { name: string };
+        totalMembers: number;
+        members: { displayName: string; email: string; role: string }[];
+        plans: { id: string; name: string }[];
+      };
 
-      expect(result.total).toBeGreaterThanOrEqual(1);
-      expect(result.members.some((m) => m.userId === alice.user_id)).toBe(true);
-      expect(result.members.find((m) => m.userId === alice.user_id)?.displayName).toBe('Alice');
+      expect(result.group).toEqual({ name: 'Engineering' });
+      expect(result.totalMembers).toBeGreaterThanOrEqual(1);
+      expect(result.members.some((m) => m.displayName === 'Alice')).toBe(true);
+      expect(result.members.find((m) => m.displayName === 'Alice')?.email).toBe('alice@demo.local');
+      expect(result.plans).toEqual([]);
     });
   });
 
@@ -100,7 +107,7 @@ describe('planner_listGroupMembers tool', () => {
       );
 
       await expect(
-        plannerListGroupMembersTool.execute!(
+        plannerGetGroupOverviewTool.execute!(
           { groupId: group.id },
           makeToolContext({ user_id: outsider.user_id, tenant_id }),
         ),
