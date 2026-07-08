@@ -7,7 +7,7 @@ import {
 describe('qna teamInfoAgent', () => {
   it('is wired with the group/plan/people toolbox', () => {
     expect(TEAM_INFO_TOOL_IDS).toEqual([
-      'planner_listGroupMembers',
+      'planner_getGroupOverview',
       'planner_listPlans',
       'planner_listBuckets',
       'planner_searchGroupMembersBySkills',
