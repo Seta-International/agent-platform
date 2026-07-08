@@ -22,8 +22,8 @@ export interface TaskRetrievalItem {
 export interface SearchTasksInput {
   query: string;
   tenant_id: string;
-  /** When set, restrict results to a single plan (used by dedup-on-create). */
-  plan_id?: string;
+  /** When set, restrict results to these plans (used by dedup-on-create's group scope). */
+  plan_ids?: string[];
   limit: number;
 }
 
@@ -68,7 +68,7 @@ export async function searchTasks(
     topK: stage1Limit,
     filter: {
       tenant_id: { $eq: input.tenant_id },
-      ...(input.plan_id ? { plan_id: { $eq: input.plan_id } } : {}),
+      ...(input.plan_ids?.length ? { plan_id: { $in: input.plan_ids } } : {}),
     },
   });
 

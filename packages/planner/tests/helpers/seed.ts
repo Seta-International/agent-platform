@@ -5,6 +5,7 @@ import { seedTenant } from '../helpers.ts';
 export interface SeedTaskOptions {
   tenant_id?: string; // when omitted, a fresh tenant is seeded
   pool?: Pool; // required when tenant_id is provided; otherwise inferred
+  group_id?: string; // when provided, the task's plan is created under this existing group instead of a fresh one
   title: string;
   description: string | null;
   labels?: string[];
@@ -13,6 +14,7 @@ export interface SeedTaskOptions {
 
 export interface SeededTask {
   tenant_id: string;
+  group_id: string;
   task_id: string;
   plan_id: string;
   bucket_id: string;
@@ -40,14 +42,19 @@ export async function seedTaskForTest(pool: Pool, opts: SeedTaskOptions): Promis
   // No FK constraint on these columns, so a random UUID is safe for test fixtures.
   const actor_id = randomUUID();
 
-  // Insert group
-  const group_id = randomUUID();
-  await pool.query(
-    `INSERT INTO planner.groups
-       (id, tenant_id, name, theme, visibility, default_role, external_source, created_by, deleted_at)
-     VALUES ($1, $2, $3, 'blue', 'private', 'member', 'native', $4, NULL)`,
-    [group_id, tenant_id, `Group ${group_id.slice(0, 8)}`, actor_id],
-  );
+  // Insert group (or reuse an existing one so callers can seed "same group, different plan").
+  let group_id: string;
+  if (opts.group_id) {
+    group_id = opts.group_id;
+  } else {
+    group_id = randomUUID();
+    await pool.query(
+      `INSERT INTO planner.groups
+         (id, tenant_id, name, theme, visibility, default_role, external_source, created_by, deleted_at)
+       VALUES ($1, $2, $3, 'blue', 'private', 'member', 'native', $4, NULL)`,
+      [group_id, tenant_id, `Group ${group_id.slice(0, 8)}`, actor_id],
+    );
+  }
 
   // Insert plan
   const plan_id = randomUUID();
@@ -92,5 +99,5 @@ export async function seedTaskForTest(pool: Pool, opts: SeedTaskOptions): Promis
     );
   }
 
-  return { tenant_id, task_id, plan_id, bucket_id };
+  return { tenant_id, group_id, task_id, plan_id, bucket_id };
 }
