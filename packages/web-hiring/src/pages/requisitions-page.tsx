@@ -17,7 +17,7 @@ import {
   TooltipTrigger,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Briefcase, Layers, Pause, Search, Users } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
@@ -27,10 +27,17 @@ import {
   type RequisitionListRow,
 } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
+import { CancelRequisitionDialog } from './cancel-requisition-dialog.tsx';
+import { MarkFilledDialog } from './mark-filled-dialog.tsx';
 import { NewRequisitionDialog } from './new-requisition-dialog.tsx';
 import { RequisitionCard } from './requisition-card.tsx';
 import { STAGE_LABEL } from './requisition-format.ts';
 import { buildScopeNote } from './utils.ts';
+
+interface CloseTarget {
+  id: string;
+  version: number;
+}
 
 const STATUS_LABEL: Record<string, string> = {
   open: 'Open',
@@ -41,6 +48,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function RequisitionsPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const canManage = usePermission('hiring.requisition.manage');
   // The "New requisition" button calls openRequisition, which the backend gates on
   // `.open` (see backend/domain/open-requisition.ts) — a distinct permission from `.manage`
@@ -49,10 +57,20 @@ export function RequisitionsPage() {
   // Mark Filled / Cancel call closeRequisition, gated on `.close` — distinct from `.manage`
   // (stage/pause/resume), even though every seed role grants both today.
   const canClose = usePermission('hiring.requisition.close');
+  // Lifted out of RequisitionCard (one singleton here instead of one Dialog per card): filling
+  // or cancelling removes the row from this board's query, which would unmount the card — and
+  // Radix's Dialog can leave `pointer-events` stuck on <body> if it's torn down mid-close-
+  // animation. Keeping the dialog mounted at the page level, independent of the row, avoids the
+  // race entirely instead of racing a setTimeout against Radix's animation.
+  const [fillTarget, setFillTarget] = useState<CloseTarget | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<CloseTarget | null>(null);
+  const invalidate = () =>
+    void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
   const [view, setView] = useState<'board' | 'list'>('board');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [accountFilter, setAccountFilter] = useState('all');
+  const [projectFilter, setProjectFilter] = useState('all');
   const [kindFilter, setKindFilter] = useState('all');
 
   const { data, isLoading, error } = useQuery<OpenRequisitionsBoard>({
@@ -70,6 +88,26 @@ export function RequisitionsPage() {
     [rows],
   );
 
+  // Scoped to the selected account — a project belongs to exactly one account, so listing every
+  // project across all accounts here would let the user pick a combination that never matches.
+  const projectOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          rows
+            .filter((r) => accountFilter === 'all' || r.account_name === accountFilter)
+            .map((r) => r.project_name)
+            .filter((n): n is string => n != null),
+        ),
+      ).sort(),
+    [rows, accountFilter],
+  );
+
+  function onAccountFilterChange(next: string) {
+    setAccountFilter(next);
+    setProjectFilter('all');
+  }
+
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
@@ -77,10 +115,11 @@ export function RequisitionsPage() {
         return false;
       if (statusFilter !== 'all' && r.status !== statusFilter) return false;
       if (accountFilter !== 'all' && r.account_name !== accountFilter) return false;
+      if (projectFilter !== 'all' && r.project_name !== projectFilter) return false;
       if (kindFilter !== 'all' && r.kind !== kindFilter) return false;
       return true;
     });
-  }, [rows, query, statusFilter, accountFilter, kindFilter]);
+  }, [rows, query, statusFilter, accountFilter, projectFilter, kindFilter]);
 
   const stat = (
     label: string,
@@ -280,7 +319,7 @@ export function RequisitionsPage() {
                 <SelectItem value="on_hold">On hold</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={accountFilter} onValueChange={setAccountFilter}>
+            <Select value={accountFilter} onValueChange={onAccountFilterChange}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue />
               </SelectTrigger>
@@ -289,6 +328,23 @@ export function RequisitionsPage() {
                 {accountOptions.map((a) => (
                   <SelectItem key={a} value={a}>
                     {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={projectFilter}
+              onValueChange={setProjectFilter}
+              disabled={accountFilter === 'all'}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Project" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Project</SelectItem>
+                {projectOptions.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -368,11 +424,46 @@ export function RequisitionsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {filteredRows.map((r) => (
-              <RequisitionCard key={r.id} r={r} canManage={canManage} canClose={canClose} />
+              <RequisitionCard
+                key={r.id}
+                r={r}
+                canManage={canManage}
+                canClose={canClose}
+                onRequestMarkFilled={() => setFillTarget({ id: r.id, version: r.version })}
+                onRequestCancel={() => setCancelTarget({ id: r.id, version: r.version })}
+              />
             ))}
           </div>
         )}
       </div>
+      {fillTarget && (
+        <MarkFilledDialog
+          requisitionId={fillTarget.id}
+          version={fillTarget.version}
+          open
+          onOpenChange={(v) => {
+            if (!v) setFillTarget(null);
+          }}
+          onDone={() => {
+            invalidate();
+            setFillTarget(null);
+          }}
+        />
+      )}
+      {cancelTarget && (
+        <CancelRequisitionDialog
+          requisitionId={cancelTarget.id}
+          version={cancelTarget.version}
+          open
+          onOpenChange={(v) => {
+            if (!v) setCancelTarget(null);
+          }}
+          onDone={() => {
+            invalidate();
+            setCancelTarget(null);
+          }}
+        />
+      )}
     </PageChrome>
   );
 }

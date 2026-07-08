@@ -55,3 +55,10 @@ export function daysLeft(dueDate: string): number {
   if (Number.isNaN(due)) return 0;
   return Math.ceil((due - Date.now()) / 86_400_000);
 }
+
+// RichTextEditor (Tiptap) reports an empty editor as "<p></p>", not "" — plain string
+// truthiness/`.trim()` treats that as content. Strip tags before checking for real text.
+export function isRichTextEmpty(html: string | null | undefined): boolean {
+  if (!html) return true;
+  return html.replace(/<[^>]+>/g, '').trim().length === 0;
+}

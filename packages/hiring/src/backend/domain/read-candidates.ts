@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { hiringDb } from '../db/client.ts';
 import {
   application,
@@ -134,7 +134,11 @@ export async function listCandidates(session: SessionScope): Promise<CandidateLi
     .from(application)
     .innerJoin(candidate, eq(candidate.id, application.candidate_id))
     .innerJoin(requisition, eq(requisition.id, application.requisition_id))
-    .where(and(...conds));
+    .where(and(...conds))
+    // Without an explicit order, Postgres can return rows in a different physical order after
+    // an UPDATE (e.g. a stage move) — the board would look like the dragged card "teleported".
+    // Most-recently-moved first also means a card dropped into a column surfaces at its top.
+    .orderBy(desc(application.updated_at));
   const { reqSkills, candSkills } = await fitFor(
     session,
     [...new Set(rows.map((r) => r.requisition_id))],

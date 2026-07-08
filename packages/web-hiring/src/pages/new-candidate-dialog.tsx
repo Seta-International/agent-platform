@@ -21,10 +21,11 @@ import {
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, X } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   addCandidate,
   editCandidate,
+  fetchCandidates,
   fetchRequisitions,
   parseCandidateCvDraft,
   putCvToS3,
@@ -34,6 +35,8 @@ import { hiringKeys } from '../state/query-keys.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
 const NONE = '__none__';
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^\+?[0-9()\-.\s]{7,20}$/;
 
 export function NewCandidateDialog() {
   const queryClient = useQueryClient();
@@ -51,12 +54,39 @@ export function NewCandidateDialog() {
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const emailError = email.trim() && !EMAIL_RE.test(email.trim()) ? 'Enter a valid email.' : null;
+  const phoneError =
+    phone.trim() && !PHONE_RE.test(phone.trim()) ? 'Enter a valid phone number.' : null;
 
   const { data: reqs } = useQuery({
     queryKey: hiringKeys.requisitionOptions(),
     queryFn: fetchRequisitions,
   });
-  const openReqs = (reqs ?? []).filter((r) => r.status === 'open' || r.status === 'on_hold');
+  const openReqs = (reqs ?? []).filter((r) => r.status === 'open');
+
+  // Suggest values already in use (same distinct-value approach as the Candidates board filters).
+  const { data: existingCandidates } = useQuery({
+    queryKey: hiringKeys.candidates(),
+    queryFn: fetchCandidates,
+    enabled: open,
+  });
+  const seniorityOptions = useMemo(
+    () =>
+      [
+        ...new Set(
+          (existingCandidates ?? []).map((c) => c.seniority).filter((v): v is string => !!v),
+        ),
+      ].sort(),
+    [existingCandidates],
+  );
+  const sourceOptions = useMemo(
+    () =>
+      [
+        ...new Set((existingCandidates ?? []).map((c) => c.source).filter((v): v is string => !!v)),
+      ].sort(),
+    [existingCandidates],
+  );
 
   function reset() {
     setName('');
@@ -72,9 +102,19 @@ export function NewCandidateDialog() {
     setCvFile(null);
     setSuggestions([]);
     setError(null);
+    setSubmitAttempted(false);
   }
 
   const effectiveReq = reqId || openReqs[0]?.id || '';
+  const missingRequired = !name.trim() || !effectiveReq;
+  const requiredError =
+    submitAttempted && missingRequired
+      ? !name.trim() && !effectiveReq
+        ? 'Full name and position applied are required.'
+        : !name.trim()
+          ? 'Full name is required.'
+          : 'Position applied is required.'
+      : null;
 
   // Fill-only-empty: a parse never overwrites what the recruiter already typed.
   const parse = useMutation({
@@ -99,14 +139,11 @@ export function NewCandidateDialog() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!name.trim() || !effectiveReq) {
-        throw new Error('A name and an open role are required.');
-      }
       const res = await addCandidate({
         requisition_id: effectiveReq,
         name,
-        personal_email: email || undefined,
-        phone: phone || undefined,
+        personal_email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
         dob: dob || undefined,
         gender: gender || undefined,
         seniority: seniority || undefined,
@@ -144,6 +181,13 @@ export function NewCandidateDialog() {
     },
     onError: (e: Error) => setError(e.message),
   });
+
+  function submit() {
+    setSubmitAttempted(true);
+    if (missingRequired || emailError || phoneError) return;
+    setError(null);
+    mutation.mutate();
+  }
 
   return (
     <Dialog
@@ -201,10 +245,12 @@ export function NewCandidateDialog() {
             <div className="space-y-1">
               <Label htmlFor="cand-email">Email</Label>
               <Input id="cand-email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              {emailError && <p className="text-caption text-danger-ink">{emailError}</p>}
             </div>
             <div className="space-y-1">
               <Label htmlFor="cand-phone">Phone</Label>
               <Input id="cand-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              {phoneError && <p className="text-caption text-danger-ink">{phoneError}</p>}
             </div>
             <div className="space-y-1">
               <Label htmlFor="cand-dob">Date of birth</Label>
@@ -231,15 +277,38 @@ export function NewCandidateDialog() {
             </div>
             <div className="space-y-1">
               <Label htmlFor="cand-seniority">Seniority</Label>
-              <Input
-                id="cand-seniority"
-                value={seniority}
-                onChange={(e) => setSeniority(e.target.value)}
-              />
+              <Select
+                value={seniority || NONE}
+                onValueChange={(v) => setSeniority(v === NONE ? '' : v)}
+              >
+                <SelectTrigger id="cand-seniority" className="w-full">
+                  <SelectValue placeholder="Select seniority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>—</SelectItem>
+                  {seniorityOptions.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label htmlFor="cand-source">Source</Label>
-              <Input id="cand-source" value={source} onChange={(e) => setSource(e.target.value)} />
+              <Select value={source || NONE} onValueChange={(v) => setSource(v === NONE ? '' : v)}>
+                <SelectTrigger id="cand-source" className="w-full">
+                  <SelectValue placeholder="Select source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>—</SelectItem>
+                  {sourceOptions.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="space-y-1">
@@ -275,6 +344,7 @@ export function NewCandidateDialog() {
               ))}
             </div>
           )}
+          {requiredError && <p className="text-body-sm text-danger-ink">{requiredError}</p>}
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -284,10 +354,7 @@ export function NewCandidateDialog() {
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || parse.isPending || !name.trim() || !effectiveReq}
-            >
+            <Button onClick={submit} disabled={mutation.isPending || parse.isPending}>
               {mutation.isPending ? 'Saving…' : 'Save candidate'}
             </Button>
           </div>

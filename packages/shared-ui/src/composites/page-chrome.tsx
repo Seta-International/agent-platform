@@ -29,7 +29,7 @@ export function PageChrome({
 }: PageChromeProps) {
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
-      <header className="flex h-14 flex-none items-center justify-between gap-4 border-b border-hairline bg-canvas px-6">
+      <header className="flex min-h-14 flex-none items-center justify-between gap-4 border-b border-hairline bg-canvas px-6 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {leading && <div className="flex-none">{leading}</div>}
           <div className="flex min-w-0 flex-col gap-0.5">
@@ -48,15 +48,15 @@ export function PageChrome({
                 ))}
               </nav>
             )}
-            <div className="flex min-w-0 items-baseline gap-3">
-              <h1 className="text-card-title m-0 truncate font-semibold tracking-tight text-ink">
+            {/* `title`/`subtitle` render as inline content in one clamped box (not flex items)
+             * so long subtitles wrap at the word that overflows, not as a whole block dropping
+             * to the next line — title and the start of the subtitle share line 1 whenever
+             * there's room, same as a normal wrapping paragraph. */}
+            <div className="line-clamp-2 min-w-0">
+              <h1 className="m-0 inline text-card-title font-semibold tracking-tight text-ink">
                 {title}
               </h1>
-              {subtitle && (
-                <div className="flex min-w-0 items-center gap-2 truncate text-body-sm text-ink-subtle">
-                  {subtitle}
-                </div>
-              )}
+              {subtitle && <span className="ml-3 text-body-sm text-ink-subtle">{subtitle}</span>}
             </div>
           </div>
         </div>

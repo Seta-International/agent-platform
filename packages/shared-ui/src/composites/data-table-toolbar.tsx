@@ -24,7 +24,9 @@ export function DataTableToolbar<TData>({
 }: Props<TData>) {
   return (
     <div className="flex items-center justify-between">
-      {searchSlot}
+      {/* Always render a slot (even empty) so a lone Columns button still lands on the
+       * right — `justify-between` pins a single flex child to the start, not the end. */}
+      <div>{searchSlot}</div>
       {enableColumnVisibility && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
