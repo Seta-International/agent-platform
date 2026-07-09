@@ -2,7 +2,7 @@
 
 A playbook for agents (and the product team) breaking a large module — `people`, `hiring`, `pm` — into a Work Breakdown Structure. The **deliverable is a single CSV file** (`docs/modules/<module>-wbs.csv`): one flat table that is at once the WBS dictionary, the sequencing record, and a **Jira-import file** — it opens in Excel and imports into Jira with no reshaping. Each leaf is a **runnable, trackable, plannable** work package mapping to one `slice → spec → plan → PR`.
 
-Ground every WBS in the module's existing design: its product spec ([`../modules/`](../modules/) PRDs) plus the cross-module data and integration design ([`../reference/db-design.md`](../reference/db-design.md), [`../reference/ddd-design.md`](../reference/ddd-design.md)). The PRD's feature breakdown is the embryonic form of this artifact; this playbook turns it into an importable spreadsheet.
+Ground every WBS in the module's existing design: its product spec ([`../modules/`](../modules/) PRDs) plus the cross-module data and integration design (the module's `schema.ts`, [`../reference/review-schema.sql`](../reference/review-schema.sql), [`../reference/ddd-design.md`](../reference/ddd-design.md)). The PRD's feature breakdown is the embryonic form of this artifact; this playbook turns it into an importable spreadsheet.
 
 ---
 
@@ -90,7 +90,7 @@ WBS Code,WBS ID,Level,Parent ID,Name,Issue Type,Summary,Epic Name,Epic Link,Scop
 
 **Step 0 — Clarify.** One batched question: which module and which capabilities are in/out of scope; greenfield or extending (greenfield → foundation is a deliverable; extending → it's a dependency); track work packages only or also sub-tasks; size unit; and any must-hit demo defining the MVP. Most rework comes from guessing scope or granularity.
 
-**Step 1 — Inventory the deliverables.** Your level-1 decomposition is the module's **capability inventory** — derive it from the PRD's *Features & requirements* and *Scope* sections, cross-checked against [`../reference/db-design.md`](../reference/db-design.md) (entities) and [`../reference/ddd-design.md`](../reference/ddd-design.md) (events/boundaries). For a module already in code, dispatch parallel exploration agents (domain/behavior, data model, events/integration, access control, frontend/UX), each returning facts with `file:line` cites. Synthesize a capability list; don't paste agent dumps into the CSV.
+**Step 1 — Inventory the deliverables.** Your level-1 decomposition is the module's **capability inventory** — derive it from the PRD's *Features & requirements* and *Scope* sections, cross-checked against the module's `schema.ts` (entities) and [`../reference/ddd-design.md`](../reference/ddd-design.md) (events/boundaries). For a module already in code, dispatch parallel exploration agents (domain/behavior, data model, events/integration, access control, frontend/UX), each returning facts with `file:line` cites. Synthesize a capability list; don't paste agent dumps into the CSV.
 
 **Step 2 — Decompose to the 100% rule.** Level-1 rows = capability areas (nouns) totalling 100% of the module, *including* foundation, integration, and approval/governance flows. Decompose each into vertical work-package rows (set `Parent ID`). Verify MECE at each level — if a slice spans two capabilities, file it under its primary one and make the other a dependency. Stop at the work-package floor: each leaf is a `Story` (user value) or `Task` (enabling), one coherent PR; can't make it one PR → too big, split it; splitting wouldn't change estimation/ownership/tracking → too small, roll it up.
 

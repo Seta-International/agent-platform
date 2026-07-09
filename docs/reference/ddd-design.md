@@ -4,7 +4,7 @@
 > aggregate roots + invariants, and domain events as the data-in/out contract. Grounded in the
 > [PM/PSA + DDD research](#sources) (Kantata/Float/Runn for PSA; Vernon/O-AA/Context-Mapper for DDD).
 >
-> **Source of truth: the module PRDs** ([`People-PRD`](../modules/people-prd.md), [`Hiring-PRD`](../modules/hiring-prd.md), [`PM-PRD`](../modules/pm-prd.md)) and the data design in [`db-design.md`](./db-design.md). This is the integration backbone behind them. Carried decisions: **leave is owned by the timesheet system** (`people.leave.*` dropped; `pm` reads availability from timesheet); **re-hire** = `person` identity + many `employment_period`s, guarded by a person-match at the `hiring`→`people` boundary; **internal mobility feeds a single `people` job-change ("movement")** so `hiring.mobility.approved` is consumed by **both** `pm` and `people`.
+> **Source of truth: the module PRDs** ([`People-PRD`](../modules/people-prd.md), [`Hiring-PRD`](../modules/hiring-prd.md), [`PM-PRD`](../modules/pm-prd.md)) and the data design in the module `schema.ts` files. This is the integration backbone behind them. Carried decisions: **leave is owned by the timesheet system** (`people.leave.*` dropped; `pm` reads availability from timesheet); **re-hire** = `person` identity + many `employment_period`s, guarded by a person-match at the `hiring`→`people` boundary; **internal mobility feeds a single `people` job-change ("movement")** so `hiring.mobility.approved` is consumed by **both** `pm` and `people`.
 >
 
 ## 1. Bounded contexts
@@ -215,8 +215,7 @@ query, no event); thin events.
   resolves to the placeholder). **The fill happens as soon as a worker_id exists** (mobility-approve /
   worker-create), producing a committed, possibly future-dated allocation — *not* at onboarding-complete.
   **hiring** closes the losing in-flight path (cancels the other requisition/application) via the saga
-  when the request is fulfilled. Out-of-order arrivals follow the global park-vs-noop policy
-  ([`db-design.md`](./db-design.md) conventions).
+  when the request is fulfilled. Out-of-order arrivals follow the global park-vs-noop policy.
 - **OQ-D2 (pm × planner) → RESOLVED:** pm core is **allocation + monitoring**; it does **not** build
   task execution. Project *task* boards, if needed, **reuse `planner`** (a planner group per project,
   linked by id) — **deferred, not in pm MVP**. Allocation is task-optional (`task_id` nullable).

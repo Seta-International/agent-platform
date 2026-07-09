@@ -12,7 +12,7 @@ Contract for coding agents (Claude Code, Codex, any `AGENTS.md`-aware tool) work
 - [`docs/guides/dev-quickstart.md`](docs/guides/dev-quickstart.md) — first tenant and accounts on a fresh DB.
 - [`docs/guides/commit-convention.md`](docs/guides/commit-convention.md) — Jira-keyed branches, commit format, PR template (CI-gated).
 - [`docs/guides/writing-a-prd.md`](docs/guides/writing-a-prd.md) · [`writing-a-wbs.md`](docs/guides/writing-a-wbs.md) — playbooks: author a module PRD; break a module into a WBS (CSV → Jira).
-- [`docs/reference/db-design.md`](docs/reference/db-design.md) — unified DB design; [`ddd-design.md`](docs/reference/ddd-design.md) is the event/integration backbone.
+- [`docs/reference/review-schema.sql`](docs/reference/review-schema.sql) — the authoritative DDL across all ten module schemas; the module `schema.ts` files are the source. [`ddd-design.md`](docs/reference/ddd-design.md) is the event/integration backbone.
 - [`docs/hosting/`](docs/hosting/) — self-host (docker compose, AWS, scaling, upgrading).
 - [`DESIGN.md`](DESIGN.md) — design tokens and the `packages/shared-ui` contract.
 - [`/.env.example`](.env.example) — every variable the stack reads.

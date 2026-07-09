@@ -4,7 +4,7 @@ The canonical artifact is [`people-wbs.csv`](people-wbs.csv) — the WBS diction
 
 The People module decomposes into **15 capabilities (Epics)** and **46 work packages (vertical slices)**, each = one `slice → spec → plan → PR`, totalling ~232 story points. It is **greenfield** — `P-E1 Foundation` is a deliverable, not a dependency. The **MVP** set (`MVP=Y`) is the PRD §4 *Must* tier and is dependency-closed: the trusted employee record (record, pay/capacity, skills, documents), org units & positions, the lifecycle stage machine, the directory with search/filter (and its read-model), sensitive-field masking, and the audit/isolation baked into Foundation. *Should* and *Could* tiers (allocation/utilization views, analytics, lifecycle directory/dashboard, onboarding, probation, movement, offboarding, performance, leave, headcount, assistant tools) are sequenced behind it. The **critical path** is `PPL-1 → PPL-3 → PPL-21 → PPL-28 → PPL-29` (Foundation → employee record → lifecycle stage machine → probation reviews → confirmation decision) — note probation depends on the stage machine and scorecard, not on the onboarding board.
 
-Grounded in [`people-prd.md`](people-prd.md) §7 (all 48 `F-*` codes covered), the `people` schema in [`../reference/db-design.md`](../reference/db-design.md), and the `people.*` event catalog in [`../reference/ddd-design.md`](../reference/ddd-design.md).
+Grounded in [`people-prd.md`](people-prd.md) §7 (all 48 `F-*` codes covered), the `people` schema in `packages/people/src/backend/db/schema.ts`, and the `people.*` event catalog in [`../reference/ddd-design.md`](../reference/ddd-design.md).
 
 ```mermaid
 graph TD
