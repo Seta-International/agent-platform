@@ -11,13 +11,21 @@ describe('dispatcher graceful shutdown', () => {
 
       let started = false;
       let completed = false;
+      // The handler blocks on a gate the test opens, not on a timer: a sleeping handler
+      // makes "shutdown waited" a race against the runner's speed, and on CI it lost —
+      // shutdown's grace expired, it returned with the handler's connection still checked
+      // out, and the pool's end() then never resolved.
+      let openGate!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        openGate = resolve;
+      });
       const sub = {
         subscription: 'test.slow',
         event: 'test.slow.thing',
         eventVersion: 1,
         handler: async () => {
           started = true;
-          await new Promise((r) => setTimeout(r, 800));
+          await gate;
           completed = true;
         },
       };
@@ -35,11 +43,24 @@ describe('dispatcher graceful shutdown', () => {
         });
       });
 
-      await new Promise((r) => setTimeout(r, 300));
+      const deadline = Date.now() + 10_000;
+      while (!started && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 25));
+      }
       expect(started).toBe(true);
       expect(completed).toBe(false);
 
-      await handle.shutdown(5_000);
+      // shutdown must not resolve while the handler is still inside the gate.
+      const shuttingDown = handle.shutdown(30_000);
+      const raced = await Promise.race([
+        shuttingDown.then(() => 'resolved'),
+        new Promise((r) => setTimeout(() => r('waiting'), 200)),
+      ]);
+      expect(raced).toBe('waiting');
+      expect(completed).toBe(false);
+
+      openGate();
+      await shuttingDown;
       expect(completed).toBe(true);
     });
   });
