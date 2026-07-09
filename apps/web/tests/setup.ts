@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { toHaveNoViolations } from 'jest-axe';
 import { afterEach, expect, vi } from 'vitest';
 
@@ -52,6 +52,11 @@ declare module 'vitest' {
     toHaveNoViolations(): unknown;
   }
 }
+
+// findBy*/waitFor have their own 1s budget that testTimeout does not raise. CI runs every
+// package's suite in parallel on a 4-vCPU runner, so a query that resolves in ~50ms locally
+// can miss that budget there.
+configure({ asyncUtilTimeout: 5_000 });
 
 afterEach(() => {
   cleanup();
