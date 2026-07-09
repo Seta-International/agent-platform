@@ -84,6 +84,20 @@ export function initPools(cfg: PoolsConfig): Pools {
   pools.worker.on('error', swallow);
   pools.mastraState.on('error', swallow);
 
+  // Silent fallback to the admin (BYPASSRLS) pool is correct for simple self-host
+  // but must never be silent in an environment where DATABASE_APP_URL was meant to
+  // be set — surface it loudly so a dropped env var doesn't quietly disable the
+  // RLS backstop. || above already normalizes "" (compose's ${VAR:-} default) to
+  // this same fallback, so this check must too.
+  if (!cfg.appDatabaseUrl) {
+    const msg =
+      'RLS backstop inert: no appDatabaseUrl, so the web pool uses the admin connection ' +
+      '(BYPASSRLS). Tenant isolation rests entirely on explicit WHERE tenant_id. ' +
+      'Set DATABASE_APP_URL to enable the backstop.';
+    if (cfg.log) cfg.log.warn({ subsystem: 'shared-db.pool' }, msg);
+    else console.warn(`[shared-db] ${msg}`);
+  }
+
   instrumentPool(pools.web, 'web');
   instrumentPool(pools.worker, 'worker');
   instrumentPool(pools.mastraState, 'mastraState');

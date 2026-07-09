@@ -95,6 +95,47 @@ describe('pools', () => {
   });
 });
 
+describe('initPools warns when the RLS backstop is inert', () => {
+  it('warns once when appDatabaseUrl is not provided', async () => {
+    const log = { warn: vi.fn() };
+    initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none', log });
+    try {
+      expect(log.warn).toHaveBeenCalledTimes(1);
+      const [meta, msg] = log.warn.mock.calls[0];
+      expect(meta).toMatchObject({ subsystem: 'shared-db.pool' });
+      expect(msg).toMatch(/RLS backstop inert/);
+    } finally {
+      await closePools();
+    }
+  });
+
+  it('does not warn when appDatabaseUrl is provided', async () => {
+    const log = { warn: vi.fn() };
+    initPools({
+      databaseUrl: 'postgres://x:y@127.0.0.1:1/none',
+      appDatabaseUrl: 'postgres://a:b@127.0.0.1:1/none',
+      log,
+    });
+    try {
+      expect(log.warn).not.toHaveBeenCalled();
+    } finally {
+      await closePools();
+    }
+  });
+
+  it('warns when appDatabaseUrl is the empty string compose produces for an unset var', async () => {
+    const log = { warn: vi.fn() };
+    initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none', appDatabaseUrl: '', log });
+    try {
+      expect(log.warn).toHaveBeenCalledTimes(1);
+      const [, msg] = log.warn.mock.calls[0];
+      expect(msg).toMatch(/RLS backstop inert/);
+    } finally {
+      await closePools();
+    }
+  });
+});
+
 describe('pools bound into the executor', () => {
   it('maintenance() resolves executorPool() to the admin (worker) pool', async () => {
     const created = initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
