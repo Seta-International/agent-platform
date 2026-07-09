@@ -11,7 +11,7 @@ import {
   pmoSignOffCharter,
   submitCharter,
 } from '../../src/index.ts';
-import { approveCharterTwoStage, buildSession, seedTenant } from '../helpers.ts';
+import { approveCharterTwoStage, buildSession, inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -30,12 +30,14 @@ describe('read charters', () => {
           `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
           [t.tenant_id],
         );
-        const { charter_id } = await submitCharter({
-          account_id: acc.rows[0].id,
-          name: 'C1',
-          pm_worker_id: crypto.randomUUID(),
-          session: t.adminSession,
-        });
+        const { charter_id } = await inScope(t.adminSession, () =>
+          submitCharter({
+            account_id: acc.rows[0].id,
+            name: 'C1',
+            pm_worker_id: crypto.randomUUID(),
+            session: t.adminSession,
+          }),
+        );
         const list = await listCharters(t.adminSession);
         expect(list.total).toBe(1);
         expect(list.charters.map((c) => c.charter_id)).toContain(charter_id);
@@ -78,16 +80,18 @@ describe('read charters', () => {
           `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
           [t.tenant_id],
         );
-        const { charter_id } = await submitCharter({
-          account_id: acc.rows[0].id,
-          name: 'P',
-          pm_worker_id: t.adminSession.user_id,
-          methodology: 'scrum',
-          pricing_model: 'fixed_price',
-          budget_bmm: 10,
-          session: t.adminSession,
-        });
-        await pmoSignOffCharter({ charter_id, session: pmo });
+        const { charter_id } = await inScope(t.adminSession, () =>
+          submitCharter({
+            account_id: acc.rows[0].id,
+            name: 'P',
+            pm_worker_id: t.adminSession.user_id,
+            methodology: 'scrum',
+            pricing_model: 'fixed_price',
+            budget_bmm: 10,
+            session: t.adminSession,
+          }),
+        );
+        await inScope(pmo, () => pmoSignOffCharter({ charter_id, session: pmo }));
         const detail = await getCharter({ charter_id, session: t.adminSession });
         expect(detail.status).toBe('pmo_approved');
         expect(detail.rejected_stage).toBeNull();
@@ -117,17 +121,19 @@ describe('read charters', () => {
           [t.tenant_id],
         );
         const mk = (account_id: string, name: string) =>
-          submitCharter({
-            account_id,
-            name,
-            pm_worker_id: t.adminSession.user_id,
-            session: t.adminSession,
-          });
+          inScope(t.adminSession, () =>
+            submitCharter({
+              account_id,
+              name,
+              pm_worker_id: t.adminSession.user_id,
+              session: t.adminSession,
+            }),
+          );
         const alpha = await mk(a1.rows[0].id, 'Alpha Gateway');
         await mk(a1.rows[0].id, 'Beta Portal');
         await mk(a2.rows[0].id, 'Gamma Engine');
         // Move Alpha to pmo_approved so we can filter by status.
-        await pmoSignOffCharter({ charter_id: alpha.charter_id, session: pmo });
+        await inScope(pmo, () => pmoSignOffCharter({ charter_id: alpha.charter_id, session: pmo }));
 
         // status filter
         const pmoApproved = await listCharters(t.adminSession, { status: 'pmo_approved' });
@@ -175,15 +181,17 @@ describe('read charters', () => {
           [t.tenant_id],
         );
         const mk = (name: string) =>
-          submitCharter({
-            account_id: acc.rows[0].id,
-            name,
-            pm_worker_id: t.adminSession.user_id,
-            methodology: 'scrum',
-            pricing_model: 'fixed_price',
-            budget_bmm: 5,
-            session: t.adminSession,
-          });
+          inScope(t.adminSession, () =>
+            submitCharter({
+              account_id: acc.rows[0].id,
+              name,
+              pm_worker_id: t.adminSession.user_id,
+              methodology: 'scrum',
+              pricing_model: 'fixed_price',
+              budget_bmm: 5,
+              session: t.adminSession,
+            }),
+          );
         const c1 = await mk('S1');
         await mk('S2');
         await approveCharterTwoStage(c1.charter_id, t.tenant_id);

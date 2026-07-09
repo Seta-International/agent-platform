@@ -12,7 +12,7 @@ import {
   rejectCharter,
   submitCharter,
 } from '../../src/index.ts';
-import { buildSession, countEvents, readEvents, seedTenant } from '../helpers.ts';
+import { buildSession, countEvents, inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -29,17 +29,19 @@ async function seedCharter(
     `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
     [tenantId],
   );
-  return submitCharter({
-    account_id: acc.rows[0].id,
-    name: 'P',
-    methodology: (opts?.methodology as 'scrum' | 'kanban' | undefined) ?? 'scrum',
-    pricing_model:
-      (opts?.pricing_model as 'fixed_price' | 'time_materials' | undefined) ?? 'fixed_price',
-    budget_bmm: opts?.budget_bmm ?? 100,
-    team_size: 4,
-    pm_worker_id: session.user_id,
-    session,
-  });
+  return inScope(session, () =>
+    submitCharter({
+      account_id: acc.rows[0].id,
+      name: 'P',
+      methodology: (opts?.methodology as 'scrum' | 'kanban' | undefined) ?? 'scrum',
+      pricing_model:
+        (opts?.pricing_model as 'fixed_price' | 'time_materials' | undefined) ?? 'fixed_price',
+      budget_bmm: opts?.budget_bmm ?? 100,
+      team_size: 4,
+      pm_worker_id: session.user_id,
+      session,
+    }),
+  );
 }
 
 async function seedReviewer(tenantId: string, roleSlug: 'pm.pmo' | 'pm.bod') {
@@ -67,7 +69,7 @@ describe('two-stage charter governance', () => {
         const t = await seedTenant(pool);
         const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
         const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
-        await pmoSignOffCharter({ charter_id, session: pmo });
+        await inScope(pmo, () => pmoSignOffCharter({ charter_id, session: pmo }));
         const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
         expect(c?.status).toBe('pmo_approved');
         expect(c?.pmo_signed_off_by_user_id).toBe(pmo.user_id);
@@ -90,8 +92,10 @@ describe('two-stage charter governance', () => {
         const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
         const bod = await seedReviewer(t.tenant_id, 'pm.bod');
         const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
-        await pmoSignOffCharter({ charter_id, session: pmo });
-        const { project_id } = await bodApproveCharter({ charter_id, session: bod });
+        await inScope(pmo, () => pmoSignOffCharter({ charter_id, session: pmo }));
+        const { project_id } = await inScope(bod, () =>
+          bodApproveCharter({ charter_id, session: bod }),
+        );
 
         const [p] = await pmDb().select().from(project).where(eq(project.id, project_id));
         expect(p?.charter_id).toBe(charter_id);
@@ -131,7 +135,9 @@ describe('two-stage charter governance', () => {
         const t = await seedTenant(pool);
         const bod = await seedReviewer(t.tenant_id, 'pm.bod');
         const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
-        await expect(bodApproveCharter({ charter_id, session: bod })).rejects.toMatchObject({
+        await expect(
+          inScope(bod, () => bodApproveCharter({ charter_id, session: bod })),
+        ).rejects.toMatchObject({
           code: 'CONFLICT',
         });
       } finally {
@@ -152,11 +158,15 @@ describe('two-stage charter governance', () => {
         const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
         const bod = await seedReviewer(t.tenant_id, 'pm.bod');
         const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
-        await expect(bodApproveCharter({ charter_id, session: pmo })).rejects.toMatchObject({
+        await expect(
+          inScope(pmo, () => bodApproveCharter({ charter_id, session: pmo })),
+        ).rejects.toMatchObject({
           code: 'FORBIDDEN',
         });
-        await pmoSignOffCharter({ charter_id, session: pmo });
-        await expect(pmoSignOffCharter({ charter_id, session: bod })).rejects.toMatchObject({
+        await inScope(pmo, () => pmoSignOffCharter({ charter_id, session: pmo }));
+        await expect(
+          inScope(bod, () => pmoSignOffCharter({ charter_id, session: bod })),
+        ).rejects.toMatchObject({
           code: 'FORBIDDEN',
         });
       } finally {
@@ -182,12 +192,12 @@ describe('two-stage charter governance', () => {
           user_id: t.admin_user_id,
           roles: ['pm.viewer'],
         });
-        await expect(pmoSignOffCharter({ charter_id, session: viewer })).rejects.toThrow(
-          /permission/i,
-        );
-        await pmoSignOffCharter({ charter_id, session: pmo });
         await expect(
-          bodApproveCharter({ charter_id, expected_version: 99, session: bod }),
+          inScope(viewer, () => pmoSignOffCharter({ charter_id, session: viewer })),
+        ).rejects.toThrow(/permission/i);
+        await inScope(pmo, () => pmoSignOffCharter({ charter_id, session: pmo }));
+        await expect(
+          inScope(bod, () => bodApproveCharter({ charter_id, expected_version: 99, session: bod })),
         ).rejects.toThrow(/version|concurrently/i);
       } finally {
         resetPmDb();
@@ -210,18 +220,22 @@ describe('two-stage charter governance', () => {
           `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'Acct') RETURNING id`,
           [t.tenant_id],
         );
-        const { charter_id } = await submitCharter({
-          account_id: acc.rows[0].id,
-          name: 'Incomplete',
-          pm_worker_id: t.adminSession.user_id,
-          session: t.adminSession,
-        });
+        const { charter_id } = await inScope(t.adminSession, () =>
+          submitCharter({
+            account_id: acc.rows[0].id,
+            name: 'Incomplete',
+            pm_worker_id: t.adminSession.user_id,
+            session: t.adminSession,
+          }),
+        );
         await pool.query(
           `UPDATE pm.charter SET methodology = NULL, pricing_model = NULL, budget_bmm = NULL WHERE id = $1`,
           [charter_id],
         );
-        await pmoSignOffCharter({ charter_id, session: pmo });
-        await expect(bodApproveCharter({ charter_id, session: bod })).rejects.toMatchObject({
+        await inScope(pmo, () => pmoSignOffCharter({ charter_id, session: pmo }));
+        await expect(
+          inScope(bod, () => bodApproveCharter({ charter_id, session: bod })),
+        ).rejects.toMatchObject({
           code: 'VALIDATION',
         });
         expect(await countEvents(pool, t.tenant_id, 'pm.project.created')).toBe(0);
@@ -251,7 +265,7 @@ describe('two-stage charter governance', () => {
         expect(ca?.rejection_reason).toBe('no capacity');
 
         const b = await seedCharter(pool, t.adminSession, t.tenant_id);
-        await pmoSignOffCharter({ charter_id: b.charter_id, session: pmo });
+        await inScope(pmo, () => pmoSignOffCharter({ charter_id: b.charter_id, session: pmo }));
         await rejectCharter({ charter_id: b.charter_id, reason: 'budget window', session: bod });
         const [cb] = await pmDb().select().from(charter).where(eq(charter.id, b.charter_id));
         expect(cb?.rejected_stage).toBe('bod');
@@ -298,8 +312,8 @@ describe('two-stage charter governance', () => {
         const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
         const bod = await seedReviewer(t.tenant_id, 'pm.bod');
         const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
-        await pmoSignOffCharter({ charter_id, session: pmo });
-        await bodApproveCharter({ charter_id, session: bod });
+        await inScope(pmo, () => pmoSignOffCharter({ charter_id, session: pmo }));
+        await inScope(bod, () => bodApproveCharter({ charter_id, session: bod }));
         const notifEvents = await readEvents(pool, t.tenant_id, 'notification.requested');
         expect(notifEvents.length).toBeGreaterThan(0);
       } finally {

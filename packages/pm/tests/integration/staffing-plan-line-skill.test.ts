@@ -11,7 +11,7 @@ import {
   submitCharter,
   upsertStaffingPlanLine,
 } from '../../src/index.ts';
-import { approveCharterTwoStage, seedTenant } from '../helpers.ts';
+import { approveCharterTwoStage, inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -27,15 +27,17 @@ async function seedProject(
     `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
     [tenantId],
   );
-  const { charter_id } = await submitCharter({
-    account_id: acc.rows[0].id,
-    name: 'P',
-    pm_worker_id: session.user_id,
-    methodology: 'scrum',
-    pricing_model: 'fixed_price',
-    budget_bmm: 100,
-    session,
-  });
+  const { charter_id } = await inScope(session, () =>
+    submitCharter({
+      account_id: acc.rows[0].id,
+      name: 'P',
+      pm_worker_id: session.user_id,
+      methodology: 'scrum',
+      pricing_model: 'fixed_price',
+      budget_bmm: 100,
+      session,
+    }),
+  );
   return approveCharterTwoStage(charter_id, tenantId);
 }
 

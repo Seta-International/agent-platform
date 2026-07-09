@@ -1,5 +1,6 @@
 import { hashRoleSummary, type SessionAssignment, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
+import { scoped } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -116,6 +117,17 @@ export async function countEvents(
 }
 
 /**
+ * sessionMiddleware (packages/core/src/middleware/session.ts) opens scoped(tenantId, ...)
+ * around every authenticated request, so any pm function that reaches another module's db
+ * client — submitCharter and decideCharter call identity's listUsers() to target charter
+ * notifications — already has an executor context in production. Tests call those functions
+ * directly, so they must open one too.
+ */
+export function inScope<T>(session: SessionScope, fn: () => Promise<T>): Promise<T> {
+  return scoped(session.tenant_id, fn);
+}
+
+/**
  * Drives a submitted charter through both governance gates (PMO sign-off then
  * BoD approval) using throwaway pm.pmo / pm.bod sessions. Returns the created
  * project. Used by tests that just need a live project to exercise downstream
@@ -135,6 +147,6 @@ export async function approveCharterTwoStage(
     user_id: crypto.randomUUID(),
     roles: ['pm.bod'],
   });
-  await pmoSignOffCharter({ charter_id, session: pmo });
-  return bodApproveCharter({ charter_id, session: bod });
+  await inScope(pmo, () => pmoSignOffCharter({ charter_id, session: pmo }));
+  return inScope(bod, () => bodApproveCharter({ charter_id, session: bod }));
 }

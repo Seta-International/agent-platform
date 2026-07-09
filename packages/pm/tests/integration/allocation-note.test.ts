@@ -11,7 +11,7 @@ import {
   submitCharter,
   updateAllocation,
 } from '../../src/index.ts';
-import { approveCharterTwoStage, seedTenant } from '../helpers.ts';
+import { approveCharterTwoStage, inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -20,15 +20,17 @@ const ctx = {
 
 async function seedProject(session: import('@seta/core').SessionScope): Promise<string> {
   const { account_id } = await createAccount({ name: 'A', session });
-  const { charter_id } = await submitCharter({
-    account_id,
-    name: 'P',
-    pm_worker_id: session.user_id,
-    methodology: 'scrum',
-    pricing_model: 'fixed_price',
-    budget_bmm: 100,
-    session,
-  });
+  const { charter_id } = await inScope(session, () =>
+    submitCharter({
+      account_id,
+      name: 'P',
+      pm_worker_id: session.user_id,
+      methodology: 'scrum',
+      pricing_model: 'fixed_price',
+      budget_bmm: 100,
+      session,
+    }),
+  );
   const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
   return project_id;
 }
