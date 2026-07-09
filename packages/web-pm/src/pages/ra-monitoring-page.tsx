@@ -324,11 +324,11 @@ export function RaMonitoringPage() {
   const search = useSearch({ strict: false }) as Partial<RaSearch>;
 
   const thisYear = new Date().getFullYear();
-  const yearFrom = `${thisYear}-01-01`;
+  const todayIso = new Date().toISOString().slice(0, 10);
   const yearTo = `${thisYear}-12-31`;
   const accountId = search.account ?? '';
   const projectId = search.project ?? '';
-  const activeFrom = search.from ?? yearFrom;
+  const activeFrom = search.from ?? todayIso;
   const activeTo = search.to ?? yearTo;
   const q = search.q;
 
