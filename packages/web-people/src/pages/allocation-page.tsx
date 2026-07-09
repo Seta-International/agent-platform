@@ -231,7 +231,7 @@ export function AllocationPage() {
 
   const rowClassName = useCallback(
     (row: Row<AllocationGridRow>) =>
-      cn('h-12', (workerBand.get(row.original.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1'),
+      cn((workerBand.get(row.original.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1'),
     [workerBand],
   );
 
@@ -277,15 +277,13 @@ export function AllocationPage() {
         header: 'Name',
         enableHiding: false,
         cell: ({ row }) => (
-          <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex w-44 items-center gap-2.5">
             <Avatar className="size-7 shrink-0">
               <AvatarFallback className="text-[10px]">
                 {initials(row.original.full_name)}
               </AvatarFallback>
             </Avatar>
-            <span className="line-clamp-2 min-w-0 font-medium leading-tight">
-              {row.original.full_name}
-            </span>
+            <span className="font-medium leading-tight">{row.original.full_name}</span>
           </div>
         ),
       },
