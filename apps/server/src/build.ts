@@ -16,6 +16,7 @@ import { makeRbacCheck, setRbacCheck } from '@seta/core/rpc';
 import type { WorkerHandle } from '@seta/core/runtime';
 import {
   expandOrgUnits,
+  getUserProfile,
   listRoleAssignments,
   listTenantRoleOverlays,
   listUserGroupIds,
@@ -128,11 +129,25 @@ type AgentBridgeEnv = { Variables: { session: SessionLike } };
 function createAgentSessionBridge(deps: {
   listRoleAssignments: typeof listRoleAssignments;
   resolve: (roles: readonly string[], tenantId: string) => Promise<ReadonlySet<string>>;
+  getUserTenant: typeof getUserProfile;
 }) {
   return createMiddleware<AgentBridgeEnv>(async (c, next) => {
     const authSession = await auth.api.getSession({ headers: c.req.raw.headers });
-    if (authSession?.user) {
-      const { user } = authSession;
+    if (!authSession?.user) {
+      await next();
+      return;
+    }
+    const { user } = authSession;
+    // better-auth's session payload doesn't carry tenant_id (no additionalFields
+    // configured on the user model), so resolve it via a context-free
+    // identityAuthDb()-backed lookup before opening the scope that
+    // listRoleAssignments() and the route handler both need.
+    const profile = await deps.getUserTenant(user.id);
+    if (!profile) {
+      await next();
+      return;
+    }
+    await scoped(profile.tenant_id, async () => {
       const { tenant_id, assignments } = await deps.listRoleAssignments(user.id);
       const role_summary = rollup(assignments);
       c.set('session', {
@@ -141,8 +156,8 @@ function createAgentSessionBridge(deps: {
         effective_permissions: await deps.resolve(role_summary.roles, tenant_id),
         role_summary,
       });
-    }
-    await next();
+      await next();
+    });
   });
 }
 
@@ -169,6 +184,7 @@ export function buildServerApp(
 
   const sessionMiddleware = createSessionMiddleware({
     getSession: ({ headers }) => auth.api.getSession({ headers }),
+    getUserTenant: getUserProfile,
     signOut: ({ headers }) => auth.api.signOut({ headers }).then(() => undefined),
     listRoleAssignments,
     resolvePermissions: resolve,
@@ -234,19 +250,16 @@ export function buildServerApp(
       // not-configured message instead of crashing the whole app.
       chatOrchestration: () => stubChatRuntimeNotWired(),
     });
-  app.use('/api/agent/*', createAgentSessionBridge({ listRoleAssignments, resolve }));
+  app.use(
+    '/api/agent/*',
+    createAgentSessionBridge({ listRoleAssignments, resolve, getUserTenant: getUserProfile }),
+  );
   agent.attach(app as unknown as Hono);
 
-  // Session middleware gates everything registered after this point
+  // Session middleware gates everything registered after this point. It opens
+  // the executor context itself (scoped(tenantId, ...)) as soon as the tenant is
+  // known, wrapping both the session-scope build and the downstream handler.
   app.use('*', sessionMiddleware);
-
-  // Bind the request's tenant onto the RLS web connection so seta_app reads pass
-  // the tenant_isolation policy. Runs after sessionMiddleware (tenant resolved).
-  app.use('*', async (c, next) => {
-    const tenantId = c.get('user')?.tenant_id;
-    if (!tenantId) return next();
-    return scoped(tenantId, next);
-  });
 
   // Cross-cutting protected routes that stay in apps/server.
   registerMeRoute(app);
