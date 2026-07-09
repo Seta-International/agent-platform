@@ -94,3 +94,4 @@ skills-lock.json
 
 # Generated at deploy by scripts/write-e2e-route.sh
 infra/traefik/dynamic/e2e-report.yml
+Makefile
