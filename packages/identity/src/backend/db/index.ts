@@ -8,10 +8,14 @@ import * as schema from './schema.ts';
 let cached: { pool: Pool; db: NodePgDatabase<typeof schema> } | null = null;
 let cachedAuth: { pool: Pool; db: NodePgDatabase<typeof schema> } | null = null;
 
-/** Auth-runtime reads that run BEFORE a tenant is known: better-auth's email lookup,
- *  SSO tenant resolution, the login throttle. Every table these touch is RLS-exempt
- *  (identity.user/session/account/verification/rate_limit/failed_login_*, core.tenants),
- *  so there is no tenant GUC to set and no executor context to join. */
+/**
+ * The pre-tenant escape. Runs before a tenant is known — better-auth's email lookup,
+ * SSO tenant resolution, the login throttle — so there is no tenant GUC to set and no
+ * executor context to join. Admin pool, RLS bypassed.
+ *
+ * Every new caller widens an authentication-time hole. Add one only if it genuinely
+ * cannot know its tenant, and say why at the call site.
+ */
 export function identityAuthDb(): NodePgDatabase<typeof schema> {
   const pool = getPool('worker');
   if (!cachedAuth || cachedAuth.pool !== pool) {

@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
 import pino from 'pino';
-import { identityDb } from '../db/index.ts';
+import { identityAuthDb } from '../db/index.ts';
 import { tenantSsoProviders, user } from '../db/schema.ts';
 import type { SsoProviderId } from './config.ts';
 
@@ -43,6 +43,9 @@ function pickUnambiguous<T extends { tenant_id: string }>(
   return { status: 'found', row: rows[0] as T };
 }
 
+// Cross-tenant discovery: this resolves WHICH tenant owns the email before any tenant
+// is known, so it cannot be tenant-scoped by construction — identityAuthDb() (admin pool)
+// is the only client that can see across tenants to answer the question.
 export async function resolveSetaTenantFromEmail(
   email: string,
 ): Promise<ResolvedSetaTenant | null> {
@@ -54,7 +57,7 @@ export async function resolveSetaTenantFromEmail(
     .trim();
   if (!domain) return null;
 
-  const result = await identityDb().execute<{
+  const result = await identityAuthDb().execute<{
     tenant_id: string;
     provider_id: string;
     entra_tenant_id: string | null;
@@ -80,7 +83,7 @@ export async function resolveSetaTenantFromEmail(
   // if the user is pre-provisioned and their tenant has an enabled SSO provider,
   // use that provider for discovery.
   const normalizedEmail = email.toLowerCase().trim();
-  const fallbackRows = await identityDb()
+  const fallbackRows = await identityAuthDb()
     .select({
       tenant_id: tenantSsoProviders.tenant_id,
       provider_id: tenantSsoProviders.provider_id,
