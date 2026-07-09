@@ -739,45 +739,50 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {!isTerminal && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="sm" disabled={!canManage && !canClose}>
-                  <MoreHorizontal className="mr-1.5 size-4" />
-                  More actions
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {req.status === 'open' && (
-                  <DropdownMenuItem disabled={!canManage} onSelect={() => pause.mutate()}>
-                    Pause
+            <DisabledActionTooltip
+              disabled={!canManage && !canClose}
+              reason={PERMISSION_DENIED.requisition.manage}
+            >
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="sm" disabled={!canManage && !canClose}>
+                    <MoreHorizontal className="mr-1.5 size-4" />
+                    More actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {req.status === 'open' && (
+                    <DropdownMenuItem disabled={!canManage} onSelect={() => pause.mutate()}>
+                      Pause
+                    </DropdownMenuItem>
+                  )}
+                  {req.status === 'on_hold' && (
+                    <DropdownMenuItem disabled={!canManage} onSelect={() => resume.mutate()}>
+                      Resume
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    disabled={!canClose}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setTimeout(() => setShowFillConfirm(true), 0);
+                    }}
+                  >
+                    Mark filled
                   </DropdownMenuItem>
-                )}
-                {req.status === 'on_hold' && (
-                  <DropdownMenuItem disabled={!canManage} onSelect={() => resume.mutate()}>
-                    Resume
+                  <DropdownMenuItem
+                    disabled={!canClose}
+                    className="text-danger-ink"
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setTimeout(() => setShowCancelDialog(true), 0);
+                    }}
+                  >
+                    Cancel
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  disabled={!canClose}
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setTimeout(() => setShowFillConfirm(true), 0);
-                  }}
-                >
-                  Mark filled
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={!canClose}
-                  className="text-danger-ink"
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setTimeout(() => setShowCancelDialog(true), 0);
-                  }}
-                >
-                  Cancel
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </DisabledActionTooltip>
           )}
         </div>
       </header>
