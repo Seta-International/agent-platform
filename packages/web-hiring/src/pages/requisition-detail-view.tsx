@@ -928,6 +928,10 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               <div className="space-y-2.5">
                 <DetailRow label="Account" value={data.account_name ?? '—'} />
                 <DetailRow label="Project" value={data.project_name ?? '—'} />
+                <DetailRow
+                  label="Type"
+                  value={req.kind === 'replacement' ? 'Replacement' : 'New'}
+                />
               </div>
             </section>
 
