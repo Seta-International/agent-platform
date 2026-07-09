@@ -1,14 +1,14 @@
 // rbac: delegates — internal lookup helper used inside other domain functions that own
 // the rbac check. Not a request entry point.
 import { and, eq } from 'drizzle-orm';
-import { identityDb } from '../db/index.ts';
+import { identityAuthDb, identityDb } from '../db/index.ts';
 import { orgUnitProjection, user } from '../db/schema.ts';
 import { IdentityError } from '../rbac.ts';
 
 export async function requireUserExists(
   userId: string,
 ): Promise<{ tenant_id: string; email: string; name: string; deactivated_at: Date | null }> {
-  const [u] = await identityDb()
+  const [u] = await identityAuthDb()
     .select({
       tenant_id: user.tenant_id,
       email: user.email,

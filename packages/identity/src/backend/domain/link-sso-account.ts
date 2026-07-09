@@ -3,7 +3,7 @@
 import { withEmit } from '@seta/core/events';
 import { and, eq, sql } from 'drizzle-orm';
 import { emitIdentityUserSsoLinked, emitIdentityUserSsoRevoked } from '../../events/index.ts';
-import { identityDb } from '../db/index.ts';
+import { identityAuthDb } from '../db/index.ts';
 import { account, user } from '../db/schema.ts';
 import type { SsoProviderId } from '../sso/config.ts';
 import { toEmitActor, toEventActor } from '../sso/helpers.ts';
@@ -38,7 +38,7 @@ export async function linkSsoAccount(
 ): Promise<LinkSsoAccountResult> {
   const emailLower = input.email.toLowerCase().trim();
 
-  const [u] = await identityDb()
+  const [u] = await identityAuthDb()
     .select({
       user_id: user.id,
       current_name: user.name,
@@ -63,7 +63,7 @@ export async function linkSsoAccount(
     return { user_id: u.user_id, outcome: 'rejected_deactivated' };
   }
 
-  const [existing] = await identityDb()
+  const [existing] = await identityAuthDb()
     .select({ account_id: account.account_id })
     .from(account)
     .where(and(eq(account.user_id, u.user_id), eq(account.provider_id, 'microsoft')))

@@ -1,7 +1,7 @@
 import { withEmit } from '@seta/core/events';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { emitIdentityUserEmailChanged } from '../../events/index.ts';
-import { identityDb } from '../db/index.ts';
+import { identityAuthDb } from '../db/index.ts';
 import { account, user } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import { toEmitActor, toEventActor } from '../sso/helpers.ts';
@@ -18,7 +18,7 @@ export async function changeUserEmail(
   input: ChangeUserEmailInput,
   actor: Actor,
 ): Promise<{ old_email: string; new_email: string }> {
-  const [target] = await identityDb()
+  const [target] = await identityAuthDb()
     .select({ tenant_id: user.tenant_id, email: user.email })
     .from(user)
     .where(eq(user.id, input.user_id))
@@ -35,7 +35,7 @@ export async function changeUserEmail(
       if (!actor.user_id) throw new IdentityError('FORBIDDEN', 'user actor requires user_id');
       await requirePermission(actor.user_id, 'identity.user.change_email', target.tenant_id);
     }
-    const [ext] = await identityDb()
+    const [ext] = await identityAuthDb()
       .select({ provider_id: account.provider_id })
       .from(account)
       .where(and(eq(account.user_id, input.user_id), ne(account.provider_id, 'credential')))
@@ -54,7 +54,7 @@ export async function changeUserEmail(
     return { old_email: target.email, new_email: target.email };
   }
 
-  const [conflict] = await identityDb()
+  const [conflict] = await identityAuthDb()
     .select({ id: user.id })
     .from(user)
     .where(

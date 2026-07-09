@@ -3,7 +3,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Mailer } from '@seta/shared-mailer';
 import { eq } from 'drizzle-orm';
-import { identityDb } from '../db/index.ts';
+import { identityAuthDb } from '../db/index.ts';
 import { user as userTable, verification } from '../db/schema.ts';
 
 export interface RequestPasswordResetArgs {
@@ -30,7 +30,7 @@ export async function mintPasswordResetUrlIfKnown(
   ttlMs: number = 1000 * 60 * 60,
 ): Promise<MintedResetToken | null> {
   const normalized = email.toLowerCase().trim();
-  const [u] = await identityDb()
+  const [u] = await identityAuthDb()
     .select()
     .from(userTable)
     .where(eq(userTable.email, normalized))
@@ -39,7 +39,7 @@ export async function mintPasswordResetUrlIfKnown(
 
   const nonce = randomBytes(24).toString('base64url');
   const expiresAt = new Date(Date.now() + ttlMs);
-  await identityDb()
+  await identityAuthDb()
     .insert(verification)
     .values({
       id: crypto.randomUUID(),
