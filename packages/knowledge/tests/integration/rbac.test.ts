@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { resetKnowledgeDb } from '@seta/knowledge/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { deleteKnowledgeFile } from '../../src/backend/domain/delete-file.ts';
@@ -20,7 +20,9 @@ const withDb = <T>(fn: () => Promise<T>) =>
       resetKnowledgeDb();
       initPools({ databaseUrl });
       try {
-        return await fn();
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context knowledgeDb() requires.
+        return await scoped(crypto.randomUUID(), fn);
       } finally {
         resetCoreDb();
         resetKnowledgeDb();

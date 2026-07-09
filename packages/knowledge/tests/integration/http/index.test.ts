@@ -2,7 +2,7 @@ import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core'
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser, IdentityError } from '@seta/identity';
 import { resetKnowledgeDb } from '@seta/knowledge/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -68,6 +68,11 @@ function buildTestApp(session: SessionScope): Hono<SessionEnv> {
     c.set('user', session);
     await next();
   });
+  // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+  // composition root opens this once the tenant is known, so knowledgeDb() has an
+  // executor context. No appDatabaseUrl here, so the tenant GUC is inert (self-host
+  // fallback) — this just needs to exist for executorPool() to resolve.
+  app.use('*', (_c, next) => scoped(session.tenant_id, next));
   registerKnowledgeRoutes(app, { workers: fakeWorkers, presign: fakePresign });
   app.onError(handleKnowledgeError);
   return app;
@@ -215,19 +220,21 @@ describe('POST /api/agent/v1/knowledge/:id/processed', () => {
         });
 
         // Insert a file row directly via requestKnowledgeUpload with a fake presign
-        const uploaded = await requestKnowledgeUpload(
-          {
-            tenant_id: tenantId,
-            uploaded_by: adminUserId,
-            filename: 'doc.pdf',
-            mime_type: 'application/pdf',
-            size_bytes: 512,
-          },
-          {
-            bucket: 'test-bucket',
-            session,
-            presign: async () => 'https://s3.example/presigned',
-          },
+        const uploaded = await scoped(tenantId, () =>
+          requestKnowledgeUpload(
+            {
+              tenant_id: tenantId,
+              uploaded_by: adminUserId,
+              filename: 'doc.pdf',
+              mime_type: 'application/pdf',
+              size_bytes: 512,
+            },
+            {
+              bucket: 'test-bucket',
+              session,
+              presign: async () => 'https://s3.example/presigned',
+            },
+          ),
         );
 
         const app = buildTestApp(session);
@@ -261,19 +268,21 @@ describe('GET /api/agent/v1/knowledge', () => {
           display_name: 'Admin',
         });
 
-        await requestKnowledgeUpload(
-          {
-            tenant_id: tenantId,
-            uploaded_by: adminUserId,
-            filename: 'report.pdf',
-            mime_type: 'application/pdf',
-            size_bytes: 2048,
-          },
-          {
-            bucket: 'test-bucket',
-            session,
-            presign: async () => 'https://s3.example/presigned',
-          },
+        await scoped(tenantId, () =>
+          requestKnowledgeUpload(
+            {
+              tenant_id: tenantId,
+              uploaded_by: adminUserId,
+              filename: 'report.pdf',
+              mime_type: 'application/pdf',
+              size_bytes: 2048,
+            },
+            {
+              bucket: 'test-bucket',
+              session,
+              presign: async () => 'https://s3.example/presigned',
+            },
+          ),
         );
 
         const app = buildTestApp(session);
@@ -362,19 +371,21 @@ describe('DELETE /api/agent/v1/knowledge/:id', () => {
           display_name: 'Admin',
         });
 
-        const uploaded = await requestKnowledgeUpload(
-          {
-            tenant_id: tenantId,
-            uploaded_by: adminUserId,
-            filename: 'remove-me.pdf',
-            mime_type: 'application/pdf',
-            size_bytes: 100,
-          },
-          {
-            bucket: 'test-bucket',
-            session,
-            presign: async () => 'https://s3.example/presigned',
-          },
+        const uploaded = await scoped(tenantId, () =>
+          requestKnowledgeUpload(
+            {
+              tenant_id: tenantId,
+              uploaded_by: adminUserId,
+              filename: 'remove-me.pdf',
+              mime_type: 'application/pdf',
+              size_bytes: 100,
+            },
+            {
+              bucket: 'test-bucket',
+              session,
+              presign: async () => 'https://s3.example/presigned',
+            },
+          ),
         );
 
         const app = buildTestApp(session);

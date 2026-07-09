@@ -1,7 +1,7 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { requestKnowledgeUpload } from '@seta/knowledge';
 import { resetKnowledgeDb } from '@seta/knowledge/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it, vi } from 'vitest';
 import { buildTestSession } from '../helpers/session.ts';
@@ -17,7 +17,9 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool }) => Promise<T>) =>
       resetKnowledgeDb();
       initPools({ databaseUrl });
       try {
-        return await fn({ pool });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context knowledgeDb() requires.
+        return await scoped(crypto.randomUUID(), () => fn({ pool }));
       } finally {
         resetCoreDb();
         resetKnowledgeDb();
