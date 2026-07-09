@@ -11,11 +11,25 @@
 // Deliberately blunt: the regex matches comments too, not just code. Raw
 // table names don't belong in feature source even as prose — say what the
 // table is for in words, not its literal name.
+//
+// TABLE_RE covers every table Mastra creates in the `agent` schema (36, not
+// a hand-listed six) via the `mastra_\w+` pattern, plus memory_messages (the
+// PgVector semantic-recall index, which carries no mastra_ prefix — see
+// backend/memory.ts). Own-identifier subtraction below keeps this generic
+// pattern from false-positiving on columns we author ourselves.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const TABLE_RE =
-  /mastra_threads|mastra_messages|mastra_ai_spans|mastra_workflow_snapshot|mastra_traces|mastra_resources/;
+// Columns on our own agent.* tables that begin with `mastra_`. They are not
+// Mastra tables — `workflow_approvals.mastra_run_id` is the agentic-resume
+// handle for chat HITL. Strip them before matching so the blunt table regex
+// stays blunt.
+const OWN_IDENTIFIER_RE = /\bmastra_run_id\b/g;
+
+// Every table Mastra creates in the `agent` schema, not a hand-listed six.
+// `memory_messages` is the PgVector semantic-recall index (see backend/memory.ts)
+// and carries no `mastra_` prefix, so it needs naming explicitly.
+const TABLE_RE = /\b(mastra_\w+|memory_messages)\b/;
 
 const CONTAINMENT_DIR = 'packages/agent/src/backend/mastra-store/';
 const FILE_ALLOWLIST = new Set([
@@ -44,7 +58,7 @@ for (const file of sourceFiles('packages')) {
   if (file.startsWith(CONTAINMENT_DIR) || FILE_ALLOWLIST.has(file)) continue;
   const lines = readFileSync(file, 'utf8').split('\n');
   for (let i = 0; i < lines.length; i++) {
-    if (TABLE_RE.test(lines[i])) {
+    if (TABLE_RE.test(lines[i].replace(OWN_IDENTIFIER_RE, ''))) {
       violations.push(`${file}:${i + 1}: ${lines[i].trim()}`);
     }
   }
