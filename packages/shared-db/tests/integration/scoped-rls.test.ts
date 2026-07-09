@@ -1,7 +1,11 @@
 import { withTestDb } from '@seta/shared-testing';
-import type { Pool } from 'pg';
+import { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { closePools, executorPool, initPools, maintenance, scoped } from '../../src/index.ts';
+// bindWebPool/unbindWebPool/makeTenantAwarePool aren't part of the public surface
+// (index.ts) — they exist for exactly this kind of white-box test of the acquisition
+// path, so we reach into the module directly rather than going through initPools().
+import { bindWebPool, makeTenantAwarePool, unbindWebPool } from '../../src/request-tenant.ts';
 
 const TENANT_A = '11111111-1111-1111-1111-111111111111';
 const TENANT_B = '22222222-2222-2222-2222-222222222222';
@@ -38,6 +42,12 @@ async function setupWidgetFixture(pool: Pool): Promise<void> {
   `);
 }
 
+/** The seta_app-role variant of a pooled test database's admin `databaseUrl` — factored
+ * out since several tests below build the same connection string. */
+function appRoleUrl(databaseUrl: string): string {
+  return databaseUrl.replace(/\/\/[^@]+@/, '//seta_app:seta_app@');
+}
+
 describe('scoped() is tenant-blind, maintenance() is not', () => {
   it('an app-role connection inside scoped(A) cannot see tenant B rows', async () => {
     await withTestDb(
@@ -66,7 +76,7 @@ describe('scoped() is tenant-blind, maintenance() is not', () => {
           GRANT SELECT ON public.widget TO seta_app;
         `);
 
-        const appUrl = databaseUrl.replace(/\/\/[^@]+@/, '//seta_app:seta_app@');
+        const appUrl = appRoleUrl(databaseUrl);
         initPools({ databaseUrl, appDatabaseUrl: appUrl });
         try {
           const scopedRows = await scoped(TENANT_A, async () => {
@@ -149,7 +159,7 @@ describe('scoped() acquires the tenant connection lazily', () => {
       { templateDbName: env.template(), baseUrl: env.base() },
       async ({ pool, databaseUrl }) => {
         await setupWidgetFixture(pool);
-        const appUrl = databaseUrl.replace(/\/\/[^@]+@/, '//seta_app:seta_app@');
+        const appUrl = appRoleUrl(databaseUrl);
         const pools = initPools({ databaseUrl, appDatabaseUrl: appUrl });
         let acquireCount = 0;
         pools.web.on('acquire', () => acquireCount++);
@@ -174,7 +184,7 @@ describe('scoped() acquires the tenant connection lazily', () => {
       { templateDbName: env.template(), baseUrl: env.base() },
       async ({ pool, databaseUrl }) => {
         await setupWidgetFixture(pool);
-        const appUrl = databaseUrl.replace(/\/\/[^@]+@/, '//seta_app:seta_app@');
+        const appUrl = appRoleUrl(databaseUrl);
         const pools = initPools({ databaseUrl, appDatabaseUrl: appUrl });
         let acquireCount = 0;
         pools.web.on('acquire', () => acquireCount++);
@@ -203,7 +213,7 @@ describe('scoped() acquires the tenant connection lazily', () => {
       { templateDbName: env.template(), baseUrl: env.base() },
       async ({ pool, databaseUrl }) => {
         await setupWidgetFixture(pool);
-        const appUrl = databaseUrl.replace(/\/\/[^@]+@/, '//seta_app:seta_app@');
+        const appUrl = appRoleUrl(databaseUrl);
         const pools = initPools({ databaseUrl, appDatabaseUrl: appUrl });
         let acquireCount = 0;
         pools.web.on('acquire', () => acquireCount++);
@@ -241,7 +251,7 @@ describe('scoped() acquires the tenant connection lazily', () => {
       { templateDbName: env.template(), baseUrl: env.base() },
       async ({ pool, databaseUrl }) => {
         await setupWidgetFixture(pool);
-        const appUrl = databaseUrl.replace(/\/\/[^@]+@/, '//seta_app:seta_app@');
+        const appUrl = appRoleUrl(databaseUrl);
         const pools = initPools({ databaseUrl, appDatabaseUrl: appUrl });
         let acquireCount = 0;
         let releaseCount = 0;
@@ -262,5 +272,64 @@ describe('scoped() acquires the tenant connection lazily', () => {
         }
       },
     );
+  });
+});
+
+describe('pinTenantConnection: pool.connect() itself rejects (acquisition failure, not a query failure)', () => {
+  it("surfaces the connection error, lets fn's own error win when it throws after acquisition already failed, and never leaks an unhandled rejection", async () => {
+    // Real pg.Pool pointed at a port nothing listens on — a genuine connect() failure
+    // against real infra, not a mock. connectionTimeoutMillis is short only so a
+    // black-holed address (unlikely here) can't stall the test.
+    const badPool = new Pool({
+      connectionString: 'postgres://nobody:nobody@127.0.0.1:1/none',
+      connectionTimeoutMillis: 200,
+    });
+    // bindWebPool() is what initPools() calls internally to flip webPoolState from
+    // 'uninitialised'/'closed' to 'live'; calling it directly bypasses initPools()
+    // (which can only construct pools from a connection string, not accept one) so we
+    // can point pinTenantConnection's live-pool guard at a pool that is guaranteed to
+    // fail on connect().
+    bindWebPool(badPool);
+    const facade = makeTenantAwarePool(badPool);
+
+    const unhandledRejections: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => unhandledRejections.push(reason);
+    process.on('unhandledRejection', onUnhandledRejection);
+
+    try {
+      // 1) Acquisition itself fails (pool.connect() rejects before any query runs).
+      // The rejection scoped() surfaces must be that connection error, and
+      // pinTenantConnection's `finally` (which awaits the same failed clientPromise)
+      // must not throw a second, different error over it.
+      await expect(
+        scoped(TENANT_A, async () => {
+          await facade.query('SELECT 1');
+        }),
+      ).rejects.toThrow(/ECONNREFUSED/);
+      // Give any promise settled-but-unobserved during the above a chance to be
+      // flagged before we assert on unhandledRejections below.
+      await new Promise((resolve) => setImmediate(resolve));
+
+      // 2) fn triggers and swallows the same kind of acquisition failure, then throws
+      // its own error. scoped() must reject with fn's error, not the (already
+      // memoised, already-rejected) connection error the `finally` also observes.
+      await expect(
+        scoped(TENANT_A, async () => {
+          await facade.query('SELECT 1').catch(() => {});
+          throw new Error('boom');
+        }),
+      ).rejects.toThrow('boom');
+      await new Promise((resolve) => setImmediate(resolve));
+
+      // 3) Neither scenario above should have produced a Node-level unhandled
+      // rejection — the real risk with a memoised promise that rejects.
+      expect(unhandledRejections).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection);
+      // Restore webPoolState for sibling tests in this file: they call closePools()
+      // in their own `finally`, which leaves webPoolState 'closed' (matching this).
+      unbindWebPool();
+      await badPool.end();
+    }
   });
 });
