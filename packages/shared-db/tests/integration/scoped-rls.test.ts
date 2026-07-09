@@ -333,3 +333,73 @@ describe('pinTenantConnection: pool.connect() itself rejects (acquisition failur
     }
   });
 });
+
+describe('pinTenantConnection cleans up a released connection before it returns to the pool', () => {
+  it('a prepared statement from one scope does not leak into the next scope on the same connection', async () => {
+    await withTestDb(
+      { templateDbName: env.template(), baseUrl: env.base() },
+      async ({ pool, databaseUrl }) => {
+        await setupWidgetFixture(pool);
+        const appUrl = appRoleUrl(databaseUrl);
+        // webMax: 1 forces both scopes below to reuse the single physical connection,
+        // so this is deterministic rather than depending on which pool member is idle.
+        const pools = initPools({ databaseUrl, appDatabaseUrl: appUrl, webMax: 1 });
+        try {
+          await scoped(TENANT_A, async () => {
+            await executorPool().query('PREPARE leak_probe AS SELECT 1');
+          });
+
+          const count = await scoped(TENANT_A, async () => {
+            const r = await executorPool().query<{ count: string }>(
+              "SELECT count(*) FROM pg_prepared_statements WHERE name = 'leak_probe'",
+            );
+            return Number(r.rows[0]?.count);
+          });
+          expect(count).toBe(0);
+        } finally {
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('a scope left with an open transaction does not poison the pool for the next scope', async () => {
+    await withTestDb(
+      { templateDbName: env.template(), baseUrl: env.base() },
+      async ({ pool, databaseUrl }) => {
+        await setupWidgetFixture(pool);
+        const appUrl = appRoleUrl(databaseUrl);
+        const pools = initPools({ databaseUrl, appDatabaseUrl: appUrl, webMax: 1 });
+        // 'remove' fires when a client is destroyed instead of returned to the pool
+        // (client.release(true)) — the probe for "DISCARD ALL failed on an open
+        // transaction, so the poisoned connection was destroyed, not reused."
+        let removeCount = 0;
+        // pg-pool's _remove() calls the real client.end() (a socket round trip) before
+        // emitting 'remove', so it lands after client.release(true) returns, not
+        // synchronously within it — wait for the event instead of racing it.
+        const removed = new Promise<void>((resolve) => {
+          pools.web.once('remove', () => resolve());
+        });
+        pools.web.on('remove', () => removeCount++);
+        try {
+          await scoped(TENANT_A, async () => {
+            await executorPool().query('BEGIN');
+            // Never COMMIT/ROLLBACK: the scope exits with an open transaction block.
+          });
+          await Promise.race([removed, new Promise((resolve) => setTimeout(resolve, 2000))]);
+          expect(removeCount).toBe(1);
+
+          const rows = await scoped(TENANT_A, async () => {
+            const r = await executorPool().query<{ label: string }>(
+              'SELECT label FROM public.widget',
+            );
+            return r.rows.map((x) => x.label);
+          });
+          expect(rows).toEqual(['a']);
+        } finally {
+          await closePools();
+        }
+      },
+    );
+  });
+});

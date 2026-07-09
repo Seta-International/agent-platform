@@ -96,11 +96,15 @@ export async function pinTenantConnection<T>(tenantId: string, fn: () => Promise
       const client = await b.clientPromise.catch(() => null);
       if (client) {
         try {
-          await client.query('RESET ALL');
+          // RESET ALL clears GUCs but leaves prepared statements on the connection, so a
+          // later scope reusing it can hit a stale plan under a colliding statement name.
+          await client.query('DISCARD ALL');
+          client.release();
         } catch {
-          /* connection may be broken; release regardless */
+          // Open/aborted transaction or a broken socket: the connection cannot be cleaned,
+          // so destroy it rather than return a dirty one to the pool.
+          client.release(true);
         }
-        client.release();
       }
     }
   }
