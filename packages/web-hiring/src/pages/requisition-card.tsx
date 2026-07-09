@@ -196,7 +196,7 @@ export function RequisitionCard({
 
       {/* Stage funnel + timing — read-only: each step lights up once at least one candidate has
           reached it (cumulative applicant counts), independent of the requisition's own status. */}
-      <div className="mt-5 flex items-start gap-4">
+      <div className="mt-5 flex items-start gap-4 pb-4">
         <div className="relative flex-[3] pt-2.5">
           <div className="absolute inset-x-[12.5%] top-[19px] h-px bg-hairline-strong" />
           <div
