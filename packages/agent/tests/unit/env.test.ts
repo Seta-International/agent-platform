@@ -6,7 +6,7 @@ describe('parseAgentEnv — tool execution timeout fields', () => {
     const env = parseAgentEnv({});
     expect(env.AGENT_TOOL_TIMEOUT_READ_MS).toBe(30_000);
     expect(env.AGENT_TOOL_TIMEOUT_WRITE_MS).toBe(60_000);
-    expect(env.AGENT_TOOL_TIMEOUT_MAX_MS).toBe(300_000);
+    expect(env.AGENT_TOOL_TIMEOUT_MAX_MS).toBe(600_000);
     expect(env.AGENT_TOOL_BREAKER_FAILURE_THRESHOLD).toBe(3);
     expect(env.AGENT_TOOL_BREAKER_OPEN_MS).toBe(60_000);
   });

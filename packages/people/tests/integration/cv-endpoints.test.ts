@@ -1,3 +1,4 @@
+import { slugifySkill } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -70,9 +71,11 @@ async function seedSkill(pool: Pool, tenant_id: string, name: string): Promise<s
     tenant_id,
     `Cat ${name}`,
   ]);
+  // slug is NOT NULL and is what canonicalizeSkill matches on, so it has to be the
+  // same derivation production uses — a hand-written slug would silently stop matching.
   await pool.query(
-    `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
-    [skillId, tenant_id, catId, name],
+    `INSERT INTO core.skill (id, tenant_id, category_id, name, slug) VALUES ($1,$2,$3,$4,$5)`,
+    [skillId, tenant_id, catId, name, slugifySkill(name)],
   );
   return skillId;
 }
