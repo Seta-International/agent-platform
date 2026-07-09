@@ -112,7 +112,7 @@ describe('getOrgDelivery', () => {
     });
   });
 
-  it('scopes to the viewer: an unrelated viewer sees no accounts', async () => {
+  it('FUT-542: an unrelated viewer still sees all delivery accounts', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -126,7 +126,7 @@ describe('getOrgDelivery', () => {
         const strangerUser = await personaUserId(stranger);
 
         const { accounts } = await getOrgDelivery(viewer(g.t, strangerUser));
-        expect(accounts.find((a) => a.account_id === g.accountA)).toBeUndefined();
+        expect(accounts.find((a) => a.account_id === g.accountA)).toBeDefined();
       } finally {
         resetPeopleDb();
         resetCoreDb();
