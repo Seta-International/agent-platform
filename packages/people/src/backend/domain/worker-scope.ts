@@ -66,12 +66,16 @@ function leadArmSql(me: SQL, tenantId: string): SQL {
 }
 
 /**
- * Relationship-based row-scope predicate for the worker directory. SECURITY-CRITICAL.
+ * Relationship-based row-scope predicate for worker detail and operational surfaces
+ * (profile, history, allocation grid, utilization). SECURITY-CRITICAL.
+ *
+ * Employee list and org chart are tenant-wide for every holder of `people.worker.read`
+ * (FUT-542) and do not call this builder.
  *
  * Returns `null` when the viewer's `people.worker.read` scope resolves to tenant-wide (sees
  * every worker in the tenant). Otherwise returns a single predicate — to be AND-ed into the
- * listWorkers WHERE — matching a worker row (keyed on `worker.person_id`) iff it falls on any
- * of these axes relative to the viewer's own `person_id` (`:me`):
+ * WHERE — matching a worker row (keyed on `worker.person_id`) iff it falls on any of these axes
+ * relative to the viewer's own `person_id` (`:me`):
  *   1. explicit org-unit assignment reach
  *   2. self
  *   3. transitive reports (org-unit subtree headed by the viewer)

@@ -129,7 +129,7 @@ function viewer(t: SeededTenant, userId: string) {
   return buildSession({ tenant_id: t.tenant_id, user_id: userId, roles: ['people.viewer'] });
 }
 
-describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
+describe('listWorkers (SQL filter/sort/paginate)', () => {
   it('returns rich rows: accounts[], skills[], manager_name, onboarding_date', async () => {
     await withDb(async ({ t }) => {
       const mgr = await makeWorker(t, { name: 'Boss Manager' });
@@ -308,7 +308,7 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
     });
   });
 
-  it('scope: viewer without tenant scope sees only scoped set; tenant-scoped sees all', async () => {
+  it('FUT-542: any people.worker.read holder sees the full tenant directory', async () => {
     await withDb(async ({ t }) => {
       const userM = crypto.randomUUID();
       const m = await makeWorker(t, { name: 'Manager M', userId: userM });
@@ -323,17 +323,13 @@ describe('listWorkers (SQL filter/sort/paginate + scope)', () => {
       const unrelated = await makeWorker(t, { name: 'Unrelated U' });
       void unrelated;
 
-      const scoped = await listWorkers(viewer(t, userM), {});
-      expect(scoped.rows.map((row) => row.full_name).sort()).toEqual(['Manager M', 'Report R1']);
-      expect(scoped.total).toBe(2);
-
-      const all = await listWorkers(admin(t), {});
-      expect(all.rows.map((row) => row.full_name).sort()).toEqual([
+      const viewerRows = await listWorkers(viewer(t, userM), {});
+      expect(viewerRows.rows.map((row) => row.full_name).sort()).toEqual([
         'Manager M',
         'Report R1',
         'Unrelated U',
       ]);
-      expect(all.total).toBe(3);
+      expect(viewerRows.total).toBe(3);
     });
   });
 
