@@ -64,9 +64,10 @@ export async function scoped<T>(tenantId: string, fn: () => Promise<T>): Promise
 }
 
 /**
- * Run `fn` against the admin role with no tenant GUC. Legitimate uses are exactly four:
- * core retention, the events partition-manager, the mailer scan, and knowledge's
- * per-tenant chunk partition DDL (which needs CREATE, and seta_app lacks it).
+ * Run `fn` against the admin role with no tenant GUC. Legitimate uses are the three
+ * cross-tenant built-in jobs: `retention_tick`, `partition_manager_tick`, and
+ * `subscription_dlq_alerter` (see `MAINTENANCE_JOBS`). Knowledge's per-tenant chunk
+ * partition DDL joins them in PR3, once it needs CREATE (which seta_app lacks).
  * Any other call site is a bug.
  */
 export async function maintenance<T>(fn: () => Promise<T>): Promise<T> {
