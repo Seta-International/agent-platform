@@ -9,6 +9,9 @@ vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   addCandidate: (input: unknown) => addCandidate(input),
   fetchRequisitions: () => Promise.resolve([{ id: 'r1', title: 'Backend Eng', status: 'open' }]),
+  // The dialog reads existing candidates to suggest seniority/segment values. Left
+  // unmocked it reaches the real client and opens a socket to the dev server.
+  fetchCandidates: () => Promise.resolve([]),
   fetchSkillCatalog: () =>
     Promise.resolve({
       categories: [{ id: 'cat1', name: 'Backend', sort_order: 0, active: true }],
