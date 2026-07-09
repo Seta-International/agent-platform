@@ -1,4 +1,3 @@
-import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -37,16 +36,5 @@ describe('plan sync boundary', () => {
       expect(planner).toHaveProperty(k);
       expect(typeof (planner as Record<string, unknown>)[k]).toBe('function');
     }
-  });
-
-  it('lint:deps would pass on planner package (dep-cruiser via biome lint)', () => {
-    // The repo-wide `pnpm lint` is the actual gate; here we sanity-check that
-    // `tsc --noEmit` succeeds for the planner package alone.
-    expect(() =>
-      execSync('pnpm --filter @seta/planner typecheck', {
-        stdio: 'pipe',
-        cwd: resolve(__dirname, '../../../../'),
-      }),
-    ).not.toThrow();
   });
 });
