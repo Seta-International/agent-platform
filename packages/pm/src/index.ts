@@ -1,3 +1,8 @@
+export type {
+  CheckAllocationEffortResult,
+  EffortConflict,
+} from './backend/domain/check-allocation-effort.ts';
+export { checkAllocationEffort } from './backend/domain/check-allocation-effort.ts';
 export { createAccount } from './backend/domain/create-account.ts';
 export { createAllocation } from './backend/domain/create-allocation.ts';
 export {
@@ -26,9 +31,25 @@ export type {
 export { getCharter, getCharterSummary, listCharters } from './backend/domain/read-charters.ts';
 export type { ProjectListRow } from './backend/domain/read-projects.ts';
 export { getProject, listProjects } from './backend/domain/read-projects.ts';
+export type {
+  ReassignAllocationResult,
+  ReassignGroupPreviewResult,
+  ReassignPreviewResult,
+  ReassignPreviewSegment,
+  ReassignWarning,
+  ReassignWorkerAllocationsResult,
+} from './backend/domain/reassign-allocation.ts';
+export {
+  previewReassignAllocation,
+  previewReassignWorkerAllocations,
+  reassignAllocation,
+  reassignWorkerAllocations,
+} from './backend/domain/reassign-allocation.ts';
 export { listRecruiterAccountIds } from './backend/domain/recruiter-accounts.ts';
 export { removeAllocation } from './backend/domain/remove-allocation.ts';
 export { setAccountRecruiters } from './backend/domain/set-account-recruiters.ts';
+export type { SplitAllocationResult } from './backend/domain/split-allocation.ts';
+export { splitAllocation } from './backend/domain/split-allocation.ts';
 export {
   deleteStaffingPlanLine,
   listStaffingPlan,
@@ -43,9 +64,11 @@ export type {
   EditAccountInput,
   EditCharterInput,
   EditProjectInput,
+  ReassignAllocationInput,
   RejectCharterInput,
   SetAccountRecruitersInput,
   SetProjectAccessInput,
+  SplitAllocationInput,
   StaffingPlanLineInput,
   SubmitCharterInput,
 } from './contracts.ts';

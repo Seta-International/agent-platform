@@ -7,6 +7,7 @@ import { PM_ALLOCATION_CREATED } from '../../events.ts';
 import { account, allocation, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
+import { assertWithinProjectRange } from './assert-within-project-range.ts';
 
 export async function createAllocation(
   input: CreateAllocationInput & { session: SessionScope },
@@ -36,11 +37,20 @@ export async function createAllocation(
           id: project.id,
           account_id: project.account_id,
           pm_worker_id: project.pm_worker_id,
+          date_from: project.date_from,
+          date_to: project.date_to,
         })
         .from(project)
         .where(and(eq(project.id, parsed.project_id), tenantScoped(project.tenant_id, session)))
         .limit(1);
       if (!proj[0]) throw new PmError('NOT_FOUND', `project ${parsed.project_id} not found`);
+
+      assertWithinProjectRange({
+        project_date_from: proj[0].date_from,
+        project_date_to: proj[0].date_to,
+        date_from: parsed.date_from ?? null,
+        date_to: parsed.date_to ?? null,
+      });
 
       const [acc] = await tx
         .select({ name: account.name })
