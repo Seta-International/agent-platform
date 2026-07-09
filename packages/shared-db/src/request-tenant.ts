@@ -21,9 +21,16 @@ interface TenantBinding {
 
 const binding = new AsyncLocalStorage<TenantBinding>();
 
+/** pg-pool only keeps an 'error' listener on a client while it sits idle in the pool.
+ * For the life of a scope the client is checked out and has none, so a socket error —
+ * a killed backend, a pool ended by a racing shutdown — is an unhandled 'error' event
+ * and takes the whole process down. Hold one for the checkout's duration. */
+const swallowClientError = (): void => {};
+
 async function acquire(b: TenantBinding, pool: Pool): Promise<PoolClient> {
   b.clientPromise ??= (async () => {
     const client = await pool.connect();
+    client.on('error', swallowClientError);
     await client.query('SELECT set_config($1, $2, false)', [TENANT_GUC, b.tenantId]);
     return client;
   })();
@@ -99,11 +106,18 @@ export async function pinTenantConnection<T>(tenantId: string, fn: () => Promise
           // RESET ALL clears GUCs but leaves prepared statements on the connection, so a
           // later scope reusing it can hit a stale plan under a colliding statement name.
           await client.query('DISCARD ALL');
+          client.off('error', swallowClientError);
           client.release();
         } catch {
           // Open/aborted transaction or a broken socket: the connection cannot be cleaned,
-          // so destroy it rather than return a dirty one to the pool.
-          client.release(true);
+          // so destroy it rather than return a dirty one to the pool. The listener stays
+          // attached — destroying it is what may surface the socket error. release() on an
+          // already-ended pool throws, and this runs in a `finally`, so it must not escape.
+          try {
+            client.release(true);
+          } catch {
+            // Nothing left to reclaim; fn's own error (if any) is the one that matters.
+          }
         }
       }
     }

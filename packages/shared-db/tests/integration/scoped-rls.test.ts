@@ -363,6 +363,39 @@ describe('pinTenantConnection cleans up a released connection before it returns 
     );
   });
 
+  it("a connection killed mid-scope surfaces fn's error and emits no unhandled socket error", async () => {
+    await withTestDb(
+      { templateDbName: env.template(), baseUrl: env.base() },
+      async ({ pool, databaseUrl }) => {
+        await setupWidgetFixture(pool);
+        initPools({ databaseUrl, appDatabaseUrl: appRoleUrl(databaseUrl), webMax: 1 });
+
+        // Shutdown races in-flight handlers: a pinned connection's backend can die under
+        // it. DISCARD ALL then fails and the client is destroyed — but a destroyed client
+        // has no 'error' listener left, so a late socket error becomes an unhandled
+        // 'error' event, which kills the worker process outright.
+        const uncaught: unknown[] = [];
+        const onUncaught = (err: unknown) => uncaught.push(err);
+        process.on('uncaughtException', onUncaught);
+        try {
+          await expect(
+            scoped(TENANT_A, async () => {
+              const p = executorPool();
+              await p.query('SELECT 1');
+              await p.query('SELECT pg_terminate_backend(pg_backend_pid())').catch(() => {});
+              throw new Error('handler boom');
+            }),
+          ).rejects.toThrow('handler boom');
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          expect(uncaught).toEqual([]);
+        } finally {
+          process.off('uncaughtException', onUncaught);
+          await closePools();
+        }
+      },
+    );
+  });
+
   it('a scope left with an open transaction does not poison the pool for the next scope', async () => {
     await withTestDb(
       { templateDbName: env.template(), baseUrl: env.base() },
