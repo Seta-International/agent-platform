@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closePools, getPool, getPoolStats, initPools } from '../../src/index.ts';
+import {
+  closePools,
+  executorPool,
+  getPool,
+  getPoolStats,
+  initPools,
+  maintenance,
+  scoped,
+} from '../../src/index.ts';
 
 beforeEach(async () => {
   try {
@@ -78,5 +86,37 @@ describe('pools', () => {
   it('getPoolStats returns null when pools not initialized', async () => {
     await closePools();
     expect(getPoolStats()).toBeNull();
+  });
+});
+
+describe('pools bound into the executor', () => {
+  it('maintenance() resolves executorPool() to the admin (worker) pool', async () => {
+    const created = initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
+    const pool = await maintenance(async () => executorPool());
+    expect(pool).toBe(created.worker);
+  });
+
+  it('executorPool() rejects after closePools instead of returning an ended pool', async () => {
+    initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
+    await closePools();
+    await expect(maintenance(async () => executorPool())).rejects.toThrow(
+      /pools not initialised|before initPools/i,
+    );
+  });
+
+  it('scoped() rejects after closePools instead of handing back an ended pool', async () => {
+    initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
+    await closePools();
+    await expect(
+      scoped('11111111-1111-1111-1111-111111111111', async () => executorPool()),
+    ).rejects.toThrow();
+  });
+
+  it('initPools() after closePools rebinds executorPool cleanly', async () => {
+    initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
+    await closePools();
+    const created = initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
+    const pool = await maintenance(async () => executorPool());
+    expect(pool).toBe(created.worker);
   });
 });

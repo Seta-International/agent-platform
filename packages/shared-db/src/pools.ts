@@ -24,6 +24,11 @@ export interface Pools {
 let pools: Pools | null = null;
 let webFacade: Pool | null = null;
 
+function requirePools(): Pools {
+  if (!pools) throw new Error('executorPool called before initPools.');
+  return pools;
+}
+
 // Sizing formula (docs/hosting/aws.md §7):
 //   max = floor(pg_max_connections / (server_tasks + worker_tasks)) − margin
 //   Starter  (200 / 2 tasks) − 10 = ~90 headroom
@@ -91,11 +96,12 @@ export function initPools(cfg: PoolsConfig): Pools {
 
   // The executor decides privilege; modules never pick a pool. `scoped` runs on the
   // app-role facade (NOBYPASSRLS, request-pinned when a connection is pinned);
-  // `maintenance` runs on the admin pool.
-  const created = pools;
+  // `maintenance` runs on the admin pool. Resolve through the live `pools` binding,
+  // not a captured local: closePools() must make executorPool() throw, not hand out
+  // an ended pool.
   bindExecutorPools(
-    () => webFacade ?? created.web,
-    () => created.worker,
+    () => webFacade ?? requirePools().web,
+    () => requirePools().worker,
   );
 
   return pools;
