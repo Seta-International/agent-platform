@@ -3,6 +3,7 @@ import { z } from 'zod';
 const Env = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   DATABASE_URL: z.string().url(),
+  DATABASE_APP_URL: z.string().optional(),
   PUBLIC_URL: z.string().url().default('http://localhost:5173'),
   CRYPTO_KEY_PROVIDER: z.enum(['kms', 'env']).default('env'),
   CRYPTO_KMS_KEY_ARN: z.string().optional(),

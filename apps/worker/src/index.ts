@@ -31,7 +31,15 @@ import { logStreams } from './log-streams.ts';
 const log = pino({ name: 'apps/worker' }, pino.multistream(logStreams('worker')));
 const env = parseEnv(process.env);
 
-initPools({ databaseUrl: env.DATABASE_URL });
+// appDatabaseUrl gives this process a NOBYPASSRLS pool, so scoped() inside a job
+// or subscriber is genuinely RLS-enforced. Without it, scoped() would silently
+// run as superuser. Falls back to DATABASE_URL for simple self-host, where the
+// backstop is then inert by design.
+initPools({
+  databaseUrl: env.DATABASE_URL,
+  appDatabaseUrl: env.DATABASE_APP_URL,
+  log: log.child({ subsystem: 'shared-db' }),
+});
 
 const cryptoEnv = parseCryptoEnv(process.env);
 const keyProvider = await createKeyProviderFromEnv(cryptoEnv);
