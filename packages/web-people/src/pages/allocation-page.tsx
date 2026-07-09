@@ -231,7 +231,7 @@ export function AllocationPage() {
 
   const rowClassName = useCallback(
     (row: Row<AllocationGridRow>) =>
-      cn((workerBand.get(row.original.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1'),
+      cn('h-12', (workerBand.get(row.original.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1'),
     [workerBand],
   );
 
@@ -475,6 +475,7 @@ export function AllocationPage() {
               columns={columns}
               data={data?.rows ?? []}
               isLoading={isLoading}
+              density="compact"
               getRowClassName={rowClassName}
               enableGlobalFilter={false}
               enableColumnVisibility={false}
