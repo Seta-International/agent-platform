@@ -1,5 +1,5 @@
 import { context, SpanStatusCode, trace } from '@opentelemetry/api';
-import { type NodeTx, setTenantGuc } from '@seta/shared-db';
+import { type NodeTx, scoped, setTenantGuc } from '@seta/shared-db';
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -114,13 +114,18 @@ export async function drainOne(
               try {
                 await outerTx.transaction(async (handlerTx) => {
                   await setTenantGuc(handlerTx as unknown as NodeTx, row.tenantId);
-                  await emitContext.run(
-                    {
-                      tx: handlerTx as unknown as NodeTx,
-                      causedByEventId: evt.id,
-                      traceId: evt.traceId,
-                    },
-                    () => sub.handler(evt, { tx: handlerTx as unknown as NodeTx }),
+                  // The drain scan is cross-tenant (admin). Each handler is not: any
+                  // module db client it reaches for must resolve to the app-role pool
+                  // with this event's tenant GUC set.
+                  await scoped(row.tenantId, () =>
+                    emitContext.run(
+                      {
+                        tx: handlerTx as unknown as NodeTx,
+                        causedByEventId: evt.id,
+                        traceId: evt.traceId,
+                      },
+                      () => sub.handler(evt, { tx: handlerTx as unknown as NodeTx }),
+                    ),
                   );
                   await handlerTx
                     .insert(coreSubscriptionProcessed)
