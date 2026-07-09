@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { revokeSessionsOnDeactivationSubscriber } from '../../src/subscribers/revoke-sessions-on-deactivation.ts';
@@ -53,21 +53,26 @@ describe('revokeSessionsOnDeactivationSubscriber', () => {
           const s1 = await insertSession(pool, userId);
           const s2 = await insertSession(pool, userId);
 
+          // Mirrors packages/core/src/runtime/dispatcher/drain.ts's real dispatch,
+          // which wraps every subscriber invocation in scoped(tenantId, ...) so
+          // identityDb() has an executor context.
           const sub = revokeSessionsOnDeactivationSubscriber();
-          await sub.handler(
-            {
-              id: crypto.randomUUID(),
-              tenantId,
-              eventType: 'identity.user.deactivated',
-              eventVersion: 1,
-              payload: {
-                actor: { type: 'user', user_id: userId },
-                user_id: userId,
-                tenant_id: tenantId,
-                deactivated_at: new Date().toISOString(),
-              },
-            } as never,
-            {} as never,
+          await scoped(tenantId, () =>
+            sub.handler(
+              {
+                id: crypto.randomUUID(),
+                tenantId,
+                eventType: 'identity.user.deactivated',
+                eventVersion: 1,
+                payload: {
+                  actor: { type: 'user', user_id: userId },
+                  user_id: userId,
+                  tenant_id: tenantId,
+                  deactivated_at: new Date().toISOString(),
+                },
+              } as never,
+              {} as never,
+            ),
           );
 
           const { rows } = await pool.query<{ id: string }>(
@@ -103,22 +108,27 @@ describe('revokeSessionsOnDeactivationSubscriber', () => {
         try {
           const { tenantId, userId } = await seedTenantWithUser(pool);
 
+          // Mirrors packages/core/src/runtime/dispatcher/drain.ts's real dispatch,
+          // which wraps every subscriber invocation in scoped(tenantId, ...) so
+          // identityDb() has an executor context.
           const sub = revokeSessionsOnDeactivationSubscriber();
           await expect(
-            sub.handler(
-              {
-                id: crypto.randomUUID(),
-                tenantId,
-                eventType: 'identity.user.deactivated',
-                eventVersion: 1,
-                payload: {
-                  actor: { type: 'user', user_id: userId },
-                  user_id: userId,
-                  tenant_id: tenantId,
-                  deactivated_at: new Date().toISOString(),
-                },
-              } as never,
-              {} as never,
+            scoped(tenantId, () =>
+              sub.handler(
+                {
+                  id: crypto.randomUUID(),
+                  tenantId,
+                  eventType: 'identity.user.deactivated',
+                  eventVersion: 1,
+                  payload: {
+                    actor: { type: 'user', user_id: userId },
+                    user_id: userId,
+                    tenant_id: tenantId,
+                    deactivated_at: new Date().toISOString(),
+                  },
+                } as never,
+                {} as never,
+              ),
             ),
           ).resolves.toBeUndefined();
         } finally {

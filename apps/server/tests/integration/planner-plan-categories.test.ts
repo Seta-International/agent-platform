@@ -4,7 +4,7 @@ import { createUser } from '@seta/identity';
 import { applyLabel, createGroup, createLabel, createPlan, createTask } from '@seta/planner';
 import { registerPlannerPlansRoutes } from '@seta/planner/http';
 import { plannerErrorMapper } from '@seta/planner/register';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -49,6 +49,11 @@ function buildTestApp(session: SessionScope): Hono<SessionEnv> {
     c.set('user', session);
     await next();
   });
+  // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+  // composition root opens this once the tenant is known, so plannerDb() has an
+  // executor context. No appDatabaseUrl here, so the tenant GUC is inert (self-host
+  // fallback) — this just needs to exist for executorPool() to resolve.
+  app.use('*', (_c, next) => scoped(session.tenant_id, next));
   registerPlannerPlansRoutes(app, {
     workers: { addJob: async () => {}, shutdown: async () => {} },
   });
@@ -103,7 +108,12 @@ describe('plan categories HTTP routes', () => {
             display_name: 'Admin',
           });
           const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires
+          // for this direct (non-HTTP) domain call.
+          const plan = await scoped(tenantId, () =>
+            createPlan({ group_id: group.id, name: 'P', session }),
+          );
           const label = await createLabel({
             plan_id: plan.id,
             name: 'Backend',
@@ -153,7 +163,12 @@ describe('plan categories HTTP routes', () => {
             display_name: 'Admin',
           });
           const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires
+          // for this direct (non-HTTP) domain call.
+          const plan = await scoped(tenantId, () =>
+            createPlan({ group_id: group.id, name: 'P', session }),
+          );
           const label = await createLabel({
             plan_id: plan.id,
             name: 'Bug',
@@ -211,7 +226,12 @@ describe('plan categories HTTP routes', () => {
             display_name: 'Admin',
           });
           const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires
+          // for this direct (non-HTTP) domain call.
+          const plan = await scoped(tenantId, () =>
+            createPlan({ group_id: group.id, name: 'P', session }),
+          );
 
           const app = buildTestApp(session);
 
@@ -254,7 +274,12 @@ describe('plan categories HTTP routes', () => {
             display_name: 'Admin',
           });
           const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires
+          // for this direct (non-HTTP) domain call.
+          const plan = await scoped(tenantId, () =>
+            createPlan({ group_id: group.id, name: 'P', session }),
+          );
 
           const attachedNames = ['Backend', 'Frontend', 'QA', 'Docs'] as const;
           const unattachedNames = ['Bug', 'Spike', 'Chore'] as const;

@@ -5,7 +5,7 @@ import { m365 } from '@seta/integrations';
 import { registerIntegrationsM365Routes } from '@seta/integrations/http';
 import { createGroup } from '@seta/planner';
 import { plannerErrorMapper } from '@seta/planner/register';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -574,9 +574,14 @@ describe('POST /api/integrations/m365/groups/:groupId/refresh', () => {
           },
         );
 
-        const res = await app.request(`/api/integrations/m365/groups/${groupId}/refresh`, {
-          method: 'POST',
-        });
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so plannerDb() has
+        // an executor context for the live group-membership check this route makes.
+        const res = await scoped(tenantId, async () =>
+          app.request(`/api/integrations/m365/groups/${groupId}/refresh`, {
+            method: 'POST',
+          }),
+        );
 
         expect(res.status).toBe(403);
         const body = (await res.json()) as { error: string };
@@ -741,13 +746,18 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
           { m365LinksRepo: resolveLinksRepo },
         );
 
-        const res = await app.request(`/api/integrations/m365/groups/${group.id}/resolve`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            decisions: [{ field: 'name', choice: 'remote' }],
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so plannerDb() has
+        // an executor context for resolveGroupConflict's live getGroup() lookup.
+        const res = await scoped(tid, async () =>
+          app.request(`/api/integrations/m365/groups/${group.id}/resolve`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              decisions: [{ field: 'name', choice: 'remote' }],
+            }),
           }),
-        });
+        );
 
         expect(res.status).toBe(200);
         const body = (await res.json()) as { ok: boolean };
@@ -898,7 +908,12 @@ describe('GET /api/integrations/m365/groups/:groupId/sync-status', () => {
           },
         );
 
-        const res = await app.request(`/api/integrations/m365/groups/${groupId}/sync-status`);
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so plannerDb() has
+        // an executor context for hasGroupAccess's live membership check.
+        const res = await scoped(tenantId, async () =>
+          app.request(`/api/integrations/m365/groups/${groupId}/sync-status`),
+        );
         expect(res.status).toBe(403);
         const body = (await res.json()) as { error: string };
         expect(body.error).toBe('FORBIDDEN');
@@ -943,8 +958,11 @@ describe('GET /api/integrations/m365/groups/:groupId/sync-status/stream', () => 
           },
         );
 
-        const res = await app.request(
-          `/api/integrations/m365/groups/${groupId}/sync-status/stream`,
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so plannerDb() has
+        // an executor context for hasGroupAccess's live membership check.
+        const res = await scoped(tenantId, async () =>
+          app.request(`/api/integrations/m365/groups/${groupId}/sync-status/stream`),
         );
         expect(res.status).toBe(403);
         const body = (await res.json()) as { error: string };

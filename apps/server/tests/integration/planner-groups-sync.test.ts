@@ -4,7 +4,7 @@ import { createUser } from '@seta/identity';
 import { addGroupMember, createGroup, createPlan, deletePlan } from '@seta/planner';
 import { registerPlannerGroupsRoutes } from '@seta/planner/http';
 import { plannerErrorMapper } from '@seta/planner/register';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -49,6 +49,11 @@ function buildTestApp(session: SessionScope): Hono<SessionEnv> {
     c.set('user', session);
     await next();
   });
+  // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+  // composition root opens this once the tenant is known, so plannerDb() has an
+  // executor context. No appDatabaseUrl here, so the tenant GUC is inert (self-host
+  // fallback) — this just needs to exist for executorPool() to resolve.
+  app.use('*', (_c, next) => scoped(session.tenant_id, next));
   registerPlannerGroupsRoutes(app, {
     workers: { addJob: async () => {}, shutdown: async () => {} },
   });
@@ -329,11 +334,17 @@ describe('listGroupsWithCounts via HTTP', () => {
           display_name: 'Admin',
         });
 
-        const group = await createGroup({ tenant_id: tenantId, name: 'Counts Group', session });
-        await createPlan({ group_id: group.id, name: 'Plan A', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for these direct (non-HTTP) domain calls.
+        const { group } = await scoped(tenantId, async () => {
+          const group = await createGroup({ tenant_id: tenantId, name: 'Counts Group', session });
+          await createPlan({ group_id: group.id, name: 'Plan A', session });
 
-        const memberId = crypto.randomUUID();
-        await addGroupMember({ group_id: group.id, user_id: memberId, session });
+          const memberId = crypto.randomUUID();
+          await addGroupMember({ group_id: group.id, user_id: memberId, session });
+          return { group };
+        });
 
         const app = buildTestApp(session);
         const res = await app.request(`/api/planner/v1/groups?withCounts=true`);
@@ -403,9 +414,15 @@ describe('listGroupsWithCounts via HTTP', () => {
           display_name: 'Admin',
         });
 
-        const group = await createGroup({ tenant_id: tenantId, name: 'Delta Group', session });
-        const plan = await createPlan({ group_id: group.id, name: 'Deleted Plan', session });
-        await deletePlan({ plan_id: plan.id, expected_version: plan.version, session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for these direct (non-HTTP) domain calls.
+        const { group } = await scoped(tenantId, async () => {
+          const group = await createGroup({ tenant_id: tenantId, name: 'Delta Group', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Deleted Plan', session });
+          await deletePlan({ plan_id: plan.id, expected_version: plan.version, session });
+          return { group };
+        });
 
         const app = buildTestApp(session);
         const res = await app.request(`/api/planner/v1/groups?withCounts=true`);
