@@ -108,6 +108,18 @@ describe('pools bound into the executor', () => {
     await expect(maintenance(async () => executorPool())).rejects.toThrow(/before initPools/i);
   });
 
+  it('maintenance() fails closed after closePools even when fn never touches the database', async () => {
+    initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
+    await closePools();
+    let ran = false;
+    await expect(
+      maintenance(async () => {
+        ran = true;
+      }),
+    ).rejects.toThrow(/before initPools/);
+    expect(ran).toBe(false);
+  });
+
   it('scoped() rejects after closePools instead of handing back an ended pool', async () => {
     initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
     await closePools();
