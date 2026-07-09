@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -16,25 +16,29 @@ describe('groups schema migration', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const db = plannerDb();
-          const res = await db.execute(sql`
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_schema = 'planner' AND table_name = 'groups'
-            ORDER BY ordinal_position
-          `);
-          const cols = (res.rows as Array<{ column_name: string }>).map((r) => r.column_name);
-          for (const c of [
-            'description',
-            'theme',
-            'visibility',
-            'default_role',
-            'external_source',
-            'external_id',
-            'external_synced_at',
-          ]) {
-            expect(cols).toContain(c);
-          }
+          // Reading information_schema is admin-level, cross-tenant metadata — not a
+          // tenant-scoped domain read, so this opens maintenance() rather than scoped().
+          await maintenance(async () => {
+            const db = plannerDb();
+            const res = await db.execute(sql`
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_schema = 'planner' AND table_name = 'groups'
+              ORDER BY ordinal_position
+            `);
+            const cols = (res.rows as Array<{ column_name: string }>).map((r) => r.column_name);
+            for (const c of [
+              'description',
+              'theme',
+              'visibility',
+              'default_role',
+              'external_source',
+              'external_id',
+              'external_synced_at',
+            ]) {
+              expect(cols).toContain(c);
+            }
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -78,14 +82,18 @@ describe('groups schema migration', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const db = plannerDb();
-          const res = await db.execute(sql`
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_schema = 'planner' AND table_name = 'group_members'
-          `);
-          const cols = (res.rows as Array<{ column_name: string }>).map((r) => r.column_name);
-          expect(cols).toContain('role');
+          // Reading information_schema is admin-level, cross-tenant metadata — not a
+          // tenant-scoped domain read, so this opens maintenance() rather than scoped().
+          await maintenance(async () => {
+            const db = plannerDb();
+            const res = await db.execute(sql`
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_schema = 'planner' AND table_name = 'group_members'
+            `);
+            const cols = (res.rows as Array<{ column_name: string }>).map((r) => r.column_name);
+            expect(cols).toContain('role');
+          });
         } finally {
           resetCoreDb();
           await closePools();

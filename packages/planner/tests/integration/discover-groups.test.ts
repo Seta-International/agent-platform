@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createGroup, createJoinRequest, discoverGroups } from '../../src/index.ts';
@@ -43,47 +43,51 @@ describe('discoverGroups', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Engineering All',
-            visibility: 'public',
-            session,
-          });
-          await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Engineering Secret',
-            visibility: 'private',
-            session,
-          });
-          await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Marketing Public',
-            visibility: 'public',
-            session,
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Engineering All',
+              visibility: 'public',
+              session,
+            });
+            await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Engineering Secret',
+              visibility: 'private',
+              session,
+            });
+            await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Marketing Public',
+              visibility: 'public',
+              session,
+            });
 
-          const outsider = await import('@seta/identity').then((m) =>
-            m.createUser(
-              {
-                tenant_id: seeded.tenant_id,
-                email: `outsider-${crypto.randomUUID().slice(0, 8)}@test.com`,
-                name: 'Outsider',
-                password: 'pass',
-              },
-              { type: 'cli', user_id: null },
-            ),
-          );
-          const outsiderSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: outsider.user_id,
-            roles: ['planner.viewer'],
+            const outsider = await import('@seta/identity').then((m) =>
+              m.createUser(
+                {
+                  tenant_id: seeded.tenant_id,
+                  email: `outsider-${crypto.randomUUID().slice(0, 8)}@test.com`,
+                  name: 'Outsider',
+                  password: 'pass',
+                },
+                { type: 'cli', user_id: null },
+              ),
+            );
+            const outsiderSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: outsider.user_id,
+              roles: ['planner.viewer'],
+            });
+
+            const results = await discoverGroups({ q: 'engineering', session: outsiderSession });
+
+            expect(results).toHaveLength(1);
+            expect(results[0]?.name).toBe('Engineering All');
+            expect(results[0]?.member_count).toBeGreaterThanOrEqual(1);
           });
-
-          const results = await discoverGroups({ q: 'engineering', session: outsiderSession });
-
-          expect(results).toHaveLength(1);
-          expect(results[0]?.name).toBe('Engineering All');
-          expect(results[0]?.member_count).toBeGreaterThanOrEqual(1);
         } finally {
           resetCoreDb();
           await closePools();
@@ -98,28 +102,32 @@ describe('discoverGroups', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        // The creator (admin) is added as a member of the group.
-        await createGroup({
-          tenant_id: seeded.tenant_id,
-          name: 'Owners Club',
-          visibility: 'public',
-          session: seeded.adminSession,
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          // The creator (admin) is added as a member of the group.
+          await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Owners Club',
+            visibility: 'public',
+            session: seeded.adminSession,
+          });
 
-        const adminResults = await discoverGroups({
-          q: 'Owners Club',
-          session: seeded.adminSession,
-        });
-        expect(adminResults[0]?.is_member).toBe(true);
-        expect(adminResults[0]?.has_pending_request).toBe(false);
+          const adminResults = await discoverGroups({
+            q: 'Owners Club',
+            session: seeded.adminSession,
+          });
+          expect(adminResults[0]?.is_member).toBe(true);
+          expect(adminResults[0]?.has_pending_request).toBe(false);
 
-        const outsiderSession = await makeOutsider(seeded.tenant_id);
-        const outsiderResults = await discoverGroups({
-          q: 'Owners Club',
-          session: outsiderSession,
+          const outsiderSession = await makeOutsider(seeded.tenant_id);
+          const outsiderResults = await discoverGroups({
+            q: 'Owners Club',
+            session: outsiderSession,
+          });
+          expect(outsiderResults[0]?.is_member).toBe(false);
+          expect(outsiderResults[0]?.has_pending_request).toBe(false);
         });
-        expect(outsiderResults[0]?.is_member).toBe(false);
-        expect(outsiderResults[0]?.has_pending_request).toBe(false);
       } finally {
         resetCoreDb();
         await closePools();
@@ -133,19 +141,23 @@ describe('discoverGroups', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const group = await createGroup({
-          tenant_id: seeded.tenant_id,
-          name: 'Joinable Team',
-          visibility: 'public',
-          session: seeded.adminSession,
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Joinable Team',
+            visibility: 'public',
+            session: seeded.adminSession,
+          });
+
+          const outsiderSession = await makeOutsider(seeded.tenant_id);
+          await createJoinRequest({ group_id: group.id, session: outsiderSession });
+
+          const results = await discoverGroups({ q: 'Joinable Team', session: outsiderSession });
+          expect(results[0]?.has_pending_request).toBe(true);
+          expect(results[0]?.is_member).toBe(false);
         });
-
-        const outsiderSession = await makeOutsider(seeded.tenant_id);
-        await createJoinRequest({ group_id: group.id, session: outsiderSession });
-
-        const results = await discoverGroups({ q: 'Joinable Team', session: outsiderSession });
-        expect(results[0]?.has_pending_request).toBe(true);
-        expect(results[0]?.is_member).toBe(false);
       } finally {
         resetCoreDb();
         await closePools();
@@ -164,8 +176,16 @@ describe('discoverGroups', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const results = await discoverGroups({ q: 'zzznomatch', session: seeded.adminSession });
-          expect(results).toHaveLength(0);
+
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const results = await discoverGroups({
+              q: 'zzznomatch',
+              session: seeded.adminSession,
+            });
+            expect(results).toHaveLength(0);
+          });
         } finally {
           resetCoreDb();
           await closePools();

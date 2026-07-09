@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { plannerDb } from '../../../src/backend/db/index.ts';
@@ -18,26 +18,43 @@ describe('resolveGroupMemberIds', () => {
       initPools({ databaseUrl });
       try {
         const tenantId = crypto.randomUUID();
-        const groupId = crypto.randomUUID();
-        const createdBy = crypto.randomUUID();
-        await plannerDb().insert(groups).values({
-          id: groupId,
-          tenant_id: tenantId,
-          name: 'Test Group',
-          created_by: createdBy,
+
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(tenantId, async () => {
+          const groupId = crypto.randomUUID();
+          const createdBy = crypto.randomUUID();
+          await plannerDb().insert(groups).values({
+            id: groupId,
+            tenant_id: tenantId,
+            name: 'Test Group',
+            created_by: createdBy,
+          });
+          const u1 = crypto.randomUUID();
+          const u2 = crypto.randomUUID();
+          const u3 = crypto.randomUUID();
+          await plannerDb()
+            .insert(groupMembers)
+            .values([
+              { tenant_id: tenantId, group_id: groupId, user_id: u1, role: 'owner', added_by: u1 },
+              {
+                tenant_id: tenantId,
+                group_id: groupId,
+                user_id: u2,
+                role: 'member',
+                added_by: u1,
+              },
+              {
+                tenant_id: tenantId,
+                group_id: groupId,
+                user_id: u3,
+                role: 'member',
+                added_by: u1,
+              },
+            ]);
+          const ids = await resolveGroupMemberIds(tenantId, groupId, plannerDb());
+          expect(ids.sort()).toEqual([u1, u2, u3].sort());
         });
-        const u1 = crypto.randomUUID();
-        const u2 = crypto.randomUUID();
-        const u3 = crypto.randomUUID();
-        await plannerDb()
-          .insert(groupMembers)
-          .values([
-            { tenant_id: tenantId, group_id: groupId, user_id: u1, role: 'owner', added_by: u1 },
-            { tenant_id: tenantId, group_id: groupId, user_id: u2, role: 'member', added_by: u1 },
-            { tenant_id: tenantId, group_id: groupId, user_id: u3, role: 'member', added_by: u1 },
-          ]);
-        const ids = await resolveGroupMemberIds(tenantId, groupId, plannerDb());
-        expect(ids.sort()).toEqual([u1, u2, u3].sort());
       } finally {
         resetCoreDb();
         await closePools();
@@ -51,16 +68,21 @@ describe('resolveGroupMemberIds', () => {
       initPools({ databaseUrl });
       try {
         const tenantId = crypto.randomUUID();
-        const groupId = crypto.randomUUID();
-        const createdBy = crypto.randomUUID();
-        await plannerDb().insert(groups).values({
-          id: groupId,
-          tenant_id: tenantId,
-          name: 'Empty Group',
-          created_by: createdBy,
+
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(tenantId, async () => {
+          const groupId = crypto.randomUUID();
+          const createdBy = crypto.randomUUID();
+          await plannerDb().insert(groups).values({
+            id: groupId,
+            tenant_id: tenantId,
+            name: 'Empty Group',
+            created_by: createdBy,
+          });
+          const ids = await resolveGroupMemberIds(tenantId, groupId, plannerDb());
+          expect(ids).toEqual([]);
         });
-        const ids = await resolveGroupMemberIds(tenantId, groupId, plannerDb());
-        expect(ids).toEqual([]);
       } finally {
         resetCoreDb();
         await closePools();

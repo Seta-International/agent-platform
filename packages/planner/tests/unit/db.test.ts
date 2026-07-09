@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockPool = { connect: vi.fn(), on: vi.fn() };
 vi.mock('@seta/shared-db', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@seta/shared-db')>()),
-  getPool: vi.fn(() => mockPool),
+  executorPool: vi.fn(() => mockPool),
 }));
 
 let drizzleCallCount = 0;
@@ -33,12 +33,15 @@ describe('plannerDb caching', () => {
     expect(drizzle).toHaveBeenCalledTimes(2);
   });
 
-  it('rebuilds when getPool returns a different Pool', async () => {
+  it('rebuilds when executorPool returns a different Pool (e.g. scoped() vs maintenance())', async () => {
     const sharedDb = await import('@seta/shared-db');
     const { plannerDb } = await import('../../src/backend/db/index.ts');
     const { drizzle } = await import('drizzle-orm/node-postgres');
     plannerDb();
-    vi.mocked(sharedDb.getPool).mockReturnValueOnce({ connect: vi.fn(), on: vi.fn() } as never);
+    vi.mocked(sharedDb.executorPool).mockReturnValueOnce({
+      connect: vi.fn(),
+      on: vi.fn(),
+    } as never);
     plannerDb();
     expect(drizzle).toHaveBeenCalledTimes(2);
   });

@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { listTaskAssigneeUserIds } from '../../src/backend/read-helpers.ts';
@@ -23,24 +23,29 @@ describe('listTaskAssigneeUserIds', () => {
             { name: 'Bob', email: 'bob@example.test' },
           ],
         });
-        const session = seeded.adminSession;
-        const [alice, bob] = seeded.users;
-        if (!alice || !bob) throw new Error('Seed did not create both users');
 
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-        const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-        const task = await createTask({ plan_id: plan.id, title: 'My Task', session });
-        for (const u of [alice, bob]) {
-          await assignTaskInGroup({
-            group_id: group.id,
-            task_id: task.id,
-            user_id: u.user_id,
-            session,
-          });
-        }
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const [alice, bob] = seeded.users;
+          if (!alice || !bob) throw new Error('Seed did not create both users');
 
-        const ids = await listTaskAssigneeUserIds(seeded.tenant_id, task.id);
-        expect([...ids].sort()).toEqual([alice.user_id, bob.user_id].sort());
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+          const task = await createTask({ plan_id: plan.id, title: 'My Task', session });
+          for (const u of [alice, bob]) {
+            await assignTaskInGroup({
+              group_id: group.id,
+              task_id: task.id,
+              user_id: u.user_id,
+              session,
+            });
+          }
+
+          const ids = await listTaskAssigneeUserIds(seeded.tenant_id, task.id);
+          expect([...ids].sort()).toEqual([alice.user_id, bob.user_id].sort());
+        });
       } finally {
         resetCoreDb();
         await closePools();
@@ -54,12 +59,17 @@ describe('listTaskAssigneeUserIds', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-        const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-        const task = await createTask({ plan_id: plan.id, title: 'Unassigned', session });
 
-        expect(await listTaskAssigneeUserIds(seeded.tenant_id, task.id)).toEqual([]);
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+          const task = await createTask({ plan_id: plan.id, title: 'Unassigned', session });
+
+          expect(await listTaskAssigneeUserIds(seeded.tenant_id, task.id)).toEqual([]);
+        });
       } finally {
         resetCoreDb();
         await closePools();
@@ -75,22 +85,27 @@ describe('listTaskAssigneeUserIds', () => {
         const seeded = await seedTenant(pool, {
           users: [{ name: 'Alice', email: 'alice@example.test' }],
         });
-        const session = seeded.adminSession;
-        const [alice] = seeded.users;
-        if (!alice) throw new Error('Seed did not create Alice');
 
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-        const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-        const task = await createTask({ plan_id: plan.id, title: 'My Task', session });
-        await assignTaskInGroup({
-          group_id: group.id,
-          task_id: task.id,
-          user_id: alice.user_id,
-          session,
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const [alice] = seeded.users;
+          if (!alice) throw new Error('Seed did not create Alice');
+
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+          const task = await createTask({ plan_id: plan.id, title: 'My Task', session });
+          await assignTaskInGroup({
+            group_id: group.id,
+            task_id: task.id,
+            user_id: alice.user_id,
+            session,
+          });
+
+          // Same task id, wrong tenant → nothing (tenant-bound predicate).
+          expect(await listTaskAssigneeUserIds(crypto.randomUUID(), task.id)).toEqual([]);
         });
-
-        // Same task id, wrong tenant → nothing (tenant-bound predicate).
-        expect(await listTaskAssigneeUserIds(crypto.randomUUID(), task.id)).toEqual([]);
       } finally {
         resetCoreDb();
         await closePools();

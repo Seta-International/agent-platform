@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { resetPeopleDb } from '@seta/people/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { Pool } from 'pg';
 
@@ -17,7 +17,9 @@ export function withAgentTestDb<T>(
     async ({ pool, databaseUrl }) => {
       initPools({ databaseUrl });
       try {
-        return await fn({ pool, databaseUrl });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        return await scoped(crypto.randomUUID(), () => fn({ pool, databaseUrl }));
       } finally {
         resetCoreDb();
         // The skill-search tool reads People (getPersonSkills); reset its cached

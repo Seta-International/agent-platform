@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createGroup, createPlan, createTask, getTaskForEmbedding } from '../../src/index.ts';
@@ -19,34 +19,39 @@ describe('getTaskForEmbedding', () => {
         try {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({
-            plan_id: plan.id,
-            title: 'Embed Me',
-            description: 'Some description',
-            session,
-          });
 
-          await applyLabels(pool, {
-            tenant_id: seeded.tenant_id,
-            plan_id: plan.id,
-            task_id: task.id,
-            applied_by: seeded.adminSession.user_id,
-            names: ['typescript', 'react'],
-          });
+          // seedTenant doesn't need an executor context (raw SQL + identity
+          // createUser only), but every planner domain call below does.
+          await scoped(seeded.tenant_id, async () => {
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({
+              plan_id: plan.id,
+              title: 'Embed Me',
+              description: 'Some description',
+              session,
+            });
 
-          const result = await getTaskForEmbedding({
-            tenant_id: seeded.tenant_id,
-            task_id: task.id,
-          });
+            await applyLabels(pool, {
+              tenant_id: seeded.tenant_id,
+              plan_id: plan.id,
+              task_id: task.id,
+              applied_by: seeded.adminSession.user_id,
+              names: ['typescript', 'react'],
+            });
 
-          expect(result).not.toBeNull();
-          expect(result!.title).toBe('Embed Me');
-          expect(result!.description).toBe('Some description');
-          expect(result!.labels).toEqual(expect.arrayContaining(['typescript', 'react']));
-          expect(result!.labels).toHaveLength(2);
-          expect(result!.plan_id).toBe(plan.id);
+            const result = await getTaskForEmbedding({
+              tenant_id: seeded.tenant_id,
+              task_id: task.id,
+            });
+
+            expect(result).not.toBeNull();
+            expect(result!.title).toBe('Embed Me');
+            expect(result!.description).toBe('Some description');
+            expect(result!.labels).toEqual(expect.arrayContaining(['typescript', 'react']));
+            expect(result!.labels).toHaveLength(2);
+            expect(result!.plan_id).toBe(plan.id);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -67,19 +72,26 @@ describe('getTaskForEmbedding', () => {
         try {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'To Delete', session });
 
-          // Soft-delete the task directly in the DB
-          await pool.query(`UPDATE planner.tasks SET deleted_at = NOW() WHERE id = $1`, [task.id]);
+          // seedTenant doesn't need an executor context (raw SQL + identity
+          // createUser only), but every planner domain call below does.
+          await scoped(seeded.tenant_id, async () => {
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'To Delete', session });
 
-          const result = await getTaskForEmbedding({
-            tenant_id: seeded.tenant_id,
-            task_id: task.id,
+            // Soft-delete the task directly in the DB
+            await pool.query(`UPDATE planner.tasks SET deleted_at = NOW() WHERE id = $1`, [
+              task.id,
+            ]);
+
+            const result = await getTaskForEmbedding({
+              tenant_id: seeded.tenant_id,
+              task_id: task.id,
+            });
+
+            expect(result).toBeNull();
           });
-
-          expect(result).toBeNull();
         } finally {
           resetCoreDb();
           await closePools();
@@ -100,12 +112,16 @@ describe('getTaskForEmbedding', () => {
         try {
           const seeded = await seedTenant(pool);
 
-          const result = await getTaskForEmbedding({
-            tenant_id: seeded.tenant_id,
-            task_id: crypto.randomUUID(),
-          });
+          // seedTenant doesn't need an executor context (raw SQL + identity
+          // createUser only), but getTaskForEmbedding does.
+          await scoped(seeded.tenant_id, async () => {
+            const result = await getTaskForEmbedding({
+              tenant_id: seeded.tenant_id,
+              task_id: crypto.randomUUID(),
+            });
 
-          expect(result).toBeNull();
+            expect(result).toBeNull();
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -127,30 +143,38 @@ describe('getTaskForEmbedding', () => {
           const tenantA = await seedTenant(pool);
           const tenantB = await seedTenant(pool);
 
-          const sessionA = tenantA.adminSession;
-          const group = await createGroup({
-            tenant_id: tenantA.tenant_id,
-            name: 'Eng',
-            session: sessionA,
-          });
-          const plan = await createPlan({
-            group_id: group.id,
-            name: 'Sprint 1',
-            session: sessionA,
-          });
-          const task = await createTask({
-            plan_id: plan.id,
-            title: 'Tenant A Task',
-            session: sessionA,
-          });
+          // seedTenant doesn't need an executor context (raw SQL + identity
+          // createUser only), but every planner domain call below does. RLS
+          // itself is inert in this harness (no appDatabaseUrl), so tenant
+          // scoping here only opens the executor context — the cross-tenant
+          // null result below comes from getTaskForEmbedding's own WHERE
+          // tenant_id filter, not from RLS.
+          await scoped(tenantA.tenant_id, async () => {
+            const sessionA = tenantA.adminSession;
+            const group = await createGroup({
+              tenant_id: tenantA.tenant_id,
+              name: 'Eng',
+              session: sessionA,
+            });
+            const plan = await createPlan({
+              group_id: group.id,
+              name: 'Sprint 1',
+              session: sessionA,
+            });
+            const task = await createTask({
+              plan_id: plan.id,
+              title: 'Tenant A Task',
+              session: sessionA,
+            });
 
-          // Query from tenant B's perspective — must return null
-          const result = await getTaskForEmbedding({
-            tenant_id: tenantB.tenant_id,
-            task_id: task.id,
-          });
+            // Query from tenant B's perspective — must return null
+            const result = await getTaskForEmbedding({
+              tenant_id: tenantB.tenant_id,
+              task_id: task.id,
+            });
 
-          expect(result).toBeNull();
+            expect(result).toBeNull();
+          });
         } finally {
           resetCoreDb();
           await closePools();

@@ -1,7 +1,7 @@
 import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
 import { PLANNER_VECTOR_NAMESPACE } from '@seta/planner';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { NoopReranker } from '@seta/shared-retrieval';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
@@ -24,7 +24,9 @@ const withDb = <T>(fn: (ctx: { pool: import('pg').Pool; pgVector: PgVector }) =>
         schemaName: PLANNER_VECTOR_NAMESPACE,
       });
       try {
-        return await fn({ pool, pgVector });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        return await scoped(crypto.randomUUID(), () => fn({ pool, pgVector }));
       } finally {
         await pgVector.disconnect().catch(() => {});
         resetCoreDb();

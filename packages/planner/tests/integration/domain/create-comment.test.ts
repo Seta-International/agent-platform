@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -18,17 +18,21 @@ describe('createComment', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.member',
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { session, task_id } = await seedTenantAndTask(pool, {
+            role: 'planner.member',
+          });
+
+          const dto = await createComment({ task_id, body: 'Hello world', session });
+
+          expect(dto.body).toBe('Hello world');
+          expect(dto.task_id).toBe(task_id);
+          expect(dto.author_id).toBe(session.user_id);
+          expect(dto.edited_at).toBeNull();
+          expect(dto.author_display_name).toBeTruthy();
         });
-
-        const dto = await createComment({ task_id, body: 'Hello world', session });
-
-        expect(dto.body).toBe('Hello world');
-        expect(dto.task_id).toBe(task_id);
-        expect(dto.author_id).toBe(session.user_id);
-        expect(dto.edited_at).toBeNull();
-        expect(dto.author_display_name).toBeTruthy();
       } finally {
         resetCoreDb();
         await closePools();
@@ -41,11 +45,15 @@ describe('createComment', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.member',
-        });
-        await expect(createComment({ task_id, body: '   ', session })).rejects.toMatchObject({
-          code: 'VALIDATION',
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { session, task_id } = await seedTenantAndTask(pool, {
+            role: 'planner.member',
+          });
+          await expect(createComment({ task_id, body: '   ', session })).rejects.toMatchObject({
+            code: 'VALIDATION',
+          });
         });
       } finally {
         resetCoreDb();
@@ -59,12 +67,16 @@ describe('createComment', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.member',
-        });
-        const body = 'x'.repeat(4001);
-        await expect(createComment({ task_id, body, session })).rejects.toMatchObject({
-          code: 'VALIDATION',
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { session, task_id } = await seedTenantAndTask(pool, {
+            role: 'planner.member',
+          });
+          const body = 'x'.repeat(4001);
+          await expect(createComment({ task_id, body, session })).rejects.toMatchObject({
+            code: 'VALIDATION',
+          });
         });
       } finally {
         resetCoreDb();
@@ -78,11 +90,15 @@ describe('createComment', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const other = await seedTenantAndTask(pool, { role: 'planner.member' });
-        const me = await seedTenantAndTask(pool, { role: 'planner.member' });
-        await expect(
-          createComment({ task_id: other.task_id, body: 'x', session: me.session }),
-        ).rejects.toMatchObject({ code: expect.stringMatching(/NOT_FOUND|CROSS_TENANT/) });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const other = await seedTenantAndTask(pool, { role: 'planner.member' });
+          const me = await seedTenantAndTask(pool, { role: 'planner.member' });
+          await expect(
+            createComment({ task_id: other.task_id, body: 'x', session: me.session }),
+          ).rejects.toMatchObject({ code: expect.stringMatching(/NOT_FOUND|CROSS_TENANT/) });
+        });
       } finally {
         resetCoreDb();
         await closePools();
@@ -95,11 +111,15 @@ describe('createComment', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'system.integrations.m365',
-        });
-        await expect(createComment({ task_id, body: 'x', session })).rejects.toMatchObject({
-          code: 'FORBIDDEN',
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { session, task_id } = await seedTenantAndTask(pool, {
+            role: 'system.integrations.m365',
+          });
+          await expect(createComment({ task_id, body: 'x', session })).rejects.toMatchObject({
+            code: 'FORBIDDEN',
+          });
         });
       } finally {
         resetCoreDb();
@@ -113,21 +133,25 @@ describe('createComment', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const { session, task_id, tenant_id } = await seedTenantAndTask(pool, {
-          role: 'planner.member',
-        });
-        const dto = await createComment({ task_id, body: 'event check', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { session, task_id, tenant_id } = await seedTenantAndTask(pool, {
+            role: 'planner.member',
+          });
+          const dto = await createComment({ task_id, body: 'event check', session });
 
-        const db = plannerDb();
-        const rows = await db.execute(sql`
+          const db = plannerDb();
+          const rows = await db.execute(sql`
           SELECT event_type, payload FROM core.events
           WHERE tenant_id = ${tenant_id}::uuid AND aggregate_id = ${dto.id}
         `);
-        expect(rows.rows).toHaveLength(1);
-        // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-        const row = rows.rows[0] as any;
-        expect(row.event_type).toBe('planner.comment.created');
-        expect(row.payload.body).toBe('event check');
+          expect(rows.rows).toHaveLength(1);
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+          const row = rows.rows[0] as any;
+          expect(row.event_type).toBe('planner.comment.created');
+          expect(row.payload.body).toBe('event check');
+        });
       } finally {
         resetCoreDb();
         await closePools();

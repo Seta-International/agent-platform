@@ -6,7 +6,7 @@ import {
   type TaskVectorMetadata,
   taskVectorId,
 } from '@seta/planner';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { sourceHash } from '@seta/shared-embeddings';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,7 +35,9 @@ function withDb<T>(
         schemaName: PLANNER_VECTOR_NAMESPACE,
       });
       try {
-        return await fn({ pool, pgVector });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        return await scoped(crypto.randomUUID(), () => fn({ pool, pgVector }));
       } finally {
         await pgVector.disconnect().catch(() => {});
         resetCoreDb();
