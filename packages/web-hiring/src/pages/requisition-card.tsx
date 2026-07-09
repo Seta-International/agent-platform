@@ -200,7 +200,9 @@ export function RequisitionCard({
         <div className="relative flex-[3] pt-2.5">
           <div className="absolute inset-x-[12.5%] top-[19px] h-px bg-hairline-strong" />
           <div
-            className="absolute inset-y-0 left-[12.5%] top-[19px] h-px bg-primary transition-[width]"
+            className={`absolute inset-y-0 left-[12.5%] top-[19px] h-px transition-[width] ${
+              r.status === 'on_hold' ? 'bg-warning' : 'bg-primary'
+            }`}
             style={{
               width: lastReachedIdx <= 0 ? 0 : `${(lastReachedIdx / (STAGES.length - 1)) * 75}%`,
             }}
