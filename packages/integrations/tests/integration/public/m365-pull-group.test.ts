@@ -1,10 +1,10 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { findEntraOidByUserId, findUserByEntraOid } from '@seta/identity';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
-import { runPullGroup } from '../../../src/backend/m365/jobs/pull-group.ts';
+import { runPullGroup as runPullGroupJob } from '../../../src/backend/m365/jobs/pull-group.ts';
 import { createM365GroupLinkRepo } from '../../../src/backend/m365/repo.ts';
 import groupMembers from '../../helpers/fixtures/graph/group-members.json' with { type: 'json' };
 import groupsInitial from '../../helpers/fixtures/graph/groups-initial.json' with { type: 'json' };
@@ -21,6 +21,15 @@ interface GraphLike {
 
 const EXTERNAL_ID = 'm365-abc';
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
+
+// wrapJob (packages/core/src/runtime/workers/job-context.ts) opens this scope for every
+// m365.* job in production; the tests call the job body directly, so they must open it too.
+function runPullGroup(
+  input: Parameters<typeof runPullGroupJob>[0],
+  deps: Parameters<typeof runPullGroupJob>[1],
+): ReturnType<typeof runPullGroupJob> {
+  return scoped(input.tenant_id, () => runPullGroupJob(input, deps));
+}
 
 /**
  * Builds a stub graph client that returns given responses keyed by path prefix.

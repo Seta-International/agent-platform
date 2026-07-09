@@ -1,9 +1,9 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
-import { runPushGroup } from '../../../src/backend/m365/jobs/push-group.ts';
+import { runPushGroup as runPushGroupJob } from '../../../src/backend/m365/jobs/push-group.ts';
 import { createM365GroupLinkRepo } from '../../../src/backend/m365/repo.ts';
 
 // Extends the pull-group GraphLike with patch support
@@ -19,6 +19,15 @@ interface GraphLike {
 
 const EXTERNAL_ID = 'm365-push-abc';
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
+
+// wrapJob (packages/core/src/runtime/workers/job-context.ts) opens this scope for every
+// m365.* job in production; the tests call the job body directly, so they must open it too.
+function runPushGroup(
+  input: Parameters<typeof runPushGroupJob>[0],
+  deps: Parameters<typeof runPushGroupJob>[1],
+): ReturnType<typeof runPushGroupJob> {
+  return scoped(input.tenant_id, () => runPushGroupJob(input, deps));
+}
 
 /**
  * Builds a stub graph client supporting both GET and PATCH.

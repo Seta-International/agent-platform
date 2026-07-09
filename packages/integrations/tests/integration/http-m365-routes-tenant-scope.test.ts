@@ -1,6 +1,6 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -104,9 +104,11 @@ describe('m365 group routes — tenant scoping', () => {
 
         const addJob = vi.fn().mockResolvedValue(undefined);
         const app = new Hono<SessionEnv>();
+        // createSessionMiddleware (packages/core/src/middleware/session.ts) opens scoped(tenantId, ...)
+        // around the downstream handler in production; this stub session middleware must do the same.
         app.use(async (c, next) => {
           c.set('user', session);
-          await next();
+          await scoped(session.tenant_id, next);
         });
         registerIntegrationsM365Routes(app, {
           graphClientFor: vi.fn(),
