@@ -10,7 +10,7 @@ import { resetPmDb } from '@seta/pm/testing';
 import { closePools, getPool, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { sql } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { buildMigrationRegistry } from '../../src/commands/migrate.ts';
 import { buildAdminSession } from '../../src/commands/seed.ts';
 import { seedFixtureCommand } from '../../src/commands/seed-fixture/index.ts';
@@ -81,8 +81,21 @@ async function getCounts(): Promise<Counts> {
 
 const ADMIN_EMAIL = 'admin.test@example.test';
 
+// The whole seed runs per test — 60 skills, 7 groups, people, pm, hiring. It takes ~15s
+// locally and 5-8x that on CI, where every package's suite shares a 4-vCPU runner.
+const SEED_TIMEOUT_MS = 300_000;
+
 describe('seed-fixture end-to-end', () => {
-  it('with --demo, populates every module and is idempotent', { timeout: 120_000 }, async () => {
+  // A test that dies mid-run (timeout) never reaches its own closePools(), and the next
+  // one then fails on "Pools already initialized" instead of on its own merits.
+  // closePools() is a no-op when there are none.
+  afterEach(async () => {
+    await closePools();
+  });
+
+  it('with --demo, populates every module and is idempotent', {
+    timeout: SEED_TIMEOUT_MS,
+  }, async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       // Reset all module DB singletons
       resetCoreDb();
@@ -260,7 +273,9 @@ describe('seed-fixture end-to-end', () => {
     });
   });
 
-  it('default seed (no --demo) is prod-shaped: real data only', { timeout: 120_000 }, async () => {
+  it('default seed (no --demo) is prod-shaped: real data only', {
+    timeout: SEED_TIMEOUT_MS,
+  }, async () => {
     await withTestDb(ctx, async ({ databaseUrl }) => {
       resetCoreDb();
       resetIdentityDb();
