@@ -287,9 +287,9 @@ describe('pinTenantConnection: pool.connect() itself rejects (acquisition failur
     // bindWebPool() is what initPools() calls internally to flip webPoolState from
     // 'uninitialised'/'closed' to 'live'; calling it directly bypasses initPools()
     // (which can only construct pools from a connection string, not accept one) so we
-    // can point pinTenantConnection's live-pool guard at a pool that is guaranteed to
-    // fail on connect().
-    bindWebPool(badPool);
+    // can get pinTenantConnection past its 'uninitialised' fast path. The facade
+    // below is what actually routes queries to badPool and fails on connect().
+    bindWebPool();
     const facade = makeTenantAwarePool(badPool);
 
     const unhandledRejections: unknown[] = [];

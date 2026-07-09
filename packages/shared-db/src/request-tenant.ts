@@ -30,17 +30,18 @@ async function acquire(b: TenantBinding, pool: Pool): Promise<PoolClient> {
   return b.clientPromise;
 }
 
-type WebPoolState = { kind: 'uninitialised' } | { kind: 'live'; pool: Pool } | { kind: 'closed' };
+type WebPoolState = 'uninitialised' | 'live' | 'closed';
 
-let webPoolState: WebPoolState = { kind: 'uninitialised' };
+let webPoolState: WebPoolState = 'uninitialised';
 
-export function bindWebPool(pool: Pool): void {
-  webPoolState = { kind: 'live', pool };
+/** initPools() calls this once the web pool exists. */
+export function bindWebPool(): void {
+  webPoolState = 'live';
 }
 
-/** closePools() calls this. A later initPools() re-binds via bindWebPool. */
+/** closePools() calls this. A later initPools() re-binds via bindWebPool(). */
 export function unbindWebPool(): void {
-  webPoolState = { kind: 'closed' };
+  webPoolState = 'closed';
 }
 
 /** Pool facade: routes to the scope-bound tenant connection (acquired on first use)
@@ -81,8 +82,8 @@ export function makeTenantAwarePool(pool: Pool): Pool {
 export async function pinTenantConnection<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
   // Never initialised (unit tests, CLI tools): running unpinned is intended.
   // Initialised then closed: running unpinned would silently drop tenant isolation.
-  if (webPoolState.kind === 'uninitialised') return fn();
-  if (webPoolState.kind === 'closed') {
+  if (webPoolState === 'uninitialised') return fn();
+  if (webPoolState === 'closed') {
     throw new Error('pinTenantConnection called after closePools.');
   }
   const b: TenantBinding = { tenantId, clientPromise: null };

@@ -105,7 +105,7 @@ export function initPools(cfg: PoolsConfig): Pools {
   // The web pool is served through a tenant-aware facade so per-request RLS
   // binding (runRequestTenant) governs every module's reads. Raw pool is bound
   // for the connection-pinning path.
-  bindWebPool(pools.web);
+  bindWebPool();
   webFacade = makeTenantAwarePool(pools.web);
 
   // The executor decides privilege; modules never pick a pool. `scoped` runs on the
