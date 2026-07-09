@@ -109,4 +109,389 @@ describe('pm allocations HTTP', () => {
       }
     });
   });
+
+  it('GET effort-check reports peak % across the query params', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const app = appFor(t.adminSession);
+        const acc = await pool.query(
+          `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
+          [t.tenant_id],
+        );
+        const proj = await pool.query(
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+           VALUES ($1,$2,'P',$3,'initiation','active') RETURNING id`,
+          [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
+        );
+        const projectId = proj.rows[0].id as string;
+        const worker = crypto.randomUUID();
+
+        await app.request('/api/pm/v1/allocations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: projectId,
+            worker_id: worker,
+            planned_pct: 70,
+            status: 'committed',
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+          }),
+        });
+
+        const qs = new URLSearchParams({
+          worker_id: worker,
+          date_from: '2026-03-01',
+          date_to: '2026-06-30',
+          planned_pct: '50',
+        });
+        const check = await app.request(`/api/pm/v1/allocations/effort-check?${qs}`);
+        expect(check.status).toBe(200);
+        const body = (await check.json()) as { peak_pct: number; exceeds: boolean };
+        expect(body.peak_pct).toBe(120);
+        expect(body.exceeds).toBe(true);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('POST split ends the current row early and creates a continuation', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const app = appFor(t.adminSession);
+        const acc = await pool.query(
+          `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
+          [t.tenant_id],
+        );
+        const proj = await pool.query(
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+           VALUES ($1,$2,'P',$3,'initiation','active') RETURNING id`,
+          [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
+        );
+        const projectId = proj.rows[0].id as string;
+        const worker = crypto.randomUUID();
+
+        const post = await app.request('/api/pm/v1/allocations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: projectId,
+            worker_id: worker,
+            planned_pct: 100,
+            status: 'committed',
+            date_from: '2026-01-01',
+            date_to: '2026-10-31',
+          }),
+        });
+        const { allocation_id: allocationId } = (await post.json()) as { allocation_id: string };
+
+        const split = await app.request(`/api/pm/v1/allocations/${allocationId}/split`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            new_end_date: '2026-02-28',
+            continuation: { planned_pct: 50 },
+          }),
+        });
+        expect(split.status).toBe(200);
+        const body = (await split.json()) as {
+          updated_id: string;
+          updated_version: number;
+          continuation_id: string;
+        };
+        expect(body.updated_id).toBe(allocationId);
+        expect(body.updated_version).toBe(2);
+        expect(body.continuation_id).toBeTruthy();
+
+        const list = (await (
+          await app.request(`/api/pm/v1/projects/${projectId}/allocations`)
+        ).json()) as { allocations: Array<{ allocation_id: string }> };
+        expect(list.allocations).toHaveLength(2);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('POST reassign ends the source and creates allocations on the target projects', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const app = appFor(t.adminSession);
+        const acc = await pool.query(
+          `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
+          [t.tenant_id],
+        );
+        const automate = await pool.query(
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+           VALUES ($1,$2,'Automate',$3,'initiation','active') RETURNING id`,
+          [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
+        );
+        const xxx = await pool.query(
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+           VALUES ($1,$2,'XXX',$3,'initiation','active') RETURNING id`,
+          [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
+        );
+        const automateId = automate.rows[0].id as string;
+        const xxxId = xxx.rows[0].id as string;
+        const worker = crypto.randomUUID();
+
+        const post = await app.request('/api/pm/v1/allocations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: automateId,
+            worker_id: worker,
+            planned_pct: 100,
+            status: 'committed',
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+          }),
+        });
+        const { allocation_id: allocationId } = (await post.json()) as { allocation_id: string };
+
+        const reassign = await app.request(`/api/pm/v1/allocations/${allocationId}/reassign`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source: { date_to: '2026-02-28' },
+            targets: [
+              { project_id: xxxId, date_from: '2026-03-01', planned_pct: 100, bucket: 'billable' },
+            ],
+          }),
+        });
+        expect(reassign.status).toBe(200);
+        const body = (await reassign.json()) as {
+          source_updated_version: number;
+          target_ids: string[];
+        };
+        expect(body.source_updated_version).toBe(2);
+        expect(body.target_ids).toHaveLength(1);
+
+        const list = (await (
+          await app.request(`/api/pm/v1/allocations?worker_id=${worker}`)
+        ).json()) as { allocations: Array<{ project_name: string }> };
+        expect(list.allocations).toHaveLength(2);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('POST reassign/preview returns the impact without mutating anything', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const app = appFor(t.adminSession);
+        const acc = await pool.query(
+          `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
+          [t.tenant_id],
+        );
+        const automate = await pool.query(
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+           VALUES ($1,$2,'Automate',$3,'initiation','active') RETURNING id`,
+          [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
+        );
+        const xxx = await pool.query(
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+           VALUES ($1,$2,'XXX',$3,'initiation','active') RETURNING id`,
+          [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
+        );
+        const automateId = automate.rows[0].id as string;
+        const xxxId = xxx.rows[0].id as string;
+        const worker = crypto.randomUUID();
+
+        const post = await app.request('/api/pm/v1/allocations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: automateId,
+            worker_id: worker,
+            planned_pct: 100,
+            status: 'committed',
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+          }),
+        });
+        const { allocation_id: allocationId } = (await post.json()) as { allocation_id: string };
+
+        const preview = await app.request(
+          `/api/pm/v1/allocations/${allocationId}/reassign/preview`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              source: { date_to: '2026-06-30' },
+              targets: [
+                {
+                  project_id: xxxId,
+                  date_from: '2026-07-01',
+                  planned_pct: 100,
+                  bucket: 'billable',
+                },
+              ],
+            }),
+          },
+        );
+        expect(preview.status).toBe(200);
+        const body = (await preview.json()) as {
+          source: { project_name: string; date_to: string };
+          targets: Array<{ project_name: string }>;
+          peak_pct: number;
+        };
+        expect(body.source.project_name).toBe('Automate');
+        expect(body.source.date_to).toBe('2026-06-30');
+        expect(body.targets[0]?.project_name).toBe('XXX');
+        expect(body.peak_pct).toBe(100);
+
+        // Nothing was actually mutated by the preview call.
+        const list = (await (
+          await app.request(`/api/pm/v1/allocations?worker_id=${worker}`)
+        ).json()) as { allocations: Array<{ date_to: string }> };
+        expect(list.allocations).toHaveLength(1);
+        expect(list.allocations[0]?.date_to).toBe('2026-12-31');
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('POST reassign-group ends every selected allocation and creates the target', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const app = appFor(t.adminSession);
+        const acc = await pool.query(
+          `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
+          [t.tenant_id],
+        );
+        const watchtower = await pool.query(
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+           VALUES ($1,$2,'Watchtower',$3,'initiation','active') RETURNING id`,
+          [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
+        );
+        const projectX = await pool.query(
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+           VALUES ($1,$2,'ProjectX',$3,'initiation','active') RETURNING id`,
+          [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
+        );
+        const newProj = await pool.query(
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+           VALUES ($1,$2,'NewProj',$3,'initiation','active') RETURNING id`,
+          [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
+        );
+        const worker = crypto.randomUUID();
+
+        const p1 = await app.request('/api/pm/v1/allocations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: watchtower.rows[0].id,
+            worker_id: worker,
+            planned_pct: 30,
+            status: 'committed',
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+          }),
+        });
+        const { allocation_id: a1 } = (await p1.json()) as { allocation_id: string };
+        const p2 = await app.request('/api/pm/v1/allocations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: projectX.rows[0].id,
+            worker_id: worker,
+            planned_pct: 70,
+            status: 'committed',
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+          }),
+        });
+        const { allocation_id: a2 } = (await p2.json()) as { allocation_id: string };
+
+        const previewRes = await app.request('/api/pm/v1/allocations/reassign-group/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            worker_id: worker,
+            allocation_ids: [a1, a2],
+            source: { date_to: '2026-06-30' },
+            targets: [
+              {
+                project_id: newProj.rows[0].id,
+                date_from: '2026-07-01',
+                planned_pct: 100,
+                bucket: 'billable',
+              },
+            ],
+          }),
+        });
+        expect(previewRes.status).toBe(200);
+        const previewBody = (await previewRes.json()) as {
+          sources: Array<{ project_name: string }>;
+        };
+        expect(previewBody.sources).toHaveLength(2);
+
+        const res = await app.request('/api/pm/v1/allocations/reassign-group', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            worker_id: worker,
+            allocation_ids: [a1, a2],
+            source: { date_to: '2026-06-30' },
+            targets: [
+              {
+                project_id: newProj.rows[0].id,
+                date_from: '2026-07-01',
+                planned_pct: 100,
+                bucket: 'billable',
+              },
+            ],
+          }),
+        });
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          updated: Array<{ allocation_id: string; version: number }>;
+          target_ids: string[];
+        };
+        expect(body.updated).toHaveLength(2);
+        expect(body.target_ids).toHaveLength(1);
+
+        const list = (await (
+          await app.request(`/api/pm/v1/allocations?worker_id=${worker}`)
+        ).json()) as { allocations: Array<{ date_to: string }> };
+        expect(list.allocations).toHaveLength(3);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
 });

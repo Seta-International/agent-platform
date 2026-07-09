@@ -1,0 +1,820 @@
+import type { SessionScope } from '@seta/core';
+import { emit, withEmit } from '@seta/core/events';
+import { tenantScoped } from '@seta/shared-rbac';
+import { and, eq, gte, inArray, isNull, lte, notInArray, or, type SQL } from 'drizzle-orm';
+import type { ReassignAllocationInput, ReassignWorkerAllocationsInput } from '../../contracts.ts';
+import { PM_ALLOCATION_CREATED, PM_ALLOCATION_UPDATED } from '../../events.ts';
+import { pmDb } from '../db/client.ts';
+import { account, allocation, project, workerProjection } from '../db/schema.ts';
+import { PmError, requirePermission } from '../rbac.ts';
+import { assertNoProjectOverlap } from './assert-no-overlap.ts';
+import { assertWithinProjectRange } from './assert-within-project-range.ts';
+
+function tagRangeError(
+  err: unknown,
+  details: { field: 'source'; index?: number } | { field: 'target'; index: number },
+  projectName: string,
+): unknown {
+  if (err instanceof PmError) {
+    return new PmError(err.code, `${projectName}: ${err.message}`, details);
+  }
+  return err;
+}
+
+export interface ReassignWarning {
+  project_name: string;
+  peak_pct: number;
+}
+
+export interface ReassignAllocationResult {
+  source_updated_version: number;
+  target_ids: string[];
+  warnings: ReassignWarning[];
+}
+
+export interface ReassignPreviewSegment {
+  project_name: string;
+  account_name: string;
+  bucket: 'billable' | 'internal' | 'bench';
+  date_from: string;
+  date_to: string | null;
+  planned_pct: number;
+}
+
+export interface ReassignPreviewResult {
+  worker_name: string | null;
+  source: ReassignPreviewSegment;
+  targets: ReassignPreviewSegment[];
+  peak_pct: number;
+  exceeds: boolean;
+  /** Date window during which `peak_pct` occurs (`peak_to` null means it runs open-ended). */
+  peak_from: string | null;
+  peak_to: string | null;
+}
+
+async function loadProject(
+  projectId: string,
+  session: SessionScope,
+): Promise<{
+  name: string;
+  account_id: string;
+  account_name: string;
+  pm_worker_id: string | null;
+  date_from: string | null;
+  date_to: string | null;
+}> {
+  const [proj] = await pmDb()
+    .select({
+      name: project.name,
+      account_id: project.account_id,
+      pm_worker_id: project.pm_worker_id,
+      date_from: project.date_from,
+      date_to: project.date_to,
+    })
+    .from(project)
+    .where(and(eq(project.id, projectId), tenantScoped(project.tenant_id, session)))
+    .limit(1);
+  if (!proj) throw new PmError('NOT_FOUND', `project ${projectId} not found`);
+
+  const [acc] = await pmDb()
+    .select({ name: account.name })
+    .from(account)
+    .where(and(eq(account.id, proj.account_id), tenantScoped(account.tenant_id, session)))
+    .limit(1);
+  if (!acc) throw new PmError('NOT_FOUND', `account ${proj.account_id} not found`);
+
+  return { ...proj, account_name: acc.name };
+}
+
+async function loadWorkerName(workerId: string, session: SessionScope): Promise<string | null> {
+  const [row] = await pmDb()
+    .select({ full_name: workerProjection.full_name })
+    .from(workerProjection)
+    .where(
+      and(
+        eq(workerProjection.worker_id, workerId),
+        tenantScoped(workerProjection.tenant_id, session),
+      ),
+    )
+    .limit(1);
+  return row?.full_name ?? null;
+}
+
+interface CandidateSegment {
+  date_from: string;
+  date_to: string | null;
+  planned_pct: number;
+}
+
+/** Adds `days` (may be negative) to an ISO `YYYY-MM-DD` date, in UTC. */
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * FUT-349: Peak concurrent planned_pct across a whole reassignment — the source's own
+ * *new* state (never its old, pre-change state) plus every target, together
+ * with any of the worker's other allocations that overlap. Unlike a single
+ * candidate check, this never drops the source just because it's "the row
+ * being edited": if the PM keeps it running (end date unchanged), it still
+ * counts toward the total, which is exactly the case a single-candidate check
+ * would silently miss.
+ *
+ * `peak_from`/`peak_to` bound the *entire* contiguous window the combined %
+ * stays over 100%, not just the instant every segment happens to overlap at
+ * once. Example: keep AI/Data (01 Apr–30 Dec, 100%), add Teacher Zone
+ * (01 Aug–01 Sep, 100%) and Motion Global (01 Aug–15 Aug, 100%):
+ *
+ *   01 Apr–01 Aug: AI/Data only              = 100%
+ *   01 Aug–15 Aug: all three together        = 300%  <- peak
+ *   15 Aug–01 Sep: AI/Data + Teacher Zone     = 200%  <- still over 100%
+ *   01 Sep–30 Dec: AI/Data only               = 100%
+ *
+ * `peak_pct` is 300 (the max), but `peak_from`/`peak_to` report 01 Aug–01 Sep
+ * — the full run of over-100% intervals, not just the 01–15 Aug slice where
+ * all three line up. It only closes out once Teacher Zone ends, since 200%
+ * is still over capacity.
+ */
+async function computeCombinedPeak(args: {
+  worker_id: string;
+  exclude_allocation_ids: string[];
+  candidates: CandidateSegment[];
+  session: SessionScope;
+}): Promise<{
+  peak_pct: number;
+  exceeds: boolean;
+  peak_from: string | null;
+  peak_to: string | null;
+}> {
+  const { worker_id, exclude_allocation_ids, candidates, session } = args;
+  const finiteCandidateEnds = candidates
+    .map((c) => c.date_to)
+    .filter((d): d is string => d !== null);
+  // Bound for candidates/rows with no end date: the latest known finite end,
+  // or (rare) a far-future date if literally everything here is open-ended.
+  // Deliberately not year 9999: `addDaysIso` adds a day via `Date.toISOString()`,
+  // which switches to a 6-digit extended year (e.g. `+010000-01-01`) once the
+  // result rolls past year 9999 — that string sorts *before* ordinary 4-digit
+  // dates, silently dropping the open-ended segment from the peak sweep below.
+  const sortedEnds = finiteCandidateEnds.sort();
+  const openEndedBound =
+    sortedEnds.length > 0 ? (sortedEnds[sortedEnds.length - 1] as string) : '2999-12-31';
+  const windowFrom = candidates.map((c) => c.date_from).sort()[0] as string;
+  const windowTo = candidates
+    .map((c) => c.date_to ?? openEndedBound)
+    .sort()
+    .at(-1) as string;
+
+  const conds: (SQL | undefined)[] = [
+    tenantScoped(allocation.tenant_id, session),
+    eq(allocation.worker_id, worker_id),
+    isNull(allocation.deleted_at),
+    notInArray(allocation.id, exclude_allocation_ids),
+    or(eq(allocation.status, 'tentative'), eq(allocation.status, 'committed')),
+    or(isNull(allocation.date_from), lte(allocation.date_from, windowTo)),
+    or(isNull(allocation.date_to), gte(allocation.date_to, windowFrom)),
+  ];
+
+  const otherRows = await pmDb()
+    .select({
+      date_from: allocation.date_from,
+      date_to: allocation.date_to,
+      planned_pct: allocation.planned_pct,
+    })
+    .from(allocation)
+    .where(and(...conds));
+
+  const segments = [
+    ...otherRows
+      .filter((r) => r.date_from)
+      .map((r) => ({
+        from: r.date_from as string,
+        to: r.date_to ?? openEndedBound,
+        origTo: r.date_to,
+        pct: r.planned_pct === null ? 0 : Number(r.planned_pct),
+      })),
+    ...candidates.map((c) => ({
+      from: c.date_from,
+      to: c.date_to ?? openEndedBound,
+      origTo: c.date_to,
+      pct: c.planned_pct,
+    })),
+  ];
+
+  // Sweep every date where the combined % can change (a segment's start, or the
+  // day after a segment's end) and compute the sum in each constant interval between
+  // them. This finds the true peak *and* the full contiguous window it holds for —
+  // e.g. two overlapping targets both pushing the worker over 100% span the whole
+  // time either one keeps them there, not just the single instant every segment
+  // happens to line up.
+  const eventDates = Array.from(
+    new Set(segments.flatMap((s) => [s.from, addDaysIso(s.to, 1)])),
+  ).sort();
+
+  interface Interval {
+    start: string;
+    endExclusive: string;
+    sum: number;
+  }
+  const intervals: Interval[] = [];
+  for (let i = 0; i < eventDates.length - 1; i++) {
+    const start = eventDates[i] as string;
+    const endExclusive = eventDates[i + 1] as string;
+    const sum = segments
+      .filter((s) => s.from <= start && start < addDaysIso(s.to, 1))
+      .reduce((acc, s) => acc + s.pct, 0);
+    intervals.push({ start, endExclusive, sum });
+  }
+
+  const peak = intervals.reduce((max, iv) => Math.max(max, iv.sum), 0);
+  let peakFrom: string | null = null;
+  let peakTo: string | null = null;
+
+  if (peak > 100) {
+    let bestRunMax = -1;
+    let runStart: string | null = null;
+    let runEndExclusive: string | null = null;
+    let runMax = 0;
+    const flushRun = () => {
+      if (runStart !== null && runEndExclusive !== null && runMax > bestRunMax) {
+        bestRunMax = runMax;
+        peakFrom = runStart;
+        const inclusiveEnd = addDaysIso(runEndExclusive, -1);
+        // A run only truly ends there if some segment genuinely finishes on that day —
+        // otherwise the boundary is just the synthetic clamp for an open-ended segment,
+        // and the overlap in fact continues indefinitely.
+        peakTo = segments.some((s) => s.origTo === inclusiveEnd) ? inclusiveEnd : null;
+      }
+      runStart = null;
+      runEndExclusive = null;
+      runMax = 0;
+    };
+    for (const iv of intervals) {
+      if (iv.sum > 100) {
+        if (runStart === null) runStart = iv.start;
+        runEndExclusive = iv.endExclusive;
+        runMax = Math.max(runMax, iv.sum);
+      } else {
+        flushRun();
+      }
+    }
+    flushRun();
+  }
+
+  return { peak_pct: peak, exceeds: peak > 100, peak_from: peakFrom, peak_to: peakTo };
+}
+
+async function resolveReassignment(
+  input: ReassignAllocationInput & { allocation_id: string; session: SessionScope },
+) {
+  const { allocation_id, source, targets, expected_version, session } = input;
+
+  const [current] = await pmDb()
+    .select()
+    .from(allocation)
+    .where(
+      and(
+        eq(allocation.id, allocation_id),
+        tenantScoped(allocation.tenant_id, session),
+        isNull(allocation.deleted_at),
+      ),
+    )
+    .limit(1);
+  if (!current) throw new PmError('NOT_FOUND', 'allocation not found');
+  if (!current.worker_id)
+    throw new PmError('VALIDATION', 'cannot reassign an allocation with no worker');
+  if (expected_version !== undefined && expected_version !== current.version) {
+    throw new PmError('CONFLICT', 'version mismatch');
+  }
+  if (current.date_from && source.date_to < current.date_from) {
+    throw new PmError('VALIDATION', 'new_end_date is before the allocation start');
+  }
+  if (current.date_to && source.date_to > current.date_to) {
+    throw new PmError('VALIDATION', 'new_end_date is after the allocation end');
+  }
+
+  const sourceProj = await loadProject(current.project_id, session);
+  const workerId = current.worker_id;
+
+  try {
+    assertWithinProjectRange({
+      project_date_from: sourceProj.date_from,
+      project_date_to: sourceProj.date_to,
+      date_from: current.date_from,
+      date_to: source.date_to,
+    });
+  } catch (err) {
+    throw tagRangeError(err, { field: 'source' }, sourceProj.name);
+  }
+
+  // Resolve + validate every target project in order so a failure is tagged to the
+  // exact row that caused it (and we fail before mutating anything).
+  const resolvedTargets: Array<{
+    input: (typeof targets)[number];
+    proj: Awaited<ReturnType<typeof loadProject>>;
+  }> = [];
+  for (const [index, t] of targets.entries()) {
+    const proj = await loadProject(t.project_id, session);
+    try {
+      assertWithinProjectRange({
+        project_date_from: proj.date_from,
+        project_date_to: proj.date_to,
+        date_from: t.date_from,
+        date_to: t.date_to ?? null,
+      });
+    } catch (err) {
+      throw tagRangeError(err, { field: 'target', index }, proj.name);
+    }
+    resolvedTargets.push({ input: t, proj });
+  }
+
+  return { current, sourceProj, workerId, resolvedTargets };
+}
+
+/**
+ * Ends the source allocation on its own new end date and creates one or more
+ * target allocations, each with its own start/end date — no shared "effective
+ * date" forcing every target to start the same day, and no gap/adjacency
+ * requirement. Continuing on the *same* project at a different % is just a
+ * target whose project_id matches the source's. Everything commits in one
+ * transaction so the worker is never left mid-move. History on the source is
+ * never overwritten, only shortened.
+ */
+export async function reassignAllocation(
+  input: ReassignAllocationInput & { allocation_id: string; session: SessionScope },
+): Promise<ReassignAllocationResult> {
+  const { allocation_id, source, session } = input;
+  requirePermission(session, 'pm.project.manage');
+
+  const { current, sourceProj, workerId, resolvedTargets } = await resolveReassignment(input);
+
+  const { peak_pct } = await computeCombinedPeak({
+    worker_id: workerId,
+    exclude_allocation_ids: [allocation_id],
+    candidates: [
+      {
+        date_from: current.date_from as string,
+        date_to: source.date_to,
+        planned_pct: Number(current.planned_pct),
+      },
+      ...resolvedTargets.map((t) => ({
+        date_from: t.input.date_from,
+        date_to: t.input.date_to ?? null,
+        planned_pct: t.input.planned_pct,
+      })),
+    ],
+    session,
+  });
+  const warnings: ReassignWarning[] =
+    peak_pct > 100 ? resolvedTargets.map((t) => ({ project_name: t.proj.name, peak_pct })) : [];
+
+  const nextVersion = current.version + 1;
+  const targetIds: string[] = [];
+
+  await withEmit(
+    { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+    async (tx) => {
+      const updated = await tx
+        .update(allocation)
+        .set({ date_to: source.date_to, version: nextVersion, updated_at: new Date() })
+        .where(
+          and(
+            eq(allocation.id, allocation_id),
+            eq(allocation.version, current.version),
+            isNull(allocation.deleted_at),
+          ),
+        )
+        .returning({ id: allocation.id });
+      if (updated.length === 0) {
+        throw new PmError('CONFLICT', 'allocation was modified concurrently');
+      }
+
+      await emit({
+        tenantId: session.tenant_id,
+        aggregateType: 'pm.allocation',
+        aggregateId: allocation_id,
+        eventType: PM_ALLOCATION_UPDATED,
+        eventVersion: 1,
+        payload: {
+          allocation_id,
+          project_id: current.project_id,
+          worker_id: workerId,
+          account_id: sourceProj.account_id,
+          tenant_id: session.tenant_id,
+          planned_pct: Number(current.planned_pct),
+          fields: ['date_to'],
+        },
+      });
+
+      for (const t of resolvedTargets) {
+        await assertNoProjectOverlap(tx, {
+          tenant_id: session.tenant_id,
+          worker_id: workerId,
+          project_id: t.input.project_id,
+          date_from: t.input.date_from,
+          date_to: t.input.date_to ?? null,
+          excludeId: allocation_id,
+        });
+        const [row] = await tx
+          .insert(allocation)
+          .values({
+            tenant_id: session.tenant_id,
+            project_id: t.input.project_id,
+            worker_id: workerId,
+            role: current.role,
+            date_from: t.input.date_from,
+            date_to: t.input.date_to ?? null,
+            bucket: t.input.bucket ?? 'billable',
+            planned_pct: t.input.planned_pct.toString(),
+            minutes_per_day: current.minutes_per_day,
+            status: current.status,
+            note: t.input.note ?? null,
+          })
+          .returning({ id: allocation.id });
+        if (!row) throw new Error('target allocation insert returned no row');
+        targetIds.push(row.id);
+
+        await emit({
+          tenantId: session.tenant_id,
+          aggregateType: 'pm.allocation',
+          aggregateId: row.id,
+          eventType: PM_ALLOCATION_CREATED,
+          eventVersion: 1,
+          payload: {
+            allocation_id: row.id,
+            project_id: t.input.project_id,
+            worker_id: workerId,
+            tenant_id: session.tenant_id,
+            account_id: t.proj.account_id,
+            account_name: t.proj.account_name,
+            lead_worker_id: t.proj.pm_worker_id ?? null,
+            date_from: t.input.date_from,
+            date_to: t.input.date_to ?? null,
+            planned_pct: t.input.planned_pct,
+            bucket: t.input.bucket ?? 'billable',
+          },
+        });
+      }
+    },
+  );
+
+  return {
+    source_updated_version: nextVersion,
+    target_ids: targetIds,
+    warnings,
+  };
+}
+
+/**
+ * Read-only dry run of {@link reassignAllocation}: resolves and validates
+ * everything the same way, but never mutates. Returns the source's post-change
+ * state, each target as it would be created, and the combined peak % so the UI
+ * can show an impact preview before the PM confirms.
+ */
+export async function previewReassignAllocation(
+  input: ReassignAllocationInput & { allocation_id: string; session: SessionScope },
+): Promise<ReassignPreviewResult> {
+  const { allocation_id, source, session } = input;
+  requirePermission(session, 'pm.project.manage');
+
+  const { current, sourceProj, workerId, resolvedTargets } = await resolveReassignment(input);
+
+  const [worker_name, { peak_pct, exceeds, peak_from, peak_to }] = await Promise.all([
+    loadWorkerName(workerId, session),
+    computeCombinedPeak({
+      worker_id: workerId,
+      exclude_allocation_ids: [allocation_id],
+      candidates: [
+        {
+          date_from: current.date_from as string,
+          date_to: source.date_to,
+          planned_pct: Number(current.planned_pct),
+        },
+        ...resolvedTargets.map((t) => ({
+          date_from: t.input.date_from,
+          date_to: t.input.date_to ?? null,
+          planned_pct: t.input.planned_pct,
+        })),
+      ],
+      session,
+    }),
+  ]);
+
+  return {
+    worker_name,
+    source: {
+      project_name: sourceProj.name,
+      account_name: sourceProj.account_name,
+      bucket: current.bucket,
+      date_from: current.date_from as string,
+      date_to: source.date_to,
+      planned_pct: Number(current.planned_pct),
+    },
+    targets: resolvedTargets.map((t) => ({
+      project_name: t.proj.name,
+      account_name: t.proj.account_name,
+      bucket: t.input.bucket ?? 'billable',
+      date_from: t.input.date_from,
+      date_to: t.input.date_to ?? null,
+      planned_pct: t.input.planned_pct,
+    })),
+    peak_pct,
+    exceeds,
+    peak_from,
+    peak_to,
+  };
+}
+
+export interface ReassignWorkerAllocationsResult {
+  updated: Array<{ allocation_id: string; version: number }>;
+  target_ids: string[];
+  warnings: ReassignWarning[];
+}
+
+export interface ReassignGroupPreviewResult {
+  worker_name: string | null;
+  sources: ReassignPreviewSegment[];
+  targets: ReassignPreviewSegment[];
+  peak_pct: number;
+  exceeds: boolean;
+  peak_from: string | null;
+  peak_to: string | null;
+}
+
+async function resolveGroupReassignment(
+  input: ReassignWorkerAllocationsInput & { session: SessionScope },
+) {
+  const { worker_id, allocation_ids, source, targets, session } = input;
+
+  const currentRows = await pmDb()
+    .select()
+    .from(allocation)
+    .where(
+      and(
+        inArray(allocation.id, allocation_ids),
+        eq(allocation.worker_id, worker_id),
+        tenantScoped(allocation.tenant_id, session),
+        isNull(allocation.deleted_at),
+      ),
+    );
+  if (currentRows.length !== allocation_ids.length) {
+    throw new PmError('NOT_FOUND', 'one or more allocations not found for this worker');
+  }
+
+  // Validate + resolve each selected allocation's own project range before
+  // mutating anything — a failure is tagged to the exact row that caused it.
+  const resolvedSources: Array<{
+    current: (typeof currentRows)[number];
+    proj: Awaited<ReturnType<typeof loadProject>>;
+  }> = [];
+  for (const [index, current] of currentRows.entries()) {
+    if (current.date_from && source.date_to < current.date_from) {
+      throw new PmError('VALIDATION', 'new_end_date is before the allocation start', {
+        field: 'source',
+        index,
+      });
+    }
+    if (current.date_to && source.date_to > current.date_to) {
+      throw new PmError('VALIDATION', 'new_end_date is after the allocation end', {
+        field: 'source',
+        index,
+      });
+    }
+    const proj = await loadProject(current.project_id, session);
+    try {
+      assertWithinProjectRange({
+        project_date_from: proj.date_from,
+        project_date_to: proj.date_to,
+        date_from: current.date_from,
+        date_to: source.date_to,
+      });
+    } catch (err) {
+      throw tagRangeError(err, { field: 'source', index }, proj.name);
+    }
+    resolvedSources.push({ current, proj });
+  }
+
+  const resolvedTargets: Array<{
+    input: (typeof targets)[number];
+    proj: Awaited<ReturnType<typeof loadProject>>;
+  }> = [];
+  for (const [index, t] of targets.entries()) {
+    const proj = await loadProject(t.project_id, session);
+    try {
+      assertWithinProjectRange({
+        project_date_from: proj.date_from,
+        project_date_to: proj.date_to,
+        date_from: t.date_from,
+        date_to: t.date_to ?? null,
+      });
+    } catch (err) {
+      throw tagRangeError(err, { field: 'target', index }, proj.name);
+    }
+    resolvedTargets.push({ input: t, proj });
+  }
+
+  return { resolvedSources, resolvedTargets };
+}
+
+/**
+ * Like {@link reassignAllocation}, but ends every one of a PM-chosen subset of
+ * a worker's allocations on the same date in one transaction, then creates the
+ * target allocation(s) — the "reassign this person off several projects at
+ * once" flow. Unselected allocations are left completely untouched.
+ */
+export async function reassignWorkerAllocations(
+  input: ReassignWorkerAllocationsInput & { session: SessionScope },
+): Promise<ReassignWorkerAllocationsResult> {
+  const { worker_id, source, session } = input;
+  requirePermission(session, 'pm.project.manage');
+
+  const { resolvedSources, resolvedTargets } = await resolveGroupReassignment(input);
+
+  const { peak_pct } = await computeCombinedPeak({
+    worker_id,
+    exclude_allocation_ids: resolvedSources.map((s) => s.current.id),
+    candidates: [
+      ...resolvedSources.map((s) => ({
+        date_from: s.current.date_from as string,
+        date_to: source.date_to,
+        planned_pct: Number(s.current.planned_pct),
+      })),
+      ...resolvedTargets.map((t) => ({
+        date_from: t.input.date_from,
+        date_to: t.input.date_to ?? null,
+        planned_pct: t.input.planned_pct,
+      })),
+    ],
+    session,
+  });
+  const warnings: ReassignWarning[] =
+    peak_pct > 100 ? resolvedTargets.map((t) => ({ project_name: t.proj.name, peak_pct })) : [];
+
+  // Used as the template for role/status/minutes_per_day on the newly created
+  // rows — a reasonable default when reassigning off several projects at once.
+  // `allocation_ids` may be empty (adding allocations without ending any
+  // existing one), so fall back to sensible defaults with no source to copy.
+  const template = resolvedSources[0]?.current ?? {
+    role: null as string | null,
+    minutes_per_day: null as number | null,
+    status: 'committed' as const,
+  };
+
+  const updated: Array<{ allocation_id: string; version: number }> = [];
+  const targetIds: string[] = [];
+
+  await withEmit(
+    { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+    async (tx) => {
+      for (const s of resolvedSources) {
+        const nextVersion = s.current.version + 1;
+        const updatedRows = await tx
+          .update(allocation)
+          .set({ date_to: source.date_to, version: nextVersion, updated_at: new Date() })
+          .where(
+            and(
+              eq(allocation.id, s.current.id),
+              eq(allocation.version, s.current.version),
+              isNull(allocation.deleted_at),
+            ),
+          )
+          .returning({ id: allocation.id });
+        if (updatedRows.length === 0) {
+          throw new PmError('CONFLICT', 'allocation was modified concurrently');
+        }
+        updated.push({ allocation_id: s.current.id, version: nextVersion });
+
+        await emit({
+          tenantId: session.tenant_id,
+          aggregateType: 'pm.allocation',
+          aggregateId: s.current.id,
+          eventType: PM_ALLOCATION_UPDATED,
+          eventVersion: 1,
+          payload: {
+            allocation_id: s.current.id,
+            project_id: s.current.project_id,
+            worker_id,
+            account_id: s.proj.account_id,
+            tenant_id: session.tenant_id,
+            planned_pct: Number(s.current.planned_pct),
+            fields: ['date_to'],
+          },
+        });
+      }
+
+      for (const t of resolvedTargets) {
+        const sameProjectSource = resolvedSources.find(
+          (s) => s.current.project_id === t.input.project_id,
+        );
+        await assertNoProjectOverlap(tx, {
+          tenant_id: session.tenant_id,
+          worker_id,
+          project_id: t.input.project_id,
+          date_from: t.input.date_from,
+          date_to: t.input.date_to ?? null,
+          excludeId: sameProjectSource?.current.id,
+        });
+        const [row] = await tx
+          .insert(allocation)
+          .values({
+            tenant_id: session.tenant_id,
+            project_id: t.input.project_id,
+            worker_id,
+            role: template.role,
+            date_from: t.input.date_from,
+            date_to: t.input.date_to ?? null,
+            bucket: t.input.bucket ?? 'billable',
+            planned_pct: t.input.planned_pct.toString(),
+            minutes_per_day: template.minutes_per_day,
+            status: template.status,
+            note: t.input.note ?? null,
+          })
+          .returning({ id: allocation.id });
+        if (!row) throw new Error('target allocation insert returned no row');
+        targetIds.push(row.id);
+
+        await emit({
+          tenantId: session.tenant_id,
+          aggregateType: 'pm.allocation',
+          aggregateId: row.id,
+          eventType: PM_ALLOCATION_CREATED,
+          eventVersion: 1,
+          payload: {
+            allocation_id: row.id,
+            project_id: t.input.project_id,
+            worker_id,
+            tenant_id: session.tenant_id,
+            account_id: t.proj.account_id,
+            account_name: t.proj.account_name,
+            lead_worker_id: t.proj.pm_worker_id ?? null,
+            date_from: t.input.date_from,
+            date_to: t.input.date_to ?? null,
+            planned_pct: t.input.planned_pct,
+            bucket: t.input.bucket ?? 'billable',
+          },
+        });
+      }
+    },
+  );
+
+  return { updated, target_ids: targetIds, warnings };
+}
+
+/**
+ * Read-only dry run of {@link reassignWorkerAllocations}.
+ */
+export async function previewReassignWorkerAllocations(
+  input: ReassignWorkerAllocationsInput & { session: SessionScope },
+): Promise<ReassignGroupPreviewResult> {
+  const { worker_id, source, session } = input;
+  requirePermission(session, 'pm.project.manage');
+
+  const { resolvedSources, resolvedTargets } = await resolveGroupReassignment(input);
+
+  const [worker_name, { peak_pct, exceeds, peak_from, peak_to }] = await Promise.all([
+    loadWorkerName(worker_id, session),
+    computeCombinedPeak({
+      worker_id,
+      exclude_allocation_ids: resolvedSources.map((s) => s.current.id),
+      candidates: [
+        ...resolvedSources.map((s) => ({
+          date_from: s.current.date_from as string,
+          date_to: source.date_to,
+          planned_pct: Number(s.current.planned_pct),
+        })),
+        ...resolvedTargets.map((t) => ({
+          date_from: t.input.date_from,
+          date_to: t.input.date_to ?? null,
+          planned_pct: t.input.planned_pct,
+        })),
+      ],
+      session,
+    }),
+  ]);
+
+  return {
+    worker_name,
+    sources: resolvedSources.map((s) => ({
+      project_name: s.proj.name,
+      account_name: s.proj.account_name,
+      bucket: s.current.bucket,
+      date_from: s.current.date_from as string,
+      date_to: source.date_to,
+      planned_pct: Number(s.current.planned_pct),
+    })),
+    targets: resolvedTargets.map((t) => ({
+      project_name: t.proj.name,
+      account_name: t.proj.account_name,
+      bucket: t.input.bucket ?? 'billable',
+      date_from: t.input.date_from,
+      date_to: t.input.date_to ?? null,
+      planned_pct: t.input.planned_pct,
+    })),
+    peak_pct,
+    exceeds,
+    peak_from,
+    peak_to,
+  };
+}
