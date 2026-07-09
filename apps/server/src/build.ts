@@ -27,7 +27,7 @@ import type { KnowledgeStreamHub } from '@seta/knowledge/stream';
 import { registerNotificationsRoutes } from '@seta/notifications/http';
 import { NotificationStreamHub } from '@seta/notifications/stream';
 import { getWorkerIdForUser } from '@seta/people';
-import { getPool, runRequestTenant } from '@seta/shared-db';
+import { getPool, scoped } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -245,7 +245,7 @@ export function buildServerApp(
   app.use('*', async (c, next) => {
     const tenantId = c.get('user')?.tenant_id;
     if (!tenantId) return next();
-    return runRequestTenant(tenantId, next);
+    return scoped(tenantId, next);
   });
 
   // Cross-cutting protected routes that stay in apps/server.
