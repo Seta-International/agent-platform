@@ -88,9 +88,6 @@ export async function listWorkers(
   const managerName = managerNameSql(tenantId);
   const filters: SQL[] = [tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)];
 
-  const scope = buildWorkerScope(session);
-  if (scope) filters.push(scope);
-
   const ids = query.ids?.filter(Boolean);
   if (ids && ids.length > 0) {
     filters.push(inArray(worker.person_id, ids));
