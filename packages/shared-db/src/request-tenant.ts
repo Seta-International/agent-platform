@@ -48,8 +48,13 @@ export function makeTenantAwarePool(pool: Pool): Pool {
   }) as Pool;
 }
 
-/** Run `fn` with a web connection pinned to `tenantId` (RLS enforced within). */
-export async function runRequestTenant<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
+/** The request-pinned client ALS. Exported for executor.ts; not part of the public surface. */
+export function pinnedClient(): PoolClient | undefined {
+  return pinned.getStore();
+}
+
+/** Acquire a connection from the app pool, set the tenant GUC, pin it for `fn`. */
+export async function pinTenantConnection<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
   if (!realWebPool) return fn(); // pools not initialised (tests/tools): no-op
   const client = await realWebPool.connect();
   try {
@@ -63,4 +68,9 @@ export async function runRequestTenant<T>(tenantId: string, fn: () => Promise<T>
     }
     client.release();
   }
+}
+
+/** @deprecated use `scoped()` from executor.ts. Kept until PR4. */
+export async function runRequestTenant<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
+  return pinTenantConnection(tenantId, fn);
 }
