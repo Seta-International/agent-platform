@@ -4,7 +4,7 @@ import type { ToolExecutionContext } from '@mastra/core/tools';
 import type { AgentRequestContext, SessionLike } from '@seta/agent-sdk';
 import { rollup } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { getDefaultRegistry, IMPLICIT_PERMISSIONS, resolvePermissions } from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
 import type { Pool } from 'pg';
@@ -68,7 +68,10 @@ export function withAgentTestDb<T>(
     async ({ pool, databaseUrl }) => {
       initPools({ databaseUrl });
       try {
-        return await fn({ pool, databaseUrl });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context agentDb() requires.
+        // RLS enforcement itself is proved by rls-census.test.ts and runtime-privilege.test.ts.
+        return await scoped(randomUUID(), () => fn({ pool, databaseUrl }));
       } finally {
         resetCoreDb();
         await closePools();

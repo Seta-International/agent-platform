@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Stable Pool reference — must not change between getPool() calls or the
+// Stable Pool reference — must not change between executorPool() calls or the
 // pool-identity cache invalidates on every access.
 const mockPool = { connect: vi.fn(), on: vi.fn() };
 vi.mock('@seta/shared-db', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@seta/shared-db')>()),
-  getPool: vi.fn(() => mockPool),
+  executorPool: vi.fn(() => mockPool),
 }));
 
 let drizzleCallCount = 0;
@@ -36,13 +36,13 @@ describe('agentDb caching', () => {
     expect(a).not.toBe(b);
   });
 
-  it('rebuilds when getPool returns a different Pool (post init/close cycle)', async () => {
+  it('rebuilds when executorPool returns a different Pool (e.g. scoped() vs maintenance())', async () => {
     const sharedDb = await import('@seta/shared-db');
     const { agentDb } = await import('../../src/backend/db/index.ts');
     const { drizzle } = await import('drizzle-orm/node-postgres');
     const a = agentDb();
     const newPool = { connect: vi.fn(), on: vi.fn() };
-    vi.mocked(sharedDb.getPool).mockReturnValueOnce(newPool as never);
+    vi.mocked(sharedDb.executorPool).mockReturnValueOnce(newPool as never);
     const b = agentDb();
     expect(drizzle).toHaveBeenCalledTimes(2);
     expect(a).not.toBe(b);
