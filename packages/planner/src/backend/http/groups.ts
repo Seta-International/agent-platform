@@ -238,7 +238,7 @@ export function registerPlannerGroupsRoutes(app: Hono<SessionEnv>, deps: Planner
       group_id: groupId,
       user_ids: members.map((m) => m.user_id),
       actor_user_id: session.user_id,
-      actor_tenant_id: session.tenant_id,
+      tenant_id: session.tenant_id,
     });
     return c.json({ job_id: crypto.randomUUID() }, 202);
   });

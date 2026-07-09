@@ -105,7 +105,12 @@ export function createMailer(deps: CreateMailerDeps): Mailer {
       if (!deduped) {
         await deps.queue.addJob(
           'mailer:send',
-          { outgoingEmailId: id, props: parsed.props, replyTo: parsed.replyTo },
+          {
+            outgoingEmailId: id,
+            tenant_id: parsed.tenantId,
+            props: parsed.props,
+            replyTo: parsed.replyTo,
+          },
           { jobKey: id, maxAttempts: 8 },
         );
       }

@@ -13,7 +13,7 @@ export type BulkAddGroupMembersPayload = {
   group_id: string;
   user_ids: string[];
   actor_user_id: string;
-  actor_tenant_id: string;
+  tenant_id: string;
 };
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
@@ -28,7 +28,7 @@ export const plannerMembershipJobs: TaskList = {
     const session = {
       session_id: crypto.randomUUID(),
       user_id: payload.actor_user_id,
-      tenant_id: payload.actor_tenant_id,
+      tenant_id: payload.tenant_id,
       email: '',
       display_name: '',
       role_summary,
