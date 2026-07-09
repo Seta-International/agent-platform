@@ -343,7 +343,7 @@ describe('pinTenantConnection cleans up a released connection before it returns 
         const appUrl = appRoleUrl(databaseUrl);
         // webMax: 1 forces both scopes below to reuse the single physical connection,
         // so this is deterministic rather than depending on which pool member is idle.
-        const pools = initPools({ databaseUrl, appDatabaseUrl: appUrl, webMax: 1 });
+        initPools({ databaseUrl, appDatabaseUrl: appUrl, webMax: 1 });
         try {
           await scoped(TENANT_A, async () => {
             await executorPool().query('PREPARE leak_probe AS SELECT 1');
