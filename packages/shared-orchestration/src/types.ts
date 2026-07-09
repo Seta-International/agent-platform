@@ -47,12 +47,14 @@ export interface OrchestrationSpec {
   onComplete: (final: RunState, ctx: RunCtx) => Promise<void>;
 }
 
-/** Payload of the `orchestration:run_step` job. */
+/** Payload of the `orchestration:run_step` job. Snake_case `tenant_id` matches
+ *  every other graphile-worker job payload — `wrapJob` reads that field to
+ *  establish the RLS-scoped executor context. */
 export const RunStepPayloadSchema = z.object({
   runId: z.string().min(1),
   orchestrationId: z.string().min(1),
   stepIndex: z.number().int().min(0),
-  tenantId: z.string().min(1),
+  tenant_id: z.string().min(1),
   actorUserId: z.string().min(1),
 });
 export type RunStepPayload = z.infer<typeof RunStepPayloadSchema>;
