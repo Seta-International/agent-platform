@@ -5,10 +5,30 @@ import { TENANT_GUC } from './rls.ts';
 // Per-request tenant binding for the RLS-enforced web pool. The web role
 // (seta_app) is NOBYPASSRLS, so every read must run on a connection whose
 // `app.tenant_id` GUC is set or the tenant_isolation policy hides all rows.
-// A request pins one connection (GUC set) in this ALS; the tenant-aware pool
-// facade routes that request's queries/transactions to it. Writes go through
-// the worker pool (admin, RLS-bypass) and are unaffected.
-const pinned = new AsyncLocalStorage<PoolClient>();
+// A request binds a tenant (not yet a connection) in this ALS; the tenant-aware
+// pool facade acquires a connection from the app pool on first use and pins it
+// for the rest of the scope. Writes go through the worker pool (admin,
+// RLS-bypass) and are unaffected.
+interface TenantBinding {
+  readonly tenantId: string;
+  /** Memoised so concurrent queries in one scope share one connection — `??=` on the
+   * promise (not the resolved client) closes the race where two queries issued
+   * without an await between them would otherwise both see no client yet and each
+   * call pool.connect(), splitting one logical scope across two connections with
+   * two different session GUCs (and a Drizzle transaction could straddle both). */
+  clientPromise: Promise<PoolClient> | null;
+}
+
+const binding = new AsyncLocalStorage<TenantBinding>();
+
+async function acquire(b: TenantBinding, pool: Pool): Promise<PoolClient> {
+  b.clientPromise ??= (async () => {
+    const client = await pool.connect();
+    await client.query('SELECT set_config($1, $2, false)', [TENANT_GUC, b.tenantId]);
+    return client;
+  })();
+  return b.clientPromise;
+}
 
 type WebPoolState = { kind: 'uninitialised' } | { kind: 'live'; pool: Pool } | { kind: 'closed' };
 
@@ -23,31 +43,32 @@ export function unbindWebPool(): void {
   webPoolState = { kind: 'closed' };
 }
 
-/** Pool facade: routes to the request-pinned client when present, else the pool. */
+/** Pool facade: routes to the scope-bound tenant connection (acquired on first use)
+ * when present, else the pool. */
 export function makeTenantAwarePool(pool: Pool): Pool {
   return new Proxy(pool, {
     get(target, prop, receiver) {
       if (prop === 'query') {
-        return (...args: unknown[]) => {
-          const client = pinned.getStore();
-          return (client ?? target).query(...(args as Parameters<Pool['query']>));
+        return async (...args: unknown[]) => {
+          const b = binding.getStore();
+          const client = b ? await acquire(b, target) : target;
+          return client.query(...(args as Parameters<Pool['query']>));
         };
       }
       if (prop === 'connect') {
-        return () => {
-          const client = pinned.getStore();
-          if (!client) return target.connect();
-          // Reuse the pinned client for drizzle transactions; neuter release()
+        return async () => {
+          const b = binding.getStore();
+          if (!b) return target.connect();
+          const client = await acquire(b, target);
+          // Reuse the scope's connection for drizzle transactions; neuter release()
           // so the request-scoped connection survives drizzle's per-tx release.
-          return Promise.resolve(
-            new Proxy(client, {
-              get(t, p) {
-                if (p === 'release') return () => {};
-                const v = Reflect.get(t, p);
-                return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(t) : v;
-              },
-            }),
-          );
+          return new Proxy(client, {
+            get(t, p) {
+              if (p === 'release') return () => {};
+              const v = Reflect.get(t, p);
+              return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(t) : v;
+            },
+          });
         };
       }
       const v = Reflect.get(target, prop, receiver);
@@ -56,12 +77,7 @@ export function makeTenantAwarePool(pool: Pool): Pool {
   }) as Pool;
 }
 
-/** The request-pinned client ALS. Exported for executor.ts; not part of the public surface. */
-export function pinnedClient(): PoolClient | undefined {
-  return pinned.getStore();
-}
-
-/** Acquire a connection from the app pool, set the tenant GUC, pin it for `fn`. */
+/** Acquire a connection from the app pool on first use, pin it to `tenantId` for `fn`. */
 export async function pinTenantConnection<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
   // Never initialised (unit tests, CLI tools): running unpinned is intended.
   // Initialised then closed: running unpinned would silently drop tenant isolation.
@@ -69,17 +85,23 @@ export async function pinTenantConnection<T>(tenantId: string, fn: () => Promise
   if (webPoolState.kind === 'closed') {
     throw new Error('pinTenantConnection called after closePools.');
   }
-  const client = await webPoolState.pool.connect();
+  const b: TenantBinding = { tenantId, clientPromise: null };
   try {
-    await client.query('SELECT set_config($1, $2, false)', [TENANT_GUC, tenantId]);
-    return await pinned.run(client, fn);
+    return await binding.run(b, fn);
   } finally {
-    try {
-      await client.query('RESET ALL');
-    } catch {
-      /* connection may be broken; release regardless */
+    if (b.clientPromise) {
+      // If acquisition itself failed, there's nothing to release — swallow so fn's
+      // rejection (the real error) propagates instead of this finally's.
+      const client = await b.clientPromise.catch(() => null);
+      if (client) {
+        try {
+          await client.query('RESET ALL');
+        } catch {
+          /* connection may be broken; release regardless */
+        }
+        client.release();
+      }
     }
-    client.release();
   }
 }
 
