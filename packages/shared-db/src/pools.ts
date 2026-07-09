@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { bindExecutorPools } from './executor.ts';
 import { instrumentPool } from './instrumentation.ts';
-import { bindWebPool, makeTenantAwarePool } from './request-tenant.ts';
+import { bindWebPool, makeTenantAwarePool, unbindWebPool } from './request-tenant.ts';
 
 export interface PoolsConfig {
   databaseUrl: string;
@@ -149,7 +149,7 @@ export async function closePools(): Promise<void> {
   await Promise.all([pools.web.end(), pools.worker.end(), pools.mastraState.end()]);
   pools = null;
   webFacade = null;
-  // Unbind so pinTenantConnection falls back to its no-op path instead of
-  // calling .connect() on the now-ended pool.
-  bindWebPool(null);
+  // Unbind so pinTenantConnection fails closed instead of calling .connect()
+  // on the now-ended pool.
+  unbindWebPool();
 }

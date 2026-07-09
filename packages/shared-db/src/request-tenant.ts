@@ -10,9 +10,17 @@ import { TENANT_GUC } from './rls.ts';
 // the worker pool (admin, RLS-bypass) and are unaffected.
 const pinned = new AsyncLocalStorage<PoolClient>();
 
-let realWebPool: Pool | null = null;
-export function bindWebPool(pool: Pool | null): void {
-  realWebPool = pool;
+type WebPoolState = { kind: 'uninitialised' } | { kind: 'live'; pool: Pool } | { kind: 'closed' };
+
+let webPoolState: WebPoolState = { kind: 'uninitialised' };
+
+export function bindWebPool(pool: Pool): void {
+  webPoolState = { kind: 'live', pool };
+}
+
+/** closePools() calls this. A later initPools() re-binds via bindWebPool. */
+export function unbindWebPool(): void {
+  webPoolState = { kind: 'closed' };
 }
 
 /** Pool facade: routes to the request-pinned client when present, else the pool. */
@@ -55,8 +63,13 @@ export function pinnedClient(): PoolClient | undefined {
 
 /** Acquire a connection from the app pool, set the tenant GUC, pin it for `fn`. */
 export async function pinTenantConnection<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
-  if (!realWebPool) return fn(); // pools not initialised (tests/tools): no-op
-  const client = await realWebPool.connect();
+  // Never initialised (unit tests, CLI tools): running unpinned is intended.
+  // Initialised then closed: running unpinned would silently drop tenant isolation.
+  if (webPoolState.kind === 'uninitialised') return fn();
+  if (webPoolState.kind === 'closed') {
+    throw new Error('pinTenantConnection called after closePools.');
+  }
+  const client = await webPoolState.pool.connect();
   try {
     await client.query('SELECT set_config($1, $2, false)', [TENANT_GUC, tenantId]);
     return await pinned.run(client, fn);

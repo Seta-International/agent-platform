@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { withTestDb } from '@seta/shared-testing';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   closePools,
   executorPool,
@@ -8,6 +9,11 @@ import {
   maintenance,
   scoped,
 } from '../../src/index.ts';
+
+const env = {
+  template: () => process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+  base: () => process.env.PLATFORM_TEST_PG_BASE as string,
+};
 
 beforeEach(async () => {
   try {
@@ -99,17 +105,17 @@ describe('pools bound into the executor', () => {
   it('executorPool() rejects after closePools instead of returning an ended pool', async () => {
     initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
     await closePools();
-    await expect(maintenance(async () => executorPool())).rejects.toThrow(
-      /pools not initialised|before initPools/i,
-    );
+    await expect(maintenance(async () => executorPool())).rejects.toThrow(/before initPools/i);
   });
 
   it('scoped() rejects after closePools instead of handing back an ended pool', async () => {
     initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
     await closePools();
+    // pinTenantConnection now fails closed before fn ever runs, so the message
+    // comes from there rather than from executorPool()'s own uninitialised guard.
     await expect(
       scoped('11111111-1111-1111-1111-111111111111', async () => executorPool()),
-    ).rejects.toThrow(/before initPools/);
+    ).rejects.toThrow(/after closePools/);
   });
 
   it('initPools() after closePools rebinds executorPool cleanly', async () => {
@@ -118,5 +124,47 @@ describe('pools bound into the executor', () => {
     const created = initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
     const pool = await maintenance(async () => executorPool());
     expect(pool).toBe(created.worker);
+  });
+
+  it('scoped() fails closed after closePools even when fn never touches the database', async () => {
+    initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
+    await closePools();
+    let ran = false;
+    await expect(
+      scoped('11111111-1111-1111-1111-111111111111', async () => {
+        ran = true;
+      }),
+    ).rejects.toThrow(/after closePools/);
+    expect(ran).toBe(false);
+  });
+
+  it('scoped() no-ops as a pass-through when pools were never initialised', async () => {
+    // Isolated via a fresh module graph so this genuinely observes "never
+    // initialised" rather than whatever state earlier tests in this file left
+    // the shared request-tenant module in.
+    vi.resetModules();
+    const fresh = await import('../../src/index.ts');
+    let ran = false;
+    await fresh.scoped('11111111-1111-1111-1111-111111111111', async () => {
+      ran = true;
+    });
+    expect(ran).toBe(true);
+  });
+
+  it('re-running initPools after closePools lets scoped() reach fn again', async () => {
+    // Needs a real reachable database: unlike the closed-state test above, this
+    // ends in a *live* pool, so pinTenantConnection actually opens a connection
+    // and sets the tenant GUC instead of short-circuiting.
+    await withTestDb({ templateDbName: env.template(), baseUrl: env.base() }, async (ctx) => {
+      initPools({ databaseUrl: ctx.databaseUrl });
+      await closePools();
+      initPools({ databaseUrl: ctx.databaseUrl });
+      let ran = false;
+      await scoped('11111111-1111-1111-1111-111111111111', async () => {
+        ran = true;
+      });
+      expect(ran).toBe(true);
+      await closePools();
+    });
   });
 });
