@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { IdentityError, setLocalPasswordDisabled } from '../../../src/index.ts';
@@ -20,22 +20,26 @@ describe('setLocalPasswordDisabled', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const reg = createContributionRegistry();
-          registerCoreContributions(reg);
-          registerIdentityContributions(reg);
-          await runMigrations(reg, { pool });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const reg = createContributionRegistry();
+            registerCoreContributions(reg);
+            registerIdentityContributions(reg);
+            await runMigrations(reg, { pool });
 
-          const tenantId = crypto.randomUUID();
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'LockTest', 'lock-test')`,
-            [tenantId],
-          );
+            const tenantId = crypto.randomUUID();
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'LockTest', 'lock-test')`,
+              [tenantId],
+            );
 
-          await expect(
-            setLocalPasswordDisabled({ tenant_id: tenantId, disabled: true }, CLI_ACTOR),
-          ).rejects.toSatisfy(
-            (e: unknown) => e instanceof IdentityError && e.code === 'NO_SSO_PROVIDER',
-          );
+            await expect(
+              setLocalPasswordDisabled({ tenant_id: tenantId, disabled: true }, CLI_ACTOR),
+            ).rejects.toSatisfy(
+              (e: unknown) => e instanceof IdentityError && e.code === 'NO_SSO_PROVIDER',
+            );
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -54,48 +58,52 @@ describe('setLocalPasswordDisabled', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const reg = createContributionRegistry();
-          registerCoreContributions(reg);
-          registerIdentityContributions(reg);
-          await runMigrations(reg, { pool });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const reg = createContributionRegistry();
+            registerCoreContributions(reg);
+            registerIdentityContributions(reg);
+            await runMigrations(reg, { pool });
 
-          const tenantId = crypto.randomUUID();
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'LockTest2', 'lock-test-2')`,
-            [tenantId],
-          );
+            const tenantId = crypto.randomUUID();
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'LockTest2', 'lock-test-2')`,
+              [tenantId],
+            );
 
-          // Seed an enabled SSO provider so the guard passes
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config)
+            // Seed an enabled SSO provider so the guard passes
+            await pool.query(
+              `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, config)
              VALUES ($1, 'microsoft-entra-id', true, $2::jsonb)`,
-            [
-              tenantId,
-              JSON.stringify({
-                consent_granted_at: null,
-                consent_granted_by_oid: null,
-                consent_granted_by_email: null,
-              }),
-            ],
-          );
+              [
+                tenantId,
+                JSON.stringify({
+                  consent_granted_at: null,
+                  consent_granted_by_oid: null,
+                  consent_granted_by_email: null,
+                }),
+              ],
+            );
 
-          await setLocalPasswordDisabled({ tenant_id: tenantId, disabled: true }, CLI_ACTOR);
+            await setLocalPasswordDisabled({ tenant_id: tenantId, disabled: true }, CLI_ACTOR);
 
-          // Verify the flag was flipped
-          const { rows: tenantRows } = await pool.query<{ local_password_disabled: boolean }>(
-            `SELECT local_password_disabled FROM core.tenants WHERE id = $1`,
-            [tenantId],
-          );
-          expect(tenantRows[0]?.local_password_disabled).toBe(true);
+            // Verify the flag was flipped
+            const { rows: tenantRows } = await pool.query<{ local_password_disabled: boolean }>(
+              `SELECT local_password_disabled FROM core.tenants WHERE id = $1`,
+              [tenantId],
+            );
+            expect(tenantRows[0]?.local_password_disabled).toBe(true);
 
-          // Verify the event was emitted
-          const { rows: events } = await pool.query<{ event_type: string; payload: unknown }>(
-            `SELECT event_type, payload FROM core.events WHERE tenant_id = $1`,
-            [tenantId],
-          );
-          expect(events).toHaveLength(1);
-          expect(events[0]?.event_type).toBe('core.tenant.local_password_disabled.changed');
-          expect((events[0]?.payload as { disabled?: boolean }).disabled).toBe(true);
+            // Verify the event was emitted
+            const { rows: events } = await pool.query<{ event_type: string; payload: unknown }>(
+              `SELECT event_type, payload FROM core.events WHERE tenant_id = $1`,
+              [tenantId],
+            );
+            expect(events).toHaveLength(1);
+            expect(events[0]?.event_type).toBe('core.tenant.local_password_disabled.changed');
+            expect((events[0]?.payload as { disabled?: boolean }).disabled).toBe(true);
+          });
         } finally {
           resetCoreDb();
           await closePools();

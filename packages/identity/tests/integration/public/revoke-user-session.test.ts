@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser, IdentityError, revokeUserSession } from '@seta/identity';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 
@@ -59,31 +59,35 @@ describe('@seta/identity revokeUserSession', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const { tenantId, adminId, subjectId } = await seedTenantWithAdmin(pool);
-          const s = await insertSession(pool, subjectId);
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const { tenantId, adminId, subjectId } = await seedTenantWithAdmin(pool);
+            const s = await insertSession(pool, subjectId);
 
-          await revokeUserSession(
-            {
-              tenant_id: tenantId,
-              user_id: subjectId,
-              session_id: s.id,
-              current_session_id: null,
-            },
-            { type: 'user', user_id: adminId },
-          );
+            await revokeUserSession(
+              {
+                tenant_id: tenantId,
+                user_id: subjectId,
+                session_id: s.id,
+                current_session_id: null,
+              },
+              { type: 'user', user_id: adminId },
+            );
 
-          const { rows } = await pool.query<{ id: string }>(
-            `SELECT id FROM identity.session WHERE id = $1`,
-            [s.id],
-          );
-          expect(rows).toHaveLength(0);
+            const { rows } = await pool.query<{ id: string }>(
+              `SELECT id FROM identity.session WHERE id = $1`,
+              [s.id],
+            );
+            expect(rows).toHaveLength(0);
 
-          const { rows: events } = await pool.query<{ event_type: string; payload: unknown }>(
-            `SELECT event_type, payload FROM core.events
+            const { rows: events } = await pool.query<{ event_type: string; payload: unknown }>(
+              `SELECT event_type, payload FROM core.events
              WHERE tenant_id = $1 AND event_type = 'identity.session.revoked'`,
-            [tenantId],
-          );
-          expect(events).toHaveLength(1);
+              [tenantId],
+            );
+            expect(events).toHaveLength(1);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -102,20 +106,24 @@ describe('@seta/identity revokeUserSession', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const { tenantId, adminId } = await seedTenantWithAdmin(pool);
-          const own = await insertSession(pool, adminId);
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const { tenantId, adminId } = await seedTenantWithAdmin(pool);
+            const own = await insertSession(pool, adminId);
 
-          await expect(
-            revokeUserSession(
-              {
-                tenant_id: tenantId,
-                user_id: adminId,
-                session_id: own.id,
-                current_session_id: own.id,
-              },
-              { type: 'user', user_id: adminId },
-            ),
-          ).rejects.toThrow(/own session/i);
+            await expect(
+              revokeUserSession(
+                {
+                  tenant_id: tenantId,
+                  user_id: adminId,
+                  session_id: own.id,
+                  current_session_id: own.id,
+                },
+                { type: 'user', user_id: adminId },
+              ),
+            ).rejects.toThrow(/own session/i);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -134,43 +142,51 @@ describe('@seta/identity revokeUserSession', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const tenantId = crypto.randomUUID();
-          await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'T', $2)`, [
-            tenantId,
-            `t-${tenantId.slice(0, 8)}`,
-          ]);
-          const { user_id: viewerId } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'viewer@t.local',
-              name: 'Viewer',
-              password: 'viewer-password-1234',
-              initial_role: { role_slug: 'identity.viewer', scope_type: 'tenant', scope_id: null },
-            },
-            CLI_ACTOR,
-          );
-          const { user_id: subjectId } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'subject@t.local',
-              name: 'Subject',
-              password: 'subject-password-1234',
-            },
-            CLI_ACTOR,
-          );
-          const s = await insertSession(pool, subjectId);
-
-          await expect(
-            revokeUserSession(
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const tenantId = crypto.randomUUID();
+            await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'T', $2)`, [
+              tenantId,
+              `t-${tenantId.slice(0, 8)}`,
+            ]);
+            const { user_id: viewerId } = await createUser(
               {
                 tenant_id: tenantId,
-                user_id: subjectId,
-                session_id: s.id,
-                current_session_id: null,
+                email: 'viewer@t.local',
+                name: 'Viewer',
+                password: 'viewer-password-1234',
+                initial_role: {
+                  role_slug: 'identity.viewer',
+                  scope_type: 'tenant',
+                  scope_id: null,
+                },
               },
-              { type: 'user', user_id: viewerId },
-            ),
-          ).rejects.toThrow(IdentityError);
+              CLI_ACTOR,
+            );
+            const { user_id: subjectId } = await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'subject@t.local',
+                name: 'Subject',
+                password: 'subject-password-1234',
+              },
+              CLI_ACTOR,
+            );
+            const s = await insertSession(pool, subjectId);
+
+            await expect(
+              revokeUserSession(
+                {
+                  tenant_id: tenantId,
+                  user_id: subjectId,
+                  session_id: s.id,
+                  current_session_id: null,
+                },
+                { type: 'user', user_id: viewerId },
+              ),
+            ).rejects.toThrow(IdentityError);
+          });
         } finally {
           resetCoreDb();
           await closePools();

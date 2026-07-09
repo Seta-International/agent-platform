@@ -1,6 +1,6 @@
 import { createUser, grantRole, listRoleAssignments } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
-import { closePools, getPool, initPools } from '@seta/shared-db';
+import { closePools, getPool, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
@@ -28,60 +28,67 @@ describe('invalidation subscribers drain identity events', () => {
           subscribers: [...reg.collected.subscribers],
           pollIntervalMs: 100,
         });
+        const tenantId = crypto.randomUUID();
         try {
-          const tenantId = crypto.randomUUID();
           await pool.query(
             `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', 'demo')`,
             [tenantId],
           );
-          // No initial_role — avoids emitting role_grant.changed during createUser so that
-          // the only such event is the explicit grantRole call below.
-          const { user_id } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'a@d.local',
-              name: 'A',
-              password: 'ChangeMe@2026',
-            },
-            { type: 'cli', user_id: null },
-          );
-          const sessionId = `sess-${crypto.randomUUID()}`;
-          _clearHotForTest();
-          await getSessionScope(
-            { listRoleAssignments, resolvePermissions: () => new Set() },
-            sessionId,
-            user_id,
-            'a@d.local',
-            'A',
-          );
-
-          await grantRole(
-            {
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          // The dispatcher's own subscriber handlers already run inside their own
+          // scoped(row.tenantId, ...) via drain.ts — this wrap covers only the test's
+          // direct createUser/grantRole/getSessionScope calls.
+          await scoped(tenantId, async () => {
+            // No initial_role — avoids emitting role_grant.changed during createUser so that
+            // the only such event is the explicit grantRole call below.
+            const { user_id } = await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'a@d.local',
+                name: 'A',
+                password: 'ChangeMe@2026',
+              },
+              { type: 'cli', user_id: null },
+            );
+            const sessionId = `sess-${crypto.randomUUID()}`;
+            _clearHotForTest();
+            await getSessionScope(
+              { listRoleAssignments, resolvePermissions: () => new Set() },
+              sessionId,
               user_id,
-              tenant_id: tenantId,
-              role_slug: 'planner.viewer',
-              scope_type: 'tenant',
-              scope_id: null,
-            },
-            { type: 'cli', user_id: null },
-          );
+              'a@d.local',
+              'A',
+            );
 
-          const start = Date.now();
-          let invalidated: Date | null = null;
-          while (Date.now() - start < 5000) {
-            const row = (
-              await pool.query(
-                `SELECT invalidated_at FROM core.session_scope_cache WHERE session_id = $1`,
-                [sessionId],
-              )
-            ).rows[0];
-            if (row?.invalidated_at) {
-              invalidated = row.invalidated_at;
-              break;
+            await grantRole(
+              {
+                user_id,
+                tenant_id: tenantId,
+                role_slug: 'planner.viewer',
+                scope_type: 'tenant',
+                scope_id: null,
+              },
+              { type: 'cli', user_id: null },
+            );
+
+            const start = Date.now();
+            let invalidated: Date | null = null;
+            while (Date.now() - start < 5000) {
+              const row = (
+                await pool.query(
+                  `SELECT invalidated_at FROM core.session_scope_cache WHERE session_id = $1`,
+                  [sessionId],
+                )
+              ).rows[0];
+              if (row?.invalidated_at) {
+                invalidated = row.invalidated_at;
+                break;
+              }
+              await new Promise((r) => setTimeout(r, 100));
             }
-            await new Promise((r) => setTimeout(r, 100));
-          }
-          expect(invalidated).not.toBeNull();
+            expect(invalidated).not.toBeNull();
+          });
         } finally {
           await dispatcher.shutdown(2_000);
           await closePools();

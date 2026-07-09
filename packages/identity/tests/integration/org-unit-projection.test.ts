@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -25,38 +25,42 @@ describe('orgUnitProjectionSubscribers', () => {
       resetIdentityDb();
       initPools({ databaseUrl });
       try {
-        await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
-          TENANT,
-          'Org Unit Projection Tenant',
-          `org-unit-proj-${TENANT.slice(0, 8)}`,
-        ]);
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(TENANT, async () => {
+          await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
+            TENANT,
+            'Org Unit Projection Tenant',
+            `org-unit-proj-${TENANT.slice(0, 8)}`,
+          ]);
 
-        const ev = {
-          eventType: 'people.org_unit.created',
-          tenantId: TENANT,
-          payload: {
+          const ev = {
+            eventType: 'people.org_unit.created',
+            tenantId: TENANT,
+            payload: {
+              org_unit_id: ORG_UNIT,
+              tenant_id: TENANT,
+              parent_id: PARENT,
+              name: 'Engineering',
+            },
+          };
+
+          await dispatch(orgUnitProjectionSubscribers, ev);
+          await dispatch(orgUnitProjectionSubscribers, ev); // idempotency replay
+
+          const db = drizzle(pool, { schema });
+          const rows = await db
+            .select()
+            .from(schema.orgUnitProjection)
+            .where(eq(schema.orgUnitProjection.org_unit_id, ORG_UNIT));
+
+          expect(rows).toHaveLength(1);
+          expect(rows[0]).toMatchObject({
             org_unit_id: ORG_UNIT,
             tenant_id: TENANT,
             parent_id: PARENT,
             name: 'Engineering',
-          },
-        };
-
-        await dispatch(orgUnitProjectionSubscribers, ev);
-        await dispatch(orgUnitProjectionSubscribers, ev); // idempotency replay
-
-        const db = drizzle(pool, { schema });
-        const rows = await db
-          .select()
-          .from(schema.orgUnitProjection)
-          .where(eq(schema.orgUnitProjection.org_unit_id, ORG_UNIT));
-
-        expect(rows).toHaveLength(1);
-        expect(rows[0]).toMatchObject({
-          org_unit_id: ORG_UNIT,
-          tenant_id: TENANT,
-          parent_id: PARENT,
-          name: 'Engineering',
+          });
         });
       } finally {
         resetIdentityDb();

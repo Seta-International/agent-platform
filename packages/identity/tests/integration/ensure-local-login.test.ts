@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { and, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -25,28 +25,32 @@ describe('ensureLocalLogin', () => {
       try {
         const tenantId = await seedTenantRaw(pool);
 
-        // Subscriber-driven path: a credential-less user with email_verified=false.
-        const { user_id } = await provisionLogin(
-          { tenant_id: tenantId, email: 'eve@corp.test', name: 'Eve' },
-          SYS,
-        );
-        const [before] = await identityDb().select().from(user).where(eq(user.id, user_id));
-        expect(before?.email_verified).toBe(false);
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(tenantId, async () => {
+          // Subscriber-driven path: a credential-less user with email_verified=false.
+          const { user_id } = await provisionLogin(
+            { tenant_id: tenantId, email: 'eve@corp.test', name: 'Eve' },
+            SYS,
+          );
+          const [before] = await identityDb().select().from(user).where(eq(user.id, user_id));
+          expect(before?.email_verified).toBe(false);
 
-        await ensureLocalLogin({ user_id, tenant_id: tenantId, password: 'ChangeMe@2026' }, SYS);
-        // Re-run must not error and must keep exactly one credential account.
-        await ensureLocalLogin({ user_id, tenant_id: tenantId, password: 'ChangeMe@2026' }, SYS);
+          await ensureLocalLogin({ user_id, tenant_id: tenantId, password: 'ChangeMe@2026' }, SYS);
+          // Re-run must not error and must keep exactly one credential account.
+          await ensureLocalLogin({ user_id, tenant_id: tenantId, password: 'ChangeMe@2026' }, SYS);
 
-        const [after] = await identityDb().select().from(user).where(eq(user.id, user_id));
-        expect(after?.email_verified).toBe(true);
+          const [after] = await identityDb().select().from(user).where(eq(user.id, user_id));
+          expect(after?.email_verified).toBe(true);
 
-        const creds = await identityDb()
-          .select()
-          .from(account)
-          .where(and(eq(account.user_id, user_id), eq(account.provider_id, 'credential')));
-        expect(creds).toHaveLength(1);
-        expect(creds[0]?.password).toBeTruthy();
-        expect(await argon2id.verify(creds[0]!.password!, 'ChangeMe@2026')).toBe(true);
+          const creds = await identityDb()
+            .select()
+            .from(account)
+            .where(and(eq(account.user_id, user_id), eq(account.provider_id, 'credential')));
+          expect(creds).toHaveLength(1);
+          expect(creds[0]?.password).toBeTruthy();
+          expect(await argon2id.verify(creds[0]!.password!, 'ChangeMe@2026')).toBe(true);
+        });
       } finally {
         resetIdentityDb();
         resetCoreDb();
@@ -62,20 +66,30 @@ describe('ensureLocalLogin', () => {
       initPools({ databaseUrl });
       try {
         const tenantId = await seedTenantRaw(pool);
-        const { user_id } = await provisionLogin(
-          { tenant_id: tenantId, email: 'rot@corp.test', name: 'Rot' },
-          SYS,
-        );
-        await ensureLocalLogin({ user_id, tenant_id: tenantId, password: 'FirstPassword@1' }, SYS);
-        await ensureLocalLogin({ user_id, tenant_id: tenantId, password: 'SecondPassword@2' }, SYS);
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(tenantId, async () => {
+          const { user_id } = await provisionLogin(
+            { tenant_id: tenantId, email: 'rot@corp.test', name: 'Rot' },
+            SYS,
+          );
+          await ensureLocalLogin(
+            { user_id, tenant_id: tenantId, password: 'FirstPassword@1' },
+            SYS,
+          );
+          await ensureLocalLogin(
+            { user_id, tenant_id: tenantId, password: 'SecondPassword@2' },
+            SYS,
+          );
 
-        const creds = await identityDb()
-          .select()
-          .from(account)
-          .where(and(eq(account.user_id, user_id), eq(account.provider_id, 'credential')));
-        expect(creds).toHaveLength(1);
-        expect(await argon2id.verify(creds[0]!.password!, 'SecondPassword@2')).toBe(true);
-        expect(await argon2id.verify(creds[0]!.password!, 'FirstPassword@1')).toBe(false);
+          const creds = await identityDb()
+            .select()
+            .from(account)
+            .where(and(eq(account.user_id, user_id), eq(account.provider_id, 'credential')));
+          expect(creds).toHaveLength(1);
+          expect(await argon2id.verify(creds[0]!.password!, 'SecondPassword@2')).toBe(true);
+          expect(await argon2id.verify(creds[0]!.password!, 'FirstPassword@1')).toBe(false);
+        });
       } finally {
         resetIdentityDb();
         resetCoreDb();
@@ -91,10 +105,14 @@ describe('ensureLocalLogin', () => {
       initPools({ databaseUrl });
       try {
         const tenantId = await seedTenantRaw(pool);
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
         await expect(
-          ensureLocalLogin(
-            { user_id: crypto.randomUUID(), tenant_id: tenantId, password: 'whateverpass@1' },
-            SYS,
+          scoped(tenantId, () =>
+            ensureLocalLogin(
+              { user_id: crypto.randomUUID(), tenant_id: tenantId, password: 'whateverpass@1' },
+              SYS,
+            ),
           ),
         ).rejects.toMatchObject({ code: 'NOT_FOUND' });
       } finally {

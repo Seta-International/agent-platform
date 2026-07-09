@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { listRoleAssignments } from '../../../src/backend/domain/list-role-assignments.ts';
@@ -46,7 +46,9 @@ describe('listRoleAssignments', () => {
             [assignmentId3],
           );
 
-          const result = await listRoleAssignments(userId);
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          const result = await scoped(tenantId, () => listRoleAssignments(userId));
 
           expect(result.tenant_id).toBe(tenantId);
           expect(result.assignments).toHaveLength(2);
@@ -81,7 +83,11 @@ describe('listRoleAssignments', () => {
           );
 
           const nonExistentUserId = crypto.randomUUID();
-          await expect(listRoleAssignments(nonExistentUserId)).rejects.toSatisfy(
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await expect(
+            scoped(tenantId, () => listRoleAssignments(nonExistentUserId)),
+          ).rejects.toSatisfy(
             (e: unknown) => e instanceof IdentityError && /USER_NOT_FOUND/.test(e.code),
           );
         } finally {

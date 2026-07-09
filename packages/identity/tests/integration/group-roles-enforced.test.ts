@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { identityDb } from '../../src/backend/db/index.ts';
@@ -33,47 +33,51 @@ describe('group roles enforced by requirePermission', () => {
           registerIdentityContributions(reg);
           await runMigrations(reg, { pool });
 
-          const { tenant_id } = await createTestTenantWithAdmin({ pool });
-          // Create a user with no initial role — cannot have people.worker.read
-          const { user_id } = await createUser(
-            {
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const { tenant_id } = await createTestTenantWithAdmin({ pool });
+            // Create a user with no initial role — cannot have people.worker.read
+            const { user_id } = await createUser(
+              {
+                tenant_id,
+                email: 'worker@demo.local',
+                name: 'Plain Worker',
+                password: 'pw',
+              },
+              CLI,
+            );
+
+            // BEFORE group membership: permission must be denied
+            await expect(
+              requirePermission(user_id, 'people.worker.read', tenant_id),
+            ).rejects.toBeInstanceOf(IdentityError);
+
+            // Insert group → assign people.manager role → add user
+            const db = identityDb();
+            const groupId = crypto.randomUUID();
+            await db.insert(accessGroup).values({
+              id: groupId,
               tenant_id,
-              email: 'worker@demo.local',
-              name: 'Plain Worker',
-              password: 'pw',
-            },
-            CLI,
-          );
+              slug: 'hr',
+              name: 'HR',
+            });
+            await db.insert(accessGroupRole).values({
+              tenant_id,
+              group_id: groupId,
+              role_slug: 'people.manager',
+            });
+            await db.insert(accessGroupMembership).values({
+              tenant_id,
+              group_id: groupId,
+              user_id,
+            });
 
-          // BEFORE group membership: permission must be denied
-          await expect(
-            requirePermission(user_id, 'people.worker.read', tenant_id),
-          ).rejects.toBeInstanceOf(IdentityError);
-
-          // Insert group → assign people.manager role → add user
-          const db = identityDb();
-          const groupId = crypto.randomUUID();
-          await db.insert(accessGroup).values({
-            id: groupId,
-            tenant_id,
-            slug: 'hr',
-            name: 'HR',
+            // AFTER group membership: people.manager includes people.worker.read
+            await expect(
+              requirePermission(user_id, 'people.worker.read', tenant_id),
+            ).resolves.toBeUndefined();
           });
-          await db.insert(accessGroupRole).values({
-            tenant_id,
-            group_id: groupId,
-            role_slug: 'people.manager',
-          });
-          await db.insert(accessGroupMembership).values({
-            tenant_id,
-            group_id: groupId,
-            user_id,
-          });
-
-          // AFTER group membership: people.manager includes people.worker.read
-          await expect(
-            requirePermission(user_id, 'people.worker.read', tenant_id),
-          ).resolves.toBeUndefined();
         } finally {
           resetCoreDb();
           await closePools();

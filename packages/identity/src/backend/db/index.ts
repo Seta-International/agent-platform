@@ -1,4 +1,4 @@
-import { getPool, type NodePgDatabase } from '@seta/shared-db';
+import { executorPool, getPool, type NodePgDatabase } from '@seta/shared-db';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { Pool } from 'pg';
 import * as schema from './schema.ts';
@@ -27,7 +27,7 @@ export function identityAuthDb(): NodePgDatabase<typeof schema> {
 /** Tenant-scoped identity domain: role assignments, access groups, product grants,
  *  SSO provider config, projections. Requires an executor context. */
 export function identityDb(): NodePgDatabase<typeof schema> {
-  const pool = getPool('worker');
+  const pool = executorPool();
   if (!cached || cached.pool !== pool) {
     cached = { pool, db: drizzle(pool, { schema }) };
   }

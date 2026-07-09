@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { getEntraTenantId } from '../../../src/backend/domain/get-entra-tenant-id.ts';
@@ -43,7 +43,11 @@ describe('getEntraTenantId', () => {
       async ({ pool, databaseUrl }) => {
         const { tenantId, entraTid } = await seedProvider(pool, databaseUrl, { enabled: true });
         try {
-          expect(await getEntraTenantId(tenantId)).toBe(entraTid);
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            expect(await getEntraTenantId(tenantId)).toBe(entraTid);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -62,7 +66,11 @@ describe('getEntraTenantId', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          expect(await getEntraTenantId(crypto.randomUUID())).toBeNull();
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            expect(await getEntraTenantId(crypto.randomUUID())).toBeNull();
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -80,7 +88,11 @@ describe('getEntraTenantId', () => {
       async ({ pool, databaseUrl }) => {
         const { tenantId } = await seedProvider(pool, databaseUrl, { enabled: false });
         try {
-          expect(await getEntraTenantId(tenantId)).toBeNull();
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            expect(await getEntraTenantId(tenantId)).toBeNull();
+          });
         } finally {
           resetCoreDb();
           await closePools();

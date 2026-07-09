@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser, IdentityError, listUserSessions } from '@seta/identity';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 
@@ -63,21 +63,25 @@ describe('@seta/identity listUserSessions', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const { tenantId, adminId, subjectId } = await seedTenantWithAdmin(pool);
-          await insertSession(pool, subjectId, {
-            expiresInMs: 60_000,
-            ua: 'Mozilla/5.0 ... Firefox/124',
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const { tenantId, adminId, subjectId } = await seedTenantWithAdmin(pool);
+            await insertSession(pool, subjectId, {
+              expiresInMs: 60_000,
+              ua: 'Mozilla/5.0 ... Firefox/124',
+            });
+            await insertSession(pool, subjectId, { expiresInMs: -60_000, ua: 'expired-ua' });
+
+            const rows = await listUserSessions(
+              { tenant_id: tenantId, user_id: subjectId, current_session_id: null },
+              { type: 'user', user_id: adminId },
+            );
+
+            expect(rows.length).toBe(1);
+            expect(rows[0]?.user_agent).toContain('Firefox');
+            expect(rows[0]?.is_current).toBe(false);
           });
-          await insertSession(pool, subjectId, { expiresInMs: -60_000, ua: 'expired-ua' });
-
-          const rows = await listUserSessions(
-            { tenant_id: tenantId, user_id: subjectId, current_session_id: null },
-            { type: 'user', user_id: adminId },
-          );
-
-          expect(rows.length).toBe(1);
-          expect(rows[0]?.user_agent).toContain('Firefox');
-          expect(rows[0]?.is_current).toBe(false);
         } finally {
           resetCoreDb();
           await closePools();
@@ -96,15 +100,19 @@ describe('@seta/identity listUserSessions', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const { tenantId, adminId, subjectId } = await seedTenantWithAdmin(pool);
-          const s = await insertSession(pool, subjectId, { expiresInMs: 60_000 });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const { tenantId, adminId, subjectId } = await seedTenantWithAdmin(pool);
+            const s = await insertSession(pool, subjectId, { expiresInMs: 60_000 });
 
-          const rows = await listUserSessions(
-            { tenant_id: tenantId, user_id: subjectId, current_session_id: s.id },
-            { type: 'user', user_id: adminId },
-          );
+            const rows = await listUserSessions(
+              { tenant_id: tenantId, user_id: subjectId, current_session_id: s.id },
+              { type: 'user', user_id: adminId },
+            );
 
-          expect(rows[0]?.is_current).toBe(true);
+            expect(rows[0]?.is_current).toBe(true);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -123,16 +131,20 @@ describe('@seta/identity listUserSessions', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const t1 = await seedTenantWithAdmin(pool);
-          const t2 = await seedTenantWithAdmin(pool);
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const t1 = await seedTenantWithAdmin(pool);
+            const t2 = await seedTenantWithAdmin(pool);
 
-          // No sessions seeded → the function probes the user's tenant when 0 rows come back.
-          await expect(
-            listUserSessions(
-              { tenant_id: t1.tenantId, user_id: t2.subjectId, current_session_id: null },
-              { type: 'user', user_id: t1.adminId },
-            ),
-          ).rejects.toThrow(IdentityError);
+            // No sessions seeded → the function probes the user's tenant when 0 rows come back.
+            await expect(
+              listUserSessions(
+                { tenant_id: t1.tenantId, user_id: t2.subjectId, current_session_id: null },
+                { type: 'user', user_id: t1.adminId },
+              ),
+            ).rejects.toThrow(IdentityError);
+          });
         } finally {
           resetCoreDb();
           await closePools();

@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { identityDb } from '../../src/backend/db/index.ts';
@@ -19,11 +19,15 @@ function withDb(fn: (ctx: { pool: import('pg').Pool }) => Promise<void>): Promis
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const reg = createContributionRegistry();
-        registerCoreContributions(reg);
-        registerIdentityContributions(reg);
-        await runMigrations(reg, { pool });
-        await fn({ pool });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const reg = createContributionRegistry();
+          registerCoreContributions(reg);
+          registerIdentityContributions(reg);
+          await runMigrations(reg, { pool });
+          await fn({ pool });
+        });
       } finally {
         resetCoreDb();
         await closePools();

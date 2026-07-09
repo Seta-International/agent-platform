@@ -6,7 +6,7 @@ import {
 } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -30,6 +30,11 @@ function buildApp(scope: SessionScope): Hono<SessionEnv> {
     c.set('user', scope);
     await next();
   });
+  // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+  // composition root opens this once the tenant is known, so identityDb() has an
+  // executor context. No appDatabaseUrl here, so the tenant GUC is inert (self-host
+  // fallback) — this just needs to exist for executorPool() to resolve.
+  app.use('*', (_c, next) => scoped(scope.tenant_id, next));
   registerRoleAccessRoutes(app);
   app.onError((err, c) => {
     if (err instanceof IdentityError) {
@@ -100,10 +105,14 @@ describe('role-access HTTP routes', () => {
         },
       );
       expect(res.status).toBe(200);
-      const rows = await identityDb()
-        .select()
-        .from(rolePermissionOverlays)
-        .where(eq(rolePermissionOverlays.tenant_id, tenant));
+      // Direct identityDb() read outside the HTTP request scope — needs its own
+      // executor context (the route's middleware-opened one already closed).
+      const rows = await scoped(tenant, () =>
+        identityDb()
+          .select()
+          .from(rolePermissionOverlays)
+          .where(eq(rolePermissionOverlays.tenant_id, tenant)),
+      );
       expect(rows).toHaveLength(1);
       expect(rows[0]?.effect).toBe('grant');
     });
@@ -112,20 +121,27 @@ describe('role-access HTTP routes', () => {
   it('POST reset clears overlays for the role', async () => {
     await withDb(async ({ tenant }) => {
       const app = buildApp(session(tenant, ['identity.role.update']));
-      await identityDb().insert(rolePermissionOverlays).values({
-        tenant_id: tenant,
-        role_slug: 'knowledge.viewer',
-        permission_key: 'knowledge.file.update',
-        effect: 'grant',
-      });
+      // Direct identityDb() writes/reads outside the HTTP request scope — need
+      // their own executor context (the route's middleware-opened one only
+      // covers app.request calls).
+      await scoped(tenant, () =>
+        identityDb().insert(rolePermissionOverlays).values({
+          tenant_id: tenant,
+          role_slug: 'knowledge.viewer',
+          permission_key: 'knowledge.file.update',
+          effect: 'grant',
+        }),
+      );
       const res = await app.request('/api/identity/v1/role-access/knowledge.viewer/reset', {
         method: 'POST',
       });
       expect(res.status).toBe(200);
-      const rows = await identityDb()
-        .select()
-        .from(rolePermissionOverlays)
-        .where(eq(rolePermissionOverlays.tenant_id, tenant));
+      const rows = await scoped(tenant, () =>
+        identityDb()
+          .select()
+          .from(rolePermissionOverlays)
+          .where(eq(rolePermissionOverlays.tenant_id, tenant)),
+      );
       expect(rows).toHaveLength(0);
     });
   });

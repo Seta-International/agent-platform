@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { _resetGraphCacheForTest } from '../../../src/backend/sso/graph.ts';
@@ -102,79 +102,83 @@ describe('@seta/identity importUsersFromEntra', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const tenantId = crypto.randomUUID();
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme', 'acme')`,
-            [tenantId],
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const tenantId = crypto.randomUUID();
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme', 'acme')`,
+              [tenantId],
+            );
 
-          mockGraphFull(fetchMock);
+            mockGraphFull(fetchMock);
 
-          // Integrations projects the tenant↔Entra linkage first (it owns entra_tenant_id);
-          // seed the provider row so registerSsoProvider's fail-closed domain verification passes.
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
-             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
-            [tenantId, ENTRA_TID],
-          );
+            // Integrations projects the tenant↔Entra linkage first (it owns entra_tenant_id);
+            // seed the provider row so registerSsoProvider's fail-closed domain verification passes.
+            await pool.query(
+              `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+               VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+              [tenantId, ENTRA_TID],
+            );
 
-          // Register + consent + enable provider
-          await registerSsoProvider(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email_domains: ['acme.com'],
-            },
-            CLI_ACTOR,
-          );
-          await recordSsoConsent(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              granted_by_oid: 'oid-global-admin',
-              granted_by_email: 'admin@acme.com',
-            },
-            CLI_ACTOR,
-          );
-          await enableSsoProvider(
-            { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
-            CLI_ACTOR,
-          );
+            // Register + consent + enable provider
+            await registerSsoProvider(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email_domains: ['acme.com'],
+              },
+              CLI_ACTOR,
+            );
+            await recordSsoConsent(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                granted_by_oid: 'oid-global-admin',
+                granted_by_email: 'admin@acme.com',
+              },
+              CLI_ACTOR,
+            );
+            await enableSsoProvider(
+              { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
+              CLI_ACTOR,
+            );
 
-          // Pre-create alice as an existing Seta user
-          await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'alice@acme.com',
-              name: 'Alice Admin',
-              password: 'SomePassword1234!',
-            },
-            CLI_ACTOR,
-          );
+            // Pre-create alice as an existing Seta user
+            await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'alice@acme.com',
+                name: 'Alice Admin',
+                password: 'SomePassword1234!',
+              },
+              CLI_ACTOR,
+            );
 
-          _resetGraphCacheForTest();
-          mockGraphFull(fetchMock);
+            _resetGraphCacheForTest();
+            mockGraphFull(fetchMock);
 
-          const importable = await listEntraImportableUsers(tenantId);
+            const importable = await listEntraImportableUsers(tenantId);
 
-          // All 4 Graph users are returned (including disabled)
-          expect(importable).toHaveLength(4);
+            // All 4 Graph users are returned (including disabled)
+            expect(importable).toHaveLength(4);
 
-          const alice = importable.find((u) => u.entra_oid === 'oid-alice');
-          expect(alice?.already_in_seta).toBe(true);
-          expect(alice?.account_enabled).toBe(true);
+            const alice = importable.find((u) => u.entra_oid === 'oid-alice');
+            expect(alice?.already_in_seta).toBe(true);
+            expect(alice?.account_enabled).toBe(true);
 
-          const bob = importable.find((u) => u.entra_oid === 'oid-bob');
-          expect(bob?.already_in_seta).toBe(false);
-          expect(bob?.account_enabled).toBe(true);
+            const bob = importable.find((u) => u.entra_oid === 'oid-bob');
+            expect(bob?.already_in_seta).toBe(false);
+            expect(bob?.account_enabled).toBe(true);
 
-          const carol = importable.find((u) => u.entra_oid === 'oid-carol');
-          expect(carol?.already_in_seta).toBe(false);
-          expect(carol?.account_enabled).toBe(false);
+            const carol = importable.find((u) => u.entra_oid === 'oid-carol');
+            expect(carol?.already_in_seta).toBe(false);
+            expect(carol?.account_enabled).toBe(false);
 
-          const dave = importable.find((u) => u.entra_oid === 'oid-dave');
-          expect(dave?.already_in_seta).toBe(false);
-          expect(dave?.email).toBe('dave@acme.com');
+            const dave = importable.find((u) => u.entra_oid === 'oid-dave');
+            expect(dave?.already_in_seta).toBe(false);
+            expect(dave?.email).toBe('dave@acme.com');
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -193,83 +197,87 @@ describe('@seta/identity importUsersFromEntra', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const tenantId = crypto.randomUUID();
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme', 'acme2')`,
-            [tenantId],
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const tenantId = crypto.randomUUID();
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme', 'acme2')`,
+              [tenantId],
+            );
 
-          mockGraphFull(fetchMock);
+            mockGraphFull(fetchMock);
 
-          // Seed the integrations-owned Entra linkage before register (fail-closed verification).
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
-             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
-            [tenantId, ENTRA_TID],
-          );
+            // Seed the integrations-owned Entra linkage before register (fail-closed verification).
+            await pool.query(
+              `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+               VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
+              [tenantId, ENTRA_TID],
+            );
 
-          await registerSsoProvider(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email_domains: ['acme.com'],
-            },
-            CLI_ACTOR,
-          );
-          await recordSsoConsent(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              granted_by_oid: 'oid-global-admin',
-              granted_by_email: 'admin@acme.com',
-            },
-            CLI_ACTOR,
-          );
-          await enableSsoProvider(
-            { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
-            CLI_ACTOR,
-          );
+            await registerSsoProvider(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email_domains: ['acme.com'],
+              },
+              CLI_ACTOR,
+            );
+            await recordSsoConsent(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                granted_by_oid: 'oid-global-admin',
+                granted_by_email: 'admin@acme.com',
+              },
+              CLI_ACTOR,
+            );
+            await enableSsoProvider(
+              { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
+              CLI_ACTOR,
+            );
 
-          // Pre-create alice
-          await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'alice@acme.com',
-              name: 'Alice Admin',
-              password: 'SomePassword1234!',
-            },
-            CLI_ACTOR,
-          );
+            // Pre-create alice
+            await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'alice@acme.com',
+                name: 'Alice Admin',
+                password: 'SomePassword1234!',
+              },
+              CLI_ACTOR,
+            );
 
-          _resetGraphCacheForTest();
-          mockGraphFull(fetchMock);
+            _resetGraphCacheForTest();
+            mockGraphFull(fetchMock);
 
-          // Select all 4 OIDs — carol is disabled and will be filtered, alice is already_in_seta
-          const result = await importUsersFromEntra(
-            {
-              tenant_id: tenantId,
-              selected_oids: ['oid-alice', 'oid-bob', 'oid-carol', 'oid-dave'],
-            },
-            CLI_ACTOR,
-          );
+            // Select all 4 OIDs — carol is disabled and will be filtered, alice is already_in_seta
+            const result = await importUsersFromEntra(
+              {
+                tenant_id: tenantId,
+                selected_oids: ['oid-alice', 'oid-bob', 'oid-carol', 'oid-dave'],
+              },
+              CLI_ACTOR,
+            );
 
-          // bob + dave should be imported (carol filtered because account_enabled=false,
-          // alice skipped because already_in_seta)
-          expect(result.imported).toHaveLength(2);
-          expect(result.skipped).toHaveLength(1);
-          expect(result.skipped[0]).toMatchObject({
-            entra_oid: 'oid-alice',
-            reason: 'already_exists',
+            // bob + dave should be imported (carol filtered because account_enabled=false,
+            // alice skipped because already_in_seta)
+            expect(result.imported).toHaveLength(2);
+            expect(result.skipped).toHaveLength(1);
+            expect(result.skipped[0]).toMatchObject({
+              entra_oid: 'oid-alice',
+              reason: 'already_exists',
+            });
+
+            // Verify the newly created users exist in DB
+            const { rows } = await pool.query<{ email: string }>(
+              `SELECT email FROM identity."user" WHERE tenant_id = $1 ORDER BY email`,
+              [tenantId],
+            );
+            const emails = rows.map((r) => r.email);
+            expect(emails).toContain('bob@acme.com');
+            expect(emails).toContain('dave@acme.com');
           });
-
-          // Verify the newly created users exist in DB
-          const { rows } = await pool.query<{ email: string }>(
-            `SELECT email FROM identity."user" WHERE tenant_id = $1 ORDER BY email`,
-            [tenantId],
-          );
-          const emails = rows.map((r) => r.email);
-          expect(emails).toContain('bob@acme.com');
-          expect(emails).toContain('dave@acme.com');
         } finally {
           resetCoreDb();
           await closePools();
