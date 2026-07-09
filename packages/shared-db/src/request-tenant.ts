@@ -11,7 +11,7 @@ import { TENANT_GUC } from './rls.ts';
 const pinned = new AsyncLocalStorage<PoolClient>();
 
 let realWebPool: Pool | null = null;
-export function bindWebPool(pool: Pool): void {
+export function bindWebPool(pool: Pool | null): void {
   realWebPool = pool;
 }
 

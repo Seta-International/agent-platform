@@ -149,4 +149,7 @@ export async function closePools(): Promise<void> {
   await Promise.all([pools.web.end(), pools.worker.end(), pools.mastraState.end()]);
   pools = null;
   webFacade = null;
+  // Unbind so pinTenantConnection falls back to its no-op path instead of
+  // calling .connect() on the now-ended pool.
+  bindWebPool(null);
 }

@@ -109,7 +109,7 @@ describe('pools bound into the executor', () => {
     await closePools();
     await expect(
       scoped('11111111-1111-1111-1111-111111111111', async () => executorPool()),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/before initPools/);
   });
 
   it('initPools() after closePools rebinds executorPool cleanly', async () => {
