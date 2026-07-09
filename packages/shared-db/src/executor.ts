@@ -35,19 +35,23 @@ export function currentExecutorMode(): ExecutorMode | undefined {
   return modeCtx.getStore();
 }
 
+const NOT_INITIALISED = 'executorPool called before initPools.';
+
+function resolveAdminPool(): Pool {
+  if (!adminPool) throw new Error(NOT_INITIALISED);
+  return adminPool();
+}
+
+function resolveAppPool(): Pool {
+  if (!appPool) throw new Error(NOT_INITIALISED);
+  return appPool();
+}
+
 /** The pool for the active context. Module db clients call this and nothing else. */
 export function executorPool(): Pool {
   const mode = modeCtx.getStore();
   if (!mode) throw new ExecutorContextError();
-  const resolve = mode === 'maintenance' ? adminPool : appPool;
-  if (!resolve) throw new Error('executorPool called before initPools.');
-  return resolve();
-}
-
-/** Shared "called before initPools" guard for the bound admin resolver. */
-function resolveAdminPool(): Pool {
-  if (!adminPool) throw new Error('executorPool called before initPools.');
-  return adminPool();
+  return mode === 'maintenance' ? resolveAdminPool() : resolveAppPool();
 }
 
 /**

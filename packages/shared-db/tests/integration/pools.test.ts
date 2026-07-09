@@ -102,7 +102,10 @@ describe('pools bound into the executor', () => {
     expect(pool).toBe(created.worker);
   });
 
-  it('executorPool() rejects after closePools instead of returning an ended pool', async () => {
+  it('maintenance() rejects after closePools before fn ever runs', async () => {
+    // fn is never reached (maintenance() resolves the admin pool eagerly), so this
+    // is also the only test that would catch a regression in executorPool()'s own
+    // "before initPools" guard if the eager check in maintenance() were removed.
     initPools({ databaseUrl: 'postgres://x:y@127.0.0.1:1/none' });
     await closePools();
     await expect(maintenance(async () => executorPool())).rejects.toThrow(/before initPools/i);
@@ -161,6 +164,21 @@ describe('pools bound into the executor', () => {
       ran = true;
     });
     expect(ran).toBe(true);
+  });
+
+  it('maintenance() rejects when pools were never initialised, unlike scoped()', async () => {
+    // Isolated via a fresh module graph, same as the scoped() case above. Unlike
+    // scoped(), maintenance() has no no-op contract for the never-initialised
+    // state, so it must fail closed here too.
+    vi.resetModules();
+    const fresh = await import('../../src/index.ts');
+    let ran = false;
+    await expect(
+      fresh.maintenance(async () => {
+        ran = true;
+      }),
+    ).rejects.toThrow(/before initPools/);
+    expect(ran).toBe(false);
   });
 
   it('re-running initPools after closePools lets scoped() reach fn again', async () => {
