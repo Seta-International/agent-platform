@@ -278,13 +278,19 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
           ) : null
         }
       />
-      <div className="border border-hairline rounded-lg overflow-hidden bg-canvas">
+      <div className="rounded-lg border border-hairline bg-canvas">
         <Table>
-          <TableHeader className="bg-surface-1 sticky top-0 z-10 [&_tr]:border-b [&_tr]:border-hairline">
+          <TableHeader className="bg-surface-1 [&_tr]:border-b [&_tr]:border-hairline">
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id} className="border-b border-hairline hover:bg-transparent">
                 {hg.headers.map((h) => (
-                  <TableHead key={h.id} className={headCellClass}>
+                  <TableHead
+                    key={h.id}
+                    className={cn(
+                      headCellClass,
+                      'sticky top-0 z-10 bg-surface-1 shadow-[0_1px_0_var(--color-hairline)]',
+                    )}
+                  >
                     {h.isPlaceholder ? null : h.column.getCanSort() ? (
                       <DataTableColumnHeader
                         column={h.column}
