@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { bindExecutorPools } from './executor.ts';
 import { instrumentPool } from './instrumentation.ts';
 import { bindWebPool, makeTenantAwarePool } from './request-tenant.ts';
 
@@ -88,9 +89,23 @@ export function initPools(cfg: PoolsConfig): Pools {
   bindWebPool(pools.web);
   webFacade = makeTenantAwarePool(pools.web);
 
+  // The executor decides privilege; modules never pick a pool. `scoped` runs on the
+  // app-role facade (NOBYPASSRLS, request-pinned when a connection is pinned);
+  // `maintenance` runs on the admin pool.
+  const created = pools;
+  bindExecutorPools(
+    () => webFacade ?? created.web,
+    () => created.worker,
+  );
+
   return pools;
 }
 
+/**
+ * @deprecated Modules must not choose a privilege level. Use `executorPool()`, and let
+ * the composition root open the context with `scoped()` / `maintenance()`.
+ * Removed in PR4 of DB-1; will then be importable only by apps/server and apps/worker.
+ */
 export function getPool(name?: 'web' | 'worker' | 'mastraState'): Pool {
   if (!pools) throw new Error('getPool called before initPools.');
   const key = name ?? 'web';
