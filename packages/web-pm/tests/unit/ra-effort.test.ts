@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { clippedCalendarEffort, rollupKpis } from '../../src/pages/ra-effort';
+import {
+  clippedCalendarEffort,
+  overAllocatedWorkers,
+  peakConcurrentPct,
+  rollupKpis,
+} from '../../src/pages/ra-effort';
 
 describe('clippedCalendarEffort', () => {
   it('computes inclusive month span × planned fraction', () => {
@@ -28,6 +33,43 @@ describe('clippedCalendarEffort', () => {
         { from: '2026-01-01', to: '2026-06-30' },
       ),
     ).toBe(0);
+  });
+  it('clips an open-ended row (no end date) to the window end instead of returning 0', () => {
+    expect(
+      clippedCalendarEffort(
+        { date_from: '2026-03-01', date_to: null, planned_pct: 100 },
+        { from: '2026-01-01', to: '2026-06-30' },
+      ),
+    ).toBe(4);
+  });
+});
+
+describe('peakConcurrentPct / overAllocatedWorkers', () => {
+  it('counts an open-ended allocation (no end date) as ongoing through the window', () => {
+    const rows = [
+      { date_from: '2026-04-09', date_to: '2026-12-23', planned_pct: 30 },
+      { date_from: '2026-03-01', date_to: null, planned_pct: 100 },
+    ];
+    expect(peakConcurrentPct(rows, { from: '2026-01-01', to: '2026-12-31' })).toBe(130);
+  });
+
+  it('flags the worker as over-allocated when one of the overlapping rows is open-ended', () => {
+    const rows = [
+      {
+        worker_id: 'w1',
+        date_from: '2026-04-09',
+        date_to: '2026-12-23',
+        planned_pct: 30,
+      },
+      {
+        worker_id: 'w1',
+        date_from: '2026-03-01',
+        date_to: null,
+        planned_pct: 100,
+      },
+    ];
+    const over = overAllocatedWorkers(rows, { from: '2026-01-01', to: '2026-12-31' });
+    expect(over.has('w1')).toBe(true);
   });
 });
 

@@ -147,6 +147,7 @@ export type CreateAllocationInput = z.input<typeof createAllocationInput>;
 
 export const updateAllocationInput = z.object({
   expected_version: z.number().int().positive().optional(),
+  project_id: z.string().uuid().optional(),
   role: z.string().min(1).nullable().optional(),
   planned_pct: z.number().min(0).max(100).nullable().optional(),
   status: z.enum(['placeholder', 'tentative', 'committed']).optional(),
@@ -156,3 +157,72 @@ export const updateAllocationInput = z.object({
   note: z.string().nullable().optional(),
 });
 export type UpdateAllocationInput = z.infer<typeof updateAllocationInput>;
+
+export const checkAllocationEffortQuery = z.object({
+  worker_id: z.string().uuid(),
+  date_from: z.string(),
+  date_to: z.string(),
+  planned_pct: z.coerce.number().min(0).max(100),
+  exclude_allocation_id: z.string().uuid().optional(),
+});
+export type CheckAllocationEffortQuery = z.infer<typeof checkAllocationEffortQuery>;
+
+export const splitAllocationInput = z.object({
+  new_end_date: z.string(),
+  continuation: z.object({
+    planned_pct: z.number().min(0).max(100).nullable().optional(),
+    bucket: z.enum(['billable', 'internal', 'bench']).optional(),
+    date_to: z.string().nullable().optional(),
+    note: z.string().nullable().optional(),
+  }),
+  expected_version: z.number().int().positive().optional(),
+});
+export type SplitAllocationInput = z.infer<typeof splitAllocationInput>;
+
+export const reassignAllocationInput = z.object({
+  source: z.object({
+    date_to: z.string(),
+  }),
+  targets: z
+    .array(
+      z.object({
+        project_id: z.string().uuid(),
+        date_from: z.string(),
+        planned_pct: z.number().min(0).max(100),
+        bucket: z.enum(['billable', 'internal', 'bench']).optional().default('billable'),
+        date_to: z.string().nullable().optional(),
+        note: z.string().nullable().optional(),
+      }),
+    )
+    .min(1),
+  expected_version: z.number().int().positive().optional(),
+});
+export type ReassignAllocationInput = z.infer<typeof reassignAllocationInput>;
+
+/** Reassign a PM-chosen subset of a worker's own allocations at once — each of
+ * `allocation_ids` ends on the same `source.date_to`, then the target
+ * allocations are created. Used by the RA Monitoring "group by person"
+ * reassign action (the PM checks which allocation(s) to reassign; unchecked
+ * ones are left untouched). `allocation_ids` may be empty — this only adds
+ * `targets`, without ending anything (`source.date_to` is unused in that
+ * case). */
+export const reassignWorkerAllocationsInput = z.object({
+  worker_id: z.string().uuid(),
+  allocation_ids: z.array(z.string().uuid()),
+  source: z.object({
+    date_to: z.string(),
+  }),
+  targets: z
+    .array(
+      z.object({
+        project_id: z.string().uuid(),
+        date_from: z.string(),
+        planned_pct: z.number().min(0).max(100),
+        bucket: z.enum(['billable', 'internal', 'bench']).optional().default('billable'),
+        date_to: z.string().nullable().optional(),
+        note: z.string().nullable().optional(),
+      }),
+    )
+    .min(1),
+});
+export type ReassignWorkerAllocationsInput = z.infer<typeof reassignWorkerAllocationsInput>;
