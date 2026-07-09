@@ -19,13 +19,15 @@ export const MAINTENANCE_JOBS: ReadonlySet<string> = new Set([
  *  2. Payload carries a `tenant_id` string -> `scoped(tenantId, ...)`, app pool + RLS GUC.
  *  3. Neither -> run with no executor context at all.
  *
- * Branch 3 is not a hole: it's the fail-closed backstop. Jobs that never touch the
- * database (e.g. S3-only cleanup) simply run; jobs that *should* have been scoped but
- * lost their tenant_id will hit `executorPool()` on their first DB call and get
- * `ExecutorContextError` ("no executor context: wrap this call in scoped(tenantId, fn)
- * or maintenance(fn)"). That's a louder, more accurate failure than throwing here ever
- * was, and it doesn't require a second allowlist of "jobs that need no tenant" that
- * would silently go stale as new tenantless jobs are added.
+ * Branch 3 exists so jobs that never touch the database (e.g. S3-only cleanup) can
+ * simply run, without a second allowlist of "jobs that need no tenant" that would
+ * silently go stale as new tenantless jobs are added. It is meant to be a fail-closed
+ * backstop — a job that *should* have been scoped but lost its tenant_id hitting
+ * `executorPool()` and getting a loud `ExecutorContextError`. That backstop is not
+ * live yet: every module db client still calls the deprecated `getPool()`, not
+ * `executorPool()`, so today a tenantless job that reads an RLS-enabled table gets a
+ * silent zero-row result instead. It becomes real once PR2/PR3 point module db
+ * clients at `executorPool()`.
  */
 export function wrapJob(name: string, task: Task): Task {
   return async (payload, helpers) => {
@@ -35,7 +37,10 @@ export function wrapJob(name: string, task: Task): Task {
       });
     }
     const tenantId = (payload as { tenant_id?: unknown } | null)?.tenant_id;
-    if (typeof tenantId === 'string') {
+    // An empty/whitespace-only string is not a tenant: pinning a connection with a
+    // meaningless GUC would satisfy the `typeof === 'string'` check while still
+    // leaving the job with no real tenant isolation. Fall through to branch 3.
+    if (typeof tenantId === 'string' && tenantId.trim() !== '') {
       return scoped(tenantId, async () => {
         await task(payload, helpers);
       });

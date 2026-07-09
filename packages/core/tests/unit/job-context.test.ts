@@ -46,6 +46,15 @@ describe('wrapJob', () => {
     expect(mode).toBeUndefined();
   });
 
+  it('treats an empty or whitespace-only tenant_id as absent, not a scoped tenant', async () => {
+    let mode: string | undefined = 'unset';
+    const job = wrapJob('mailer:send', async () => {
+      mode = currentExecutorMode();
+    });
+    await job({ tenant_id: '   ' }, {} as never);
+    expect(mode).toBeUndefined();
+  });
+
   it('lets the executorPool() backstop reject a DB call made with no context', async () => {
     const job = wrapJob('chat_attachment_delete', async () => {
       executorPool();

@@ -470,7 +470,7 @@ export function buildM365Boot(deps: M365BootDeps): M365Boot {
       });
     },
     'm365.subscription.renew': async (payload) => {
-      const p = payload as { subscription_row_id: string };
+      const p = payload as { subscription_row_id: string; tenant_id: string };
       const row = await m365SubsRepo.findById(p.subscription_row_id);
       if (!row) return;
       const graphClient = await graphClientFor(row.tenantId);
