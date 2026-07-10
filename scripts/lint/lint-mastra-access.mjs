@@ -35,6 +35,10 @@ const CONTAINMENT_DIR = 'packages/agent/src/backend/mastra-store/';
 const FILE_ALLOWLIST = new Set([
   'packages/agent/src/backend/runtime.ts',
   'packages/agent/src/backend/memory.ts',
+  // The catalog gate names these tables in order to *exempt* them: Mastra owns their DDL, so
+  // they cannot satisfy the constitution. Naming the exempt set is the one place a governance
+  // rule must say the words out loud.
+  'packages/shared-testing/src/db-constitution.ts',
 ]);
 
 const SOURCE_RE = /\.(ts|tsx)$/;

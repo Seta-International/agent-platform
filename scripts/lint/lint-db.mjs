@@ -1,25 +1,18 @@
 // scripts/lint/lint-db.mjs
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+//
+// One rule survives here: the enum style (constitution C4).
+//
+// R1 (tenant_id present), R3 (unique-constraint shape) and R4 (created_at present) moved to the
+// catalog gate — `apps/cli/tests/integration/db-constitution.test.ts` — which queries pg_catalog
+// after the migrations run. It sees `knowledge.chunks`, a LIST-partitioned table that exists only
+// in hand-written SQL and was invisible to the regex below. A lint that guesses at what a
+// migration produced is strictly worse than asking the database.
+//
+// C4 cannot move. After migration, `text({ enum })` and `textEnum()` are indistinguishable: one
+// emits a CHECK and the other does not, but a text column with no CHECK cannot be told apart from
+// a legitimately free-text column. It is a source rule, so it stays in a source lint.
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-
-const BASELINE_PATH = 'scripts/lint/lint-db-baseline.json';
-const UPDATE = process.argv.includes('--update-baseline');
-
-// spec §3.1 global-table allowlist + projection/junction shapes exempt from single rules
-const NO_TENANT_ALLOWLIST = new Set([
-  'tenants',
-  'subscription_cursors',
-  'subscription_processed',
-  'subscription_dead_letter',
-  'subscription_failure_state',
-  'rpc_idempotency',
-  'session',
-  'account',
-  'verification',
-  'rate_limit',
-  'failed_login_attempts',
-  'failed_login_alerts_sent',
-]);
 
 function* schemaFiles(dir) {
   for (const name of readdirSync(dir)) {
@@ -34,55 +27,20 @@ function* schemaFiles(dir) {
   }
 }
 
-function tableBlocks(source) {
-  const blocks = [];
-  const re = /\.table\(\s*'([a-z0-9_]+)'/g;
-  let m = re.exec(source);
-  while (m !== null) {
-    const start = m.index;
-    const name = m[1];
-    const next = re.exec(source);
-    blocks.push({ name, body: source.slice(start, next ? next.index : source.length) });
-    m = next;
-  }
-  return blocks;
-}
-
 const violations = [];
 for (const file of schemaFiles('packages')) {
   const src = readFileSync(file, 'utf8');
   if (!file.startsWith('packages/shared-db/') && /text\(\s*'[\w]+'\s*,\s*\{\s*enum\s*:/.test(src)) {
-    violations.push(`R2:${file}:inline-text-enum`);
-  }
-  for (const { name, body } of tableBlocks(src)) {
-    if (!NO_TENANT_ALLOWLIST.has(name) && !/tenant_id/.test(body)) {
-      violations.push(`R1:${file}:${name}`);
-    }
-    if (!/created_at|createdAt/.test(body)) violations.push(`R4:${file}:${name}`);
-    for (const uniq of body.matchAll(/uniqueIndex\([^)]*\)\s*\.on\(\s*([\w.]+)/g)) {
-      if (!/\.(tenant_id|tenantId)$/.test(uniq[1]) && !NO_TENANT_ALLOWLIST.has(name)) {
-        violations.push(`R3:${file}:${name}:${uniq[1]}`);
-      }
-    }
+    violations.push(file);
   }
 }
-violations.sort();
 
-if (UPDATE) {
-  writeFileSync(BASELINE_PATH, `${JSON.stringify(violations, null, 2)}\n`);
-  console.log(`lint-db: baseline updated (${violations.length} entries)`);
-  process.exit(0);
-}
-
-const baseline = new Set(JSON.parse(readFileSync(BASELINE_PATH, 'utf8')));
-const fresh = violations.filter((v) => !baseline.has(v));
-const stale = [...baseline].filter((b) => !violations.includes(b));
-if (fresh.length > 0) {
-  console.error(`lint-db: ${fresh.length} new violation(s):\n${fresh.join('\n')}`);
-}
-if (stale.length > 0) {
+if (violations.length > 0) {
   console.error(
-    `lint-db: ${stale.length} baseline entr(ies) no longer occur — remove them (shrink-only ratchet):\n${stale.join('\n')}`,
+    `lint-db: ${violations.length} file(s) declare an inline text enum. Use textEnum(column, values) ` +
+      `from @seta/shared-db — it emits the Drizzle type and the CHECK constraint from one definition:\n` +
+      violations.join('\n'),
   );
+  process.exit(1);
 }
-process.exit(fresh.length > 0 || stale.length > 0 ? 1 : 0);
+console.log('lint-db: no inline text enums');
