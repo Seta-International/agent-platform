@@ -7,7 +7,7 @@ describe('outbox store', () => {
   it('upsertPending inserts a row and returns deduped=false', async () => {
     await withCoreTestDb(async ({ db }) => {
       resetCoreDb();
-      const store = createOutboxStore({ db });
+      const store = createOutboxStore({ db: () => db });
       const tenantId = crypto.randomUUID();
       const r = await store.upsertPending({
         tenantId,
@@ -24,7 +24,7 @@ describe('outbox store', () => {
   it('upsertPending returns deduped=true on second call with same key', async () => {
     await withCoreTestDb(async ({ db }) => {
       resetCoreDb();
-      const store = createOutboxStore({ db });
+      const store = createOutboxStore({ db: () => db });
       const tenantId = crypto.randomUUID();
       const first = await store.upsertPending({
         tenantId,
@@ -48,7 +48,7 @@ describe('outbox store', () => {
   it('markSent transitions status to sent with transport metadata', async () => {
     await withCoreTestDb(async ({ db }) => {
       resetCoreDb();
-      const store = createOutboxStore({ db });
+      const store = createOutboxStore({ db: () => db });
       const tenantId = crypto.randomUUID();
       const { id } = await store.upsertPending({
         tenantId,
@@ -70,7 +70,7 @@ describe('outbox store', () => {
   it('markFailedTransient increments attempts and records error without changing status', async () => {
     await withCoreTestDb(async ({ db }) => {
       resetCoreDb();
-      const store = createOutboxStore({ db });
+      const store = createOutboxStore({ db: () => db });
       const tenantId = crypto.randomUUID();
       const { id } = await store.upsertPending({
         tenantId,
@@ -91,7 +91,7 @@ describe('outbox store', () => {
   it('markPermanentlyFailed transitions to permanently_failed', async () => {
     await withCoreTestDb(async ({ db }) => {
       resetCoreDb();
-      const store = createOutboxStore({ db });
+      const store = createOutboxStore({ db: () => db });
       const tenantId = crypto.randomUUID();
       const { id } = await store.upsertPending({
         tenantId,

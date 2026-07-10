@@ -1,8 +1,11 @@
+import { scoped } from '@seta/shared-db';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
 import { emit, withEmit } from '../../src/events/index.ts';
 import { startDispatcher } from '../../src/runtime/dispatcher/index.ts';
 import { waitFor, withCoreTestDb } from '../helpers.ts';
+
+const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 describe('dispatcher per-subscriber isolation', () => {
   it('slow subscriber does not block fast one within one wall-clock window', async () => {
@@ -46,18 +49,20 @@ describe('dispatcher per-subscriber isolation', () => {
         pollIntervalMs: 25,
       });
       try {
-        await withEmit(undefined, async () => {
-          for (let i = 0; i < EVENTS; i++) {
-            await emit({
-              tenantId: '00000000-0000-0000-0000-000000000001',
-              aggregateType: 'test.iso',
-              aggregateId: '00000000-0000-0000-0000-000000000001',
-              eventType: 'test.iso.entity.created',
-              eventVersion: 1,
-              payload: { i },
-            });
-          }
-        });
+        await scoped(TENANT_ID, () =>
+          withEmit(undefined, async () => {
+            for (let i = 0; i < EVENTS; i++) {
+              await emit({
+                tenantId: TENANT_ID,
+                aggregateType: 'test.iso',
+                aggregateId: '00000000-0000-0000-0000-000000000001',
+                eventType: 'test.iso.entity.created',
+                eventVersion: 1,
+                payload: { i },
+              });
+            }
+          }),
+        );
 
         // Fast must drain every event while slow is stuck in its first handler. If the
         // dispatcher serialized subscribers (old Promise.all single-flight tick), fast

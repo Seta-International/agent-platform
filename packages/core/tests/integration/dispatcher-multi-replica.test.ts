@@ -1,9 +1,12 @@
+import { scoped } from '@seta/shared-db';
 import { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
 import { emit, withEmit } from '../../src/events/index.ts';
 import { startDispatcher } from '../../src/runtime/dispatcher/index.ts';
 import { waitFor, withCoreTestDb } from '../helpers.ts';
+
+const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 describe('dispatcher multi-replica', () => {
   it('two dispatchers against the same DB process each event exactly once', async () => {
@@ -25,18 +28,20 @@ describe('dispatcher multi-replica', () => {
       const b = await startDispatcher({ pool: poolB, subscribers: [sub], pollIntervalMs: 50 });
 
       try {
-        await withEmit(undefined, async () => {
-          for (let i = 0; i < 100; i++) {
-            await emit({
-              tenantId: '00000000-0000-0000-0000-000000000001',
-              aggregateType: 'test.multi',
-              aggregateId: '00000000-0000-0000-0000-000000000002',
-              eventType: 'test.multi.thing',
-              eventVersion: 1,
-              payload: { i },
-            });
-          }
-        });
+        await scoped(TENANT_ID, () =>
+          withEmit(undefined, async () => {
+            for (let i = 0; i < 100; i++) {
+              await emit({
+                tenantId: TENANT_ID,
+                aggregateType: 'test.multi',
+                aggregateId: '00000000-0000-0000-0000-000000000002',
+                eventType: 'test.multi.thing',
+                eventVersion: 1,
+                payload: { i },
+              });
+            }
+          }),
+        );
 
         await waitFor(async () => {
           const { rows } = await pool.query(

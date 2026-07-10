@@ -6,6 +6,7 @@ import {
   InMemorySpanExporter,
   SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
+import { scoped } from '@seta/shared-db';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
 import { emit, withEmit } from '../../src/events/index.ts';
@@ -46,16 +47,18 @@ describe('trace context propagation across the event bus', () => {
       const producerTraceId = producerSpan.spanContext().traceId;
 
       await context.with(trace.setSpan(context.active(), producerSpan), async () => {
-        await withEmit(undefined, async () => {
-          await emit({
-            tenantId,
-            aggregateType: 'test.thing',
-            aggregateId,
-            eventType: 'test.trace.propagation',
-            eventVersion: 1,
-            payload: { hello: 'trace' },
-          });
-        });
+        await scoped(tenantId, () =>
+          withEmit(undefined, async () => {
+            await emit({
+              tenantId,
+              aggregateType: 'test.thing',
+              aggregateId,
+              eventType: 'test.trace.propagation',
+              eventVersion: 1,
+              payload: { hello: 'trace' },
+            });
+          }),
+        );
       });
       producerSpan.end();
 

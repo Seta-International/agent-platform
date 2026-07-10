@@ -1,3 +1,4 @@
+import { scoped } from '@seta/shared-db';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
@@ -5,6 +6,8 @@ import { coreSubscriptionFailureState } from '../../src/db/schema/index.ts';
 import { emit, withEmit } from '../../src/events/index.ts';
 import { startDispatcher } from '../../src/runtime/dispatcher/index.ts';
 import { waitFor, withCoreTestDb } from '../helpers.ts';
+
+const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 describe('dispatcher failure state persistence', () => {
   it('survives a dispatcher restart', async () => {
@@ -30,16 +33,18 @@ describe('dispatcher failure state persistence', () => {
         pollIntervalMs: 50,
       });
       try {
-        await withEmit(undefined, async () => {
-          await emit({
-            tenantId: '00000000-0000-0000-0000-000000000001',
-            aggregateType: 'test.persistence',
-            aggregateId: '00000000-0000-0000-0000-000000000002',
-            eventType: 'test.persistence.entity.created',
-            eventVersion: 1,
-            payload: {},
-          });
-        });
+        await scoped(TENANT_ID, () =>
+          withEmit(undefined, async () => {
+            await emit({
+              tenantId: TENANT_ID,
+              aggregateType: 'test.persistence',
+              aggregateId: '00000000-0000-0000-0000-000000000002',
+              eventType: 'test.persistence.entity.created',
+              eventVersion: 1,
+              payload: {},
+            });
+          }),
+        );
 
         await waitFor(async () => {
           const rows = await db

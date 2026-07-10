@@ -87,8 +87,8 @@ if (lag.length > 0) {
   process.exit(1);
 }
 
-const outboxStore = createOutboxStore({ db: coreDb() });
-const configStore = createMailTransportConfigStore({ db: integrationsDb() });
+const outboxStore = createOutboxStore({ db: coreDb });
+const configStore = createMailTransportConfigStore({ db: integrationsDb });
 
 const mailerSendTask = createMailerSendTask({
   outboxStore,
