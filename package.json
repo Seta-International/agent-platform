@@ -26,6 +26,7 @@
     "db:down": "docker compose --profile bundled-db down",
     "db:migrate": "pnpm -F @seta/cli exec tsx src/index.ts migrate",
     "db:seed": "pnpm -F @seta/cli exec tsx src/index.ts seed",
+    "db:constitution": "DB_CONSTITUTION_UPDATE_BASELINE=1 pnpm --filter @seta/cli test db-constitution",
     "db:reset": "docker compose --profile bundled-db down -v && pnpm db:up && sleep 3 && pnpm db:migrate && pnpm db:seed",
     "smoke:login": "tsx apps/web/e2e/login.smoke.ts",
     "docker:build:server": "docker build -f infra/docker/server.Dockerfile -t seta-server:local .",
