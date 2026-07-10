@@ -11,7 +11,7 @@ import {
   listCloseReasons,
   listJdTemplates,
 } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -26,24 +26,28 @@ describe('admin config', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        await createJdTemplate({
-          input: {
-            name: 'Backend role',
-            kind: 'role',
-            sections: [{ variant: 'external', section: 'about', body: 'About' }],
-          },
-          session: t.adminSession,
-        });
-        const tpls = await listJdTemplates(t.adminSession);
+        await inScope(t.adminSession, () =>
+          createJdTemplate({
+            input: {
+              name: 'Backend role',
+              kind: 'role',
+              sections: [{ variant: 'external', section: 'about', body: 'About' }],
+            },
+            session: t.adminSession,
+          }),
+        );
+        const tpls = await inScope(t.adminSession, () => listJdTemplates(t.adminSession));
         expect(tpls[0]?.template.name).toBe('Backend role');
         expect(tpls[0]?.sections).toHaveLength(1);
 
-        const { id } = await createCloseReason({
-          input: { label: 'Position cancelled' },
-          session: t.adminSession,
-        });
-        await archiveCloseReason({ id, session: t.adminSession });
-        const reasons = await listCloseReasons(t.adminSession);
+        const { id } = await inScope(t.adminSession, () =>
+          createCloseReason({
+            input: { label: 'Position cancelled' },
+            session: t.adminSession,
+          }),
+        );
+        await inScope(t.adminSession, () => archiveCloseReason({ id, session: t.adminSession }));
+        const reasons = await inScope(t.adminSession, () => listCloseReasons(t.adminSession));
         expect(reasons.find((r) => r.id === id)?.active).toBe(false);
       } finally {
         resetHiringDb();
@@ -61,29 +65,37 @@ describe('admin config', () => {
       try {
         const a = await seedTenant(pool);
         const b = await seedTenant(pool);
-        const { template_id } = await createJdTemplate({
-          input: {
-            name: 'To delete',
-            kind: 'role',
-            sections: [{ variant: 'external', section: 'about', body: 'About' }],
-          },
-          session: a.adminSession,
-        });
+        const { template_id } = await inScope(a.adminSession, () =>
+          createJdTemplate({
+            input: {
+              name: 'To delete',
+              kind: 'role',
+              sections: [{ variant: 'external', section: 'about', body: 'About' }],
+            },
+            session: a.adminSession,
+          }),
+        );
 
         // another tenant cannot delete it
-        await expect(deleteJdTemplate({ template_id, session: b.adminSession })).rejects.toThrow(
-          'not found',
+        await expect(
+          inScope(b.adminSession, () => deleteJdTemplate({ template_id, session: b.adminSession })),
+        ).rejects.toThrow('not found');
+        expect(await inScope(a.adminSession, () => listJdTemplates(a.adminSession))).toHaveLength(
+          1,
         );
-        expect(await listJdTemplates(a.adminSession)).toHaveLength(1);
 
         // owner deletes it (template + its sections gone)
-        await deleteJdTemplate({ template_id, session: a.adminSession });
-        expect(await listJdTemplates(a.adminSession)).toHaveLength(0);
+        await inScope(a.adminSession, () =>
+          deleteJdTemplate({ template_id, session: a.adminSession }),
+        );
+        expect(await inScope(a.adminSession, () => listJdTemplates(a.adminSession))).toHaveLength(
+          0,
+        );
 
         // deleting again throws NOT_FOUND
-        await expect(deleteJdTemplate({ template_id, session: a.adminSession })).rejects.toThrow(
-          'not found',
-        );
+        await expect(
+          inScope(a.adminSession, () => deleteJdTemplate({ template_id, session: a.adminSession })),
+        ).rejects.toThrow('not found');
       } finally {
         resetHiringDb();
         resetCoreDb();

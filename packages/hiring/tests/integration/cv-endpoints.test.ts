@@ -12,7 +12,7 @@ import {
   requestCandidateCvUpload,
 } from '../../src/backend/domain/cv.ts';
 import { addCandidate, editCandidate, openRequisition } from '../../src/index.ts';
-import { type SeededTenant, seedTenant } from '../helpers.ts';
+import { inScope, type SeededTenant, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -69,15 +69,21 @@ describe('parseCandidateCvDraft', () => {
         ...t.adminSession,
         permissions: new Set([...t.adminSession.permissions, 'core.skill.manage']),
       };
-      const cat = await createSkillCategory({ input: { name: 'QA' }, session: catSession });
-      const skill = await createSkill({
-        input: { category_id: cat.id, name: 'Playwright' },
-        session: catSession,
-      });
+      const cat = await inScope(t.adminSession, () =>
+        createSkillCategory({ input: { name: 'QA' }, session: catSession }),
+      );
+      const skill = await inScope(t.adminSession, () =>
+        createSkill({
+          input: { category_id: cat.id, name: 'Playwright' },
+          session: catSession,
+        }),
+      );
 
-      const draft = await parseCandidateCvDraft(
-        { buffer: Buffer.from(CV_TEXT, 'utf-8'), filename: 'cv.txt', session: t.adminSession },
-        { resolveModel: () => mockModel() },
+      const draft = await inScope(t.adminSession, () =>
+        parseCandidateCvDraft(
+          { buffer: Buffer.from(CV_TEXT, 'utf-8'), filename: 'cv.txt', session: t.adminSession },
+          { resolveModel: () => mockModel() },
+        ),
       );
 
       expect(draft.name).toBe('Le Van D');
@@ -92,45 +98,57 @@ describe('parseCandidateCvDraft', () => {
 describe('candidate CV upload/download URLs', () => {
   it('presigns under hiring-cv; download 404s until editCandidate persists the key', () =>
     withDb(async ({ t }) => {
-      const { requisition_id } = await openRequisition({
-        title: 'QA Lead',
-        kind: 'new',
-        headcount: 1,
-        session: t.adminSession,
-      });
-      const { candidate_id } = await addCandidate({
-        requisition_id,
-        name: 'CV Candidate',
-        session: t.adminSession,
-      });
+      const { requisition_id } = await inScope(t.adminSession, () =>
+        openRequisition({
+          title: 'QA Lead',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        }),
+      );
+      const { candidate_id } = await inScope(t.adminSession, () =>
+        addCandidate({
+          requisition_id,
+          name: 'CV Candidate',
+          session: t.adminSession,
+        }),
+      );
 
       const presignUpload = async (args: { key: string }) => `https://s3.example/put/${args.key}`;
       const presignDownload = async (args: { key: string }) => `https://s3.example/get/${args.key}`;
 
-      const up = await requestCandidateCvUpload(
-        {
-          candidate_id,
-          filename: 'cv.docx',
-          content_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          session: t.adminSession,
-        },
-        { presignUpload: presignUpload as never },
+      const up = await inScope(t.adminSession, () =>
+        requestCandidateCvUpload(
+          {
+            candidate_id,
+            filename: 'cv.docx',
+            content_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            session: t.adminSession,
+          },
+          { presignUpload: presignUpload as never },
+        ),
       );
       expect(up.s3_key).toBe(`tenants/${t.tenant_id}/hiring-cv/${candidate_id}/cv.docx`);
 
       await expect(
-        candidateCvDownloadUrl({ candidate_id, session: t.adminSession }),
+        inScope(t.adminSession, () =>
+          candidateCvDownloadUrl({ candidate_id, session: t.adminSession }),
+        ),
       ).rejects.toMatchObject({ code: 'NOT_FOUND' });
 
-      await editCandidate({
-        candidate_id,
-        patch: { cv_storage_key: up.s3_key },
-        session: t.adminSession,
-      });
+      await inScope(t.adminSession, () =>
+        editCandidate({
+          candidate_id,
+          patch: { cv_storage_key: up.s3_key },
+          session: t.adminSession,
+        }),
+      );
 
-      const dl = await candidateCvDownloadUrl(
-        { candidate_id, session: t.adminSession },
-        { presignDownload: presignDownload as never },
+      const dl = await inScope(t.adminSession, () =>
+        candidateCvDownloadUrl(
+          { candidate_id, session: t.adminSession },
+          { presignDownload: presignDownload as never },
+        ),
       );
       expect(dl.download_url).toBe(`https://s3.example/get/${up.s3_key}`);
     }));

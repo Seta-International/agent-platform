@@ -13,7 +13,7 @@ import {
   openRequisition,
   resumeRequisition,
 } from '../../src/index.ts';
-import { countEvents, seedTenant } from '../helpers.ts';
+import { countEvents, inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -28,43 +28,55 @@ describe('requisition lifecycle', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'L',
-          kind: 'new',
-          headcount: 2,
-          session: t.adminSession,
-        });
-        const h = await holdRequisition({ requisition_id, session: t.adminSession });
-        let [r] = await hiringDb()
-          .select()
-          .from(requisition)
-          .where(eq(requisition.id, requisition_id));
+        const { requisition_id } = await inScope(t.adminSession, () =>
+          openRequisition({
+            title: 'L',
+            kind: 'new',
+            headcount: 2,
+            session: t.adminSession,
+          }),
+        );
+        const h = await inScope(t.adminSession, () =>
+          holdRequisition({ requisition_id, session: t.adminSession }),
+        );
+        let [r] = await inScope(t.adminSession, () =>
+          hiringDb().select().from(requisition).where(eq(requisition.id, requisition_id)),
+        );
         expect(r?.status).toBe('on_hold');
-        await resumeRequisition({
-          requisition_id,
-          expected_version: h.version,
-          session: t.adminSession,
-        });
-        [r] = await hiringDb().select().from(requisition).where(eq(requisition.id, requisition_id));
+        await inScope(t.adminSession, () =>
+          resumeRequisition({
+            requisition_id,
+            expected_version: h.version,
+            session: t.adminSession,
+          }),
+        );
+        [r] = await inScope(t.adminSession, () =>
+          hiringDb().select().from(requisition).where(eq(requisition.id, requisition_id)),
+        );
         expect(r?.status).toBe('open');
-        const { id: reason_id } = await createCloseReason({
-          input: { label: 'No longer needed' },
-          session: t.adminSession,
-        });
-        await closeRequisition({
-          requisition_id,
-          status: 'cancelled',
-          close_reason_id: reason_id,
-          session: t.adminSession,
-        });
-        [r] = await hiringDb().select().from(requisition).where(eq(requisition.id, requisition_id));
+        const { id: reason_id } = await inScope(t.adminSession, () =>
+          createCloseReason({
+            input: { label: 'No longer needed' },
+            session: t.adminSession,
+          }),
+        );
+        await inScope(t.adminSession, () =>
+          closeRequisition({
+            requisition_id,
+            status: 'cancelled',
+            close_reason_id: reason_id,
+            session: t.adminSession,
+          }),
+        );
+        [r] = await inScope(t.adminSession, () =>
+          hiringDb().select().from(requisition).where(eq(requisition.id, requisition_id)),
+        );
         expect(r?.status).toBe('cancelled');
         expect(r?.closed_at).not.toBeNull();
         expect(r?.close_reason_id).toBe(reason_id);
-        const ops = await hiringDb()
-          .select()
-          .from(opening)
-          .where(eq(opening.requisition_id, requisition_id));
+        const ops = await inScope(t.adminSession, () =>
+          hiringDb().select().from(opening).where(eq(opening.requisition_id, requisition_id)),
+        );
         expect(ops.every((o) => o.status === 'cancelled')).toBe(true);
         expect(await countEvents(pool, t.tenant_id, 'hiring.requisition.closed')).toBe(1);
       } finally {
@@ -83,35 +95,45 @@ describe('requisition lifecycle', () => {
       try {
         const t = await seedTenant(pool);
         const other = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'M',
-          kind: 'new',
-          headcount: 1,
-          session: t.adminSession,
-        });
-        await expect(
-          closeRequisition({ requisition_id, status: 'cancelled', session: t.adminSession }),
-        ).rejects.toThrow('close_reason_id is required');
-
-        const { id: otherTenantReasonId } = await createCloseReason({
-          input: { label: 'Other tenant reason' },
-          session: other.adminSession,
-        });
-        await expect(
-          closeRequisition({
-            requisition_id,
-            status: 'cancelled',
-            close_reason_id: otherTenantReasonId,
+        const { requisition_id } = await inScope(t.adminSession, () =>
+          openRequisition({
+            title: 'M',
+            kind: 'new',
+            headcount: 1,
             session: t.adminSession,
           }),
+        );
+        await expect(
+          inScope(t.adminSession, () =>
+            closeRequisition({ requisition_id, status: 'cancelled', session: t.adminSession }),
+          ),
+        ).rejects.toThrow('close_reason_id is required');
+
+        const { id: otherTenantReasonId } = await inScope(other.adminSession, () =>
+          createCloseReason({
+            input: { label: 'Other tenant reason' },
+            session: other.adminSession,
+          }),
+        );
+        await expect(
+          inScope(t.adminSession, () =>
+            closeRequisition({
+              requisition_id,
+              status: 'cancelled',
+              close_reason_id: otherTenantReasonId,
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow('unknown close reason');
 
         // Filling never needs a reason.
-        const filled = await closeRequisition({
-          requisition_id,
-          status: 'filled',
-          session: t.adminSession,
-        });
+        const filled = await inScope(t.adminSession, () =>
+          closeRequisition({
+            requisition_id,
+            status: 'filled',
+            session: t.adminSession,
+          }),
+        );
         expect(filled.version).toBe(2);
       } finally {
         resetHiringDb();

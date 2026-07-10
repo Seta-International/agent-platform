@@ -13,7 +13,7 @@ import {
   openRequisition,
   rejectApplication,
 } from '../../src/index.ts';
-import { readEvents, seedTenant } from '../helpers.ts';
+import { inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -28,37 +28,39 @@ describe('rejectApplication', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'R',
-          kind: 'new',
-          headcount: 1,
-          session: t.adminSession,
-        });
-        const { application_id } = await addCandidate({
-          requisition_id,
-          name: 'C',
-          session: t.adminSession,
-        });
-        const reason = await createRejectionReason({
-          input: { label: 'Lacking skills', category: 'rejected_by_us' },
-          session: t.adminSession,
-        });
+        await inScope(t.adminSession, async () => {
+          const { requisition_id } = await openRequisition({
+            title: 'R',
+            kind: 'new',
+            headcount: 1,
+            session: t.adminSession,
+          });
+          const { application_id } = await addCandidate({
+            requisition_id,
+            name: 'C',
+            session: t.adminSession,
+          });
+          const reason = await createRejectionReason({
+            input: { label: 'Lacking skills', category: 'rejected_by_us' },
+            session: t.adminSession,
+          });
 
-        await rejectApplication({
-          application_id,
-          expected_version: 1,
-          input: { reason_id: reason.id, tags: ['junior', 'no-react'] },
-          session: t.adminSession,
-        });
+          await rejectApplication({
+            application_id,
+            expected_version: 1,
+            input: { reason_id: reason.id, tags: ['junior', 'no-react'] },
+            session: t.adminSession,
+          });
 
-        const [app] = await hiringDb()
-          .select()
-          .from(application)
-          .where(eq(application.id, application_id));
-        expect(app?.status).toBe('rejected');
-        expect(app?.rejection_reason_id).toBe(reason.id);
-        expect(app?.tags).toEqual(['junior', 'no-react']);
-        expect(app?.closed_at).not.toBeNull();
+          const [app] = await hiringDb()
+            .select()
+            .from(application)
+            .where(eq(application.id, application_id));
+          expect(app?.status).toBe('rejected');
+          expect(app?.rejection_reason_id).toBe(reason.id);
+          expect(app?.tags).toEqual(['junior', 'no-react']);
+          expect(app?.closed_at).not.toBeNull();
+        });
 
         const evts = await readEvents(pool, t.tenant_id, 'hiring.application.rejected');
         expect(evts[0]?.payload.category).toBe('rejected_by_us');
@@ -77,30 +79,32 @@ describe('rejectApplication', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'R',
-          kind: 'new',
-          headcount: 1,
-          session: t.adminSession,
-        });
-        const { application_id } = await addCandidate({
-          requisition_id,
-          name: 'C',
-          session: t.adminSession,
-        });
-        const reason = await createRejectionReason({
-          input: { label: 'Overqualified', category: 'other' },
-          session: t.adminSession,
-        });
-
-        await expect(
-          rejectApplication({
-            application_id,
-            expected_version: 99,
-            input: { reason_id: reason.id, tags: [] },
+        await inScope(t.adminSession, async () => {
+          const { requisition_id } = await openRequisition({
+            title: 'R',
+            kind: 'new',
+            headcount: 1,
             session: t.adminSession,
-          }),
-        ).rejects.toThrow(/version/i);
+          });
+          const { application_id } = await addCandidate({
+            requisition_id,
+            name: 'C',
+            session: t.adminSession,
+          });
+          const reason = await createRejectionReason({
+            input: { label: 'Overqualified', category: 'other' },
+            session: t.adminSession,
+          });
+
+          await expect(
+            rejectApplication({
+              application_id,
+              expected_version: 99,
+              input: { reason_id: reason.id, tags: [] },
+              session: t.adminSession,
+            }),
+          ).rejects.toThrow(/version/i);
+        });
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -116,20 +120,23 @@ describe('rejectApplication', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'R',
-          kind: 'new',
-          headcount: 1,
-          session: t.adminSession,
-        });
-        const { application_id } = await addCandidate({
-          requisition_id,
-          name: 'C',
-          session: t.adminSession,
-        });
-        const reason = await createRejectionReason({
-          input: { label: 'Already closed', category: 'withdrew' },
-          session: t.adminSession,
+        const { application_id, reason } = await inScope(t.adminSession, async () => {
+          const { requisition_id } = await openRequisition({
+            title: 'R',
+            kind: 'new',
+            headcount: 1,
+            session: t.adminSession,
+          });
+          const { application_id } = await addCandidate({
+            requisition_id,
+            name: 'C',
+            session: t.adminSession,
+          });
+          const reason = await createRejectionReason({
+            input: { label: 'Already closed', category: 'withdrew' },
+            session: t.adminSession,
+          });
+          return { application_id, reason };
         });
 
         // Force terminal status
@@ -139,12 +146,14 @@ describe('rejectApplication', () => {
         );
 
         await expect(
-          rejectApplication({
-            application_id,
-            expected_version: 2,
-            input: { reason_id: reason.id, tags: [] },
-            session: t.adminSession,
-          }),
+          inScope(t.adminSession, () =>
+            rejectApplication({
+              application_id,
+              expected_version: 2,
+              input: { reason_id: reason.id, tags: [] },
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow(/active/i);
       } finally {
         resetHiringDb();
@@ -161,25 +170,27 @@ describe('rejectApplication', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'R',
-          kind: 'new',
-          headcount: 1,
-          session: t.adminSession,
-        });
-        const { application_id } = await addCandidate({
-          requisition_id,
-          name: 'C',
-          session: t.adminSession,
-        });
-
-        await expect(
-          rejectApplication({
-            application_id,
-            input: { reason_id: crypto.randomUUID(), tags: [] },
+        await inScope(t.adminSession, async () => {
+          const { requisition_id } = await openRequisition({
+            title: 'R',
+            kind: 'new',
+            headcount: 1,
             session: t.adminSession,
-          }),
-        ).rejects.toMatchObject({ code: 'VALIDATION' });
+          });
+          const { application_id } = await addCandidate({
+            requisition_id,
+            name: 'C',
+            session: t.adminSession,
+          });
+
+          await expect(
+            rejectApplication({
+              application_id,
+              input: { reason_id: crypto.randomUUID(), tags: [] },
+              session: t.adminSession,
+            }),
+          ).rejects.toMatchObject({ code: 'VALIDATION' });
+        });
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -198,25 +209,27 @@ describe('rejection-reason admin', () => {
       try {
         const t = await seedTenant(pool);
 
-        const { id } = await createRejectionReason({
-          input: { label: 'Not a culture fit', category: 'rejected_by_us' },
-          session: t.adminSession,
+        await inScope(t.adminSession, async () => {
+          const { id } = await createRejectionReason({
+            input: { label: 'Not a culture fit', category: 'rejected_by_us' },
+            session: t.adminSession,
+          });
+
+          const list = await listRejectionReasons(t.adminSession);
+          expect(list.find((r) => r.id === id)?.active).toBe(true);
+
+          // Stale version archive throws CONFLICT
+          await expect(
+            archiveRejectionReason({ id, expected_version: 99, session: t.adminSession }),
+          ).rejects.toThrow(/version/i);
+
+          // Archive succeeds
+          const { version } = await archiveRejectionReason({ id, session: t.adminSession });
+          expect(version).toBe(2);
+
+          const list2 = await listRejectionReasons(t.adminSession);
+          expect(list2.find((r) => r.id === id)?.active).toBe(false);
         });
-
-        const list = await listRejectionReasons(t.adminSession);
-        expect(list.find((r) => r.id === id)?.active).toBe(true);
-
-        // Stale version archive throws CONFLICT
-        await expect(
-          archiveRejectionReason({ id, expected_version: 99, session: t.adminSession }),
-        ).rejects.toThrow(/version/i);
-
-        // Archive succeeds
-        const { version } = await archiveRejectionReason({ id, session: t.adminSession });
-        expect(version).toBe(2);
-
-        const list2 = await listRejectionReasons(t.adminSession);
-        expect(list2.find((r) => r.id === id)?.active).toBe(false);
       } finally {
         resetHiringDb();
         resetCoreDb();
