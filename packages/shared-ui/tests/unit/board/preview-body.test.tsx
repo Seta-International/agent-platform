@@ -66,4 +66,18 @@ describe('PreviewBody', () => {
     expect(queryByText('PR opened')).not.toBeInTheDocument();
     expect(getByText('2 of 5')).toBeInTheDocument();
   });
+
+  it('checklist body uses checklist_summary total and checked if provided', () => {
+    const t = {
+      ...baseTask,
+      checklist: baseTask.checklist?.slice(0, 3),
+      checklist_summary: { total: 5, checked: 2 },
+    };
+    const { getByText, queryByText } = render(<PreviewBody task={t} variant="checklist" />);
+    expect(getByText('Draft cache key schema')).toBeInTheDocument();
+    expect(getByText('Architecture review')).toBeInTheDocument();
+    expect(getByText('SSE invalidation test')).toBeInTheDocument();
+    expect(queryByText('PR opened')).not.toBeInTheDocument();
+    expect(getByText('2 of 5')).toBeInTheDocument();
+  });
 });
