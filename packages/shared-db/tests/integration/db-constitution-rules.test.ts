@@ -40,15 +40,15 @@ const COMPLIANT_TABLE = `
 
 describe('rls-enabled-forced', () => {
   it('fires on a tenant table with RLS off', async () => {
-    const v = await fresh(
-      `CREATE TABLE ${SCHEMA}.t (id uuid PRIMARY KEY, tenant_id uuid NOT NULL)`,
-    );
-    expect(rules(v, `${SCHEMA}.t`)).toContain('rls-enabled-forced');
+    const v = await fresh(`CREATE TABLE ${SCHEMA}.t (id uuid PRIMARY KEY, tenant_id uuid NOT NULL);
+      GRANT SELECT, INSERT, UPDATE, DELETE ON ${SCHEMA}.t TO seta_app;`);
+    expect(rules(v, `${SCHEMA}.t`)).toEqual(['rls-enabled-forced']);
   });
   it('fires on a tenant table with RLS enabled but not forced', async () => {
     const v = await fresh(`CREATE TABLE ${SCHEMA}.t (id uuid PRIMARY KEY, tenant_id uuid NOT NULL);
-                           ALTER TABLE ${SCHEMA}.t ENABLE ROW LEVEL SECURITY;`);
-    expect(rules(v, `${SCHEMA}.t`)).toContain('rls-enabled-forced');
+      ALTER TABLE ${SCHEMA}.t ENABLE ROW LEVEL SECURITY;
+      GRANT SELECT, INSERT, UPDATE, DELETE ON ${SCHEMA}.t TO seta_app;`);
+    expect(rules(v, `${SCHEMA}.t`)).toEqual(['rls-enabled-forced']);
   });
   it('is silent when enabled and forced', async () => {
     // A table with only RLS enabled+forced still lacks seta_app grants, which

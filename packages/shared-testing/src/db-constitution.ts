@@ -281,7 +281,9 @@ export async function collectViolations(pool: Pool, opts: ConstitutionOpts): Pro
     appRoleNoCreate(pool, opts.schemas, appRole),
     noCrossSchemaFk(pool, opts.schemas),
   ]);
-  return results
-    .flat()
-    .sort((a, b) => a.rule.localeCompare(b.rule) || a.object.localeCompare(b.object));
+  // Byte order, not localeCompare: `object` is the baseline's join key, and ICU collation
+  // orders `.` `:` `::` differently across versions — a baseline generated on one machine
+  // would reorder on another.
+  const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  return results.flat().sort((a, b) => cmp(a.rule, b.rule) || cmp(a.object, b.object));
 }
