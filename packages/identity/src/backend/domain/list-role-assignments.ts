@@ -1,4 +1,5 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import type { SessionScope } from '@seta/core';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import {
   accessGroup,
@@ -65,4 +66,34 @@ export async function listUserGroupIds(userId: string): Promise<string[]> {
     .from(accessGroupMembership)
     .where(eq(accessGroupMembership.user_id, userId));
   return rows.map((r) => r.group_id);
+}
+
+/**
+ * Batch role-slug lookup for a set of users in one tenant — API composition for callers
+ * (e.g. the People directory) that need role summaries for a page of users without
+ * looping single-user calls or joining across schemas.
+ */
+export async function listRolesForUsers(
+  session: SessionScope,
+  userIds: string[],
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (userIds.length === 0) return map;
+  const rows = await identityDb()
+    .select({ user_id: roleAssignments.user_id, role_slug: roleAssignments.role_slug })
+    .from(roleAssignments)
+    .innerJoin(user, eq(user.id, roleAssignments.user_id))
+    .where(
+      and(
+        eq(user.tenant_id, session.tenant_id),
+        isNull(roleAssignments.revoked_at),
+        inArray(roleAssignments.user_id, userIds),
+      ),
+    );
+  for (const r of rows) {
+    const existing = map.get(r.user_id) ?? [];
+    existing.push(r.role_slug);
+    map.set(r.user_id, existing);
+  }
+  return map;
 }

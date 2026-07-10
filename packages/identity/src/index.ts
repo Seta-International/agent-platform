@@ -38,6 +38,7 @@ export { grantRole } from './backend/domain/grant-role.ts';
 export {
   addGroupMembers,
   listGroupMembers,
+  listGroupNamesForUsers,
   listUserGroups,
   removeGroupMember,
 } from './backend/domain/group-membership.ts';
@@ -57,15 +58,17 @@ export type {
   LinkSsoAccountResult,
 } from './backend/domain/link-sso-account.ts';
 export { linkSsoAccount } from './backend/domain/link-sso-account.ts';
-export type { DirectoryRow } from './backend/domain/list-directory.ts';
-export { listDirectory } from './backend/domain/list-directory.ts';
 export type { EntraImportableUser } from './backend/domain/list-entra-importable-users.ts';
 export { listEntraImportableUsers } from './backend/domain/list-entra-importable-users.ts';
 export { listMyEffectivePermissions } from './backend/domain/list-my-effective-permissions.ts';
 export type { OrgUnitRow } from './backend/domain/list-org-units.ts';
 export { listOrgUnits } from './backend/domain/list-org-units.ts';
 export type { ActiveAssignment } from './backend/domain/list-role-assignments.ts';
-export { listRoleAssignments, listUserGroupIds } from './backend/domain/list-role-assignments.ts';
+export {
+  listRoleAssignments,
+  listRolesForUsers,
+  listUserGroupIds,
+} from './backend/domain/list-role-assignments.ts';
 export { listSsoProviders } from './backend/domain/list-sso-providers.ts';
 export { listTenantRoleOverlays } from './backend/domain/list-tenant-role-overlays.ts';
 export type {

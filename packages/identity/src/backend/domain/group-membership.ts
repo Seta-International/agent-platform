@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { invalidateUserSessions } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { identityDb } from '../db/index.ts';
 import { accessGroup, accessGroupMembership } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
@@ -111,4 +111,34 @@ export async function listUserGroups(
     .where(
       and(eq(accessGroupMembership.user_id, user_id), eq(accessGroup.tenant_id, session.tenant_id)),
     );
+}
+
+/**
+ * Batch group-name lookup for a set of users in one tenant — API composition for callers
+ * (e.g. the People directory) that need group summaries for a page of users without
+ * looping single-user calls or joining across schemas.
+ */
+export async function listGroupNamesForUsers(
+  session: SessionScope,
+  userIds: string[],
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (userIds.length === 0) return map;
+  const rows = await identityDb()
+    .select({ user_id: accessGroupMembership.user_id, name: accessGroup.name })
+    .from(accessGroupMembership)
+    .innerJoin(accessGroup, eq(accessGroup.id, accessGroupMembership.group_id))
+    .where(
+      and(
+        eq(accessGroup.tenant_id, session.tenant_id),
+        inArray(accessGroupMembership.user_id, userIds),
+      ),
+    )
+    .orderBy(accessGroup.name);
+  for (const r of rows) {
+    const existing = map.get(r.user_id) ?? [];
+    existing.push(r.name);
+    map.set(r.user_id, existing);
+  }
+  return map;
 }
