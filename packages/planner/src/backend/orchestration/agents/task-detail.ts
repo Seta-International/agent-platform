@@ -2,7 +2,11 @@ import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
 import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
-import { plannerGetTaskTool, plannerListCommentsTool } from '@seta/planner/agent-tools';
+import {
+  plannerGetTaskTool,
+  plannerListCommentsTool,
+  plannerQueryTasksTool,
+} from '@seta/planner/agent-tools';
 import { pickModel } from '../model.ts';
 import {
   type QnaSubAgentInput as In,
@@ -11,7 +15,11 @@ import {
   QnaSubAgentOutputSchema,
 } from '../schemas.ts';
 
-export const TASK_DETAIL_TOOL_IDS = ['planner_getTask', 'planner_listComments'] as const;
+export const TASK_DETAIL_TOOL_IDS = [
+  'planner_getTask',
+  'planner_listComments',
+  'planner_queryTasks',
+] as const;
 
 export interface QnaTaskDetailDeps {
   resolveModel: () => MastraModelConfig;
@@ -20,15 +28,28 @@ export interface QnaTaskDetailDeps {
 
 const INSTRUCTIONS = `You answer questions about ONE known task in prose.
 The task is identified by a UUID in the user's message (often inside a
-"[Context: planner.task#<id>]" prefix) or named explicitly.
+"[Context: planner.task#<id>]" prefix), an ordinal ("#1", "the first one"),
+or by its title/name.
 
 Tools:
-- planner_getTask: the task with assignees, labels, checklist, references, due date.
+- planner_getTask: fetch full task details by taskRef (UUID or ordinal). This is
+  your primary tool — call it whenever you have a task id or ordinal.
+- planner_queryTasks: use ONLY when the user references a task by name/title
+  instead of UUID. Call with titleContains + status:"any", take the matching
+  task's taskId, then call planner_getTask with that taskId.
+  Do NOT use for listing or filtering — you are a single-task detail agent.
 - planner_listComments: the task's discussion thread (only when comments are asked about).
 
-Call planner_getTask first to ground every answer in the live record. Call
+Workflow:
+1. UUID or ordinal available → planner_getTask directly.
+2. Only a task name/title → planner_queryTasks(titleContains: "<name>", status: "any")
+   → pick the best match → planner_getTask(taskRef: "<taskId>").
+3. Multiple matches from queryTasks → ask the user which one they mean.
+4. No matches → tell the user no task with that name was found.
+
+Call planner_getTask to ground every answer in the live record. Call
 planner_listComments only if the user asks about comments/discussion. If no task
-id is present and none can be derived, ask the user which task they mean — do not
+can be identified and no name is given, ask the user which task they mean — do not
 guess. Read-only: never claim to have changed anything.`;
 
 export function makeQnaTaskDetailAgent(deps: QnaTaskDetailDeps): SpecializedAgentSpec<In, Out> {
@@ -54,6 +75,7 @@ export function makeQnaTaskDetailAgent(deps: QnaTaskDetailDeps): SpecializedAgen
               tools: {
                 planner_getTask: plannerGetTaskTool,
                 planner_listComments: plannerListCommentsTool,
+                planner_queryTasks: plannerQueryTasksTool,
               } as never,
             });
             const r = await agent.generate(input.query, {

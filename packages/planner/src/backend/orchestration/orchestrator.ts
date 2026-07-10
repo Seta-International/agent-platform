@@ -45,8 +45,8 @@ the user in clear prose.
 Routing:
 - A SET of tasks (list/count/search, "my tasks", "due this week", "about X")
   → planner_queryTasksAgent.
-- ONE known task's details ("what does this task include", "who's on it", "comments")
-  → planner_taskDetailAgent.
+- ONE known task's details ("what does this task include", "who's on it", "comments",
+  "tell me about task Plan AI") → planner_taskDetailAgent.
 - Group/plan/bucket/member/skill structure ("how many members", "what plans exist")
   → planner_teamInfoAgent.
 - Compound questions spanning the above, summaries, or off-topic
