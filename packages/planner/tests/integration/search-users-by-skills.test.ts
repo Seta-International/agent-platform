@@ -8,7 +8,7 @@ import { addGroupMember, createGroup, searchUsersBySkills } from '../../src/inde
 import { buildSession, seedTenant } from '../helpers.ts';
 
 // searchUsersBySkills reads live skills from People (getPersonSkills joins
-// person_skill → person on person.user_id). Seed a People person + skills.
+// person_skill → user_projection on the user↔person link). Seed a People person + skills.
 async function seedPeopleSkills(
   pool: Pool,
   tenantId: string,
@@ -16,11 +16,14 @@ async function seedPeopleSkills(
   skillNames: string[],
 ): Promise<void> {
   const personId = crypto.randomUUID();
-  await pool.query(`INSERT INTO people.person (id, tenant_id, user_id) VALUES ($1, $2, $3)`, [
+  await pool.query(`INSERT INTO people.person (id, tenant_id) VALUES ($1, $2)`, [
     personId,
     tenantId,
-    userId,
   ]);
+  await pool.query(
+    `INSERT INTO people.user_projection (user_id, tenant_id, person_id) VALUES ($1, $2, $3)`,
+    [userId, tenantId, personId],
+  );
   for (const name of skillNames) {
     await pool.query(
       `INSERT INTO people.person_skill (id, tenant_id, person_id, skill_id, skill_name)

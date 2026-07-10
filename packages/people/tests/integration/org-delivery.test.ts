@@ -1,27 +1,25 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
   accountProjection,
-  person,
   projectProjection,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { getOrgDelivery } from '../../src/backend/domain/org-structure.ts';
-import { buildSession, type SeededTenant, seedTenant } from '../helpers.ts';
+import { buildSession, linkUserToPerson, type SeededTenant, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
   baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
 
-async function personaUserId(personId: string): Promise<string> {
+async function personaUserId(tenantId: string, personId: string): Promise<string> {
   const userId = crypto.randomUUID();
-  await peopleDb().update(person).set({ user_id: userId }).where(eq(person.id, personId));
+  await linkUserToPerson(tenantId, personId, userId);
   return userId;
 }
 
@@ -53,7 +51,7 @@ async function buildDelivery(pool: import('pg').Pool): Promise<DeliveryGraph> {
     session: t.adminSession,
     full_name: 'Member Name',
   } as never);
-  const amUser = await personaUserId(am);
+  const amUser = await personaUserId(t.tenant_id, am);
 
   const accountA = crypto.randomUUID();
   const projectId = crypto.randomUUID();
@@ -123,7 +121,7 @@ describe('getOrgDelivery', () => {
           session: g.t.adminSession,
           full_name: 'Stranger',
         } as never);
-        const strangerUser = await personaUserId(stranger);
+        const strangerUser = await personaUserId(g.t.tenant_id, stranger);
 
         const { accounts } = await getOrgDelivery(viewer(g.t, strangerUser));
         expect(accounts.find((a) => a.account_id === g.accountA)).toBeDefined();

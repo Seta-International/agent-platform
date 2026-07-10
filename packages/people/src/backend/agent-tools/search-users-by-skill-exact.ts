@@ -1,10 +1,10 @@
 import type { CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import { canonicalizeSkills } from '@seta/core';
 import { withTenantTx } from '@seta/shared-db';
-import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { peopleDb } from '../db/client.ts';
-import { person, personSkill } from '../db/schema.ts';
+import { personSkill, userProjection } from '../db/schema.ts';
 
 const inputSchema = z.object({
   labels: z
@@ -62,13 +62,12 @@ export function buildSearchUsersBySkillExactSpec(): CrossModuleReadToolSpec<
       // return zero rows without app.tenant_id.
       const rows = await withTenantTx(peopleDb(), session.tenant_id, (tx) =>
         tx
-          .select({ user_id: person.user_id, skill_name: personSkill.skill_name })
+          .select({ user_id: userProjection.user_id, skill_name: personSkill.skill_name })
           .from(personSkill)
-          .innerJoin(person, eq(person.id, personSkill.person_id))
+          .innerJoin(userProjection, eq(userProjection.person_id, personSkill.person_id))
           .where(
             and(
               eq(personSkill.tenant_id, session.tenant_id),
-              isNotNull(person.user_id),
               inArray(personSkill.skill_id, skillIds),
             ),
           ),
@@ -77,7 +76,6 @@ export function buildSearchUsersBySkillExactSpec(): CrossModuleReadToolSpec<
       // Group by user → distinct matched skills (original casing) + overlap count.
       const byUser = new Map<string, Set<string>>();
       for (const row of rows) {
-        if (!row.user_id) continue;
         let set = byUser.get(row.user_id);
         if (!set) {
           set = new Set<string>();

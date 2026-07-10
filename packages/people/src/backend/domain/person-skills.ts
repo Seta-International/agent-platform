@@ -4,18 +4,18 @@ import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { person, personSkill } from '../db/schema.ts';
+import { personSkill, userProjection } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { resolveSelfPersonId } from './self.ts';
 
-// Ungated skill-name read (callers gate). Joins person_skill → person on the
+// Ungated skill-name read (callers gate). Joins person_skill → user_projection on the
 // user↔person link so a user_id resolves to their catalog skill names.
 export async function fetchPersonSkillNames(tenantId: string, userId: string): Promise<string[]> {
   const rows = await peopleDb()
     .select({ skill_name: personSkill.skill_name })
     .from(personSkill)
-    .innerJoin(person, eq(person.id, personSkill.person_id))
-    .where(and(eq(personSkill.tenant_id, tenantId), eq(person.user_id, userId)))
+    .innerJoin(userProjection, eq(userProjection.person_id, personSkill.person_id))
+    .where(and(eq(personSkill.tenant_id, tenantId), eq(userProjection.user_id, userId)))
     .orderBy(personSkill.skill_name);
   return rows.map((r) => r.skill_name);
 }
@@ -32,8 +32,8 @@ export async function fetchPersonSkills(tenantId: string, userId: string): Promi
   return peopleDb()
     .select({ id: personSkill.skill_id, name: personSkill.skill_name, level: personSkill.level })
     .from(personSkill)
-    .innerJoin(person, eq(person.id, personSkill.person_id))
-    .where(and(eq(personSkill.tenant_id, tenantId), eq(person.user_id, userId)))
+    .innerJoin(userProjection, eq(userProjection.person_id, personSkill.person_id))
+    .where(and(eq(personSkill.tenant_id, tenantId), eq(userProjection.user_id, userId)))
     .orderBy(personSkill.skill_name);
 }
 

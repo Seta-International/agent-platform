@@ -147,11 +147,14 @@ describe('assignment orchestration adapters (real DB)', () => {
       );
       // Presence lives on people.worker now; link a worker to the user with a known status.
       const personId = randomUUID();
-      await pool.query(`INSERT INTO people.person (id, tenant_id, user_id) VALUES ($1, $2, $3)`, [
+      await pool.query(`INSERT INTO people.person (id, tenant_id) VALUES ($1, $2)`, [
         personId,
         tenantId,
-        u.user_id,
       ]);
+      await pool.query(
+        `INSERT INTO people.user_projection (user_id, tenant_id, person_id) VALUES ($1, $2, $3)`,
+        [u.user_id, tenantId, personId],
+      );
       await pool.query(
         `INSERT INTO people.worker (id, tenant_id, person_id, full_name, availability_status)
          VALUES (gen_random_uuid(), $1, $2, 'Busy Bee', 'busy')`,

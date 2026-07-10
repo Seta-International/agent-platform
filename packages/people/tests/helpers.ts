@@ -9,7 +9,7 @@ import {
 } from '@seta/shared-rbac';
 import type { Pool } from 'pg';
 import { peopleDb } from '../src/backend/db/client.ts';
-import { type ORG_UNIT_KINDS, orgUnit, person } from '../src/backend/db/schema.ts';
+import { type ORG_UNIT_KINDS, orgUnit, person, userProjection } from '../src/backend/db/schema.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 function permsFor(roles: string[]): ReadonlySet<string> {
@@ -114,6 +114,15 @@ export async function seedPersons(tenant_id: string, ...person_ids: string[]): P
   await peopleDb()
     .insert(person)
     .values(person_ids.map((id) => ({ id, tenant_id })));
+}
+
+/** Fixture-only: bind a person to a user_id via user_projection (the canonical link). */
+export async function linkUserToPerson(
+  tenant_id: string,
+  person_id: string,
+  user_id: string,
+): Promise<void> {
+  await peopleDb().insert(userProjection).values({ tenant_id, person_id, user_id });
 }
 
 export async function seedOrgUnit(opts: {

@@ -1,7 +1,7 @@
 import { runRequestTenant } from '@seta/shared-db';
 import { and, eq, isNull } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { person, worker } from '../db/schema.ts';
+import { userProjection, worker } from '../db/schema.ts';
 
 // Called during session-scope resolution, BEFORE the request's tenant GUC is bound
 // (apps/server wires resolveWorkerId ahead of its runRequestTenant middleware), so it
@@ -13,9 +13,13 @@ export function getWorkerIdForUser(userId: string, tenantId: string): Promise<st
     const [row] = await peopleDb()
       .select({ worker_id: worker.person_id })
       .from(worker)
-      .innerJoin(person, eq(person.id, worker.person_id))
+      .innerJoin(userProjection, eq(userProjection.person_id, worker.person_id))
       .where(
-        and(eq(person.user_id, userId), eq(worker.tenant_id, tenantId), isNull(worker.deleted_at)),
+        and(
+          eq(userProjection.user_id, userId),
+          eq(worker.tenant_id, tenantId),
+          isNull(worker.deleted_at),
+        ),
       )
       .limit(1);
     return row?.worker_id ?? null;

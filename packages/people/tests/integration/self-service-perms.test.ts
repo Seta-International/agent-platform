@@ -2,20 +2,18 @@ import type { SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { person } from '../../src/backend/db/schema.ts';
+import { resetPeopleDb } from '../../src/backend/db/client.ts';
 import { provisionWorker, readMyProfile, setBio } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { linkUserToPerson, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
   baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
 
-async function linkSelf(workerId: string, userId: string): Promise<void> {
-  await peopleDb().update(person).set({ user_id: userId }).where(eq(person.id, workerId));
+async function linkSelf(tenantId: string, workerId: string, userId: string): Promise<void> {
+  await linkUserToPerson(tenantId, workerId, userId);
 }
 
 function narrowSession(base: SessionScope, perms: string[]): SessionScope {
@@ -36,7 +34,7 @@ describe('self-service /me uses people.self.* (not people.worker.read)', () => {
           employment_type: 'full_time',
           session: t.adminSession,
         });
-        await linkSelf(worker_id, t.admin_user_id);
+        await linkSelf(t.tenant_id, worker_id, t.admin_user_id);
 
         const selfReadSession = narrowSession(t.adminSession, ['people.self.read']);
         await expect(readMyProfile(selfReadSession)).resolves.toBeDefined();
@@ -61,7 +59,7 @@ describe('self-service /me uses people.self.* (not people.worker.read)', () => {
           employment_type: 'full_time',
           session: t.adminSession,
         });
-        await linkSelf(worker_id, t.admin_user_id);
+        await linkSelf(t.tenant_id, worker_id, t.admin_user_id);
 
         const emptySession = narrowSession(t.adminSession, []);
         await expect(readMyProfile(emptySession)).rejects.toThrow();
@@ -86,7 +84,7 @@ describe('self-service /me uses people.self.* (not people.worker.read)', () => {
           employment_type: 'full_time',
           session: t.adminSession,
         });
-        await linkSelf(worker_id, t.admin_user_id);
+        await linkSelf(t.tenant_id, worker_id, t.admin_user_id);
 
         const selfManageSession = narrowSession(t.adminSession, ['people.self.manage']);
         await expect(setBio(selfManageSession, { bio: 'hello' })).resolves.toBeUndefined();
@@ -111,7 +109,7 @@ describe('self-service /me uses people.self.* (not people.worker.read)', () => {
           employment_type: 'full_time',
           session: t.adminSession,
         });
-        await linkSelf(worker_id, t.admin_user_id);
+        await linkSelf(t.tenant_id, worker_id, t.admin_user_id);
 
         const emptySession = narrowSession(t.adminSession, []);
         await expect(setBio(emptySession, { bio: 'x' })).rejects.toThrow();

@@ -24,10 +24,10 @@ describe('editWorker', () => {
         const { worker_id } = await createWorker({ full_name: 'Alice', session: t.adminSession });
 
         const ownerUserId = crypto.randomUUID();
-        await pool.query(`UPDATE people.person SET user_id = $1 WHERE id = $2`, [
-          ownerUserId,
-          worker_id,
-        ]);
+        await pool.query(
+          `INSERT INTO people.user_projection (user_id, tenant_id, person_id) VALUES ($1, $2, $3)`,
+          [ownerUserId, t.tenant_id, worker_id],
+        );
 
         const ownerSession = buildSession({
           tenant_id: t.tenant_id,
@@ -77,10 +77,10 @@ describe('editWorker', () => {
         const { worker_id } = await createWorker({ full_name: 'Bob', session: t.adminSession });
 
         const ownerUserId = crypto.randomUUID();
-        await pool.query(`UPDATE people.person SET user_id = $1 WHERE id = $2`, [
-          ownerUserId,
-          worker_id,
-        ]);
+        await pool.query(
+          `INSERT INTO people.user_projection (user_id, tenant_id, person_id) VALUES ($1, $2, $3)`,
+          [ownerUserId, t.tenant_id, worker_id],
+        );
 
         const ownerSession = buildSession({
           tenant_id: t.tenant_id,

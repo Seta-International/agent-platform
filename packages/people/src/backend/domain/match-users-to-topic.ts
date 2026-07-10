@@ -4,7 +4,7 @@ import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import { EmbedQueryCache, type RetrievalHit } from '@seta/shared-retrieval';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { person, worker } from '../db/schema.ts';
+import { person, userProjection, worker } from '../db/schema.ts';
 import {
   ensurePeopleVectorIndex,
   PEOPLE_VECTOR_INDEX,
@@ -88,12 +88,13 @@ export async function matchUsersToTopic(
   const dispRows = await peopleDb()
     .select({
       person_id: person.id,
-      user_id: person.user_id,
+      user_id: userProjection.user_id,
       full_name: worker.full_name,
       work_email: worker.work_email,
     })
     .from(person)
     .innerJoin(worker, and(eq(worker.person_id, person.id), isNull(worker.deleted_at)))
+    .innerJoin(userProjection, eq(userProjection.person_id, person.id))
     .where(and(eq(person.tenant_id, tenant_id), inArray(person.id, personIds)));
 
   const byPerson = new Map(dispRows.map((r) => [r.person_id, r]));

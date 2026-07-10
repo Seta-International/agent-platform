@@ -19,6 +19,7 @@ import {
   PEOPLE_VECTOR_NAMESPACE,
   resetPeopleVectorStore,
 } from '../../src/backend/embeddings/vector-store.ts';
+import { linkUserToPerson } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -77,11 +78,9 @@ async function seedWorkerAndEmbed(
   },
 ): Promise<{ person_id: string; user_id: string | null }> {
   const user_id = opts.user_id === undefined ? crypto.randomUUID() : opts.user_id;
-  const [p] = await peopleDb()
-    .insert(person)
-    .values({ tenant_id: opts.tenant_id, user_id })
-    .returning();
+  const [p] = await peopleDb().insert(person).values({ tenant_id: opts.tenant_id }).returning();
   const person_id = p!.id;
+  if (user_id !== null) await linkUserToPerson(opts.tenant_id, person_id, user_id);
   await peopleDb().insert(worker).values({
     tenant_id: opts.tenant_id,
     person_id,

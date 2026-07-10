@@ -2,7 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { person, worker } from '../db/schema.ts';
+import { userProjection, worker } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 
 export interface SetPresenceInput {
@@ -18,8 +18,10 @@ export async function setPresence(session: SessionScope, input: SetPresenceInput
   const [row] = await peopleDb()
     .select({ person_id: worker.person_id })
     .from(worker)
-    .innerJoin(person, eq(person.id, worker.person_id))
-    .where(and(tenantScoped(worker.tenant_id, session), eq(person.user_id, session.user_id)))
+    .innerJoin(userProjection, eq(userProjection.person_id, worker.person_id))
+    .where(
+      and(tenantScoped(worker.tenant_id, session), eq(userProjection.user_id, session.user_id)),
+    )
     .limit(1);
 
   if (!row) throw new PeopleError('NOT_FOUND', 'no worker record linked to this user');

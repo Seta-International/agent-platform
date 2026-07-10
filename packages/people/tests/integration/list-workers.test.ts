@@ -8,7 +8,6 @@ import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
   employmentPeriod,
   type LIFECYCLE_STAGES,
-  person,
   personSkill,
   projectProjection,
   worker,
@@ -16,7 +15,13 @@ import {
 } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { listWorkers } from '../../src/backend/domain/read-workers.ts';
-import { buildSession, type SeededTenant, seedOrgUnit, seedTenant } from '../helpers.ts';
+import {
+  buildSession,
+  linkUserToPerson,
+  type SeededTenant,
+  seedOrgUnit,
+  seedTenant,
+} from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -65,7 +70,7 @@ async function makeWorker(
     await peopleDb().update(worker).set(patch).where(eq(worker.person_id, worker_id));
   }
   if (opts.userId) {
-    await peopleDb().update(person).set({ user_id: opts.userId }).where(eq(person.id, worker_id));
+    await linkUserToPerson(t.tenant_id, worker_id, opts.userId);
   }
   return worker_id;
 }

@@ -4,17 +4,23 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { person, worker } from '../../src/backend/db/schema.ts';
+import { worker } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { getWorker, getWorkerHistory } from '../../src/index.ts';
-import { buildSession, type SeededTenant, seedOrgUnit, seedTenant } from '../helpers.ts';
+import {
+  buildSession,
+  linkUserToPerson,
+  type SeededTenant,
+  seedOrgUnit,
+  seedTenant,
+} from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
   baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
 
-/** Create a worker and bind its person.user_id to a known userId. */
+/** Create a worker and bind it to a known userId via user_projection. */
 async function makePersona(
   t: SeededTenant,
   name: string,
@@ -26,7 +32,7 @@ async function makePersona(
     full_name: name,
     org_unit_id: orgUnitId,
   } as never);
-  await peopleDb().update(person).set({ user_id: userId }).where(eq(person.id, worker_id));
+  await linkUserToPerson(t.tenant_id, worker_id, userId);
   return worker_id;
 }
 

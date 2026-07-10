@@ -5,7 +5,9 @@ import { and, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { userProjection } from '../../src/backend/db/schema.ts';
-import { seedTenant } from '../helpers.ts';
+import { readMyProfile } from '../../src/backend/domain/read-my-profile.ts';
+import { provisionWorker } from '../../src/index.ts';
+import { buildSession, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -62,6 +64,35 @@ describe('people.user_projection', () => {
             .insert(userProjection)
             .values({ user_id: crypto.randomUUID(), person_id: personId, tenant_id: t.tenant_id }),
         ).rejects.toThrow();
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('read-my-profile resolves the caller through user_projection', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { worker_id } = await provisionWorker({
+          full_name: 'Dee Tester',
+          start_date: '2026-01-01',
+          employment_type: 'full_time',
+          session: t.adminSession,
+        });
+        const userId = crypto.randomUUID();
+        await peopleDb()
+          .insert(userProjection)
+          .values({ user_id: userId, person_id: worker_id, tenant_id: t.tenant_id });
+
+        const session = buildSession({ tenant_id: t.tenant_id, user_id: userId });
+        const profile = await readMyProfile(session);
+        expect(profile.full_name).toBe('Dee Tester');
       } finally {
         resetPeopleDb();
         resetCoreDb();

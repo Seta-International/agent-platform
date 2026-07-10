@@ -5,7 +5,7 @@ import { can, tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import type { EditWorkerInput } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
-import { person, worker, workerHistory } from '../db/schema.ts';
+import { userProjection, worker, workerHistory } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { classifyField } from './field-rules.ts';
 
@@ -16,14 +16,14 @@ export async function editWorker(
   requirePermission(session, 'people.worker.read');
 
   const [current] = await peopleDb()
-    .select()
+    .select({ worker, linked_user_id: userProjection.user_id })
     .from(worker)
-    .innerJoin(person, eq(person.id, worker.person_id))
+    .leftJoin(userProjection, eq(userProjection.person_id, worker.person_id))
     .where(and(eq(worker.person_id, worker_id), tenantScoped(worker.tenant_id, session)))
     .limit(1);
   if (!current) throw new PeopleError('NOT_FOUND', 'worker not found');
 
-  const isOwner = current.person.user_id === session.user_id;
+  const isOwner = current.linked_user_id === session.user_id;
   const isAdmin = can(session, 'people.worker.update');
 
   const entries = Object.entries(patch).filter(([, v]) => v !== undefined) as [string, unknown][];
@@ -105,7 +105,7 @@ export async function editWorker(
     },
   );
 
-  const linkedUserId = current.person.user_id;
+  const linkedUserId = current.linked_user_id;
   if (linkedUserId && (patch.full_name !== undefined || patch.work_email !== undefined)) {
     await syncLoginIdentity(
       {

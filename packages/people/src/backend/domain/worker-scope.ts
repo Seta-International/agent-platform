@@ -40,9 +40,9 @@ export function reportsSubtreeSql(me: SQL, tenantId: string): SQL {
  */
 function meSubquery(userId: string, tenantId: string): SQL {
   return sql`(SELECT w0.person_id FROM people.worker w0
-      JOIN people.person p0 ON p0.id = w0.person_id
-      WHERE p0.user_id = ${userId} AND w0.tenant_id = ${tenantId} AND w0.deleted_at IS NULL
-      ORDER BY p0.id LIMIT 1)`;
+      JOIN people.user_projection up0 ON up0.person_id = w0.person_id
+      WHERE up0.user_id = ${userId} AND w0.tenant_id = ${tenantId} AND w0.deleted_at IS NULL
+      LIMIT 1)`;
 }
 
 /** Workers actively allocated under an account the viewer (`:me`) manages (AM). */

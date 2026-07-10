@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { and, eq } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { person, worker } from '../db/schema.ts';
+import { userProjection, worker } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 
 export interface PresenceResult {
@@ -38,8 +38,8 @@ export async function fetchPresenceByUserId(
       timezone: worker.timezone,
     })
     .from(worker)
-    .innerJoin(person, eq(person.id, worker.person_id))
-    .where(and(eq(worker.tenant_id, tenantId), eq(person.user_id, userId)))
+    .innerJoin(userProjection, eq(userProjection.person_id, worker.person_id))
+    .where(and(eq(worker.tenant_id, tenantId), eq(userProjection.user_id, userId)))
     .limit(1);
 
   if (!row) return PRESENCE_DEFAULTS;

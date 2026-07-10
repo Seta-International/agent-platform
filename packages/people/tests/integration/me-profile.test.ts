@@ -1,11 +1,9 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
-import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { person } from '../../src/backend/db/schema.ts';
+import { resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
   getPersonSkills,
   provisionWorker,
@@ -15,7 +13,7 @@ import {
   setMySkills,
   setPresence,
 } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { linkUserToPerson, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -38,8 +36,8 @@ async function seedSkills(pool: Pool, tenantId: string, names: string[]): Promis
   }
 }
 
-async function linkSelf(workerId: string, userId: string): Promise<void> {
-  await peopleDb().update(person).set({ user_id: userId }).where(eq(person.id, workerId));
+async function linkSelf(tenantId: string, workerId: string, userId: string): Promise<void> {
+  await linkUserToPerson(tenantId, workerId, userId);
 }
 
 describe('People self-service /me profile', () => {
@@ -57,7 +55,7 @@ describe('People self-service /me profile', () => {
           employment_type: 'full_time',
           session: t.adminSession,
         });
-        await linkSelf(worker_id, t.admin_user_id);
+        await linkSelf(t.tenant_id, worker_id, t.admin_user_id);
 
         await setMySkills(t.adminSession, { skills: ['TypeScript', 'Rust'] });
         expect(await getPersonSkills(t.adminSession, { user_id: t.admin_user_id })).toEqual([
@@ -93,7 +91,7 @@ describe('People self-service /me profile', () => {
           employment_type: 'full_time',
           session: t.adminSession,
         });
-        await linkSelf(worker_id, t.admin_user_id);
+        await linkSelf(t.tenant_id, worker_id, t.admin_user_id);
 
         await expect(
           setMySkills(t.adminSession, { skills: ['TypeScript', 'Cobol'] }),
@@ -120,7 +118,7 @@ describe('People self-service /me profile', () => {
           employment_type: 'full_time',
           session: t.adminSession,
         });
-        await linkSelf(worker_id, t.admin_user_id);
+        await linkSelf(t.tenant_id, worker_id, t.admin_user_id);
 
         await setPresence(t.adminSession, {
           availability_status: 'busy',
@@ -162,7 +160,7 @@ describe('People self-service /me profile', () => {
           employment_type: 'full_time',
           session: t.adminSession,
         });
-        await linkSelf(worker_id, t.admin_user_id);
+        await linkSelf(t.tenant_id, worker_id, t.admin_user_id);
         await setMySkills(t.adminSession, { skills: ['TypeScript', 'Go'] });
 
         const before = await readMyProfile(t.adminSession);
@@ -195,7 +193,7 @@ describe('People self-service /me profile', () => {
           employment_type: 'full_time',
           session: t.adminSession,
         });
-        await linkSelf(worker_id, t.admin_user_id);
+        await linkSelf(t.tenant_id, worker_id, t.admin_user_id);
 
         const me = await readMyProfile(t.adminSession);
         expect(me.availability_status).toBe('available');

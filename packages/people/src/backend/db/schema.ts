@@ -39,21 +39,16 @@ export const GENDERS = ['male', 'female', 'prefer_not_to_say'] as const;
 
 export const PROJECTION_BUCKETS = ['billable', 'internal', 'bench'] as const;
 
-export const person = peopleSchema.table(
-  'person',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    tenant_id: uuid('tenant_id').notNull(),
-    user_id: uuid('user_id'),
-    bio: text('bio'),
-    original_hire_date: date('original_hire_date'),
-    seniority_date: date('seniority_date'),
-    version: integer('version').default(1).notNull(),
-    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [index('person_by_tenant_user').on(t.tenant_id, t.user_id)],
-);
+export const person = peopleSchema.table('person', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenant_id: uuid('tenant_id').notNull(),
+  bio: text('bio'),
+  original_hire_date: date('original_hire_date'),
+  seniority_date: date('seniority_date'),
+  version: integer('version').default(1).notNull(),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const employmentPeriod = peopleSchema.table(
   'employment_period',

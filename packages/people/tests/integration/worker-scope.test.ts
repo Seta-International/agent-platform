@@ -8,20 +8,26 @@ import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
   accountProjection,
-  person,
+  userProjection,
   worker,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { buildWorkerScope } from '../../src/backend/domain/worker-scope.ts';
-import { buildSession, type SeededTenant, seedOrgUnit, seedTenant } from '../helpers.ts';
+import {
+  buildSession,
+  linkUserToPerson,
+  type SeededTenant,
+  seedOrgUnit,
+  seedTenant,
+} from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
   baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
 
-/** Create a worker via the public path, then bind its person.user_id to a known session user_id. */
+/** Create a worker via the public path, then bind it to a known session user_id via user_projection. */
 async function makePersona(
   t: SeededTenant,
   name: string,
@@ -33,7 +39,7 @@ async function makePersona(
     full_name: name,
     org_unit_id: orgUnitId,
   } as never);
-  await peopleDb().update(person).set({ user_id: userId }).where(eq(person.id, worker_id));
+  await linkUserToPerson(t.tenant_id, worker_id, userId);
   return worker_id;
 }
 
@@ -156,7 +162,10 @@ describe('buildWorkerScope', () => {
       try {
         const g = await buildGraph(pool);
         const userM = (
-          await peopleDb().select({ u: person.user_id }).from(person).where(eq(person.id, g.M))
+          await peopleDb()
+            .select({ u: userProjection.user_id })
+            .from(userProjection)
+            .where(eq(userProjection.person_id, g.M))
         )[0]!.u!;
         const seen = await visible(viewer(g.t, userM));
         expect(seen).toEqual(new Set([g.M, g.R1, g.R2]));
@@ -179,7 +188,10 @@ describe('buildWorkerScope', () => {
       try {
         const g = await buildGraph(pool);
         const userAM = (
-          await peopleDb().select({ u: person.user_id }).from(person).where(eq(person.id, g.AM))
+          await peopleDb()
+            .select({ u: userProjection.user_id })
+            .from(userProjection)
+            .where(eq(userProjection.person_id, g.AM))
         )[0]!.u!;
         const seen = await visible(viewer(g.t, userAM));
         expect(seen).toEqual(new Set([g.AM, g.W_am]));
@@ -200,7 +212,10 @@ describe('buildWorkerScope', () => {
       try {
         const g = await buildGraph(pool);
         const userL = (
-          await peopleDb().select({ u: person.user_id }).from(person).where(eq(person.id, g.L))
+          await peopleDb()
+            .select({ u: userProjection.user_id })
+            .from(userProjection)
+            .where(eq(userProjection.person_id, g.L))
         )[0]!.u!;
         const seen = await visible(viewer(g.t, userL));
         expect(seen).toEqual(new Set([g.L, g.W_lead]));
@@ -221,7 +236,10 @@ describe('buildWorkerScope', () => {
       try {
         const g = await buildGraph(pool);
         const userU = (
-          await peopleDb().select({ u: person.user_id }).from(person).where(eq(person.id, g.U))
+          await peopleDb()
+            .select({ u: userProjection.user_id })
+            .from(userProjection)
+            .where(eq(userProjection.person_id, g.U))
         )[0]!.u!;
         const seen = await visible(viewer(g.t, userU));
         expect(seen).toEqual(new Set([g.U]));
