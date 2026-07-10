@@ -21,7 +21,6 @@ import {
   updateUserProfile,
 } from '../../index.ts';
 import { listDirectory } from '../domain/list-directory.ts';
-import { provisionAccount } from '../domain/provision-account.ts';
 
 const scopeRefine = (v: { scope_kind: string; scope_id?: string | null }) =>
   v.scope_kind !== 'org_unit' || Boolean(v.scope_id);
@@ -208,11 +207,6 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     const scope = c.get('user');
     await reactivateUser(c.req.param('id'), { type: 'user', user_id: scope.user_id });
     return c.json({ ok: true });
-  });
-
-  app.post('/api/identity/v1/directory/:personId/provision', async (c) => {
-    const scope = c.get('user');
-    return c.json(await provisionAccount(scope, { person_id: c.req.param('personId') }));
   });
 
   app.get('/api/identity/v1/users/:id/sessions', async (c) => {
