@@ -6,6 +6,7 @@ import { PM_ALLOCATION_REMOVED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
 import { allocation, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
+import { assertProjectManageable } from './assert-project-manageable.ts';
 
 export async function removeAllocation(input: {
   allocation_id: string;
@@ -26,6 +27,7 @@ export async function removeAllocation(input: {
     )
     .limit(1);
   if (!current) throw new PmError('NOT_FOUND', 'allocation not found');
+  await assertProjectManageable(current.project_id, session);
 
   const [proj] = await pmDb()
     .select({ account_id: project.account_id })

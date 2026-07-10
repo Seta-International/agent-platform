@@ -8,6 +8,7 @@ import { pmDb } from '../db/client.ts';
 import { allocation, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
+import { assertProjectManageable } from './assert-project-manageable.ts';
 
 export async function updateAllocation(
   input: UpdateAllocationInput & { allocation_id: string; session: SessionScope },
@@ -28,6 +29,7 @@ export async function updateAllocation(
     )
     .limit(1);
   if (!current) throw new PmError('NOT_FOUND', 'allocation not found');
+  await assertProjectManageable(current.project_id, session);
   if (patch.expected_version !== undefined && patch.expected_version !== current.version) {
     throw new PmError('CONFLICT', 'version mismatch');
   }

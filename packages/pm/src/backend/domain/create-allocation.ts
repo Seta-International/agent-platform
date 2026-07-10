@@ -7,6 +7,7 @@ import { PM_ALLOCATION_CREATED } from '../../events.ts';
 import { account, allocation, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
+import { assertProjectManageable } from './assert-project-manageable.ts';
 
 export async function createAllocation(
   input: CreateAllocationInput & { session: SessionScope },
@@ -14,6 +15,7 @@ export async function createAllocation(
   const { session } = input;
   requirePermission(session, 'pm.project.manage');
   const parsed = createAllocationInput.parse(input);
+  await assertProjectManageable(parsed.project_id, session);
 
   // Mirror the DB row rules (allocation_worker_rule_check, allocation_committed_dates_check)
   // so invalid combinations surface as 400 VALIDATION instead of a raw constraint violation.
