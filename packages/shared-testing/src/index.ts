@@ -1,3 +1,4 @@
+export { createAppRole } from './app-role.ts';
 export {
   type ConstitutionOpts,
   collectViolations,
