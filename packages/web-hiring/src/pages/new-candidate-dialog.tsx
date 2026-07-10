@@ -105,6 +105,13 @@ export function NewCandidateDialog() {
     setSubmitAttempted(false);
   }
 
+  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
+  // programmatically must reset explicitly or the next open shows stale data.
+  function close() {
+    setOpen(false);
+    reset();
+  }
+
   const effectiveReq = reqId || openReqs[0]?.id || '';
   const missingRequired = !name.trim() || !effectiveReq;
   const requiredError =
@@ -176,8 +183,7 @@ export function NewCandidateDialog() {
       toast.success('Candidate added');
       if (cvWarning) toast.error(cvWarning);
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
-      setOpen(false);
-      reset();
+      close();
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -351,7 +357,7 @@ export function NewCandidateDialog() {
             </Alert>
           )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
+            <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
             <Button onClick={submit} disabled={mutation.isPending || parse.isPending}>

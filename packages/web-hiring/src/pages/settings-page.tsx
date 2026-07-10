@@ -74,6 +74,13 @@ function NewTemplateDialog() {
     setError(null);
   }
 
+  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
+  // programmatically must reset explicitly or the next open shows stale data.
+  function close() {
+    setOpen(false);
+    reset();
+  }
+
   const mutation = useMutation({
     mutationFn: () =>
       createJdTemplate({
@@ -88,8 +95,7 @@ function NewTemplateDialog() {
     onSuccess: () => {
       toast.success('Template created');
       void queryClient.invalidateQueries({ queryKey: hiringKeys.jdTemplates() });
-      setOpen(false);
-      reset();
+      close();
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -157,7 +163,7 @@ function NewTemplateDialog() {
             </Alert>
           )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
+            <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
             <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !name.trim()}>
@@ -176,14 +182,24 @@ function NewCloseReasonDialog() {
   const [label, setLabel] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  function reset() {
+    setLabel('');
+    setError(null);
+  }
+
+  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
+  // programmatically must reset explicitly or the next open shows stale data.
+  function close() {
+    setOpen(false);
+    reset();
+  }
+
   const mutation = useMutation({
     mutationFn: () => createCloseReason({ label }),
     onSuccess: () => {
       toast.success('Close reason created');
       void queryClient.invalidateQueries({ queryKey: hiringKeys.closeReasons() });
-      setOpen(false);
-      setLabel('');
-      setError(null);
+      close();
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -193,10 +209,7 @@ function NewCloseReasonDialog() {
       open={open}
       onOpenChange={(v) => {
         setOpen(v);
-        if (!v) {
-          setLabel('');
-          setError(null);
-        }
+        if (!v) reset();
       }}
     >
       <DialogTrigger asChild>
@@ -221,7 +234,7 @@ function NewCloseReasonDialog() {
             </Alert>
           )}
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
+            <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
             <Button
@@ -250,15 +263,25 @@ function NewRejectionReasonDialog() {
   const [category, setCategory] = useState<RejectionCategory>('rejected_by_us');
   const [error, setError] = useState<string | null>(null);
 
+  function reset() {
+    setLabel('');
+    setCategory('rejected_by_us');
+    setError(null);
+  }
+
+  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
+  // programmatically must reset explicitly or the next open shows stale data.
+  function close() {
+    setOpen(false);
+    reset();
+  }
+
   const mutation = useMutation({
     mutationFn: () => createRejectionReason({ label, category }),
     onSuccess: () => {
       toast.success('Rejection reason created');
       void queryClient.invalidateQueries({ queryKey: hiringKeys.rejectionReasons() });
-      setOpen(false);
-      setLabel('');
-      setCategory('rejected_by_us');
-      setError(null);
+      close();
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -268,11 +291,7 @@ function NewRejectionReasonDialog() {
       open={open}
       onOpenChange={(v) => {
         setOpen(v);
-        if (!v) {
-          setLabel('');
-          setCategory('rejected_by_us');
-          setError(null);
-        }
+        if (!v) reset();
       }}
     >
       <DialogTrigger asChild>
@@ -312,7 +331,7 @@ function NewRejectionReasonDialog() {
             </Alert>
           )}
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
+            <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
             <Button

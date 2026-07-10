@@ -109,6 +109,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     setSubmitAttempted(false);
   }
 
+  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
+  // programmatically must reset explicitly or the next open shows stale data.
+  function close() {
+    setOpen(false);
+    reset();
+  }
+
   const mutation = useMutation({
     mutationFn: () => {
       const jd_sections = SECTIONS.filter((s) => !isRichTextEmpty(jd[s.key])).map((s) => ({
@@ -139,8 +146,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
       void queryClient.invalidateQueries({
         queryKey: hiringKeys.requisitions(),
       });
-      setOpen(false);
-      reset();
+      close();
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -182,12 +188,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setOpen(false)}
-                  disabled={mutation.isPending}
-                >
+                <Button size="sm" variant="secondary" onClick={close} disabled={mutation.isPending}>
                   Cancel
                 </Button>
                 <Button size="sm" onClick={submit} disabled={mutation.isPending}>
