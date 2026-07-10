@@ -1,4 +1,5 @@
-import { getPool, initPools } from '@seta/shared-db';
+import { initPools } from '@seta/shared-db';
+import { preTenantAppPool } from '@seta/shared-db/pre-tenant';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
@@ -19,11 +20,11 @@ function makeLazyDb(): NodePgDatabase<typeof schema> {
       if (!db) {
         const url = process.env.DATABASE_URL;
         try {
-          db = drizzle(getPool('web'), { schema });
+          db = drizzle(preTenantAppPool(), { schema });
         } catch {
           if (!url) throw new Error('DATABASE_URL is not set');
           initPools({ databaseUrl: url });
-          db = drizzle(getPool('web'), { schema });
+          db = drizzle(preTenantAppPool(), { schema });
         }
       }
       return (db as unknown as Record<string | symbol, unknown>)[prop];
