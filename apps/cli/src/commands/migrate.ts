@@ -9,7 +9,7 @@ import { registerNotificationsContributions } from '@seta/notifications/register
 import { registerPeopleContributions } from '@seta/people/register';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { registerPmContributions } from '@seta/pm/register';
-import { getPool } from '@seta/shared-db';
+import { getPool } from '@seta/shared-db/composition';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
 

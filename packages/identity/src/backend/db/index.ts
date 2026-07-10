@@ -1,4 +1,5 @@
-import { executorPool, getPool, type NodePgDatabase } from '@seta/shared-db';
+import { executorPool, type NodePgDatabase } from '@seta/shared-db';
+import { preTenantAdminPool } from '@seta/shared-db/pre-tenant';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { Pool } from 'pg';
 import * as schema from './schema.ts';
@@ -17,7 +18,7 @@ let cachedAuth: { pool: Pool; db: NodePgDatabase<typeof schema> } | null = null;
  * cannot know its tenant, and say why at the call site.
  */
 export function identityAuthDb(): NodePgDatabase<typeof schema> {
-  const pool = getPool('worker');
+  const pool = preTenantAdminPool();
   if (!cachedAuth || cachedAuth.pool !== pool) {
     cachedAuth = { pool, db: drizzle(pool, { schema }) };
   }

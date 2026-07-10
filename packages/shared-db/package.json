@@ -5,7 +5,9 @@
   "description": "Shared Postgres + Drizzle ORM primitives — pool factory, schema-scoped client helpers, and migration runner.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./composition": "./src/composition.ts",
+    "./pre-tenant": "./src/pre-tenant.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

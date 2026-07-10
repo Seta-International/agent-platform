@@ -1,5 +1,6 @@
 import { runMigrations } from '@seta/core';
-import { closePools, getPool, initPools } from '@seta/shared-db';
+import { closePools, initPools } from '@seta/shared-db';
+import { getPool } from '@seta/shared-db/composition';
 import { ensureTemplateDb, markAsTemplate, startPgContainer } from '@seta/shared-testing';
 import { buildMigrationRegistry } from '../src/commands/migrate.ts';
 

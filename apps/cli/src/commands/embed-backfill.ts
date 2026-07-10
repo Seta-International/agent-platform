@@ -3,7 +3,8 @@ import {
   getPeopleVectorStore,
 } from '@seta/people';
 import { backfillTasks as defaultBackfillTasks, getPlannerVectorStore } from '@seta/planner';
-import { getPool, type Pool } from '@seta/shared-db';
+import type { Pool } from '@seta/shared-db';
+import { getPool } from '@seta/shared-db/composition';
 
 export interface EmbedBackfillArgs {
   module: string;

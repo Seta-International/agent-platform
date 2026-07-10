@@ -28,7 +28,7 @@ import type { KnowledgeStreamHub } from '@seta/knowledge/stream';
 import { registerNotificationsRoutes } from '@seta/notifications/http';
 import { NotificationStreamHub } from '@seta/notifications/stream';
 import { getWorkerIdForUser } from '@seta/people';
-import { getPool, scoped } from '@seta/shared-db';
+import { scoped } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -320,7 +320,3 @@ export function makeErrorHandler(...mappers: ErrorMapper[]): (err: Error, c: Con
     throw err;
   };
 }
-
-// Re-export getPool so callers building the app from the entry point don't need
-// to import @seta/shared-db separately just to fetch the worker pool.
-export { getPool };

@@ -1,4 +1,5 @@
-import { closePools, getPool, initPools } from '@seta/shared-db';
+import { closePools, initPools } from '@seta/shared-db';
+import { getPool } from '@seta/shared-db/composition';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createContributionRegistry, runMigrations } from '../../src/index.ts';

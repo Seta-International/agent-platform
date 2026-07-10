@@ -20,7 +20,8 @@ import { plannerEmbeddingJobs, plannerMembershipJobs } from '@seta/planner';
 import { registerPlannerContributions } from '@seta/planner/register';
 import { registerPmContributions } from '@seta/pm/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
-import { closePools, getPool, initPools } from '@seta/shared-db';
+import { closePools, initPools } from '@seta/shared-db';
+import { getPool } from '@seta/shared-db/composition';
 import { resolveTransport } from '@seta/shared-mailer';
 import { createMailerSendTask } from '@seta/shared-mailer/queue';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.

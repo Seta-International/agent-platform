@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { closePools, getPool, initPools, runMigrations } from '@seta/shared-db';
+import { closePools, initPools, runMigrations } from '@seta/shared-db';
+import { getPool } from '@seta/shared-db/composition';
 import { ensureTemplateDb, markAsTemplate, startPgContainer } from '@seta/shared-testing';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
