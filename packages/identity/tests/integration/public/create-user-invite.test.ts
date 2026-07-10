@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { FakeMailer } from '@seta/shared-mailer/testing';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
@@ -22,20 +22,22 @@ describe('createUser with invite option (D27 reversal)', () => {
             `acme-${tenantId.slice(0, 8)}`,
           ]);
           const mailer = new FakeMailer();
-          const result = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'alex@acme.test',
-              name: 'Alex',
-              password: 'P@ssw0rd0011',
-            },
-            { type: 'cli', user_id: null },
-            {
-              mailer,
-              baseUrl: 'https://app.seta.example',
-              tenantName: 'Acme',
-              inviterName: 'System',
-            },
+          const result = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'alex@acme.test',
+                name: 'Alex',
+                password: 'P@ssw0rd0011',
+              },
+              { type: 'cli', user_id: null },
+              {
+                mailer,
+                baseUrl: 'https://app.seta.example',
+                tenantName: 'Acme',
+                inviterName: 'System',
+              },
+            ),
           );
           expect(mailer.sent).toHaveLength(1);
           expect(mailer.sent[0]!.template).toBe('invite');
@@ -63,14 +65,16 @@ describe('createUser with invite option (D27 reversal)', () => {
             tenantId,
             `acme-${tenantId.slice(0, 8)}`,
           ]);
-          const result = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'silent@acme.test',
-              name: 'Silent',
-              password: 'P@ssw0rd0011',
-            },
-            { type: 'cli', user_id: null },
+          const result = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'silent@acme.test',
+                name: 'Silent',
+                password: 'P@ssw0rd0011',
+              },
+              { type: 'cli', user_id: null },
+            ),
           );
           expect(result.user_id).toMatch(/^[0-9a-f-]{36}$/);
         } finally {

@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools, scoped } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createUser } from '../../../src/backend/domain/create-user.ts';
@@ -22,9 +22,11 @@ describe('updateUserProfile', () => {
     await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', 'demo')`, [
       tenantId,
     ]);
-    const { user_id } = await createUser(
-      { tenant_id: tenantId, email: 'a@d.local', name: 'A', password: 'ChangeMe@2026' },
-      { type: 'cli', user_id: null },
+    const { user_id } = await maintenance(() =>
+      createUser(
+        { tenant_id: tenantId, email: 'a@d.local', name: 'A', password: 'ChangeMe@2026' },
+        { type: 'cli', user_id: null },
+      ),
     );
     return { tenantId, userId: user_id };
   }
@@ -86,10 +88,8 @@ describe('updateUserProfile', () => {
             tenantId,
             `t-${tenantId.slice(0, 8)}`,
           ]);
-          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
-          // fallback) — this only opens the executor context identityDb() requires.
-          await scoped(tenantId, async () => {
-            const { user_id: adminId } = await createUser(
+          const { user_id: adminId } = await maintenance(() =>
+            createUser(
               {
                 tenant_id: tenantId,
                 email: 'admin@t.local',
@@ -98,8 +98,10 @@ describe('updateUserProfile', () => {
                 initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
               },
               { type: 'cli', user_id: null },
-            );
-            const { user_id: viewerId } = await createUser(
+            ),
+          );
+          const { user_id: viewerId } = await maintenance(() =>
+            createUser(
               {
                 tenant_id: tenantId,
                 email: 'viewer@t.local',
@@ -112,8 +114,10 @@ describe('updateUserProfile', () => {
                 },
               },
               { type: 'cli', user_id: null },
-            );
-            const { user_id: subjectId } = await createUser(
+            ),
+          );
+          const { user_id: subjectId } = await maintenance(() =>
+            createUser(
               {
                 tenant_id: tenantId,
                 email: 's@t.local',
@@ -121,8 +125,12 @@ describe('updateUserProfile', () => {
                 password: 'subject-password-1234',
               },
               { type: 'cli', user_id: null },
-            );
+            ),
+          );
 
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
             const result = await updateUserProfile(
               subjectId,
               { display_name: 'S Renamed' },

@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { whoAmI } from '../../src/index.ts';
@@ -23,8 +23,12 @@ describe('whoAmI', () => {
           registerCoreContributions(reg);
           registerIdentityContributions(reg);
           await runMigrations(reg, { pool });
-          const { admin_user_id } = await createTestTenantWithAdmin({ pool });
-          const profile = await whoAmI({ user_id: admin_user_id, type: 'user' });
+          const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          const profile = await scoped(tenant_id, () =>
+            whoAmI({ user_id: admin_user_id, type: 'user' }),
+          );
           expect(profile).not.toBeNull();
           expect(profile?.user_id).toBe(admin_user_id);
           expect(profile?.email).toBe('admin@demo.local');

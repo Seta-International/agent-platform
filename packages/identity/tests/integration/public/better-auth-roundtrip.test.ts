@@ -4,7 +4,7 @@ import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
 import { auth } from '@seta/identity/auth';
 import { registerIdentityContributions } from '@seta/identity/register';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 
@@ -29,14 +29,16 @@ describe('better-auth round-trip (§A2)', () => {
             `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', 'demo')`,
             [tenantId],
           );
-          await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'a@d.local',
-              name: 'A',
-              password: 'sign-in-password-1234',
-            },
-            { type: 'cli', user_id: null },
+          await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'a@d.local',
+                name: 'A',
+                password: 'sign-in-password-1234',
+              },
+              { type: 'cli', user_id: null },
+            ),
           );
 
           const signIn = await auth.api.signInEmail({

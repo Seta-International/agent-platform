@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { changeUserEmail, createUser } from '@seta/identity';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 
@@ -24,19 +24,20 @@ describe('@seta/identity changeUserEmail', () => {
             `t1-${tenantId.slice(0, 8)}`,
           ]);
 
-          const { user_id } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'alice@old.com',
-              name: 'Alice',
-              password: 'alice-password-1234',
-            },
-            CLI_ACTOR,
+          const { user_id } = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'alice@old.com',
+                name: 'Alice',
+                password: 'alice-password-1234',
+              },
+              CLI_ACTOR,
+            ),
           );
 
-          const result = await changeUserEmail(
-            { user_id, new_email: 'Alice@New.com', reason: 'admin' },
-            CLI_ACTOR,
+          const result = await maintenance(() =>
+            changeUserEmail({ user_id, new_email: 'Alice@New.com', reason: 'admin' }, CLI_ACTOR),
           );
 
           expect(result.old_email).toBe('alice@old.com');
@@ -86,14 +87,16 @@ describe('@seta/identity changeUserEmail', () => {
             `t2-${tenantId.slice(0, 8)}`,
           ]);
 
-          const { user_id } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'bob@acme.com',
-              name: 'Bob',
-              password: 'bob-password-1234',
-            },
-            CLI_ACTOR,
+          const { user_id } = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'bob@acme.com',
+                name: 'Bob',
+                password: 'bob-password-1234',
+              },
+              CLI_ACTOR,
+            ),
           );
 
           // Seed a microsoft account row to simulate SSO-linked user
@@ -104,9 +107,11 @@ describe('@seta/identity changeUserEmail', () => {
           );
 
           await expect(
-            changeUserEmail(
-              { user_id, new_email: 'bob@newdomain.com', reason: 'admin' },
-              CLI_ACTOR,
+            maintenance(() =>
+              changeUserEmail(
+                { user_id, new_email: 'bob@newdomain.com', reason: 'admin' },
+                CLI_ACTOR,
+              ),
             ),
           ).rejects.toMatchObject({ code: 'EMAIL_MANAGED_BY_SSO' });
         } finally {
@@ -133,14 +138,16 @@ describe('@seta/identity changeUserEmail', () => {
             `t3-${tenantId.slice(0, 8)}`,
           ]);
 
-          const { user_id } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'carol@acme.com',
-              name: 'Carol',
-              password: 'carol-password-1234',
-            },
-            CLI_ACTOR,
+          const { user_id } = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'carol@acme.com',
+                name: 'Carol',
+                password: 'carol-password-1234',
+              },
+              CLI_ACTOR,
+            ),
           );
 
           // SSO-linked
@@ -150,9 +157,11 @@ describe('@seta/identity changeUserEmail', () => {
             [crypto.randomUUID(), user_id],
           );
 
-          const result = await changeUserEmail(
-            { user_id, new_email: 'carol@newdomain.com', reason: 'sso_sync' },
-            SSO_ACTOR,
+          const result = await maintenance(() =>
+            changeUserEmail(
+              { user_id, new_email: 'carol@newdomain.com', reason: 'sso_sync' },
+              SSO_ACTOR,
+            ),
           );
 
           expect(result.new_email).toBe('carol@newdomain.com');
@@ -188,20 +197,21 @@ describe('@seta/identity changeUserEmail', () => {
             `t4-${tenantId.slice(0, 8)}`,
           ]);
 
-          const { user_id } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'dave@acme.com',
-              name: 'Dave',
-              password: 'dave-password-1234',
-            },
-            CLI_ACTOR,
+          const { user_id } = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'dave@acme.com',
+                name: 'Dave',
+                password: 'dave-password-1234',
+              },
+              CLI_ACTOR,
+            ),
           );
 
           // Same email, different case — should be a no-op
-          const result = await changeUserEmail(
-            { user_id, new_email: 'DAVE@ACME.COM', reason: 'admin' },
-            CLI_ACTOR,
+          const result = await maintenance(() =>
+            changeUserEmail({ user_id, new_email: 'DAVE@ACME.COM', reason: 'admin' }, CLI_ACTOR),
           );
 
           expect(result.old_email).toBe('dave@acme.com');

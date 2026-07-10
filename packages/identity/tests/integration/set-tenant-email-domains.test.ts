@@ -1,6 +1,6 @@
 import { getTenantEmailDomains } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools, scoped } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setTenantEmailDomains } from '../../src/backend/domain/set-tenant-email-domains.ts';
@@ -151,10 +151,9 @@ describe('setTenantEmailDomains', () => {
           ).toBe(true);
 
           // Only the winning tenant actually persisted the domain — no split-brain state.
-          const [aDomains, bDomains] = await Promise.all([
-            getTenantEmailDomains(tenantA),
-            getTenantEmailDomains(tenantB),
-          ]);
+          const [aDomains, bDomains] = await maintenance(() =>
+            Promise.all([getTenantEmailDomains(tenantA), getTenantEmailDomains(tenantB)]),
+          );
           expect([aDomains, bDomains].filter((d) => d.includes('race.com'))).toHaveLength(1);
         } finally {
           resetCoreDb();
