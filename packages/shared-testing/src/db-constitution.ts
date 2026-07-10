@@ -278,25 +278,18 @@ interface TenantScopedUniqueRow {
   indkey0: number | null;
 }
 
-// The two subtle queries (this one and ordered-pair-check below) are reproduced verbatim from
-// the validated brief, including the parts that don't route through OWNED_TABLE_CTE — they
-// were checked against the live migrated database and re-deriving them risks the exact drift
-// the CTE exists to prevent. `indkey0` is selected in addition to the brief's own columns so
-// JS can tell an expression index (indkey[0] = 0) apart from a wrong-typed natural key.
+// `indkey0` is selected so JS can tell an expression index (indkey[0] = 0) apart from a
+// wrong-typed natural key: for an expression index the `col`/`typ` subselects return NULL.
 async function tenantScopedUnique(pool: Pool, schemas: readonly string[]): Promise<Violation[]> {
   const { rows } = await pool.query<TenantScopedUniqueRow>(
-    `WITH lead AS (
-       SELECT n.nspname sch, c.relname tbl, ic.relname idx, i.indkey[0] AS indkey0,
-         (SELECT a.attname FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum=i.indkey[0]) col,
-         (SELECT format_type(a.atttypid,NULL) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum=i.indkey[0]) typ
-       FROM pg_index i
-       JOIN pg_class ic ON ic.oid=i.indexrelid
-       JOIN pg_class c ON c.oid=i.indrelid
-       JOIN pg_namespace n ON n.oid=c.relnamespace
-       WHERE i.indisunique AND c.relkind IN ('r','p') AND NOT c.relispartition
-         AND n.nspname = ANY($1::text[]) AND c.relname !~ '^mastra_'
-         AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='tenant_id'
-                     AND a.attnum>0 AND NOT a.attisdropped)
+    `${OWNED_TABLE_CTE}, lead AS (
+       SELECT t.sch, t.tbl, ic.relname idx, i.indkey[0] AS indkey0,
+         (SELECT a.attname FROM pg_attribute a WHERE a.attrelid=t.oid AND a.attnum=i.indkey[0]) col,
+         (SELECT format_type(a.atttypid,NULL) FROM pg_attribute a WHERE a.attrelid=t.oid AND a.attnum=i.indkey[0]) typ
+       FROM t
+       JOIN pg_index i ON i.indrelid = t.oid
+       JOIN pg_class ic ON ic.oid = i.indexrelid
+       WHERE i.indisunique AND ${HAS_TENANT}
      )
      SELECT sch, tbl, idx, col, typ, indkey0 FROM lead
      WHERE col IS DISTINCT FROM 'tenant_id' AND typ IS DISTINCT FROM 'uuid'`,
@@ -318,13 +311,13 @@ interface OrderedPairRow {
 
 async function orderedPairCheck(pool: Pool, schemas: readonly string[]): Promise<Violation[]> {
   const { rows } = await pool.query<OrderedPairRow>(
-    `WITH cols AS (
-       SELECT n.nspname sch, c.relname tbl, c.oid, a.attname col, format_type(a.atttypid,NULL) typ
-       FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-       JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
-       WHERE c.relkind IN ('r','p') AND NOT c.relispartition
-         AND n.nspname = ANY($1::text[]) AND c.relname !~ '^mastra_'
-         AND (format_type(a.atttypid,NULL) = 'date' OR format_type(a.atttypid,NULL) LIKE 'timestamp%')
+    `${OWNED_TABLE_CTE}, cols AS (
+       SELECT t.sch, t.tbl, t.oid, a.attname col
+       FROM t
+       JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum>0 AND NOT a.attisdropped
+       -- Only a real instant orders. people.worker.work_start/work_end are \`time\`: a daily
+       -- shift window, where end < start is a legitimate night shift crossing midnight.
+       WHERE format_type(a.atttypid,NULL) = 'date' OR format_type(a.atttypid,NULL) LIKE 'timestamp%'
      ), pairs AS (
        SELECT l.sch, l.tbl, l.oid, l.col lo, h.col hi
        FROM cols l JOIN cols h ON l.oid = h.oid
