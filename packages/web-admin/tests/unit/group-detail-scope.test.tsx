@@ -48,7 +48,7 @@ describe('GroupDetail scope picker', () => {
     renderDetail(scopedGroup);
     expect(await screen.findByText('Org unit')).toBeInTheDocument();
     expect(await screen.findByText('Engineering')).toBeInTheDocument();
-  }, 15_000);
+  });
 
   it('posts a scoped role entry when checking a role (defaults to tenant-wide)', async () => {
     const user = userEvent.setup();
@@ -66,5 +66,5 @@ describe('GroupDetail scope picker', () => {
         { role_slug: 'people.viewer', scope_kind: 'tenant', scope_id: null },
       ]),
     );
-  }, 15_000);
+  });
 });
