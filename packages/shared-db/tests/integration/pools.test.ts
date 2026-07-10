@@ -1,14 +1,7 @@
 import { withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  closePools,
-  executorPool,
-  getPool,
-  getPoolStats,
-  initPools,
-  maintenance,
-  scoped,
-} from '../../src/index.ts';
+import { getPool, getPoolStats } from '../../src/composition.ts';
+import { closePools, executorPool, initPools, maintenance, scoped } from '../../src/index.ts';
 
 const env = {
   template: () => process.env.PLATFORM_TEST_PG_TEMPLATE as string,

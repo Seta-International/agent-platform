@@ -28,7 +28,8 @@ import type { KnowledgeStreamHub } from '@seta/knowledge/stream';
 import { registerNotificationsRoutes } from '@seta/notifications/http';
 import { NotificationStreamHub } from '@seta/notifications/stream';
 import { getWorkerIdForUser } from '@seta/people';
-import { getPool, scoped } from '@seta/shared-db';
+import { scoped } from '@seta/shared-db';
+import { getPool } from '@seta/shared-db/composition';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,

@@ -1,6 +1,7 @@
 import { createUser, grantRole, listRoleAssignments } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
-import { closePools, getPool, initPools, scoped } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
+import { getPool } from '@seta/shared-db/composition';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';

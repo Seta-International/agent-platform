@@ -124,7 +124,8 @@ export function initPools(cfg: PoolsConfig): Pools {
 /**
  * @deprecated Modules must not choose a privilege level. Use `executorPool()`, and let
  * the composition root open the context with `scoped()` / `maintenance()`.
- * Removed in PR4 of DB-1; will then be importable only by apps/server and apps/worker.
+ * Off the `@seta/shared-db` barrel as of PR4 of DB-1; importable only via
+ * `@seta/shared-db/composition`.
  */
 export function getPool(name?: 'web' | 'worker' | 'mastraState'): Pool {
   if (!pools) throw new Error('getPool called before initPools.');

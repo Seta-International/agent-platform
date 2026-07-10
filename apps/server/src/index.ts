@@ -40,7 +40,8 @@ import {
 import { registerPlannerContributions } from '@seta/planner/register';
 import { registerPmContributions } from '@seta/pm/register';
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
-import { closePools, getPool, initPools } from '@seta/shared-db';
+import { closePools, initPools } from '@seta/shared-db';
+import { getPool } from '@seta/shared-db/composition';
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { createMailer } from '@seta/shared-mailer';
 import { OrchestrationRegistry } from '@seta/shared-orchestration';
