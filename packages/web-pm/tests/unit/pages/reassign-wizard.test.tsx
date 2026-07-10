@@ -96,7 +96,7 @@ describe('ReassignWizardDialog', () => {
   });
 
   it('bumps the end date forward when Start is moved past it, preventing an inverted range', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWizard([allocation({ date_from: '2026-04-09', date_to: '2026-12-23' })]);
 
     const startDateInput = screen.getByLabelText(/start date for/i) as HTMLInputElement;
@@ -108,7 +108,7 @@ describe('ReassignWizardDialog', () => {
   });
 
   it('calls updateAllocation with the full row patch on Save and displays the newly saved values', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWizard([allocation({ date_to: '2026-12-23', version: 3 })]);
 
     const pctInput = screen.getByDisplayValue('30') as HTMLInputElement;
@@ -141,7 +141,7 @@ describe('ReassignWizardDialog', () => {
   });
 
   it('lets an existing row be moved to a different account/project, and sends the new project_id on Save', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWizard(
       [allocation({ date_to: '2026-12-23', version: 3 })],
       [
@@ -184,7 +184,7 @@ describe('ReassignWizardDialog', () => {
   });
 
   it('asks for confirmation before deleting an allocation, and only calls removeAllocation once confirmed', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWizard([allocation({ project_name: 'Aeris - Watchtower' })]);
 
     await user.click(screen.getByRole('button', { name: /delete aeris - watchtower/i }));
@@ -200,7 +200,7 @@ describe('ReassignWizardDialog', () => {
   });
 
   it('enables Review impact once a new project is added, independent of any existing allocation', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWizard(
       [allocation({ date_to: '2026-12-23' })],
       [{ value: 'acc1', label: 'Aeris' }],
