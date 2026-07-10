@@ -3,7 +3,7 @@ import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
 import { KNOWLEDGE_VECTOR_NAMESPACE } from '@seta/knowledge';
 import { resetKnowledgeDb } from '@seta/knowledge/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { embedKnowledgeChunks } from '../../../src/backend/embeddings/embed-knowledge-chunks.ts';
@@ -94,9 +94,11 @@ describe('searchTenantKnowledge retriever', () => {
         { text: 'all deployments use kubernetes clusters', page_hint: 'p.2' },
       ]);
 
-      await embedKnowledgeChunks(
-        { tenant_id, file_id, event_id: randomUUID() },
-        { pool, pgVector, provider },
+      await scoped(tenant_id, () =>
+        embedKnowledgeChunks(
+          { tenant_id, file_id, event_id: randomUUID() },
+          { pool, pgVector, provider },
+        ),
       );
 
       const hits = await searchTenantKnowledge(
@@ -128,13 +130,17 @@ describe('searchTenantKnowledge retriever', () => {
         { text: 'tenant B onboarding document', page_hint: null },
       ]);
 
-      await embedKnowledgeChunks(
-        { tenant_id: tenant_a, file_id: file_a, event_id: randomUUID() },
-        { pool, pgVector, provider },
+      await scoped(tenant_a, () =>
+        embedKnowledgeChunks(
+          { tenant_id: tenant_a, file_id: file_a, event_id: randomUUID() },
+          { pool, pgVector, provider },
+        ),
       );
-      await embedKnowledgeChunks(
-        { tenant_id: tenant_b, file_id: file_b, event_id: randomUUID() },
-        { pool, pgVector, provider },
+      await scoped(tenant_b, () =>
+        embedKnowledgeChunks(
+          { tenant_id: tenant_b, file_id: file_b, event_id: randomUUID() },
+          { pool, pgVector, provider },
+        ),
       );
 
       const hitsA = await searchTenantKnowledge(
@@ -164,13 +170,17 @@ describe('searchTenantKnowledge retriever', () => {
         { text: 'kubernetes cluster deployment policy', page_hint: 'p.1' },
       ]);
 
-      await embedKnowledgeChunks(
-        { tenant_id, file_id: kbFile, event_id: randomUUID() },
-        { pool, pgVector, provider },
+      await scoped(tenant_id, () =>
+        embedKnowledgeChunks(
+          { tenant_id, file_id: kbFile, event_id: randomUUID() },
+          { pool, pgVector, provider },
+        ),
       );
-      await embedKnowledgeChunks(
-        { tenant_id, file_id: chatFile, event_id: randomUUID() },
-        { pool, pgVector, provider },
+      await scoped(tenant_id, () =>
+        embedKnowledgeChunks(
+          { tenant_id, file_id: chatFile, event_id: randomUUID() },
+          { pool, pgVector, provider },
+        ),
       );
 
       const hits = await searchTenantKnowledge(

@@ -3,7 +3,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { addGroupMember, createGroup, removeGroupMember } from '../../src/index.ts';
-import { buildSession, countEvents, readEvents, seedTenant } from '../helpers.ts';
+import { buildSession, countEvents, inScope, readEvents, seedTenant } from '../helpers.ts';
 
 describe('addGroupMember', () => {
   it('adds a member, emits planner.group.member.added', async () => {
@@ -23,13 +23,17 @@ describe('addGroupMember', () => {
           const [bob] = seeded.users;
           if (!bob) throw new Error('Seed did not create Bob');
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Alpha',
-            session,
-          });
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Alpha',
+              session,
+            }),
+          );
 
-          await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
+          await inScope(session, () =>
+            addGroupMember({ group_id: group.id, user_id: bob.user_id, session }),
+          );
 
           const { rows } = await pool.query(
             `SELECT user_id FROM planner.group_members WHERE group_id = $1 AND user_id = $2`,
@@ -74,14 +78,20 @@ describe('addGroupMember', () => {
           const [bob] = seeded.users;
           if (!bob) throw new Error('Seed did not create Bob');
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Beta',
-            session,
-          });
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Beta',
+              session,
+            }),
+          );
 
-          await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
-          await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
+          await inScope(session, () =>
+            addGroupMember({ group_id: group.id, user_id: bob.user_id, session }),
+          );
+          await inScope(session, () =>
+            addGroupMember({ group_id: group.id, user_id: bob.user_id, session }),
+          );
 
           const count = await countEvents(pool, seeded.tenant_id, 'planner.group.member.added');
           // createGroup emits 1 event for the creator; addGroupMember(bob) adds 1 more (second call is no-op)
@@ -112,11 +122,13 @@ describe('addGroupMember', () => {
         try {
           const seeded = await seedTenant(pool);
           await expect(
-            addGroupMember({
-              group_id: crypto.randomUUID(),
-              user_id: crypto.randomUUID(),
-              session: seeded.adminSession,
-            }),
+            inScope(seeded.adminSession, () =>
+              addGroupMember({
+                group_id: crypto.randomUUID(),
+                user_id: crypto.randomUUID(),
+                session: seeded.adminSession,
+              }),
+            ),
           ).rejects.toMatchObject({ code: 'NOT_FOUND' });
         } finally {
           resetCoreDb();
@@ -143,11 +155,13 @@ describe('addGroupMember', () => {
           const [bob] = seeded.users;
           if (!bob) throw new Error('Seed did not create Bob');
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Gamma',
-            session: adminSession,
-          });
+          const group = await inScope(adminSession, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Gamma',
+              session: adminSession,
+            }),
+          );
 
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
@@ -156,7 +170,9 @@ describe('addGroupMember', () => {
           });
 
           await expect(
-            addGroupMember({ group_id: group.id, user_id: bob.user_id, session: viewerSession }),
+            inScope(viewerSession, () =>
+              addGroupMember({ group_id: group.id, user_id: bob.user_id, session: viewerSession }),
+            ),
           ).rejects.toMatchObject({ code: 'FORBIDDEN' });
         } finally {
           resetCoreDb();
@@ -182,8 +198,12 @@ describe('addGroupMember', () => {
           const session = seeded.adminSession;
           const newcomer = seeded.users[0]!;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          await addGroupMember({ group_id: group.id, user_id: newcomer.user_id, session });
+          const group = await inScope(session, () =>
+            createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session }),
+          );
+          await inScope(session, () =>
+            addGroupMember({ group_id: group.id, user_id: newcomer.user_id, session }),
+          );
 
           const events = await readEvents(pool, seeded.tenant_id, 'notification.requested');
           expect(events).toHaveLength(1);
@@ -219,14 +239,20 @@ describe('removeGroupMember', () => {
           const [bob] = seeded.users;
           if (!bob) throw new Error('Seed did not create Bob');
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Delta',
-            session,
-          });
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Delta',
+              session,
+            }),
+          );
 
-          await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
-          await removeGroupMember({ group_id: group.id, user_id: bob.user_id, session });
+          await inScope(session, () =>
+            addGroupMember({ group_id: group.id, user_id: bob.user_id, session }),
+          );
+          await inScope(session, () =>
+            removeGroupMember({ group_id: group.id, user_id: bob.user_id, session }),
+          );
 
           const { rows } = await pool.query(
             `SELECT user_id FROM planner.group_members WHERE group_id = $1 AND user_id = $2`,
@@ -265,15 +291,23 @@ describe('removeGroupMember', () => {
           const [bob] = seeded.users;
           if (!bob) throw new Error('Seed did not create Bob');
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Epsilon',
-            session,
-          });
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Epsilon',
+              session,
+            }),
+          );
 
-          await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
-          await removeGroupMember({ group_id: group.id, user_id: bob.user_id, session });
-          await removeGroupMember({ group_id: group.id, user_id: bob.user_id, session });
+          await inScope(session, () =>
+            addGroupMember({ group_id: group.id, user_id: bob.user_id, session }),
+          );
+          await inScope(session, () =>
+            removeGroupMember({ group_id: group.id, user_id: bob.user_id, session }),
+          );
+          await inScope(session, () =>
+            removeGroupMember({ group_id: group.id, user_id: bob.user_id, session }),
+          );
 
           const count = await countEvents(pool, seeded.tenant_id, 'planner.group.member.removed');
           expect(count).toBe(1);
@@ -297,11 +331,13 @@ describe('removeGroupMember', () => {
         try {
           const seeded = await seedTenant(pool);
           await expect(
-            removeGroupMember({
-              group_id: crypto.randomUUID(),
-              user_id: crypto.randomUUID(),
-              session: seeded.adminSession,
-            }),
+            inScope(seeded.adminSession, () =>
+              removeGroupMember({
+                group_id: crypto.randomUUID(),
+                user_id: crypto.randomUUID(),
+                session: seeded.adminSession,
+              }),
+            ),
           ).rejects.toMatchObject({ code: 'NOT_FOUND' });
         } finally {
           resetCoreDb();

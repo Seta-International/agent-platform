@@ -1,9 +1,14 @@
+import type { SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { Pool } from 'pg';
 
 export { makeToolContext } from '@seta/agent-sdk/testing';
+
+export function inScope<T>(session: SessionScope, fn: () => Promise<T>): Promise<T> {
+  return scoped(session.tenant_id, fn);
+}
 
 export async function seedTenantRaw(pool: Pool): Promise<string> {
   const id = crypto.randomUUID();

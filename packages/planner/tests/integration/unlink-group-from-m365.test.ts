@@ -3,7 +3,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createGroup, linkGroupToM365, unlinkGroupFromM365 } from '../../src/index.ts';
-import { readEvents, seedTenant } from '../helpers.ts';
+import { inScope, readEvents, seedTenant } from '../helpers.ts';
 
 describe('unlinkGroupFromM365', () => {
   it('clears external_source/external_id and emits changed_fields', async () => {
@@ -17,20 +17,26 @@ describe('unlinkGroupFromM365', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const g = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'G',
-            session: seeded.adminSession,
-          });
-          await linkGroupToM365({
-            group_id: g.id,
-            external_id: 'abc-123',
-            session: seeded.adminSession,
-          });
-          const u = await unlinkGroupFromM365({
-            group_id: g.id,
-            session: seeded.adminSession,
-          });
+          const g = await inScope(seeded.adminSession, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'G',
+              session: seeded.adminSession,
+            }),
+          );
+          await inScope(seeded.adminSession, () =>
+            linkGroupToM365({
+              group_id: g.id,
+              external_id: 'abc-123',
+              session: seeded.adminSession,
+            }),
+          );
+          const u = await inScope(seeded.adminSession, () =>
+            unlinkGroupFromM365({
+              group_id: g.id,
+              session: seeded.adminSession,
+            }),
+          );
           expect(u.external_source).toBe('native');
           expect(u.external_id).toBeNull();
           expect(u.version).toBe(3);
@@ -73,13 +79,17 @@ describe('unlinkGroupFromM365', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const g = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'G',
-            session: seeded.adminSession,
-          });
+          const g = await inScope(seeded.adminSession, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'G',
+              session: seeded.adminSession,
+            }),
+          );
           await expect(
-            unlinkGroupFromM365({ group_id: g.id, session: seeded.adminSession }),
+            inScope(seeded.adminSession, () =>
+              unlinkGroupFromM365({ group_id: g.id, session: seeded.adminSession }),
+            ),
           ).rejects.toMatchObject({ code: 'CONFLICT' });
         } finally {
           resetCoreDb();

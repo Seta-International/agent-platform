@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { accountProjection, projectProjection } from '../../src/backend/db/schema.ts';
 import { registerPeoplePickersRoutes } from '../../src/backend/http/pickers.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { buildSession, inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -38,7 +38,7 @@ function withDb(
     initPools({ databaseUrl });
     try {
       const t = await seedTenant(pool);
-      await fn({ ...t });
+      await inScope(t.adminSession, () => fn({ ...t }));
     } finally {
       resetPeopleDb();
       resetCoreDb();

@@ -19,7 +19,9 @@ export type ResourceType =
   | 'assignment';
 
 export interface CreateM365PlanLinkRepoDeps {
-  db: NodePgDatabase<typeof schema>;
+  // Resolved per operation, not captured: under the ambient executor a db handle is only
+  // valid inside the context that is open when the query runs. This repo is built once at boot.
+  db: () => NodePgDatabase<typeof schema>;
 }
 
 export interface M365PlanLinkRepo {
@@ -44,7 +46,7 @@ export function createM365PlanLinkRepo(deps: CreateM365PlanLinkRepoDeps): M365Pl
 
   return {
     async findByPlan(planId) {
-      const [row] = await db
+      const [row] = await db()
         .select()
         .from(m365PlanLinks)
         .where(and(eq(m365PlanLinks.planId, planId), isNull(m365PlanLinks.unlinkedAt)))
@@ -53,7 +55,7 @@ export function createM365PlanLinkRepo(deps: CreateM365PlanLinkRepoDeps): M365Pl
     },
 
     async findByExternal(tenantId, externalId) {
-      const [row] = await db
+      const [row] = await db()
         .select()
         .from(m365PlanLinks)
         .where(
@@ -68,7 +70,7 @@ export function createM365PlanLinkRepo(deps: CreateM365PlanLinkRepoDeps): M365Pl
     },
 
     async listByGroup(tenantId, groupId) {
-      return db
+      return db()
         .select()
         .from(m365PlanLinks)
         .where(
@@ -83,7 +85,7 @@ export function createM365PlanLinkRepo(deps: CreateM365PlanLinkRepoDeps): M365Pl
     async upsert(input) {
       // onConflictDoUpdate with targetWhere to match the partial unique index
       // (tenant_id, plan_id) WHERE unlinked_at IS NULL
-      const [row] = await db
+      const [row] = await db()
         .insert(m365PlanLinks)
         .values({
           tenantId: input.tenantId,
@@ -106,7 +108,7 @@ export function createM365PlanLinkRepo(deps: CreateM365PlanLinkRepoDeps): M365Pl
     },
 
     async setSyncStatus(id, status, lastError = null) {
-      await db
+      await db()
         .update(m365PlanLinks)
         .set({
           syncStatus: status,
@@ -117,7 +119,7 @@ export function createM365PlanLinkRepo(deps: CreateM365PlanLinkRepoDeps): M365Pl
     },
 
     async persistSnapshot(id, snapshot) {
-      await db
+      await db()
         .update(m365PlanLinks)
         .set({
           lastSyncedSnapshot: snapshot,
@@ -128,7 +130,7 @@ export function createM365PlanLinkRepo(deps: CreateM365PlanLinkRepoDeps): M365Pl
     },
 
     async tombstone(id) {
-      await db
+      await db()
         .update(m365PlanLinks)
         .set({
           unlinkedAt: new Date(),
@@ -138,13 +140,15 @@ export function createM365PlanLinkRepo(deps: CreateM365PlanLinkRepoDeps): M365Pl
     },
 
     async listAllLive() {
-      return db.select().from(m365PlanLinks).where(isNull(m365PlanLinks.unlinkedAt));
+      return db().select().from(m365PlanLinks).where(isNull(m365PlanLinks.unlinkedAt));
     },
   };
 }
 
 export interface CreateM365ResourceEtagRepoDeps {
-  db: NodePgDatabase<typeof schema>;
+  // Resolved per operation, not captured: under the ambient executor a db handle is only
+  // valid inside the context that is open when the query runs. This repo is built once at boot.
+  db: () => NodePgDatabase<typeof schema>;
 }
 
 export interface M365ResourceEtagRepo {
@@ -169,7 +173,7 @@ export function createM365ResourceEtagRepo(
 
   return {
     async get(planLinkId, resourceType, setaId) {
-      const [row] = await db
+      const [row] = await db()
         .select()
         .from(m365ResourceEtags)
         .where(
@@ -188,14 +192,14 @@ export function createM365ResourceEtagRepo(
       if (resourceType !== undefined) {
         filters.push(eq(m365ResourceEtags.resourceType, resourceType));
       }
-      return db
+      return db()
         .select()
         .from(m365ResourceEtags)
         .where(and(...filters));
     },
 
     async upsert(input) {
-      await db
+      await db()
         .insert(m365ResourceEtags)
         .values({
           tenantId: input.tenantId,
@@ -222,7 +226,7 @@ export function createM365ResourceEtagRepo(
     },
 
     async remove(planLinkId, resourceType, setaId) {
-      await db
+      await db()
         .delete(m365ResourceEtags)
         .where(
           and(

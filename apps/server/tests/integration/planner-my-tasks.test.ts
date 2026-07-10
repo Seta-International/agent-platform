@@ -4,7 +4,7 @@ import { createUser } from '@seta/identity';
 import { assignTask, createGroup, createPlan, createTask, updateTask } from '@seta/planner';
 import { registerPlannerTasksRoutes } from '@seta/planner/http';
 import { plannerErrorMapper } from '@seta/planner/register';
-import { closePools, initPools, scoped } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -67,15 +67,19 @@ async function seedTenant(pool: Pool, slug: string) {
     slug,
   ]);
   const adminEmail = `admin-${slug}@example.test`;
-  const adminResult = await createUser(
-    {
-      tenant_id: tenantId,
-      email: adminEmail,
-      name: 'Admin',
-      password: 'correct-horse-battery-staple',
-      initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-    },
-    { type: 'cli', user_id: null },
+  // seedTenant acts as the CLI seeder (actor: { type: 'cli' }): maintenance() mirrors
+  // the admin-pool context apps/cli opens around program.parseAsync in production.
+  const adminResult = await maintenance(() =>
+    createUser(
+      {
+        tenant_id: tenantId,
+        email: adminEmail,
+        name: 'Admin',
+        password: 'correct-horse-battery-staple',
+        initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
   await pool.query(
     `INSERT INTO planner.assignee_projection

@@ -1,8 +1,11 @@
+import { scoped } from '@seta/shared-db';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
 import { emit, withEmit } from '../../src/events/index.ts';
 import { startDispatcher } from '../../src/runtime/dispatcher/index.ts';
 import { waitFor, withCoreTestDb } from '../helpers.ts';
+
+const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 describe('dispatcher health surfaces real DLQ count', () => {
   it('counts rows in core.subscription_dead_letter within the 24h window', async () => {
@@ -24,16 +27,18 @@ describe('dispatcher health surfaces real DLQ count', () => {
         pollIntervalMs: 25,
       });
       try {
-        await withEmit(undefined, async () => {
-          await emit({
-            tenantId: '00000000-0000-0000-0000-000000000001',
-            aggregateType: 'test.dlq.surfaced',
-            aggregateId: '00000000-0000-0000-0000-000000000001',
-            eventType: 'test.dlq.surfaced.entity.created',
-            eventVersion: 1,
-            payload: {},
-          });
-        });
+        await scoped(TENANT_ID, () =>
+          withEmit(undefined, async () => {
+            await emit({
+              tenantId: TENANT_ID,
+              aggregateType: 'test.dlq.surfaced',
+              aggregateId: '00000000-0000-0000-0000-000000000001',
+              eventType: 'test.dlq.surfaced.entity.created',
+              eventVersion: 1,
+              payload: {},
+            });
+          }),
+        );
 
         await waitFor(async () => {
           const { rows } = await pool.query(

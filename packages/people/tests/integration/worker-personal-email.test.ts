@@ -7,7 +7,7 @@ import { resetPeopleDb } from '../../src/backend/db/client.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { editWorker } from '../../src/backend/domain/edit-worker.ts';
 import { getWorker, listWorkers } from '../../src/backend/domain/read-workers.ts';
-import { type SeededTenant, seedTenant } from '../helpers.ts';
+import { inScope, type SeededTenant, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -21,7 +21,7 @@ function withDb(fn: (a: { pool: Pool; t: SeededTenant }) => Promise<void>): Prom
     initPools({ databaseUrl });
     try {
       const t = await seedTenant(pool);
-      await fn({ pool, t });
+      await inScope(t.adminSession, () => fn({ pool, t }));
     } finally {
       resetPeopleDb();
       resetCoreDb();

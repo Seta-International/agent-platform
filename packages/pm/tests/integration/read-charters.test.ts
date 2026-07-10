@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetPmDb } from '../../src/backend/db/client.ts';
@@ -38,10 +38,12 @@ describe('read charters', () => {
             session: t.adminSession,
           }),
         );
-        const list = await listCharters(t.adminSession);
+        const list = await inScope(t.adminSession, () => listCharters(t.adminSession));
         expect(list.total).toBe(1);
         expect(list.charters.map((c) => c.charter_id)).toContain(charter_id);
-        const detail = await getCharter({ charter_id, session: t.adminSession });
+        const detail = await inScope(t.adminSession, () =>
+          getCharter({ charter_id, session: t.adminSession }),
+        );
         expect(detail.name).toBe('C1');
         expect(detail.status).toBe('submitted');
       } finally {
@@ -60,15 +62,17 @@ describe('read charters', () => {
       try {
         const t = await seedTenant(pool);
         const pmoEmail = `pmo-${crypto.randomUUID().slice(0, 8)}@example.test`;
-        const pmoResult = await createUser(
-          {
-            tenant_id: t.tenant_id,
-            email: pmoEmail,
-            name: 'PMO',
-            password: 'correct-horse-battery-staple',
-            initial_role: { role_slug: 'pm.pmo', scope_type: 'tenant', scope_id: null },
-          },
-          { type: 'cli', user_id: null },
+        const pmoResult = await maintenance(() =>
+          createUser(
+            {
+              tenant_id: t.tenant_id,
+              email: pmoEmail,
+              name: 'PMO',
+              password: 'correct-horse-battery-staple',
+              initial_role: { role_slug: 'pm.pmo', scope_type: 'tenant', scope_id: null },
+            },
+            { type: 'cli', user_id: null },
+          ),
         );
         const pmo = buildSession({
           tenant_id: t.tenant_id,
@@ -92,7 +96,9 @@ describe('read charters', () => {
           }),
         );
         await inScope(pmo, () => pmoSignOffCharter({ charter_id, session: pmo }));
-        const detail = await getCharter({ charter_id, session: t.adminSession });
+        const detail = await inScope(t.adminSession, () =>
+          getCharter({ charter_id, session: t.adminSession }),
+        );
         expect(detail.status).toBe('pmo_approved');
         expect(detail.rejected_stage).toBeNull();
         expect(detail.pmo_signed_off_at).not.toBeNull();
@@ -136,21 +142,29 @@ describe('read charters', () => {
         await inScope(pmo, () => pmoSignOffCharter({ charter_id: alpha.charter_id, session: pmo }));
 
         // status filter
-        const pmoApproved = await listCharters(t.adminSession, { status: 'pmo_approved' });
+        const pmoApproved = await inScope(t.adminSession, () =>
+          listCharters(t.adminSession, { status: 'pmo_approved' }),
+        );
         expect(pmoApproved.total).toBe(1);
         expect(pmoApproved.charters[0]!.name).toBe('Alpha Gateway');
 
         // account filter
-        const acct1 = await listCharters(t.adminSession, { account_id: a1.rows[0].id });
+        const acct1 = await inScope(t.adminSession, () =>
+          listCharters(t.adminSession, { account_id: a1.rows[0].id }),
+        );
         expect(acct1.total).toBe(2);
 
         // free-text search on name
-        const search = await listCharters(t.adminSession, { q: 'gamma' });
+        const search = await inScope(t.adminSession, () =>
+          listCharters(t.adminSession, { q: 'gamma' }),
+        );
         expect(search.total).toBe(1);
         expect(search.charters[0]!.name).toBe('Gamma Engine');
 
         // sort by name asc
-        const byName = await listCharters(t.adminSession, { sort: 'name', dir: 'asc' });
+        const byName = await inScope(t.adminSession, () =>
+          listCharters(t.adminSession, { sort: 'name', dir: 'asc' }),
+        );
         expect(byName.charters.map((c) => c.name)).toEqual([
           'Alpha Gateway',
           'Beta Portal',
@@ -158,7 +172,9 @@ describe('read charters', () => {
         ]);
 
         // pagination: total reflects the full match, page is bounded by limit
-        const page = await listCharters(t.adminSession, { limit: 2, offset: 0 });
+        const page = await inScope(t.adminSession, () =>
+          listCharters(t.adminSession, { limit: 2, offset: 0 }),
+        );
         expect(page.total).toBe(3);
         expect(page.charters).toHaveLength(2);
       } finally {
@@ -196,7 +212,7 @@ describe('read charters', () => {
         await mk('S2');
         await approveCharterTwoStage(c1.charter_id, t.tenant_id);
 
-        const summary = await getCharterSummary(t.adminSession);
+        const summary = await inScope(t.adminSession, () => getCharterSummary(t.adminSession));
         expect(summary.total).toBe(2);
         expect(summary.submitted).toBe(1);
         expect(summary.approved).toBe(1);
@@ -212,15 +228,17 @@ describe('read charters', () => {
 
 async function seedReviewer(tenantId: string, roleSlug: 'pm.pmo' | 'pm.bod') {
   const email = `${roleSlug.replace('.', '-')}-${crypto.randomUUID().slice(0, 8)}@example.test`;
-  const u = await createUser(
-    {
-      tenant_id: tenantId,
-      email,
-      name: roleSlug,
-      password: 'correct-horse-battery-staple',
-      initial_role: { role_slug: roleSlug, scope_type: 'tenant', scope_id: null },
-    },
-    { type: 'cli', user_id: null },
+  const u = await maintenance(() =>
+    createUser(
+      {
+        tenant_id: tenantId,
+        email,
+        name: roleSlug,
+        password: 'correct-horse-battery-staple',
+        initial_role: { role_slug: roleSlug, scope_type: 'tenant', scope_id: null },
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
   return buildSession({ tenant_id: tenantId, user_id: u.user_id, email, roles: [roleSlug] });
 }

@@ -41,7 +41,10 @@ export interface MailTransportConfigStore {
 }
 
 export interface CreateMailTransportConfigStoreDeps {
-  db: NodePgDatabase<Record<string, unknown>>;
+  // Resolved per operation, not captured: under the ambient executor a db handle is only
+  // valid inside the context that is open when the query runs. The store outlives any
+  // one context — it is built once at boot.
+  db: () => NodePgDatabase<Record<string, unknown>>;
 }
 
 export function createMailTransportConfigStore(
@@ -50,7 +53,7 @@ export function createMailTransportConfigStore(
   const { db } = deps;
   return {
     async findEnabled(tenantId) {
-      const [row] = await db
+      const [row] = await db()
         .select()
         .from(mailTransportConfig)
         .where(
@@ -60,7 +63,7 @@ export function createMailTransportConfigStore(
       return row ?? null;
     },
     async upsert(input) {
-      await db
+      await db()
         .insert(mailTransportConfig)
         .values({
           tenantId: input.tenantId,
@@ -88,13 +91,13 @@ export function createMailTransportConfigStore(
         });
     },
     async disable(tenantId, actorUserId) {
-      await db
+      await db()
         .update(mailTransportConfig)
         .set({ enabled: false, updatedAt: sql`now()`, updatedBy: actorUserId })
         .where(eq(mailTransportConfig.tenantId, tenantId));
     },
     async recordVerification(tenantId, result) {
-      await db
+      await db()
         .update(mailTransportConfig)
         .set(
           result.ok

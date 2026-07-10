@@ -21,7 +21,9 @@ export interface M365SubscriptionsRepo {
 }
 
 export interface CreateM365SubscriptionsRepoDeps {
-  db: NodePgDatabase<typeof schema>;
+  // Resolved per operation, not captured: under the ambient executor a db handle is only
+  // valid inside the context that is open when the query runs. This repo is built once at boot.
+  db: () => NodePgDatabase<typeof schema>;
 }
 
 export function createM365SubscriptionsRepo(
@@ -31,7 +33,7 @@ export function createM365SubscriptionsRepo(
 
   return {
     async upsert(input) {
-      const [row] = await db
+      const [row] = await db()
         .insert(m365Subscriptions)
         .values({
           tenantId: input.tenantId,
@@ -56,7 +58,7 @@ export function createM365SubscriptionsRepo(
     },
 
     async findBySubscriptionId(subscriptionId) {
-      const [row] = await db
+      const [row] = await db()
         .select()
         .from(m365Subscriptions)
         .where(eq(m365Subscriptions.subscriptionId, subscriptionId))
@@ -65,7 +67,7 @@ export function createM365SubscriptionsRepo(
     },
 
     async findById(id) {
-      const [row] = await db
+      const [row] = await db()
         .select()
         .from(m365Subscriptions)
         .where(eq(m365Subscriptions.id, id))
@@ -74,7 +76,7 @@ export function createM365SubscriptionsRepo(
     },
 
     async setExpiration(id, expirationAt) {
-      await db
+      await db()
         .update(m365Subscriptions)
         .set({ expirationAt, updatedAt: new Date() })
         .where(eq(m365Subscriptions.id, id));

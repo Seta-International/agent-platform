@@ -35,7 +35,7 @@ export async function verifyMailTransport(
   if (args.actor.tenantId !== args.tenantId)
     throw new IntegrationsError('FORBIDDEN', 'tenant mismatch');
 
-  const store = createMailTransportConfigStore({ db: integrationsDb() });
+  const store = createMailTransportConfigStore({ db: integrationsDb });
   let kind: ResolvedTransport['transportKind'] | 'unresolved' = 'unresolved';
   try {
     const resolved =

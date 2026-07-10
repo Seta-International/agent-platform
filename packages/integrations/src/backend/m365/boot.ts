@@ -34,16 +34,15 @@ export interface M365Boot {
 export function buildM365Boot(deps: M365BootDeps): M365Boot {
   const { webhookSecret, cryptoSvc, getWorkers } = deps;
 
-  const m365LinksRepo = m365.createM365GroupLinkRepo({ db: integrationsDb() });
-  const m365PlanLinksRepo = m365.createM365PlanLinkRepo({
-    db: integrationsDb(),
-  });
-  const m365EtagsRepo = m365.createM365ResourceEtagRepo({
-    db: integrationsDb(),
-  });
-  const m365SubsRepo = m365.createM365SubscriptionsRepo({
-    db: integrationsDb(),
-  });
+  // buildM365Boot() runs once at process boot, outside any executor context (no HTTP
+  // request or job is in flight yet) — integrationsDb() would throw ExecutorContextError
+  // if resolved here. Each repo instead takes integrationsDb itself as a resolver and
+  // calls it per query, inside whichever context is open when a method runs (a job
+  // handler or an HTTP route handler, both scoped()-wrapped in production).
+  const m365LinksRepo = m365.createM365GroupLinkRepo({ db: integrationsDb });
+  const m365PlanLinksRepo = m365.createM365PlanLinkRepo({ db: integrationsDb });
+  const m365EtagsRepo = m365.createM365ResourceEtagRepo({ db: integrationsDb });
+  const m365SubsRepo = m365.createM365SubscriptionsRepo({ db: integrationsDb });
 
   async function graphClientFor(setaTenantId: string): Promise<Client> {
     const config = await getM365TenantConfig(setaTenantId, {

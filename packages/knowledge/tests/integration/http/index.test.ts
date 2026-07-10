@@ -2,7 +2,7 @@ import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core'
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser, IdentityError } from '@seta/identity';
 import { resetKnowledgeDb } from '@seta/knowledge/testing';
-import { closePools, initPools, scoped } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -91,15 +91,17 @@ async function seedTenant(pool: import('pg').Pool, slug: string) {
     slug,
   ]);
   const adminEmail = `admin-${slug}@example.test`;
-  const adminResult = await createUser(
-    {
-      tenant_id: tenantId,
-      email: adminEmail,
-      name: 'Admin',
-      password: 'correct-horse-battery-staple',
-      initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-    },
-    { type: 'cli', user_id: null },
+  const adminResult = await maintenance(() =>
+    createUser(
+      {
+        tenant_id: tenantId,
+        email: adminEmail,
+        name: 'Admin',
+        password: 'correct-horse-battery-staple',
+        initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
   return { tenantId, adminUserId: adminResult.user_id, adminEmail };
 }

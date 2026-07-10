@@ -6,7 +6,7 @@ import {
 } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools, scoped } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -74,9 +74,11 @@ function withDb(fn: (ctx: { tenant: string }) => Promise<void>): Promise<void> {
 }
 
 const seed = (tenant: string, email: string, name: string) =>
-  createUser(
-    { tenant_id: tenant, email, name, password: 'correct-horse-battery-staple' },
-    { type: 'cli', user_id: null },
+  maintenance(() =>
+    createUser(
+      { tenant_id: tenant, email, name, password: 'correct-horse-battery-staple' },
+      { type: 'cli', user_id: null },
+    ),
   );
 
 describe('directory HTTP route', () => {

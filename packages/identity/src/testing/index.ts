@@ -1,3 +1,4 @@
+import { maintenance } from '@seta/shared-db';
 import type { Pool } from 'pg';
 import { createUser } from '../backend/domain/create-user.ts';
 
@@ -16,15 +17,17 @@ export async function createTestTenantWithAdmin(opts: {
     name,
     slug,
   ]);
-  const { user_id } = await createUser(
-    {
-      tenant_id,
-      email: opts.adminEmail ?? 'admin@demo.local',
-      name: 'Admin',
-      password: opts.adminPassword ?? 'ChangeMe@2026',
-      initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-    },
-    { type: 'cli', user_id: null },
+  const { user_id } = await maintenance(() =>
+    createUser(
+      {
+        tenant_id,
+        email: opts.adminEmail ?? 'admin@demo.local',
+        name: 'Admin',
+        password: opts.adminPassword ?? 'ChangeMe@2026',
+        initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
   return { tenant_id, admin_user_id: user_id };
 }

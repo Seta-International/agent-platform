@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { DomainEvent } from '@seta/shared-types';
 import { eq } from 'drizzle-orm';
@@ -57,14 +57,15 @@ describe('workerProjectionCreated', () => {
           job_title: 'Senior Engineer',
         };
 
-        await pmDb().transaction(async (tx) => {
-          await workerProjectionCreated.handler(createdEvent(payload), { tx } as never);
-        });
+        await scoped(t.tenant_id, () =>
+          pmDb().transaction(async (tx) => {
+            await workerProjectionCreated.handler(createdEvent(payload), { tx } as never);
+          }),
+        );
 
-        const rows = await pmDb()
-          .select()
-          .from(workerProjection)
-          .where(eq(workerProjection.worker_id, workerId));
+        const rows = await scoped(t.tenant_id, () =>
+          pmDb().select().from(workerProjection).where(eq(workerProjection.worker_id, workerId)),
+        );
 
         expect(rows).toHaveLength(1);
         expect(rows[0]).toMatchObject({
@@ -97,14 +98,15 @@ describe('workerProjectionCreated', () => {
           job_title: null,
         };
 
-        await pmDb().transaction(async (tx) => {
-          await workerProjectionCreated.handler(createdEvent(payload), { tx } as never);
-        });
+        await scoped(t.tenant_id, () =>
+          pmDb().transaction(async (tx) => {
+            await workerProjectionCreated.handler(createdEvent(payload), { tx } as never);
+          }),
+        );
 
-        const rows = await pmDb()
-          .select()
-          .from(workerProjection)
-          .where(eq(workerProjection.worker_id, workerId));
+        const rows = await scoped(t.tenant_id, () =>
+          pmDb().select().from(workerProjection).where(eq(workerProjection.worker_id, workerId)),
+        );
 
         expect(rows).toHaveLength(1);
         expect(rows[0]?.job_title).toBeNull();
@@ -128,17 +130,19 @@ describe('workerProjectionUpdated', () => {
         const workerId = crypto.randomUUID();
 
         // seed an initial row via created event
-        await pmDb().transaction(async (tx) => {
-          await workerProjectionCreated.handler(
-            createdEvent({
-              worker_id: workerId,
-              tenant_id: t.tenant_id,
-              full_name: 'Carol Original',
-              job_title: 'Developer',
-            }),
-            { tx } as never,
-          );
-        });
+        await scoped(t.tenant_id, () =>
+          pmDb().transaction(async (tx) => {
+            await workerProjectionCreated.handler(
+              createdEvent({
+                worker_id: workerId,
+                tenant_id: t.tenant_id,
+                full_name: 'Carol Original',
+                job_title: 'Developer',
+              }),
+              { tx } as never,
+            );
+          }),
+        );
 
         // then fire updated event with new name
         const updatePayload: PeopleWorkerProjected = {
@@ -148,14 +152,15 @@ describe('workerProjectionUpdated', () => {
           job_title: 'Developer',
         };
 
-        await pmDb().transaction(async (tx) => {
-          await workerProjectionUpdated.handler(updatedEvent(updatePayload), { tx } as never);
-        });
+        await scoped(t.tenant_id, () =>
+          pmDb().transaction(async (tx) => {
+            await workerProjectionUpdated.handler(updatedEvent(updatePayload), { tx } as never);
+          }),
+        );
 
-        const rows = await pmDb()
-          .select()
-          .from(workerProjection)
-          .where(eq(workerProjection.worker_id, workerId));
+        const rows = await scoped(t.tenant_id, () =>
+          pmDb().select().from(workerProjection).where(eq(workerProjection.worker_id, workerId)),
+        );
 
         expect(rows).toHaveLength(1);
         expect(rows[0]?.full_name).toBe('Carol Renamed');

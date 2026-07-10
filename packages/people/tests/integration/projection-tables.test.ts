@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -40,32 +40,34 @@ describe('people projection tables', () => {
       resetPeopleDb();
       initPools({ databaseUrl });
       try {
-        const db = peopleDb();
-        await db.insert(accountProjection).values({
-          account_id: ACCT,
-          tenant_id: T1,
-          name: 'Acme Corp',
-          am_worker_id: null,
-        });
-        const [row] = await db
-          .select()
-          .from(accountProjection)
-          .where(eq(accountProjection.account_id, ACCT));
-        expect(row?.name).toBe('Acme Corp');
-        expect(row?.am_worker_id).toBeNull();
-
-        await db
-          .insert(accountProjection)
-          .values({ account_id: ACCT, tenant_id: T1, name: 'Acme Corp Renamed' })
-          .onConflictDoUpdate({
-            target: accountProjection.account_id,
-            set: { name: 'Acme Corp Renamed' },
+        await maintenance(async () => {
+          const db = peopleDb();
+          await db.insert(accountProjection).values({
+            account_id: ACCT,
+            tenant_id: T1,
+            name: 'Acme Corp',
+            am_worker_id: null,
           });
-        const [updated] = await db
-          .select()
-          .from(accountProjection)
-          .where(eq(accountProjection.account_id, ACCT));
-        expect(updated?.name).toBe('Acme Corp Renamed');
+          const [row] = await db
+            .select()
+            .from(accountProjection)
+            .where(eq(accountProjection.account_id, ACCT));
+          expect(row?.name).toBe('Acme Corp');
+          expect(row?.am_worker_id).toBeNull();
+
+          await db
+            .insert(accountProjection)
+            .values({ account_id: ACCT, tenant_id: T1, name: 'Acme Corp Renamed' })
+            .onConflictDoUpdate({
+              target: accountProjection.account_id,
+              set: { name: 'Acme Corp Renamed' },
+            });
+          const [updated] = await db
+            .select()
+            .from(accountProjection)
+            .where(eq(accountProjection.account_id, ACCT));
+          expect(updated?.name).toBe('Acme Corp Renamed');
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -80,32 +82,34 @@ describe('people projection tables', () => {
       resetPeopleDb();
       initPools({ databaseUrl });
       try {
-        const db = peopleDb();
-        await db.insert(projectProjection).values({
-          project_id: PROJ,
-          tenant_id: T1,
-          account_id: ACCT,
-          name: 'Alpha Project',
-        });
-        const [row] = await db
-          .select()
-          .from(projectProjection)
-          .where(eq(projectProjection.project_id, PROJ));
-        expect(row?.name).toBe('Alpha Project');
-        expect(row?.account_id).toBe(ACCT);
-
-        await db
-          .insert(projectProjection)
-          .values({ project_id: PROJ, tenant_id: T1, account_id: ACCT, name: 'Alpha Renamed' })
-          .onConflictDoUpdate({
-            target: projectProjection.project_id,
-            set: { name: 'Alpha Renamed' },
+        await maintenance(async () => {
+          const db = peopleDb();
+          await db.insert(projectProjection).values({
+            project_id: PROJ,
+            tenant_id: T1,
+            account_id: ACCT,
+            name: 'Alpha Project',
           });
-        const [updated] = await db
-          .select()
-          .from(projectProjection)
-          .where(eq(projectProjection.project_id, PROJ));
-        expect(updated?.name).toBe('Alpha Renamed');
+          const [row] = await db
+            .select()
+            .from(projectProjection)
+            .where(eq(projectProjection.project_id, PROJ));
+          expect(row?.name).toBe('Alpha Project');
+          expect(row?.account_id).toBe(ACCT);
+
+          await db
+            .insert(projectProjection)
+            .values({ project_id: PROJ, tenant_id: T1, account_id: ACCT, name: 'Alpha Renamed' })
+            .onConflictDoUpdate({
+              target: projectProjection.project_id,
+              set: { name: 'Alpha Renamed' },
+            });
+          const [updated] = await db
+            .select()
+            .from(projectProjection)
+            .where(eq(projectProjection.project_id, PROJ));
+          expect(updated?.name).toBe('Alpha Renamed');
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -120,46 +124,48 @@ describe('people projection tables', () => {
       resetPeopleDb();
       initPools({ databaseUrl });
       try {
-        const db = peopleDb();
-        await db.insert(workerAllocationProjection).values({
-          allocation_id: ALLOC,
-          tenant_id: T1,
-          worker_id: WORKER,
-          project_id: PROJ,
-          account_id: ACCT,
-          account_name: 'Acme Corp',
-          lead_worker_id: null,
-          active: true,
-        });
-        const [row] = await db
-          .select()
-          .from(workerAllocationProjection)
-          .where(eq(workerAllocationProjection.allocation_id, ALLOC));
-        expect(row?.account_name).toBe('Acme Corp');
-        expect(row?.active).toBe(true);
-        expect(row?.worker_id).toBe(WORKER);
-
-        await db
-          .insert(workerAllocationProjection)
-          .values({
+        await maintenance(async () => {
+          const db = peopleDb();
+          await db.insert(workerAllocationProjection).values({
             allocation_id: ALLOC,
             tenant_id: T1,
             worker_id: WORKER,
             project_id: PROJ,
             account_id: ACCT,
-            account_name: 'Acme Corp Renamed',
-            active: false,
-          })
-          .onConflictDoUpdate({
-            target: workerAllocationProjection.allocation_id,
-            set: { account_name: 'Acme Corp Renamed', active: false },
+            account_name: 'Acme Corp',
+            lead_worker_id: null,
+            active: true,
           });
-        const [updated] = await db
-          .select()
-          .from(workerAllocationProjection)
-          .where(eq(workerAllocationProjection.allocation_id, ALLOC));
-        expect(updated?.account_name).toBe('Acme Corp Renamed');
-        expect(updated?.active).toBe(false);
+          const [row] = await db
+            .select()
+            .from(workerAllocationProjection)
+            .where(eq(workerAllocationProjection.allocation_id, ALLOC));
+          expect(row?.account_name).toBe('Acme Corp');
+          expect(row?.active).toBe(true);
+          expect(row?.worker_id).toBe(WORKER);
+
+          await db
+            .insert(workerAllocationProjection)
+            .values({
+              allocation_id: ALLOC,
+              tenant_id: T1,
+              worker_id: WORKER,
+              project_id: PROJ,
+              account_id: ACCT,
+              account_name: 'Acme Corp Renamed',
+              active: false,
+            })
+            .onConflictDoUpdate({
+              target: workerAllocationProjection.allocation_id,
+              set: { account_name: 'Acme Corp Renamed', active: false },
+            });
+          const [updated] = await db
+            .select()
+            .from(workerAllocationProjection)
+            .where(eq(workerAllocationProjection.allocation_id, ALLOC));
+          expect(updated?.account_name).toBe('Acme Corp Renamed');
+          expect(updated?.active).toBe(false);
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();

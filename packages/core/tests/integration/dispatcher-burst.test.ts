@@ -1,7 +1,10 @@
+import { scoped } from '@seta/shared-db';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
 import { emit, withEmit } from '../../src/events/index.ts';
 import { waitFor, withCoreTestDb, withDispatcher } from '../helpers.ts';
+
+const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 describe('dispatcher burst', () => {
   it('delivers a burst of 200 events to one subscriber, cursor + processed table consistent', async () => {
@@ -19,18 +22,20 @@ describe('dispatcher burst', () => {
       };
 
       await withDispatcher({ subscribers: [sub], pool }, async () => {
-        await withEmit(undefined, async () => {
-          for (let i = 0; i < 200; i++) {
-            await emit({
-              tenantId: '00000000-0000-0000-0000-000000000001',
-              aggregateType: 'test.thing',
-              aggregateId: '00000000-0000-0000-0000-000000000002',
-              eventType: 'test.thing.happened',
-              eventVersion: 1,
-              payload: { i },
-            });
-          }
-        });
+        await scoped(TENANT_ID, () =>
+          withEmit(undefined, async () => {
+            for (let i = 0; i < 200; i++) {
+              await emit({
+                tenantId: TENANT_ID,
+                aggregateType: 'test.thing',
+                aggregateId: '00000000-0000-0000-0000-000000000002',
+                eventType: 'test.thing.happened',
+                eventVersion: 1,
+                payload: { i },
+              });
+            }
+          }),
+        );
 
         await waitFor(
           async () => {

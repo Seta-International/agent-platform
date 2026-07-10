@@ -1,4 +1,5 @@
 import { emit, withEmit } from '@seta/core/events';
+import { scoped } from '@seta/shared-db';
 import { sql } from 'drizzle-orm';
 import {
   IDENTITY_FAILED_LOGIN_ALERT_THRESHOLD_REACHED,
@@ -60,22 +61,28 @@ export async function recordFailedAttempt(
 
   const tenantId = (await tenantIdForEmail(normalized)) ?? SYSTEM_TENANT;
 
-  await withEmit({ actor: { userId: 'system', tenantId } }, async () => {
-    await emit({
-      tenantId,
-      aggregateType: 'identity.failed_login_alert',
-      aggregateId: normalized,
-      eventType: IDENTITY_FAILED_LOGIN_ALERT_THRESHOLD_REACHED,
-      eventVersion: IDENTITY_FAILED_LOGIN_ALERT_THRESHOLD_REACHED_VERSION,
-      payload: {
-        email: normalized,
-        ip,
-        geo_country: null,
-        attempted_at: new Date().toISOString(),
-        reset_url: resetUrl,
-      },
-    });
-  });
+  // recordFailedAttempt runs from the pre-auth login flow (auth.ts), so no scope is open
+  // yet. The tenant is already resolved above, so open an ordinary one rather than
+  // maintenance(): this path is reachable by an unauthenticated caller, and it has no need
+  // for BYPASSRLS. Unknown emails fall back to SYSTEM_TENANT, which core.events accepts.
+  await scoped(tenantId, () =>
+    withEmit({ actor: { userId: 'system', tenantId } }, async () => {
+      await emit({
+        tenantId,
+        aggregateType: 'identity.failed_login_alert',
+        aggregateId: normalized,
+        eventType: IDENTITY_FAILED_LOGIN_ALERT_THRESHOLD_REACHED,
+        eventVersion: IDENTITY_FAILED_LOGIN_ALERT_THRESHOLD_REACHED_VERSION,
+        payload: {
+          email: normalized,
+          ip,
+          geo_country: null,
+          attempted_at: new Date().toISOString(),
+          reset_url: resetUrl,
+        },
+      });
+    }),
+  );
 }
 
 async function tenantIdForEmail(email: string): Promise<string | null> {

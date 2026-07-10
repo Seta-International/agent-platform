@@ -15,7 +15,9 @@ export interface UpsertLinkInput {
 }
 
 export interface CreateM365GroupLinkRepoDeps {
-  db: NodePgDatabase<typeof schema>;
+  // Resolved per operation, not captured: under the ambient executor a db handle is only
+  // valid inside the context that is open when the query runs. This repo is built once at boot.
+  db: () => NodePgDatabase<typeof schema>;
 }
 
 export interface M365GroupLinkRepo {
@@ -32,7 +34,7 @@ export function createM365GroupLinkRepo(deps: CreateM365GroupLinkRepoDeps): M365
 
   return {
     async findByGroup(group_id) {
-      const [row] = await db
+      const [row] = await db()
         .select()
         .from(m365GroupLinks)
         .where(and(eq(m365GroupLinks.groupId, group_id), isNull(m365GroupLinks.unlinkedAt)))
@@ -41,7 +43,7 @@ export function createM365GroupLinkRepo(deps: CreateM365GroupLinkRepoDeps): M365
     },
 
     async findByExternal(tenant_id, external_id) {
-      const [row] = await db
+      const [row] = await db()
         .select()
         .from(m365GroupLinks)
         .where(
@@ -58,7 +60,7 @@ export function createM365GroupLinkRepo(deps: CreateM365GroupLinkRepoDeps): M365
     async upsert(input) {
       // onConflictDoUpdate with targetWhere to match the partial unique index
       // (tenant_id, group_id) WHERE unlinked_at IS NULL
-      const [row] = await db
+      const [row] = await db()
         .insert(m365GroupLinks)
         .values({
           tenantId: input.tenantId,
@@ -83,7 +85,7 @@ export function createM365GroupLinkRepo(deps: CreateM365GroupLinkRepoDeps): M365
     },
 
     async setSyncStatus(id, status, last_error = null) {
-      await db
+      await db()
         .update(m365GroupLinks)
         .set({
           syncStatus: status,
@@ -94,7 +96,7 @@ export function createM365GroupLinkRepo(deps: CreateM365GroupLinkRepoDeps): M365
     },
 
     async persistDeltaLink(id, delta_link, last_synced_fields) {
-      await db
+      await db()
         .update(m365GroupLinks)
         .set({
           deltaLink: delta_link,
@@ -108,7 +110,7 @@ export function createM365GroupLinkRepo(deps: CreateM365GroupLinkRepoDeps): M365
     },
 
     async tombstone(id) {
-      await db
+      await db()
         .update(m365GroupLinks)
         .set({
           unlinkedAt: new Date(),

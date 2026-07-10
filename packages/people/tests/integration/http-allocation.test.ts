@@ -8,7 +8,7 @@ import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { worker, workerAllocationProjection } from '../../src/backend/db/schema.ts';
 import { registerPeopleAllocationRoutes } from '../../src/backend/http/allocations.ts';
 import { peopleErrorMapper } from '../../src/register.ts';
-import { seedPersons, seedTenant } from '../helpers.ts';
+import { inScope, seedPersons, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -40,36 +40,38 @@ describe('People allocation HTTP routes', () => {
         const t = await seedTenant(pool);
         const personId = crypto.randomUUID();
         await seedPersons(t.tenant_id, personId);
-        await peopleDb().insert(worker).values({
-          tenant_id: t.tenant_id,
-          person_id: personId,
-          full_name: 'Grid Person',
-        });
-        await peopleDb().insert(workerAllocationProjection).values({
-          allocation_id: crypto.randomUUID(),
-          tenant_id: t.tenant_id,
-          worker_id: personId,
-          project_id: crypto.randomUUID(),
-          account_id: crypto.randomUUID(),
-          account_name: 'Acme',
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          planned_pct: '100',
-          bucket: 'billable',
-          active: true,
-        });
+        await inScope(t.adminSession, async () => {
+          await peopleDb().insert(worker).values({
+            tenant_id: t.tenant_id,
+            person_id: personId,
+            full_name: 'Grid Person',
+          });
+          await peopleDb().insert(workerAllocationProjection).values({
+            allocation_id: crypto.randomUUID(),
+            tenant_id: t.tenant_id,
+            worker_id: personId,
+            project_id: crypto.randomUUID(),
+            account_id: crypto.randomUUID(),
+            account_name: 'Acme',
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            planned_pct: '100',
+            bucket: 'billable',
+            active: true,
+          });
 
-        const app = buildApp(t.adminSession);
-        const res = await app.request('/api/people/v1/allocation/grid?year=2026');
-        expect(res.status).toBe(200);
-        const body = (await res.json()) as {
-          year: number;
-          rows: Array<{ worker_id: string; months: (number | null)[] }>;
-          kpis: { member_count: number };
-        };
-        expect(body.year).toBe(2026);
-        expect(body.kpis.member_count).toBe(1);
-        expect(body.rows[0]!.months[0]).toBe(100);
+          const app = buildApp(t.adminSession);
+          const res = await app.request('/api/people/v1/allocation/grid?year=2026');
+          expect(res.status).toBe(200);
+          const body = (await res.json()) as {
+            year: number;
+            rows: Array<{ worker_id: string; months: (number | null)[] }>;
+            kpis: { member_count: number };
+          };
+          expect(body.year).toBe(2026);
+          expect(body.kpis.member_count).toBe(1);
+          expect(body.rows[0]!.months[0]).toBe(100);
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -87,32 +89,34 @@ describe('People allocation HTTP routes', () => {
         const t = await seedTenant(pool);
         const personId = crypto.randomUUID();
         await seedPersons(t.tenant_id, personId);
-        await peopleDb().insert(worker).values({
-          tenant_id: t.tenant_id,
-          person_id: personId,
-          full_name: 'Util Person',
-        });
-        await peopleDb().insert(workerAllocationProjection).values({
-          allocation_id: crypto.randomUUID(),
-          tenant_id: t.tenant_id,
-          worker_id: personId,
-          project_id: crypto.randomUUID(),
-          account_id: crypto.randomUUID(),
-          account_name: 'Acme',
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          planned_pct: '60',
-          bucket: 'billable',
-          active: true,
-        });
+        await inScope(t.adminSession, async () => {
+          await peopleDb().insert(worker).values({
+            tenant_id: t.tenant_id,
+            person_id: personId,
+            full_name: 'Util Person',
+          });
+          await peopleDb().insert(workerAllocationProjection).values({
+            allocation_id: crypto.randomUUID(),
+            tenant_id: t.tenant_id,
+            worker_id: personId,
+            project_id: crypto.randomUUID(),
+            account_id: crypto.randomUUID(),
+            account_name: 'Acme',
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            planned_pct: '60',
+            bucket: 'billable',
+            active: true,
+          });
 
-        const app = buildApp(t.adminSession);
-        const res = await app.request('/api/people/v1/allocation/utilization?asOf=2026-06-15');
-        expect(res.status).toBe(200);
-        const body = (await res.json()) as {
-          rows: Array<{ worker_id: string; total_pct: number }>;
-        };
-        expect(body.rows.find((r) => r.worker_id === personId)?.total_pct).toBe(60);
+          const app = buildApp(t.adminSession);
+          const res = await app.request('/api/people/v1/allocation/utilization?asOf=2026-06-15');
+          expect(res.status).toBe(200);
+          const body = (await res.json()) as {
+            rows: Array<{ worker_id: string; total_pct: number }>;
+          };
+          expect(body.rows.find((r) => r.worker_id === personId)?.total_pct).toBe(60);
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();

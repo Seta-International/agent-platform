@@ -5,7 +5,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { worker } from '../../src/backend/db/schema.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { buildSession, inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -34,10 +34,9 @@ describe('people org isolation', () => {
 
         const bSession = buildSession({ tenant_id: b.tenant_id, user_id: b.admin_user_id });
 
-        const rowsForB = await peopleDb()
-          .select()
-          .from(worker)
-          .where(tenantScoped(worker.tenant_id, bSession));
+        const rowsForB = await inScope(bSession, () =>
+          peopleDb().select().from(worker).where(tenantScoped(worker.tenant_id, bSession)),
+        );
         expect(rowsForB).toHaveLength(0);
       } finally {
         resetPeopleDb();

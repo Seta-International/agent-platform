@@ -2,9 +2,11 @@ import { createUser, grantRole, listRoleAssignments } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
 import { closePools, getPool, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
+import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
 import { createContributionRegistry, runMigrations } from '../../src/index.ts';
+import { createSessionMiddleware, type SessionEnv } from '../../src/middleware/session.ts';
 import { registerCoreContributions } from '../../src/register.ts';
 import { startDispatcher } from '../../src/runtime/index.ts';
 import { _clearHotForTest, getSessionScope } from '../../src/session/scope.ts';
@@ -91,6 +93,81 @@ describe('invalidation subscribers drain identity events', () => {
           });
         } finally {
           await dispatcher.shutdown(2_000);
+          await closePools();
+          resetCoreDb();
+        }
+      },
+    );
+  });
+});
+
+describe('session middleware idle-check executor context (FUT-540)', () => {
+  it('serves an authenticated, non-idle-expired request without throwing ExecutorContextError', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        const reg = createContributionRegistry();
+        registerCoreContributions(reg);
+        registerIdentityContributions(reg);
+        await runMigrations(reg, { pool });
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const tenantId = crypto.randomUUID();
+          await pool.query(
+            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', 'demo')`,
+            [tenantId],
+          );
+          const { user_id } = await scoped(tenantId, () =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'idle-probe@d.local',
+                name: 'Probe',
+                password: 'ChangeMe@2026',
+              },
+              { type: 'cli', user_id: null },
+            ),
+          );
+          const sessionId = crypto.randomUUID();
+          await pool.query(
+            `INSERT INTO identity.session (id, user_id, token, expires_at)
+             VALUES ($1, $2, $3, now() + interval '1 day')`,
+            [sessionId, user_id, `tok-${sessionId}`],
+          );
+
+          const app = new Hono<SessionEnv>();
+          app.use(
+            '*',
+            createSessionMiddleware({
+              getSession: async () => ({
+                session: { id: sessionId },
+                user: {
+                  id: user_id,
+                  email: 'idle-probe@d.local',
+                  name: 'Probe',
+                  tenant_id: tenantId,
+                },
+              }),
+              getUserTenant: async () => ({ tenant_id: tenantId }),
+              signOut: async () => {},
+              listRoleAssignments,
+              resolvePermissions: async () => new Set(),
+            }),
+          );
+          app.get('/whoami', (c) => c.json({ user_id: c.get('user').user_id }));
+
+          // Before Fix 4, isIdleExpired() (which calls coreDb()) ran before scoped()
+          // opened its context, and threw ExecutorContextError on every authenticated
+          // request; Hono's default error handler turns that into a 500.
+          const res = await app.request('/whoami');
+          expect(res.status).toBe(200);
+          const body = (await res.json()) as { user_id: string };
+          expect(body.user_id).toBe(user_id);
+        } finally {
           await closePools();
           resetCoreDb();
         }

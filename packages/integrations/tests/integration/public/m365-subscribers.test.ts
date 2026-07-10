@@ -159,7 +159,7 @@ async function withSetup<T>(
         const repo = createM365GroupLinkRepo({
           // db typed as never: drizzle() generic differs from NodePgDatabase<schema> but is
           // structurally compatible for the repo's select/update operations.
-          db: db as never,
+          db: () => db as never,
         });
         return await fn({ pool, tenantId, groupId, repo, db });
       } finally {

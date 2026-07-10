@@ -1,4 +1,5 @@
 import type { SessionScope } from '@seta/core';
+import { maintenance } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -53,41 +54,47 @@ export async function seedDirectoryAccount(
 
   const displayName = opts.name ?? 'Test Person';
   const person_id = crypto.randomUUID();
-  await identityDb().insert(personProjection).values({
-    person_id,
-    tenant_id,
-    full_name: displayName,
-    work_email: opts.email,
-    employment_status: 'active',
-  });
+  await maintenance(() =>
+    identityDb().insert(personProjection).values({
+      person_id,
+      tenant_id,
+      full_name: displayName,
+      work_email: opts.email,
+      employment_status: 'active',
+    }),
+  );
 
   const initial_role = opts.admin
     ? ({ role_slug: 'org.admin', scope_type: 'tenant' as const, scope_id: null } as const)
     : undefined;
 
-  const { user_id } = await createUser(
-    {
-      tenant_id,
-      email: opts.email,
-      name: displayName,
-      password: 'S3cur3Pass!99',
-      ...(initial_role ? { initial_role } : {}),
-    },
-    { type: 'cli', user_id: null },
+  const { user_id } = await maintenance(() =>
+    createUser(
+      {
+        tenant_id,
+        email: opts.email,
+        name: displayName,
+        password: 'S3cur3Pass!99',
+        ...(initial_role ? { initial_role } : {}),
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
 
   if (opts.roles && opts.roles.length > 0) {
     for (const role_slug of opts.roles) {
-      await identityDb().insert(roleAssignments).values({
-        id: crypto.randomUUID(),
-        user_id,
-        tenant_id,
-        role_slug,
-        scope_kind: 'tenant',
-        scope_id: null,
-        granted_by: null,
-        granted_via: 'cli',
-      });
+      await maintenance(() =>
+        identityDb().insert(roleAssignments).values({
+          id: crypto.randomUUID(),
+          user_id,
+          tenant_id,
+          role_slug,
+          scope_kind: 'tenant',
+          scope_id: null,
+          granted_by: null,
+          granted_via: 'cli',
+        }),
+      );
     }
   }
 
@@ -96,18 +103,20 @@ export async function seedDirectoryAccount(
     // seed a second admin first so the guard passes and the target suspends.
     if (opts.admin) {
       const tag = crypto.randomUUID().slice(0, 8);
-      await createUser(
-        {
-          tenant_id,
-          email: `co-admin-${tag}@seed.local`,
-          name: 'Co Admin',
-          password: 'S3cur3Pass!99',
-          initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-        },
-        { type: 'cli', user_id: null },
+      await maintenance(() =>
+        createUser(
+          {
+            tenant_id,
+            email: `co-admin-${tag}@seed.local`,
+            name: 'Co Admin',
+            password: 'S3cur3Pass!99',
+            initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+          },
+          { type: 'cli', user_id: null },
+        ),
       );
     }
-    await deactivateUser(user_id, { type: 'system', user_id: null });
+    await maintenance(() => deactivateUser(user_id, { type: 'system', user_id: null }));
   }
 
   return { person_id, user_id, tenant_id };
@@ -137,15 +146,17 @@ export async function seedDirectoryPersonOnly(
   }
 
   const person_id = crypto.randomUUID();
-  await identityDb()
-    .insert(personProjection)
-    .values({
-      person_id,
-      tenant_id,
-      full_name: opts.name ?? 'Test Person',
-      work_email: opts.email ?? null,
-      employment_status: 'active',
-    });
+  await maintenance(() =>
+    identityDb()
+      .insert(personProjection)
+      .values({
+        person_id,
+        tenant_id,
+        full_name: opts.name ?? 'Test Person',
+        work_email: opts.email ?? null,
+        employment_status: 'active',
+      }),
+  );
 
   return { person_id, tenant_id };
 }

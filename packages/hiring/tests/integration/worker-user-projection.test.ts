@@ -1,7 +1,7 @@
 // packages/hiring/tests/integration/worker-user-projection.test.ts
 // FUT-327: hiring's local {worker_id -> user_id} read-model, fed by people.worker.user_linked.
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { DomainEvent } from '@seta/shared-types';
 import { eq } from 'drizzle-orm';
@@ -30,13 +30,19 @@ describe('worker_user_projection subscriber', () => {
           payload: { worker_id, person_id: worker_id, user_id, tenant_id: t.tenant_id },
         } as DomainEvent<unknown>;
 
-        await workerUserProjectionLinked.handler(evt, { tx: hiringDb() });
-        await workerUserProjectionLinked.handler(evt, { tx: hiringDb() });
+        await scoped(t.tenant_id, () =>
+          workerUserProjectionLinked.handler(evt, { tx: hiringDb() }),
+        );
+        await scoped(t.tenant_id, () =>
+          workerUserProjectionLinked.handler(evt, { tx: hiringDb() }),
+        );
 
-        const rows = await hiringDb()
-          .select()
-          .from(workerUserProjection)
-          .where(eq(workerUserProjection.worker_id, worker_id));
+        const rows = await scoped(t.tenant_id, () =>
+          hiringDb()
+            .select()
+            .from(workerUserProjection)
+            .where(eq(workerUserProjection.worker_id, worker_id)),
+        );
         expect(rows).toHaveLength(1);
         expect(rows[0]?.user_id).toBe(user_id);
       } finally {

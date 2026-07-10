@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { maintenance, scoped } from '@seta/shared-db';
 import { Hono } from 'hono';
 
 export interface BuildWebhookRouterDeps {
@@ -51,7 +52,13 @@ export function buildWebhookRouter(deps: BuildWebhookRouterDeps): Hono {
       .catch(() => ({ value: [] as NotificationItem[] }));
 
     for (const n of body.value ?? []) {
-      const sub = await deps.subscriptionsRepo.findBySubscriptionId(n.subscriptionId);
+      // Cross-tenant by necessity: the subscription id is opaque and the HMAC that
+      // authenticates this request is keyed on the tenant it resolves to, so the tenant
+      // cannot be known before this lookup runs. This is the only admin read on the
+      // webhook path — everything downstream is scoped to the tenant it resolves.
+      const sub = await maintenance(() =>
+        deps.subscriptionsRepo.findBySubscriptionId(n.subscriptionId),
+      );
       if (!sub) return c.json({ error: 'unauthorized' }, 401);
 
       const expected = createHmac('sha256', deps.webhookSecret).update(sub.tenantId).digest('hex');
@@ -69,8 +76,12 @@ export function buildWebhookRouter(deps: BuildWebhookRouterDeps): Hono {
       const externalId = (n.resource.split('/').pop() ?? n.resourceData?.id ?? '').trim();
       if (!externalId) continue;
 
-      const link = await deps.linksRepo.findByExternal(sub.tenantId, externalId);
+      const link = await scoped(sub.tenantId, () =>
+        deps.linksRepo.findByExternal(sub.tenantId, externalId),
+      );
       if (link) {
+        // enqueuePullJob writes graphile-worker's own schema through a pool captured at
+        // worker-pool startup, not through the ambient executor — no scope needed here.
         await deps.enqueuePullJob({
           tenant_id: sub.tenantId,
           group_id: link.groupId,

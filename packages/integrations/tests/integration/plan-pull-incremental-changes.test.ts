@@ -61,7 +61,7 @@ const FULLY_SYNCED_LOCAL_STATE = {
 describe('runPlanPull — incremental walk, 3 updated tasks + 1 deletion', () => {
   it('issues 10 graph requests, updates T1-T3, deletes T4, and drops 3 etag rows', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const groupLinkRepo = createM365GroupLinkRepo({ db });
+      const groupLinkRepo = createM365GroupLinkRepo({ db: () => db });
       await groupLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -69,7 +69,7 @@ describe('runPlanPull — incremental walk, 3 updated tasks + 1 deletion', () =>
         lastSyncedFields: {},
       });
 
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
       const link = await planLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -81,7 +81,7 @@ describe('runPlanPull — incremental walk, 3 updated tasks + 1 deletion', () =>
         },
       });
 
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       // Pre-seed all 16 etag rows matching the initial (v1) etag values.
       await etagRepo.upsert({

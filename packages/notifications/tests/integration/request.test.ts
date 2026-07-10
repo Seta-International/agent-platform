@@ -2,6 +2,7 @@ import { withEmit } from '@seta/core/events';
 import { describe, expect, it } from 'vitest';
 import { resetNotificationsDb } from '../../src/backend/db/client.ts';
 import { requestNotification } from '../../src/index.ts';
+import { inScope } from '../helpers.ts';
 import { withNotificationsTestDb } from './test-helpers.ts';
 
 describe('requestNotification', () => {
@@ -20,15 +21,17 @@ describe('requestNotification', () => {
         [sourceEventId, tenantId],
       );
 
-      await withEmit(undefined, async () => {
-        await requestNotification({
-          event_type: 'planner.task.mentioned',
-          user_ids: [u1, u2],
-          payload: { title: 'You were mentioned' },
-          source_event_id: sourceEventId,
-          tenant_id: tenantId,
-        });
-      });
+      await inScope(tenantId, () =>
+        withEmit(undefined, async () => {
+          await requestNotification({
+            event_type: 'planner.task.mentioned',
+            user_ids: [u1, u2],
+            payload: { title: 'You were mentioned' },
+            source_event_id: sourceEventId,
+            tenant_id: tenantId,
+          });
+        }),
+      );
 
       const rows = await pool.query<{ payload: Record<string, unknown> }>(
         `SELECT payload FROM core.events
@@ -59,16 +62,18 @@ describe('requestNotification', () => {
       );
 
       await expect(
-        withEmit(undefined, async () => {
-          await requestNotification({
-            event_type: 'planner.task.mentioned',
-            user_ids: [crypto.randomUUID()],
-            payload: {},
-            source_event_id: sourceEventId,
-            tenant_id: tenantId,
-          });
-          throw new Error('boom');
-        }),
+        inScope(tenantId, () =>
+          withEmit(undefined, async () => {
+            await requestNotification({
+              event_type: 'planner.task.mentioned',
+              user_ids: [crypto.randomUUID()],
+              payload: {},
+              source_event_id: sourceEventId,
+              tenant_id: tenantId,
+            });
+            throw new Error('boom');
+          }),
+        ),
       ).rejects.toThrow('boom');
 
       const rows = await pool.query(

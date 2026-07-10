@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { getTenantEmailDomains } from '../../src/db/tenant-email-domains.ts';
@@ -21,13 +21,15 @@ describe('getTenantEmailDomains', () => {
           'Acme',
           `acme-${tenantId.slice(0, 8)}`,
         ]);
-        expect(await getTenantEmailDomains(tenantId)).toEqual([]);
+        await scoped(tenantId, async () => {
+          expect(await getTenantEmailDomains(tenantId)).toEqual([]);
 
-        await pool.query(`UPDATE core.tenants SET email_domains = $1 WHERE id = $2`, [
-          ['acme.com', 'acme.io'],
-          tenantId,
-        ]);
-        expect(await getTenantEmailDomains(tenantId)).toEqual(['acme.com', 'acme.io']);
+          await pool.query(`UPDATE core.tenants SET email_domains = $1 WHERE id = $2`, [
+            ['acme.com', 'acme.io'],
+            tenantId,
+          ]);
+          expect(await getTenantEmailDomains(tenantId)).toEqual(['acme.com', 'acme.io']);
+        });
       } finally {
         resetCoreDb();
         await closePools();

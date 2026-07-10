@@ -74,7 +74,7 @@ describe('observability counters', () => {
 
   it('runPlanPull success increments planPullSuccessCounter', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const groupLinkRepo = createM365GroupLinkRepo({ db });
+      const groupLinkRepo = createM365GroupLinkRepo({ db: () => db });
       await groupLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -82,7 +82,7 @@ describe('observability counters', () => {
         lastSyncedFields: {},
       });
 
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
       await planLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -91,7 +91,7 @@ describe('observability counters', () => {
         initialSnapshot: {},
       });
 
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       // First run to populate etag rows so the second run sees no changes.
       const { graph: graph1 } = buildStubGraph(initialFixture as Record<string, unknown>);

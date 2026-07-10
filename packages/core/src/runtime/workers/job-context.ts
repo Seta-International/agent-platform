@@ -23,11 +23,10 @@ export const MAINTENANCE_JOBS: ReadonlySet<string> = new Set([
  * simply run, without a second allowlist of "jobs that need no tenant" that would
  * silently go stale as new tenantless jobs are added. It is meant to be a fail-closed
  * backstop — a job that *should* have been scoped but lost its tenant_id hitting
- * `executorPool()` and getting a loud `ExecutorContextError`. That backstop is not
- * live yet: every module db client still calls the deprecated `getPool()`, not
- * `executorPool()`, so today a tenantless job that reads an RLS-enabled table gets a
- * silent zero-row result instead. It becomes real once PR2/PR3 point module db
- * clients at `executorPool()`.
+ * `executorPool()` and getting a loud `ExecutorContextError`. That backstop is live:
+ * every module db client now resolves `executorPool()`, so a tenantless job that
+ * touches an RLS-enabled table throws `ExecutorContextError` instead of silently
+ * reading zero rows.
  */
 export function wrapJob(name: string, task: Task): Task {
   return async (payload, helpers) => {

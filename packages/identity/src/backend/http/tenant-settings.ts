@@ -2,7 +2,7 @@
 //    flag because tenant metadata is owned by core; identity uses it for sign-in routing.
 import type { SessionEnv } from '@seta/core';
 import { getTenantEmailDomains } from '@seta/core';
-import { getPool } from '@seta/shared-db';
+import { executorPool } from '@seta/shared-db';
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
 import { IdentityError, setLocalPasswordDisabled, setTenantEmailDomains } from '../../index.ts';
@@ -18,7 +18,7 @@ function requireOrgAdmin(c: Context<SessionEnv>): void {
 }
 
 async function getLocalPasswordDisabled(tenantId: string): Promise<boolean> {
-  const result = await getPool('web').query<{ local_password_disabled: boolean }>(
+  const result = await executorPool().query<{ local_password_disabled: boolean }>(
     'SELECT local_password_disabled FROM core.tenants WHERE id = $1',
     [tenantId],
   );

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
 import { accountRecruiter } from '../../src/backend/db/schema.ts';
 import { createAccount, setAccountRecruiters } from '../../src/index.ts';
-import { countEvents, readEvents, seedTenant } from '../helpers.ts';
+import { countEvents, inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -23,15 +23,16 @@ describe('account recruiters', () => {
         const t = await seedTenant(pool);
         const r1 = crypto.randomUUID();
         const r2 = crypto.randomUUID();
-        const { account_id } = await createAccount({
-          name: 'Acme',
-          recruiter_worker_ids: [r1, r2],
-          session: t.adminSession,
-        });
-        const rows = await pmDb()
-          .select()
-          .from(accountRecruiter)
-          .where(eq(accountRecruiter.account_id, account_id));
+        const { account_id } = await inScope(t.adminSession, () =>
+          createAccount({
+            name: 'Acme',
+            recruiter_worker_ids: [r1, r2],
+            session: t.adminSession,
+          }),
+        );
+        const rows = await inScope(t.adminSession, () =>
+          pmDb().select().from(accountRecruiter).where(eq(accountRecruiter.account_id, account_id)),
+        );
         expect(rows).toHaveLength(2);
         expect(await countEvents(pool, t.tenant_id, 'pm.account.recruiter.assigned')).toBe(2);
       } finally {
@@ -52,23 +53,29 @@ describe('account recruiters', () => {
         const r1 = crypto.randomUUID();
         const r2 = crypto.randomUUID();
         const r3 = crypto.randomUUID();
-        const { account_id } = await createAccount({
-          name: 'Acme',
-          recruiter_worker_ids: [r1, r2],
-          session: t.adminSession,
-        });
+        const { account_id } = await inScope(t.adminSession, () =>
+          createAccount({
+            name: 'Acme',
+            recruiter_worker_ids: [r1, r2],
+            session: t.adminSession,
+          }),
+        );
 
-        const res = await setAccountRecruiters({
-          account_id,
-          recruiter_worker_ids: [r2, r3], // remove r1, add r3, keep r2
-          session: t.adminSession,
-        });
+        const res = await inScope(t.adminSession, () =>
+          setAccountRecruiters({
+            account_id,
+            recruiter_worker_ids: [r2, r3], // remove r1, add r3, keep r2
+            session: t.adminSession,
+          }),
+        );
         expect(res).toEqual({ added: 1, removed: 1 });
 
-        const rows = await pmDb()
-          .select({ id: accountRecruiter.recruiter_worker_id })
-          .from(accountRecruiter)
-          .where(eq(accountRecruiter.account_id, account_id));
+        const rows = await inScope(t.adminSession, () =>
+          pmDb()
+            .select({ id: accountRecruiter.recruiter_worker_id })
+            .from(accountRecruiter)
+            .where(eq(accountRecruiter.account_id, account_id)),
+        );
         expect(rows.map((x) => x.id).sort()).toEqual([r2, r3].sort());
 
         const assigned = await readEvents(pool, t.tenant_id, 'pm.account.recruiter.assigned');
@@ -92,17 +99,21 @@ describe('account recruiters', () => {
       try {
         const t = await seedTenant(pool);
         const r1 = crypto.randomUUID();
-        const { account_id } = await createAccount({ name: 'Acme', session: t.adminSession });
+        const { account_id } = await inScope(t.adminSession, () =>
+          createAccount({ name: 'Acme', session: t.adminSession }),
+        );
         // Directly insert the recruiter row to simulate a concurrent caller having already committed it.
         await pool.query(
           'INSERT INTO pm.account_recruiter (tenant_id, account_id, recruiter_worker_id) VALUES ($1,$2,$3)',
           [t.tenant_id, account_id, r1],
         );
-        const res = await setAccountRecruiters({
-          account_id,
-          recruiter_worker_ids: [r1],
-          session: t.adminSession,
-        });
+        const res = await inScope(t.adminSession, () =>
+          setAccountRecruiters({
+            account_id,
+            recruiter_worker_ids: [r1],
+            session: t.adminSession,
+          }),
+        );
         expect(res).toEqual({ added: 0, removed: 0 });
         expect(await countEvents(pool, t.tenant_id, 'pm.account.recruiter.assigned')).toBe(0);
       } finally {
@@ -121,16 +132,20 @@ describe('account recruiters', () => {
       try {
         const t = await seedTenant(pool);
         const r1 = crypto.randomUUID();
-        const { account_id } = await createAccount({
-          name: 'Acme',
-          recruiter_worker_ids: [r1],
-          session: t.adminSession,
-        });
-        const res = await setAccountRecruiters({
-          account_id,
-          recruiter_worker_ids: [r1],
-          session: t.adminSession,
-        });
+        const { account_id } = await inScope(t.adminSession, () =>
+          createAccount({
+            name: 'Acme',
+            recruiter_worker_ids: [r1],
+            session: t.adminSession,
+          }),
+        );
+        const res = await inScope(t.adminSession, () =>
+          setAccountRecruiters({
+            account_id,
+            recruiter_worker_ids: [r1],
+            session: t.adminSession,
+          }),
+        );
         expect(res).toEqual({ added: 0, removed: 0 });
         // only the 1 assigned from create
         expect(await countEvents(pool, t.tenant_id, 'pm.account.recruiter.assigned')).toBe(1);

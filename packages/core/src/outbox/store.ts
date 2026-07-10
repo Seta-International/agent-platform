@@ -49,14 +49,17 @@ export interface OutboxStore {
 }
 
 export interface CreateOutboxStoreDeps {
-  db: NodePgDatabase<Record<string, unknown>>;
+  // Resolved per operation, not captured: under the ambient executor a db handle is only
+  // valid inside the context that is open when the query runs. The store outlives any
+  // one context — it is built once at boot.
+  db: () => NodePgDatabase<Record<string, unknown>>;
 }
 
 export function createOutboxStore(deps: CreateOutboxStoreDeps): OutboxStore {
   const { db } = deps;
   return {
     async upsertPending(input) {
-      const [inserted] = await db
+      const [inserted] = await db()
         .insert(outgoingEmails)
         .values({
           tenantId: input.tenantId,
@@ -70,7 +73,7 @@ export function createOutboxStore(deps: CreateOutboxStoreDeps): OutboxStore {
         })
         .returning({ id: outgoingEmails.id });
       if (inserted) return { id: inserted.id, deduped: false };
-      const [existing] = await db
+      const [existing] = await db()
         .select({ id: outgoingEmails.id })
         .from(outgoingEmails)
         .where(
@@ -84,7 +87,7 @@ export function createOutboxStore(deps: CreateOutboxStoreDeps): OutboxStore {
       return { id: existing.id, deduped: true };
     },
     async findById(id) {
-      const [row] = await db
+      const [row] = await db()
         .select()
         .from(outgoingEmails)
         .where(eq(outgoingEmails.id, id))
@@ -92,7 +95,7 @@ export function createOutboxStore(deps: CreateOutboxStoreDeps): OutboxStore {
       return row ?? null;
     },
     async markSent(id, { transportKind, transportMessageId }) {
-      await db
+      await db()
         .update(outgoingEmails)
         .set({
           status: 'sent',
@@ -104,7 +107,7 @@ export function createOutboxStore(deps: CreateOutboxStoreDeps): OutboxStore {
         .where(eq(outgoingEmails.id, id));
     },
     async markFailedTransient(id, { transportKind, error }) {
-      await db
+      await db()
         .update(outgoingEmails)
         .set({
           transportKind,
@@ -115,7 +118,7 @@ export function createOutboxStore(deps: CreateOutboxStoreDeps): OutboxStore {
         .where(eq(outgoingEmails.id, id));
     },
     async markPermanentlyFailed(id, { transportKind, error }) {
-      await db
+      await db()
         .update(outgoingEmails)
         .set({
           status: 'permanently_failed',

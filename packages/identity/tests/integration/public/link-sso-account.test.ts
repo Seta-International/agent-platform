@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser, linkSsoAccount } from '@seta/identity';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 
@@ -27,26 +27,30 @@ describe('@seta/identity linkSsoAccount', () => {
             `contoso-${tenantId.slice(0, 8)}`,
           ]);
 
-          await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'alice@contoso.com',
-              name: 'Alice',
-              password: 'alice-password-5678',
-            },
-            CLI_ACTOR,
+          await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'alice@contoso.com',
+                name: 'Alice',
+                password: 'alice-password-5678',
+              },
+              CLI_ACTOR,
+            ),
           );
 
-          const result = await linkSsoAccount(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email: 'alice@contoso.com',
-              name: 'Alice',
-              entra_oid: ENTRA_OID,
-              entra_tid: ENTRA_TID,
-            },
-            SSO_ACTOR,
+          const result = await maintenance(() =>
+            linkSsoAccount(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email: 'alice@contoso.com',
+                name: 'Alice',
+                entra_oid: ENTRA_OID,
+                entra_tid: ENTRA_TID,
+              },
+              SSO_ACTOR,
+            ),
           );
 
           expect(result.outcome).toBe('linked');
@@ -126,30 +130,34 @@ describe('@seta/identity linkSsoAccount', () => {
             [tenantId, `deact-${tenantId.slice(0, 8)}`],
           );
 
-          const { user_id } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'bob@contoso.com',
-              name: 'Bob',
-              password: 'bob-password-5678',
-            },
-            CLI_ACTOR,
+          const { user_id } = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'bob@contoso.com',
+                name: 'Bob',
+                password: 'bob-password-5678',
+              },
+              CLI_ACTOR,
+            ),
           );
 
           await pool.query(`UPDATE identity."user" SET deactivated_at = now() WHERE id = $1`, [
             user_id,
           ]);
 
-          const result = await linkSsoAccount(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email: 'bob@contoso.com',
-              name: 'Bob',
-              entra_oid: ENTRA_OID,
-              entra_tid: ENTRA_TID,
-            },
-            SSO_ACTOR,
+          const result = await maintenance(() =>
+            linkSsoAccount(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email: 'bob@contoso.com',
+                name: 'Bob',
+                entra_oid: ENTRA_OID,
+                entra_tid: ENTRA_TID,
+              },
+              SSO_ACTOR,
+            ),
           );
 
           expect(result.outcome).toBe('rejected_deactivated');
@@ -185,27 +193,31 @@ describe('@seta/identity linkSsoAccount', () => {
             [tenantId, `match-${tenantId.slice(0, 8)}`],
           );
 
-          const { user_id } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'carol@contoso.com',
-              name: 'Carol',
-              password: 'carol-password-5678',
-            },
-            CLI_ACTOR,
+          const { user_id } = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'carol@contoso.com',
+                name: 'Carol',
+                password: 'carol-password-5678',
+              },
+              CLI_ACTOR,
+            ),
           );
 
           // First link establishes the account row
-          const firstResult = await linkSsoAccount(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email: 'carol@contoso.com',
-              name: 'Carol',
-              entra_oid: ENTRA_OID,
-              entra_tid: ENTRA_TID,
-            },
-            SSO_ACTOR,
+          const firstResult = await maintenance(() =>
+            linkSsoAccount(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email: 'carol@contoso.com',
+                name: 'Carol',
+                entra_oid: ENTRA_OID,
+                entra_tid: ENTRA_TID,
+              },
+              SSO_ACTOR,
+            ),
           );
           expect(firstResult.outcome).toBe('linked');
 
@@ -226,16 +238,18 @@ describe('@seta/identity linkSsoAccount', () => {
           ).rows[0]?.n;
 
           // Second call with same OID → matched
-          const secondResult = await linkSsoAccount(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email: 'carol@contoso.com',
-              name: 'Carol',
-              entra_oid: ENTRA_OID,
-              entra_tid: ENTRA_TID,
-            },
-            SSO_ACTOR,
+          const secondResult = await maintenance(() =>
+            linkSsoAccount(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email: 'carol@contoso.com',
+                name: 'Carol',
+                entra_oid: ENTRA_OID,
+                entra_tid: ENTRA_TID,
+              },
+              SSO_ACTOR,
+            ),
           );
           expect(secondResult.outcome).toBe('matched');
 
@@ -273,14 +287,16 @@ describe('@seta/identity linkSsoAccount', () => {
             [tenantId, `conflict-${tenantId.slice(0, 8)}`],
           );
 
-          const { user_id } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'dave@contoso.com',
-              name: 'Dave',
-              password: 'dave-password-5678',
-            },
-            CLI_ACTOR,
+          const { user_id } = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'dave@contoso.com',
+                name: 'Dave',
+                password: 'dave-password-5678',
+              },
+              CLI_ACTOR,
+            ),
           );
 
           // Seed account row with a different OID
@@ -290,16 +306,18 @@ describe('@seta/identity linkSsoAccount', () => {
             [crypto.randomUUID(), user_id],
           );
 
-          const result = await linkSsoAccount(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email: 'dave@contoso.com',
-              name: 'Dave',
-              entra_oid: ENTRA_OID,
-              entra_tid: ENTRA_TID,
-            },
-            SSO_ACTOR,
+          const result = await maintenance(() =>
+            linkSsoAccount(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email: 'dave@contoso.com',
+                name: 'Dave',
+                entra_oid: ENTRA_OID,
+                entra_tid: ENTRA_TID,
+              },
+              SSO_ACTOR,
+            ),
           );
 
           expect(result.outcome).toBe('rejected_oid_conflict');
@@ -345,16 +363,18 @@ describe('@seta/identity linkSsoAccount', () => {
 
           // linkSsoAccount finds the user via lower(email) = 'bob.old@acme.com'
           // syncProfileFromIdToken sees current_email 'Bob.Old@acme.com' != lowercased 'bob.old@acme.com'
-          const result = await linkSsoAccount(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email: 'bob.old@acme.com',
-              name: 'Bob',
-              entra_oid: ENTRA_OID,
-              entra_tid: ENTRA_TID,
-            },
-            SSO_ACTOR,
+          const result = await maintenance(() =>
+            linkSsoAccount(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email: 'bob.old@acme.com',
+                name: 'Bob',
+                entra_oid: ENTRA_OID,
+                entra_tid: ENTRA_TID,
+              },
+              SSO_ACTOR,
+            ),
           );
 
           expect(result.outcome).toBe('linked');
@@ -400,26 +420,30 @@ describe('@seta/identity linkSsoAccount', () => {
             [tenantId, `sync-${tenantId.slice(0, 8)}`],
           );
 
-          await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'eve@contoso.com',
-              name: 'Eve Old',
-              password: 'eve-password-5678',
-            },
-            CLI_ACTOR,
+          await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'eve@contoso.com',
+                name: 'Eve Old',
+                password: 'eve-password-5678',
+              },
+              CLI_ACTOR,
+            ),
           );
 
-          const result = await linkSsoAccount(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email: 'eve@contoso.com',
-              name: 'Eve New',
-              entra_oid: ENTRA_OID,
-              entra_tid: ENTRA_TID,
-            },
-            SSO_ACTOR,
+          const result = await maintenance(() =>
+            linkSsoAccount(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email: 'eve@contoso.com',
+                name: 'Eve New',
+                entra_oid: ENTRA_OID,
+                entra_tid: ENTRA_TID,
+              },
+              SSO_ACTOR,
+            ),
           );
 
           expect(result.outcome).toBe('linked');

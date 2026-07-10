@@ -8,7 +8,7 @@ import { peopleGetTimezoneSpec } from '../../src/backend/agent-tools/get-timezon
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { person } from '../../src/backend/db/schema.ts';
 import { provisionWorker, readPresence, setPresence } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -24,34 +24,36 @@ describe('setPresence / readPresence / agent-tools', () => {
       try {
         const t = await seedTenant(pool);
 
-        const { worker_id } = await provisionWorker({
-          full_name: 'Presence Worker',
-          start_date: '2026-01-01',
-          employment_type: 'full_time',
-          session: t.adminSession,
+        await inScope(t.adminSession, async () => {
+          const { worker_id } = await provisionWorker({
+            full_name: 'Presence Worker',
+            start_date: '2026-01-01',
+            employment_type: 'full_time',
+            session: t.adminSession,
+          });
+
+          // Link person to the admin user so setPresence (self-service) can find the worker
+          await peopleDb()
+            .update(person)
+            .set({ user_id: t.admin_user_id })
+            .where(eq(person.id, worker_id));
+
+          const ooo = new Date(Date.now() + 86_400_000);
+
+          await setPresence(t.adminSession, {
+            availability_status: 'ooo',
+            ooo_until: ooo,
+            working_hours: { start: '09:00', end: '17:00' },
+            timezone: 'Asia/Ho_Chi_Minh',
+          });
+
+          const result = await readPresence(t.adminSession, { user_id: t.admin_user_id });
+
+          expect(result.availability_status).toBe('ooo');
+          expect(result.ooo_until?.toISOString()).toBe(ooo.toISOString());
+          expect(result.working_hours).toEqual({ start: '09:00', end: '17:00' });
+          expect(result.timezone).toBe('Asia/Ho_Chi_Minh');
         });
-
-        // Link person to the admin user so setPresence (self-service) can find the worker
-        await peopleDb()
-          .update(person)
-          .set({ user_id: t.admin_user_id })
-          .where(eq(person.id, worker_id));
-
-        const ooo = new Date(Date.now() + 86_400_000);
-
-        await setPresence(t.adminSession, {
-          availability_status: 'ooo',
-          ooo_until: ooo,
-          working_hours: { start: '09:00', end: '17:00' },
-          timezone: 'Asia/Ho_Chi_Minh',
-        });
-
-        const result = await readPresence(t.adminSession, { user_id: t.admin_user_id });
-
-        expect(result.availability_status).toBe('ooo');
-        expect(result.ooo_until?.toISOString()).toBe(ooo.toISOString());
-        expect(result.working_hours).toEqual({ start: '09:00', end: '17:00' });
-        expect(result.timezone).toBe('Asia/Ho_Chi_Minh');
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -68,36 +70,38 @@ describe('setPresence / readPresence / agent-tools', () => {
       try {
         const t = await seedTenant(pool);
 
-        const { worker_id } = await provisionWorker({
-          full_name: 'Avail Worker',
-          start_date: '2026-01-01',
-          employment_type: 'full_time',
-          session: t.adminSession,
+        await inScope(t.adminSession, async () => {
+          const { worker_id } = await provisionWorker({
+            full_name: 'Avail Worker',
+            start_date: '2026-01-01',
+            employment_type: 'full_time',
+            session: t.adminSession,
+          });
+
+          await peopleDb()
+            .update(person)
+            .set({ user_id: t.admin_user_id })
+            .where(eq(person.id, worker_id));
+
+          await setPresence(t.adminSession, {
+            availability_status: 'busy',
+            working_hours: { start: '08:00', end: '16:00' },
+          });
+
+          const toolResult = await peopleGetAvailabilitySpec.execute({
+            session: {
+              tenant_id: t.tenant_id,
+              user_id: t.admin_user_id,
+              role_summary: { roles: ['people.manager'], cross_tenant_read: false },
+            },
+            input: { userId: t.admin_user_id },
+          });
+
+          const domainResult = await readPresence(t.adminSession, { user_id: t.admin_user_id });
+
+          expect(toolResult.availability_status).toBe(domainResult.availability_status);
+          expect(toolResult.working_hours).toEqual(domainResult.working_hours);
         });
-
-        await peopleDb()
-          .update(person)
-          .set({ user_id: t.admin_user_id })
-          .where(eq(person.id, worker_id));
-
-        await setPresence(t.adminSession, {
-          availability_status: 'busy',
-          working_hours: { start: '08:00', end: '16:00' },
-        });
-
-        const toolResult = await peopleGetAvailabilitySpec.execute({
-          session: {
-            tenant_id: t.tenant_id,
-            user_id: t.admin_user_id,
-            role_summary: { roles: ['people.manager'], cross_tenant_read: false },
-          },
-          input: { userId: t.admin_user_id },
-        });
-
-        const domainResult = await readPresence(t.adminSession, { user_id: t.admin_user_id });
-
-        expect(toolResult.availability_status).toBe(domainResult.availability_status);
-        expect(toolResult.working_hours).toEqual(domainResult.working_hours);
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -114,30 +118,32 @@ describe('setPresence / readPresence / agent-tools', () => {
       try {
         const t = await seedTenant(pool);
 
-        const { worker_id } = await provisionWorker({
-          full_name: 'TZ Worker',
-          start_date: '2026-01-01',
-          employment_type: 'full_time',
-          session: t.adminSession,
+        await inScope(t.adminSession, async () => {
+          const { worker_id } = await provisionWorker({
+            full_name: 'TZ Worker',
+            start_date: '2026-01-01',
+            employment_type: 'full_time',
+            session: t.adminSession,
+          });
+
+          await peopleDb()
+            .update(person)
+            .set({ user_id: t.admin_user_id })
+            .where(eq(person.id, worker_id));
+
+          await setPresence(t.adminSession, { timezone: 'America/New_York' });
+
+          const toolResult = await peopleGetTimezoneSpec.execute({
+            session: {
+              tenant_id: t.tenant_id,
+              user_id: t.admin_user_id,
+              role_summary: { roles: ['people.manager'], cross_tenant_read: false },
+            },
+            input: { userId: t.admin_user_id },
+          });
+
+          expect(toolResult.timezone).toBe('America/New_York');
         });
-
-        await peopleDb()
-          .update(person)
-          .set({ user_id: t.admin_user_id })
-          .where(eq(person.id, worker_id));
-
-        await setPresence(t.adminSession, { timezone: 'America/New_York' });
-
-        const toolResult = await peopleGetTimezoneSpec.execute({
-          session: {
-            tenant_id: t.tenant_id,
-            user_id: t.admin_user_id,
-            role_summary: { roles: ['people.manager'], cross_tenant_read: false },
-          },
-          input: { userId: t.admin_user_id },
-        });
-
-        expect(toolResult.timezone).toBe('America/New_York');
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -154,12 +160,14 @@ describe('setPresence / readPresence / agent-tools', () => {
       try {
         const t = await seedTenant(pool);
 
-        const result = await readPresence(t.adminSession, { user_id: crypto.randomUUID() });
+        await inScope(t.adminSession, async () => {
+          const result = await readPresence(t.adminSession, { user_id: crypto.randomUUID() });
 
-        expect(result.availability_status).toBe('available');
-        expect(result.ooo_until).toBeNull();
-        expect(result.working_hours).toBeNull();
-        expect(result.timezone).toBe('UTC');
+          expect(result.availability_status).toBe('available');
+          expect(result.ooo_until).toBeNull();
+          expect(result.working_hours).toBeNull();
+          expect(result.timezone).toBe('UTC');
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -176,18 +184,20 @@ describe('setPresence / readPresence / agent-tools', () => {
       try {
         const t = await seedTenant(pool);
 
-        const toolResult = await peopleGetAvailabilitySpec.execute({
-          session: {
-            tenant_id: t.tenant_id,
-            user_id: crypto.randomUUID(),
-            role_summary: { roles: ['org.admin'], cross_tenant_read: false },
-          },
-          input: { userId: crypto.randomUUID() },
-        });
+        await inScope(t.adminSession, async () => {
+          const toolResult = await peopleGetAvailabilitySpec.execute({
+            session: {
+              tenant_id: t.tenant_id,
+              user_id: crypto.randomUUID(),
+              role_summary: { roles: ['org.admin'], cross_tenant_read: false },
+            },
+            input: { userId: crypto.randomUUID() },
+          });
 
-        expect(toolResult.availability_status).toBe('available');
-        expect(toolResult.ooo_until).toBeNull();
-        expect(toolResult.working_hours).toBeNull();
+          expect(toolResult.availability_status).toBe('available');
+          expect(toolResult.ooo_until).toBeNull();
+          expect(toolResult.working_hours).toBeNull();
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();

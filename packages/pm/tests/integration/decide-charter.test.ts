@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -46,15 +46,17 @@ async function seedCharter(
 
 async function seedReviewer(tenantId: string, roleSlug: 'pm.pmo' | 'pm.bod') {
   const email = `${roleSlug.replace('.', '-')}-${crypto.randomUUID().slice(0, 8)}@example.test`;
-  const u = await createUser(
-    {
-      tenant_id: tenantId,
-      email,
-      name: roleSlug,
-      password: 'correct-horse-battery-staple',
-      initial_role: { role_slug: roleSlug, scope_type: 'tenant', scope_id: null },
-    },
-    { type: 'cli', user_id: null },
+  const u = await maintenance(() =>
+    createUser(
+      {
+        tenant_id: tenantId,
+        email,
+        name: roleSlug,
+        password: 'correct-horse-battery-staple',
+        initial_role: { role_slug: roleSlug, scope_type: 'tenant', scope_id: null },
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
   return buildSession({ tenant_id: tenantId, user_id: u.user_id, email, roles: [roleSlug] });
 }
@@ -70,7 +72,9 @@ describe('two-stage charter governance', () => {
         const pmo = await seedReviewer(t.tenant_id, 'pm.pmo');
         const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
         await inScope(pmo, () => pmoSignOffCharter({ charter_id, session: pmo }));
-        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
+        const [c] = await inScope(t.adminSession, () =>
+          pmDb().select().from(charter).where(eq(charter.id, charter_id)),
+        );
         expect(c?.status).toBe('pmo_approved');
         expect(c?.pmo_signed_off_by_user_id).toBe(pmo.user_id);
         expect(await readEvents(pool, t.tenant_id, 'pm.charter.pmo_signed_off')).toHaveLength(1);
@@ -97,21 +101,24 @@ describe('two-stage charter governance', () => {
           bodApproveCharter({ charter_id, session: bod }),
         );
 
-        const [p] = await pmDb().select().from(project).where(eq(project.id, project_id));
+        const [p] = await inScope(t.adminSession, () =>
+          pmDb().select().from(project).where(eq(project.id, project_id)),
+        );
         expect(p?.charter_id).toBe(charter_id);
         expect(p?.phase).toBe('initiation');
         expect(p?.status).toBe('active');
         expect(p?.methodology).toBe('scrum');
 
-        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
+        const [c] = await inScope(t.adminSession, () =>
+          pmDb().select().from(charter).where(eq(charter.id, charter_id)),
+        );
         expect(c?.status).toBe('approved');
         expect(c?.project_id).toBe(project_id);
         expect(c?.decided_by_user_id).toBe(bod.user_id);
 
-        const grants = await pmDb()
-          .select()
-          .from(projectAccess)
-          .where(eq(projectAccess.project_id, project_id));
+        const grants = await inScope(t.adminSession, () =>
+          pmDb().select().from(projectAccess).where(eq(projectAccess.project_id, project_id)),
+        );
         expect(grants.find((g) => g.level === 'owner')?.worker_id).toBe(t.adminSession.user_id);
 
         expect(await readEvents(pool, t.tenant_id, 'pm.charter.approved')).toHaveLength(1);
@@ -258,16 +265,24 @@ describe('two-stage charter governance', () => {
         const bod = await seedReviewer(t.tenant_id, 'pm.bod');
 
         const a = await seedCharter(pool, t.adminSession, t.tenant_id);
-        await rejectCharter({ charter_id: a.charter_id, reason: 'no capacity', session: pmo });
-        const [ca] = await pmDb().select().from(charter).where(eq(charter.id, a.charter_id));
+        await inScope(pmo, () =>
+          rejectCharter({ charter_id: a.charter_id, reason: 'no capacity', session: pmo }),
+        );
+        const [ca] = await inScope(t.adminSession, () =>
+          pmDb().select().from(charter).where(eq(charter.id, a.charter_id)),
+        );
         expect(ca?.status).toBe('rejected');
         expect(ca?.rejected_stage).toBe('pmo');
         expect(ca?.rejection_reason).toBe('no capacity');
 
         const b = await seedCharter(pool, t.adminSession, t.tenant_id);
         await inScope(pmo, () => pmoSignOffCharter({ charter_id: b.charter_id, session: pmo }));
-        await rejectCharter({ charter_id: b.charter_id, reason: 'budget window', session: bod });
-        const [cb] = await pmDb().select().from(charter).where(eq(charter.id, b.charter_id));
+        await inScope(bod, () =>
+          rejectCharter({ charter_id: b.charter_id, reason: 'budget window', session: bod }),
+        );
+        const [cb] = await inScope(t.adminSession, () =>
+          pmDb().select().from(charter).where(eq(charter.id, b.charter_id)),
+        );
         expect(cb?.rejected_stage).toBe('bod');
 
         const rejected = await readEvents(pool, t.tenant_id, 'pm.charter.rejected');
@@ -292,7 +307,7 @@ describe('two-stage charter governance', () => {
         const bod = await seedReviewer(t.tenant_id, 'pm.bod');
         const { charter_id } = await seedCharter(pool, t.adminSession, t.tenant_id);
         await expect(
-          rejectCharter({ charter_id, reason: 'x', session: bod }),
+          inScope(bod, () => rejectCharter({ charter_id, reason: 'x', session: bod })),
         ).rejects.toMatchObject({ code: 'FORBIDDEN' });
       } finally {
         resetPmDb();

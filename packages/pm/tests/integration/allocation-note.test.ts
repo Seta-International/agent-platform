@@ -19,7 +19,7 @@ const ctx = {
 };
 
 async function seedProject(session: import('@seta/core').SessionScope): Promise<string> {
-  const { account_id } = await createAccount({ name: 'A', session });
+  const { account_id } = await inScope(session, () => createAccount({ name: 'A', session }));
   const { charter_id } = await inScope(session, () =>
     submitCharter({
       account_id,
@@ -44,29 +44,31 @@ describe('allocation note', () => {
       try {
         const t = await seedTenant(pool);
         const projectId = await seedProject(t.adminSession);
-        const { allocation_id } = await createAllocation({
-          project_id: projectId,
-          worker_id: crypto.randomUUID(),
-          role: 'DEV',
-          date_from: '2026-05-01',
-          date_to: '2026-05-31',
-          bucket: 'billable',
-          planned_pct: 50,
-          status: 'committed',
-          note: 'rolls off Aug',
-          session: t.adminSession,
-        });
-        const [created] = await pmDb()
-          .select()
-          .from(allocation)
-          .where(eq(allocation.id, allocation_id));
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: projectId,
+            worker_id: crypto.randomUUID(),
+            role: 'DEV',
+            date_from: '2026-05-01',
+            date_to: '2026-05-31',
+            bucket: 'billable',
+            planned_pct: 50,
+            status: 'committed',
+            note: 'rolls off Aug',
+            session: t.adminSession,
+          }),
+        );
+        const [created] = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.id, allocation_id)),
+        );
         expect(created?.note).toBe('rolls off Aug');
 
-        await updateAllocation({ allocation_id, note: 'backfill TBD', session: t.adminSession });
-        const [updated] = await pmDb()
-          .select()
-          .from(allocation)
-          .where(eq(allocation.id, allocation_id));
+        await inScope(t.adminSession, () =>
+          updateAllocation({ allocation_id, note: 'backfill TBD', session: t.adminSession }),
+        );
+        const [updated] = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.id, allocation_id)),
+        );
         expect(updated?.note).toBe('backfill TBD');
       } finally {
         resetPmDb();
@@ -84,28 +86,30 @@ describe('allocation note', () => {
       try {
         const t = await seedTenant(pool);
         const projectId = await seedProject(t.adminSession);
-        const { allocation_id } = await createAllocation({
-          project_id: projectId,
-          worker_id: crypto.randomUUID(),
-          role: 'DEV',
-          date_from: '2026-05-01',
-          date_to: '2026-05-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
-        const [created] = await pmDb()
-          .select()
-          .from(allocation)
-          .where(eq(allocation.id, allocation_id));
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: projectId,
+            worker_id: crypto.randomUUID(),
+            role: 'DEV',
+            date_from: '2026-05-01',
+            date_to: '2026-05-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
+        const [created] = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.id, allocation_id)),
+        );
         expect(created?.bucket).toBe('billable');
 
-        await updateAllocation({ allocation_id, bucket: 'internal', session: t.adminSession });
-        const [updated] = await pmDb()
-          .select()
-          .from(allocation)
-          .where(eq(allocation.id, allocation_id));
+        await inScope(t.adminSession, () =>
+          updateAllocation({ allocation_id, bucket: 'internal', session: t.adminSession }),
+        );
+        const [updated] = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.id, allocation_id)),
+        );
         expect(updated?.bucket).toBe('internal');
       } finally {
         resetPmDb();

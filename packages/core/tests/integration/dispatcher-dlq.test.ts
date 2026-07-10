@@ -1,8 +1,11 @@
+import { scoped } from '@seta/shared-db';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
 import { emit, withEmit } from '../../src/events/index.ts';
 import { startDispatcher } from '../../src/runtime/dispatcher/index.ts';
 import { waitFor, withCoreTestDb } from '../helpers.ts';
+
+const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 describe('dispatcher DLQ', () => {
   it('after 3 failures (override), event lands in dead_letter and cursor advances', async () => {
@@ -36,24 +39,26 @@ describe('dispatcher DLQ', () => {
         backoff: { baseMs: 10, maxMs: 50, maxAttempts: 3 },
       });
       try {
-        await withEmit(undefined, async () => {
-          await emit({
-            tenantId: '00000000-0000-0000-0000-000000000001',
-            aggregateType: 'test.bad',
-            aggregateId: '00000000-0000-0000-0000-000000000002',
-            eventType: 'test.bad.thing',
-            eventVersion: 1,
-            payload: {},
-          });
-          await emit({
-            tenantId: '00000000-0000-0000-0000-000000000001',
-            aggregateType: 'test.good',
-            aggregateId: '00000000-0000-0000-0000-000000000003',
-            eventType: 'test.good.thing',
-            eventVersion: 1,
-            payload: {},
-          });
-        });
+        await scoped(TENANT_ID, () =>
+          withEmit(undefined, async () => {
+            await emit({
+              tenantId: TENANT_ID,
+              aggregateType: 'test.bad',
+              aggregateId: '00000000-0000-0000-0000-000000000002',
+              eventType: 'test.bad.thing',
+              eventVersion: 1,
+              payload: {},
+            });
+            await emit({
+              tenantId: TENANT_ID,
+              aggregateType: 'test.good',
+              aggregateId: '00000000-0000-0000-0000-000000000003',
+              eventType: 'test.good.thing',
+              eventVersion: 1,
+              payload: {},
+            });
+          }),
+        );
 
         await waitFor(async () => {
           const { rows } = await pool.query(

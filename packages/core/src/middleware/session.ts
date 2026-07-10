@@ -66,16 +66,11 @@ export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
       return c.json({ error: 'user_deactivated' }, 403);
     }
 
-    if (userTenantId && (await isIdleExpired(session.session.id, userTenantId))) {
-      await deps.signOut({ headers: c.req.raw.headers });
-      if (c.req.path.startsWith('/api/')) return c.json({ error: 'session_expired' }, 401);
-      return c.redirect('/login?reason=idle');
-    }
-
     // getSessionScope() itself reads tenant-scoped tables on a cache miss (role
-    // assignments, groups, product access), so the executor context must already
-    // be open before it runs — open it the moment the tenant is known and keep
-    // the downstream handler inside the same scope.
+    // assignments, groups, product access), and isIdleExpired() always does — so the
+    // executor context must already be open before either runs. Open it the moment
+    // the tenant is known and keep the idle check and the downstream handler inside
+    // the same scope, one pinned connection per request.
     const buildScopeAndProceed = async (): Promise<void> => {
       const scope = await getSessionScope(
         {
@@ -95,10 +90,21 @@ export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
       await next();
     };
 
-    if (userTenantId) {
-      await scoped(userTenantId, buildScopeAndProceed);
-    } else {
+    if (!userTenantId) {
       await buildScopeAndProceed();
+      return;
     }
+
+    const idleResponse = await scoped(userTenantId, async (): Promise<Response | undefined> => {
+      if (await isIdleExpired(session.session.id, userTenantId)) {
+        await deps.signOut({ headers: c.req.raw.headers });
+        return c.req.path.startsWith('/api/')
+          ? c.json({ error: 'session_expired' }, 401)
+          : c.redirect('/login?reason=idle');
+      }
+      await buildScopeAndProceed();
+      return undefined;
+    });
+    if (idleResponse) return idleResponse;
   });
 }

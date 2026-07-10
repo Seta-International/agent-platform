@@ -2,7 +2,7 @@
 // FUT-328: hiring's local {project_id <-> owner worker_id} read-model, fed by
 // pm.project.access.changed, which always carries the *current* full owner set.
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { DomainEvent } from '@seta/shared-types';
 import { and, eq } from 'drizzle-orm';
@@ -25,11 +25,13 @@ function accessChangedEvent(
   return { payload: { project_id, tenant_id, owner_worker_ids } } as DomainEvent<unknown>;
 }
 
-async function ownersOf(project_id: string) {
-  const rows = await hiringDb()
-    .select({ worker_id: projectOwnerProjection.worker_id })
-    .from(projectOwnerProjection)
-    .where(eq(projectOwnerProjection.project_id, project_id));
+async function ownersOf(tenant_id: string, project_id: string) {
+  const rows = await scoped(tenant_id, () =>
+    hiringDb()
+      .select({ worker_id: projectOwnerProjection.worker_id })
+      .from(projectOwnerProjection)
+      .where(eq(projectOwnerProjection.project_id, project_id)),
+  );
   return rows.map((r) => r.worker_id).sort();
 }
 
@@ -45,10 +47,14 @@ describe('project_owner_projection subscriber', () => {
         const pm = crypto.randomUUID();
         const evt = accessChangedEvent(t.tenant_id, project_id, [pm]);
 
-        await projectOwnerProjectionAccessChanged.handler(evt, { tx: hiringDb() });
-        await projectOwnerProjectionAccessChanged.handler(evt, { tx: hiringDb() });
+        await scoped(t.tenant_id, () =>
+          projectOwnerProjectionAccessChanged.handler(evt, { tx: hiringDb() }),
+        );
+        await scoped(t.tenant_id, () =>
+          projectOwnerProjectionAccessChanged.handler(evt, { tx: hiringDb() }),
+        );
 
-        expect(await ownersOf(project_id)).toEqual([pm]);
+        expect(await ownersOf(t.tenant_id, project_id)).toEqual([pm]);
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -68,16 +74,20 @@ describe('project_owner_projection subscriber', () => {
         const pm = crypto.randomUUID();
         const leader = crypto.randomUUID();
 
-        await projectOwnerProjectionAccessChanged.handler(
-          accessChangedEvent(t.tenant_id, project_id, [pm]),
-          { tx: hiringDb() },
+        await scoped(t.tenant_id, () =>
+          projectOwnerProjectionAccessChanged.handler(
+            accessChangedEvent(t.tenant_id, project_id, [pm]),
+            { tx: hiringDb() },
+          ),
         );
-        await projectOwnerProjectionAccessChanged.handler(
-          accessChangedEvent(t.tenant_id, project_id, [pm, leader]),
-          { tx: hiringDb() },
+        await scoped(t.tenant_id, () =>
+          projectOwnerProjectionAccessChanged.handler(
+            accessChangedEvent(t.tenant_id, project_id, [pm, leader]),
+            { tx: hiringDb() },
+          ),
         );
 
-        expect(await ownersOf(project_id)).toEqual([leader, pm].sort());
+        expect(await ownersOf(t.tenant_id, project_id)).toEqual([leader, pm].sort());
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -97,17 +107,21 @@ describe('project_owner_projection subscriber', () => {
         const pm = crypto.randomUUID();
         const leader = crypto.randomUUID();
 
-        await projectOwnerProjectionAccessChanged.handler(
-          accessChangedEvent(t.tenant_id, project_id, [pm, leader]),
-          { tx: hiringDb() },
+        await scoped(t.tenant_id, () =>
+          projectOwnerProjectionAccessChanged.handler(
+            accessChangedEvent(t.tenant_id, project_id, [pm, leader]),
+            { tx: hiringDb() },
+          ),
         );
         // leader revoked
-        await projectOwnerProjectionAccessChanged.handler(
-          accessChangedEvent(t.tenant_id, project_id, [pm]),
-          { tx: hiringDb() },
+        await scoped(t.tenant_id, () =>
+          projectOwnerProjectionAccessChanged.handler(
+            accessChangedEvent(t.tenant_id, project_id, [pm]),
+            { tx: hiringDb() },
+          ),
         );
 
-        expect(await ownersOf(project_id)).toEqual([pm]);
+        expect(await ownersOf(t.tenant_id, project_id)).toEqual([pm]);
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -128,22 +142,28 @@ describe('project_owner_projection subscriber', () => {
         const workerA = crypto.randomUUID();
         const workerB = crypto.randomUUID();
 
-        await projectOwnerProjectionAccessChanged.handler(
-          accessChangedEvent(t.tenant_id, projectA, [workerA]),
-          { tx: hiringDb() },
+        await scoped(t.tenant_id, () =>
+          projectOwnerProjectionAccessChanged.handler(
+            accessChangedEvent(t.tenant_id, projectA, [workerA]),
+            { tx: hiringDb() },
+          ),
         );
-        await projectOwnerProjectionAccessChanged.handler(
-          accessChangedEvent(t.tenant_id, projectB, [workerB]),
-          { tx: hiringDb() },
+        await scoped(t.tenant_id, () =>
+          projectOwnerProjectionAccessChanged.handler(
+            accessChangedEvent(t.tenant_id, projectB, [workerB]),
+            { tx: hiringDb() },
+          ),
         );
 
-        expect(await ownersOf(projectA)).toEqual([workerA]);
-        expect(await ownersOf(projectB)).toEqual([workerB]);
+        expect(await ownersOf(t.tenant_id, projectA)).toEqual([workerA]);
+        expect(await ownersOf(t.tenant_id, projectB)).toEqual([workerB]);
 
-        const all = await hiringDb()
-          .select()
-          .from(projectOwnerProjection)
-          .where(and(eq(projectOwnerProjection.tenant_id, t.tenant_id)));
+        const all = await scoped(t.tenant_id, () =>
+          hiringDb()
+            .select()
+            .from(projectOwnerProjection)
+            .where(and(eq(projectOwnerProjection.tenant_id, t.tenant_id))),
+        );
         expect(all).toHaveLength(2);
       } finally {
         resetHiringDb();

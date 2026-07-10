@@ -41,7 +41,7 @@ describe('runAutoMirror', () => {
       // Seed the group link row so the repo can look it up during subscriber tests.
       // For runAutoMirror directly, this row is not required — the function receives
       // external_group_id as direct input. But we create it for completeness.
-      const groupLinkRepo = createM365GroupLinkRepo({ db });
+      const groupLinkRepo = createM365GroupLinkRepo({ db: () => db });
       await groupLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -49,7 +49,7 @@ describe('runAutoMirror', () => {
         lastSyncedFields: {},
       });
 
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
       const graph = buildStubGraph();
 
       const createPlan = vi.fn().mockImplementation(async ({ external_id, name }) => ({
@@ -129,7 +129,7 @@ describe('runAutoMirror', () => {
 
   it('idempotent re-run: 0 plans created the second time, all skipped', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
       const graph = buildStubGraph();
 
       const createPlan = vi.fn().mockImplementation(async ({ external_id, name }) => ({

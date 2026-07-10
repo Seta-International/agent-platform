@@ -1,4 +1,4 @@
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
@@ -23,26 +23,28 @@ it('populates permissions via the injected resolver', async () => {
         const userId = crypto.randomUUID();
         const sessionId = `sess-${crypto.randomUUID()}`;
         _clearHotForTest();
-        const scope = await getSessionScope(
-          {
-            listRoleAssignments: async () => ({
-              tenant_id: tenantId,
-              assignments: [
-                {
-                  role_slug: 'knowledge.viewer',
-                  scope_kind: 'tenant',
-                  scope_id: null,
-                  granted_at: new Date(),
-                },
-              ],
-            }),
-            resolvePermissions: async (roles) =>
-              new Set(roles.includes('knowledge.viewer') ? ['knowledge.file.read'] : []),
-          },
-          sessionId,
-          userId,
-          'u@x.test',
-          'U',
+        const scope = await scoped(tenantId, () =>
+          getSessionScope(
+            {
+              listRoleAssignments: async () => ({
+                tenant_id: tenantId,
+                assignments: [
+                  {
+                    role_slug: 'knowledge.viewer',
+                    scope_kind: 'tenant',
+                    scope_id: null,
+                    granted_at: new Date(),
+                  },
+                ],
+              }),
+              resolvePermissions: async (roles) =>
+                new Set(roles.includes('knowledge.viewer') ? ['knowledge.file.read'] : []),
+            },
+            sessionId,
+            userId,
+            'u@x.test',
+            'U',
+          ),
         );
         expect([...scope.permissions]).toEqual(['knowledge.file.read']);
       } finally {
@@ -68,30 +70,32 @@ it('applies the tenant overlay during resolution', async () => {
       try {
         const overlayTenantId = crypto.randomUUID();
         _clearHotForTest();
-        const scope = await getSessionScope(
-          {
-            listRoleAssignments: async () => ({
-              tenant_id: overlayTenantId,
-              assignments: [
-                {
-                  role_slug: 'knowledge.viewer',
-                  scope_kind: 'tenant',
-                  scope_id: null,
-                  granted_at: new Date(),
-                },
-              ],
-            }),
-            resolvePermissions: async (roles, tenantId) =>
-              new Set(
-                tenantId === overlayTenantId && roles.includes('knowledge.viewer')
-                  ? ['knowledge.file.read', 'knowledge.file.update']
-                  : [],
-              ),
-          },
-          `sess-${crypto.randomUUID()}`,
-          crypto.randomUUID(),
-          'u@x.test',
-          'U',
+        const scope = await scoped(overlayTenantId, () =>
+          getSessionScope(
+            {
+              listRoleAssignments: async () => ({
+                tenant_id: overlayTenantId,
+                assignments: [
+                  {
+                    role_slug: 'knowledge.viewer',
+                    scope_kind: 'tenant',
+                    scope_id: null,
+                    granted_at: new Date(),
+                  },
+                ],
+              }),
+              resolvePermissions: async (roles, tenantId) =>
+                new Set(
+                  tenantId === overlayTenantId && roles.includes('knowledge.viewer')
+                    ? ['knowledge.file.read', 'knowledge.file.update']
+                    : [],
+                ),
+            },
+            `sess-${crypto.randomUUID()}`,
+            crypto.randomUUID(),
+            'u@x.test',
+            'U',
+          ),
         );
         expect([...scope.permissions].sort()).toEqual([
           'knowledge.file.read',

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { notificationsDb, resetNotificationsDb } from '../../src/backend/db/client.ts';
 import { notificationsTable } from '../../src/backend/db/schema/notifications.ts';
 import { getUnreadCount, listNotifications } from '../../src/index.ts';
+import { inScope } from '../helpers.ts';
 import { withNotificationsTestDb } from './test-helpers.ts';
 
 async function seed(opts: {
@@ -42,18 +43,20 @@ describe('notification queries', () => {
       resetNotificationsDb();
       const tenantId = crypto.randomUUID();
       const userId = crypto.randomUUID();
-      await seed({ tenantId, userId, count: 5 });
-      const page = await listNotifications({ userId, tenantId, limit: 3 });
-      expect(page.items).toHaveLength(3);
-      expect(page.next_cursor).toBeTruthy();
-      const next = await listNotifications({
-        userId,
-        tenantId,
-        limit: 3,
-        cursor: page.next_cursor!,
+      await inScope(tenantId, async () => {
+        await seed({ tenantId, userId, count: 5 });
+        const page = await listNotifications({ userId, tenantId, limit: 3 });
+        expect(page.items).toHaveLength(3);
+        expect(page.next_cursor).toBeTruthy();
+        const next = await listNotifications({
+          userId,
+          tenantId,
+          limit: 3,
+          cursor: page.next_cursor!,
+        });
+        expect(next.items).toHaveLength(2);
+        expect(next.next_cursor).toBeNull();
       });
-      expect(next.items).toHaveLength(2);
-      expect(next.next_cursor).toBeNull();
     });
   });
 
@@ -62,9 +65,11 @@ describe('notification queries', () => {
       resetNotificationsDb();
       const tenantId = crypto.randomUUID();
       const userId = crypto.randomUUID();
-      await seed({ tenantId, userId, count: 5, read: 2 });
-      const page = await listNotifications({ userId, tenantId, limit: 50, unread: true });
-      expect(page.items).toHaveLength(3);
+      await inScope(tenantId, async () => {
+        await seed({ tenantId, userId, count: 5, read: 2 });
+        const page = await listNotifications({ userId, tenantId, limit: 50, unread: true });
+        expect(page.items).toHaveLength(3);
+      });
     });
   });
 
@@ -74,14 +79,16 @@ describe('notification queries', () => {
       const tenantA = crypto.randomUUID();
       const tenantB = crypto.randomUUID();
       const userId = crypto.randomUUID();
-      await seed({
-        tenantId: tenantA,
-        userId,
-        count: 2,
-        otherTenant: { tenantId: tenantB, count: 3 },
+      await inScope(tenantA, async () => {
+        await seed({
+          tenantId: tenantA,
+          userId,
+          count: 2,
+          otherTenant: { tenantId: tenantB, count: 3 },
+        });
+        const page = await listNotifications({ userId, tenantId: tenantA, limit: 50 });
+        expect(page.items).toHaveLength(2);
       });
-      const page = await listNotifications({ userId, tenantId: tenantA, limit: 50 });
-      expect(page.items).toHaveLength(2);
     });
   });
 
@@ -90,9 +97,11 @@ describe('notification queries', () => {
       resetNotificationsDb();
       const tenantId = crypto.randomUUID();
       const userId = crypto.randomUUID();
-      await seed({ tenantId, userId, count: 4, read: 1 });
-      const n = await getUnreadCount({ userId, tenantId });
-      expect(n).toBe(3);
+      await inScope(tenantId, async () => {
+        await seed({ tenantId, userId, count: 4, read: 1 });
+        const n = await getUnreadCount({ userId, tenantId });
+        expect(n).toBe(3);
+      });
     });
   });
 });

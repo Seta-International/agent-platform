@@ -1,3 +1,4 @@
+import { scoped } from '@seta/shared-db';
 import { and, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { coreEvents } from '../../src/db/schema/index.ts';
@@ -18,18 +19,21 @@ describe('core.skill.renamed', () => {
   it('renaming a skill emits exactly one core.skill.renamed with old and new name', async () => {
     await withCoreTestDb(async ({ pool, db }) => {
       const tenantId = await seedTenant(pool);
-      const session = buildSkillAdminSession(tenantId);
-      const { id: catId } = await createSkillCategory({ input: { name: 'Languages' }, session });
-      const { id: skillId } = await createSkill({
-        input: { category_id: catId, name: 'TypeScript' },
-        session,
-      });
+      const skillId = await scoped(tenantId, async () => {
+        const session = buildSkillAdminSession(tenantId);
+        const { id: catId } = await createSkillCategory({ input: { name: 'Languages' }, session });
+        const { id: skillId } = await createSkill({
+          input: { category_id: catId, name: 'TypeScript' },
+          session,
+        });
 
-      await editSkill({
-        id: skillId,
-        expected_version: 1,
-        input: { name: 'TS' },
-        session,
+        await editSkill({
+          id: skillId,
+          expected_version: 1,
+          input: { name: 'TS' },
+          session,
+        });
+        return skillId;
       });
 
       const rows = await db
@@ -51,22 +55,24 @@ describe('core.skill.renamed', () => {
   it('a non-name edit (category change) emits zero core.skill.renamed events', async () => {
     await withCoreTestDb(async ({ pool, db }) => {
       const tenantId = await seedTenant(pool);
-      const session = buildSkillAdminSession(tenantId);
-      const { id: catId } = await createSkillCategory({ input: { name: 'Languages' }, session });
-      const { id: otherCatId } = await createSkillCategory({
-        input: { name: 'Frameworks' },
-        session,
-      });
-      const { id: skillId } = await createSkill({
-        input: { category_id: catId, name: 'TypeScript' },
-        session,
-      });
+      await scoped(tenantId, async () => {
+        const session = buildSkillAdminSession(tenantId);
+        const { id: catId } = await createSkillCategory({ input: { name: 'Languages' }, session });
+        const { id: otherCatId } = await createSkillCategory({
+          input: { name: 'Frameworks' },
+          session,
+        });
+        const { id: skillId } = await createSkill({
+          input: { category_id: catId, name: 'TypeScript' },
+          session,
+        });
 
-      await editSkill({
-        id: skillId,
-        expected_version: 1,
-        input: { category_id: otherCatId },
-        session,
+        await editSkill({
+          id: skillId,
+          expected_version: 1,
+          input: { category_id: otherCatId },
+          session,
+        });
       });
 
       const rows = await db
@@ -83,18 +89,20 @@ describe('core.skill.renamed', () => {
   it('editing with the same (trimmed) name emits zero core.skill.renamed events', async () => {
     await withCoreTestDb(async ({ pool, db }) => {
       const tenantId = await seedTenant(pool);
-      const session = buildSkillAdminSession(tenantId);
-      const { id: catId } = await createSkillCategory({ input: { name: 'Languages' }, session });
-      const { id: skillId } = await createSkill({
-        input: { category_id: catId, name: 'TypeScript' },
-        session,
-      });
+      await scoped(tenantId, async () => {
+        const session = buildSkillAdminSession(tenantId);
+        const { id: catId } = await createSkillCategory({ input: { name: 'Languages' }, session });
+        const { id: skillId } = await createSkill({
+          input: { category_id: catId, name: 'TypeScript' },
+          session,
+        });
 
-      await editSkill({
-        id: skillId,
-        expected_version: 1,
-        input: { name: '  TypeScript  ' },
-        session,
+        await editSkill({
+          id: skillId,
+          expected_version: 1,
+          input: { name: '  TypeScript  ' },
+          session,
+        });
       });
 
       const rows = await db

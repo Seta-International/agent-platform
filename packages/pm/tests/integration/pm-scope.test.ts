@@ -1,6 +1,6 @@
 // packages/pm/tests/integration/pm-scope.test.ts
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { tenantScoped } from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
 import { and, isNull } from 'drizzle-orm';
@@ -43,69 +43,73 @@ interface Graph {
  */
 async function buildGraph(pool: Pool): Promise<Graph> {
   const t = await seedTenant(pool);
-  const u1 = crypto.randomUUID();
-  const u2 = crypto.randomUUID();
-  const W_lead = crypto.randomUUID();
-  const W_am = crypto.randomUUID();
+  return scoped(t.tenant_id, async () => {
+    const u1 = crypto.randomUUID();
+    const u2 = crypto.randomUUID();
+    const W_lead = crypto.randomUUID();
+    const W_am = crypto.randomUUID();
 
-  const [a1] = await pmDb()
-    .insert(account)
-    .values({ tenant_id: t.tenant_id, name: 'A1 (AM-managed)', am_worker_id: W_am })
-    .returning({ id: account.id });
-  const [a2] = await pmDb()
-    .insert(account)
-    .values({ tenant_id: t.tenant_id, name: 'A2 (unmanaged)', am_worker_id: null })
-    .returning({ id: account.id });
-  const A1 = a1!.id;
-  const A2 = a2!.id;
+    const [a1] = await pmDb()
+      .insert(account)
+      .values({ tenant_id: t.tenant_id, name: 'A1 (AM-managed)', am_worker_id: W_am })
+      .returning({ id: account.id });
+    const [a2] = await pmDb()
+      .insert(account)
+      .values({ tenant_id: t.tenant_id, name: 'A2 (unmanaged)', am_worker_id: null })
+      .returning({ id: account.id });
+    const A1 = a1!.id;
+    const A2 = a2!.id;
 
-  const [p1] = await pmDb()
-    .insert(project)
-    .values({
-      tenant_id: t.tenant_id,
-      account_id: A2,
-      name: 'P1',
-      org_unit_id: u1,
-      pm_worker_id: W_lead,
-    })
-    .returning({ id: project.id });
-  const [p2] = await pmDb()
-    .insert(project)
-    .values({ tenant_id: t.tenant_id, account_id: A2, name: 'P2', org_unit_id: u2 })
-    .returning({ id: project.id });
-  const [p3] = await pmDb()
-    .insert(project)
-    .values({ tenant_id: t.tenant_id, account_id: A1, name: 'P3' })
-    .returning({ id: project.id });
-  const P1 = p1!.id;
-  const P2 = p2!.id;
-  const P3 = p3!.id;
-
-  const mkAlloc = async (project_id: string): Promise<string> => {
-    const [row] = await pmDb()
-      .insert(allocation)
+    const [p1] = await pmDb()
+      .insert(project)
       .values({
         tenant_id: t.tenant_id,
-        project_id,
-        worker_id: crypto.randomUUID(),
-        date_from: '2026-01-01',
-        status: 'committed',
+        account_id: A2,
+        name: 'P1',
+        org_unit_id: u1,
+        pm_worker_id: W_lead,
       })
-      .returning({ id: allocation.id });
-    return row!.id;
-  };
-  const alloc1 = await mkAlloc(P1);
-  const alloc2 = await mkAlloc(P2);
-  const alloc3 = await mkAlloc(P3);
+      .returning({ id: project.id });
+    const [p2] = await pmDb()
+      .insert(project)
+      .values({ tenant_id: t.tenant_id, account_id: A2, name: 'P2', org_unit_id: u2 })
+      .returning({ id: project.id });
+    const [p3] = await pmDb()
+      .insert(project)
+      .values({ tenant_id: t.tenant_id, account_id: A1, name: 'P3' })
+      .returning({ id: project.id });
+    const P1 = p1!.id;
+    const P2 = p2!.id;
+    const P3 = p3!.id;
 
-  return { t, u1, u2, W_lead, W_am, A1, A2, P1, P2, P3, alloc1, alloc2, alloc3 };
+    const mkAlloc = async (project_id: string): Promise<string> => {
+      const [row] = await pmDb()
+        .insert(allocation)
+        .values({
+          tenant_id: t.tenant_id,
+          project_id,
+          worker_id: crypto.randomUUID(),
+          date_from: '2026-01-01',
+          status: 'committed',
+        })
+        .returning({ id: allocation.id });
+      return row!.id;
+    };
+    const alloc1 = await mkAlloc(P1);
+    const alloc2 = await mkAlloc(P2);
+    const alloc3 = await mkAlloc(P3);
+
+    return { t, u1, u2, W_lead, W_am, A1, A2, P1, P2, P3, alloc1, alloc2, alloc3 };
+  });
 }
 
 async function visibleProjects(session: ReturnType<typeof buildSession>): Promise<Set<string>> {
   const predicate = buildProjectScope(session);
   const base = and(tenantScoped(project.tenant_id, session), isNull(project.deleted_at));
   const where = predicate ? and(base, predicate) : base;
-  const rows = await pmDb().select({ id: project.id }).from(project).where(where);
+  const rows = await scoped(session.tenant_id, () =>
+    pmDb().select({ id: project.id }).from(project).where(where),
+  );
   return new Set(rows.map((r) => r.id));
 }
 
@@ -241,15 +245,17 @@ describe('pm scope builders (D-1)', () => {
         expect(seen).toEqual(new Set());
         // Account scope must also fail-closed the same way.
         expect(
-          await pmDb()
-            .select({ id: account.id })
-            .from(account)
-            .where(
-              and(
-                tenantScoped(account.tenant_id, session),
-                buildAccountScope(session) ?? undefined,
+          await scoped(session.tenant_id, () =>
+            pmDb()
+              .select({ id: account.id })
+              .from(account)
+              .where(
+                and(
+                  tenantScoped(account.tenant_id, session),
+                  buildAccountScope(session) ?? undefined,
+                ),
               ),
-            ),
+          ),
         ).toEqual([]);
       } finally {
         resetPmDb();
@@ -267,7 +273,7 @@ describe('pm scope builders (D-1)', () => {
       try {
         const g = await buildGraph(pool);
         const session = orgManager(g.t, g.u1);
-        const rows = await listAllocations({ session });
+        const rows = await scoped(session.tenant_id, () => listAllocations({ session }));
         expect(rows.map((r) => r.allocation_id)).toEqual([g.alloc1]);
       } finally {
         resetPmDb();
@@ -285,11 +291,15 @@ describe('pm scope builders (D-1)', () => {
       try {
         const g = await buildGraph(pool);
         const session = orgManager(g.t, g.u1);
-        await expect(listProjectAllocations({ project_id: g.P2, session })).rejects.toMatchObject({
+        await expect(
+          scoped(session.tenant_id, () => listProjectAllocations({ project_id: g.P2, session })),
+        ).rejects.toMatchObject({
           code: 'NOT_FOUND',
         });
         // Visible project still works.
-        const rows = await listProjectAllocations({ project_id: g.P1, session });
+        const rows = await scoped(session.tenant_id, () =>
+          listProjectAllocations({ project_id: g.P1, session }),
+        );
         expect(rows.map((r) => r.allocation_id)).toEqual([g.alloc1]);
       } finally {
         resetPmDb();
@@ -308,16 +318,18 @@ describe('pm scope builders (D-1)', () => {
         const g = await buildGraph(pool);
         const t2 = await seedTenant(pool);
         // Tenant B: lookalike rows reusing tenant A's org_unit id and W_lead worker id.
-        const [a2b] = await pmDb()
-          .insert(account)
-          .values({ tenant_id: t2.tenant_id, name: 'B-Acct', am_worker_id: g.W_am })
-          .returning({ id: account.id });
-        await pmDb().insert(project).values({
-          tenant_id: t2.tenant_id,
-          account_id: a2b!.id,
-          name: 'B-Project',
-          org_unit_id: g.u1,
-          pm_worker_id: g.W_lead,
+        await scoped(t2.tenant_id, async () => {
+          const [a2b] = await pmDb()
+            .insert(account)
+            .values({ tenant_id: t2.tenant_id, name: 'B-Acct', am_worker_id: g.W_am })
+            .returning({ id: account.id });
+          await pmDb().insert(project).values({
+            tenant_id: t2.tenant_id,
+            account_id: a2b!.id,
+            name: 'B-Project',
+            org_unit_id: g.u1,
+            pm_worker_id: g.W_lead,
+          });
         });
 
         const orgSession = orgManager(g.t, g.u1);

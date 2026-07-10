@@ -3,7 +3,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createGroup, deleteGroup, restoreGroup } from '../../src/index.ts';
-import { readEvents, seedTenant } from '../helpers.ts';
+import { inScope, readEvents, seedTenant } from '../helpers.ts';
 
 describe('deleteGroup', () => {
   it('soft-deletes the group, emits planner.group.deleted', async () => {
@@ -19,17 +19,21 @@ describe('deleteGroup', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'ToDelete',
-            session,
-          });
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'ToDelete',
+              session,
+            }),
+          );
 
-          await deleteGroup({
-            group_id: group.id,
-            expected_version: 1,
-            session,
-          });
+          await inScope(session, () =>
+            deleteGroup({
+              group_id: group.id,
+              expected_version: 1,
+              session,
+            }),
+          );
 
           const { rows } = await pool.query(
             `SELECT deleted_at, version FROM planner.groups WHERE id = $1`,
@@ -67,14 +71,18 @@ describe('deleteGroup', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'ConflictDelete',
-            session,
-          });
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'ConflictDelete',
+              session,
+            }),
+          );
 
           await expect(
-            deleteGroup({ group_id: group.id, expected_version: 99, session }),
+            inScope(session, () =>
+              deleteGroup({ group_id: group.id, expected_version: 99, session }),
+            ),
           ).rejects.toMatchObject({ code: 'CONFLICT' });
         } finally {
           resetCoreDb();
@@ -96,11 +104,13 @@ describe('deleteGroup', () => {
         try {
           const seeded = await seedTenant(pool);
           await expect(
-            deleteGroup({
-              group_id: crypto.randomUUID(),
-              expected_version: 1,
-              session: seeded.adminSession,
-            }),
+            inScope(seeded.adminSession, () =>
+              deleteGroup({
+                group_id: crypto.randomUUID(),
+                expected_version: 1,
+                session: seeded.adminSession,
+              }),
+            ),
           ).rejects.toMatchObject({ code: 'NOT_FOUND' });
         } finally {
           resetCoreDb();
@@ -125,14 +135,20 @@ describe('restoreGroup', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'ToRestore',
-            session,
-          });
-          await deleteGroup({ group_id: group.id, expected_version: 1, session });
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'ToRestore',
+              session,
+            }),
+          );
+          await inScope(session, () =>
+            deleteGroup({ group_id: group.id, expected_version: 1, session }),
+          );
 
-          const restored = await restoreGroup({ group_id: group.id, session });
+          const restored = await inScope(session, () =>
+            restoreGroup({ group_id: group.id, session }),
+          );
 
           expect(restored.deleted_at).toBeNull();
           expect(restored.version).toBe(3);
@@ -165,13 +181,17 @@ describe('restoreGroup', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'StillLive',
-            session,
-          });
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'StillLive',
+              session,
+            }),
+          );
 
-          await expect(restoreGroup({ group_id: group.id, session })).rejects.toMatchObject({
+          await expect(
+            inScope(session, () => restoreGroup({ group_id: group.id, session })),
+          ).rejects.toMatchObject({
             code: 'VALIDATION',
           });
         } finally {
@@ -194,7 +214,9 @@ describe('restoreGroup', () => {
         try {
           const seeded = await seedTenant(pool);
           await expect(
-            restoreGroup({ group_id: crypto.randomUUID(), session: seeded.adminSession }),
+            inScope(seeded.adminSession, () =>
+              restoreGroup({ group_id: crypto.randomUUID(), session: seeded.adminSession }),
+            ),
           ).rejects.toMatchObject({ code: 'NOT_FOUND' });
         } finally {
           resetCoreDb();

@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { tenantScoped } from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
 import { and, eq } from 'drizzle-orm';
@@ -24,17 +24,21 @@ describe('pm org isolation', () => {
         const orgA = await seedTenant(pool);
         const orgB = await seedTenant(pool);
 
-        const { account_id } = await createAccount({
-          name: 'Org A account',
-          session: orgA.adminSession,
-        });
+        const { account_id } = await scoped(orgA.tenant_id, () =>
+          createAccount({
+            name: 'Org A account',
+            session: orgA.adminSession,
+          }),
+        );
 
-        const visibleToB = await pmDb()
-          .select()
-          .from(account)
-          .where(
-            and(eq(account.id, account_id), tenantScoped(account.tenant_id, orgB.adminSession)),
-          );
+        const visibleToB = await scoped(orgB.tenant_id, () =>
+          pmDb()
+            .select()
+            .from(account)
+            .where(
+              and(eq(account.id, account_id), tenantScoped(account.tenant_id, orgB.adminSession)),
+            ),
+        );
         expect(visibleToB).toHaveLength(0);
       } finally {
         resetPmDb();

@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -40,7 +40,9 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
             session: t.adminSession,
           }),
         );
-        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
+        const [c] = await inScope(t.adminSession, () =>
+          pmDb().select().from(charter).where(eq(charter.id, charter_id)),
+        );
         expect(c?.status).toBe('submitted');
         expect(await readEvents(pool, t.tenant_id, 'pm.charter.submitted')).toHaveLength(1);
       } finally {
@@ -156,7 +158,9 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
             session: t.adminSession,
           }),
         );
-        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
+        const [c] = await inScope(t.adminSession, () =>
+          pmDb().select().from(charter).where(eq(charter.id, charter_id)),
+        );
         expect(c?.submitted_by_user_id).toBe(t.admin_user_id);
       } finally {
         resetPmDb();
@@ -175,15 +179,17 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
         const t = await seedTenant(pool);
         // Seed a pm.pmo reviewer so recipients is non-empty
         const pmoEmail = `pmo-${crypto.randomUUID().slice(0, 8)}@example.test`;
-        const pmoResult = await createUser(
-          {
-            tenant_id: t.tenant_id,
-            email: pmoEmail,
-            name: 'PMO Reviewer',
-            password: 'correct-horse-battery-staple',
-            initial_role: { role_slug: 'pm.pmo', scope_type: 'tenant', scope_id: null },
-          },
-          { type: 'cli', user_id: null },
+        const pmoResult = await maintenance(() =>
+          createUser(
+            {
+              tenant_id: t.tenant_id,
+              email: pmoEmail,
+              name: 'PMO Reviewer',
+              password: 'correct-horse-battery-staple',
+              initial_role: { role_slug: 'pm.pmo', scope_type: 'tenant', scope_id: null },
+            },
+            { type: 'cli', user_id: null },
+          ),
         );
 
         const accountId = await seedAccount(pool, t.tenant_id);
@@ -227,7 +233,9 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
           withdrawCharter({ charter_id, session: t.adminSession }),
         );
         expect(version).toBe(2);
-        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
+        const [c] = await inScope(t.adminSession, () =>
+          pmDb().select().from(charter).where(eq(charter.id, charter_id)),
+        );
         expect(c?.status).toBe('withdrawn');
         expect(await readEvents(pool, t.tenant_id, 'pm.charter.withdrawn')).toHaveLength(1);
       } finally {
@@ -246,15 +254,17 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
       try {
         const t = await seedTenant(pool);
         const pmoEmail = `pmo-${crypto.randomUUID().slice(0, 8)}@example.test`;
-        const pmoResult = await createUser(
-          {
-            tenant_id: t.tenant_id,
-            email: pmoEmail,
-            name: 'PMO',
-            password: 'correct-horse-battery-staple',
-            initial_role: { role_slug: 'pm.pmo', scope_type: 'tenant', scope_id: null },
-          },
-          { type: 'cli', user_id: null },
+        const pmoResult = await maintenance(() =>
+          createUser(
+            {
+              tenant_id: t.tenant_id,
+              email: pmoEmail,
+              name: 'PMO',
+              password: 'correct-horse-battery-staple',
+              initial_role: { role_slug: 'pm.pmo', scope_type: 'tenant', scope_id: null },
+            },
+            { type: 'cli', user_id: null },
+          ),
         );
         const pmo = buildSession({
           tenant_id: t.tenant_id,
@@ -275,7 +285,9 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
         await inScope(t.adminSession, () =>
           withdrawCharter({ charter_id, session: t.adminSession }),
         );
-        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
+        const [c] = await inScope(t.adminSession, () =>
+          pmDb().select().from(charter).where(eq(charter.id, charter_id)),
+        );
         expect(c?.status).toBe('withdrawn');
       } finally {
         resetPmDb();
@@ -304,15 +316,17 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
 
         // Create a different pm.manager user who is NOT the submitter
         const otherEmail = `other-${crypto.randomUUID().slice(0, 8)}@example.test`;
-        const otherResult = await createUser(
-          {
-            tenant_id: t.tenant_id,
-            email: otherEmail,
-            name: 'Other Manager',
-            password: 'correct-horse-battery-staple',
-            initial_role: { role_slug: 'pm.manager', scope_type: 'tenant', scope_id: null },
-          },
-          { type: 'cli', user_id: null },
+        const otherResult = await maintenance(() =>
+          createUser(
+            {
+              tenant_id: t.tenant_id,
+              email: otherEmail,
+              name: 'Other Manager',
+              password: 'correct-horse-battery-staple',
+              initial_role: { role_slug: 'pm.manager', scope_type: 'tenant', scope_id: null },
+            },
+            { type: 'cli', user_id: null },
+          ),
         );
         const otherSession = buildSession({
           tenant_id: t.tenant_id,

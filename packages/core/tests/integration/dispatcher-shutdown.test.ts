@@ -1,8 +1,11 @@
+import { scoped } from '@seta/shared-db';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
 import { emit, withEmit } from '../../src/events/index.ts';
 import { startDispatcher } from '../../src/runtime/dispatcher/index.ts';
 import { withCoreTestDb } from '../helpers.ts';
+
+const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 describe('dispatcher graceful shutdown', () => {
   it('shutdown waits for in-flight handler to complete', async () => {
@@ -32,16 +35,18 @@ describe('dispatcher graceful shutdown', () => {
 
       const handle = await startDispatcher({ pool, subscribers: [sub], pollIntervalMs: 50 });
 
-      await withEmit(undefined, async () => {
-        await emit({
-          tenantId: '00000000-0000-0000-0000-000000000001',
-          aggregateType: 'test.slow',
-          aggregateId: '00000000-0000-0000-0000-000000000002',
-          eventType: 'test.slow.thing',
-          eventVersion: 1,
-          payload: {},
-        });
-      });
+      await scoped(TENANT_ID, () =>
+        withEmit(undefined, async () => {
+          await emit({
+            tenantId: TENANT_ID,
+            aggregateType: 'test.slow',
+            aggregateId: '00000000-0000-0000-0000-000000000002',
+            eventType: 'test.slow.thing',
+            eventVersion: 1,
+            payload: {},
+          });
+        }),
+      );
 
       const deadline = Date.now() + 10_000;
       while (!started && Date.now() < deadline) {

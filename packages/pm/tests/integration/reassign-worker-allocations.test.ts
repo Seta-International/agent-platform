@@ -12,7 +12,7 @@ import {
   reassignWorkerAllocations,
   submitCharter,
 } from '../../src/index.ts';
-import { approveCharterTwoStage, readEvents, seedTenant } from '../helpers.ts';
+import { approveCharterTwoStage, inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -24,18 +24,22 @@ async function seedProject(
   name: string,
   bounds?: { date_from?: string; date_to?: string },
 ): Promise<string> {
-  const { account_id } = await createAccount({ name: `A-${name}`, session });
-  const { charter_id } = await submitCharter({
-    account_id,
-    name,
-    pm_worker_id: session.user_id,
-    methodology: 'scrum',
-    pricing_model: 'fixed_price',
-    budget_bmm: 100,
-    date_from: bounds?.date_from,
-    date_to: bounds?.date_to,
-    session,
-  });
+  const { account_id } = await inScope(session, () =>
+    createAccount({ name: `A-${name}`, session }),
+  );
+  const { charter_id } = await inScope(session, () =>
+    submitCharter({
+      account_id,
+      name,
+      pm_worker_id: session.user_id,
+      methodology: 'scrum',
+      pricing_model: 'fixed_price',
+      budget_bmm: 100,
+      date_from: bounds?.date_from,
+      date_to: bounds?.date_to,
+      session,
+    }),
+  );
   const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
   return project_id;
 }
@@ -53,48 +57,56 @@ describe('reassignWorkerAllocations', () => {
         const newProj = await seedProject(t.adminSession, 'NewProj');
         const worker = crypto.randomUUID();
 
-        const a1 = await createAllocation({
-          project_id: watchtower,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 30,
-          status: 'committed',
-          session: t.adminSession,
-        });
-        const a2 = await createAllocation({
-          project_id: projectX,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 70,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const a1 = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: watchtower,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 30,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
+        const a2 = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: projectX,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 70,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        const result = await reassignWorkerAllocations({
-          worker_id: worker,
-          allocation_ids: [a1.allocation_id, a2.allocation_id],
-          source: { date_to: '2026-06-30' },
-          targets: [
-            {
-              project_id: newProj,
-              date_from: '2026-07-01',
-              planned_pct: 100,
-              bucket: 'billable',
-              date_to: null,
-            },
-          ],
-          session: t.adminSession,
-        });
+        const result = await inScope(t.adminSession, () =>
+          reassignWorkerAllocations({
+            worker_id: worker,
+            allocation_ids: [a1.allocation_id, a2.allocation_id],
+            source: { date_to: '2026-06-30' },
+            targets: [
+              {
+                project_id: newProj,
+                date_from: '2026-07-01',
+                planned_pct: 100,
+                bucket: 'billable',
+                date_to: null,
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         expect(result.updated).toHaveLength(2);
         expect(result.target_ids).toHaveLength(1);
         expect(result.warnings).toEqual([]);
 
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.worker_id, worker)),
+        );
         expect(rows).toHaveLength(3);
         const w1 = rows.find((r) => r.id === a1.allocation_id);
         const w2 = rows.find((r) => r.id === a2.allocation_id);
@@ -130,47 +142,52 @@ describe('reassignWorkerAllocations', () => {
         const newProj = await seedProject(t.adminSession, 'NewProj');
         const worker = crypto.randomUUID();
 
-        const kept = await createAllocation({
-          project_id: watchtower,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 30,
-          status: 'committed',
-          session: t.adminSession,
-        });
-        const reassigned = await createAllocation({
-          project_id: projectX,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 70,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const kept = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: watchtower,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 30,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
+        const reassigned = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: projectX,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 70,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        await reassignWorkerAllocations({
-          worker_id: worker,
-          allocation_ids: [reassigned.allocation_id], // Watchtower NOT selected
-          source: { date_to: '2026-06-30' },
-          targets: [
-            {
-              project_id: newProj,
-              date_from: '2026-07-01',
-              planned_pct: 70,
-              bucket: 'billable',
-              date_to: null,
-            },
-          ],
-          session: t.adminSession,
-        });
+        await inScope(t.adminSession, () =>
+          reassignWorkerAllocations({
+            worker_id: worker,
+            allocation_ids: [reassigned.allocation_id], // Watchtower NOT selected
+            source: { date_to: '2026-06-30' },
+            targets: [
+              {
+                project_id: newProj,
+                date_from: '2026-07-01',
+                planned_pct: 70,
+                bucket: 'billable',
+                date_to: null,
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
-        const [keptRow] = await pmDb()
-          .select()
-          .from(allocation)
-          .where(eq(allocation.id, kept.allocation_id));
+        const [keptRow] = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.id, kept.allocation_id)),
+        );
         expect(keptRow?.date_to).toBe('2026-12-31'); // untouched
         expect(keptRow?.version).toBe(1);
       } finally {
@@ -193,43 +210,49 @@ describe('reassignWorkerAllocations', () => {
         const newProj = await seedProject(t.adminSession, 'NewProj');
         const worker = crypto.randomUUID();
 
-        const w1 = await createAllocation({
-          project_id: watchtower,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31', // covers the shared end date below, so only ProjectX fails
-          bucket: 'billable',
-          planned_pct: 30,
-          status: 'committed',
-          session: t.adminSession,
-        });
-        const w2 = await createAllocation({
-          project_id: projectX,
-          worker_id: worker,
-          date_from: '2026-08-01', // starts after the shared end date below
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 70,
-          status: 'committed',
-          session: t.adminSession,
-        });
-
-        await expect(
-          reassignWorkerAllocations({
+        const w1 = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: watchtower,
             worker_id: worker,
-            allocation_ids: [w1.allocation_id, w2.allocation_id],
-            source: { date_to: '2026-07-01' },
-            targets: [
-              {
-                project_id: newProj,
-                date_from: '2026-07-02',
-                planned_pct: 100,
-                bucket: 'billable',
-                date_to: null,
-              },
-            ],
+            date_from: '2026-01-01',
+            date_to: '2026-12-31', // covers the shared end date below, so only ProjectX fails
+            bucket: 'billable',
+            planned_pct: 30,
+            status: 'committed',
             session: t.adminSession,
           }),
+        );
+        const w2 = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: projectX,
+            worker_id: worker,
+            date_from: '2026-08-01', // starts after the shared end date below
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 70,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
+
+        await expect(
+          inScope(t.adminSession, () =>
+            reassignWorkerAllocations({
+              worker_id: worker,
+              allocation_ids: [w1.allocation_id, w2.allocation_id],
+              source: { date_to: '2026-07-01' },
+              targets: [
+                {
+                  project_id: newProj,
+                  date_from: '2026-07-02',
+                  planned_pct: 100,
+                  bucket: 'billable',
+                  date_to: null,
+                },
+              ],
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow(/before the allocation start/i);
       } finally {
         resetPmDb();
@@ -250,37 +273,43 @@ describe('reassignWorkerAllocations', () => {
         const newProj = await seedProject(t.adminSession, 'NewProj');
         const worker = crypto.randomUUID();
 
-        const kept = await createAllocation({
-          project_id: watchtower,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 30,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const kept = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: watchtower,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 30,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        const result = await reassignWorkerAllocations({
-          worker_id: worker,
-          allocation_ids: [],
-          source: { date_to: '2026-01-01' }, // unused when nothing is being ended
-          targets: [
-            {
-              project_id: newProj,
-              date_from: '2026-07-01',
-              planned_pct: 50,
-              bucket: 'billable',
-              date_to: null,
-            },
-          ],
-          session: t.adminSession,
-        });
+        const result = await inScope(t.adminSession, () =>
+          reassignWorkerAllocations({
+            worker_id: worker,
+            allocation_ids: [],
+            source: { date_to: '2026-01-01' }, // unused when nothing is being ended
+            targets: [
+              {
+                project_id: newProj,
+                date_from: '2026-07-01',
+                planned_pct: 50,
+                bucket: 'billable',
+                date_to: null,
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         expect(result.updated).toEqual([]);
         expect(result.target_ids).toHaveLength(1);
 
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.worker_id, worker)),
+        );
         expect(rows).toHaveLength(2);
         const keptRow = rows.find((r) => r.id === kept.allocation_id);
         expect(keptRow?.date_to).toBe('2026-12-31'); // untouched, still version 1
@@ -309,45 +338,51 @@ describe('reassignWorkerAllocations', () => {
         const newProj = await seedProject(t.adminSession, 'NewProj');
         const worker = crypto.randomUUID();
 
-        await createAllocation({
-          project_id: watchtower,
-          worker_id: worker,
-          date_from: '2026-04-09',
-          date_to: '2026-08-06',
-          bucket: 'billable',
-          planned_pct: 30,
-          status: 'committed',
-          session: t.adminSession,
-        });
-        await createAllocation({
-          project_id: commerceCanal,
-          worker_id: worker,
-          date_from: '2026-06-12',
-          date_to: '2026-07-12',
-          bucket: 'billable',
-          planned_pct: 50,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: watchtower,
+            worker_id: worker,
+            date_from: '2026-04-09',
+            date_to: '2026-08-06',
+            bucket: 'billable',
+            planned_pct: 30,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
+        await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: commerceCanal,
+            worker_id: worker,
+            date_from: '2026-06-12',
+            date_to: '2026-07-12',
+            bucket: 'billable',
+            planned_pct: 50,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
         // No allocation_ids selected (nothing being ended) and the new target
         // has no end date — so no candidate provides a finite bound, forcing
         // the peak sweep to fall back to its far-future sentinel.
-        const preview = await previewReassignWorkerAllocations({
-          worker_id: worker,
-          allocation_ids: [],
-          source: { date_to: '2026-01-01' },
-          targets: [
-            {
-              project_id: newProj,
-              date_from: '2026-07-09',
-              planned_pct: 100,
-              bucket: 'billable',
-              date_to: null,
-            },
-          ],
-          session: t.adminSession,
-        });
+        const preview = await inScope(t.adminSession, () =>
+          previewReassignWorkerAllocations({
+            worker_id: worker,
+            allocation_ids: [],
+            source: { date_to: '2026-01-01' },
+            targets: [
+              {
+                project_id: newProj,
+                date_from: '2026-07-09',
+                planned_pct: 100,
+                bucket: 'billable',
+                date_to: null,
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         // 30 (Watchtower) + 50 (CommerceCanal) + 100 (new, open-ended) = 180
         // during the Jul 9–12 overlap.
@@ -372,32 +407,36 @@ describe('reassignWorkerAllocations', () => {
         const newProj = await seedProject(t.adminSession, 'NewProj');
         const worker = crypto.randomUUID();
 
-        const source = await createAllocation({
-          project_id: watchtower,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const source = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: watchtower,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        const preview = await previewReassignWorkerAllocations({
-          worker_id: worker,
-          allocation_ids: [source.allocation_id],
-          source: { date_to: '2026-12-31' }, // kept unchanged
-          targets: [
-            {
-              project_id: newProj,
-              date_from: '2026-07-01',
-              planned_pct: 50,
-              bucket: 'billable',
-              date_to: '2026-12-31',
-            },
-          ],
-          session: t.adminSession,
-        });
+        const preview = await inScope(t.adminSession, () =>
+          previewReassignWorkerAllocations({
+            worker_id: worker,
+            allocation_ids: [source.allocation_id],
+            source: { date_to: '2026-12-31' }, // kept unchanged
+            targets: [
+              {
+                project_id: newProj,
+                date_from: '2026-07-01',
+                planned_pct: 50,
+                bucket: 'billable',
+                date_to: '2026-12-31',
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         expect(preview.sources).toHaveLength(1);
         expect(preview.sources[0]).toMatchObject({ project_name: 'Watchtower', planned_pct: 100 });

@@ -2,7 +2,7 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { createAccount, listRecruiterAccountIds } from '@seta/pm';
 import { resetPmDb } from '@seta/pm/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
@@ -38,50 +38,52 @@ interface Graph {
  */
 async function buildGraph(pool: Pool): Promise<Graph> {
   const t = await seedTenant(pool);
-  const R_user = crypto.randomUUID();
-  const R_worker = crypto.randomUUID();
-  const managerSession = buildSession({
-    tenant_id: t.tenant_id,
-    user_id: crypto.randomUUID(),
-    roles: ['hiring.manager', 'pm.manager'],
-  });
-  const recruiterSession = buildSession({
-    tenant_id: t.tenant_id,
-    user_id: R_user,
-    roles: ['hiring.recruiter'],
-    assignments: [{ role_slug: 'hiring.recruiter', scope_kind: 'self', scope_id: null }],
-    worker_id: R_worker,
-  });
+  return scoped(t.tenant_id, async () => {
+    const R_user = crypto.randomUUID();
+    const R_worker = crypto.randomUUID();
+    const managerSession = buildSession({
+      tenant_id: t.tenant_id,
+      user_id: crypto.randomUUID(),
+      roles: ['hiring.manager', 'pm.manager'],
+    });
+    const recruiterSession = buildSession({
+      tenant_id: t.tenant_id,
+      user_id: R_user,
+      roles: ['hiring.recruiter'],
+      assignments: [{ role_slug: 'hiring.recruiter', scope_kind: 'self', scope_id: null }],
+      worker_id: R_worker,
+    });
 
-  const { account_id: A1 } = await createAccount({
-    name: 'A1 (R-managed)',
-    recruiter_worker_ids: [R_worker],
-    session: managerSession,
-  });
-  const { account_id: A2 } = await createAccount({
-    name: 'A2 (unmanaged)',
-    session: managerSession,
-  });
+    const { account_id: A1 } = await createAccount({
+      name: 'A1 (R-managed)',
+      recruiter_worker_ids: [R_worker],
+      session: managerSession,
+    });
+    const { account_id: A2 } = await createAccount({
+      name: 'A2 (unmanaged)',
+      session: managerSession,
+    });
 
-  const { requisition_id: Q1 } = await openRequisition({
-    title: 'Q1',
-    kind: 'new',
-    account_id: A1,
-    session: managerSession,
-  });
-  const { requisition_id: Q2 } = await openRequisition({
-    title: 'Q2',
-    kind: 'new',
-    account_id: A2,
-    session: managerSession,
-  });
-  const { requisition_id: Q3 } = await openRequisition({
-    title: 'Q3',
-    kind: 'new',
-    session: recruiterSession,
-  });
+    const { requisition_id: Q1 } = await openRequisition({
+      title: 'Q1',
+      kind: 'new',
+      account_id: A1,
+      session: managerSession,
+    });
+    const { requisition_id: Q2 } = await openRequisition({
+      title: 'Q2',
+      kind: 'new',
+      account_id: A2,
+      session: managerSession,
+    });
+    const { requisition_id: Q3 } = await openRequisition({
+      title: 'Q3',
+      kind: 'new',
+      session: recruiterSession,
+    });
 
-  return { t, R_user, R_worker, A1, A2, Q1, Q2, Q3 };
+    return { t, R_user, R_worker, A1, A2, Q1, Q2, Q3 };
+  });
 }
 
 function recruiterSessionFor(g: Graph, worker_id: string | null): ReturnType<typeof buildSession> {
@@ -114,7 +116,10 @@ describe('hiring recruiter scope', () => {
         const g = await buildGraph(pool);
         const recruiter = recruiterSessionFor(g, g.R_worker);
 
-        const seen = new Set((await listRequisitions(recruiter)).map((r) => r.id));
+        const seen = await scoped(
+          g.t.tenant_id,
+          async () => new Set((await listRequisitions(recruiter)).map((r) => r.id)),
+        );
         expect(seen).toEqual(new Set([g.Q1, g.Q3]));
         expect(seen.has(g.Q2)).toBe(false);
       } finally {
@@ -136,7 +141,10 @@ describe('hiring recruiter scope', () => {
         const g = await buildGraph(pool);
         const manager = managerSessionFor(g);
 
-        const seen = new Set((await listRequisitions(manager)).map((r) => r.id));
+        const seen = await scoped(
+          g.t.tenant_id,
+          async () => new Set((await listRequisitions(manager)).map((r) => r.id)),
+        );
         expect(seen).toEqual(new Set([g.Q1, g.Q2, g.Q3]));
       } finally {
         resetPmDb();
@@ -157,12 +165,14 @@ describe('hiring recruiter scope', () => {
         const g = await buildGraph(pool);
         const recruiter = recruiterSessionFor(g, g.R_worker);
 
-        await expect(
-          getRequisition({ requisition_id: g.Q2, session: recruiter }),
-        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        await scoped(g.t.tenant_id, async () => {
+          await expect(
+            getRequisition({ requisition_id: g.Q2, session: recruiter }),
+          ).rejects.toMatchObject({ code: 'NOT_FOUND' });
 
-        const detail = await getRequisition({ requisition_id: g.Q1, session: recruiter });
-        expect(detail.requisition.id).toBe(g.Q1);
+          const detail = await getRequisition({ requisition_id: g.Q1, session: recruiter });
+          expect(detail.requisition.id).toBe(g.Q1);
+        });
       } finally {
         resetPmDb();
         resetHiringDb();
@@ -183,25 +193,27 @@ describe('hiring recruiter scope', () => {
         const manager = managerSessionFor(g);
         const recruiter = recruiterSessionFor(g, g.R_worker);
 
-        const { application_id: app1 } = await addCandidate({
-          requisition_id: g.Q1,
-          name: 'Q1 Candidate',
-          session: manager,
-        });
-        const { application_id: app2 } = await addCandidate({
-          requisition_id: g.Q2,
-          name: 'Q2 Candidate',
-          session: manager,
-        });
-        const { application_id: app3 } = await addCandidate({
-          requisition_id: g.Q3,
-          name: 'Q3 Candidate',
-          session: manager,
-        });
+        await scoped(g.t.tenant_id, async () => {
+          const { application_id: app1 } = await addCandidate({
+            requisition_id: g.Q1,
+            name: 'Q1 Candidate',
+            session: manager,
+          });
+          const { application_id: app2 } = await addCandidate({
+            requisition_id: g.Q2,
+            name: 'Q2 Candidate',
+            session: manager,
+          });
+          const { application_id: app3 } = await addCandidate({
+            requisition_id: g.Q3,
+            name: 'Q3 Candidate',
+            session: manager,
+          });
 
-        const seen = new Set((await listCandidates(recruiter)).map((r) => r.application_id));
-        expect(seen).toEqual(new Set([app1, app3]));
-        expect(seen.has(app2)).toBe(false);
+          const seen = new Set((await listCandidates(recruiter)).map((r) => r.application_id));
+          expect(seen).toEqual(new Set([app1, app3]));
+          expect(seen.has(app2)).toBe(false);
+        });
       } finally {
         resetPmDb();
         resetHiringDb();
@@ -221,7 +233,10 @@ describe('hiring recruiter scope', () => {
         const g = await buildGraph(pool);
         const noWorker = recruiterSessionFor(g, null);
 
-        const seen = new Set((await listRequisitions(noWorker)).map((r) => r.id));
+        const seen = await scoped(
+          g.t.tenant_id,
+          async () => new Set((await listRequisitions(noWorker)).map((r) => r.id)),
+        );
         expect(seen).toEqual(new Set([g.Q3]));
       } finally {
         resetPmDb();
@@ -247,17 +262,24 @@ describe('hiring recruiter scope', () => {
           roles: ['hiring.manager', 'pm.manager'],
         });
         // Tenant B: lookalike account_recruiter row reusing tenant A's recruiter worker id.
-        await createAccount({
-          name: 'B-Acct',
-          recruiter_worker_ids: [g.R_worker],
-          session: t2Manager,
-        });
+        await scoped(t2.tenant_id, () =>
+          createAccount({
+            name: 'B-Acct',
+            recruiter_worker_ids: [g.R_worker],
+            session: t2Manager,
+          }),
+        );
 
-        const idsInA = await listRecruiterAccountIds(g.R_worker, g.t.tenant_id);
+        const idsInA = await scoped(g.t.tenant_id, () =>
+          listRecruiterAccountIds(g.R_worker, g.t.tenant_id),
+        );
         expect(idsInA).toEqual([g.A1]);
 
         const recruiter = recruiterSessionFor(g, g.R_worker);
-        const seen = new Set((await listRequisitions(recruiter)).map((r) => r.id));
+        const seen = await scoped(
+          g.t.tenant_id,
+          async () => new Set((await listRequisitions(recruiter)).map((r) => r.id)),
+        );
         expect(seen).toEqual(new Set([g.Q1, g.Q3]));
       } finally {
         resetPmDb();

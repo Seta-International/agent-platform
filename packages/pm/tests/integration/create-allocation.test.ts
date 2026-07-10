@@ -14,7 +14,7 @@ const ctx = {
 };
 
 async function seedProject(session: import('@seta/core').SessionScope): Promise<string> {
-  const { account_id } = await createAccount({ name: 'A', session });
+  const { account_id } = await inScope(session, () => createAccount({ name: 'A', session }));
   const { charter_id } = await inScope(session, () =>
     submitCharter({
       account_id,
@@ -41,25 +41,26 @@ describe('createAllocation', () => {
         const projectId = await seedProject(t.adminSession);
         const workerId = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: projectId,
-          worker_id: workerId,
-          role: 'DEV',
-          date_from: '2026-05-01',
-          date_to: '2026-05-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          minutes_per_day: 480,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: projectId,
+            worker_id: workerId,
+            role: 'DEV',
+            date_from: '2026-05-01',
+            date_to: '2026-05-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            minutes_per_day: 480,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
         expect(allocation_id).toBeTruthy();
 
-        const [row] = await pmDb()
-          .select()
-          .from(allocation)
-          .where(eq(allocation.id, allocation_id));
+        const [row] = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.id, allocation_id)),
+        );
         expect(row?.project_id).toBe(projectId);
         expect(row?.worker_id).toBe(workerId);
         expect(row?.status).toBe('committed');
@@ -96,12 +97,14 @@ describe('createAllocation', () => {
         const workerId = crypto.randomUUID();
 
         await expect(
-          createAllocation({
-            project_id: projectId,
-            worker_id: workerId,
-            status: 'placeholder',
-            session: t.adminSession,
-          }),
+          inScope(t.adminSession, () =>
+            createAllocation({
+              project_id: projectId,
+              worker_id: workerId,
+              status: 'placeholder',
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow();
       } finally {
         resetPmDb();
@@ -122,13 +125,15 @@ describe('createAllocation', () => {
         const workerId = crypto.randomUUID();
 
         await expect(
-          createAllocation({
-            project_id: projectId,
-            worker_id: workerId,
-            status: 'committed',
-            planned_pct: 50,
-            session: t.adminSession,
-          }),
+          inScope(t.adminSession, () =>
+            createAllocation({
+              project_id: projectId,
+              worker_id: workerId,
+              status: 'committed',
+              planned_pct: 50,
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow();
       } finally {
         resetPmDb();

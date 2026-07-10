@@ -1,7 +1,7 @@
 import { createSkill, createSkillCategory } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { resetPmDb } from '@seta/pm/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -37,65 +37,67 @@ describe('read candidates', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const catSession = {
-          ...t.adminSession,
-          permissions: new Set([...t.adminSession.permissions, 'core.skill.manage']),
-        };
-        const cat = await createSkillCategory({ input: { name: 'FE' }, session: catSession });
-        const react = await createSkill({
-          input: { category_id: cat.id, name: 'React' },
-          session: catSession,
-        });
-        const { requisition_id } = await openRequisition({
-          title: 'FE',
-          kind: 'new',
-          headcount: 1,
-          session: t.adminSession,
-        });
-        await setRequisitionSkills({
-          requisition_id,
-          skills: [{ skill_id: react.id, skill_name: 'React', min_level: 3 }],
-          session: t.adminSession,
-        });
-        const { candidate_id, application_id } = await addCandidate({
-          requisition_id,
-          name: 'Ada',
-          skills: [{ skill_id: react.id, skill_name: 'React', level: 4 }],
-          session: t.adminSession,
-        });
+        await scoped(t.tenant_id, async () => {
+          const catSession = {
+            ...t.adminSession,
+            permissions: new Set([...t.adminSession.permissions, 'core.skill.manage']),
+          };
+          const cat = await createSkillCategory({ input: { name: 'FE' }, session: catSession });
+          const react = await createSkill({
+            input: { category_id: cat.id, name: 'React' },
+            session: catSession,
+          });
+          const { requisition_id } = await openRequisition({
+            title: 'FE',
+            kind: 'new',
+            headcount: 1,
+            session: t.adminSession,
+          });
+          await setRequisitionSkills({
+            requisition_id,
+            skills: [{ skill_id: react.id, skill_name: 'React', min_level: 3 }],
+            session: t.adminSession,
+          });
+          const { candidate_id, application_id } = await addCandidate({
+            requisition_id,
+            name: 'Ada',
+            skills: [{ skill_id: react.id, skill_name: 'React', level: 4 }],
+            session: t.adminSession,
+          });
 
-        const board = await listCandidates(t.adminSession);
-        const row = board.find((r) => r.application_id === application_id);
-        expect(row?.fit.strong).toBe(true);
-        expect(row?.applied_at).toBeInstanceOf(Date);
-        expect(row?.skills).toEqual([{ skill_id: react.id, skill_name: 'React', level: 4 }]);
+          const board = await listCandidates(t.adminSession);
+          const row = board.find((r) => r.application_id === application_id);
+          expect(row?.fit.strong).toBe(true);
+          expect(row?.applied_at).toBeInstanceOf(Date);
+          expect(row?.skills).toEqual([{ skill_id: react.id, skill_name: 'React', level: 4 }]);
 
-        const detail = await getCandidate({ candidate_id, session: t.adminSession });
-        expect(detail.timeline.length).toBeGreaterThan(0);
-        expect(detail.skills).toHaveLength(1);
-        expect(Array.isArray(detail.applications)).toBe(true);
-        expect(detail.applications).toHaveLength(1);
-        const activeApp =
-          detail.applications.find((a) => a.status === 'active') ?? detail.applications[0];
-        expect(activeApp).toBeDefined();
-        expect(activeApp!.application_id).toBe(application_id);
-        expect(activeApp!.requisition_title).toBe('FE');
-        expect(activeApp!.fit).toBeDefined();
-        expect(typeof activeApp!.fit.score).toBe('number');
-        expect(activeApp!.fit.strong).toBe(true);
+          const detail = await getCandidate({ candidate_id, session: t.adminSession });
+          expect(detail.timeline.length).toBeGreaterThan(0);
+          expect(detail.skills).toHaveLength(1);
+          expect(Array.isArray(detail.applications)).toBe(true);
+          expect(detail.applications).toHaveLength(1);
+          const activeApp =
+            detail.applications.find((a) => a.status === 'active') ?? detail.applications[0];
+          expect(activeApp).toBeDefined();
+          expect(activeApp!.application_id).toBe(application_id);
+          expect(activeApp!.requisition_title).toBe('FE');
+          expect(activeApp!.fit).toBeDefined();
+          expect(typeof activeApp!.fit.score).toBe('number');
+          expect(activeApp!.fit.strong).toBe(true);
 
-        const reason = await createRejectionReason({
-          input: { label: 'X', category: 'other' },
-          session: t.adminSession,
+          const reason = await createRejectionReason({
+            input: { label: 'X', category: 'other' },
+            session: t.adminSession,
+          });
+          await rejectApplication({
+            application_id,
+            expected_version: 1,
+            input: { reason_id: reason.id, tags: [] },
+            session: t.adminSession,
+          });
+          const pool2 = await listTalentPool(t.adminSession);
+          expect(pool2.some((p) => p.candidate_id === candidate_id)).toBe(true);
         });
-        await rejectApplication({
-          application_id,
-          expected_version: 1,
-          input: { reason_id: reason.id, tags: [] },
-          session: t.adminSession,
-        });
-        const pool2 = await listTalentPool(t.adminSession);
-        expect(pool2.some((p) => p.candidate_id === candidate_id)).toBe(true);
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -111,22 +113,24 @@ describe('read candidates', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'Active Req',
-          kind: 'new',
-          headcount: 1,
-          session: t.adminSession,
-        });
-        const { candidate_id } = await addCandidate({
-          requisition_id,
-          name: 'Bob',
-          skills: [],
-          session: t.adminSession,
-        });
+        await scoped(t.tenant_id, async () => {
+          const { requisition_id } = await openRequisition({
+            title: 'Active Req',
+            kind: 'new',
+            headcount: 1,
+            session: t.adminSession,
+          });
+          const { candidate_id } = await addCandidate({
+            requisition_id,
+            name: 'Bob',
+            skills: [],
+            session: t.adminSession,
+          });
 
-        // candidate has an active application — must NOT appear in the talent pool
-        const talentPool = await listTalentPool(t.adminSession);
-        expect(talentPool.some((p) => p.candidate_id === candidate_id)).toBe(false);
+          // candidate has an active application — must NOT appear in the talent pool
+          const talentPool = await listTalentPool(t.adminSession);
+          expect(talentPool.some((p) => p.candidate_id === candidate_id)).toBe(false);
+        });
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -142,68 +146,70 @@ describe('read candidates', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const catSession = {
-          ...t.adminSession,
-          permissions: new Set([...t.adminSession.permissions, 'core.skill.manage']),
-        };
-        const cat = await createSkillCategory({ input: { name: 'BE' }, session: catSession });
-        const node = await createSkill({
-          input: { category_id: cat.id, name: 'Node' },
-          session: catSession,
-        });
+        await scoped(t.tenant_id, async () => {
+          const catSession = {
+            ...t.adminSession,
+            permissions: new Set([...t.adminSession.permissions, 'core.skill.manage']),
+          };
+          const cat = await createSkillCategory({ input: { name: 'BE' }, session: catSession });
+          const node = await createSkill({
+            input: { category_id: cat.id, name: 'Node' },
+            session: catSession,
+          });
 
-        // requisition 1 — candidate applied to and was rejected from
-        const { requisition_id: req1 } = await openRequisition({
-          title: 'BE Engineer',
-          kind: 'new',
-          headcount: 1,
-          session: t.adminSession,
-        });
-        await setRequisitionSkills({
-          requisition_id: req1,
-          skills: [{ skill_id: node.id, skill_name: 'Node', min_level: 2 }],
-          session: t.adminSession,
-        });
-        const { candidate_id, application_id } = await addCandidate({
-          requisition_id: req1,
-          name: 'Carol',
-          skills: [{ skill_id: node.id, skill_name: 'Node', level: 3 }],
-          session: t.adminSession,
-        });
-        const reason = await createRejectionReason({
-          input: { label: 'Salary mismatch', category: 'other' },
-          session: t.adminSession,
-        });
-        await rejectApplication({
-          application_id,
-          expected_version: 1,
-          input: { reason_id: reason.id, tags: [] },
-          session: t.adminSession,
-        });
+          // requisition 1 — candidate applied to and was rejected from
+          const { requisition_id: req1 } = await openRequisition({
+            title: 'BE Engineer',
+            kind: 'new',
+            headcount: 1,
+            session: t.adminSession,
+          });
+          await setRequisitionSkills({
+            requisition_id: req1,
+            skills: [{ skill_id: node.id, skill_name: 'Node', min_level: 2 }],
+            session: t.adminSession,
+          });
+          const { candidate_id, application_id } = await addCandidate({
+            requisition_id: req1,
+            name: 'Carol',
+            skills: [{ skill_id: node.id, skill_name: 'Node', level: 3 }],
+            session: t.adminSession,
+          });
+          const reason = await createRejectionReason({
+            input: { label: 'Salary mismatch', category: 'other' },
+            session: t.adminSession,
+          });
+          await rejectApplication({
+            application_id,
+            expected_version: 1,
+            input: { reason_id: reason.id, tags: [] },
+            session: t.adminSession,
+          });
 
-        // requisition 2 — open with matching skill, should appear in recommendations
-        const { requisition_id: req2 } = await openRequisition({
-          title: 'Senior BE',
-          kind: 'new',
-          headcount: 1,
-          session: t.adminSession,
-        });
-        await setRequisitionSkills({
-          requisition_id: req2,
-          skills: [{ skill_id: node.id, skill_name: 'Node', min_level: 1 }],
-          session: t.adminSession,
-        });
+          // requisition 2 — open with matching skill, should appear in recommendations
+          const { requisition_id: req2 } = await openRequisition({
+            title: 'Senior BE',
+            kind: 'new',
+            headcount: 1,
+            session: t.adminSession,
+          });
+          await setRequisitionSkills({
+            requisition_id: req2,
+            skills: [{ skill_id: node.id, skill_name: 'Node', min_level: 1 }],
+            session: t.adminSession,
+          });
 
-        const talentPool = await listTalentPool(t.adminSession);
-        const poolRow = talentPool.find((p) => p.candidate_id === candidate_id);
-        expect(poolRow).toBeDefined();
-        expect(poolRow?.last_status).toBe('rejected');
-        expect(Array.isArray(poolRow?.recommended)).toBe(true);
-        // req2 has overlapping skills — must surface in recommended
-        expect(poolRow?.recommended.some((r) => r.requisition_id === req2)).toBe(true);
-        const rec = poolRow?.recommended.find((r) => r.requisition_id === req2);
-        expect(rec?.fit).toBeDefined();
-        expect(typeof rec?.fit.score).toBe('number');
+          const talentPool = await listTalentPool(t.adminSession);
+          const poolRow = talentPool.find((p) => p.candidate_id === candidate_id);
+          expect(poolRow).toBeDefined();
+          expect(poolRow?.last_status).toBe('rejected');
+          expect(Array.isArray(poolRow?.recommended)).toBe(true);
+          // req2 has overlapping skills — must surface in recommended
+          expect(poolRow?.recommended.some((r) => r.requisition_id === req2)).toBe(true);
+          const rec = poolRow?.recommended.find((r) => r.requisition_id === req2);
+          expect(rec?.fit).toBeDefined();
+          expect(typeof rec?.fit.score).toBe('number');
+        });
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -219,46 +225,48 @@ describe('read candidates', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const accountA = crypto.randomUUID();
-        const accountB = crypto.randomUUID();
+        await scoped(t.tenant_id, async () => {
+          const accountA = crypto.randomUUID();
+          const accountB = crypto.randomUUID();
 
-        const { requisition_id: reqA } = await openRequisition({
-          title: 'Req in account A',
-          kind: 'new',
-          headcount: 1,
-          account_id: accountA,
-          session: t.adminSession,
-        });
-        const { requisition_id: reqB } = await openRequisition({
-          title: 'Req in account B',
-          kind: 'new',
-          headcount: 1,
-          account_id: accountB,
-          session: t.adminSession,
-        });
-        const { application_id: appA } = await addCandidate({
-          requisition_id: reqA,
-          name: 'Alice',
-          skills: [],
-          session: t.adminSession,
-        });
-        const { application_id: appB } = await addCandidate({
-          requisition_id: reqB,
-          name: 'Bob',
-          skills: [],
-          session: t.adminSession,
-        });
+          const { requisition_id: reqA } = await openRequisition({
+            title: 'Req in account A',
+            kind: 'new',
+            headcount: 1,
+            account_id: accountA,
+            session: t.adminSession,
+          });
+          const { requisition_id: reqB } = await openRequisition({
+            title: 'Req in account B',
+            kind: 'new',
+            headcount: 1,
+            account_id: accountB,
+            session: t.adminSession,
+          });
+          const { application_id: appA } = await addCandidate({
+            requisition_id: reqA,
+            name: 'Alice',
+            skills: [],
+            session: t.adminSession,
+          });
+          const { application_id: appB } = await addCandidate({
+            requisition_id: reqB,
+            name: 'Bob',
+            skills: [],
+            session: t.adminSession,
+          });
 
-        const bod = buildSession({
-          tenant_id: t.tenant_id,
-          user_id: crypto.randomUUID(),
-          roles: ['pm.bod', 'hiring.viewer_all'],
-        });
+          const bod = buildSession({
+            tenant_id: t.tenant_id,
+            user_id: crypto.randomUUID(),
+            roles: ['pm.bod', 'hiring.viewer_all'],
+          });
 
-        const board = await listCandidates(bod);
-        const ids = board.map((r) => r.application_id);
-        expect(ids).toContain(appA);
-        expect(ids).toContain(appB);
+          const board = await listCandidates(bod);
+          const ids = board.map((r) => r.application_id);
+          expect(ids).toContain(appA);
+          expect(ids).toContain(appB);
+        });
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -275,60 +283,62 @@ describe('read candidates', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const amWorkerId = crypto.randomUUID();
-        const myAccount = crypto.randomUUID();
-        const otherAccount = crypto.randomUUID();
+        await scoped(t.tenant_id, async () => {
+          const amWorkerId = crypto.randomUUID();
+          const myAccount = crypto.randomUUID();
+          const otherAccount = crypto.randomUUID();
 
-        await hiringDb()
-          .insert(accountProjection)
-          .values([
-            {
-              account_id: myAccount,
-              tenant_id: t.tenant_id,
-              name: 'My Account',
-              am_worker_id: amWorkerId,
-            },
-            { account_id: otherAccount, tenant_id: t.tenant_id, name: 'Other Account' },
-          ]);
+          await hiringDb()
+            .insert(accountProjection)
+            .values([
+              {
+                account_id: myAccount,
+                tenant_id: t.tenant_id,
+                name: 'My Account',
+                am_worker_id: amWorkerId,
+              },
+              { account_id: otherAccount, tenant_id: t.tenant_id, name: 'Other Account' },
+            ]);
 
-        const { requisition_id: myReq } = await openRequisition({
-          title: 'Req on my account',
-          kind: 'new',
-          headcount: 1,
-          account_id: myAccount,
-          session: t.adminSession,
-        });
-        const { requisition_id: otherReq } = await openRequisition({
-          title: 'Req on another account',
-          kind: 'new',
-          headcount: 1,
-          account_id: otherAccount,
-          session: t.adminSession,
-        });
-        const { application_id: mine } = await addCandidate({
-          requisition_id: myReq,
-          name: 'Alice',
-          skills: [],
-          session: t.adminSession,
-        });
-        await addCandidate({
-          requisition_id: otherReq,
-          name: 'Bob',
-          skills: [],
-          session: t.adminSession,
-        });
+          const { requisition_id: myReq } = await openRequisition({
+            title: 'Req on my account',
+            kind: 'new',
+            headcount: 1,
+            account_id: myAccount,
+            session: t.adminSession,
+          });
+          const { requisition_id: otherReq } = await openRequisition({
+            title: 'Req on another account',
+            kind: 'new',
+            headcount: 1,
+            account_id: otherAccount,
+            session: t.adminSession,
+          });
+          const { application_id: mine } = await addCandidate({
+            requisition_id: myReq,
+            name: 'Alice',
+            skills: [],
+            session: t.adminSession,
+          });
+          await addCandidate({
+            requisition_id: otherReq,
+            name: 'Bob',
+            skills: [],
+            session: t.adminSession,
+          });
 
-        const am = buildSession({
-          tenant_id: t.tenant_id,
-          user_id: crypto.randomUUID(),
-          roles: ['hiring.viewer'],
-          assignments: [{ role_slug: 'hiring.viewer', scope_kind: 'self', scope_id: null }],
-          worker_id: amWorkerId,
-        });
+          const am = buildSession({
+            tenant_id: t.tenant_id,
+            user_id: crypto.randomUUID(),
+            roles: ['hiring.viewer'],
+            assignments: [{ role_slug: 'hiring.viewer', scope_kind: 'self', scope_id: null }],
+            worker_id: amWorkerId,
+          });
 
-        const board = await listCandidates(am);
-        const ids = board.map((r) => r.application_id);
-        expect(ids).toEqual([mine]);
+          const board = await listCandidates(am);
+          const ids = board.map((r) => r.application_id);
+          expect(ids).toEqual([mine]);
+        });
       } finally {
         resetPmDb();
         resetHiringDb();
@@ -346,52 +356,54 @@ describe('read candidates', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const ownerWorkerId = crypto.randomUUID();
-        const myProject = crypto.randomUUID();
-        const otherProject = crypto.randomUUID();
+        await scoped(t.tenant_id, async () => {
+          const ownerWorkerId = crypto.randomUUID();
+          const myProject = crypto.randomUUID();
+          const otherProject = crypto.randomUUID();
 
-        await hiringDb()
-          .insert(projectOwnerProjection)
-          .values({ project_id: myProject, tenant_id: t.tenant_id, worker_id: ownerWorkerId });
+          await hiringDb()
+            .insert(projectOwnerProjection)
+            .values({ project_id: myProject, tenant_id: t.tenant_id, worker_id: ownerWorkerId });
 
-        const { requisition_id: myReq } = await openRequisition({
-          title: 'Req on my project',
-          kind: 'new',
-          headcount: 1,
-          project_id: myProject,
-          session: t.adminSession,
-        });
-        const { requisition_id: otherReq } = await openRequisition({
-          title: 'Req on another project',
-          kind: 'new',
-          headcount: 1,
-          project_id: otherProject,
-          session: t.adminSession,
-        });
-        const { application_id: mine } = await addCandidate({
-          requisition_id: myReq,
-          name: 'Alice',
-          skills: [],
-          session: t.adminSession,
-        });
-        await addCandidate({
-          requisition_id: otherReq,
-          name: 'Bob',
-          skills: [],
-          session: t.adminSession,
-        });
+          const { requisition_id: myReq } = await openRequisition({
+            title: 'Req on my project',
+            kind: 'new',
+            headcount: 1,
+            project_id: myProject,
+            session: t.adminSession,
+          });
+          const { requisition_id: otherReq } = await openRequisition({
+            title: 'Req on another project',
+            kind: 'new',
+            headcount: 1,
+            project_id: otherProject,
+            session: t.adminSession,
+          });
+          const { application_id: mine } = await addCandidate({
+            requisition_id: myReq,
+            name: 'Alice',
+            skills: [],
+            session: t.adminSession,
+          });
+          await addCandidate({
+            requisition_id: otherReq,
+            name: 'Bob',
+            skills: [],
+            session: t.adminSession,
+          });
 
-        const owner = buildSession({
-          tenant_id: t.tenant_id,
-          user_id: crypto.randomUUID(),
-          roles: ['hiring.viewer'],
-          assignments: [{ role_slug: 'hiring.viewer', scope_kind: 'self', scope_id: null }],
-          worker_id: ownerWorkerId,
-        });
+          const owner = buildSession({
+            tenant_id: t.tenant_id,
+            user_id: crypto.randomUUID(),
+            roles: ['hiring.viewer'],
+            assignments: [{ role_slug: 'hiring.viewer', scope_kind: 'self', scope_id: null }],
+            worker_id: ownerWorkerId,
+          });
 
-        const board = await listCandidates(owner);
-        const ids = board.map((r) => r.application_id);
-        expect(ids).toEqual([mine]);
+          const board = await listCandidates(owner);
+          const ids = board.map((r) => r.application_id);
+          expect(ids).toEqual([mine]);
+        });
       } finally {
         resetPmDb();
         resetHiringDb();
@@ -408,61 +420,63 @@ describe('read candidates', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'Stage counts req',
-          kind: 'new',
-          headcount: 3,
-          session: t.adminSession,
-        });
-        const { application_id: newAppId } = await addCandidate({
-          requisition_id,
-          name: 'Newbie',
-          skills: [],
-          session: t.adminSession,
-        });
-        const { application_id: hiredAppId } = await addCandidate({
-          requisition_id,
-          name: 'Hired One',
-          skills: [],
-          session: t.adminSession,
-        });
-        const { application_id: rejectedAppId } = await addCandidate({
-          requisition_id,
-          name: 'Rejected One',
-          skills: [],
-          session: t.adminSession,
-        });
+        await scoped(t.tenant_id, async () => {
+          const { requisition_id } = await openRequisition({
+            title: 'Stage counts req',
+            kind: 'new',
+            headcount: 3,
+            session: t.adminSession,
+          });
+          const { application_id: newAppId } = await addCandidate({
+            requisition_id,
+            name: 'Newbie',
+            skills: [],
+            session: t.adminSession,
+          });
+          const { application_id: hiredAppId } = await addCandidate({
+            requisition_id,
+            name: 'Hired One',
+            skills: [],
+            session: t.adminSession,
+          });
+          const { application_id: rejectedAppId } = await addCandidate({
+            requisition_id,
+            name: 'Rejected One',
+            skills: [],
+            session: t.adminSession,
+          });
 
-        // No "mark as hired" mutation exists yet — set the status directly to simulate the
-        // future hire flow and prove the read side already surfaces it correctly.
-        await hiringDb()
-          .update(application)
-          .set({ status: 'hired' })
-          .where(eq(application.id, hiredAppId));
+          // No "mark as hired" mutation exists yet — set the status directly to simulate the
+          // future hire flow and prove the read side already surfaces it correctly.
+          await hiringDb()
+            .update(application)
+            .set({ status: 'hired' })
+            .where(eq(application.id, hiredAppId));
 
-        const reason = await createRejectionReason({
-          input: { label: 'Not a fit', category: 'other' },
-          session: t.adminSession,
+          const reason = await createRejectionReason({
+            input: { label: 'Not a fit', category: 'other' },
+            session: t.adminSession,
+          });
+          await rejectApplication({
+            application_id: rejectedAppId,
+            expected_version: 1,
+            input: { reason_id: reason.id, tags: [] },
+            session: t.adminSession,
+          });
+
+          const counts = await getCandidateStageCounts(t.adminSession);
+          expect(counts.new).toBe(1);
+          expect(counts.hired).toBe(1);
+          expect(counts.cancelled).toBe(1);
+          expect(counts.screening + counts.interview + counts.offer).toBe(0);
+
+          const board = await listCandidates(t.adminSession);
+          const ids = board.map((r) => r.application_id);
+          expect(ids).toContain(newAppId);
+          expect(ids).toContain(hiredAppId);
+          expect(ids).not.toContain(rejectedAppId);
+          expect(board.find((r) => r.application_id === hiredAppId)?.status).toBe('hired');
         });
-        await rejectApplication({
-          application_id: rejectedAppId,
-          expected_version: 1,
-          input: { reason_id: reason.id, tags: [] },
-          session: t.adminSession,
-        });
-
-        const counts = await getCandidateStageCounts(t.adminSession);
-        expect(counts.new).toBe(1);
-        expect(counts.hired).toBe(1);
-        expect(counts.cancelled).toBe(1);
-        expect(counts.screening + counts.interview + counts.offer).toBe(0);
-
-        const board = await listCandidates(t.adminSession);
-        const ids = board.map((r) => r.application_id);
-        expect(ids).toContain(newAppId);
-        expect(ids).toContain(hiredAppId);
-        expect(ids).not.toContain(rejectedAppId);
-        expect(board.find((r) => r.application_id === hiredAppId)?.status).toBe('hired');
       } finally {
         resetHiringDb();
         resetCoreDb();

@@ -7,7 +7,7 @@ import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { person } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { getWorkerIdForUser } from '../../src/backend/domain/worker-identity.ts';
-import { seedTenant } from '../helpers.ts';
+import { inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -27,15 +27,17 @@ describe('getWorkerIdForUser', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const userId = crypto.randomUUID();
-        const { worker_id } = await createWorker({
-          session: t.adminSession,
-          full_name: 'W One',
-        } as never);
-        await rebindPersonUser(worker_id, userId);
+        await inScope(t.adminSession, async () => {
+          const userId = crypto.randomUUID();
+          const { worker_id } = await createWorker({
+            session: t.adminSession,
+            full_name: 'W One',
+          } as never);
+          await rebindPersonUser(worker_id, userId);
 
-        expect(await getWorkerIdForUser(userId, t.tenant_id)).toBe(worker_id);
-        expect(await getWorkerIdForUser(crypto.randomUUID(), t.tenant_id)).toBeNull();
+          expect(await getWorkerIdForUser(userId, t.tenant_id)).toBe(worker_id);
+          expect(await getWorkerIdForUser(crypto.randomUUID(), t.tenant_id)).toBeNull();
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();

@@ -14,7 +14,7 @@ const GROUP = '22222222-2222-2222-2222-222222222222';
 const PLAN = '33333333-3333-3333-3333-333333333333';
 
 async function seedLink(db: NodePgDatabase<typeof schema>): Promise<string> {
-  const planRepo = createM365PlanLinkRepo({ db });
+  const planRepo = createM365PlanLinkRepo({ db: () => db });
   const link = await planRepo.upsert({
     tenantId: TENANT,
     groupId: GROUP,
@@ -29,7 +29,7 @@ describe('createM365ResourceEtagRepo', () => {
   it('upsert then get returns the row', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       const planLinkId = await seedLink(db);
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       await etagRepo.upsert({
         tenantId: TENANT,
@@ -50,7 +50,7 @@ describe('createM365ResourceEtagRepo', () => {
   it('upsert with same key updates etag + lastSyncedFields + updatedAt', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       const planLinkId = await seedLink(db);
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       await etagRepo.upsert({
         tenantId: TENANT,
@@ -87,7 +87,7 @@ describe('createM365ResourceEtagRepo', () => {
   it('listForLink without resourceType returns all rows for the link', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       const planLinkId = await seedLink(db);
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       await etagRepo.upsert({
         tenantId: TENANT,
@@ -125,7 +125,7 @@ describe('createM365ResourceEtagRepo', () => {
   it('listForLink with resourceType filter returns only that subset', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       const planLinkId = await seedLink(db);
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       await etagRepo.upsert({
         tenantId: TENANT,
@@ -171,7 +171,7 @@ describe('createM365ResourceEtagRepo', () => {
   it('remove deletes the matching row and leaves others intact', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       const planLinkId = await seedLink(db);
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       await etagRepo.upsert({
         tenantId: TENANT,
@@ -206,8 +206,8 @@ describe('createM365ResourceEtagRepo', () => {
   it('tombstone (soft delete) does NOT cascade etag rows', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       const planLinkId = await seedLink(db);
-      const etagRepo = createM365ResourceEtagRepo({ db });
-      const planRepo = createM365PlanLinkRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
+      const planRepo = createM365PlanLinkRepo({ db: () => db });
 
       await etagRepo.upsert({
         tenantId: TENANT,
@@ -231,7 +231,7 @@ describe('createM365ResourceEtagRepo', () => {
   it('hard delete of plan link cascades etag rows', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       const planLinkId = await seedLink(db);
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       await etagRepo.upsert({
         tenantId: TENANT,

@@ -1,6 +1,6 @@
 import type { SessionEnv } from '@seta/core';
 import { getUserProfile } from '@seta/identity';
-import { getPool } from '@seta/shared-db';
+import { executorPool } from '@seta/shared-db';
 import type { Hono } from 'hono';
 
 interface TenantHeader {
@@ -10,7 +10,7 @@ interface TenantHeader {
 }
 
 async function getTenantHeader(tenantId: string): Promise<TenantHeader> {
-  const result = await getPool('web').query<TenantHeader>(
+  const result = await executorPool().query<TenantHeader>(
     'SELECT name, slug, local_password_disabled FROM core.tenants WHERE id = $1',
     [tenantId],
   );
