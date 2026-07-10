@@ -35,7 +35,7 @@ export async function listDirectory(p: DirectoryFilters = {}): Promise<Directory
   if (p.group_id) qs.set('group_id', p.group_id);
   if (p.page !== undefined) qs.set('page', String(p.page));
   if (p.pageSize !== undefined) qs.set('pageSize', String(p.pageSize));
-  const res = await fetch(`/api/identity/v1/directory?${qs}`, { credentials: 'include' });
+  const res = await fetch(`/api/people/v1/directory?${qs}`, { credentials: 'include' });
   if (!res.ok) throw new Error(`directory failed: ${res.status}`);
   return res.json() as Promise<DirectoryPage>;
 }

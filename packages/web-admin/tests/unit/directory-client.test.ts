@@ -28,7 +28,7 @@ describe('directory-client', () => {
       );
     const res = await listDirectory({ search: 'mai', status: 'none' });
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/api/identity/v1/directory?'),
+      expect.stringContaining('/api/people/v1/directory?'),
       expect.objectContaining({ credentials: 'include' }),
     );
     const url = fetchMock.mock.calls[0][0] as string;
