@@ -34,6 +34,7 @@ export function makeQnaOrchestratorTools(deps: QnaOrchestratorToolDeps) {
       description,
       input: z.object({ query: z.string().describe('The focused sub-question to answer.') }),
       output: z.object({ answer: z.string() }),
+      executionTimeoutMs: 120_000,
       execute: async ({ query }) => {
         const res = await sub.run({ query }, subCtx);
         return { answer: res.result.answer };

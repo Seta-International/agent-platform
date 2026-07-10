@@ -31,6 +31,7 @@ export interface ListTasksFilters {
   percent_complete_lt?: number;
   percent_complete_gte?: number;
   due_before?: string;
+  title_contains?: string;
   /** When true, only tasks with neither start_at nor due_at (calendar's unscheduled banner). */
   no_date?: boolean;
   include_deleted?: boolean;
@@ -274,6 +275,10 @@ export async function listTasks(input: {
 
   if (filters.due_before !== undefined) {
     conditions.push(lt(tasks.due_at, new Date(filters.due_before)));
+  }
+
+  if (filters.title_contains !== undefined) {
+    conditions.push(sql`${tasks.title} ILIKE ${'%' + filters.title_contains + '%'}`);
   }
 
   if (filters.no_date) {

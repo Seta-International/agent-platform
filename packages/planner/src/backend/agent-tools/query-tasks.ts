@@ -23,6 +23,7 @@ export interface QueryTasksInput {
   status?: QueryTaskStatus;
   isDeferred?: boolean;
   dueBefore?: string;
+  titleContains?: string;
   limit?: number;
   cursor?: string;
   session: SessionScope;
@@ -104,6 +105,7 @@ export async function queryTasks(input: QueryTasksInput): Promise<QueryTasksResu
   if (input.bucketId !== undefined) filters.bucket_id = input.bucketId;
   if (input.isDeferred !== undefined) filters.is_deferred = input.isDeferred;
   if (input.dueBefore !== undefined) filters.due_before = input.dueBefore;
+  if (input.titleContains !== undefined) filters.title_contains = input.titleContains;
 
   const raw = await listTasks({
     filters,
@@ -208,6 +210,16 @@ const inputSchema = z.object({
     .max(50)
     .default(20)
     .describe('Maximum tasks to return. Default 20.'),
+  titleContains: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'Case-insensitive substring match on task title. ' +
+        'Use for: "find the billing migration task"; "task named FUT-396". ' +
+        'Do NOT use for topic/semantic discovery — use planner_findSimilarTasks instead.',
+    ),
   cursor: z
     .string()
     .optional()
@@ -241,15 +253,15 @@ export const plannerQueryTasksTool = defineAgentTool({
   id: 'planner_queryTasks',
   name: 'Query Tasks',
   description:
-    'Find tasks matching structured filter criteria — by assignee, plan, group, bucket, ' +
+    'Find tasks matching structured filter criteria — by title, assignee, plan, group, bucket, ' +
     'status (lifecycle via percent_complete), or due date.\n\n' +
-    'Use for: "find Tuấn\'s open tasks"; "what\'s overdue in plan X"; ' +
+    'Use for: "find Tuấn\'s open tasks"; "task named billing migration"; "what\'s overdue in plan X"; ' +
     '"list deferred tasks in group Y". Each result includes its applied labels.\n' +
     'Do NOT use for topic or keyword discovery — use planner_findSimilarTasks instead.\n\n' +
     'At least one filter must be set. status defaults to "open" (percent < 100). For the current ' +
     'user pass assigneeScope: "me"; for another user pass assigneeUserId (a UUID from a lookup). ' +
-    'Apply optional filters (dueBefore, isDeferred) ONLY when the user explicitly asks for that ' +
-    'subset — adding them to a general query wrongly hides most tasks.',
+    'Apply optional filters (dueBefore, isDeferred, titleContains) ONLY when the user explicitly ' +
+    'asks for that subset — adding them to a general query wrongly hides most tasks.',
   input: inputSchema,
   output: outputSchema,
   rbac: 'planner.reporting.read',
