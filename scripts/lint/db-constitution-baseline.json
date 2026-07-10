@@ -1,5 +1,200 @@
 [
   {
+    "rule": "created-at-present",
+    "object": "agent.rate_limits",
+    "status": "accepted",
+    "reason": "fixed-window counter; `window_start` is the row birth time"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "agent.workflow_run_events_seen",
+    "status": "accepted",
+    "reason": "idempotency dedup set keyed (run_id, event_seq); it records that an event was seen, not when"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "agent.workflow_runs",
+    "status": "accepted",
+    "reason": "append-only run log; `started_at` is the birth time"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "core.events",
+    "status": "accepted",
+    "reason": "the outbox; `occurred_at` is the event time and the only meaningful clock"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "core.session_scope_cache",
+    "status": "accepted",
+    "reason": "derived cache; `built_at` / `invalidated_at` carry its lifecycle"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "core.subscription_cursors",
+    "status": "accepted",
+    "reason": "dispatcher cursor state; `last_processed_at` is the only meaningful clock"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "core.subscription_dead_letter",
+    "status": "accepted",
+    "reason": "append-only failure record; `first_failed_at` / `dead_lettered_at`"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "core.subscription_failure_state",
+    "status": "accepted",
+    "reason": "retry state; `first_failed_at` is the birth time"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "core.subscription_processed",
+    "status": "accepted",
+    "reason": "idempotency ledger; `processed_at` is the birth time"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "hiring.account_projection",
+    "status": "debt",
+    "reason": "S3: hiring's four projections carry no timestamp at all \u2014 not created_at, not updated_at",
+    "ticket": "FUT-551"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "hiring.project_projection",
+    "status": "debt",
+    "reason": "S3: hiring's four projections carry no timestamp at all \u2014 not created_at, not updated_at",
+    "ticket": "FUT-551"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "hiring.worker_user_projection",
+    "status": "debt",
+    "reason": "S3: hiring's four projections carry no timestamp at all \u2014 not created_at, not updated_at",
+    "ticket": "FUT-551"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "identity.access_group_membership",
+    "status": "accepted",
+    "reason": "junction; `added_at` is the birth time"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "identity.access_group_role",
+    "status": "accepted",
+    "reason": "junction carrying no state of its own"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "identity.failed_login_alerts_sent",
+    "status": "accepted",
+    "reason": "throttle state; `last_sent_at` is the only meaningful clock"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "identity.failed_login_attempts",
+    "status": "accepted",
+    "reason": "append-only throttle log; `attempted_at` is the birth time"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "identity.org_unit_projection",
+    "status": "accepted",
+    "reason": "projection: the row has no birth of its own, only the source aggregate's"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "identity.person_projection",
+    "status": "accepted",
+    "reason": "projection: the row has no birth of its own, only the source aggregate's"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "identity.rate_limit",
+    "status": "accepted",
+    "reason": "better-auth owns this table's DDL"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "identity.role_assignments",
+    "status": "accepted",
+    "reason": "grant record; `granted_at` / `revoked_at` are the lifecycle"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "identity.role_permission_overlays",
+    "status": "accepted",
+    "reason": "overlay rows are replaced wholesale; `updated_at` is the only meaningful clock"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "notifications.notification_prefs",
+    "status": "accepted",
+    "reason": "per-user preference upserted by its owner; the row's birth carries no domain meaning"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "people.account_projection",
+    "status": "accepted",
+    "reason": "projection: the row has no birth of its own, only the source aggregate's"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "people.project_projection",
+    "status": "accepted",
+    "reason": "projection: the row has no birth of its own, only the source aggregate's"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "people.worker_allocation_projection",
+    "status": "accepted",
+    "reason": "projection: the row has no birth of its own, only the source aggregate's"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "people.worker_history",
+    "status": "accepted",
+    "reason": "append-only audit log; the timestamp column is `at` (the constitution's own worked example got this wrong)"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "planner.assignee_projection",
+    "status": "accepted",
+    "reason": "projection; `projection_built_at` records the rebuild, not a domain birth"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "planner.group_join_requests",
+    "status": "accepted",
+    "reason": "`requested_at` is the birth time"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "planner.group_members",
+    "status": "accepted",
+    "reason": "junction; `added_at` is the birth time"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "planner.task_assignments",
+    "status": "accepted",
+    "reason": "junction; `assigned_at` is the birth time"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "planner.task_labels",
+    "status": "accepted",
+    "reason": "junction; `applied_at` is the birth time"
+  },
+  {
+    "rule": "created-at-present",
+    "object": "pm.worker_projection",
+    "status": "accepted",
+    "reason": "projection: the row has no birth of its own, only the source aggregate's"
+  },
+  {
     "rule": "lifecycle-registered",
     "object": "core.skill_alias",
     "status": "debt",

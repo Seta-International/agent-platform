@@ -2,6 +2,7 @@ export { createAppRole } from './app-role.ts';
 export {
   type ConstitutionOpts,
   collectViolations,
+  EXEMPT_SCHEMAS,
   OWNED_SCHEMAS,
   TENANT_ID_EXEMPT,
   type Violation,

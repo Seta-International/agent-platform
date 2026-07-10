@@ -10,6 +10,7 @@ export interface ConstitutionOpts {
   schemas: readonly string[];
   lifecycleTables: readonly string[];
   appRole?: string;
+  exemptSchemas?: readonly string[];
 }
 
 export const OWNED_SCHEMAS: readonly string[] = [
@@ -24,6 +25,13 @@ export const OWNED_SCHEMAS: readonly string[] = [
   'planner',
   'pm',
 ];
+
+/**
+ * Schemas that exist in a running database but that no module owns. `graphile_worker` is the job
+ * runner's own. `people_rag` is created at runtime by Mastra's PgVector, so a migrated database
+ * never contains it — it is named here so that when it does appear, it appears as a decision.
+ */
+export const EXEMPT_SCHEMAS: readonly string[] = ['graphile_worker', 'people_rag'];
 
 export const TENANT_ID_EXEMPT: readonly string[] = [
   'tenants',
@@ -496,6 +504,46 @@ async function projectionShape(pool: Pool, schemas: readonly string[]): Promise<
   });
 }
 
+async function createdAtPresent(pool: Pool, schemas: readonly string[]): Promise<Violation[]> {
+  const { rows } = await pool.query<TableRow>(
+    `${OWNED_TABLE_CTE}
+     SELECT t.sch, t.tbl FROM t
+     WHERE NOT EXISTS (
+       SELECT 1 FROM pg_attribute a
+       WHERE a.attrelid = t.oid AND a.attname = 'created_at' AND a.attnum > 0 AND NOT a.attisdropped
+     )`,
+    [schemas],
+  );
+  return rows.map((r) => ({
+    rule: 'created-at-present',
+    object: `${r.sch}.${r.tbl}`,
+    detail: 'no created_at column',
+  }));
+}
+
+/**
+ * `OWNED_SCHEMAS` is a hand-maintained list, and every other rule filters by it — so a schema
+ * missing from it is governed by nothing at all. The old `schema.ts` lint auto-discovered new
+ * modules; this rule is what replaces that property.
+ */
+async function schemaGoverned(
+  pool: Pool,
+  schemas: readonly string[],
+  exemptSchemas: readonly string[],
+): Promise<Violation[]> {
+  const { rows } = await pool.query<SchemaRow>(
+    `SELECT nspname FROM pg_namespace
+     WHERE nspname !~ '^pg_' AND nspname NOT IN ('information_schema', 'public')
+       AND nspname <> ALL($1::text[]) AND nspname <> ALL($2::text[])`,
+    [schemas, exemptSchemas],
+  );
+  return rows.map((r) => ({
+    rule: 'schema-governed',
+    object: `schema:${r.nspname}`,
+    detail: 'schema is in the database but not in OWNED_SCHEMAS — no rule inspects its tables',
+  }));
+}
+
 async function lifecycleRegistered(
   pool: Pool,
   schemas: readonly string[],
@@ -532,6 +580,8 @@ export async function collectViolations(pool: Pool, opts: ConstitutionOpts): Pro
     versionColumn(pool, opts.schemas),
     numericRangeCheck(pool, opts.schemas),
     projectionShape(pool, opts.schemas),
+    createdAtPresent(pool, opts.schemas),
+    schemaGoverned(pool, opts.schemas, opts.exemptSchemas ?? EXEMPT_SCHEMAS),
     lifecycleRegistered(pool, opts.schemas, opts.lifecycleTables),
   ]);
   // Byte order, not localeCompare: `object` is the baseline's join key, and ICU collation

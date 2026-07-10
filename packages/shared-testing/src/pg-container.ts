@@ -41,14 +41,27 @@ export async function startPgContainer(opts?: { image?: string }): Promise<PgCon
  * marked `datistemplate=true`, unmarks it so the caller can connect and run
  * (re-)migrations. Safe to call concurrently from multiple package global-setups
  * as long as each uses a different `dbName`.
+ *
+ * `recreate` drops it first. The container is reused across runs (`.withReuse()`), so a template
+ * survives, and `runMigrations` skips what `__platform_migrations` already records — meaning
+ * anything a migration does *conditionally*, on state that existed when it first ran, is frozen
+ * forever. A caller that asserts against the migrated schema must build it from nothing, or it is
+ * asserting against whatever the last checkout happened to leave behind.
  */
-export async function ensureTemplateDb(handle: PgContainerHandle, dbName: string): Promise<void> {
+export async function ensureTemplateDb(
+  handle: PgContainerHandle,
+  dbName: string,
+  opts?: { recreate?: boolean },
+): Promise<void> {
   if (!/^[a-z][a-z0-9_]*$/.test(dbName)) {
     throw new Error(`ensureTemplateDb: unsafe dbName ${JSON.stringify(dbName)}`);
   }
   const admin = new Pool({ connectionString: `${handle.baseUrl}/postgres` });
   try {
     await admin.query(`UPDATE pg_database SET datistemplate=false WHERE datname=$1`, [dbName]);
+    if (opts?.recreate) {
+      await admin.query(`DROP DATABASE IF EXISTS ${dbName} WITH (FORCE)`);
+    }
     const { rows } = await admin.query(`SELECT 1 FROM pg_database WHERE datname=$1`, [dbName]);
     if (rows.length === 0) {
       await admin.query(`CREATE DATABASE ${dbName}`);
