@@ -4,7 +4,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
 import { project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
-import { buildProjectScope } from './scope.ts';
+import { buildProjectManageFlag, buildProjectScope } from './scope.ts';
 
 export interface ProjectListRow {
   project_id: string;
@@ -14,6 +14,9 @@ export interface ProjectListRow {
   status: string;
   pm_worker_id: string | null;
   org_unit_id: string | null;
+  // Whether the requesting session may manage this project — drives the RA Monitoring
+  // "Add allocation" project picker and Add button (FUT-353). Read scope is wider than manage.
+  can_manage: boolean;
 }
 
 export async function listProjects(session: SessionScope): Promise<ProjectListRow[]> {
@@ -30,6 +33,7 @@ export async function listProjects(session: SessionScope): Promise<ProjectListRo
       status: project.status,
       pm_worker_id: project.pm_worker_id,
       org_unit_id: project.org_unit_id,
+      can_manage: buildProjectManageFlag(session),
     })
     .from(project)
     .where(and(...conds))
@@ -48,31 +52,33 @@ export async function getProject(input: { project_id: string; session: SessionSc
   const scope = buildProjectScope(session);
   if (scope) conds.push(scope);
   const [p] = await pmDb()
-    .select()
+    .select({ project: project, can_manage: buildProjectManageFlag(session) })
     .from(project)
     .where(and(...conds))
     .limit(1);
   // Invisible-through-scope rows return NOT_FOUND, never FORBIDDEN — don't leak existence.
   if (!p) throw new PmError('NOT_FOUND', 'project not found');
+  const proj = p.project;
   return {
-    project_id: p.id,
-    account_id: p.account_id,
-    charter_id: p.charter_id,
-    name: p.name,
-    objective: p.objective,
-    scope: p.scope as { in: string; out: string } | null,
-    budget_bmm: p.budget_bmm,
-    pm_worker_id: p.pm_worker_id,
-    pmo_worker_id: p.pmo_worker_id,
-    team_size: p.team_size,
-    methodology: p.methodology,
-    pricing_model: p.pricing_model,
-    date_from: p.date_from,
-    date_to: p.date_to,
-    phase: p.phase,
-    status: p.status,
-    planner_group_id: p.planner_group_id,
-    org_unit_id: p.org_unit_id,
-    version: p.version,
+    can_manage: p.can_manage,
+    project_id: proj.id,
+    account_id: proj.account_id,
+    charter_id: proj.charter_id,
+    name: proj.name,
+    objective: proj.objective,
+    scope: proj.scope as { in: string; out: string } | null,
+    budget_bmm: proj.budget_bmm,
+    pm_worker_id: proj.pm_worker_id,
+    pmo_worker_id: proj.pmo_worker_id,
+    team_size: proj.team_size,
+    methodology: proj.methodology,
+    pricing_model: proj.pricing_model,
+    date_from: proj.date_from,
+    date_to: proj.date_to,
+    phase: proj.phase,
+    status: proj.status,
+    planner_group_id: proj.planner_group_id,
+    org_unit_id: proj.org_unit_id,
+    version: proj.version,
   };
 }

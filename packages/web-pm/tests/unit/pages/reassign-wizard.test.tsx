@@ -43,6 +43,7 @@ function allocation(over: Partial<RaMonitoringAllocation> = {}): RaMonitoringAll
     account_id: 'acc1',
     account_name: 'Aeris',
     version: 1,
+    can_manage: true,
     ...over,
   };
 }
@@ -155,6 +156,7 @@ describe('ReassignWizardDialog', () => {
           phase: 'build',
           status: 'active',
           pm_worker_id: null,
+          can_manage: true,
         },
         {
           project_id: 'p3',
@@ -163,6 +165,7 @@ describe('ReassignWizardDialog', () => {
           phase: 'build',
           status: 'active',
           pm_worker_id: null,
+          can_manage: true,
         },
       ],
     );

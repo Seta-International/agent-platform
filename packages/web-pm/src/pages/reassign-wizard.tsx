@@ -360,7 +360,13 @@ export function ReassignWizardDialog({
                         />
                         <Combobox
                           options={projects
-                            .filter((p) => !draft.account_id || p.account_id === draft.account_id)
+                            // Reassign target must be a project the caller manages (FUT-353) —
+                            // the backend rejects others, so don't offer them.
+                            .filter(
+                              (p) =>
+                                p.can_manage &&
+                                (!draft.account_id || p.account_id === draft.account_id),
+                            )
                             .map((p) => ({ value: p.project_id, label: p.name }))}
                           value={draft.project_id || null}
                           onChange={(v) => updateRowDraft(a, { project_id: v ?? '' })}

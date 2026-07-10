@@ -7,7 +7,13 @@ import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
 import { account, allocation, project, projectAccess } from '../../src/backend/db/schema.ts';
-import { createAllocation, removeAllocation, updateAllocation } from '../../src/index.ts';
+import {
+  createAllocation,
+  listAllocations,
+  listProjects,
+  removeAllocation,
+  updateAllocation,
+} from '../../src/index.ts';
 import { buildSession, type SeededTenant, seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -161,5 +167,35 @@ describe('allocation manage scope (FUT-353)', () => {
       });
       const created = await createAllocation({ ...newAlloc(g.P_other), session });
       expect(created.allocation_id).toBeTruthy();
+    }));
+
+  it('listAllocations flags can_manage per row for a self-scoped EM', () =>
+    run(async (g) => {
+      const session = emSession(g.t, g.W_em);
+      const rows = await listAllocations({ session });
+      const byId = new Map(rows.map((r) => [r.allocation_id, r.can_manage]));
+      // Both rows are visible (tenant-wide read) but only the owned project is manageable.
+      expect(byId.get(g.allocOwn)).toBe(true);
+      expect(byId.get(g.allocOther)).toBe(false);
+    }));
+
+  it('listAllocations sets can_manage true on every row for a tenant-scoped manager', () =>
+    run(async (g) => {
+      const session = buildSession({
+        tenant_id: g.t.tenant_id,
+        user_id: crypto.randomUUID(),
+        roles: ['pm.manager'],
+      });
+      const rows = await listAllocations({ session });
+      expect(rows.every((r) => r.can_manage)).toBe(true);
+    }));
+
+  it('listProjects flags can_manage per project for a self-scoped EM', () =>
+    run(async (g) => {
+      const session = emSession(g.t, g.W_em);
+      const rows = await listProjects(session);
+      const byId = new Map(rows.map((p) => [p.project_id, p.can_manage]));
+      expect(byId.get(g.P_own)).toBe(true);
+      expect(byId.get(g.P_other)).toBe(false);
     }));
 });

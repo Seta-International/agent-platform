@@ -4,7 +4,7 @@ import { and, eq, ilike, isNull, or, sql } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
 import { account, allocation, project, workerProjection } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
-import { buildAllocationJoinScope, buildProjectScope } from './scope.ts';
+import { buildAllocationJoinScope, buildProjectManageFlag, buildProjectScope } from './scope.ts';
 
 export interface AllocationRow {
   allocation_id: string;
@@ -82,6 +82,9 @@ export interface RaMonitoringRow {
   account_id: string;
   account_name: string;
   version: number;
+  // Whether the requesting session may mutate this row (add/edit/remove on its project).
+  // Read visibility is wider than manage (FUT-353), so the UI gates row actions on this.
+  can_manage: boolean;
 }
 
 export async function listAllocations(input: {
@@ -142,6 +145,7 @@ export async function listAllocations(input: {
       account_id: project.account_id,
       account_name: account.name,
       version: allocation.version,
+      can_manage: buildProjectManageFlag(session),
     })
     .from(allocation)
     .innerJoin(project, eq(project.id, allocation.project_id))
@@ -173,5 +177,6 @@ export async function listAllocations(input: {
     account_id: r.account_id,
     account_name: r.account_name,
     version: r.version,
+    can_manage: r.can_manage,
   }));
 }

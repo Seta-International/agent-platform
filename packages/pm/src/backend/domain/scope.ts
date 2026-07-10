@@ -63,6 +63,19 @@ export function buildProjectManageScope(session: SessionScope): SQL | null {
   return decide(session, 'pm.project.manage', projectPlan(session));
 }
 
+/**
+ * Per-row boolean projecting `buildProjectManageScope` — `true` where the caller may manage
+ * that project (mutate its allocations), so read endpoints can tell the UI which rows are
+ * editable without a second round-trip. Tenant-wide manage → `true` for every row; no manage
+ * grant → the predicate is `false`, so `false` everywhere. Must be selected in a query whose
+ * FROM exposes `pm.project` (the arms reference its columns).
+ */
+export function buildProjectManageFlag(session: SessionScope): SQL<boolean> {
+  const scope = buildProjectManageScope(session);
+  if (!scope) return sql<boolean>`true`;
+  return sql<boolean>`(CASE WHEN ${scope} THEN true ELSE false END)`;
+}
+
 function projectPlan(session: SessionScope): ScopePlan {
   const w = session.worker_id;
   return {

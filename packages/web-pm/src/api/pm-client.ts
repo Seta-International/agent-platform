@@ -263,6 +263,7 @@ export interface ProjectListRow {
   phase: string;
   status: 'active' | 'on_hold' | 'closed';
   pm_worker_id: string | null;
+  can_manage: boolean;
 }
 
 export interface ProjectDetail extends ProjectListRow {
@@ -637,6 +638,7 @@ export interface RaMonitoringAllocation {
   account_id: string;
   account_name: string;
   version: number;
+  can_manage: boolean;
 }
 
 export async function fetchAllocations(params: {
