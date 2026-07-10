@@ -8,6 +8,7 @@ import { pmDb } from '../db/client.ts';
 import { allocation, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
+import { assertProjectManageable } from './assert-project-manageable.ts';
 import { assertWithinProjectRange } from './assert-within-project-range.ts';
 
 export async function updateAllocation(
@@ -29,12 +30,15 @@ export async function updateAllocation(
     )
     .limit(1);
   if (!current) throw new PmError('NOT_FOUND', 'allocation not found');
+  await assertProjectManageable(current.project_id, session);
   if (patch.expected_version !== undefined && patch.expected_version !== current.version) {
     throw new PmError('CONFLICT', 'version mismatch');
   }
 
   const projectChanged = patch.project_id !== undefined && patch.project_id !== current.project_id;
   const targetProjectId = patch.project_id ?? current.project_id;
+  // Reassign (FUT-349) must also land on a project the caller manages, not just leave one.
+  if (projectChanged) await assertProjectManageable(targetProjectId, session);
 
   const [proj] = await pmDb()
     .select({
