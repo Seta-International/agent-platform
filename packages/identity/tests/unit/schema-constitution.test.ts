@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   accessGroupMembership,
   accessGroupRole,
-  personProjection,
   productGrant,
   roleAssignments,
 } from '../../src/backend/db/schema.ts';
@@ -23,10 +22,6 @@ describe('identity schema constitution', () => {
       'name' in c ? c.name : '',
     );
     expect(cols[0]).toBe('tenant_id');
-  });
-
-  it('person_projection is exported under its new name', () => {
-    expect(getTableConfig(personProjection).name).toBe('person_projection');
   });
 
   it('access_group_membership carries tenant_id', () => {

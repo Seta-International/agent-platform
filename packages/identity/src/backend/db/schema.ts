@@ -22,7 +22,6 @@ export const PRODUCT_GRANT_SUBJECT_TYPES = ['tenant', 'group', 'user'] as const;
 export const PRODUCT_GRANT_GRANTED_VIA = ['admin', 'seed', 'cli'] as const;
 export const GRANT_EFFECT = ['grant', 'revoke'] as const;
 export const ACCESS_GROUP_KINDS = ['default', 'custom'] as const;
-export const EMPLOYMENT_STATUSES = ['active', 'terminated'] as const;
 
 /** Nil uuid sentinel: a whole-scope_kind (non-org_unit) grant in access_group_role.scope_id. */
 export const NIL_SCOPE_ID = '00000000-0000-0000-0000-000000000000';
@@ -113,25 +112,6 @@ export const failedLoginAlertsSent = identity.table('failed_login_alerts_sent', 
 });
 
 export * from './auth-tables.ts';
-
-export const personProjection = identity.table(
-  'person_projection',
-  {
-    person_id: uuid('person_id').primaryKey(),
-    tenant_id: uuid('tenant_id').notNull(),
-    full_name: text('full_name').notNull(),
-    work_email: text('work_email'),
-    job_title: text('job_title'),
-    employment_status: textEnum('employment_status', EMPLOYMENT_STATUSES)
-      .default('active')
-      .notNull(),
-    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    index('person_projection_by_tenant').on(t.tenant_id),
-    textEnumCheck('person_projection', 'employment_status', EMPLOYMENT_STATUSES),
-  ],
-);
 
 export const accessGroup = identity.table(
   'access_group',

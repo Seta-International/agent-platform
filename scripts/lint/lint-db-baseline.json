@@ -19,7 +19,6 @@
   "R4:packages/identity/src/backend/db/schema.ts:failed_login_alerts_sent",
   "R4:packages/identity/src/backend/db/schema.ts:failed_login_attempts",
   "R4:packages/identity/src/backend/db/schema.ts:org_unit_projection",
-  "R4:packages/identity/src/backend/db/schema.ts:person_projection",
   "R4:packages/identity/src/backend/db/schema.ts:role_assignments",
   "R4:packages/identity/src/backend/db/schema.ts:role_permission_overlays",
   "R4:packages/notifications/src/backend/db/schema/notification-prefs.ts:notification_prefs",
