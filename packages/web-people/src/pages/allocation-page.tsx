@@ -1,10 +1,17 @@
 import {
-  Button,
+  Avatar,
+  AvatarFallback,
   Card,
   CardContent,
   Combobox,
   cn,
   DataTable,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   EmptyState,
   Input,
   PageChrome,
@@ -12,8 +19,8 @@ import {
 } from '@seta/shared-ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import type { ColumnDef, Row } from '@tanstack/react-table';
-import { BarChart3, X } from 'lucide-react';
+import type { ColumnDef, Row, VisibilityState } from '@tanstack/react-table';
+import { BarChart3, Settings2, User, X } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type AllocationBucket,
@@ -135,8 +142,18 @@ const BUCKET_OPTIONS = [
   { value: 'bench', label: 'Bench' },
 ];
 
+/** Human labels for the custom Columns menu — not derived from columnDef.header (month cols use JSX). */
+export const ALLOCATION_HIDEABLE_COLUMNS = [
+  { id: 'employee_no', label: 'Employee ID' },
+  { id: 'account', label: 'Account' },
+  { id: 'project', label: 'Project' },
+  ...MONTHS.map((label, mi) => ({ id: `m${mi}`, label })),
+  { id: 'total_mm', label: 'MM' },
+] as const;
+
 export function AllocationPage() {
   const navigate = useNavigate();
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 
   // Every filter lives in the URL, so refresh / back / share restores the exact view.
   const raw = useSearch({ strict: false }) as Partial<AllocationSearch>;
@@ -173,7 +190,6 @@ export function AllocationPage() {
     }),
     [raw.q, raw.status, raw.account, raw.project, raw.bucket],
   );
-  const hasFilters = Boolean(raw.q || raw.status || raw.account || raw.project || raw.bucket);
 
   const { data, isLoading, error } = useQuery<AllocationGrid>({
     queryKey: peopleKeys.allocationGrid(filters),
@@ -259,12 +275,15 @@ export function AllocationPage() {
       {
         id: 'name',
         header: 'Name',
+        enableHiding: false,
         cell: ({ row }) => (
-          <div className="flex w-44 items-center gap-2">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[10px] font-semibold text-ink-muted">
-              {initials(row.original.full_name)}
-            </span>
-            <span className="line-clamp-2 font-medium leading-tight">{row.original.full_name}</span>
+          <div className="flex w-44 items-center gap-2.5">
+            <Avatar className="size-7 shrink-0">
+              <AvatarFallback className="text-[10px]">
+                {initials(row.original.full_name)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="font-medium leading-tight">{row.original.full_name}</span>
           </div>
         ),
       },
@@ -300,6 +319,10 @@ export function AllocationPage() {
   }, [overByWorkerMonth, totalsByWorker]);
 
   const kpis = data?.kpis;
+  const rowCount = data?.rows.length ?? 0;
+  const activeFiltersCount = [raw.q, raw.status, raw.account, raw.project, raw.bucket].filter(
+    Boolean,
+  ).length;
 
   return (
     <PageChrome title="Resource Allocation">
@@ -332,14 +355,80 @@ export function AllocationPage() {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Input
+                    className="h-9 w-64"
+                    placeholder="Search name or worker ID…"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                  />
+                  <span className="hidden text-ink-tertiary select-none sm:inline">|</span>
+                  {activeFiltersCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchInput('');
+                        setSearch({
+                          q: undefined,
+                          status: undefined,
+                          account: undefined,
+                          project: undefined,
+                          bucket: undefined,
+                        });
+                      }}
+                      className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-primary transition-opacity hover:opacity-80 focus:outline-none"
+                    >
+                      <X className="size-3.5" />
+                      Clear filters ({activeFiltersCount})
+                    </button>
+                  )}
+                  <div className="flex items-center gap-2 text-body-sm text-ink-muted">
+                    <span className="flex items-center gap-1 font-medium text-ink">
+                      <User className="size-3.5 text-ink-muted" />
+                      {rowCount} {rowCount === 1 ? 'row' : 'rows'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:bg-surface-2 focus:outline-none"
+                      >
+                        <Settings2 className="size-3.5" />
+                        Columns
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {ALLOCATION_HIDEABLE_COLUMNS.map((col) => {
+                        const isVisible = columnVisibility[col.id] ?? true;
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={col.id}
+                            checked={isVisible}
+                            onSelect={(e) => e.preventDefault()}
+                            onCheckedChange={(checked) => {
+                              setColumnVisibility((prev) => ({
+                                ...prev,
+                                [col.id]: checked,
+                              }));
+                            }}
+                          >
+                            {col.label}
+                          </DropdownMenuCheckboxItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+
               <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  className="h-8 w-56"
-                  placeholder="Search name or worker ID…"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                />
                 <SegmentedControl<'all' | AllocationStatus>
                   aria-label="Allocation status"
                   value={raw.status ?? 'all'}
@@ -373,27 +462,8 @@ export function AllocationPage() {
                   value={raw.bucket ?? null}
                   onChange={(v) => setSearch({ bucket: (v as AllocationBucket) ?? undefined })}
                 />
-                {hasFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1 text-ink-muted"
-                    onClick={() => {
-                      setSearchInput('');
-                      setSearch({
-                        q: undefined,
-                        status: undefined,
-                        account: undefined,
-                        project: undefined,
-                        bucket: undefined,
-                      });
-                    }}
-                  >
-                    <X className="size-3.5" />
-                    Clear
-                  </Button>
-                )}
               </div>
+
               <div className="flex justify-end">
                 <HeatLegend />
               </div>
@@ -403,8 +473,12 @@ export function AllocationPage() {
               columns={columns}
               data={data?.rows ?? []}
               isLoading={isLoading}
+              density="compact"
               getRowClassName={rowClassName}
               enableGlobalFilter={false}
+              enableColumnVisibility={false}
+              columnVisibility={columnVisibility}
+              onColumnVisibilityChange={setColumnVisibility}
               pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
               emptyState={
                 <EmptyState

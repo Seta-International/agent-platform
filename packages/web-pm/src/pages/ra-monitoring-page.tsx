@@ -1,18 +1,9 @@
 import {
   Alert,
   AlertDescription,
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   AsyncCombobox,
   Badge,
   Button,
-  buttonVariants,
   Card,
   CardContent,
   Combobox,
@@ -39,16 +30,14 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { AlertCircle, CalendarRange, Check, Pencil, Plus, Trash2, Users, X } from 'lucide-react';
-import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
+import { AlertCircle, ArrowRightLeft, CalendarRange, Plus, Users, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  createAllocation,
   fetchAccounts,
   fetchAllocations,
   fetchProjects,
   type RaMonitoringAllocation,
-  removeAllocation,
-  updateAllocation,
+  splitAllocation,
 } from '../api/pm-client.ts';
 import { useWorkerSearch } from '../api/worker-search.ts';
 import { pmKeys } from '../state/query-keys.ts';
@@ -58,43 +47,17 @@ import {
   overAllocatedWorkers,
   rollupKpis,
 } from './ra-effort.ts';
+import { firstInGroupIds, groupByPerson, SECONDARY_SORT_FIELDS } from './ra-grouping.ts';
+import { type Bucket, bucketBadge, formatDisplayDate } from './ra-shared.tsx';
+import { ReassignWizardDialog, type ReassignWizardTarget } from './reassign-wizard.tsx';
 
-const PLANNED_OPTIONS = [20, 50, 80, 100];
-const BUCKETS = ['billable', 'internal', 'bench'] as const;
-type Bucket = (typeof BUCKETS)[number];
-
-const mmLabel = (pct: number | null | undefined) => ((pct ?? 0) / 100).toFixed(1);
-
-function bucketBadge(bucket: Bucket) {
-  const variant = bucket === 'billable' ? 'success' : bucket === 'bench' ? 'warning' : 'secondary';
-  const label = bucket === 'billable' ? 'Billable' : bucket === 'bench' ? 'Bench' : 'Internal';
-  return (
-    <Badge variant={variant} className="font-normal capitalize">
-      {label}
-    </Badge>
-  );
-}
-
-type AllocationDraft = {
-  planned_pct?: number | null;
-  date_from?: string | null;
-  date_to?: string | null;
-  bucket?: Bucket;
-  note?: string | null;
-};
-
-/** Sortable column ids, mirrored to the URL `sort` param. */
-export const RA_SORTS = [
-  'account',
-  'project',
-  'name',
-  'seniority',
-  'planned',
-  'start',
-  'end',
-  'effort',
-  'bucket',
-] as const;
+/**
+ * Sortable column ids, mirrored to the URL `sort` param. Rows are always
+ * grouped by person first (see `personSortKey`/`personGroupKey` below) — these
+ * only control the *secondary* order of a person's own rows within their
+ * group, which is why `name`/`seniority` (the grouping key itself) aren't here.
+ */
+export const RA_SORTS = SECONDARY_SORT_FIELDS;
 
 /** Filter + sort state mirrored in the URL query string. */
 export interface RaSearch {
@@ -110,16 +73,15 @@ export interface RaSearch {
 /** Volatile per-row edit state passed via the table `meta` so column defs stay
  *  stable across keystrokes — otherwise editable inputs remount and lose focus. */
 interface RaTableMeta {
-  editing: string | null;
-  draft: AllocationDraft;
-  setDraft: Dispatch<SetStateAction<AllocationDraft>>;
   canManage: boolean;
-  savePending: boolean;
   overWorkers: Set<string>;
-  onEdit: (r: RaMonitoringAllocation) => void;
-  onCancel: () => void;
-  onSave: (r: RaMonitoringAllocation) => void;
-  onDelete: (r: RaMonitoringAllocation) => void;
+  /** Allocation ids that are the first row of their person's group — only
+   *  these show the Person/Seniority cell content; the rest render blank. */
+  firstInGroup: Set<string>;
+  onSplit: (r: RaMonitoringAllocation) => void;
+  /** Opens the group-level Reassign wizard for this row's whole person — only
+   *  rendered on a group's first row (see `firstInGroup`). */
+  onReassignGroup: (r: RaMonitoringAllocation) => void;
 }
 
 function Kpi({
@@ -154,66 +116,35 @@ function Kpi({
   );
 }
 
-function AddAllocationDialog({
-  projectOptions,
-  defaultProjectId,
-  defaultFrom,
-  defaultTo,
-  onCreated,
+/**
+ * Entry point for staffing someone onto a project: pick the employee here,
+ * then hand off to the Reassign wizard (via `onSelect`) — that wizard's own
+ * "Add project" flow already covers project/%/dates/type and previews the
+ * resulting peak utilization, so it isn't duplicated here.
+ */
+function SelectEmployeeDialog({
+  onSelect,
 }: {
-  projectOptions: ComboboxOption[];
-  defaultProjectId: string;
-  defaultFrom: string;
-  defaultTo: string;
-  onCreated: () => void;
+  onSelect: (worker: { id: string; name: string | null }) => void;
 }) {
   const workerPicker = useWorkerSearch();
   const [open, setOpen] = useState(false);
   const [worker, setWorker] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState(defaultProjectId);
-  const [planned, setPlanned] = useState(100);
-  const [bucket, setBucket] = useState<Bucket>('billable');
-  const [from, setFrom] = useState(defaultFrom);
-  const [to, setTo] = useState(defaultTo);
-  const [note, setNote] = useState('');
 
-  function reset() {
+  async function handleNext() {
+    if (!worker) return;
+    const [resolved] = await workerPicker.resolveByIds([worker]);
+    setOpen(false);
     setWorker(null);
-    setProjectId(defaultProjectId);
-    setPlanned(100);
-    setBucket('billable');
-    setFrom(defaultFrom);
-    setTo(defaultTo);
-    setNote('');
-    mutation.reset();
+    onSelect({ id: worker, name: resolved?.label ?? null });
   }
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      createAllocation({
-        project_id: projectId,
-        worker_id: worker as string,
-        planned_pct: planned,
-        date_from: from,
-        date_to: to,
-        bucket,
-        status: 'committed',
-        note: note.trim() || null,
-      }),
-    onSuccess: () => {
-      toast.success('Allocation added');
-      onCreated();
-      setOpen(false);
-      reset();
-    },
-  });
 
   return (
     <Dialog
       open={open}
       onOpenChange={(v) => {
         setOpen(v);
-        if (v) reset();
+        if (v) setWorker(null);
       }}
     >
       <DialogTrigger asChild>
@@ -224,7 +155,92 @@ function AddAllocationDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add allocation</DialogTitle>
+          <DialogTitle>Select employee</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Employee</Label>
+            <AsyncCombobox
+              value={worker}
+              onChange={setWorker}
+              search={workerPicker.search}
+              resolveByIds={workerPicker.resolveByIds}
+              placeholder="Search people…"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={!worker} onClick={handleNext}>
+              Next
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SplitAllocationDialog({
+  target,
+  onClose,
+  onSplit,
+}: {
+  target: RaMonitoringAllocation | null;
+  onClose: () => void;
+  onSplit: () => void;
+}) {
+  const [newEndDate, setNewEndDate] = useState('');
+  const [continuationPct, setContinuationPct] = useState('100');
+  const [continuationBucket, setContinuationBucket] = useState<Bucket>('billable');
+  const [continuationTo, setContinuationTo] = useState('');
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    if (!target) return;
+    setNewEndDate(target.date_to ?? '');
+    setContinuationPct(String(target.planned_pct ?? 100));
+    setContinuationBucket(target.bucket);
+    setContinuationTo(target.date_to ?? '');
+    setNote('');
+  }, [target]);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      splitAllocation(target?.allocation_id as string, {
+        new_end_date: newEndDate,
+        continuation: {
+          planned_pct: Number(continuationPct),
+          bucket: continuationBucket,
+          date_to: continuationTo || null,
+          note: note.trim() || null,
+        },
+        expected_version: target?.version,
+      }),
+    onSuccess: (result) => {
+      if (result.warning) {
+        toast.warning(
+          `Saved — but this now allocates ${target?.worker_name ?? 'this person'} to ${result.warning.peak_pct}% at the busiest point.`,
+        );
+      } else {
+        toast.success('Allocation split');
+      }
+      onSplit();
+      onClose();
+    },
+  });
+
+  return (
+    <Dialog
+      open={target !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>End early & continue</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {mutation.isError ? (
@@ -234,46 +250,32 @@ function AddAllocationDialog({
             </Alert>
           ) : null}
           <div className="space-y-1.5">
-            <Label>Person</Label>
-            <AsyncCombobox
-              value={worker}
-              onChange={setWorker}
-              search={workerPicker.search}
-              resolveByIds={workerPicker.resolveByIds}
-              placeholder="Search people…"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Project</Label>
-            <Combobox
-              options={projectOptions}
-              value={projectId || null}
-              onChange={(v) => setProjectId(v ?? '')}
-              placeholder="Select project…"
-              searchPlaceholder="Search projects…"
-              className="w-full"
-              aria-label="Project"
+            <Label>New end date for this allocation</Label>
+            <Input
+              type="date"
+              min={target?.date_from ?? undefined}
+              max={target?.date_to ?? undefined}
+              value={newEndDate}
+              onChange={(e) => setNewEndDate(e.target.value)}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Planned effort (MM/mo)</Label>
-              <Select value={String(planned)} onValueChange={(v) => setPlanned(Number(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PLANNED_OPTIONS.map((v) => (
-                    <SelectItem key={v} value={String(v)}>
-                      {(v / 100).toFixed(1)} MM
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Continuation allocation %</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={continuationPct}
+                onChange={(e) => setContinuationPct(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label>Type</Label>
-              <Select value={bucket} onValueChange={(v) => setBucket(v as Bucket)}>
+              <Label>Continuation type</Label>
+              <Select
+                value={continuationBucket}
+                onValueChange={(v) => setContinuationBucket(v as Bucket)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -285,33 +287,28 @@ function AddAllocationDialog({
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Start</Label>
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>End</Label>
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-            </div>
+          <div className="space-y-1.5">
+            <Label>Continuation end date</Label>
+            <Input
+              type="date"
+              value={continuationTo}
+              onChange={(e) => setContinuationTo(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Note</Label>
             <Input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. rolls off in August"
+              placeholder="e.g. plan revised in March"
             />
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="ghost" onClick={() => setOpen(false)}>
+            <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              disabled={!worker || !projectId || !from || !to || mutation.isPending}
-              onClick={() => mutation.mutate()}
-            >
-              Add
+            <Button disabled={!newEndDate || mutation.isPending} onClick={() => mutation.mutate()}>
+              Split
             </Button>
           </div>
         </div>
@@ -327,16 +324,20 @@ export function RaMonitoringPage() {
   const search = useSearch({ strict: false }) as Partial<RaSearch>;
 
   const thisYear = new Date().getFullYear();
-  const yearFrom = `${thisYear}-01-01`;
+  const todayIso = new Date().toISOString().slice(0, 10);
   const yearTo = `${thisYear}-12-31`;
   const accountId = search.account ?? '';
   const projectId = search.project ?? '';
-  const activeFrom = search.from ?? yearFrom;
+  const activeFrom = search.from ?? todayIso;
   const activeTo = search.to ?? yearTo;
   const q = search.q;
 
   const update = (patch: Partial<RaSearch>) => {
-    void navigate({ to: '/pm/resourcing', search: { ...search, ...patch }, replace: true });
+    void navigate({
+      to: '/pm/resourcing',
+      search: { ...search, ...patch },
+      replace: true,
+    });
   };
 
   const sorting = useMemo<SortingState>(
@@ -382,14 +383,40 @@ export function RaMonitoringPage() {
     [accountId, projectId, activeFrom, activeTo, q],
   );
 
-  const { data: accounts } = useQuery({ queryKey: pmKeys.accounts(), queryFn: fetchAccounts });
-  const { data: projects } = useQuery({ queryKey: pmKeys.projects(), queryFn: fetchProjects });
+  const { data: accounts } = useQuery({
+    queryKey: pmKeys.accounts(),
+    queryFn: fetchAccounts,
+  });
+  const { data: projects } = useQuery({
+    queryKey: pmKeys.projects(),
+    queryFn: fetchProjects,
+  });
   const { data: rows, isLoading } = useQuery({
     queryKey: pmKeys.allocations(params),
     queryFn: () => fetchAllocations(params),
   });
 
   const allocations = useMemo(() => rows ?? [], [rows]);
+
+  // Always grouped by person (alphabetical); `sort`/`dir` only pick the
+  // secondary order of a person's own rows within their group — clicking a
+  // column header re-sorts within every group at once, it never breaks a
+  // person's rows apart from each other.
+  const secondaryField = search.sort ?? 'start';
+  const secondaryDesc = search.dir === 'desc';
+  const groupedRows = useMemo(
+    () => groupByPerson(allocations, secondaryField, secondaryDesc, win),
+    [allocations, secondaryField, secondaryDesc, win],
+  );
+  const firstInGroup = useMemo(() => firstInGroupIds(groupedRows), [groupedRows]);
+  const rowClassName = useCallback(
+    (row: { original: RaMonitoringAllocation }) =>
+      firstInGroup.has(row.original.allocation_id) &&
+      row.original.allocation_id !== groupedRows[0]?.allocation_id
+        ? 'border-t-2 border-t-hairline-strong'
+        : undefined,
+    [firstInGroup, groupedRows],
+  );
 
   const visibleProjects = useMemo(
     () => (projects ?? []).filter((p) => !accountId || p.account_id === accountId),
@@ -411,55 +438,23 @@ export function RaMonitoringPage() {
 
   const invalidate = () => void qc.invalidateQueries({ queryKey: [...pmKeys.all, 'allocations'] });
 
-  const [confirmTarget, setConfirmTarget] = useState<RaMonitoringAllocation | null>(null);
-
-  const removeMut = useMutation({
-    mutationFn: (id: string) => removeAllocation(id),
-    onSuccess: () => {
-      toast.success('Allocation removed');
-      setConfirmTarget(null);
-      invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState<AllocationDraft>({});
-
-  const saveMut = useMutation({
-    mutationFn: (vars: { id: string; patch: Parameters<typeof updateAllocation>[1] }) =>
-      updateAllocation(vars.id, vars.patch),
-    onSuccess: () => {
-      toast.success('Saved');
-      setEditing(null);
-      setDraft({});
-      invalidate();
-    },
-    onError: (e: Error & { status?: number }) =>
-      toast.error(e.status === 409 ? 'Changed by someone else — refresh and retry.' : e.message),
-  });
+  const [splitTarget, setSplitTarget] = useState<RaMonitoringAllocation | null>(null);
+  const [wizardTarget, setWizardTarget] = useState<ReassignWizardTarget | null>(null);
 
   const tableMeta = useMemo<RaTableMeta>(
     () => ({
-      editing,
-      draft,
-      setDraft,
       canManage,
-      savePending: saveMut.isPending,
       overWorkers,
-      onEdit: (r) => {
-        setEditing(r.allocation_id);
-        setDraft({});
-      },
-      onCancel: () => {
-        setEditing(null);
-        setDraft({});
-      },
-      onSave: (r) =>
-        saveMut.mutate({ id: r.allocation_id, patch: { ...draft, expected_version: r.version } }),
-      onDelete: (r) => setConfirmTarget(r),
+      firstInGroup,
+      onSplit: (r) => setSplitTarget(r),
+      onReassignGroup: (r) =>
+        setWizardTarget({
+          worker_id: r.worker_id as string,
+          worker_name: r.worker_name,
+          worker_title: r.worker_title,
+        }),
     }),
-    [editing, draft, canManage, saveMut, overWorkers],
+    [canManage, overWorkers, firstInGroup],
   );
 
   // Columns depend only on `win` (the effort accessor). All volatile edit state
@@ -477,6 +472,10 @@ export function RaMonitoringPage() {
         header: 'Account',
         accessorFn: (r: RaMonitoringAllocation) => r.account_name,
         enableSorting: true,
+        // Row order is pre-computed (grouped by person, then by the active
+        // sort field) — this just neutralizes the table's own re-sort so it
+        // doesn't undo that grouping while still driving the header's arrow.
+        sortingFn: () => 0,
         cell: ({ row }: Ctx) => <span className="text-ink-muted">{row.original.account_name}</span>,
       },
       {
@@ -484,16 +483,18 @@ export function RaMonitoringPage() {
         header: 'Project',
         accessorFn: (r: RaMonitoringAllocation) => r.project_name,
         enableSorting: true,
+        sortingFn: () => 0,
         cell: ({ row }: Ctx) => <span className="text-ink">{row.original.project_name}</span>,
       },
       {
         id: 'name',
         header: 'Person',
         accessorFn: (r: RaMonitoringAllocation) => r.worker_name ?? '',
-        enableSorting: true,
+        enableSorting: false,
         cell: ({ row, table }: Ctx) => {
           const r = row.original;
           const m = table.options.meta as RaTableMeta;
+          if (!m.firstInGroup.has(r.allocation_id)) return null;
           return (
             <div className="flex items-center gap-2">
               {r.worker_name ? (
@@ -521,86 +522,54 @@ export function RaMonitoringPage() {
         id: 'seniority',
         header: 'Seniority',
         accessorFn: (r: RaMonitoringAllocation) => r.worker_title ?? '',
-        enableSorting: true,
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.worker_title ?? '—'}</span>
-        ),
-      },
-      {
-        id: 'planned',
-        header: 'Planned (MM/mo)',
-        accessorFn: (r: RaMonitoringAllocation) => r.planned_pct ?? 0,
-        enableSorting: true,
+        enableSorting: false,
         cell: ({ row, table }: Ctx) => {
           const r = row.original;
           const m = table.options.meta as RaTableMeta;
-          if (m.editing === r.allocation_id) {
-            return (
-              <Select
-                value={String(m.draft.planned_pct ?? r.planned_pct ?? 100)}
-                onValueChange={(v) => m.setDraft((d) => ({ ...d, planned_pct: Number(v) }))}
-              >
-                <SelectTrigger className="h-8 w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PLANNED_OPTIONS.map((v) => (
-                    <SelectItem key={v} value={String(v)}>
-                      {(v / 100).toFixed(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            );
-          }
-          return <span className="font-mono tabular-nums text-ink">{mmLabel(r.planned_pct)}</span>;
+          if (!m.firstInGroup.has(r.allocation_id)) return null;
+          return <span className="text-ink-muted">{r.worker_title ?? '—'}</span>;
         },
+      },
+      {
+        id: 'planned',
+        header: 'Allocation %',
+        accessorFn: (r: RaMonitoringAllocation) => r.planned_pct ?? 0,
+        enableSorting: true,
+        sortingFn: () => 0,
+        cell: ({ row }: Ctx) => (
+          <span className="font-mono tabular-nums text-ink">{row.original.planned_pct ?? 0}%</span>
+        ),
       },
       {
         id: 'start',
         header: 'Start',
         accessorFn: (r: RaMonitoringAllocation) => r.date_from ?? '',
         enableSorting: true,
-        cell: ({ row, table }: Ctx) => {
-          const r = row.original;
-          const m = table.options.meta as RaTableMeta;
-          return m.editing === r.allocation_id ? (
-            <Input
-              type="date"
-              className="h-8 w-36"
-              value={m.draft.date_from ?? r.date_from ?? ''}
-              onChange={(e) => m.setDraft((d) => ({ ...d, date_from: e.target.value }))}
-            />
-          ) : (
-            <span className="font-mono text-caption text-ink-muted">{r.date_from ?? '—'}</span>
-          );
-        },
+        sortingFn: () => 0,
+        cell: ({ row }: Ctx) => (
+          <span className="whitespace-nowrap font-mono text-caption text-ink-muted">
+            {row.original.date_from ? formatDisplayDate(row.original.date_from) : '—'}
+          </span>
+        ),
       },
       {
         id: 'end',
         header: 'End',
         accessorFn: (r: RaMonitoringAllocation) => r.date_to ?? '',
         enableSorting: true,
-        cell: ({ row, table }: Ctx) => {
-          const r = row.original;
-          const m = table.options.meta as RaTableMeta;
-          return m.editing === r.allocation_id ? (
-            <Input
-              type="date"
-              className="h-8 w-36"
-              value={m.draft.date_to ?? r.date_to ?? ''}
-              onChange={(e) => m.setDraft((d) => ({ ...d, date_to: e.target.value }))}
-            />
-          ) : (
-            <span className="font-mono text-caption text-ink-muted">{r.date_to ?? '—'}</span>
-          );
-        },
+        sortingFn: () => 0,
+        cell: ({ row }: Ctx) => (
+          <span className="whitespace-nowrap font-mono text-caption text-ink-muted">
+            {row.original.date_to ? formatDisplayDate(row.original.date_to) : '—'}
+          </span>
+        ),
       },
       {
         id: 'effort',
         header: 'Calendar effort',
         accessorFn: (r: RaMonitoringAllocation) => clippedCalendarEffort(r, win),
         enableSorting: true,
+        sortingFn: () => 0,
         cell: ({ row }: Ctx) => (
           <span className="font-mono font-semibold tabular-nums text-ink">
             {clippedCalendarEffort(row.original, win).toFixed(1)}
@@ -612,45 +581,15 @@ export function RaMonitoringPage() {
         header: 'Type',
         accessorFn: (r: RaMonitoringAllocation) => r.bucket,
         enableSorting: true,
-        cell: ({ row, table }: Ctx) => {
-          const r = row.original;
-          const m = table.options.meta as RaTableMeta;
-          if (m.editing === r.allocation_id) {
-            return (
-              <Select
-                value={m.draft.bucket ?? r.bucket}
-                onValueChange={(v) => m.setDraft((d) => ({ ...d, bucket: v as Bucket }))}
-              >
-                <SelectTrigger className="h-8 w-28">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="billable">Billable</SelectItem>
-                  <SelectItem value="internal">Internal</SelectItem>
-                  <SelectItem value="bench">Bench</SelectItem>
-                </SelectContent>
-              </Select>
-            );
-          }
-          return bucketBadge(r.bucket);
-        },
+        sortingFn: () => 0,
+        cell: ({ row }: Ctx) => bucketBadge(row.original.bucket),
       },
       {
         id: 'note',
         header: 'Note',
-        cell: ({ row, table }: Ctx) => {
-          const r = row.original;
-          const m = table.options.meta as RaTableMeta;
-          return m.editing === r.allocation_id ? (
-            <Input
-              className="h-8 w-44"
-              value={m.draft.note ?? r.note ?? ''}
-              onChange={(e) => m.setDraft((d) => ({ ...d, note: e.target.value }))}
-            />
-          ) : (
-            <span className="text-caption text-ink-muted">{r.note ?? '—'}</span>
-          );
-        },
+        cell: ({ row }: Ctx) => (
+          <span className="text-caption text-ink-muted">{row.original.note ?? '—'}</span>
+        ),
       },
       {
         id: 'actions',
@@ -658,42 +597,16 @@ export function RaMonitoringPage() {
         cell: ({ row, table }: Ctx) => {
           const r = row.original;
           const m = table.options.meta as RaTableMeta;
-          if (!m.canManage) return null;
-          if (m.editing === r.allocation_id) {
-            return (
-              <div className="flex justify-end gap-1">
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  aria-label="Save"
-                  disabled={m.savePending}
-                  onClick={() => m.onSave(r)}
-                >
-                  <Check className="size-4 text-[var(--color-success)]" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  aria-label="Cancel"
-                  onClick={() => m.onCancel()}
-                >
-                  <X className="size-4" />
-                </Button>
-              </div>
-            );
-          }
+          if (!m.canManage || !m.firstInGroup.has(r.allocation_id)) return null;
           return (
             <div className="flex justify-end gap-1">
-              <Button size="icon" variant="secondary" aria-label="Edit" onClick={() => m.onEdit(r)}>
-                <Pencil className="size-4" />
-              </Button>
               <Button
                 size="icon"
                 variant="secondary"
-                aria-label="Delete"
-                onClick={() => m.onDelete(r)}
+                aria-label="Reassign"
+                onClick={() => m.onReassignGroup(r)}
               >
-                <Trash2 className="size-4 text-ink-subtle" />
+                <ArrowRightLeft className="size-4" />
               </Button>
             </div>
           );
@@ -711,12 +624,14 @@ export function RaMonitoringPage() {
       title="RA Monitoring"
       actions={
         canManage ? (
-          <AddAllocationDialog
-            projectOptions={projectOptions}
-            defaultProjectId={projectId}
-            defaultFrom={activeFrom}
-            defaultTo={activeTo}
-            onCreated={invalidate}
+          <SelectEmployeeDialog
+            onSelect={(worker) =>
+              setWizardTarget({
+                worker_id: worker.id,
+                worker_name: worker.name,
+                worker_title: null,
+              })
+            }
           />
         ) : undefined
       }
@@ -811,10 +726,11 @@ export function RaMonitoringPage() {
 
         <DataTable
           columns={columns}
-          data={allocations}
+          data={groupedRows}
           meta={tableMeta}
           sorting={sorting}
           onSortingChange={onSortingChange}
+          getRowClassName={rowClassName}
           isLoading={isLoading}
           enableGlobalFilter={false}
           density="compact"
@@ -833,38 +749,20 @@ export function RaMonitoringPage() {
         />
       </div>
 
-      <AlertDialog
-        open={confirmTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirmTarget(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove allocation?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmTarget
-                ? `This removes ${
-                    confirmTarget.worker_name ?? 'this unfilled seat'
-                  } from ${confirmTarget.project_name}. The allocation is ended for People's view; this can't be undone.`
-                : ''}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className={buttonVariants({ variant: 'destructive' })}
-              disabled={removeMut.isPending}
-              onClick={(e) => {
-                e.preventDefault();
-                if (confirmTarget) removeMut.mutate(confirmTarget.allocation_id);
-              }}
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <SplitAllocationDialog
+        target={splitTarget}
+        onClose={() => setSplitTarget(null)}
+        onSplit={invalidate}
+      />
+
+      <ReassignWizardDialog
+        target={wizardTarget}
+        allocations={allocations.filter((a) => a.worker_id === wizardTarget?.worker_id)}
+        accountOptions={accountOptions}
+        projects={projects ?? []}
+        onClose={() => setWizardTarget(null)}
+        onReassigned={invalidate}
+      />
     </PageChrome>
   );
 }

@@ -8,6 +8,7 @@ import { pmDb } from '../db/client.ts';
 import { allocation, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
+import { assertWithinProjectRange } from './assert-within-project-range.ts';
 
 export async function updateAllocation(
   input: UpdateAllocationInput & { allocation_id: string; session: SessionScope },
@@ -32,14 +33,22 @@ export async function updateAllocation(
     throw new PmError('CONFLICT', 'version mismatch');
   }
 
+  const projectChanged = patch.project_id !== undefined && patch.project_id !== current.project_id;
+  const targetProjectId = patch.project_id ?? current.project_id;
+
   const [proj] = await pmDb()
-    .select({ account_id: project.account_id })
+    .select({
+      account_id: project.account_id,
+      date_from: project.date_from,
+      date_to: project.date_to,
+    })
     .from(project)
-    .where(and(eq(project.id, current.project_id), tenantScoped(project.tenant_id, session)))
+    .where(and(eq(project.id, targetProjectId), tenantScoped(project.tenant_id, session)))
     .limit(1);
-  if (!proj) throw new PmError('NOT_FOUND', `project ${current.project_id} not found`);
+  if (!proj) throw new PmError('NOT_FOUND', `project ${targetProjectId} not found`);
 
   const changes: Record<string, unknown> = {};
+  if (projectChanged) changes.project_id = patch.project_id;
   if (patch.role !== undefined) changes.role = patch.role;
   if (patch.planned_pct !== undefined) {
     changes.planned_pct = patch.planned_pct === null ? null : patch.planned_pct.toString();
@@ -53,16 +62,24 @@ export async function updateAllocation(
   if (fields.length === 0) return { version: current.version };
 
   const datesChanged = patch.date_from !== undefined || patch.date_to !== undefined;
+  if (datesChanged || projectChanged) {
+    assertWithinProjectRange({
+      project_date_from: proj.date_from,
+      project_date_to: proj.date_to,
+      date_from: patch.date_from !== undefined ? patch.date_from : current.date_from,
+      date_to: patch.date_to !== undefined ? patch.date_to : current.date_to,
+    });
+  }
 
   const nextVersion = current.version + 1;
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      if (current.worker_id && datesChanged) {
+      if (current.worker_id && (datesChanged || projectChanged)) {
         await assertNoProjectOverlap(tx, {
           tenant_id: session.tenant_id,
           worker_id: current.worker_id,
-          project_id: current.project_id,
+          project_id: targetProjectId,
           date_from: patch.date_from !== undefined ? patch.date_from : current.date_from,
           date_to: patch.date_to !== undefined ? patch.date_to : current.date_to,
           excludeId: allocation_id,
@@ -92,7 +109,7 @@ export async function updateAllocation(
         eventVersion: 1,
         payload: {
           allocation_id,
-          project_id: current.project_id,
+          project_id: targetProjectId,
           worker_id: current.worker_id ?? null,
           account_id: proj.account_id,
           tenant_id: session.tenant_id,

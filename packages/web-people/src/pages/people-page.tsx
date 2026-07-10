@@ -372,6 +372,7 @@ export function PeoplePage() {
                 columns={columns}
                 data={rows}
                 isLoading={isLoading}
+                density="compact"
                 sorting={sorting}
                 onSortingChange={onSortingChange}
                 globalFilter=""
@@ -387,7 +388,7 @@ export function PeoplePage() {
                 pageCount={Math.max(1, Math.ceil(total / pageSize))}
                 rowCount={total}
                 getRowId={(r: WorkerListRow) => r.worker_id}
-                getRowClassName={() => 'h-14'}
+                getRowClassName={() => 'h-12'}
                 enableRowSelection={false}
                 rowSelection={{}}
                 onRowSelectionChange={() => {}}
