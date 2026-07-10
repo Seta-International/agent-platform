@@ -12,7 +12,7 @@ Read the schema files for column-level truth. Read [`ddd-design.md`](./ddd-desig
 
 Ranked by blast radius. `S1`–`S3` are architectural and each needs its own design cycle. `S4` is what stops the drift recurring. `S6`–`S11` are mechanical.
 
-### S1 — The RLS backstop is inert for four of the ten modules — **critical** · *fixed, in review ([#353](https://github.com/Seta-International/agent-platform/pull/353))*
+### S1 — The RLS backstop is inert for four of the ten modules — **critical** · *fixed ([#353](https://github.com/Seta-International/agent-platform/pull/353), [#361](https://github.com/Seta-International/agent-platform/pull/361), PR4)*
 
 Every tenant-owned table has row-level security enabled and forced, with a uniform `tenant_id = current_setting('app.tenant_id')` policy. Ten `rls-census.test.ts` files (one per module) prove those policies are configured correctly: `assertRlsCensus` creates a `NOBYPASSRLS` role in a test container and asserts every tenant-scoped table is tenant-blind to a stranger.
 
@@ -27,7 +27,7 @@ Every tenant-owned table has row-level security enabled and forced, with a unifo
 
 So **31 of the 77 RLS-protected tables carry a policy that never executes at runtime.** A forgotten `WHERE tenant_id` in `planner` or `agent` leaks across tenants exactly as if RLS had never been written. The census proves the lock works; nothing proves the door is used. This is why a green test suite coexisted with the defect.
 
-Verified against production configuration: `DATABASE_APP_URL` exists as a `prod` environment secret, and the session middleware pins a GUC-set connection on the web-pool facade for the life of each request. The mechanism was real and working — for six modules. (At the time of the review the wrapper was a standalone `runRequestTenant` middleware in `apps/server`; DB-1 moved it into `createSessionMiddleware`, because building the session scope itself reads tenant-scoped tables.)
+Verified against production configuration: `DATABASE_APP_URL` exists as a `prod` environment secret, and the session middleware pins a GUC-set connection on the web-pool facade for the life of each request. The mechanism was real and working — for six modules. (At the time of the review the wrapper was a standalone `runRequestTenant` middleware in `apps/server`; DB-1 moved it into `createSessionMiddleware`, because building the session scope itself reads tenant-scoped tables, and then deleted `runRequestTenant` — `scoped()` is now the only pinning entry point.)
 
 Two deliberate exemptions, both correct:
 
@@ -54,7 +54,35 @@ Three corrections to the review above, established while implementing it:
 
 Bugs the work uncovered, each with a regression test: `apps/worker` never passed `appDatabaseUrl`, so its "web" pool *was* the admin pool — without that fix the whole migration would have been a silent no-op with every test green. `RESET ALL` does not drop prepared statements (only `DISCARD ALL` does), so a pooled connection carried the previous scope's statements. A pinned client has no `'error'` listener while checked out, so a backend dying mid-scope killed the worker process. And `sessionMiddleware` built the session scope — which itself reads tenant-scoped tables — *before* the executor context opened, so every authenticated request threw on a session-scope cache miss.
 
-Still open after #353: **PR3** moves the six correct-but-inconsistent modules onto `executorPool()`; **PR4** deletes `getPool` from the `shared-db` public surface, adds the `.dependency-cruiser.cjs` rule confining it to `apps/*`, and adds a static guard that both composition roots pass `appDatabaseUrl`. Until PR4, `getPool` remains exported and deprecated.
+#### What PR3 found: the facade was hiding a whole class of bug
+
+PR3 ([#361](https://github.com/Seta-International/agent-platform/pull/361)) moved every remaining caller — the six other module clients, the `knowledge` and `agent` jobs, `core`'s retention tick, `identity`'s tenant-settings route, the server's `/me` route. Ten modules now carry a `runtime-privilege.test.ts`. `knowledge`'s per-tenant partition DDL moved to `maintenance()`, because `seta_app` has no `CREATE`.
+
+The migration's cost landed in one place nobody predicted. `withEmit()` — every module's write path — calls `coreDb()`. So the moment `coreDb()` failed closed, **779 tests threw `ExecutorContextError`**: 734 across eight modules, 45 across both apps. That number is the honest measure of how little the old arrangement exercised RLS. None of those paths had ever run as `seta_app`.
+
+The deeper lesson is about the facade. `getPool('web')` returned a *long-lived* `Pool` that resolved the pinned per-scope client lazily, at query time — so a database handle captured once at boot still routed correctly per request. `executorPool()` resolves eagerly. **Any code that captured a handle instead of resolving one per call was therefore already wrong, and the facade was silently covering for it.** Three such captures existed in production (`createOutboxStore`, `createMailTransportConfigStore`, and four m365 repo factories built at boot); all now take a `db: () => NodePgDatabase` resolver.
+
+Seven production bugs surfaced, every one behind a green test suite:
+
+- **`credential-gate.ts` failed open.** Its `core.tenants` read sat inside `try { … } catch { /* fall through to better-auth */ }`. An `ExecutorContextError` there is swallowed and the `LOCAL_PASSWORD_DISABLED` check silently skipped — an SSO-only tenant would have accepted a password sign-in. The `catch` now rethrows it.
+- **The M365 webhook was broken.** Unauthenticated, mounted outside `sessionMiddleware`, and `integrations.m365_subscriptions` is RLS-enabled. `findBySubscriptionId` is cross-tenant *by necessity* — the subscription id is opaque and the HMAC authenticating the request is keyed on the tenant it resolves to — so it is the one admin read on that path.
+- **`buildM365Boot()` would have crashed server startup** wherever `M365_WEBHOOK_SECRET` is set.
+- **`recordFailedAttempt`** (the pre-auth login throttle) emitted its alert with no context. It runs `scoped(tenantId, …)`, not `maintenance()`: the tenant is already resolved, and an unauthenticated caller must never reach `BYPASSRLS`.
+- **`isIdleExpired`** ran before `scoped()` opened, and would have thrown on every authenticated request.
+- **`agent_lifecycle_retry`** ran contextless. `wrapJob` cannot scope it — the dead-lettered payload's tenant field is `tenantId`, not the `tenant_id` `wrapJob` reads.
+- **`getWorkerIdForUser` would have deadlocked the connection pool.** FUT-327 wrapped it in `runRequestTenant(tenantId, …)` on the premise that `resolveWorkerId` runs before the tenant GUC is bound. DB-1 moved the scope open into `sessionMiddleware`, so it now runs *inside* one — and `pinTenantConnection` unconditionally acquires a fresh connection rather than reusing the active binding. Every authenticated request would have held two connections from a `max: 15` pool; at fifteen concurrent requests every outer scope blocks on an inner connection that can never be granted.
+
+**`maintenance()` is a `BYPASSRLS` grant, so it is countable.** Exactly six exist in production, each justified in-file: `wrapJob` (for `MAINTENANCE_JOBS`), `apps/cli`'s `parseAsync`, `identity`'s test seeder, the m365 webhook lookup, `knowledge`'s partition DDL, and the agent lifecycle-retry dead-letter job. `MAINTENANCE_JOBS` itself is unchanged — adding a name to it is a privilege escalation.
+
+One shortcut was available and refused. Giving `withTestDb` an ambient `maintenance()` context would have fixed all 779 failures in a single line — and would have made the `credential-gate` regression test pass *without* its fix, because a context would always have been open. Tests enter the context production enters: seed helpers `maintenance()`, test bodies `scoped(session.tenant_id, …)`.
+
+#### What PR4 closed
+
+`getPool` is gone from the `@seta/shared-db` barrel. It lives at `@seta/shared-db/composition`, importable only by `apps/{server,worker,cli}`. Identity's two authentication-time escapes — which are *different privileges for different reasons*, and were previously indistinguishable from an ordinary pool fetch — are now named and confined to `@seta/shared-db/pre-tenant`: `preTenantAppPool()` for better-auth's lookup against the RLS-exempt `identity.user`, and `preTenantAdminPool()` for SSO tenant resolution, which must read the RLS'd `tenant_sso_providers` before any tenant exists.
+
+Both subpaths are enforced by `.dependency-cruiser.cjs` rules (`shared-db-composition-root-only`, `shared-db-pre-tenant-identity-only`), because **dependency-cruiser restricts by module path, not by named export** — `import { getPool }` and `import { scoped }` resolve to the same file, so no rule could ever have told them apart while both lived on the barrel. That is why the accessor had to move rather than merely be deprecated. `runRequestTenant` is deleted; `scoped()` is the only pinning entry point.
+
+`scripts/lint/lint-init-pools.mjs` asserts both long-running composition roots pass `appDatabaseUrl` to `initPools`. This guards the bug that would have made the entire program a no-op: `apps/worker` shipped without it, so its "web" pool *was* the admin pool, and every RLS policy would have evaluated as a superuser — silently, with all tests green. The lint checks the call site made the choice; the *value* stays optional, because the self-host onboarding contract depends on the fallback.
 
 ### S2 — `people.worker.id` is a phantom identity — **critical**
 
@@ -168,7 +196,7 @@ These rules constrain the code; they are not derivable from it. They were the no
 | # | Rule | Enforcement today |
 |---|---|---|
 | C1 | Every tenant-owned table carries `tenant_id uuid NOT NULL` and has RLS enabled **and forced**, with the uniform `app.tenant_id` policy. A small allowlist covers pre-tenant and cross-tenant-drain infra. | **Gated** — ten `rls-census.test.ts` files |
-| C2 | Domain code reaches the database through a `NOBYPASSRLS` role. Cross-tenant access is an explicit, enumerable exception. | **Gated for the four modules that bypassed it** — `runtime-privilege.test.ts` × 4; `executorPool()` throws outside a context. The exceptions are enumerable: `identityAuthDb()`, `MAINTENANCE_JOBS`, `apps/cli`. Fully gated when PR4 lands the `depcruise` rule |
+| C2 | Domain code reaches the database through a `NOBYPASSRLS` role. Cross-tenant access is an explicit, enumerable exception. | **Gated** — `runtime-privilege.test.ts` × 10; `executorPool()` throws outside a context; two `depcruise` rules confine `getPool` to `apps/*` and the pre-tenant escapes to `identity`. The exceptions are enumerable and counted: six `maintenance()` calls, `preTenantAppPool()`, `preTenantAdminPool()` |
 | C3 | Intra-schema foreign keys are mandatory with an explicit `ON DELETE`. **Cross-schema references stay bare `uuid` with no FK**; consistency is event-driven. | Partly — `lint:raw-sql`, `depcruise`, `schemaFilter` |
 | C4 | One enum style: the `textEnum(column, values)` helper emits the Drizzle type and the `CHECK` from one definition. No bare-text status columns, no integer-coded enums. | Partly — R2 catches inline enums, not bare `text()` holding a closed set (S10) |
 | C5 | Every unique constraint on a tenant-scoped table leads with `tenant_id`. | **Gated** — R3 |
@@ -188,13 +216,15 @@ Six sub-projects. Each gets its own spec, plan, and pull-request cycle. Producti
 
 | | Sub-project | Findings | Rules restored | Status |
 |---|---|---|---|---|
-| **DB-1** | Tenant isolation, made real | S1 | C2, C11 | Executor + the four broken modules in review ([#353](https://github.com/Seta-International/agent-platform/pull/353)); PR3 + PR4 open |
+| **DB-1** | Tenant isolation, made real | S1 | C2, C11 | **Done** — [#353](https://github.com/Seta-International/agent-platform/pull/353), [#361](https://github.com/Seta-International/agent-platform/pull/361), PR4 ([FUT-549](https://all-it.atlassian.net/browse/FUT-549)) |
 | **DB-2** | Collapse the `person` / `worker` identity | S2 | — | Not started |
 | **DB-3** | The event-replay contract, made real | S3 | C8 | Not started |
 | **DB-4** | A gate that reads the database | S4 | C6, C7, C10, and the rest of this table | Not started |
 | **DB-5** | Charter as a project lifecycle state | S5 | C3 | Not started |
 | **DB-6** | Mechanical sweep | S6–S11 | C4, C6, C7 | Not started |
 
-**DB-1** went first: production is live, and it is the only finding whose cost of delay is a cross-tenant leak — a leak that turned out to already exist, in `knowledge_searchDocuments`. Its shape is an executor refactor across all ten modules: domain code stops resolving its own pool and instead reads an ambient executor whose privilege and tenant scope were decided by the caller. Two constructors live in the composition root and nowhere else: `scoped(tenantId)` on the `seta_app` role with the GUC set, and `maintenance()` on the admin role for the legitimately cross-tenant jobs. It needed no migration and no maintenance window — the policies and `seta_app` grants already existed in every baseline; the code simply never connected to them. Remaining: PR3 moves the six already-correct modules onto the same idiom, and PR4 makes `getPool` illegal outside the composition root, enforced by `.dependency-cruiser.cjs`.
+**DB-1** went first: production is live, and it is the only finding whose cost of delay is a cross-tenant leak — a leak that turned out to already exist, in `knowledge_searchDocuments`. Its shape is an executor refactor across all ten modules: domain code stops resolving its own pool and instead reads an ambient executor whose privilege and tenant scope were decided by the caller. Two constructors live in the composition root and nowhere else: `scoped(tenantId)` on the `seta_app` role with the GUC set, and `maintenance()` on the admin role for the legitimately cross-tenant jobs. It needed no migration and no maintenance window — the policies and `seta_app` grants already existed in every baseline; the code simply never connected to them. It is now complete: all ten modules resolve `executorPool()`, each gated by a `runtime-privilege.test.ts`, and `getPool` is illegal outside the composition root, enforced by `.dependency-cruiser.cjs`.
+
+Two things DB-1 is worth remembering for. First, **the audit undercounted, twice**: the actual leak was in an agent tool that bypassed its module's client entirely, and the six modules the review flagged as at-risk were never leaking at all. Reading `db/client.ts` told us less than we thought, in both directions. Second, **fail-closed found what review could not.** Seven live production bugs — an authentication bypass, a broken webhook ingress, a boot crash, a connection-pool deadlock — sat behind a green test suite for as long as the code could silently obtain a superuser connection. Not one was found by reading. Every one announced itself the moment a missing context stopped being survivable. That is the argument for `executorPool()` throwing rather than defaulting, and it is the argument for **DB-4**.
 
 **DB-4** is the one that stops this document from being written again. Today `lint:db` reads `schema.ts`; it should read `pg_catalog` after `db:migrate`. Every rule in §2 that is a property of the migrated database — RLS coverage, `version` columns, `updated_at NOT NULL`, range `CHECK`s, lifecycle registration — becomes a query rather than a paragraph.
