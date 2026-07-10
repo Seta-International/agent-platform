@@ -1,3 +1,10 @@
+export {
+  type ConstitutionOpts,
+  collectViolations,
+  OWNED_SCHEMAS,
+  TENANT_ID_EXEMPT,
+  type Violation,
+} from './db-constitution.ts';
 export { FakeEmbeddingProvider, type FakeEmbeddingProviderOptions } from './fakes/embedding.ts';
 export { type EventBusLike, FakeEventBus } from './fakes/event-bus.ts';
 export { FakeMailer, type MailerLike } from './fakes/mailer.ts';
