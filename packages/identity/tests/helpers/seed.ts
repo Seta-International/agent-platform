@@ -6,9 +6,10 @@ import {
   inventoryToManifests,
   resolvePermissions,
 } from '@seta/shared-rbac';
+import { eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import { identityDb } from '../../src/backend/db/index.ts';
-import { personProjection, roleAssignments } from '../../src/backend/db/schema.ts';
+import { personProjection, roleAssignments, user } from '../../src/backend/db/schema.ts';
 import { createUser } from '../../src/backend/domain/create-user.ts';
 import { deactivateUser } from '../../src/backend/domain/deactivate-user.ts';
 
@@ -75,6 +76,10 @@ export async function seedDirectoryAccount(
     },
     { type: 'cli', user_id: null },
   );
+
+  // Mirrors the link-person subscriber (Task 4), which stamps person_id onto
+  // the user once a person and account are linked in production.
+  await identityDb().update(user).set({ person_id }).where(eq(user.id, user_id));
 
   if (opts.roles && opts.roles.length > 0) {
     for (const role_slug of opts.roles) {
