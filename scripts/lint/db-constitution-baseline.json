@@ -1,0 +1,381 @@
+[
+  {
+    "rule": "lifecycle-registered",
+    "object": "core.skill_alias",
+    "status": "debt",
+    "reason": "C10: table has no lifecycle class in the shared-db registry; DB-6 registers it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "lifecycle-registered",
+    "object": "hiring.account_projection",
+    "status": "debt",
+    "reason": "C10: table has no lifecycle class in the shared-db registry; DB-6 registers it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "lifecycle-registered",
+    "object": "hiring.project_owner_projection",
+    "status": "debt",
+    "reason": "C10: table has no lifecycle class in the shared-db registry; DB-6 registers it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "lifecycle-registered",
+    "object": "hiring.project_projection",
+    "status": "debt",
+    "reason": "C10: table has no lifecycle class in the shared-db registry; DB-6 registers it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "lifecycle-registered",
+    "object": "hiring.worker_user_projection",
+    "status": "debt",
+    "reason": "C10: table has no lifecycle class in the shared-db registry; DB-6 registers it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "numeric-range-check",
+    "object": "hiring.candidate.source_cost",
+    "status": "debt",
+    "reason": "S7/C7: numeric money/effort column carries no range CHECK; DB-6 adds it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "numeric-range-check",
+    "object": "people.worker_allocation_projection.planned_pct",
+    "status": "debt",
+    "reason": "S7/C7: numeric money/effort column carries no range CHECK; DB-6 adds it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "numeric-range-check",
+    "object": "pm.charter.budget_bmm",
+    "status": "debt",
+    "reason": "S7/C7: numeric money/effort column carries no range CHECK; DB-6 adds it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "numeric-range-check",
+    "object": "pm.project.budget_bmm",
+    "status": "debt",
+    "reason": "S7/C7: numeric money/effort column carries no range CHECK; DB-6 adds it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "numeric-range-check",
+    "object": "pm.staffing_plan_line.effort_mm",
+    "status": "debt",
+    "reason": "S7/C7: numeric money/effort column carries no range CHECK; DB-6 adds it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "ordered-pair-check",
+    "object": "people.employment_period.(start_date,end_date)",
+    "status": "debt",
+    "reason": "S6/C7: no CHECK (end >= start) exists on this date pair; DB-6 adds it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "ordered-pair-check",
+    "object": "people.worker_allocation_projection.(date_from,date_to)",
+    "status": "debt",
+    "reason": "S6/C7: no CHECK (end >= start) exists on this date pair; DB-6 adds it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "ordered-pair-check",
+    "object": "pm.allocation.(date_from,date_to)",
+    "status": "debt",
+    "reason": "S6/C7: no CHECK (end >= start) exists on this date pair; DB-6 adds it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "ordered-pair-check",
+    "object": "pm.charter.(date_from,date_to)",
+    "status": "debt",
+    "reason": "S6/C7: no CHECK (end >= start) exists on this date pair; DB-6 adds it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "ordered-pair-check",
+    "object": "pm.project.(date_from,date_to)",
+    "status": "debt",
+    "reason": "S6/C7: no CHECK (end >= start) exists on this date pair; DB-6 adds it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "projection-shape",
+    "object": "hiring.account_projection",
+    "status": "debt",
+    "reason": "S3/C8: projection lacks updated_at (assignee_projection uses projection_built_at); DB-3 restores the replay+shape contract",
+    "ticket": "FUT-551"
+  },
+  {
+    "rule": "projection-shape",
+    "object": "hiring.project_owner_projection",
+    "status": "debt",
+    "reason": "S3/C8: projection lacks updated_at (assignee_projection uses projection_built_at); DB-3 restores the replay+shape contract",
+    "ticket": "FUT-551"
+  },
+  {
+    "rule": "projection-shape",
+    "object": "hiring.project_projection",
+    "status": "debt",
+    "reason": "S3/C8: projection lacks updated_at (assignee_projection uses projection_built_at); DB-3 restores the replay+shape contract",
+    "ticket": "FUT-551"
+  },
+  {
+    "rule": "projection-shape",
+    "object": "hiring.worker_user_projection",
+    "status": "debt",
+    "reason": "S3/C8: projection lacks updated_at (assignee_projection uses projection_built_at); DB-3 restores the replay+shape contract",
+    "ticket": "FUT-551"
+  },
+  {
+    "rule": "projection-shape",
+    "object": "planner.assignee_projection",
+    "status": "debt",
+    "reason": "S3/C8: projection lacks updated_at (assignee_projection uses projection_built_at); DB-3 restores the replay+shape contract",
+    "ticket": "FUT-551"
+  },
+  {
+    "rule": "rls-enabled-forced",
+    "object": "core.events",
+    "status": "accepted",
+    "reason": "the dispatcher drains every tenant's events; isolation is the subscriber's tenant_id filter, not RLS"
+  },
+  {
+    "rule": "rls-enabled-forced",
+    "object": "core.outgoing_emails",
+    "status": "accepted",
+    "reason": "the mailer scans across tenants under maintenance(); RLS would hide rows from the drainer"
+  },
+  {
+    "rule": "rls-enabled-forced",
+    "object": "core.session_scope_cache",
+    "status": "accepted",
+    "reason": "written before the tenant GUC is bound — see planner/core migration 0002_session_scope_cache_no_rls.sql"
+  },
+  {
+    "rule": "rls-enabled-forced",
+    "object": "identity.user",
+    "status": "accepted",
+    "reason": "better-auth's pre-tenant email lookup runs with no bound tenant — see identity 0001_identity_platform.sql:30"
+  },
+  {
+    "rule": "tenant-scoped-unique",
+    "object": "core.session_scope_cache::session_scope_cache_pkey",
+    "status": "accepted",
+    "reason": "the primary key is a better-auth session id, globally unique by construction; it need not lead with tenant_id"
+  },
+  {
+    "rule": "timestamp-shape",
+    "object": "planner.task_comments.updated_at",
+    "status": "debt",
+    "reason": "S8: updated_at is nullable with no default — the only table breaking NOT NULL DEFAULT now(); DB-6 fixes it",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "updated-at-trigger",
+    "object": "identity.account",
+    "status": "accepted",
+    "reason": "better-auth writes updated_at itself on these tables (S8); a maintaining trigger is not expected"
+  },
+  {
+    "rule": "updated-at-trigger",
+    "object": "identity.session",
+    "status": "accepted",
+    "reason": "better-auth writes updated_at itself on these tables (S8); a maintaining trigger is not expected"
+  },
+  {
+    "rule": "updated-at-trigger",
+    "object": "identity.user",
+    "status": "accepted",
+    "reason": "better-auth writes updated_at itself on these tables (S8); a maintaining trigger is not expected"
+  },
+  {
+    "rule": "updated-at-trigger",
+    "object": "identity.verification",
+    "status": "accepted",
+    "reason": "better-auth writes updated_at itself on these tables (S8); a maintaining trigger is not expected"
+  },
+  {
+    "rule": "version-column",
+    "object": "agent.tenant_settings",
+    "status": "accepted",
+    "reason": "one-row-per-tenant tuning config edited by a single admin action; no concurrent read-modify-write"
+  },
+  {
+    "rule": "version-column",
+    "object": "core.events",
+    "status": "accepted",
+    "reason": "append-only event log; its trigger is the outbox NOTIFY, rows are never field-updated, so there is no lost-update to guard"
+  },
+  {
+    "rule": "version-column",
+    "object": "core.skill_alias",
+    "status": "accepted",
+    "reason": "skill-alias reference data, created once per (tenant, slug) and effectively immutable; no concurrent field mutation"
+  },
+  {
+    "rule": "version-column",
+    "object": "core.subscription_failure_state",
+    "status": "accepted",
+    "reason": "dispatcher retry state keyed by subscription; the dispatcher serializes per subscription, so the row has a single writer"
+  },
+  {
+    "rule": "version-column",
+    "object": "hiring.candidate_skill",
+    "status": "accepted",
+    "reason": "junction table: membership is replaced as a set, not field-updated in place; no domain state to lose to a concurrent writer"
+  },
+  {
+    "rule": "version-column",
+    "object": "hiring.jd_template_section",
+    "status": "accepted",
+    "reason": "content sub-row keyed by (tenant, template, variant, section), written within the JD template's edit transaction; concurrency is guarded at the parent aggregate"
+  },
+  {
+    "rule": "version-column",
+    "object": "hiring.requisition_jd_section",
+    "status": "accepted",
+    "reason": "content sub-row keyed by (tenant, requisition, variant, section), written within the requisition's edit transaction; concurrency is guarded at the parent aggregate"
+  },
+  {
+    "rule": "version-column",
+    "object": "hiring.requisition_skill",
+    "status": "accepted",
+    "reason": "junction table: membership is replaced as a set, not field-updated in place; no domain state to lose to a concurrent writer"
+  },
+  {
+    "rule": "version-column",
+    "object": "identity.access_group",
+    "status": "accepted",
+    "reason": "RBAC group definition edited by a single admin action; membership/roles live in separate tables"
+  },
+  {
+    "rule": "version-column",
+    "object": "identity.org_unit_projection",
+    "status": "accepted",
+    "reason": "single-writer read-model projection rebuilt from core.events; carries no authoritative domain state a lost update could destroy"
+  },
+  {
+    "rule": "version-column",
+    "object": "identity.person_projection",
+    "status": "accepted",
+    "reason": "single-writer read-model projection rebuilt from core.events; carries no authoritative domain state a lost update could destroy"
+  },
+  {
+    "rule": "version-column",
+    "object": "identity.role_permission_overlays",
+    "status": "accepted",
+    "reason": "RBAC permission overlay edited by a single admin action, keyed by (tenant, role, permission)"
+  },
+  {
+    "rule": "version-column",
+    "object": "identity.tenant_sso_providers",
+    "status": "accepted",
+    "reason": "SSO provider config edited by a single admin action (entra fields projected in by one subscriber)"
+  },
+  {
+    "rule": "version-column",
+    "object": "integrations.m365_group_links",
+    "status": "debt",
+    "reason": "S8: sync_status/delta_link/last_synced_at mutated by concurrent sync workers — the lost-update case; DB-6 adds version",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "version-column",
+    "object": "integrations.m365_plan_links",
+    "status": "debt",
+    "reason": "S8: sync_status/delta_link/last_synced_at mutated by concurrent sync workers — the lost-update case; DB-6 adds version",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "version-column",
+    "object": "integrations.m365_resource_etags",
+    "status": "accepted",
+    "reason": "per-resource etag change-detection cache keyed by (tenant, plan, resource, platform_id); last-writer-wins is correct — a stale etag only forces a redundant re-sync, it loses no domain data"
+  },
+  {
+    "rule": "version-column",
+    "object": "integrations.m365_subscriptions",
+    "status": "accepted",
+    "reason": "webhook subscription keyed uniquely by (tenant, resource); the scheduled renewal job is the single writer per subscription"
+  },
+  {
+    "rule": "version-column",
+    "object": "integrations.m365_tenant_config",
+    "status": "accepted",
+    "reason": "M365 tenant configuration edited by a single admin action"
+  },
+  {
+    "rule": "version-column",
+    "object": "integrations.mail_transport_config",
+    "status": "accepted",
+    "reason": "mail-transport configuration edited by a single admin action (carries created_by/updated_by, not concurrent workers)"
+  },
+  {
+    "rule": "version-column",
+    "object": "knowledge.files",
+    "status": "debt",
+    "reason": "S8: seven-state status machine driven by asynchronous jobs; DB-6 adds version",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "version-column",
+    "object": "notifications.notification_prefs",
+    "status": "accepted",
+    "reason": "per-user notification preferences; the owning user is the sole writer of their own row"
+  },
+  {
+    "rule": "version-column",
+    "object": "people.account_projection",
+    "status": "accepted",
+    "reason": "single-writer read-model projection rebuilt from core.events; carries no authoritative domain state a lost update could destroy"
+  },
+  {
+    "rule": "version-column",
+    "object": "people.project_projection",
+    "status": "accepted",
+    "reason": "single-writer read-model projection rebuilt from core.events; carries no authoritative domain state a lost update could destroy"
+  },
+  {
+    "rule": "version-column",
+    "object": "people.worker_allocation_projection",
+    "status": "accepted",
+    "reason": "single-writer read-model projection rebuilt from core.events; carries no authoritative domain state a lost update could destroy"
+  },
+  {
+    "rule": "version-column",
+    "object": "planner.group_join_requests",
+    "status": "accepted",
+    "reason": "join request resolved once; the pending->resolved transition is guarded by a WHERE status = 'pending' predicate, which is the concurrency guard a version column would otherwise provide"
+  },
+  {
+    "rule": "version-column",
+    "object": "planner.plan_categories",
+    "status": "accepted",
+    "reason": "plan-owned category slot keyed by (tenant, plan, slot), written within the plan's edit transaction; concurrency is guarded at the parent aggregate"
+  },
+  {
+    "rule": "version-column",
+    "object": "planner.task_comments",
+    "status": "debt",
+    "reason": "S8: mutable comment body with no optimistic-concurrency guard; DB-6 adds version",
+    "ticket": "FUT-554"
+  },
+  {
+    "rule": "version-column",
+    "object": "pm.staffing_plan_line_skill",
+    "status": "accepted",
+    "reason": "junction table: membership is replaced as a set, not field-updated in place; no domain state to lose to a concurrent writer"
+  },
+  {
+    "rule": "version-column",
+    "object": "pm.worker_projection",
+    "status": "accepted",
+    "reason": "single-writer read-model projection rebuilt from core.events; carries no authoritative domain state a lost update could destroy"
+  }
+]
