@@ -10,7 +10,6 @@ import {
   workerAllocationProjection,
 } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
-import { buildWorkerScope } from './worker-scope.ts';
 
 export interface OrgUnitNode {
   id: string;
@@ -31,7 +30,6 @@ export async function getOrgStructure(session: SessionScope): Promise<{ units: O
     .where(tenantScoped(orgUnit.tenant_id, session))
     .orderBy(asc(orgUnit.sort), asc(orgUnit.name));
 
-  const scope = buildWorkerScope(session);
   const rows = await peopleDb()
     .select({
       person_id: worker.person_id,
@@ -40,9 +38,7 @@ export async function getOrgStructure(session: SessionScope): Promise<{ units: O
       org_unit_id: worker.org_unit_id,
     })
     .from(worker)
-    .where(
-      and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at), scope ?? undefined),
-    );
+    .where(and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)));
 
   const nameByPerson = new Map(rows.map((r) => [r.person_id, r.full_name]));
   const membersByUnit = new Map<
@@ -88,17 +84,12 @@ export async function getOrgDelivery(
 ): Promise<{ accounts: DeliveryAccount[] }> {
   requirePermission(session, 'people.worker.read');
   const tenantId = session.tenant_id;
-  const scope = buildWorkerScope(session);
 
-  // Visible workers gate which allocations/accounts appear (tenant scope ⇒ predicate null ⇒ all).
-  const visibleWorkers = await peopleDb()
+  const workers = await peopleDb()
     .select({ person_id: worker.person_id, full_name: worker.full_name })
     .from(worker)
-    .where(
-      and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at), scope ?? undefined),
-    );
-  const nameByPerson = new Map(visibleWorkers.map((w) => [w.person_id, w.full_name]));
-  const seeAll = !scope;
+    .where(and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)));
+  const nameByPerson = new Map(workers.map((w) => [w.person_id, w.full_name]));
 
   const accounts = await peopleDb()
     .select()
@@ -137,26 +128,19 @@ export async function getOrgDelivery(
       project_id: p.project_id,
       name: p.name,
       members: (allocByProject.get(p.project_id) ?? [])
-        .filter((a) => a.worker_id && (seeAll || nameByPerson.has(a.worker_id)))
+        .filter((a) => a.worker_id)
         .map((a) => ({
           person_id: a.worker_id ?? '',
           full_name: nameByPerson.get(a.worker_id ?? '') ?? '',
           is_lead: a.lead_worker_id === a.worker_id,
         })),
     }));
-    const amVisible = acc.am_worker_id && (seeAll || nameByPerson.has(acc.am_worker_id));
-    const hasMembers = accProjects.some((p) => p.members.length > 0);
-    // Show an account if the viewer manages it, or can see any of its allocated members.
-    if (!seeAll && !amVisible && !hasMembers) continue;
     out.push({
       account_id: acc.account_id,
       name: acc.name,
-      am:
-        acc.am_worker_id && nameByPerson.has(acc.am_worker_id)
-          ? { person_id: acc.am_worker_id, full_name: nameByPerson.get(acc.am_worker_id) ?? '' }
-          : acc.am_worker_id && seeAll
-            ? { person_id: acc.am_worker_id, full_name: '' }
-            : null,
+      am: acc.am_worker_id
+        ? { person_id: acc.am_worker_id, full_name: nameByPerson.get(acc.am_worker_id) ?? '' }
+        : null,
       projects: accProjects,
     });
   }
@@ -193,7 +177,7 @@ const UNIT_KINDS = new Set<CompanyNodeKind>([
 
 /**
  * The Company tab tree. The org-unit spine comes from the stored `org_unit.parent_id`; the
- * Delivery → AM → account subtree is derived from `getOrgDelivery` (so scope/visibility match the
+ * Delivery → AM → account subtree is derived from `getOrgDelivery` (visibility matches the
  * Account tab exactly). No member/project leaves. All parent links are returned as data.
  */
 export async function getOrgCompany(session: SessionScope): Promise<{ nodes: CompanyNode[] }> {
@@ -205,14 +189,10 @@ export async function getOrgCompany(session: SessionScope): Promise<{ nodes: Com
     .where(tenantScoped(orgUnit.tenant_id, session))
     .orderBy(asc(orgUnit.sort), asc(orgUnit.name));
 
-  // Scope-filtered member counts per unit.
-  const scope = buildWorkerScope(session);
   const memberRows = await peopleDb()
     .select({ org_unit_id: worker.org_unit_id })
     .from(worker)
-    .where(
-      and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at), scope ?? undefined),
-    );
+    .where(and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)));
   const countByUnit = new Map<string, number>();
   for (const r of memberRows) {
     if (r.org_unit_id) countByUnit.set(r.org_unit_id, (countByUnit.get(r.org_unit_id) ?? 0) + 1);

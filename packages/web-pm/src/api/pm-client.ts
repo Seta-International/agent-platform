@@ -25,14 +25,20 @@ export interface AccountPatch {
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
+    let details: Record<string, unknown> | undefined;
     try {
-      const body = (await res.json()) as { message?: string };
+      const body = (await res.json()) as { message?: string; details?: Record<string, unknown> };
       if (body.message) message = body.message;
+      details = body.details;
     } catch {
       // ignore parse error
     }
-    const err = new Error(message) as Error & { status?: number };
+    const err = new Error(message) as Error & {
+      status?: number;
+      details?: Record<string, unknown>;
+    };
     err.status = res.status;
+    err.details = details;
     throw err;
   }
   return res.json() as Promise<T>;
@@ -456,6 +462,7 @@ export async function createAllocation(body: {
 export async function updateAllocation(
   allocationId: string,
   patch: {
+    project_id?: string;
     role?: string | null;
     planned_pct?: number | null;
     status?: 'placeholder' | 'tentative' | 'committed';
@@ -481,6 +488,136 @@ export async function removeAllocation(allocationId: string): Promise<void> {
     credentials: 'include',
   });
   if (!res.ok) await handleResponse(res);
+}
+
+export interface EffortConflict {
+  project_name: string;
+  date_from: string | null;
+  date_to: string | null;
+  planned_pct: number;
+}
+
+export interface CheckAllocationEffortResult {
+  peak_pct: number;
+  exceeds: boolean;
+  conflicts: EffortConflict[];
+}
+
+export async function checkAllocationEffort(params: {
+  worker_id: string;
+  date_from: string;
+  date_to: string;
+  planned_pct: number;
+  exclude_allocation_id?: string;
+}): Promise<CheckAllocationEffortResult> {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined) sp.set(k, String(v));
+  }
+  const res = await fetch(`/api/pm/v1/allocations/effort-check?${sp}`, {
+    credentials: 'include',
+  });
+  return handleResponse<CheckAllocationEffortResult>(res);
+}
+
+export interface SplitAllocationResult {
+  updated_id: string;
+  updated_version: number;
+  continuation_id: string;
+  warning: { peak_pct: number } | null;
+}
+
+export async function splitAllocation(
+  allocationId: string,
+  body: {
+    new_end_date: string;
+    continuation: {
+      planned_pct?: number | null;
+      bucket?: 'billable' | 'internal' | 'bench';
+      date_to?: string | null;
+      note?: string | null;
+    };
+    expected_version?: number;
+  },
+): Promise<SplitAllocationResult> {
+  const res = await fetch(`/api/pm/v1/allocations/${allocationId}/split`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<SplitAllocationResult>(res);
+}
+
+export interface ReassignWarning {
+  project_name: string;
+  peak_pct: number;
+}
+
+export interface ReassignAllocationResult {
+  source_updated_version: number;
+  target_ids: string[];
+  warnings: ReassignWarning[];
+}
+
+export interface ReassignPreviewSegment {
+  project_name: string;
+  account_name: string;
+  bucket: 'billable' | 'internal' | 'bench';
+  date_from: string;
+  date_to: string | null;
+  planned_pct: number;
+}
+
+export interface ReassignPreviewResult {
+  worker_name: string | null;
+  source: ReassignPreviewSegment;
+  targets: ReassignPreviewSegment[];
+  peak_pct: number;
+  exceeds: boolean;
+  peak_from: string | null;
+  peak_to: string | null;
+}
+
+export interface ReassignAllocationBody {
+  source: {
+    date_to: string;
+  };
+  targets: Array<{
+    project_id: string;
+    date_from: string;
+    planned_pct: number;
+    bucket?: 'billable' | 'internal' | 'bench';
+    date_to?: string | null;
+    note?: string | null;
+  }>;
+  expected_version?: number;
+}
+
+export async function reassignAllocation(
+  allocationId: string,
+  body: ReassignAllocationBody,
+): Promise<ReassignAllocationResult> {
+  const res = await fetch(`/api/pm/v1/allocations/${allocationId}/reassign`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ReassignAllocationResult>(res);
+}
+
+export async function previewReassignAllocation(
+  allocationId: string,
+  body: ReassignAllocationBody,
+): Promise<ReassignPreviewResult> {
+  const res = await fetch(`/api/pm/v1/allocations/${allocationId}/reassign/preview`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ReassignPreviewResult>(res);
 }
 
 export interface RaMonitoringAllocation {
@@ -518,4 +655,60 @@ export async function fetchAllocations(params: {
     credentials: 'include',
   });
   return (await handleResponse<{ allocations: RaMonitoringAllocation[] }>(res)).allocations;
+}
+
+export interface ReassignWorkerAllocationsResult {
+  updated: Array<{ allocation_id: string; version: number }>;
+  target_ids: string[];
+  warnings: ReassignWarning[];
+}
+
+export interface ReassignGroupPreviewResult {
+  worker_name: string | null;
+  sources: ReassignPreviewSegment[];
+  targets: ReassignPreviewSegment[];
+  peak_pct: number;
+  exceeds: boolean;
+  peak_from: string | null;
+  peak_to: string | null;
+}
+
+export interface ReassignWorkerAllocationsBody {
+  worker_id: string;
+  allocation_ids: string[];
+  source: {
+    date_to: string;
+  };
+  targets: Array<{
+    project_id: string;
+    date_from: string;
+    planned_pct: number;
+    bucket?: 'billable' | 'internal' | 'bench';
+    date_to?: string | null;
+    note?: string | null;
+  }>;
+}
+
+export async function reassignWorkerAllocations(
+  body: ReassignWorkerAllocationsBody,
+): Promise<ReassignWorkerAllocationsResult> {
+  const res = await fetch('/api/pm/v1/allocations/reassign-group', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ReassignWorkerAllocationsResult>(res);
+}
+
+export async function previewReassignWorkerAllocations(
+  body: ReassignWorkerAllocationsBody,
+): Promise<ReassignGroupPreviewResult> {
+  const res = await fetch('/api/pm/v1/allocations/reassign-group/preview', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ReassignGroupPreviewResult>(res);
 }
