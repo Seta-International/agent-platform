@@ -208,6 +208,40 @@ module.exports = {
       to: { path: '^packages/core/src/runtime/dispatcher/' },
     },
 
+    // 14.1. @seta/shared-db/composition (getPool, getPoolStats) is private to the
+    //       composition roots. Module code must not choose a privilege level; it
+    //       resolves executorPool(), whose privilege and tenant scope the composition
+    //       root decided. Tests are exempt: global-setup calls initPools() then
+    //       getPool('worker') to run migrations, and a couple of core tests call
+    //       getPool with no nearby initPools. Tests don't ship.
+    {
+      name: 'shared-db-composition-root-only',
+      severity: 'error',
+      comment:
+        'Module code must not choose a privilege level; it resolves executorPool(), whose privilege and tenant scope the composition root decided.',
+      from: {
+        pathNot:
+          '^apps/(server|worker|cli)/|^packages/shared-db/|/tests/|\\.(test|spec)\\.[jt]sx?$',
+      },
+      to: { path: '^packages/shared-db/src/composition\\.ts$' },
+    },
+
+    // 14.2. @seta/shared-db/pre-tenant (preTenantAppPool, preTenantAdminPool) is
+    //       private to packages/identity/src/backend/ — the only place that runs
+    //       before a tenant is known (better-auth email lookup, SSO tenant
+    //       resolution). Every new caller widens an authentication-time hole.
+    {
+      name: 'shared-db-pre-tenant-identity-only',
+      severity: 'error',
+      comment:
+        'preTenantAppPool/preTenantAdminPool are authentication-time escapes reserved for identity backend code. Every new caller widens a pre-tenant hole.',
+      from: {
+        pathNot:
+          '^packages/identity/src/backend/|^packages/shared-db/|/tests/|\\.(test|spec)\\.[jt]sx?$',
+      },
+      to: { path: '^packages/shared-db/src/pre-tenant\\.ts$' },
+    },
+
     // 15. apps/web and any -web package are browser code: they must not import
     //     backend or db layers from any module.
     {

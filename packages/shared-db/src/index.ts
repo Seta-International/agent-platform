@@ -34,7 +34,6 @@ export {
   ensureTenantPartition,
 } from './partition-provisioner.ts';
 export { closePools, initPools, type Pools, type PoolsConfig } from './pools.ts';
-export { runRequestTenant } from './request-tenant.ts';
 export { buildRlsSql, setTenantGuc, TENANT_GUC, withTenantTx } from './rls.ts';
 export { textEnum, textEnumCheck, textEnumValuesSql } from './text-enum.ts';
 export { buildTouchTriggerSql, buildTouchUpdatedAtFnSql } from './touch-updated-at.ts';

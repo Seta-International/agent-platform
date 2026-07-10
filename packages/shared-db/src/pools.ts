@@ -103,8 +103,8 @@ export function initPools(cfg: PoolsConfig): Pools {
   instrumentPool(pools.mastraState, 'mastraState');
 
   // The web pool is served through a tenant-aware facade so per-request RLS
-  // binding (runRequestTenant) governs every module's reads. Raw pool is bound
-  // for the connection-pinning path.
+  // binding (pinTenantConnection, via scoped()) governs every module's reads. Raw pool
+  // is bound for the connection-pinning path.
   bindWebPool();
   webFacade = makeTenantAwarePool(pools.web);
 
@@ -122,9 +122,9 @@ export function initPools(cfg: PoolsConfig): Pools {
 }
 
 /**
- * @deprecated Modules must not choose a privilege level. Use `executorPool()`, and let
- * the composition root open the context with `scoped()` / `maintenance()`.
- * Off the `@seta/shared-db` barrel as of PR4 of DB-1; importable only via
+ * Composition-root API. Modules must not choose a privilege level themselves — use
+ * `executorPool()`, and let the composition root open the context with `scoped()` /
+ * `maintenance()`. Off the `@seta/shared-db` barrel as of PR4 of DB-1; importable only via
  * `@seta/shared-db/composition`.
  */
 export function getPool(name?: 'web' | 'worker' | 'mastraState'): Pool {

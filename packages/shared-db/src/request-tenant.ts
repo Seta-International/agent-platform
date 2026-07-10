@@ -123,8 +123,3 @@ export async function pinTenantConnection<T>(tenantId: string, fn: () => Promise
     }
   }
 }
-
-/** @deprecated use `scoped()` from executor.ts. Kept until PR4. */
-export async function runRequestTenant<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
-  return pinTenantConnection(tenantId, fn);
-}
