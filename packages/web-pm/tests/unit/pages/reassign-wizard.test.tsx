@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -25,6 +25,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// Dates relative to the real "today" so the past/future distinction (FUT-349 lock) stays
+// correct no matter when the suite runs.
+const isoOffset = (days: number): string =>
+  new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+const FUTURE_START = isoOffset(90);
+const PAST_START = isoOffset(-90);
+
 function allocation(over: Partial<RaMonitoringAllocation> = {}): RaMonitoringAllocation {
   return {
     allocation_id: 'a1',
@@ -35,7 +42,7 @@ function allocation(over: Partial<RaMonitoringAllocation> = {}): RaMonitoringAll
     planned_pct: 30,
     bucket: 'billable',
     status: 'committed',
-    date_from: '2026-04-09',
+    date_from: FUTURE_START,
     date_to: '2026-12-23',
     note: null,
     project_id: 'p1',
@@ -88,7 +95,8 @@ describe('ReassignWizardDialog', () => {
     const endDateInput = screen.getByLabelText(/end date for/i) as HTMLInputElement;
     expect(endDateInput.value).toBe('2026-12-23');
     expect(screen.getByLabelText(/start date for/i)).toBeInTheDocument();
-    expect(screen.getByDisplayValue('30')).toBeInTheDocument();
+    // Allocation is a 0–1 fraction dropdown now: 30% renders as 0.3.
+    expect(screen.getByLabelText(/allocation for/i)).toHaveTextContent('0.3');
     expect(screen.getByLabelText(/account for/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/project for/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save aeris - watchtower/i })).toBeInTheDocument();
@@ -97,7 +105,7 @@ describe('ReassignWizardDialog', () => {
 
   it('bumps the end date forward when Start is moved past it, preventing an inverted range', async () => {
     const user = userEvent.setup({ delay: null });
-    renderWizard([allocation({ date_from: '2026-04-09', date_to: '2026-12-23' })]);
+    renderWizard([allocation({ date_from: FUTURE_START, date_to: '2026-12-23' })]);
 
     const startDateInput = screen.getByLabelText(/start date for/i) as HTMLInputElement;
     await user.clear(startDateInput);
@@ -111,23 +119,20 @@ describe('ReassignWizardDialog', () => {
     const user = userEvent.setup({ delay: null });
     renderWizard([allocation({ date_to: '2026-12-23', version: 3 })]);
 
-    const pctInput = screen.getByDisplayValue('30') as HTMLInputElement;
-    await user.clear(pctInput);
-    await user.type(pctInput, '50');
-
     const endDateInput = screen.getByLabelText(/end date for/i) as HTMLInputElement;
     await user.clear(endDateInput);
     await user.type(endDateInput, '2026-08-15');
 
-    const noteInput = screen.getByDisplayValue('') as HTMLInputElement;
+    const noteInput = screen.getByLabelText(/note for/i) as HTMLInputElement;
     await user.type(noteInput, 'Handover in progress');
 
     await user.click(screen.getByRole('button', { name: /save aeris - watchtower/i }));
 
+    // Allocation is entered as the 0.3 fraction; the wizard converts it back to a percentage.
     expect(updateAllocation).toHaveBeenCalledWith('a1', {
       project_id: 'p1',
-      planned_pct: 50,
-      date_from: '2026-04-09',
+      planned_pct: 30,
+      date_from: FUTURE_START,
       date_to: '2026-08-15',
       bucket: 'billable',
       note: 'Handover in progress',
@@ -135,9 +140,23 @@ describe('ReassignWizardDialog', () => {
     });
     // Row stays directly editable (no view-mode toggle) — its fields keep
     // reflecting exactly what was just saved.
-    expect(await screen.findByDisplayValue('50')).toBeInTheDocument();
     expect(endDateInput).toHaveValue('2026-08-15');
     expect(noteInput).toHaveValue('Handover in progress');
+  });
+
+  it('locks a past-start allocation to end date and delete only', () => {
+    renderWizard([allocation({ date_from: PAST_START, date_to: '2026-12-23' })]);
+
+    // Everything that defines the allocation's terms is read-only once it has started…
+    expect(screen.getByLabelText(/account for/i)).toBeDisabled();
+    expect(screen.getByLabelText(/project for/i)).toBeDisabled();
+    expect(screen.getByLabelText(/allocation for/i)).toBeDisabled();
+    expect(screen.getByLabelText(/start date for/i)).toBeDisabled();
+    expect(screen.getByLabelText(/type for/i)).toBeDisabled();
+    expect(screen.getByLabelText(/note for/i)).toBeDisabled();
+    // …but you can still shorten/extend it or remove it entirely.
+    expect(screen.getByLabelText(/end date for/i)).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /delete aeris - watchtower/i })).not.toBeDisabled();
   });
 
   it('lets an existing row be moved to a different account/project, and sends the new project_id on Save', async () => {
@@ -229,5 +248,92 @@ describe('ReassignWizardDialog', () => {
     await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
 
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
+  });
+
+  it('requires both a start and end date on a new project before Review impact enables', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [{ value: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Add project' }));
+    await user.click(screen.getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+    await user.click(screen.getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+
+    // Dates default to today, so the row is valid out of the box.
+    const startDate = screen.getByLabelText('Start date') as HTMLInputElement;
+    const endDate = screen.getByLabelText('End date') as HTMLInputElement;
+    expect(startDate.value).not.toBe('');
+    expect(endDate.value).not.toBe('');
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
+
+    // Clearing a required date (end) gates the button again.
+    fireEvent.change(endDate, { target: { value: '' } });
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
+
+    // Restoring a valid end date re-enables it.
+    fireEvent.change(endDate, { target: { value: '2026-12-31' } });
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
+  });
+
+  it('warns in red and disables Review impact when a new project start is in the past', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [{ value: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Add project' }));
+    await user.click(screen.getByRole('combobox', { name: 'Account' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris' }));
+    await user.click(screen.getByRole('combobox', { name: 'Project' }));
+    await user.click(await screen.findByRole('option', { name: 'Aeris - Finch Mobile' }));
+
+    // Defaults to today → valid.
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
+
+    // Move the start into the past → red warning + gated button.
+    fireEvent.change(screen.getByLabelText('Start date'), { target: { value: PAST_START } });
+    expect(screen.getByText(/start date cannot be in the past/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
+  });
+
+  it('warns and disables Save when an existing row start is edited into the past', () => {
+    // Default allocation starts in the future, so its start is editable.
+    renderWizard([allocation({ project_name: 'Aeris - Watchtower' })]);
+
+    fireEvent.change(screen.getByLabelText('Start date for Aeris - Watchtower'), {
+      target: { value: PAST_START },
+    });
+
+    expect(
+      screen.getByText(/aeris - watchtower: start date cannot be in the past/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save aeris - watchtower/i })).toBeDisabled();
   });
 });
