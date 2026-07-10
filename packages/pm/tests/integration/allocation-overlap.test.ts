@@ -20,7 +20,9 @@ async function seedProject(
   session: import('@seta/core').SessionScope,
   name = 'P',
 ): Promise<string> {
-  const { account_id } = await createAccount({ name: `A-${name}`, session });
+  const { account_id } = await inScope(session, () =>
+    createAccount({ name: `A-${name}`, session }),
+  );
   const { charter_id } = await inScope(session, () =>
     submitCharter({
       account_id,
@@ -43,16 +45,18 @@ const book = (
   date_from: string,
   date_to: string,
 ) =>
-  createAllocation({
-    project_id,
-    worker_id,
-    date_from,
-    date_to,
-    bucket: 'billable',
-    planned_pct: 100,
-    status: 'committed',
-    session,
-  });
+  inScope(session, () =>
+    createAllocation({
+      project_id,
+      worker_id,
+      date_from,
+      date_to,
+      bucket: 'billable',
+      planned_pct: 100,
+      status: 'committed',
+      session,
+    }),
+  );
 
 describe('allocation overlap guard', () => {
   it('rejects a second booking overlapping the same worker+project', async () => {
@@ -135,11 +139,13 @@ describe('allocation overlap guard', () => {
         const second = await book(t.adminSession, project, worker, '2026-07-01', '2026-12-31');
 
         await expect(
-          updateAllocation({
-            allocation_id: second.allocation_id,
-            date_from: '2026-06-01',
-            session: t.adminSession,
-          }),
+          inScope(t.adminSession, () =>
+            updateAllocation({
+              allocation_id: second.allocation_id,
+              date_from: '2026-06-01',
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow(/overlapping/i);
       } finally {
         resetPmDb();
@@ -160,11 +166,13 @@ describe('allocation overlap guard', () => {
         const worker = crypto.randomUUID();
 
         const only = await book(t.adminSession, project, worker, '2026-01-01', '2026-06-30');
-        const { version } = await updateAllocation({
-          allocation_id: only.allocation_id,
-          date_to: '2026-08-31',
-          session: t.adminSession,
-        });
+        const { version } = await inScope(t.adminSession, () =>
+          updateAllocation({
+            allocation_id: only.allocation_id,
+            date_to: '2026-08-31',
+            session: t.adminSession,
+          }),
+        );
         expect(version).toBe(2);
       } finally {
         resetPmDb();

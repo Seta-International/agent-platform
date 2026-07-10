@@ -57,38 +57,40 @@ describe('project access + staffing plan', () => {
         const t = await seedTenant(pool);
         const { project_id } = await seedProject(pool, t.adminSession, t.tenant_id);
 
-        const w = crypto.randomUUID();
-        // Add a new edit-level grant (owner already exists from charter approval)
-        const r = await setProjectAccess({
-          project_id,
-          grants: [
-            { worker_id: t.adminSession.user_id, level: 'owner' },
-            { worker_id: w, level: 'edit' },
-          ],
-          session: t.adminSession,
-        });
-        expect(r.added).toBe(1); // w was added; owner already existed (no change)
-        const access = await listProjectAccess({ project_id, session: t.adminSession });
-        expect(access.find((a) => a.worker_id === w)?.level).toBe('edit');
+        await inScope(t.adminSession, async () => {
+          const w = crypto.randomUUID();
+          // Add a new edit-level grant (owner already exists from charter approval)
+          const r = await setProjectAccess({
+            project_id,
+            grants: [
+              { worker_id: t.adminSession.user_id, level: 'owner' },
+              { worker_id: w, level: 'edit' },
+            ],
+            session: t.adminSession,
+          });
+          expect(r.added).toBe(1); // w was added; owner already existed (no change)
+          const access = await listProjectAccess({ project_id, session: t.adminSession });
+          expect(access.find((a) => a.worker_id === w)?.level).toBe('edit');
 
-        // the access-changed event carries the current owner-level worker ids, so hiring
-        // (FUT-328) can project "who owns this project" without a cross-module join
-        const accessEvents = await readEvents(pool, t.tenant_id, 'pm.project.access.changed');
-        const latest = accessEvents[accessEvents.length - 1];
-        expect(latest?.payload.owner_worker_ids).toEqual([t.adminSession.user_id]);
+          // the access-changed event carries the current owner-level worker ids, so hiring
+          // (FUT-328) can project "who owns this project" without a cross-module join
+          const accessEvents = await readEvents(pool, t.tenant_id, 'pm.project.access.changed');
+          const latest = accessEvents[accessEvents.length - 1];
+          expect(latest?.payload.owner_worker_ids).toEqual([t.adminSession.user_id]);
 
-        const line = await upsertStaffingPlanLine({
-          project_id,
-          role: 'Backend',
-          effort_mm: 2,
-          skills: [{ skill_id: crypto.randomUUID(), skill_name: 'node' }],
-          session: t.adminSession,
+          const line = await upsertStaffingPlanLine({
+            project_id,
+            role: 'Backend',
+            effort_mm: 2,
+            skills: [{ skill_id: crypto.randomUUID(), skill_name: 'node' }],
+            session: t.adminSession,
+          });
+          expect(line.version).toBe(1);
+          expect((await listStaffingPlan({ project_id, session: t.adminSession })).length).toBe(1);
+          expect(
+            (await readEvents(pool, t.tenant_id, 'pm.project.staffing_plan.changed')).length,
+          ).toBe(1);
         });
-        expect(line.version).toBe(1);
-        expect((await listStaffingPlan({ project_id, session: t.adminSession })).length).toBe(1);
-        expect(
-          (await readEvents(pool, t.tenant_id, 'pm.project.staffing_plan.changed')).length,
-        ).toBe(1);
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -106,7 +108,9 @@ describe('project access + staffing plan', () => {
         const t = await seedTenant(pool);
         const { project_id } = await seedProject(pool, t.adminSession, t.tenant_id);
 
-        const access = await listProjectAccess({ project_id, session: t.adminSession });
+        const access = await inScope(t.adminSession, () =>
+          listProjectAccess({ project_id, session: t.adminSession }),
+        );
         expect(access).toEqual([{ worker_id: t.adminSession.user_id, level: 'owner' }]);
 
         const accessEvents = await readEvents(pool, t.tenant_id, 'pm.project.access.changed');
@@ -130,11 +134,13 @@ describe('project access + staffing plan', () => {
         const { project_id } = await seedProject(pool, t.adminSession, t.tenant_id);
 
         await expect(
-          setProjectAccess({
-            project_id,
-            grants: [{ worker_id: crypto.randomUUID(), level: 'view' }],
-            session: t.adminSession,
-          }),
+          inScope(t.adminSession, () =>
+            setProjectAccess({
+              project_id,
+              grants: [{ worker_id: crypto.randomUUID(), level: 'view' }],
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toMatchObject({ code: 'VALIDATION' });
       } finally {
         resetPmDb();
@@ -155,7 +161,9 @@ describe('project access + staffing plan', () => {
         // project creation already seeded the PM as owner and emitted one access.changed event
         const before = (await readEvents(pool, t.tenant_id, 'pm.project.access.changed')).length;
 
-        const r = await setProjectAccess({ project_id, grants: [], session: t.adminSession });
+        const r = await inScope(t.adminSession, () =>
+          setProjectAccess({ project_id, grants: [], session: t.adminSession }),
+        );
         expect(r.added).toBe(0);
         expect(r.removed).toBe(0);
         expect(r.changed).toBe(0);
@@ -181,26 +189,30 @@ describe('project access + staffing plan', () => {
 
         // First call: add a worker
         const w = crypto.randomUUID();
-        await setProjectAccess({
-          project_id,
-          grants: [
-            { worker_id: t.adminSession.user_id, level: 'owner' },
-            { worker_id: w, level: 'edit' },
-          ],
-          session: t.adminSession,
-        });
+        await inScope(t.adminSession, () =>
+          setProjectAccess({
+            project_id,
+            grants: [
+              { worker_id: t.adminSession.user_id, level: 'owner' },
+              { worker_id: w, level: 'edit' },
+            ],
+            session: t.adminSession,
+          }),
+        );
         const eventsAfterFirst = (await readEvents(pool, t.tenant_id, 'pm.project.access.changed'))
           .length;
 
         // Second call with identical grants — should emit nothing
-        const r2 = await setProjectAccess({
-          project_id,
-          grants: [
-            { worker_id: t.adminSession.user_id, level: 'owner' },
-            { worker_id: w, level: 'edit' },
-          ],
-          session: t.adminSession,
-        });
+        const r2 = await inScope(t.adminSession, () =>
+          setProjectAccess({
+            project_id,
+            grants: [
+              { worker_id: t.adminSession.user_id, level: 'owner' },
+              { worker_id: w, level: 'edit' },
+            ],
+            session: t.adminSession,
+          }),
+        );
         expect(r2.added).toBe(0);
         expect(r2.removed).toBe(0);
         expect(r2.changed).toBe(0);
@@ -225,25 +237,31 @@ describe('project access + staffing plan', () => {
         const { project_id } = await seedProject(pool, t.adminSession, t.tenant_id);
 
         const w = crypto.randomUUID();
-        await setProjectAccess({
-          project_id,
-          grants: [
-            { worker_id: t.adminSession.user_id, level: 'owner' },
-            { worker_id: w, level: 'edit' },
-          ],
-          session: t.adminSession,
-        });
+        await inScope(t.adminSession, () =>
+          setProjectAccess({
+            project_id,
+            grants: [
+              { worker_id: t.adminSession.user_id, level: 'owner' },
+              { worker_id: w, level: 'edit' },
+            ],
+            session: t.adminSession,
+          }),
+        );
         // Now change w from edit → view (still keeping owner)
-        const r = await setProjectAccess({
-          project_id,
-          grants: [
-            { worker_id: t.adminSession.user_id, level: 'owner' },
-            { worker_id: w, level: 'view' },
-          ],
-          session: t.adminSession,
-        });
+        const r = await inScope(t.adminSession, () =>
+          setProjectAccess({
+            project_id,
+            grants: [
+              { worker_id: t.adminSession.user_id, level: 'owner' },
+              { worker_id: w, level: 'view' },
+            ],
+            session: t.adminSession,
+          }),
+        );
         expect(r.changed).toBe(1);
-        const access = await listProjectAccess({ project_id, session: t.adminSession });
+        const access = await inScope(t.adminSession, () =>
+          listProjectAccess({ project_id, session: t.adminSession }),
+        );
         expect(access.find((a) => a.worker_id === w)?.level).toBe('view');
       } finally {
         resetPmDb();
@@ -262,36 +280,48 @@ describe('project access + staffing plan', () => {
         const t = await seedTenant(pool);
         const { project_id } = await seedProject(pool, t.adminSession, t.tenant_id);
 
-        const line = await upsertStaffingPlanLine({
-          project_id,
-          role: 'FE',
-          effort_mm: 1,
-          skills: [{ skill_id: crypto.randomUUID(), skill_name: 'react' }],
-          session: t.adminSession,
-        });
+        const line = await inScope(t.adminSession, () =>
+          upsertStaffingPlanLine({
+            project_id,
+            role: 'FE',
+            effort_mm: 1,
+            skills: [{ skill_id: crypto.randomUUID(), skill_name: 'react' }],
+            session: t.adminSession,
+          }),
+        );
         expect(line.version).toBe(1);
 
-        const updated = await upsertStaffingPlanLine({
-          project_id,
-          line_id: line.line_id,
-          expected_version: 1,
-          role: 'FE',
-          effort_mm: 3,
-          skills: [
-            { skill_id: crypto.randomUUID(), skill_name: 'react' },
-            { skill_id: crypto.randomUUID(), skill_name: 'ts' },
-          ],
-          session: t.adminSession,
-        });
+        const updated = await inScope(t.adminSession, () =>
+          upsertStaffingPlanLine({
+            project_id,
+            line_id: line.line_id,
+            expected_version: 1,
+            role: 'FE',
+            effort_mm: 3,
+            skills: [
+              { skill_id: crypto.randomUUID(), skill_name: 'react' },
+              { skill_id: crypto.randomUUID(), skill_name: 'ts' },
+            ],
+            session: t.adminSession,
+          }),
+        );
         expect(updated.version).toBe(2);
 
-        const { deleted } = await deleteStaffingPlanLine({
-          project_id,
-          line_id: line.line_id,
-          session: t.adminSession,
-        });
+        const { deleted } = await inScope(t.adminSession, () =>
+          deleteStaffingPlanLine({
+            project_id,
+            line_id: line.line_id,
+            session: t.adminSession,
+          }),
+        );
         expect(deleted).toBe(true);
-        expect((await listStaffingPlan({ project_id, session: t.adminSession })).length).toBe(0);
+        expect(
+          (
+            await inScope(t.adminSession, () =>
+              listStaffingPlan({ project_id, session: t.adminSession }),
+            )
+          ).length,
+        ).toBe(0);
         // 2 upserts + 1 delete = 3 staffing events
         expect(
           (await readEvents(pool, t.tenant_id, 'pm.project.staffing_plan.changed')).length,
@@ -313,30 +343,36 @@ describe('project access + staffing plan', () => {
         const t = await seedTenant(pool);
         const { project_id } = await seedProject(pool, t.adminSession, t.tenant_id);
 
-        const line = await upsertStaffingPlanLine({
-          project_id,
-          role: 'QA',
-          effort_mm: 1,
-          session: t.adminSession,
-        });
-        // Stale version on update
-        await expect(
+        const line = await inScope(t.adminSession, () =>
           upsertStaffingPlanLine({
             project_id,
-            line_id: line.line_id,
-            expected_version: 99,
             role: 'QA',
+            effort_mm: 1,
             session: t.adminSession,
           }),
+        );
+        // Stale version on update
+        await expect(
+          inScope(t.adminSession, () =>
+            upsertStaffingPlanLine({
+              project_id,
+              line_id: line.line_id,
+              expected_version: 99,
+              role: 'QA',
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toMatchObject({ code: 'CONFLICT' });
         // Stale version on delete
         await expect(
-          deleteStaffingPlanLine({
-            project_id,
-            line_id: line.line_id,
-            expected_version: 99,
-            session: t.adminSession,
-          }),
+          inScope(t.adminSession, () =>
+            deleteStaffingPlanLine({
+              project_id,
+              line_id: line.line_id,
+              expected_version: 99,
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toMatchObject({ code: 'CONFLICT' });
       } finally {
         resetPmDb();
@@ -361,14 +397,18 @@ describe('project access + staffing plan', () => {
           roles: ['pm.viewer'],
         });
         await expect(
-          setProjectAccess({
-            project_id,
-            grants: [{ worker_id: crypto.randomUUID(), level: 'owner' }],
-            session: viewer,
-          }),
+          inScope(t.adminSession, () =>
+            setProjectAccess({
+              project_id,
+              grants: [{ worker_id: crypto.randomUUID(), level: 'owner' }],
+              session: viewer,
+            }),
+          ),
         ).rejects.toMatchObject({ code: 'FORBIDDEN' });
         await expect(
-          upsertStaffingPlanLine({ project_id, role: 'BE', session: viewer }),
+          inScope(t.adminSession, () =>
+            upsertStaffingPlanLine({ project_id, role: 'BE', session: viewer }),
+          ),
         ).rejects.toMatchObject({ code: 'FORBIDDEN' });
       } finally {
         resetPmDb();
