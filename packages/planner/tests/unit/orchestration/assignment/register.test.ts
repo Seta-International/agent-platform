@@ -20,6 +20,7 @@ const fakePorts = {
     listAvailableLabels: async () => [],
   } satisfies TaskSearchPort,
   skillSearch: { search: async () => [] } satisfies SkillSearchPort,
+  groupMembers: async () => [],
   availability: {
     status: async () => ({ status: 'available' as const, note: null }),
     inProgressCount: async () => 0,

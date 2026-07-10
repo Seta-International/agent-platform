@@ -30,6 +30,7 @@ import {
   buildWeeklyPlanRuntime,
   makeAssign,
   makeAvailability,
+  makeGroupMemberSkills,
   makeSkillSearch,
   makeTaskAssignees,
   makeTaskReader,
@@ -163,6 +164,7 @@ const assignmentOrchestration = buildAssignmentOrchestrationRuntime({
     userProfileLookup: makeUserProfileLookup(),
     assign: makeAssign(),
     taskAssignees: makeTaskAssignees(),
+    groupMembers: makeGroupMemberSkills(),
   },
 });
 
