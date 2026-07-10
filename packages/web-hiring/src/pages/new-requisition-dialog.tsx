@@ -330,7 +330,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               </div>
               {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
 
-              <SkillPicker value={skills} onChange={setSkills} />
+              <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
 
               <div className="flex items-center justify-between">
                 <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>

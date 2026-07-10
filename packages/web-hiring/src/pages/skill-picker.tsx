@@ -31,9 +31,12 @@ export interface PickedSkill {
 export function SkillPicker({
   value,
   onChange,
+  showLevel = true,
 }: {
   value: PickedSkill[];
   onChange: (next: PickedSkill[]) => void;
+  /** Show the per-skill 0–5 level dropdown. Off for requisition creation, which doesn't set levels. */
+  showLevel?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const { data } = useQuery({ queryKey: hiringKeys.skillCatalog(), queryFn: fetchSkillCatalog });
@@ -94,24 +97,26 @@ export function SkillPicker({
             className="h-auto gap-1.5 whitespace-nowrap py-1.5 pl-3 pr-1.5 text-body-sm"
           >
             <span className="whitespace-nowrap">{v.skill_name}</span>
-            <Select
-              value={String(v.level ?? 0)}
-              onValueChange={(val) => setLevel(v.skill_id, Number(val))}
-            >
-              <SelectTrigger
-                aria-label={`${v.skill_name} level`}
-                className="ml-1 h-auto gap-1 border-0 bg-transparent p-0 text-body-sm shadow-none focus-visible:shadow-none"
+            {showLevel ? (
+              <Select
+                value={String(v.level ?? 0)}
+                onValueChange={(val) => setLevel(v.skill_id, Number(val))}
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[0, 1, 2, 3, 4, 5].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <SelectTrigger
+                  aria-label={`${v.skill_name} level`}
+                  className="ml-1 h-auto gap-1 border-0 bg-transparent p-0 text-body-sm shadow-none focus-visible:shadow-none"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[0, 1, 2, 3, 4, 5].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
             <button
               type="button"
               aria-label={`Remove ${v.skill_name}`}
