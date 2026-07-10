@@ -9,7 +9,7 @@ import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { person } from '../../src/backend/db/schema.ts';
 import { bindUserToPerson } from '../../src/backend/subscribers/bind-user-to-person.ts';
 import { createWorker } from '../../src/index.ts';
-import { readEvents, seedTenant } from '../helpers.ts';
+import { inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -43,29 +43,35 @@ describe('bindUserToPerson', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { worker_id } = await createWorker({
-          full_name: 'Bind Me',
-          work_email: 'bind.me@example.test',
-          session: t.adminSession,
-        });
+        const { worker_id } = await inScope(t.adminSession, () =>
+          createWorker({
+            full_name: 'Bind Me',
+            work_email: 'bind.me@example.test',
+            session: t.adminSession,
+          }),
+        );
         const userId = crypto.randomUUID();
         const eventId = crypto.randomUUID();
-        await peopleDb().transaction(async (tx) => {
-          await emitContext.run(
-            { tx: tx as never, causedByEventId: eventId, traceId: undefined },
-            () =>
-              bindUserToPerson.handler(
-                userCreatedEvent({
-                  id: eventId,
-                  tenant_id: t.tenant_id,
-                  user_id: userId,
-                  email: 'bind.me@example.test',
-                }),
-                { tx } as never,
-              ),
-          );
-        });
-        const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
+        await inScope(t.adminSession, () =>
+          peopleDb().transaction(async (tx) => {
+            await emitContext.run(
+              { tx: tx as never, causedByEventId: eventId, traceId: undefined },
+              () =>
+                bindUserToPerson.handler(
+                  userCreatedEvent({
+                    id: eventId,
+                    tenant_id: t.tenant_id,
+                    user_id: userId,
+                    email: 'bind.me@example.test',
+                  }),
+                  { tx } as never,
+                ),
+            );
+          }),
+        );
+        const [p] = await inScope(t.adminSession, () =>
+          peopleDb().select().from(person).where(eq(person.id, worker_id)),
+        );
         expect(p?.user_id).toBe(userId);
       } finally {
         resetPeopleDb();
@@ -82,28 +88,32 @@ describe('bindUserToPerson', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { worker_id } = await createWorker({
-          full_name: 'Link Me',
-          work_email: 'link.me@example.test',
-          session: t.adminSession,
-        });
+        const { worker_id } = await inScope(t.adminSession, () =>
+          createWorker({
+            full_name: 'Link Me',
+            work_email: 'link.me@example.test',
+            session: t.adminSession,
+          }),
+        );
         const userId = crypto.randomUUID();
         const eventId = crypto.randomUUID();
-        await peopleDb().transaction(async (tx) => {
-          await emitContext.run(
-            { tx: tx as never, causedByEventId: eventId, traceId: undefined },
-            () =>
-              bindUserToPerson.handler(
-                userCreatedEvent({
-                  id: eventId,
-                  tenant_id: t.tenant_id,
-                  user_id: userId,
-                  email: 'link.me@example.test',
-                }),
-                { tx } as never,
-              ),
-          );
-        });
+        await inScope(t.adminSession, () =>
+          peopleDb().transaction(async (tx) => {
+            await emitContext.run(
+              { tx: tx as never, causedByEventId: eventId, traceId: undefined },
+              () =>
+                bindUserToPerson.handler(
+                  userCreatedEvent({
+                    id: eventId,
+                    tenant_id: t.tenant_id,
+                    user_id: userId,
+                    email: 'link.me@example.test',
+                  }),
+                  { tx } as never,
+                ),
+            );
+          }),
+        );
         const rows = await readEvents(pool, t.tenant_id, 'people.worker.user_linked');
         expect(rows).toHaveLength(1);
         expect(rows[0]?.payload).toMatchObject({
@@ -127,18 +137,20 @@ describe('bindUserToPerson', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        await peopleDb().transaction(async (tx) => {
-          await bindUserToPerson.handler(
-            userCreatedEvent({
-              id: crypto.randomUUID(),
-              tenant_id: t.tenant_id,
-              user_id: crypto.randomUUID(),
-              email: 'nobody@example.test',
-            }),
-            { tx } as never,
-          );
-        });
-        const persons = await peopleDb().select().from(person);
+        await inScope(t.adminSession, () =>
+          peopleDb().transaction(async (tx) => {
+            await bindUserToPerson.handler(
+              userCreatedEvent({
+                id: crypto.randomUUID(),
+                tenant_id: t.tenant_id,
+                user_id: crypto.randomUUID(),
+                email: 'nobody@example.test',
+              }),
+              { tx } as never,
+            );
+          }),
+        );
+        const persons = await inScope(t.adminSession, () => peopleDb().select().from(person));
         expect(persons).toHaveLength(0);
       } finally {
         resetPeopleDb();

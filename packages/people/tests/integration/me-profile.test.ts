@@ -15,7 +15,7 @@ import {
   setMySkills,
   setPresence,
 } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -51,26 +51,28 @@ describe('People self-service /me profile', () => {
       try {
         const t = await seedTenant(pool);
         await seedSkills(pool, t.tenant_id, ['TypeScript', 'Rust', 'Go']);
-        const { worker_id } = await provisionWorker({
-          full_name: 'Skill Worker',
-          start_date: '2026-01-01',
-          employment_type: 'full_time',
-          session: t.adminSession,
+        await inScope(t.adminSession, async () => {
+          const { worker_id } = await provisionWorker({
+            full_name: 'Skill Worker',
+            start_date: '2026-01-01',
+            employment_type: 'full_time',
+            session: t.adminSession,
+          });
+          await linkSelf(worker_id, t.admin_user_id);
+
+          await setMySkills(t.adminSession, { skills: ['TypeScript', 'Rust'] });
+          expect(await getPersonSkills(t.adminSession, { user_id: t.admin_user_id })).toEqual([
+            'Rust',
+            'TypeScript',
+          ]);
+
+          // drop Rust, add Go
+          await setMySkills(t.adminSession, { skills: ['TypeScript', 'Go'] });
+          expect(await getPersonSkills(t.adminSession, { user_id: t.admin_user_id })).toEqual([
+            'Go',
+            'TypeScript',
+          ]);
         });
-        await linkSelf(worker_id, t.admin_user_id);
-
-        await setMySkills(t.adminSession, { skills: ['TypeScript', 'Rust'] });
-        expect(await getPersonSkills(t.adminSession, { user_id: t.admin_user_id })).toEqual([
-          'Rust',
-          'TypeScript',
-        ]);
-
-        // drop Rust, add Go
-        await setMySkills(t.adminSession, { skills: ['TypeScript', 'Go'] });
-        expect(await getPersonSkills(t.adminSession, { user_id: t.admin_user_id })).toEqual([
-          'Go',
-          'TypeScript',
-        ]);
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -87,17 +89,19 @@ describe('People self-service /me profile', () => {
       try {
         const t = await seedTenant(pool);
         await seedSkills(pool, t.tenant_id, ['TypeScript']);
-        const { worker_id } = await provisionWorker({
-          full_name: 'Skill Worker',
-          start_date: '2026-01-01',
-          employment_type: 'full_time',
-          session: t.adminSession,
-        });
-        await linkSelf(worker_id, t.admin_user_id);
+        await inScope(t.adminSession, async () => {
+          const { worker_id } = await provisionWorker({
+            full_name: 'Skill Worker',
+            start_date: '2026-01-01',
+            employment_type: 'full_time',
+            session: t.adminSession,
+          });
+          await linkSelf(worker_id, t.admin_user_id);
 
-        await expect(
-          setMySkills(t.adminSession, { skills: ['TypeScript', 'Cobol'] }),
-        ).rejects.toThrow(/Cobol/i);
+          await expect(
+            setMySkills(t.adminSession, { skills: ['TypeScript', 'Cobol'] }),
+          ).rejects.toThrow(/Cobol/i);
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -114,32 +118,34 @@ describe('People self-service /me profile', () => {
       try {
         const t = await seedTenant(pool);
         await seedSkills(pool, t.tenant_id, ['TypeScript']);
-        const { worker_id } = await provisionWorker({
-          full_name: 'Profile Worker',
-          start_date: '2026-01-01',
-          employment_type: 'full_time',
-          session: t.adminSession,
+        await inScope(t.adminSession, async () => {
+          const { worker_id } = await provisionWorker({
+            full_name: 'Profile Worker',
+            start_date: '2026-01-01',
+            employment_type: 'full_time',
+            session: t.adminSession,
+          });
+          await linkSelf(worker_id, t.admin_user_id);
+
+          await setPresence(t.adminSession, {
+            availability_status: 'busy',
+            timezone: 'Asia/Ho_Chi_Minh',
+          });
+          await setMySkills(t.adminSession, { skills: ['TypeScript'] });
+          await setBio(t.adminSession, { bio: '  Builds platforms.  ' });
+
+          const me = await readMyProfile(t.adminSession);
+          expect(me.availability_status).toBe('busy');
+          expect(me.timezone).toBe('Asia/Ho_Chi_Minh');
+          expect(me.skills.map((s) => s.name)).toEqual(['TypeScript']);
+          expect(me.skills[0]?.level).toBeNull();
+          expect(me.bio).toBe('Builds platforms.');
+          expect(me.full_name).toBe('Profile Worker');
+
+          // empty bio clears it
+          await setBio(t.adminSession, { bio: '   ' });
+          expect((await readMyProfile(t.adminSession)).bio).toBeNull();
         });
-        await linkSelf(worker_id, t.admin_user_id);
-
-        await setPresence(t.adminSession, {
-          availability_status: 'busy',
-          timezone: 'Asia/Ho_Chi_Minh',
-        });
-        await setMySkills(t.adminSession, { skills: ['TypeScript'] });
-        await setBio(t.adminSession, { bio: '  Builds platforms.  ' });
-
-        const me = await readMyProfile(t.adminSession);
-        expect(me.availability_status).toBe('busy');
-        expect(me.timezone).toBe('Asia/Ho_Chi_Minh');
-        expect(me.skills.map((s) => s.name)).toEqual(['TypeScript']);
-        expect(me.skills[0]?.level).toBeNull();
-        expect(me.bio).toBe('Builds platforms.');
-        expect(me.full_name).toBe('Profile Worker');
-
-        // empty bio clears it
-        await setBio(t.adminSession, { bio: '   ' });
-        expect((await readMyProfile(t.adminSession)).bio).toBeNull();
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -156,24 +162,26 @@ describe('People self-service /me profile', () => {
       try {
         const t = await seedTenant(pool);
         await seedSkills(pool, t.tenant_id, ['TypeScript', 'Go']);
-        const { worker_id } = await provisionWorker({
-          full_name: 'Rating Worker',
-          start_date: '2026-01-01',
-          employment_type: 'full_time',
-          session: t.adminSession,
+        await inScope(t.adminSession, async () => {
+          const { worker_id } = await provisionWorker({
+            full_name: 'Rating Worker',
+            start_date: '2026-01-01',
+            employment_type: 'full_time',
+            session: t.adminSession,
+          });
+          await linkSelf(worker_id, t.admin_user_id);
+          await setMySkills(t.adminSession, { skills: ['TypeScript', 'Go'] });
+
+          const before = await readMyProfile(t.adminSession);
+          const ts = before.skills.find((s) => s.name === 'TypeScript');
+          expect(ts?.level).toBeNull();
+
+          await setMySkillLevel(t.adminSession, { skill_id: ts!.id, level: 4 });
+          const after = await readMyProfile(t.adminSession);
+          expect(after.skills.find((s) => s.name === 'TypeScript')?.level).toBe(4);
+          // untouched skill stays unrated
+          expect(after.skills.find((s) => s.name === 'Go')?.level).toBeNull();
         });
-        await linkSelf(worker_id, t.admin_user_id);
-        await setMySkills(t.adminSession, { skills: ['TypeScript', 'Go'] });
-
-        const before = await readMyProfile(t.adminSession);
-        const ts = before.skills.find((s) => s.name === 'TypeScript');
-        expect(ts?.level).toBeNull();
-
-        await setMySkillLevel(t.adminSession, { skill_id: ts!.id, level: 4 });
-        const after = await readMyProfile(t.adminSession);
-        expect(after.skills.find((s) => s.name === 'TypeScript')?.level).toBe(4);
-        // untouched skill stays unrated
-        expect(after.skills.find((s) => s.name === 'Go')?.level).toBeNull();
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -189,19 +197,21 @@ describe('People self-service /me profile', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { worker_id } = await provisionWorker({
-          full_name: 'Bare Worker',
-          start_date: '2026-01-01',
-          employment_type: 'full_time',
-          session: t.adminSession,
-        });
-        await linkSelf(worker_id, t.admin_user_id);
+        await inScope(t.adminSession, async () => {
+          const { worker_id } = await provisionWorker({
+            full_name: 'Bare Worker',
+            start_date: '2026-01-01',
+            employment_type: 'full_time',
+            session: t.adminSession,
+          });
+          await linkSelf(worker_id, t.admin_user_id);
 
-        const me = await readMyProfile(t.adminSession);
-        expect(me.availability_status).toBe('available');
-        expect(me.timezone).toBe('UTC');
-        expect(me.skills).toEqual([]);
-        expect(me.bio).toBeNull();
+          const me = await readMyProfile(t.adminSession);
+          expect(me.availability_status).toBe('available');
+          expect(me.timezone).toBe('UTC');
+          expect(me.skills).toEqual([]);
+          expect(me.bio).toBeNull();
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();

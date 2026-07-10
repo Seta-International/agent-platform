@@ -1,5 +1,6 @@
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
+import { maintenance, scoped } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -30,15 +31,17 @@ export async function seedTenant(pool: Pool): Promise<SeededTenant> {
     `test-${tenantId.slice(0, 8)}`,
   ]);
   const adminEmail = `admin-${tenantId.slice(0, 8)}@example.test`;
-  const adminResult = await createUser(
-    {
-      tenant_id: tenantId,
-      email: adminEmail,
-      name: 'Test Admin',
-      password: 'correct-horse-battery-staple',
-      initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-    },
-    { type: 'cli', user_id: null },
+  const adminResult = await maintenance(() =>
+    createUser(
+      {
+        tenant_id: tenantId,
+        email: adminEmail,
+        name: 'Test Admin',
+        password: 'correct-horse-battery-staple',
+        initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
   return {
     tenant_id: tenantId,
@@ -111,9 +114,11 @@ export function buildSession(opts: {
  * person first. Tests key workers on person_id (the domain's canonical handle), so id === person_id.
  */
 export async function seedPersons(tenant_id: string, ...person_ids: string[]): Promise<void> {
-  await peopleDb()
-    .insert(person)
-    .values(person_ids.map((id) => ({ id, tenant_id })));
+  await maintenance(() =>
+    peopleDb()
+      .insert(person)
+      .values(person_ids.map((id) => ({ id, tenant_id }))),
+  );
 }
 
 export async function seedOrgUnit(opts: {
@@ -123,17 +128,19 @@ export async function seedOrgUnit(opts: {
   parent_id?: string | null;
   head_worker_id?: string | null;
 }): Promise<string> {
-  const [u] = await peopleDb()
-    .insert(orgUnit)
-    .values({
-      tenant_id: opts.tenant_id,
-      name: opts.name,
-      kind: opts.kind,
-      parent_id: opts.parent_id ?? null,
-      head_worker_id: opts.head_worker_id ?? null,
-      sort: 0,
-    })
-    .returning();
+  const [u] = await maintenance(() =>
+    peopleDb()
+      .insert(orgUnit)
+      .values({
+        tenant_id: opts.tenant_id,
+        name: opts.name,
+        kind: opts.kind,
+        parent_id: opts.parent_id ?? null,
+        head_worker_id: opts.head_worker_id ?? null,
+        sort: 0,
+      })
+      .returning(),
+  );
   return u!.id;
 }
 
@@ -160,4 +167,14 @@ export async function countEvents(
     [tenantId, eventType],
   );
   return r.rows[0].n as number;
+}
+
+/**
+ * sessionMiddleware (packages/core/src/middleware/session.ts) opens scoped(tenantId, ...)
+ * around every authenticated request, so any people function that reaches another module's
+ * db client already has an executor context in production. Tests call those functions
+ * directly, so they must open one too.
+ */
+export function inScope<T>(session: SessionScope, fn: () => Promise<T>): Promise<T> {
+  return scoped(session.tenant_id, fn);
 }

@@ -4,7 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetPeopleDb } from '../../src/backend/db/client.ts';
 import { provisionWorker } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -43,12 +43,14 @@ describe('worker pg_trgm GIN indexes', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        await provisionWorker({
-          full_name: 'Trigram Testworker',
-          start_date: '2026-06-21',
-          employment_type: 'full_time',
-          session: t.adminSession,
-        });
+        await inScope(t.adminSession, () =>
+          provisionWorker({
+            full_name: 'Trigram Testworker',
+            start_date: '2026-06-21',
+            employment_type: 'full_time',
+            session: t.adminSession,
+          }),
+        );
         const r = await pool.query(
           `SELECT full_name FROM people.worker WHERE full_name ILIKE '%trigram%'`,
         );

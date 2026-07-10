@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { orgUnit, worker } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/index.ts';
-import { readEvents, seedTenant } from '../helpers.ts';
+import { inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -22,12 +22,16 @@ describe('createWorker', () => {
       try {
         const t = await seedTenant(pool);
 
-        const { worker_id } = await createWorker({
-          full_name: 'Alice Example',
-          session: t.adminSession,
-        });
+        const { worker_id } = await inScope(t.adminSession, () =>
+          createWorker({
+            full_name: 'Alice Example',
+            session: t.adminSession,
+          }),
+        );
 
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
+        const [w] = await inScope(t.adminSession, () =>
+          peopleDb().select().from(worker).where(eq(worker.person_id, worker_id)),
+        );
         expect(w?.full_name).toBe('Alice Example');
         expect(w?.work_email).toBeNull();
 
@@ -51,7 +55,9 @@ describe('createWorker', () => {
         const t = await seedTenant(pool);
 
         await expect(
-          createWorker({ full_name: '   ', session: t.adminSession }),
+          inScope(t.adminSession, () =>
+            createWorker({ full_name: '   ', session: t.adminSession }),
+          ),
         ).rejects.toMatchObject({ code: 'VALIDATION' });
       } finally {
         resetPeopleDb();
@@ -73,12 +79,16 @@ describe('createWorker', () => {
           t.tenant_id,
         ]);
 
-        const { worker_id } = await createWorker({
-          full_name: 'Jane Doe',
-          session: t.adminSession,
-        });
+        const { worker_id } = await inScope(t.adminSession, () =>
+          createWorker({
+            full_name: 'Jane Doe',
+            session: t.adminSession,
+          }),
+        );
 
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
+        const [w] = await inScope(t.adminSession, () =>
+          peopleDb().select().from(worker).where(eq(worker.person_id, worker_id)),
+        );
         expect(w?.work_email).toBe('jane.doe@acme.com');
       } finally {
         resetPeopleDb();
@@ -100,13 +110,19 @@ describe('createWorker', () => {
           t.tenant_id,
         ]);
 
-        await createWorker({ full_name: 'Jane Doe', session: t.adminSession });
-        const { worker_id } = await createWorker({
-          full_name: 'Jane Doe',
-          session: t.adminSession,
-        });
+        await inScope(t.adminSession, () =>
+          createWorker({ full_name: 'Jane Doe', session: t.adminSession }),
+        );
+        const { worker_id } = await inScope(t.adminSession, () =>
+          createWorker({
+            full_name: 'Jane Doe',
+            session: t.adminSession,
+          }),
+        );
 
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
+        const [w] = await inScope(t.adminSession, () =>
+          peopleDb().select().from(worker).where(eq(worker.person_id, worker_id)),
+        );
         expect(w?.work_email).toBe('jane.doe2@acme.com');
       } finally {
         resetPeopleDb();
@@ -124,12 +140,16 @@ describe('createWorker', () => {
       try {
         const t = await seedTenant(pool);
 
-        const { worker_id } = await createWorker({
-          full_name: 'Bob Noemail',
-          session: t.adminSession,
-        });
+        const { worker_id } = await inScope(t.adminSession, () =>
+          createWorker({
+            full_name: 'Bob Noemail',
+            session: t.adminSession,
+          }),
+        );
 
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
+        const [w] = await inScope(t.adminSession, () =>
+          peopleDb().select().from(worker).where(eq(worker.person_id, worker_id)),
+        );
         expect(w?.work_email).toBeNull();
       } finally {
         resetPeopleDb();
@@ -152,11 +172,13 @@ describe('createWorker', () => {
         ]);
 
         await expect(
-          createWorker({
-            full_name: 'Off Domain',
-            work_email: 'off@other.com',
-            session: t.adminSession,
-          }),
+          inScope(t.adminSession, () =>
+            createWorker({
+              full_name: 'Off Domain',
+              work_email: 'off@other.com',
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toMatchObject({ code: 'VALIDATION' });
       } finally {
         resetPeopleDb();
@@ -174,19 +196,25 @@ describe('createWorker', () => {
       try {
         const t = await seedTenant(pool);
 
-        const [u] = await peopleDb()
-          .insert(orgUnit)
-          .values({ tenant_id: t.tenant_id, name: 'PMO', kind: 'pmo', sort: 0 })
-          .returning();
+        const [u] = await inScope(t.adminSession, () =>
+          peopleDb()
+            .insert(orgUnit)
+            .values({ tenant_id: t.tenant_id, name: 'PMO', kind: 'pmo', sort: 0 })
+            .returning(),
+        );
 
-        const { worker_id } = await createWorker({
-          full_name: 'Worker With Title',
-          job_title: 'Senior Engineer',
-          org_unit_id: u!.id,
-          session: t.adminSession,
-        } as never);
+        const { worker_id } = await inScope(t.adminSession, () =>
+          createWorker({
+            full_name: 'Worker With Title',
+            job_title: 'Senior Engineer',
+            org_unit_id: u!.id,
+            session: t.adminSession,
+          } as never),
+        );
 
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
+        const [w] = await inScope(t.adminSession, () =>
+          peopleDb().select().from(worker).where(eq(worker.person_id, worker_id)),
+        );
         expect(w?.job_title).toBe('Senior Engineer');
         expect(w?.org_unit_id).toBe(u!.id);
       } finally {
@@ -209,18 +237,22 @@ describe('createWorker', () => {
           t.tenant_id,
         ]);
 
-        await createWorker({
-          full_name: 'First Worker',
-          work_email: 'shared@acme.com',
-          session: t.adminSession,
-        });
-
-        await expect(
+        await inScope(t.adminSession, () =>
           createWorker({
-            full_name: 'Second Worker',
+            full_name: 'First Worker',
             work_email: 'shared@acme.com',
             session: t.adminSession,
           }),
+        );
+
+        await expect(
+          inScope(t.adminSession, () =>
+            createWorker({
+              full_name: 'Second Worker',
+              work_email: 'shared@acme.com',
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toMatchObject({ code: 'CONFLICT' });
       } finally {
         resetPeopleDb();

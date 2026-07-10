@@ -6,7 +6,7 @@
  */
 import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { sourceHash } from '@seta/shared-embeddings';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -119,19 +119,21 @@ describe('embedPersonProfile', () => {
     await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
       const { tenant_id } = await seedTenantOnly(pool);
-      const { person_id } = await seedPerson(pool, tenant_id);
+      await scoped(tenant_id, async () => {
+        const { person_id } = await seedPerson(pool, tenant_id);
 
-      await addSkill(pool, tenant_id, person_id, 'typescript');
-      await addSkill(pool, tenant_id, person_id, 'postgres');
+        await addSkill(pool, tenant_id, person_id, 'typescript');
+        await addSkill(pool, tenant_id, person_id, 'postgres');
 
-      await embedPersonProfile({ tenant_id, person_id, event_id: 'e1' }, { provider, pgVector });
+        await embedPersonProfile({ tenant_id, person_id, event_id: 'e1' }, { provider, pgVector });
 
-      const meta = await fetchMeta(pgVector, tenant_id, person_id);
-      expect(meta).toBeDefined();
-      expect(meta!.person_id).toBe(person_id);
-      expect(meta!.tenant_id).toBe(tenant_id);
-      expect(meta!.source_hash).toMatch(/^[0-9a-f]{64}$/);
-      expect(meta!.model_id).toBe(provider.modelId);
+        const meta = await fetchMeta(pgVector, tenant_id, person_id);
+        expect(meta).toBeDefined();
+        expect(meta!.person_id).toBe(person_id);
+        expect(meta!.tenant_id).toBe(tenant_id);
+        expect(meta!.source_hash).toMatch(/^[0-9a-f]{64}$/);
+        expect(meta!.model_id).toBe(provider.modelId);
+      });
     });
   });
 
@@ -139,17 +141,19 @@ describe('embedPersonProfile', () => {
     await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
       const { tenant_id } = await seedTenantOnly(pool);
-      const { person_id } = await seedPerson(pool, tenant_id);
+      await scoped(tenant_id, async () => {
+        const { person_id } = await seedPerson(pool, tenant_id);
 
-      await addSkill(pool, tenant_id, person_id, 'golang');
-      await addSkill(pool, tenant_id, person_id, 'kubernetes');
+        await addSkill(pool, tenant_id, person_id, 'golang');
+        await addSkill(pool, tenant_id, person_id, 'kubernetes');
 
-      await embedPersonProfile({ tenant_id, person_id, event_id: 'e2' }, { provider, pgVector });
+        await embedPersonProfile({ tenant_id, person_id, event_id: 'e2' }, { provider, pgVector });
 
-      const meta = await fetchMeta(pgVector, tenant_id, person_id);
-      const expectedSource = buildPersonProfileSource({ skills: ['golang', 'kubernetes'] });
-      expect(meta!.source_hash).toBe(sourceHash(expectedSource));
-      expect(meta!.skills).toEqual(['golang', 'kubernetes']);
+        const meta = await fetchMeta(pgVector, tenant_id, person_id);
+        const expectedSource = buildPersonProfileSource({ skills: ['golang', 'kubernetes'] });
+        expect(meta!.source_hash).toBe(sourceHash(expectedSource));
+        expect(meta!.skills).toEqual(['golang', 'kubernetes']);
+      });
     });
   });
 
@@ -158,17 +162,19 @@ describe('embedPersonProfile', () => {
       const provider = new FakeEmbeddingProvider();
       const embedSpy = vi.spyOn(provider, 'embed');
       const { tenant_id } = await seedTenantOnly(pool);
-      const { person_id } = await seedPerson(pool, tenant_id);
+      await scoped(tenant_id, async () => {
+        const { person_id } = await seedPerson(pool, tenant_id);
 
-      await addSkill(pool, tenant_id, person_id, 'rust');
+        await addSkill(pool, tenant_id, person_id, 'rust');
 
-      const payload = { tenant_id, person_id, event_id: 'e3' };
-      const deps = { provider, pgVector };
+        const payload = { tenant_id, person_id, event_id: 'e3' };
+        const deps = { provider, pgVector };
 
-      await embedPersonProfile(payload, deps);
-      await embedPersonProfile(payload, deps);
+        await embedPersonProfile(payload, deps);
+        await embedPersonProfile(payload, deps);
 
-      expect(embedSpy).toHaveBeenCalledTimes(1);
+        expect(embedSpy).toHaveBeenCalledTimes(1);
+      });
     });
   });
 
@@ -176,17 +182,19 @@ describe('embedPersonProfile', () => {
     await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
       const { tenant_id } = await seedTenantOnly(pool);
-      const { person_id } = await seedPerson(pool, tenant_id);
+      await scoped(tenant_id, async () => {
+        const { person_id } = await seedPerson(pool, tenant_id);
 
-      await addSkill(pool, tenant_id, person_id, 'java');
-      await embedPersonProfile({ tenant_id, person_id, event_id: 'e4a' }, { provider, pgVector });
-      expect(await fetchMeta(pgVector, tenant_id, person_id)).toBeDefined();
+        await addSkill(pool, tenant_id, person_id, 'java');
+        await embedPersonProfile({ tenant_id, person_id, event_id: 'e4a' }, { provider, pgVector });
+        expect(await fetchMeta(pgVector, tenant_id, person_id)).toBeDefined();
 
-      // Remove the skill row
-      await pool.query(`DELETE FROM people.person_skill WHERE person_id = $1`, [person_id]);
+        // Remove the skill row
+        await pool.query(`DELETE FROM people.person_skill WHERE person_id = $1`, [person_id]);
 
-      await embedPersonProfile({ tenant_id, person_id, event_id: 'e4b' }, { provider, pgVector });
-      expect(await fetchMeta(pgVector, tenant_id, person_id)).toBeUndefined();
+        await embedPersonProfile({ tenant_id, person_id, event_id: 'e4b' }, { provider, pgVector });
+        expect(await fetchMeta(pgVector, tenant_id, person_id)).toBeUndefined();
+      });
     });
   });
 
@@ -194,22 +202,24 @@ describe('embedPersonProfile', () => {
     await withDb(async ({ pool, pgVector }) => {
       const provider = new FakeEmbeddingProvider();
       const { tenant_id } = await seedTenantOnly(pool);
-      const { person_id } = await seedPerson(pool, tenant_id);
+      await scoped(tenant_id, async () => {
+        const { person_id } = await seedPerson(pool, tenant_id);
 
-      await addSkill(pool, tenant_id, person_id, 'initial-skill');
-      await embedPersonProfile({ tenant_id, person_id, event_id: 'e5a' }, { provider, pgVector });
+        await addSkill(pool, tenant_id, person_id, 'initial-skill');
+        await embedPersonProfile({ tenant_id, person_id, event_id: 'e5a' }, { provider, pgVector });
 
-      await pool.query(`DELETE FROM people.person_skill WHERE person_id = $1`, [person_id]);
-      await addSkill(pool, tenant_id, person_id, 'revised-skill');
-      await embedPersonProfile({ tenant_id, person_id, event_id: 'e5b' }, { provider, pgVector });
+        await pool.query(`DELETE FROM people.person_skill WHERE person_id = $1`, [person_id]);
+        await addSkill(pool, tenant_id, person_id, 'revised-skill');
+        await embedPersonProfile({ tenant_id, person_id, event_id: 'e5b' }, { provider, pgVector });
 
-      const all = await pgVector.query({
-        indexName: PEOPLE_VECTOR_INDEX,
-        filter: { tenant_id: { $eq: tenant_id }, person_id: { $eq: person_id } },
-        topK: 10,
+        const all = await pgVector.query({
+          indexName: PEOPLE_VECTOR_INDEX,
+          filter: { tenant_id: { $eq: tenant_id }, person_id: { $eq: person_id } },
+          topK: 10,
+        });
+        expect(all).toHaveLength(1);
+        expect(all[0]!.id).toBe(personProfileVectorId(tenant_id, person_id));
       });
-      expect(all).toHaveLength(1);
-      expect(all[0]!.id).toBe(personProfileVectorId(tenant_id, person_id));
     });
   });
 });

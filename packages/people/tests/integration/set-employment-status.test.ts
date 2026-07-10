@@ -10,7 +10,7 @@ import {
   terminateWorker,
 } from '../../src/backend/domain/set-employment-status.ts';
 import { createWorker } from '../../src/index.ts';
-import { readEvents, seedTenant } from '../helpers.ts';
+import { inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -25,25 +25,33 @@ describe('employment status transitions', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { worker_id } = await createWorker({
-          full_name: 'Alice Terminate',
-          session: t.adminSession,
+        await inScope(t.adminSession, async () => {
+          const { worker_id } = await createWorker({
+            full_name: 'Alice Terminate',
+            session: t.adminSession,
+          });
+          const person_id = worker_id; // worker_id = person.id in this schema
+
+          const res = await terminateWorker({ worker_id, session: t.adminSession });
+          expect(res.status).toBe('terminated');
+
+          const [open] = await peopleDb()
+            .select()
+            .from(employmentPeriod)
+            .where(
+              and(eq(employmentPeriod.person_id, person_id), isNull(employmentPeriod.end_date)),
+            );
+          expect(open).toBeUndefined(); // open period closed
+
+          const events = await readEvents(pool, t.tenant_id, 'people.worker.terminated');
+          expect(events).toHaveLength(1);
+          expect(events[0]?.aggregate_id).toBe(worker_id);
+          expect(events[0]?.payload).toMatchObject({
+            worker_id,
+            person_id,
+            tenant_id: t.tenant_id,
+          });
         });
-        const person_id = worker_id; // worker_id = person.id in this schema
-
-        const res = await terminateWorker({ worker_id, session: t.adminSession });
-        expect(res.status).toBe('terminated');
-
-        const [open] = await peopleDb()
-          .select()
-          .from(employmentPeriod)
-          .where(and(eq(employmentPeriod.person_id, person_id), isNull(employmentPeriod.end_date)));
-        expect(open).toBeUndefined(); // open period closed
-
-        const events = await readEvents(pool, t.tenant_id, 'people.worker.terminated');
-        expect(events).toHaveLength(1);
-        expect(events[0]?.aggregate_id).toBe(worker_id);
-        expect(events[0]?.payload).toMatchObject({ worker_id, person_id, tenant_id: t.tenant_id });
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -59,26 +67,30 @@ describe('employment status transitions', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { worker_id } = await createWorker({
-          full_name: 'Bob Reinstate',
-          session: t.adminSession,
+        await inScope(t.adminSession, async () => {
+          const { worker_id } = await createWorker({
+            full_name: 'Bob Reinstate',
+            session: t.adminSession,
+          });
+          const person_id = worker_id; // worker_id = person.id in this schema
+          await terminateWorker({ worker_id, session: t.adminSession });
+
+          const res = await reinstateWorker({ worker_id, session: t.adminSession });
+          expect(res.status).toBe('active');
+
+          const [open] = await peopleDb()
+            .select()
+            .from(employmentPeriod)
+            .where(
+              and(eq(employmentPeriod.person_id, person_id), isNull(employmentPeriod.end_date)),
+            );
+          expect(open).toBeDefined();
+          expect(open?.lifecycle_stage).toBe('active');
+
+          const events = await readEvents(pool, t.tenant_id, 'people.worker.reinstated');
+          expect(events).toHaveLength(1);
+          expect(events[0]?.aggregate_id).toBe(worker_id);
         });
-        const person_id = worker_id; // worker_id = person.id in this schema
-        await terminateWorker({ worker_id, session: t.adminSession });
-
-        const res = await reinstateWorker({ worker_id, session: t.adminSession });
-        expect(res.status).toBe('active');
-
-        const [open] = await peopleDb()
-          .select()
-          .from(employmentPeriod)
-          .where(and(eq(employmentPeriod.person_id, person_id), isNull(employmentPeriod.end_date)));
-        expect(open).toBeDefined();
-        expect(open?.lifecycle_stage).toBe('active');
-
-        const events = await readEvents(pool, t.tenant_id, 'people.worker.reinstated');
-        expect(events).toHaveLength(1);
-        expect(events[0]?.aggregate_id).toBe(worker_id);
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -94,9 +106,11 @@ describe('employment status transitions', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        await expect(
-          terminateWorker({ worker_id: crypto.randomUUID(), session: t.adminSession }),
-        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        await inScope(t.adminSession, async () => {
+          await expect(
+            terminateWorker({ worker_id: crypto.randomUUID(), session: t.adminSession }),
+          ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();
