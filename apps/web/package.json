@@ -24,7 +24,7 @@
     "@fullcalendar/interaction": "^6.1.20",
     "@fullcalendar/react": "^6.1.20",
     "@hello-pangea/dnd": "^18.0.1",
-    "@mastra/ai-sdk": "^1.4.5",
+    "@mastra/ai-sdk": "^1.6.1",
     "@seta/module-sdk": "workspace:^",
     "@seta/planner": "workspace:^",
     "@seta/shared-rbac": "workspace:^",

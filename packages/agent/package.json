@@ -34,7 +34,7 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
-    "@mastra/ai-sdk": "^1.4.5",
+    "@mastra/ai-sdk": "^1.6.1",
     "@mastra/core": "^1.42.0",
     "@mastra/memory": "^1.22.2",
     "@mastra/observability": "^1.16.0",
