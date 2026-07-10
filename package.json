@@ -10,7 +10,7 @@
     "test:watch": "turbo run test:watch",
     "test:e2e": "pnpm --filter @seta/web test:e2e",
     "lint": "pnpm depcruise && pnpm lint:styles && pnpm lint:raw-sql && pnpm lint:db && pnpm lint:test-layout && pnpm lint:module-shape && pnpm lint:rbac-coverage && pnpm exec biome ci . && pnpm lint:db-drift",
-    "lint:db": "node scripts/lint/lint-db.mjs && node scripts/lint/lint-migration-prefixes.mjs && node scripts/lint/lint-mastra-access.mjs",
+    "lint:db": "node scripts/lint/lint-db.mjs && node scripts/lint/lint-migration-prefixes.mjs && node scripts/lint/lint-mastra-access.mjs && node scripts/lint/lint-init-pools.mjs",
     "lint:db-drift": "node scripts/lint/check-db-drift.mjs",
     "lint:module-shape": "node scripts/lint/lint-module-shape.mjs",
     "lint:rbac-coverage": "node scripts/lint/lint-rbac-coverage.mjs",
