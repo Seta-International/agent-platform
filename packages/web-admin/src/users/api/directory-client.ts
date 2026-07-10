@@ -52,7 +52,7 @@ async function post<T = unknown>(url: string, body?: unknown): Promise<T> {
 }
 
 export const provisionAccount = (personId: string) =>
-  post(`/api/identity/v1/directory/${personId}/provision`);
+  post(`/api/people/v1/directory/${personId}/provision`);
 
 export const suspendAccount = (userId: string) => post(`/api/identity/v1/users/${userId}/suspend`);
 

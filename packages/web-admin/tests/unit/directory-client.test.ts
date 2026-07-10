@@ -59,7 +59,7 @@ describe('directory-client', () => {
       .mockResolvedValue(new Response(JSON.stringify({ user_id: 'u1' }), { status: 200 }));
     await provisionAccount('person-abc');
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/identity/v1/directory/person-abc/provision',
+      '/api/people/v1/directory/person-abc/provision',
       expect.objectContaining({ method: 'POST', credentials: 'include' }),
     );
   });

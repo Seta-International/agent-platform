@@ -9,6 +9,7 @@ import {
   getWorker,
   getWorkerHistory,
   listWorkers,
+  provisionAccount,
   reinstateWorker,
   removePersonSkill,
   setPersonSkillLevel,
@@ -126,5 +127,8 @@ export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
   );
   app.post('/api/people/v1/workers/:id/reinstate', async (c) =>
     c.json(await reinstateWorker({ worker_id: c.req.param('id'), session: c.get('user') })),
+  );
+  app.post('/api/people/v1/directory/:personId/provision', async (c) =>
+    c.json(await provisionAccount(c.get('user'), { person_id: c.req.param('personId') })),
   );
 }

@@ -34,6 +34,7 @@ export {
   setMySkills,
   setPersonSkillLevel,
 } from './backend/domain/person-skills.ts';
+export { provisionAccount } from './backend/domain/provision-account.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
 export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';
 export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';
