@@ -346,29 +346,20 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
               {SECTIONS.map((s) => (
                 <div key={s.key}>
-                  {s.key === 'about' ? (
-                    <div className="rounded-lg bg-primary/8 p-4">
-                      <div className="mb-1 font-semibold text-ink">About the role *</div>
-                      <RichTextEditor
-                        value={jd[s.key]}
-                        onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
-                        placeholder="Write the about section…"
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <div
-                        className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
-                      >
-                        {s.label}
-                      </div>
-                      <RichTextEditor
-                        value={jd[s.key]}
-                        onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
-                        placeholder={`Write the ${s.label.toLowerCase()}…`}
-                      />
-                    </div>
-                  )}
+                  <div
+                    className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                  >
+                    {s.key === 'about' ? 'About the role *' : s.label}
+                  </div>
+                  <RichTextEditor
+                    value={jd[s.key]}
+                    onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
+                    placeholder={
+                      s.key === 'about'
+                        ? 'Write the about section…'
+                        : `Write the ${s.label.toLowerCase()}…`
+                    }
+                  />
                 </div>
               ))}
 
