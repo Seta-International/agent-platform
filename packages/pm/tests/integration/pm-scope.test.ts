@@ -7,7 +7,7 @@ import { and, isNull } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
-import { account, allocation, project } from '../../src/backend/db/schema.ts';
+import { account, allocation, project, projectAccess } from '../../src/backend/db/schema.ts';
 import { buildAccountScope, buildProjectScope } from '../../src/backend/domain/scope.ts';
 import { listAllocations, listProjectAllocations } from '../../src/index.ts';
 import { buildSession, type SeededTenant, seedTenant } from '../helpers.ts';
@@ -331,6 +331,70 @@ describe('pm scope builders (D-1)', () => {
         const amSession = relationshipViewer(g.t, g.W_am);
         const amSeen = await visibleProjects(amSession);
         expect(amSeen).toEqual(new Set([g.P3]));
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+});
+
+describe('project_access owners (FUT-353)', () => {
+  it('access-level owner sees the project, its allocations, and its account', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const g = await buildGraph(pool);
+        const W_owner = crypto.randomUUID();
+        await pmDb().insert(projectAccess).values({
+          tenant_id: g.t.tenant_id,
+          project_id: g.P2,
+          worker_id: W_owner,
+          level: 'owner',
+        });
+
+        const session = relationshipViewer(g.t, W_owner);
+        expect(await visibleProjects(session)).toEqual(new Set([g.P2]));
+
+        const rows = await listAllocations({ session });
+        expect(rows.map((r) => r.allocation_id)).toEqual([g.alloc2]);
+
+        const accounts = await pmDb()
+          .select({ id: account.id })
+          .from(account)
+          .where(
+            and(tenantScoped(account.tenant_id, session), buildAccountScope(session) ?? undefined),
+          );
+        expect(accounts.map((a) => a.id)).toEqual([g.A2]);
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('edit/view access levels do not grant visibility', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const g = await buildGraph(pool);
+        const W_editor = crypto.randomUUID();
+        await pmDb()
+          .insert(projectAccess)
+          .values([
+            { tenant_id: g.t.tenant_id, project_id: g.P2, worker_id: W_editor, level: 'edit' },
+            { tenant_id: g.t.tenant_id, project_id: g.P3, worker_id: W_editor, level: 'view' },
+          ]);
+
+        const session = relationshipViewer(g.t, W_editor);
+        expect(await visibleProjects(session)).toEqual(new Set());
+        expect(await listAllocations({ session })).toEqual([]);
       } finally {
         resetPmDb();
         resetCoreDb();
