@@ -19,14 +19,41 @@ import { readFileSync } from 'node:fs';
 
 const ROOTS = ['apps/server/src/index.ts', 'apps/worker/src/index.ts'];
 
-// initPools( ... ) up to the matching close paren of a single-depth object argument.
-const CALL_RE = /initPools\s*\(\s*\{([\s\S]*?)\}\s*\)/g;
+const CALL_START_RE = /initPools\s*\(\s*\{/g;
+
+/**
+ * The argument object's source, brace-matched from `open` (the index of its `{`).
+ * A non-greedy regex would stop at the first `}` and miss a key placed after a nested
+ * object — `log: log.child({ ... })` — reporting a missing `appDatabaseUrl` that is
+ * plainly there. A lint that fails on a harmless reformat is a lint people delete.
+ */
+function objectBody(src, open) {
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') {
+      depth--;
+      if (depth === 0) return src.slice(open + 1, i);
+    }
+  }
+  return null;
+}
 
 let failed = false;
 
 for (const file of ROOTS) {
   const src = readFileSync(file, 'utf8');
-  const calls = [...src.matchAll(CALL_RE)];
+  const calls = [];
+  for (const m of src.matchAll(CALL_START_RE)) {
+    const open = src.indexOf('{', m.index);
+    const body = objectBody(src, open);
+    if (body === null) {
+      console.error(`${file}: unbalanced braces in an initPools({ ... }) call.`);
+      failed = true;
+      continue;
+    }
+    calls.push(body);
+  }
 
   if (calls.length === 0) {
     console.error(
@@ -37,7 +64,7 @@ for (const file of ROOTS) {
     continue;
   }
 
-  for (const [, body] of calls) {
+  for (const body of calls) {
     if (!/\bappDatabaseUrl\s*:/.test(body)) {
       console.error(
         `${file}: initPools() does not pass \`appDatabaseUrl\`. The "web" pool would fall back ` +
