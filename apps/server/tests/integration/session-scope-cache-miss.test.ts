@@ -7,7 +7,7 @@ import { resetCoreDb } from '@seta/core/testing';
 import { createUser } from '@seta/identity';
 import { auth } from '@seta/identity/auth';
 import { registerIdentityContributions } from '@seta/identity/register';
-import { closePools, initPools, runMigrations } from '@seta/shared-db';
+import { closePools, initPools, maintenance, runMigrations } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it, vi } from 'vitest';
@@ -57,9 +57,14 @@ describe('session middleware cache-miss regression (FUT-540)', () => {
           );
           const email = 'cache-miss@d.local';
           const password = 'sign-in-password-1234';
-          await createUser(
-            { tenant_id: tenantId, email, name: 'Probe', password },
-            { type: 'cli', user_id: null },
+          // Seeding acts as the CLI seeder (actor: { type: 'cli' }): maintenance()
+          // mirrors the admin-pool context apps/cli opens around program.parseAsync
+          // in production.
+          await maintenance(() =>
+            createUser(
+              { tenant_id: tenantId, email, name: 'Probe', password },
+              { type: 'cli', user_id: null },
+            ),
           );
 
           // Real better-auth login — same as production, no session mocking.
@@ -82,10 +87,12 @@ describe('session middleware cache-miss regression (FUT-540)', () => {
             headers: new Headers({ cookie: cookieHeader }),
           });
           if (!session?.session.id) throw new Error('expected an authenticated session');
-          const preExisting = await coreDb()
-            .select()
-            .from(sessionScopeCache)
-            .where(eq(sessionScopeCache.session_id, session.session.id));
+          const preExisting = await maintenance(() =>
+            coreDb()
+              .select()
+              .from(sessionScopeCache)
+              .where(eq(sessionScopeCache.session_id, session.session.id)),
+          );
           expect(preExisting).toHaveLength(0);
 
           const fakeWorkers = { addJob: vi.fn(async () => {}), shutdown: async () => {} };

@@ -4,7 +4,7 @@ import { resetCoreDb } from '@seta/core/testing';
 import * as identityPkg from '@seta/identity';
 import { auth } from '@seta/identity/auth';
 import { registerIdentityContributions } from '@seta/identity/register';
-import { closePools, currentExecutorMode, initPools } from '@seta/shared-db';
+import { closePools, currentExecutorMode, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it, vi } from 'vitest';
 import { buildServerApp, registerAppContributions } from '../../src/build.ts';
@@ -46,9 +46,14 @@ describe('agent routes vs. executor context (FUT-540)', () => {
           );
           const email = 'probe@d.local';
           const password = 'sign-in-password-1234';
-          await createUser(
-            { tenant_id: tenantId, email, name: 'Probe', password },
-            { type: 'cli', user_id: null },
+          // Seeding acts as the CLI seeder (actor: { type: 'cli' }): maintenance()
+          // mirrors the admin-pool context apps/cli opens around program.parseAsync
+          // in production.
+          await maintenance(() =>
+            createUser(
+              { tenant_id: tenantId, email, name: 'Probe', password },
+              { type: 'cli', user_id: null },
+            ),
           );
 
           // Real better-auth login — same as production, no session mocking.

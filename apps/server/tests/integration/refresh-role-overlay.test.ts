@@ -4,7 +4,7 @@ import { sessionScopeCache } from '@seta/core/db/schema';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
 import { IDENTITY_ROLE_PERMISSIONS_CHANGED } from '@seta/identity';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { DomainEvent, SubscriberCtx } from '@seta/shared-types';
 import { eq } from 'drizzle-orm';
@@ -37,9 +37,15 @@ describe('refreshRoleOverlaySubscriber', () => {
             built_at: new Date(),
             invalidated_at: null,
           });
-          await coreDb()
-            .insert(sessionScopeCache)
-            .values([seed(tenant, 's-target'), seed(otherTenant, 's-other')]);
+          // Seeding two tenants' cache rows and asserting on both afterwards needs
+          // cross-tenant visibility, which a single scoped(tenantId, ...) can't give —
+          // maintenance() is the admin (BYPASSRLS) pool, mirroring how a raw pool.query
+          // seed/assert would read across tenants.
+          await maintenance(() =>
+            coreDb()
+              .insert(sessionScopeCache)
+              .values([seed(tenant, 's-target'), seed(otherTenant, 's-other')]),
+          );
 
           const refresh = vi.fn(async () => {});
           const sub = refreshRoleOverlaySubscriber({
@@ -65,17 +71,24 @@ describe('refreshRoleOverlaySubscriber', () => {
             role_slug: string;
           }>;
 
-          await sub.handler(event, {} as SubscriberCtx);
+          // Mirrors packages/core/src/runtime/dispatcher/drain.ts's real dispatch,
+          // which wraps every subscriber invocation in scoped(tenantId, ...) so
+          // coreDb() has an executor context.
+          await scoped(tenant, () => sub.handler(event, {} as SubscriberCtx));
 
           expect(refresh).toHaveBeenCalledWith(tenant);
-          const [target] = await coreDb()
-            .select()
-            .from(sessionScopeCache)
-            .where(eq(sessionScopeCache.session_id, 's-target'));
-          const [other] = await coreDb()
-            .select()
-            .from(sessionScopeCache)
-            .where(eq(sessionScopeCache.session_id, 's-other'));
+          const [target] = await maintenance(() =>
+            coreDb()
+              .select()
+              .from(sessionScopeCache)
+              .where(eq(sessionScopeCache.session_id, 's-target')),
+          );
+          const [other] = await maintenance(() =>
+            coreDb()
+              .select()
+              .from(sessionScopeCache)
+              .where(eq(sessionScopeCache.session_id, 's-other')),
+          );
           expect(target?.invalidated_at).not.toBeNull();
           expect(target?.invalidated_at).toBeInstanceOf(Date);
           expect(other?.invalidated_at).toBeNull();

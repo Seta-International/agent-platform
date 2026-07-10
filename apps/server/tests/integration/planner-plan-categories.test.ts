@@ -4,7 +4,7 @@ import { createUser } from '@seta/identity';
 import { applyLabel, createGroup, createLabel, createPlan, createTask } from '@seta/planner';
 import { registerPlannerPlansRoutes } from '@seta/planner/http';
 import { plannerErrorMapper } from '@seta/planner/register';
-import { closePools, initPools, scoped } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -69,15 +69,19 @@ async function seedTenant(pool: Pool, slug: string) {
     slug,
   ]);
   const adminEmail = `admin-${slug}@example.test`;
-  const adminResult = await createUser(
-    {
-      tenant_id: tenantId,
-      email: adminEmail,
-      name: 'Admin',
-      password: 'correct-horse-battery-staple',
-      initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-    },
-    { type: 'cli', user_id: null },
+  // seedTenant acts as the CLI seeder (actor: { type: 'cli' }): maintenance() mirrors
+  // the admin-pool context apps/cli opens around program.parseAsync in production.
+  const adminResult = await maintenance(() =>
+    createUser(
+      {
+        tenant_id: tenantId,
+        email: adminEmail,
+        name: 'Admin',
+        password: 'correct-horse-battery-staple',
+        initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
   await pool.query(
     `INSERT INTO planner.assignee_projection
@@ -107,18 +111,19 @@ describe('plan categories HTTP routes', () => {
             email: adminEmail,
             display_name: 'Admin',
           });
-          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
           // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
           // fallback) — this only opens the executor context plannerDb() requires
-          // for this direct (non-HTTP) domain call.
-          const plan = await scoped(tenantId, () =>
-            createPlan({ group_id: group.id, name: 'P', session }),
-          );
-          const label = await createLabel({
-            plan_id: plan.id,
-            name: 'Backend',
-            color: 'blue',
-            session,
+          // for these direct (non-HTTP) domain calls.
+          const { plan, label } = await scoped(tenantId, async () => {
+            const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
+            const label = await createLabel({
+              plan_id: plan.id,
+              name: 'Backend',
+              color: 'blue',
+              session,
+            });
+            return { plan, label };
           });
 
           const app = buildTestApp(session);
@@ -162,18 +167,19 @@ describe('plan categories HTTP routes', () => {
             email: adminEmail,
             display_name: 'Admin',
           });
-          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
           // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
           // fallback) — this only opens the executor context plannerDb() requires
-          // for this direct (non-HTTP) domain call.
-          const plan = await scoped(tenantId, () =>
-            createPlan({ group_id: group.id, name: 'P', session }),
-          );
-          const label = await createLabel({
-            plan_id: plan.id,
-            name: 'Bug',
-            color: 'red',
-            session,
+          // for these direct (non-HTTP) domain calls.
+          const { plan, label } = await scoped(tenantId, async () => {
+            const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
+            const label = await createLabel({
+              plan_id: plan.id,
+              name: 'Bug',
+              color: 'red',
+              session,
+            });
+            return { plan, label };
           });
 
           const app = buildTestApp(session);
@@ -225,13 +231,13 @@ describe('plan categories HTTP routes', () => {
             email: adminEmail,
             display_name: 'Admin',
           });
-          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
           // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
           // fallback) — this only opens the executor context plannerDb() requires
-          // for this direct (non-HTTP) domain call.
-          const plan = await scoped(tenantId, () =>
-            createPlan({ group_id: group.id, name: 'P', session }),
-          );
+          // for these direct (non-HTTP) domain calls.
+          const plan = await scoped(tenantId, async () => {
+            const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+            return createPlan({ group_id: group.id, name: 'P', session });
+          });
 
           const app = buildTestApp(session);
 
@@ -273,26 +279,27 @@ describe('plan categories HTTP routes', () => {
             email: adminEmail,
             display_name: 'Admin',
           });
-          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
           // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
           // fallback) — this only opens the executor context plannerDb() requires
-          // for this direct (non-HTTP) domain call.
-          const plan = await scoped(tenantId, () =>
-            createPlan({ group_id: group.id, name: 'P', session }),
-          );
+          // for these direct (non-HTTP) domain calls.
+          const { plan, attachedLabels } = await scoped(tenantId, async () => {
+            const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
 
-          const attachedNames = ['Backend', 'Frontend', 'QA', 'Docs'] as const;
-          const unattachedNames = ['Bug', 'Spike', 'Chore'] as const;
-          const attachedLabels = await Promise.all(
-            attachedNames.map((name) =>
-              createLabel({ plan_id: plan.id, name, color: 'blue', session }),
-            ),
-          );
-          await Promise.all(
-            unattachedNames.map((name) =>
-              createLabel({ plan_id: plan.id, name, color: 'gray', session }),
-            ),
-          );
+            const attachedNames = ['Backend', 'Frontend', 'QA', 'Docs'] as const;
+            const unattachedNames = ['Bug', 'Spike', 'Chore'] as const;
+            const attachedLabels = await Promise.all(
+              attachedNames.map((name) =>
+                createLabel({ plan_id: plan.id, name, color: 'blue', session }),
+              ),
+            );
+            await Promise.all(
+              unattachedNames.map((name) =>
+                createLabel({ plan_id: plan.id, name, color: 'gray', session }),
+              ),
+            );
+            return { plan, attachedLabels };
+          });
 
           const app = buildTestApp(session);
 
@@ -327,18 +334,23 @@ describe('plan categories HTTP routes', () => {
           //   slot 2 (Frontend): 1 task
           //   slot 3 (QA): 0 tasks
           //   slot 4 (Docs): 1 task, also labeled Backend (counts once per slot)
-          const t1 = await createTask({ plan_id: plan.id, title: 'T1', session });
-          const t2 = await createTask({ plan_id: plan.id, title: 'T2', session });
-          const t3 = await createTask({ plan_id: plan.id, title: 'T3', session });
-          const t4 = await createTask({ plan_id: plan.id, title: 'T4', session });
-          const slot1Label = attachedLabels[0] as { id: string };
-          const slot2Label = attachedLabels[1] as { id: string };
-          const slot4Label = attachedLabels[3] as { id: string };
-          await applyLabel({ task_id: t1.id, label_id: slot1Label.id, session });
-          await applyLabel({ task_id: t2.id, label_id: slot1Label.id, session });
-          await applyLabel({ task_id: t3.id, label_id: slot2Label.id, session });
-          await applyLabel({ task_id: t4.id, label_id: slot4Label.id, session });
-          await applyLabel({ task_id: t4.id, label_id: slot1Label.id, session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires
+          // for these direct (non-HTTP) domain calls.
+          await scoped(tenantId, async () => {
+            const t1 = await createTask({ plan_id: plan.id, title: 'T1', session });
+            const t2 = await createTask({ plan_id: plan.id, title: 'T2', session });
+            const t3 = await createTask({ plan_id: plan.id, title: 'T3', session });
+            const t4 = await createTask({ plan_id: plan.id, title: 'T4', session });
+            const slot1Label = attachedLabels[0] as { id: string };
+            const slot2Label = attachedLabels[1] as { id: string };
+            const slot4Label = attachedLabels[3] as { id: string };
+            await applyLabel({ task_id: t1.id, label_id: slot1Label.id, session });
+            await applyLabel({ task_id: t2.id, label_id: slot1Label.id, session });
+            await applyLabel({ task_id: t3.id, label_id: slot2Label.id, session });
+            await applyLabel({ task_id: t4.id, label_id: slot4Label.id, session });
+            await applyLabel({ task_id: t4.id, label_id: slot1Label.id, session });
+          });
 
           const res = await app.request(`/api/planner/v1/plans/${plan.id}/categories`);
           expect(res.status).toBe(200);

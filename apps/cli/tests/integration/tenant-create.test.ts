@@ -1,5 +1,6 @@
 import { coreEvents, coreTenants } from '@seta/core/db/schema';
 import { resetCoreDb } from '@seta/core/testing';
+import { maintenance } from '@seta/shared-db';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { tenantCreateCommand } from '../../src/commands/tenant-create.ts';
@@ -9,7 +10,9 @@ describe('tenant-create', () => {
   it('inserts a tenant row + emits core.tenant.created in the same tx', async () => {
     await withCliTestDb(async ({ db }) => {
       resetCoreDb();
-      await tenantCreateCommand({ name: 'Acme Inc', slug: 'acme' });
+      // apps/cli/src/index.ts:314 wraps program.parseAsync in maintenance() in
+      // production; mirror that here since tenantCreateCommand is called directly.
+      await maintenance(() => tenantCreateCommand({ name: 'Acme Inc', slug: 'acme' }));
 
       const tenants = await db.select().from(coreTenants).where(eq(coreTenants.slug, 'acme'));
       expect(tenants).toHaveLength(1);

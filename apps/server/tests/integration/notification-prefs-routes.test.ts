@@ -4,7 +4,7 @@ import { NOTIFICATION_CATEGORIES } from '@seta/notifications';
 import { registerNotificationsRoutes } from '@seta/notifications/http';
 import { NotificationStreamHub } from '@seta/notifications/stream';
 import { resetNotificationsDb } from '@seta/notifications/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -44,7 +44,9 @@ function buildTestApp(session: SessionScope): Hono<SessionEnv> {
   const app = new Hono<SessionEnv>();
   app.use('*', async (c, next) => {
     c.set('user', session);
-    await next();
+    // createSessionMiddleware (packages/core/src/middleware/session.ts) opens scoped(tenantId, ...)
+    // around the downstream handler in production; this stub session middleware must do the same.
+    await scoped(session.tenant_id, next);
   });
   registerNotificationsRoutes(app, new NotificationStreamHub());
   return app;
