@@ -1,4 +1,4 @@
-import { getPool } from '@seta/shared-db';
+import { executorPool } from '@seta/shared-db';
 import { type MastraLifecycleEvent, onLifecycleEvent } from '../workflows/_infra/lifecycle-hook.ts';
 
 // Revival: graphile-worker stores payloads as JSON, so Date fields arrive as
@@ -11,6 +11,5 @@ function reviveDates(raw: Record<string, unknown>): MastraLifecycleEvent {
 }
 
 export async function retryLifecycleEvent(payload: Record<string, unknown>): Promise<void> {
-  const pool = getPool('worker');
-  await onLifecycleEvent(pool, reviveDates(payload));
+  await onLifecycleEvent(executorPool(), reviveDates(payload));
 }
