@@ -63,6 +63,65 @@ describe('deactivateUser / reactivateUser', () => {
             await pool.query(`SELECT deactivated_at FROM identity."user" WHERE id = $1`, [targetId])
           ).rows[0] as { deactivated_at: Date | null };
           expect(row.deactivated_at).toBeNull();
+
+          const reactivatedEvent = (
+            await pool.query(
+              `SELECT payload FROM core.events WHERE event_type = 'identity.user.reactivated'`,
+            )
+          ).rows[0] as { payload: { user_id: string; tenant_id: string } } | undefined;
+          expect(reactivatedEvent?.payload.user_id).toBe(targetId);
+          expect(reactivatedEvent?.payload.tenant_id).toBe(tenantId);
+        } finally {
+          resetCoreDb();
+          await closePools();
+        }
+      },
+    );
+  });
+
+  it('does not emit identity.user.reactivated when the user was not deactivated', async () => {
+    await withTestDb(
+      {
+        templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
+        baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
+      },
+      async ({ pool, databaseUrl }) => {
+        resetCoreDb();
+        initPools({ databaseUrl });
+        try {
+          const reg = createContributionRegistry();
+          registerCoreContributions(reg);
+          registerIdentityContributions(reg);
+          await runMigrations(reg, { pool });
+
+          const tenantId = crypto.randomUUID();
+          await pool.query(
+            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', 'demo')`,
+            [tenantId],
+          );
+          const { user_id: adminId } = await createUser(
+            {
+              tenant_id: tenantId,
+              email: 'admin2@d.local',
+              name: 'Admin',
+              password: 'ChangeMe@2026',
+              initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+            },
+            { type: 'cli', user_id: null },
+          );
+          const { user_id: targetId } = await createUser(
+            { tenant_id: tenantId, email: 'c@d.local', name: 'C', password: 'ChangeMe@2026' },
+            { type: 'cli', user_id: null },
+          );
+
+          await reactivateUser(targetId, { type: 'user', user_id: adminId });
+
+          const rows = (
+            await pool.query(
+              `SELECT payload FROM core.events WHERE event_type = 'identity.user.reactivated'`,
+            )
+          ).rows;
+          expect(rows).toHaveLength(0);
         } finally {
           resetCoreDb();
           await closePools();

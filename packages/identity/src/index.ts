@@ -152,4 +152,9 @@ export {
   IDENTITY_USER_DEACTIVATED_VERSION,
   type IdentityUserDeactivatedPayload,
 } from './events/user-deactivated.ts';
+export {
+  IDENTITY_USER_REACTIVATED,
+  IDENTITY_USER_REACTIVATED_VERSION,
+  type IdentityUserReactivatedPayload,
+} from './events/user-reactivated.ts';
 export { A2_PERMISSIONS, type A2Permission } from './rbac.ts';
