@@ -6,6 +6,12 @@ export {
   TENANT_ID_EXEMPT,
   type Violation,
 } from './db-constitution.ts';
+export {
+  type BaselineRow,
+  diffBaseline,
+  parseBaseline,
+  renderBaseline,
+} from './db-constitution-baseline.ts';
 export { FakeEmbeddingProvider, type FakeEmbeddingProviderOptions } from './fakes/embedding.ts';
 export { type EventBusLike, FakeEventBus } from './fakes/event-bus.ts';
 export { FakeMailer, type MailerLike } from './fakes/mailer.ts';
