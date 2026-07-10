@@ -11,6 +11,7 @@ import { autoProvisionSubscribers } from './backend/subscribers/auto-provision.t
 import { autoSuspendSubscribers } from './backend/subscribers/auto-suspend.ts';
 import { directoryProjectionSubscribers } from './backend/subscribers/directory-projection.ts';
 import { entraLinkageSubscribers } from './backend/subscribers/entra-linkage.ts';
+import { linkPersonSubscribers } from './backend/subscribers/link-person.ts';
 import { orgUnitProjectionSubscribers } from './backend/subscribers/org-unit-projection.ts';
 import { identityRbac } from './rbac.ts';
 
@@ -65,6 +66,7 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
       ...autoSuspendSubscribers,
       ...directoryProjectionSubscribers,
       ...entraLinkageSubscribers,
+      ...linkPersonSubscribers,
       ...orgUnitProjectionSubscribers,
     ],
     routes: { mountAt: '/', build: buildIdentityRoutes },
