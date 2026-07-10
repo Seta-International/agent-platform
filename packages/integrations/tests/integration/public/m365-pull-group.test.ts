@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { findEntraOidByUserId, findUserByEntraOid } from '@seta/identity';
-import { closePools, initPools, scoped } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
@@ -131,15 +131,19 @@ describe('runPullGroup', () => {
           const { tenantId, groupId } = await seedTenantAndGroup(pool);
 
           // Pre-create the m365_group_links row (linkGroupToM365 normally creates it, but the
-          // pull job receives an already-linked group whose link row may not yet exist)
-          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-          // Using db as never: dynamic import's inferred type doesn't align with NodePgDatabase generic
-          const repo = createM365GroupLinkRepo({ db: db as never });
-          await repo.upsert({
-            tenantId,
-            groupId,
-            externalId: EXTERNAL_ID,
-            lastSyncedFields: {},
+          // pull job receives an already-linked group whose link row may not yet exist). Seeding,
+          // like the CLI seeder, runs under maintenance() rather than a real tenant session.
+          const repo = await maintenance(async () => {
+            const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
+            // Using db as never: dynamic import's inferred type doesn't align with NodePgDatabase generic
+            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            await linkRepo.upsert({
+              tenantId,
+              groupId,
+              externalId: EXTERNAL_ID,
+              lastSyncedFields: {},
+            });
+            return linkRepo;
           });
 
           // Seed provisioned Entra users so member adds succeed
@@ -208,22 +212,26 @@ describe('runPullGroup', () => {
         initPools({ databaseUrl });
         try {
           const { tenantId, groupId } = await seedTenantAndGroup(pool);
-          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-          const repo = createM365GroupLinkRepo({ db: db as never });
 
-          // Establish a baseline snapshot that matches the current local name
-          await repo.upsert({
-            tenantId,
-            groupId,
-            externalId: EXTERNAL_ID,
-            lastSyncedFields: {
-              name: 'Engineering',
-              description: 'Eng team',
-              visibility: 'private',
-              theme: 'blue',
-              members: [],
-            },
-            deltaLink: 'https://graph.microsoft.com/v1.0/groups/delta?$deltatoken=OLD',
+          // Establish a baseline snapshot that matches the current local name. Seeding, like
+          // the CLI seeder, runs under maintenance() rather than a real tenant session.
+          const repo = await maintenance(async () => {
+            const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
+            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            await linkRepo.upsert({
+              tenantId,
+              groupId,
+              externalId: EXTERNAL_ID,
+              lastSyncedFields: {
+                name: 'Engineering',
+                description: 'Eng team',
+                visibility: 'private',
+                theme: 'blue',
+                members: [],
+              },
+              deltaLink: 'https://graph.microsoft.com/v1.0/groups/delta?$deltatoken=OLD',
+            });
+            return linkRepo;
           });
 
           const { findUserByEntraOid, findEntraOidByUserId } = await import('@seta/identity');
@@ -278,13 +286,17 @@ describe('runPullGroup', () => {
         initPools({ databaseUrl });
         try {
           const { tenantId, groupId } = await seedTenantAndGroup(pool);
-          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-          const repo = createM365GroupLinkRepo({ db: db as never });
-          await repo.upsert({
-            tenantId,
-            groupId,
-            externalId: EXTERNAL_ID,
-            lastSyncedFields: {},
+          // Seeding, like the CLI seeder, runs under maintenance() rather than a real tenant session.
+          const repo = await maintenance(async () => {
+            const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
+            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            await linkRepo.upsert({
+              tenantId,
+              groupId,
+              externalId: EXTERNAL_ID,
+              lastSyncedFields: {},
+            });
+            return linkRepo;
           });
 
           // No Entra users seeded — both members are not provisioned
@@ -343,20 +355,24 @@ describe('runPullGroup', () => {
         initPools({ databaseUrl });
         try {
           const { tenantId, groupId } = await seedTenantAndGroup(pool);
-          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-          const repo = createM365GroupLinkRepo({ db: db as never });
-          await repo.upsert({
-            tenantId,
-            groupId,
-            externalId: EXTERNAL_ID,
-            lastSyncedFields: {
-              name: 'Engineering',
-              description: null,
-              visibility: 'private',
-              theme: 'blue',
-              members: [],
-            },
-            deltaLink: 'https://graph.microsoft.com/v1.0/groups/delta?$deltatoken=STALE',
+          // Seeding, like the CLI seeder, runs under maintenance() rather than a real tenant session.
+          const repo = await maintenance(async () => {
+            const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
+            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            await linkRepo.upsert({
+              tenantId,
+              groupId,
+              externalId: EXTERNAL_ID,
+              lastSyncedFields: {
+                name: 'Engineering',
+                description: null,
+                visibility: 'private',
+                theme: 'blue',
+                members: [],
+              },
+              deltaLink: 'https://graph.microsoft.com/v1.0/groups/delta?$deltatoken=STALE',
+            });
+            return linkRepo;
           });
 
           let deltaCallCount = 0;
@@ -433,22 +449,26 @@ describe('runPullGroup', () => {
         initPools({ databaseUrl });
         try {
           const { tenantId, groupId } = await seedTenantAndGroup(pool);
-          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-          const repo = createM365GroupLinkRepo({ db: db as never });
 
           // Snapshot has "Engineering"; local was renamed to "Engineering Local";
-          // remote now says "Engineering Remote" — both diverged from snapshot → conflict
-          await repo.upsert({
-            tenantId,
-            groupId,
-            externalId: EXTERNAL_ID,
-            lastSyncedFields: {
-              name: 'Engineering',
-              description: null,
-              visibility: 'private',
-              theme: 'blue',
-              members: [],
-            },
+          // remote now says "Engineering Remote" — both diverged from snapshot → conflict.
+          // Seeding, like the CLI seeder, runs under maintenance() rather than a real tenant session.
+          const repo = await maintenance(async () => {
+            const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
+            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            await linkRepo.upsert({
+              tenantId,
+              groupId,
+              externalId: EXTERNAL_ID,
+              lastSyncedFields: {
+                name: 'Engineering',
+                description: null,
+                visibility: 'private',
+                theme: 'blue',
+                members: [],
+              },
+            });
+            return linkRepo;
           });
 
           // Rename the group locally

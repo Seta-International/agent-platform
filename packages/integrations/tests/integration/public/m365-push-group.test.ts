@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools, scoped } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
@@ -104,21 +104,24 @@ describe('runPushGroup', () => {
           // Seed a group already renamed locally to 'Engineering Renamed'
           const { tenantId, groupId } = await seedTenantAndGroup(pool, 'Engineering Renamed');
 
-          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-          const repo = createM365GroupLinkRepo({ db: db as never });
-
-          // Snapshot records the old name — remote still has the old name
-          await repo.upsert({
-            tenantId,
-            groupId,
-            externalId: EXTERNAL_ID,
-            lastSyncedFields: {
-              name: 'Engineering',
-              description: 'Eng team',
-              visibility: 'private',
-              theme: 'blue',
-              members: [],
-            },
+          // Snapshot records the old name — remote still has the old name. Seeding, like the
+          // CLI seeder, runs under maintenance() rather than a real tenant session.
+          const repo = await maintenance(async () => {
+            const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
+            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            await linkRepo.upsert({
+              tenantId,
+              groupId,
+              externalId: EXTERNAL_ID,
+              lastSyncedFields: {
+                name: 'Engineering',
+                description: 'Eng team',
+                visibility: 'private',
+                theme: 'blue',
+                members: [],
+              },
+            });
+            return linkRepo;
           });
 
           // Remote still matches snapshot (unchanged)
@@ -176,20 +179,23 @@ describe('runPushGroup', () => {
           // Local still has snapshot name 'Engineering' (no local change)
           const { tenantId, groupId } = await seedTenantAndGroup(pool, 'Engineering');
 
-          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-          const repo = createM365GroupLinkRepo({ db: db as never });
-
-          await repo.upsert({
-            tenantId,
-            groupId,
-            externalId: EXTERNAL_ID,
-            lastSyncedFields: {
-              name: 'Engineering',
-              description: null,
-              visibility: 'private',
-              theme: 'blue',
-              members: [],
-            },
+          // Seeding, like the CLI seeder, runs under maintenance() rather than a real tenant session.
+          const repo = await maintenance(async () => {
+            const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
+            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            await linkRepo.upsert({
+              tenantId,
+              groupId,
+              externalId: EXTERNAL_ID,
+              lastSyncedFields: {
+                name: 'Engineering',
+                description: null,
+                visibility: 'private',
+                theme: 'blue',
+                members: [],
+              },
+            });
+            return linkRepo;
           });
 
           // Remote diverged from snapshot — remote-wins
@@ -250,20 +256,23 @@ describe('runPushGroup', () => {
           // Local was renamed to 'Engineering Local' — diverged from snapshot
           const { tenantId, groupId } = await seedTenantAndGroup(pool, 'Engineering Local');
 
-          const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-          const repo = createM365GroupLinkRepo({ db: db as never });
-
-          await repo.upsert({
-            tenantId,
-            groupId,
-            externalId: EXTERNAL_ID,
-            lastSyncedFields: {
-              name: 'Engineering',
-              description: null,
-              visibility: 'private',
-              theme: 'blue',
-              members: [],
-            },
+          // Seeding, like the CLI seeder, runs under maintenance() rather than a real tenant session.
+          const repo = await maintenance(async () => {
+            const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
+            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            await linkRepo.upsert({
+              tenantId,
+              groupId,
+              externalId: EXTERNAL_ID,
+              lastSyncedFields: {
+                name: 'Engineering',
+                description: null,
+                visibility: 'private',
+                theme: 'blue',
+                members: [],
+              },
+            });
+            return linkRepo;
           });
 
           // Remote also diverged to a different name — both sides changed → conflict

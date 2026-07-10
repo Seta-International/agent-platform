@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { makeWorkerUtils } from 'graphile-worker';
@@ -241,11 +241,16 @@ describe('push-create-plan job idempotency', () => {
       // The plan already has a live m365_plan_link (seeded by withSetup). A
       // retried/duplicate job must NOT create a second Graph plan — it must
       // short-circuit before calling Graph.
+      // wrapJob (packages/core/src/runtime/workers/job-context.ts) opens scoped(tenantId, ...)
+      // around every m365.* job in production; this test invokes the job body directly, so
+      // it must open the same scope.
       await expect(
-        // biome-ignore lint/suspicious/noExplicitAny: graphile-worker helpers unused by this handler
-        (job as any)(
-          { tenant_id: tenantId, plan_id: planId, group_id: groupId, name: 'Roadmap' },
-          {},
+        scoped(tenantId, () =>
+          // biome-ignore lint/suspicious/noExplicitAny: graphile-worker helpers unused by this handler
+          (job as any)(
+            { tenant_id: tenantId, plan_id: planId, group_id: groupId, name: 'Roadmap' },
+            {},
+          ),
         ),
       ).resolves.toBeUndefined();
 

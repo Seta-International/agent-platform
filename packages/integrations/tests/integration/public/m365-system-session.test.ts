@@ -5,6 +5,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetIntegrationsDb } from '../../../src/backend/db/client.ts';
 import { buildSystemSession } from '../../../src/backend/m365/system-session.ts';
+import { inScope } from '../../helpers.ts';
 
 describe('system session — markGroupSyncStatus end-to-end', () => {
   it('system session can mark sync status for a linked group on the tenant', async () => {
@@ -39,7 +40,9 @@ describe('system session — markGroupSyncStatus end-to-end', () => {
           const ts = new Date().toISOString();
 
           await expect(
-            markGroupSyncStatus({ group_id: groupId, external_synced_at: ts, session }),
+            inScope(tenantId, () =>
+              markGroupSyncStatus({ group_id: groupId, external_synced_at: ts, session }),
+            ),
           ).resolves.toBeUndefined();
 
           const { rows } = await pool.query(

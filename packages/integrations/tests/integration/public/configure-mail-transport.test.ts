@@ -8,6 +8,7 @@ import { disableMailTransportConfig } from '../../../src/backend/domain/disable-
 import { getMailTransportConfig } from '../../../src/backend/domain/get-mail-transport-config.ts';
 import { setMailTransportConfig } from '../../../src/backend/domain/set-mail-transport-config.ts';
 import { INTEGRATIONS_PERMISSIONS } from '../../../src/backend/rbac.ts';
+import { inScope } from '../../helpers.ts';
 
 const fakeBlob: EncryptedBlob = {
   v: 1,
@@ -47,18 +48,20 @@ describe('mail transport config domain', () => {
       async ({ pool, databaseUrl }) => {
         const { tenantId, actor } = await setup(pool, databaseUrl);
         try {
-          await setMailTransportConfig({
-            tenantId,
-            actor,
-            input: {
-              kind: 'graph',
-              senderAddress: 'noreply@acme.test',
-              senderDisplayName: 'Acme',
-              config: { app_access_policy_documented: true },
-            },
-            crypto: { encrypt: fakeEncrypt },
+          const row = await inScope(tenantId, async () => {
+            await setMailTransportConfig({
+              tenantId,
+              actor,
+              input: {
+                kind: 'graph',
+                senderAddress: 'noreply@acme.test',
+                senderDisplayName: 'Acme',
+                config: { app_access_policy_documented: true },
+              },
+              crypto: { encrypt: fakeEncrypt },
+            });
+            return getMailTransportConfig(tenantId, actor);
           });
-          const row = await getMailTransportConfig(tenantId, actor);
           expect(row).toMatchObject({
             kind: 'graph',
             senderAddress: 'noreply@acme.test',
@@ -82,24 +85,26 @@ describe('mail transport config domain', () => {
       async ({ pool, databaseUrl }) => {
         const { tenantId, actor } = await setup(pool, databaseUrl);
         try {
-          await setMailTransportConfig({
-            tenantId,
-            actor,
-            input: {
-              kind: 'smtp',
-              senderAddress: 'noreply@acme.test',
-              senderDisplayName: null,
-              config: {
-                host: 'smtp.acme.test',
-                port: 587,
-                username: 'u',
-                password: 'pw',
-                require_tls: true,
+          const row = await inScope(tenantId, async () => {
+            await setMailTransportConfig({
+              tenantId,
+              actor,
+              input: {
+                kind: 'smtp',
+                senderAddress: 'noreply@acme.test',
+                senderDisplayName: null,
+                config: {
+                  host: 'smtp.acme.test',
+                  port: 587,
+                  username: 'u',
+                  password: 'pw',
+                  require_tls: true,
+                },
               },
-            },
-            crypto: { encrypt: fakeEncrypt },
+              crypto: { encrypt: fakeEncrypt },
+            });
+            return getMailTransportConfig(tenantId, actor);
           });
-          const row = await getMailTransportConfig(tenantId, actor);
           expect(row?.kind).toBe('smtp');
           const smtp = row?.config as { host: string; port: number; password_blob: EncryptedBlob };
           expect(smtp.host).toBe('smtp.acme.test');
@@ -196,19 +201,22 @@ describe('mail transport config domain', () => {
       async ({ pool, databaseUrl }) => {
         const { tenantId, actor } = await setup(pool, databaseUrl);
         try {
-          await setMailTransportConfig({
-            tenantId,
-            actor,
-            input: {
-              kind: 'graph',
-              senderAddress: 'a@b.com',
-              senderDisplayName: null,
-              config: { app_access_policy_documented: true },
-            },
-            crypto: { encrypt: fakeEncrypt },
+          const remaining = await inScope(tenantId, async () => {
+            await setMailTransportConfig({
+              tenantId,
+              actor,
+              input: {
+                kind: 'graph',
+                senderAddress: 'a@b.com',
+                senderDisplayName: null,
+                config: { app_access_policy_documented: true },
+              },
+              crypto: { encrypt: fakeEncrypt },
+            });
+            await disableMailTransportConfig({ tenantId, actor });
+            return getMailTransportConfig(tenantId, actor);
           });
-          await disableMailTransportConfig({ tenantId, actor });
-          expect(await getMailTransportConfig(tenantId, actor)).toBeNull();
+          expect(remaining).toBeNull();
         } finally {
           resetCoreDb();
           resetIntegrationsDb();
