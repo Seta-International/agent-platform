@@ -12,13 +12,22 @@ describe('dispatcher per-subscriber isolation', () => {
       let slowSeen = 0;
       let fastSeen = 0;
 
+      // The slow subscriber blocks on a gate the test opens rather than on a 300ms timer.
+      // A timer makes both assertions below a race against the runner: fast has to drain
+      // ten events before slow's sleep elapses. Held open, slow cannot advance past its
+      // first handler at all, so "fast drained everything while slow sat still" becomes a
+      // statement about the dispatcher instead of about wall-clock speed.
+      let openGate!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        openGate = resolve;
+      });
       const slowSub = {
         subscription: 'test.iso.slow',
         event: 'test.iso.entity.created',
         eventVersion: 1,
         handler: async () => {
           slowSeen += 1;
-          await new Promise((r) => setTimeout(r, 300));
+          await gate;
         },
       };
       const fastSub = {
@@ -50,13 +59,14 @@ describe('dispatcher per-subscriber isolation', () => {
           }
         });
 
-        // Fast must finish all EVENTS while slow is still in its first 1-2 handlers. If the
-        // dispatcher were serializing subscribers (old Promise.all single-flight tick), fast
-        // would be gated behind slow's first handler and the count would lag.
-        await waitFor(() => fastSeen === EVENTS, 1_500);
+        // Fast must drain every event while slow is stuck in its first handler. If the
+        // dispatcher serialized subscribers (old Promise.all single-flight tick), fast
+        // would be gated behind slow and this would never settle.
+        await waitFor(() => fastSeen === EVENTS);
         expect(fastSeen).toBe(EVENTS);
-        expect(slowSeen).toBeLessThanOrEqual(2);
+        expect(slowSeen).toBe(1);
       } finally {
+        openGate();
         await d.shutdown(10_000);
       }
     });
