@@ -1,14 +1,14 @@
 import { emit } from '@seta/core/events';
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, notExists, sql } from 'drizzle-orm';
 import { PEOPLE_WORKER_USER_LINKED } from '../../events.ts';
-import { person, worker, workerHistory } from '../db/schema.ts';
+import { person, userProjection, worker, workerHistory } from '../db/schema.ts';
 
 interface UserCreatedPayload {
   after: { user_id: string; tenant_id: string; email: string; name: string };
 }
 
-export const bindUserToPerson: SubscriberDef = {
+export const linkUserToPerson: SubscriberDef = {
   subscription: 'people.person-link.user-created',
   event: 'identity.user.created',
   eventVersion: 1,
@@ -25,16 +25,28 @@ export const bindUserToPerson: SubscriberDef = {
           eq(worker.tenant_id, tenant_id),
           sql`lower(${worker.work_email}) = ${email.toLowerCase()}`,
           isNull(worker.deleted_at),
-          isNull(person.user_id),
+          notExists(
+            ctx.tx
+              .select({ one: sql`1` })
+              .from(userProjection)
+              .where(
+                and(
+                  eq(userProjection.tenant_id, tenant_id),
+                  eq(userProjection.person_id, worker.person_id),
+                ),
+              ),
+          ),
         ),
       )
       .limit(1);
-    if (!w) return; // no unlinked worker — never create a person
+    if (!w) return;
 
-    await ctx.tx
-      .update(person)
-      .set({ user_id, updated_at: new Date() })
-      .where(and(eq(person.id, w.person_id), isNull(person.user_id)));
+    const inserted = await ctx.tx
+      .insert(userProjection)
+      .values({ user_id, tenant_id, person_id: w.person_id })
+      .onConflictDoNothing({ target: userProjection.user_id })
+      .returning({ user_id: userProjection.user_id });
+    if (inserted.length === 0) return;
 
     await ctx.tx.insert(workerHistory).values({
       tenant_id,
@@ -43,8 +55,6 @@ export const bindUserToPerson: SubscriberDef = {
       by_user_id: user_id,
     });
 
-    // worker_id convention across the codebase is person.id (see insert-worker-aggregate.ts) —
-    // there is no separate worker.id in use anywhere else, so we follow that here too.
     await emit({
       tenantId: tenant_id,
       aggregateType: 'people.worker',
