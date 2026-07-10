@@ -48,7 +48,7 @@ describe('enqueueRun', () => {
     expect((await repo.loadRun('run-1')).status).toBe('running');
     expect(addJob).toHaveBeenCalledWith(
       ORCH_JOBS.RUN_STEP,
-      { runId: 'run-1', orchestrationId: 'o1', stepIndex: 0, tenantId: 't1', actorUserId: 'u1' },
+      { runId: 'run-1', orchestrationId: 'o1', stepIndex: 0, tenant_id: 't1', actorUserId: 'u1' },
       { queueName: 'key:t1' },
     );
   });
@@ -75,14 +75,14 @@ describe('makeOrchestrationTaskList handler', () => {
     const tasks = makeOrchestrationTaskList({ repo, getOrchestration: () => spec, getAgent });
 
     await tasks[ORCH_JOBS.RUN_STEP]!(
-      { runId: 'r1', orchestrationId: 'o1', stepIndex: 0, tenantId: 't1', actorUserId: 'u1' },
+      { runId: 'r1', orchestrationId: 'o1', stepIndex: 0, tenant_id: 't1', actorUserId: 'u1' },
       helpers(addJob),
     );
 
     expect((await repo.loadRun('r1')).state.outputs.first).toEqual({ y: 2 });
     expect(addJob).toHaveBeenCalledWith(
       ORCH_JOBS.RUN_STEP,
-      { runId: 'r1', orchestrationId: 'o1', stepIndex: 1, tenantId: 't1', actorUserId: 'u1' },
+      { runId: 'r1', orchestrationId: 'o1', stepIndex: 1, tenant_id: 't1', actorUserId: 'u1' },
       { queueName: 'key:t1' },
     );
     expect(onComplete).not.toHaveBeenCalled();
@@ -106,11 +106,11 @@ describe('makeOrchestrationTaskList handler', () => {
 
     // Run step 0 then step 1
     await tasks[ORCH_JOBS.RUN_STEP]!(
-      { runId: 'r1', orchestrationId: 'o1', stepIndex: 0, tenantId: 't1', actorUserId: 'u1' },
+      { runId: 'r1', orchestrationId: 'o1', stepIndex: 0, tenant_id: 't1', actorUserId: 'u1' },
       helpers(addJob),
     );
     await tasks[ORCH_JOBS.RUN_STEP]!(
-      { runId: 'r1', orchestrationId: 'o1', stepIndex: 1, tenantId: 't1', actorUserId: 'u1' },
+      { runId: 'r1', orchestrationId: 'o1', stepIndex: 1, tenant_id: 't1', actorUserId: 'u1' },
       helpers(addJob),
     );
 
@@ -152,7 +152,7 @@ describe('makeOrchestrationTaskList handler', () => {
     });
 
     await tasks[ORCH_JOBS.RUN_STEP]!(
-      { runId: 'r1', orchestrationId: 'o1', stepIndex: 0, tenantId: 't1', actorUserId: 'u1' },
+      { runId: 'r1', orchestrationId: 'o1', stepIndex: 0, tenant_id: 't1', actorUserId: 'u1' },
       helpers(addJob),
     );
 
@@ -193,7 +193,7 @@ describe('makeOrchestrationTaskList handler', () => {
 
     await expect(
       tasks[ORCH_JOBS.RUN_STEP]!(
-        { runId: 'r1', orchestrationId: 'o1', stepIndex: 0, tenantId: 't1', actorUserId: 'u1' },
+        { runId: 'r1', orchestrationId: 'o1', stepIndex: 0, tenant_id: 't1', actorUserId: 'u1' },
         helpers(
           vi.fn(async () => {}),
           3,

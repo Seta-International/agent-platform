@@ -12,6 +12,7 @@ import { createWorker, getWorker } from '../../src/index.ts';
 import { peopleErrorMapper } from '../../src/register.ts';
 import {
   buildSession,
+  inScope,
   readEvents,
   type SeededTenant,
   seedOrgUnit,
@@ -47,7 +48,7 @@ function withDb(
     initPools({ databaseUrl });
     try {
       const t = await seedTenant(pool);
-      await fn({ pool, t });
+      await inScope(t.adminSession, () => fn({ pool, t }));
     } finally {
       resetPeopleDb();
       resetCoreDb();

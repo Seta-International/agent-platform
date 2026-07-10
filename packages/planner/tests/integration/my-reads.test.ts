@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
@@ -30,19 +30,23 @@ describe('listMyAccessibleGroups', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          await createGroup({ tenant_id: seeded.tenant_id, name: 'Alpha', session });
-          await createGroup({ tenant_id: seeded.tenant_id, name: 'Beta', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            await createGroup({ tenant_id: seeded.tenant_id, name: 'Alpha', session });
+            await createGroup({ tenant_id: seeded.tenant_id, name: 'Beta', session });
 
-          const groups = await listMyAccessibleGroups({ session });
-          expect(groups.length).toBeGreaterThanOrEqual(2);
-          const names = groups.map((g) => g.name);
-          expect(names).toContain('Alpha');
-          expect(names).toContain('Beta');
-          // Ordered by name
-          const alphaIdx = names.indexOf('Alpha');
-          const betaIdx = names.indexOf('Beta');
-          expect(alphaIdx).toBeLessThan(betaIdx);
+            const groups = await listMyAccessibleGroups({ session });
+            expect(groups.length).toBeGreaterThanOrEqual(2);
+            const names = groups.map((g) => g.name);
+            expect(names).toContain('Alpha');
+            expect(names).toContain('Beta');
+            // Ordered by name
+            const alphaIdx = names.indexOf('Alpha');
+            const betaIdx = names.indexOf('Beta');
+            expect(alphaIdx).toBeLessThan(betaIdx);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -64,35 +68,39 @@ describe('listMyAccessibleGroups', () => {
           const seeded = await seedTenant(pool, {
             users: [{ name: 'Viewer', email: 'viewer-myaccessible@example.test' }],
           });
-          const adminSession = seeded.adminSession;
-          const [viewer] = seeded.users;
-          if (!viewer) throw new Error('Seed did not create viewer');
-          const groupA = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Alpha',
-            session: adminSession,
-          });
-          await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Beta',
-            session: adminSession,
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            const [viewer] = seeded.users;
+            if (!viewer) throw new Error('Seed did not create viewer');
+            const groupA = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Alpha',
+              session: adminSession,
+            });
+            await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Beta',
+              session: adminSession,
+            });
 
-          await addGroupMember({
-            group_id: groupA.id,
-            user_id: viewer.user_id,
-            session: adminSession,
-          });
+            await addGroupMember({
+              group_id: groupA.id,
+              user_id: viewer.user_id,
+              session: adminSession,
+            });
 
-          const viewerSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: viewer.user_id,
-            roles: ['planner.viewer'],
-          });
+            const viewerSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: viewer.user_id,
+              roles: ['planner.viewer'],
+            });
 
-          const groups = await listMyAccessibleGroups({ session: viewerSession });
-          expect(groups).toHaveLength(1);
-          expect(groups[0]?.id).toBe(groupA.id);
+            const groups = await listMyAccessibleGroups({ session: viewerSession });
+            expect(groups).toHaveLength(1);
+            expect(groups[0]?.id).toBe(groupA.id);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -112,17 +120,25 @@ describe('listMyAccessibleGroups', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const adminSession = seeded.adminSession;
-          await createGroup({ tenant_id: seeded.tenant_id, name: 'Alpha', session: adminSession });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Alpha',
+              session: adminSession,
+            });
 
-          const viewerSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: crypto.randomUUID(),
-            roles: ['planner.viewer'],
+            const viewerSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: crypto.randomUUID(),
+              roles: ['planner.viewer'],
+            });
+
+            const groups = await listMyAccessibleGroups({ session: viewerSession });
+            expect(groups).toHaveLength(0);
           });
-
-          const groups = await listMyAccessibleGroups({ session: viewerSession });
-          expect(groups).toHaveLength(0);
         } finally {
           resetCoreDb();
           await closePools();
@@ -142,13 +158,17 @@ describe('listMyAccessibleGroups', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const noPermSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: crypto.randomUUID(),
-            roles: [],
-          });
-          await expect(listMyAccessibleGroups({ session: noPermSession })).rejects.toMatchObject({
-            code: 'FORBIDDEN',
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const noPermSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: crypto.randomUUID(),
+              roles: [],
+            });
+            await expect(listMyAccessibleGroups({ session: noPermSession })).rejects.toMatchObject({
+              code: 'FORBIDDEN',
+            });
           });
         } finally {
           resetCoreDb();
@@ -177,42 +197,50 @@ describe('listMyAssignedTasks', () => {
           const seeded = await seedTenant(pool, {
             users: [{ name: 'Alice', email: 'alice@example.test' }],
           });
-          const adminSession = seeded.adminSession;
-          const [alice] = seeded.users;
-          if (!alice) throw new Error('Seed did not create Alice');
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            const [alice] = seeded.users;
+            if (!alice) throw new Error('Seed did not create Alice');
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session: adminSession,
-          });
-          const plan = await createPlan({
-            group_id: group.id,
-            name: 'Sprint 1',
-            session: adminSession,
-          });
-          const myTask = await createTask({
-            plan_id: plan.id,
-            title: 'My Task',
-            session: adminSession,
-          });
-          await createTask({ plan_id: plan.id, title: 'Someone Else Task', session: adminSession });
-          await assignTaskInGroup({
-            group_id: group.id,
-            task_id: myTask.id,
-            user_id: alice.user_id,
-            session: adminSession,
-          });
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session: adminSession,
+            });
+            const plan = await createPlan({
+              group_id: group.id,
+              name: 'Sprint 1',
+              session: adminSession,
+            });
+            const myTask = await createTask({
+              plan_id: plan.id,
+              title: 'My Task',
+              session: adminSession,
+            });
+            await createTask({
+              plan_id: plan.id,
+              title: 'Someone Else Task',
+              session: adminSession,
+            });
+            await assignTaskInGroup({
+              group_id: group.id,
+              task_id: myTask.id,
+              user_id: alice.user_id,
+              session: adminSession,
+            });
 
-          const aliceSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: alice.user_id,
-            roles: ['org.admin'],
-          });
+            const aliceSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: alice.user_id,
+              roles: ['org.admin'],
+            });
 
-          const result = await listMyAssignedTasks({ session: aliceSession });
-          expect(result.tasks).toHaveLength(1);
-          expect(result.tasks[0]?.id).toBe(myTask.id);
+            const result = await listMyAssignedTasks({ session: aliceSession });
+            expect(result.tasks).toHaveLength(1);
+            expect(result.tasks[0]?.id).toBe(myTask.id);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -232,13 +260,17 @@ describe('listMyAssignedTasks', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          await createTask({ plan_id: plan.id, title: 'Unassigned Task', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            await createTask({ plan_id: plan.id, title: 'Unassigned Task', session });
 
-          const result = await listMyAssignedTasks({ session });
-          expect(result.tasks).toHaveLength(0);
+            const result = await listMyAssignedTasks({ session });
+            expect(result.tasks).toHaveLength(0);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -260,60 +292,64 @@ describe('listMyAssignedTasks', () => {
           const seeded = await seedTenant(pool, {
             users: [{ name: 'Alice', email: 'alice@example.test' }],
           });
-          const adminSession = seeded.adminSession;
-          const [alice] = seeded.users;
-          if (!alice) throw new Error('Seed did not create Alice');
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            const [alice] = seeded.users;
+            if (!alice) throw new Error('Seed did not create Alice');
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session: adminSession,
-          });
-          const plan = await createPlan({
-            group_id: group.id,
-            name: 'Sprint 1',
-            session: adminSession,
-          });
-          const taskCompleted = await createTask({
-            plan_id: plan.id,
-            title: 'Completed Task',
-            session: adminSession,
-          });
-          const taskOpen = await createTask({
-            plan_id: plan.id,
-            title: 'Open Task',
-            session: adminSession,
-          });
-          await assignTaskInGroup({
-            group_id: group.id,
-            task_id: taskCompleted.id,
-            user_id: alice.user_id,
-            session: adminSession,
-          });
-          await assignTaskInGroup({
-            group_id: group.id,
-            task_id: taskOpen.id,
-            user_id: alice.user_id,
-            session: adminSession,
-          });
-          await completeTask({
-            task_id: taskCompleted.id,
-            expected_version: taskCompleted.version,
-            session: adminSession,
-          });
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session: adminSession,
+            });
+            const plan = await createPlan({
+              group_id: group.id,
+              name: 'Sprint 1',
+              session: adminSession,
+            });
+            const taskCompleted = await createTask({
+              plan_id: plan.id,
+              title: 'Completed Task',
+              session: adminSession,
+            });
+            const taskOpen = await createTask({
+              plan_id: plan.id,
+              title: 'Open Task',
+              session: adminSession,
+            });
+            await assignTaskInGroup({
+              group_id: group.id,
+              task_id: taskCompleted.id,
+              user_id: alice.user_id,
+              session: adminSession,
+            });
+            await assignTaskInGroup({
+              group_id: group.id,
+              task_id: taskOpen.id,
+              user_id: alice.user_id,
+              session: adminSession,
+            });
+            await completeTask({
+              task_id: taskCompleted.id,
+              expected_version: taskCompleted.version,
+              session: adminSession,
+            });
 
-          const aliceSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: alice.user_id,
-            roles: ['org.admin'],
-          });
+            const aliceSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: alice.user_id,
+              roles: ['org.admin'],
+            });
 
-          const result = await listMyAssignedTasks({
-            session: aliceSession,
-            filters: { percent_complete_gte: 100 },
+            const result = await listMyAssignedTasks({
+              session: aliceSession,
+              filters: { percent_complete_gte: 100 },
+            });
+            expect(result.tasks).toHaveLength(1);
+            expect(result.tasks[0]?.id).toBe(taskCompleted.id);
           });
-          expect(result.tasks).toHaveLength(1);
-          expect(result.tasks[0]?.id).toBe(taskCompleted.id);
         } finally {
           resetCoreDb();
           await closePools();
@@ -335,72 +371,76 @@ describe('listMyAssignedTasks', () => {
           const seeded = await seedTenant(pool, {
             users: [{ name: 'Alice', email: 'alice@example.test' }],
           });
-          const adminSession = seeded.adminSession;
-          const [alice] = seeded.users;
-          if (!alice) throw new Error('Seed did not create Alice');
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            const [alice] = seeded.users;
+            if (!alice) throw new Error('Seed did not create Alice');
 
-          const groupA = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Alpha',
-            session: adminSession,
-          });
-          const groupB = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Beta',
-            session: adminSession,
-          });
-          const planA = await createPlan({
-            group_id: groupA.id,
-            name: 'Plan A',
-            session: adminSession,
-          });
-          const planB = await createPlan({
-            group_id: groupB.id,
-            name: 'Plan B',
-            session: adminSession,
-          });
-          const taskInA = await createTask({
-            plan_id: planA.id,
-            title: 'Task in A',
-            session: adminSession,
-          });
-          const taskInB = await createTask({
-            plan_id: planB.id,
-            title: 'Task in B',
-            session: adminSession,
-          });
+            const groupA = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Alpha',
+              session: adminSession,
+            });
+            const groupB = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Beta',
+              session: adminSession,
+            });
+            const planA = await createPlan({
+              group_id: groupA.id,
+              name: 'Plan A',
+              session: adminSession,
+            });
+            const planB = await createPlan({
+              group_id: groupB.id,
+              name: 'Plan B',
+              session: adminSession,
+            });
+            const taskInA = await createTask({
+              plan_id: planA.id,
+              title: 'Task in A',
+              session: adminSession,
+            });
+            const taskInB = await createTask({
+              plan_id: planB.id,
+              title: 'Task in B',
+              session: adminSession,
+            });
 
-          // Assign alice to tasks in both groups, then remove her membership from groupB
-          // (assignment requires membership at assign time; a stale assignment can outlive it).
-          await assignTaskInGroup({
-            group_id: groupA.id,
-            task_id: taskInA.id,
-            user_id: alice.user_id,
-            session: adminSession,
-          });
-          await assignTaskInGroup({
-            group_id: groupB.id,
-            task_id: taskInB.id,
-            user_id: alice.user_id,
-            session: adminSession,
-          });
-          await removeGroupMember({
-            group_id: groupB.id,
-            user_id: alice.user_id,
-            session: adminSession,
-          });
+            // Assign alice to tasks in both groups, then remove her membership from groupB
+            // (assignment requires membership at assign time; a stale assignment can outlive it).
+            await assignTaskInGroup({
+              group_id: groupA.id,
+              task_id: taskInA.id,
+              user_id: alice.user_id,
+              session: adminSession,
+            });
+            await assignTaskInGroup({
+              group_id: groupB.id,
+              task_id: taskInB.id,
+              user_id: alice.user_id,
+              session: adminSession,
+            });
+            await removeGroupMember({
+              group_id: groupB.id,
+              user_id: alice.user_id,
+              session: adminSession,
+            });
 
-          // Alice is a real member of groupA only.
-          const aliceViewerSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: alice.user_id,
-            roles: ['planner.viewer'],
-          });
+            // Alice is a real member of groupA only.
+            const aliceViewerSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: alice.user_id,
+              roles: ['planner.viewer'],
+            });
 
-          const result = await listMyAssignedTasks({ session: aliceViewerSession });
-          // Only taskInA is visible since group-scope restricts to groupA
-          expect(result.tasks).toHaveLength(1);
-          expect(result.tasks[0]?.id).toBe(taskInA.id);
+            const result = await listMyAssignedTasks({ session: aliceViewerSession });
+            // Only taskInA is visible since group-scope restricts to groupA
+            expect(result.tasks).toHaveLength(1);
+            expect(result.tasks[0]?.id).toBe(taskInA.id);
+          });
         } finally {
           resetCoreDb();
           await closePools();

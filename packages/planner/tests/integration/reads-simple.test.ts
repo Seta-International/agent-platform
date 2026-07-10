@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
@@ -37,20 +37,25 @@ describe('listGroups', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
 
-          await createGroup({ tenant_id: seeded.tenant_id, name: 'Alpha', session });
-          await createGroup({ tenant_id: seeded.tenant_id, name: 'Beta', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          const groups = await listGroups({ session });
-          expect(groups.length).toBeGreaterThanOrEqual(2);
-          const names = groups.map((g) => g.name);
-          expect(names).toContain('Alpha');
-          expect(names).toContain('Beta');
-          // Ordered by name ascending
-          const alphaIdx = names.indexOf('Alpha');
-          const betaIdx = names.indexOf('Beta');
-          expect(alphaIdx).toBeLessThan(betaIdx);
+            await createGroup({ tenant_id: seeded.tenant_id, name: 'Alpha', session });
+            await createGroup({ tenant_id: seeded.tenant_id, name: 'Beta', session });
+
+            const groups = await listGroups({ session });
+            expect(groups.length).toBeGreaterThanOrEqual(2);
+            const names = groups.map((g) => g.name);
+            expect(names).toContain('Alpha');
+            expect(names).toContain('Beta');
+            // Ordered by name ascending
+            const alphaIdx = names.indexOf('Alpha');
+            const betaIdx = names.indexOf('Beta');
+            expect(alphaIdx).toBeLessThan(betaIdx);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -72,36 +77,41 @@ describe('listGroups', () => {
           const seeded = await seedTenant(pool, {
             users: [{ name: 'Viewer', email: 'viewer-groups@example.test' }],
           });
-          const adminSession = seeded.adminSession;
-          const [viewer] = seeded.users;
-          if (!viewer) throw new Error('Seed did not create viewer');
 
-          const groupA = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Alpha',
-            session: adminSession,
-          });
-          await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Beta',
-            session: adminSession,
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            const [viewer] = seeded.users;
+            if (!viewer) throw new Error('Seed did not create viewer');
 
-          await addGroupMember({
-            group_id: groupA.id,
-            user_id: viewer.user_id,
-            session: adminSession,
-          });
+            const groupA = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Alpha',
+              session: adminSession,
+            });
+            await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Beta',
+              session: adminSession,
+            });
 
-          const viewerSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: viewer.user_id,
-            roles: ['planner.viewer'],
-          });
+            await addGroupMember({
+              group_id: groupA.id,
+              user_id: viewer.user_id,
+              session: adminSession,
+            });
 
-          const groups = await listGroups({ session: viewerSession });
-          expect(groups).toHaveLength(1);
-          expect(groups[0]?.id).toBe(groupA.id);
+            const viewerSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: viewer.user_id,
+              roles: ['planner.viewer'],
+            });
+
+            const groups = await listGroups({ session: viewerSession });
+            expect(groups).toHaveLength(1);
+            expect(groups[0]?.id).toBe(groupA.id);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -121,14 +131,19 @@ describe('listGroups', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const noPermSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: crypto.randomUUID(),
-            roles: [],
-          });
 
-          await expect(listGroups({ session: noPermSession })).rejects.toMatchObject({
-            code: 'FORBIDDEN',
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const noPermSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: crypto.randomUUID(),
+              roles: [],
+            });
+
+            await expect(listGroups({ session: noPermSession })).rejects.toMatchObject({
+              code: 'FORBIDDEN',
+            });
           });
         } finally {
           resetCoreDb();
@@ -149,21 +164,26 @@ describe('listGroups', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const adminSession = seeded.adminSession;
-          await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Alpha',
-            session: adminSession,
-          });
 
-          const viewerSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: crypto.randomUUID(),
-            roles: ['planner.viewer'],
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Alpha',
+              session: adminSession,
+            });
 
-          const groups = await listGroups({ session: viewerSession });
-          expect(groups).toHaveLength(0);
+            const viewerSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: crypto.randomUUID(),
+              roles: ['planner.viewer'],
+            });
+
+            const groups = await listGroups({ session: viewerSession });
+            expect(groups).toHaveLength(0);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -189,16 +209,21 @@ describe('getGroup', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Engineering',
-            session,
-          });
 
-          const fetched = await getGroup({ group_id: group.id, session });
-          expect(fetched.id).toBe(group.id);
-          expect(fetched.name).toBe('Engineering');
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Engineering',
+              session,
+            });
+
+            const fetched = await getGroup({ group_id: group.id, session });
+            expect(fetched.id).toBe(group.id);
+            expect(fetched.name).toBe('Engineering');
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -218,9 +243,14 @@ describe('getGroup', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          await expect(
-            getGroup({ group_id: crypto.randomUUID(), session: seeded.adminSession }),
-          ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            await expect(
+              getGroup({ group_id: crypto.randomUUID(), session: seeded.adminSession }),
+            ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -242,36 +272,41 @@ describe('getGroup', () => {
           const seeded = await seedTenant(pool, {
             users: [{ name: 'Viewer', email: 'viewer-getgroup@example.test' }],
           });
-          const adminSession = seeded.adminSession;
-          const [viewer] = seeded.users;
-          if (!viewer) throw new Error('Seed did not create viewer');
-          const groupA = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Alpha',
-            session: adminSession,
-          });
-          const groupB = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Beta',
-            session: adminSession,
-          });
 
-          await addGroupMember({
-            group_id: groupA.id,
-            user_id: viewer.user_id,
-            session: adminSession,
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            const [viewer] = seeded.users;
+            if (!viewer) throw new Error('Seed did not create viewer');
+            const groupA = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Alpha',
+              session: adminSession,
+            });
+            const groupB = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Beta',
+              session: adminSession,
+            });
 
-          const viewerSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: viewer.user_id,
-            roles: ['planner.viewer'],
-          });
+            await addGroupMember({
+              group_id: groupA.id,
+              user_id: viewer.user_id,
+              session: adminSession,
+            });
 
-          // viewer is a member of groupA only, not groupB
-          await expect(
-            getGroup({ group_id: groupB.id, session: viewerSession }),
-          ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+            const viewerSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: viewer.user_id,
+              roles: ['planner.viewer'],
+            });
+
+            // viewer is a member of groupA only, not groupB
+            await expect(
+              getGroup({ group_id: groupB.id, session: viewerSession }),
+            ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -299,23 +334,28 @@ describe('listGroupMembers', () => {
           const seeded = await seedTenant(pool, {
             users: [{ name: 'Alice', email: 'alice@example.test' }],
           });
-          const session = seeded.adminSession;
-          const [alice] = seeded.users;
-          if (!alice) throw new Error('Seed did not create Alice');
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Engineering',
-            session,
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const [alice] = seeded.users;
+            if (!alice) throw new Error('Seed did not create Alice');
+
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Engineering',
+              session,
+            });
+            await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
+
+            const { members, total } = await listGroupMembers({ group_id: group.id, session });
+            expect(members).toHaveLength(2);
+            expect(total).toBe(2);
+            const aliceMember = members.find((m) => m.user_id === alice.user_id);
+            expect(aliceMember?.display_name).toBe('Alice');
+            expect(aliceMember?.email).toBe('alice@example.test');
           });
-          await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
-
-          const { members, total } = await listGroupMembers({ group_id: group.id, session });
-          expect(members).toHaveLength(2);
-          expect(total).toBe(2);
-          const aliceMember = members.find((m) => m.user_id === alice.user_id);
-          expect(aliceMember?.display_name).toBe('Alice');
-          expect(aliceMember?.email).toBe('alice@example.test');
         } finally {
           resetCoreDb();
           await closePools();
@@ -335,22 +375,27 @@ describe('listGroupMembers', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const adminSession = seeded.adminSession;
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session: adminSession,
-          });
 
-          const noPermSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: crypto.randomUUID(),
-            roles: [],
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session: adminSession,
+            });
 
-          await expect(
-            listGroupMembers({ group_id: group.id, session: noPermSession }),
-          ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+            const noPermSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: crypto.randomUUID(),
+              roles: [],
+            });
+
+            await expect(
+              listGroupMembers({ group_id: group.id, session: noPermSession }),
+            ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -376,21 +421,26 @@ describe('listPlans', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session,
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            await createPlan({ group_id: group.id, name: 'Sprint 2', session });
+
+            const plans = await listPlans({ session });
+            expect(plans.length).toBeGreaterThanOrEqual(2);
+            const names = plans.map((p) => p.name);
+            expect(names).toContain('Sprint 1');
+            expect(names).toContain('Sprint 2');
           });
-          await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          await createPlan({ group_id: group.id, name: 'Sprint 2', session });
-
-          const plans = await listPlans({ session });
-          expect(plans.length).toBeGreaterThanOrEqual(2);
-          const names = plans.map((p) => p.name);
-          expect(names).toContain('Sprint 1');
-          expect(names).toContain('Sprint 2');
         } finally {
           resetCoreDb();
           await closePools();
@@ -412,42 +462,47 @@ describe('listPlans', () => {
           const seeded = await seedTenant(pool, {
             users: [{ name: 'Viewer', email: 'viewer-plans@example.test' }],
           });
-          const adminSession = seeded.adminSession;
-          const [viewer] = seeded.users;
-          if (!viewer) throw new Error('Seed did not create viewer');
 
-          const groupA = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Alpha',
-            session: adminSession,
-          });
-          const groupB = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Beta',
-            session: adminSession,
-          });
-          const planA = await createPlan({
-            group_id: groupA.id,
-            name: 'Plan A',
-            session: adminSession,
-          });
-          await createPlan({ group_id: groupB.id, name: 'Plan B', session: adminSession });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            const [viewer] = seeded.users;
+            if (!viewer) throw new Error('Seed did not create viewer');
 
-          await addGroupMember({
-            group_id: groupA.id,
-            user_id: viewer.user_id,
-            session: adminSession,
-          });
+            const groupA = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Alpha',
+              session: adminSession,
+            });
+            const groupB = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Beta',
+              session: adminSession,
+            });
+            const planA = await createPlan({
+              group_id: groupA.id,
+              name: 'Plan A',
+              session: adminSession,
+            });
+            await createPlan({ group_id: groupB.id, name: 'Plan B', session: adminSession });
 
-          const viewerSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: viewer.user_id,
-            roles: ['planner.viewer'],
-          });
+            await addGroupMember({
+              group_id: groupA.id,
+              user_id: viewer.user_id,
+              session: adminSession,
+            });
 
-          const plans = await listPlans({ session: viewerSession });
-          expect(plans).toHaveLength(1);
-          expect(plans[0]?.id).toBe(planA.id);
+            const viewerSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: viewer.user_id,
+              roles: ['planner.viewer'],
+            });
+
+            const plans = await listPlans({ session: viewerSession });
+            expect(plans).toHaveLength(1);
+            expect(plans[0]?.id).toBe(planA.id);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -467,14 +522,19 @@ describe('listPlans', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const noPermSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: crypto.randomUUID(),
-            roles: [],
-          });
 
-          await expect(listPlans({ session: noPermSession })).rejects.toMatchObject({
-            code: 'FORBIDDEN',
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const noPermSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: crypto.randomUUID(),
+              roles: [],
+            });
+
+            await expect(listPlans({ session: noPermSession })).rejects.toMatchObject({
+              code: 'FORBIDDEN',
+            });
           });
         } finally {
           resetCoreDb();
@@ -501,17 +561,22 @@ describe('getPlan', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session,
-          });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
 
-          const fetched = await getPlan({ plan_id: plan.id, session });
-          expect(fetched.id).toBe(plan.id);
-          expect(fetched.name).toBe('Sprint 1');
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+
+            const fetched = await getPlan({ plan_id: plan.id, session });
+            expect(fetched.id).toBe(plan.id);
+            expect(fetched.name).toBe('Sprint 1');
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -531,9 +596,14 @@ describe('getPlan', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          await expect(
-            getPlan({ plan_id: crypto.randomUUID(), session: seeded.adminSession }),
-          ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            await expect(
+              getPlan({ plan_id: crypto.randomUUID(), session: seeded.adminSession }),
+            ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -555,40 +625,45 @@ describe('getPlan', () => {
           const seeded = await seedTenant(pool, {
             users: [{ name: 'Viewer', email: 'viewer-getplan@example.test' }],
           });
-          const adminSession = seeded.adminSession;
-          const [viewer] = seeded.users;
-          if (!viewer) throw new Error('Seed did not create viewer');
-          const groupA = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Alpha',
-            session: adminSession,
-          });
-          const groupB = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Beta',
-            session: adminSession,
-          });
-          const planInB = await createPlan({
-            group_id: groupB.id,
-            name: 'Plan B',
-            session: adminSession,
-          });
 
-          await addGroupMember({
-            group_id: groupA.id,
-            user_id: viewer.user_id,
-            session: adminSession,
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            const [viewer] = seeded.users;
+            if (!viewer) throw new Error('Seed did not create viewer');
+            const groupA = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Alpha',
+              session: adminSession,
+            });
+            const groupB = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Beta',
+              session: adminSession,
+            });
+            const planInB = await createPlan({
+              group_id: groupB.id,
+              name: 'Plan B',
+              session: adminSession,
+            });
 
-          const viewerSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: viewer.user_id,
-            roles: ['planner.viewer'],
-          });
+            await addGroupMember({
+              group_id: groupA.id,
+              user_id: viewer.user_id,
+              session: adminSession,
+            });
 
-          await expect(
-            getPlan({ plan_id: planInB.id, session: viewerSession }),
-          ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+            const viewerSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: viewer.user_id,
+              roles: ['planner.viewer'],
+            });
+
+            await expect(
+              getPlan({ plan_id: planInB.id, session: viewerSession }),
+            ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -614,22 +689,27 @@ describe('listBuckets', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session,
-          });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          await createBucket({ plan_id: plan.id, name: 'To Do', session });
-          await createBucket({ plan_id: plan.id, name: 'In Progress', session });
 
-          const buckets = await listBuckets({ plan_id: plan.id, session });
-          expect(buckets).toHaveLength(2);
-          // First bucket inserted has a lower order_hint than the second.
-          expect(buckets[0]?.order_hint).not.toBeNull();
-          expect(buckets[1]?.order_hint).not.toBeNull();
-          expect(buckets[0]!.order_hint! < buckets[1]!.order_hint!).toBe(true);
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            await createBucket({ plan_id: plan.id, name: 'To Do', session });
+            await createBucket({ plan_id: plan.id, name: 'In Progress', session });
+
+            const buckets = await listBuckets({ plan_id: plan.id, session });
+            expect(buckets).toHaveLength(2);
+            // First bucket inserted has a lower order_hint than the second.
+            expect(buckets[0]?.order_hint).not.toBeNull();
+            expect(buckets[1]?.order_hint).not.toBeNull();
+            expect(buckets[0]!.order_hint! < buckets[1]!.order_hint!).toBe(true);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -649,9 +729,14 @@ describe('listBuckets', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          await expect(
-            listBuckets({ plan_id: crypto.randomUUID(), session: seeded.adminSession }),
-          ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            await expect(
+              listBuckets({ plan_id: crypto.randomUUID(), session: seeded.adminSession }),
+            ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -673,40 +758,45 @@ describe('listBuckets', () => {
           const seeded = await seedTenant(pool, {
             users: [{ name: 'Viewer', email: 'viewer-listbuckets@example.test' }],
           });
-          const adminSession = seeded.adminSession;
-          const [viewer] = seeded.users;
-          if (!viewer) throw new Error('Seed did not create viewer');
-          const groupA = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Alpha',
-            session: adminSession,
-          });
-          const groupB = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Beta',
-            session: adminSession,
-          });
-          const planInB = await createPlan({
-            group_id: groupB.id,
-            name: 'Plan B',
-            session: adminSession,
-          });
 
-          await addGroupMember({
-            group_id: groupA.id,
-            user_id: viewer.user_id,
-            session: adminSession,
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            const [viewer] = seeded.users;
+            if (!viewer) throw new Error('Seed did not create viewer');
+            const groupA = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Alpha',
+              session: adminSession,
+            });
+            const groupB = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Beta',
+              session: adminSession,
+            });
+            const planInB = await createPlan({
+              group_id: groupB.id,
+              name: 'Plan B',
+              session: adminSession,
+            });
 
-          const viewerSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: viewer.user_id,
-            roles: ['planner.viewer'],
-          });
+            await addGroupMember({
+              group_id: groupA.id,
+              user_id: viewer.user_id,
+              session: adminSession,
+            });
 
-          await expect(
-            listBuckets({ plan_id: planInB.id, session: viewerSession }),
-          ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+            const viewerSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: viewer.user_id,
+              roles: ['planner.viewer'],
+            });
+
+            await expect(
+              listBuckets({ plan_id: planInB.id, session: viewerSession }),
+            ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -732,24 +822,29 @@ describe('listChecklistItems', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session,
-          });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'My Task', session });
-          await addChecklistItem({ task_id: task.id, label: 'Step 1', session });
-          await addChecklistItem({ task_id: task.id, label: 'Step 2', session });
 
-          const items = await listChecklistItems({ task_id: task.id, session });
-          expect(items).toHaveLength(2);
-          expect(items[0]?.label).toBe('Step 1');
-          expect(items[1]?.label).toBe('Step 2');
-          expect(items[0]?.order_hint).not.toBeNull();
-          expect(items[1]?.order_hint).not.toBeNull();
-          expect(items[0]!.order_hint! < items[1]!.order_hint!).toBe(true);
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'My Task', session });
+            await addChecklistItem({ task_id: task.id, label: 'Step 1', session });
+            await addChecklistItem({ task_id: task.id, label: 'Step 2', session });
+
+            const items = await listChecklistItems({ task_id: task.id, session });
+            expect(items).toHaveLength(2);
+            expect(items[0]?.label).toBe('Step 1');
+            expect(items[1]?.label).toBe('Step 2');
+            expect(items[0]?.order_hint).not.toBeNull();
+            expect(items[1]?.order_hint).not.toBeNull();
+            expect(items[0]!.order_hint! < items[1]!.order_hint!).toBe(true);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -769,9 +864,14 @@ describe('listChecklistItems', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          await expect(
-            listChecklistItems({ task_id: crypto.randomUUID(), session: seeded.adminSession }),
-          ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            await expect(
+              listChecklistItems({ task_id: crypto.randomUUID(), session: seeded.adminSession }),
+            ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -797,20 +897,25 @@ describe('listLabels', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session,
-          });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          await createLabel({ plan_id: plan.id, name: 'Zebra', color: '#000', session });
-          await createLabel({ plan_id: plan.id, name: 'Alpha', color: '#fff', session });
 
-          const labels = await listLabels({ plan_id: plan.id, session });
-          expect(labels).toHaveLength(2);
-          expect(labels[0]?.name).toBe('Alpha');
-          expect(labels[1]?.name).toBe('Zebra');
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            await createLabel({ plan_id: plan.id, name: 'Zebra', color: '#000', session });
+            await createLabel({ plan_id: plan.id, name: 'Alpha', color: '#fff', session });
+
+            const labels = await listLabels({ plan_id: plan.id, session });
+            expect(labels).toHaveLength(2);
+            expect(labels[0]?.name).toBe('Alpha');
+            expect(labels[1]?.name).toBe('Zebra');
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -830,9 +935,14 @@ describe('listLabels', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          await expect(
-            listLabels({ plan_id: crypto.randomUUID(), session: seeded.adminSession }),
-          ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            await expect(
+              listLabels({ plan_id: crypto.randomUUID(), session: seeded.adminSession }),
+            ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -854,40 +964,45 @@ describe('listLabels', () => {
           const seeded = await seedTenant(pool, {
             users: [{ name: 'Viewer', email: 'viewer-listlabels@example.test' }],
           });
-          const adminSession = seeded.adminSession;
-          const [viewer] = seeded.users;
-          if (!viewer) throw new Error('Seed did not create viewer');
-          const groupA = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Alpha',
-            session: adminSession,
-          });
-          const groupB = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Beta',
-            session: adminSession,
-          });
-          const planInB = await createPlan({
-            group_id: groupB.id,
-            name: 'Plan B',
-            session: adminSession,
-          });
 
-          await addGroupMember({
-            group_id: groupA.id,
-            user_id: viewer.user_id,
-            session: adminSession,
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const adminSession = seeded.adminSession;
+            const [viewer] = seeded.users;
+            if (!viewer) throw new Error('Seed did not create viewer');
+            const groupA = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Alpha',
+              session: adminSession,
+            });
+            const groupB = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Beta',
+              session: adminSession,
+            });
+            const planInB = await createPlan({
+              group_id: groupB.id,
+              name: 'Plan B',
+              session: adminSession,
+            });
 
-          const viewerSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: viewer.user_id,
-            roles: ['planner.viewer'],
-          });
+            await addGroupMember({
+              group_id: groupA.id,
+              user_id: viewer.user_id,
+              session: adminSession,
+            });
 
-          await expect(
-            listLabels({ plan_id: planInB.id, session: viewerSession }),
-          ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+            const viewerSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: viewer.user_id,
+              roles: ['planner.viewer'],
+            });
+
+            await expect(
+              listLabels({ plan_id: planInB.id, session: viewerSession }),
+            ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+          });
         } finally {
           resetCoreDb();
           await closePools();

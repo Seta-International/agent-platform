@@ -11,7 +11,7 @@ import {
   removeAllocation,
   submitCharter,
 } from '../../src/index.ts';
-import { approveCharterTwoStage, readEvents, seedTenant } from '../helpers.ts';
+import { approveCharterTwoStage, inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -21,16 +21,18 @@ const ctx = {
 async function seedProject(
   session: import('@seta/core').SessionScope,
 ): Promise<{ project_id: string; account_id: string }> {
-  const { account_id } = await createAccount({ name: 'A', session });
-  const { charter_id } = await submitCharter({
-    account_id,
-    name: 'P',
-    pm_worker_id: session.user_id,
-    methodology: 'scrum',
-    pricing_model: 'fixed_price',
-    budget_bmm: 100,
-    session,
-  });
+  const { account_id } = await inScope(session, () => createAccount({ name: 'A', session }));
+  const { charter_id } = await inScope(session, () =>
+    submitCharter({
+      account_id,
+      name: 'P',
+      pm_worker_id: session.user_id,
+      methodology: 'scrum',
+      pricing_model: 'fixed_price',
+      budget_bmm: 100,
+      session,
+    }),
+  );
   const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
   return { project_id, account_id };
 }
@@ -46,25 +48,28 @@ describe('removeAllocation', () => {
         const { project_id, account_id } = await seedProject(t.adminSession);
         const workerId = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id,
-          worker_id: workerId,
-          role: 'DEV',
-          date_from: '2026-05-01',
-          date_to: '2026-05-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          minutes_per_day: 480,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id,
+            worker_id: workerId,
+            role: 'DEV',
+            date_from: '2026-05-01',
+            date_to: '2026-05-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            minutes_per_day: 480,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        await removeAllocation({ allocation_id, session: t.adminSession });
+        await inScope(t.adminSession, () =>
+          removeAllocation({ allocation_id, session: t.adminSession }),
+        );
 
-        const [row] = await pmDb()
-          .select()
-          .from(allocation)
-          .where(eq(allocation.id, allocation_id));
+        const [row] = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.id, allocation_id)),
+        );
         expect(row?.deleted_at).not.toBeNull();
 
         const events = await readEvents(pool, t.tenant_id, 'pm.allocation.removed');
@@ -91,7 +96,9 @@ describe('removeAllocation', () => {
         const t = await seedTenant(pool);
         const missingId = crypto.randomUUID();
         await expect(
-          removeAllocation({ allocation_id: missingId, session: t.adminSession }),
+          inScope(t.adminSession, () =>
+            removeAllocation({ allocation_id: missingId, session: t.adminSession }),
+          ),
         ).rejects.toMatchObject({ code: 'NOT_FOUND' });
       } finally {
         resetPmDb();
@@ -111,22 +118,28 @@ describe('removeAllocation', () => {
         const { project_id } = await seedProject(t.adminSession);
         const workerId = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id,
-          worker_id: workerId,
-          role: 'DEV',
-          date_from: '2026-05-01',
-          date_to: '2026-05-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          minutes_per_day: 480,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id,
+            worker_id: workerId,
+            role: 'DEV',
+            date_from: '2026-05-01',
+            date_to: '2026-05-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            minutes_per_day: 480,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        await removeAllocation({ allocation_id, session: t.adminSession });
-        await expect(
+        await inScope(t.adminSession, () =>
           removeAllocation({ allocation_id, session: t.adminSession }),
+        );
+        await expect(
+          inScope(t.adminSession, () =>
+            removeAllocation({ allocation_id, session: t.adminSession }),
+          ),
         ).rejects.toMatchObject({ code: 'NOT_FOUND' });
       } finally {
         resetPmDb();

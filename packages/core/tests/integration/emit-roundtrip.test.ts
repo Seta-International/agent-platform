@@ -1,3 +1,4 @@
+import { maintenance, scoped } from '@seta/shared-db';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
@@ -10,16 +11,18 @@ describe('emit() round-trip', () => {
     await withCoreTestDb(async ({ db }) => {
       resetCoreDb();
       const aggregateId = crypto.randomUUID();
-      await withEmit({ actor: { userId: 'u1', tenantId: 't1' } }, async () => {
-        await emit({
-          tenantId: crypto.randomUUID(),
-          aggregateType: 'test.entity',
-          aggregateId,
-          eventType: 'test.entity.created',
-          eventVersion: 1,
-          payload: { hello: 'world' },
-        });
-      });
+      await scoped('t1', () =>
+        withEmit({ actor: { userId: 'u1', tenantId: 't1' } }, async () => {
+          await emit({
+            tenantId: crypto.randomUUID(),
+            aggregateType: 'test.entity',
+            aggregateId,
+            eventType: 'test.entity.created',
+            eventVersion: 1,
+            payload: { hello: 'world' },
+          });
+        }),
+      );
 
       const rows = await db
         .select()
@@ -38,16 +41,18 @@ describe('emit() round-trip', () => {
       const aggregateId = crypto.randomUUID();
       const tenantId = crypto.randomUUID();
       let returned: { eventId: string } | undefined;
-      await withEmit({ actor: { userId: 'u-1', tenantId: 't-1' } }, async () => {
-        returned = await emit({
-          tenantId,
-          aggregateType: 'test.aggregate',
-          aggregateId,
-          eventType: 'test.event.returns-id',
-          eventVersion: 1,
-          payload: { hello: 'world' },
-        });
-      });
+      await scoped('t-1', () =>
+        withEmit({ actor: { userId: 'u-1', tenantId: 't-1' } }, async () => {
+          returned = await emit({
+            tenantId,
+            aggregateType: 'test.aggregate',
+            aggregateId,
+            eventType: 'test.event.returns-id',
+            eventVersion: 1,
+            payload: { hello: 'world' },
+          });
+        }),
+      );
       expect(returned?.eventId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
       );
@@ -65,17 +70,19 @@ describe('emit() round-trip', () => {
       resetCoreDb();
       const aggregateId = crypto.randomUUID();
       await expect(
-        withEmit(undefined, async () => {
-          await emit({
-            tenantId: crypto.randomUUID(),
-            aggregateType: 'test.entity',
-            aggregateId,
-            eventType: 'test.entity.aborted',
-            eventVersion: 1,
-            payload: {},
-          });
-          throw new Error('user-thrown — rollback please');
-        }),
+        maintenance(() =>
+          withEmit(undefined, async () => {
+            await emit({
+              tenantId: crypto.randomUUID(),
+              aggregateType: 'test.entity',
+              aggregateId,
+              eventType: 'test.entity.aborted',
+              eventVersion: 1,
+              payload: {},
+            });
+            throw new Error('user-thrown — rollback please');
+          }),
+        ),
       ).rejects.toThrow('user-thrown');
       const rows = await db
         .select()

@@ -11,7 +11,7 @@ const ONE_MINUTE_MS = 60 * 1000;
 describe('runRenewSubscription', () => {
   it('happy path: patches Graph, updates DB expiration, enqueues next renewal', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
       const tenantId = crypto.randomUUID();
       const subscriptionId = crypto.randomUUID();
 
@@ -56,11 +56,14 @@ describe('runRenewSubscription', () => {
       expect(workerAddJob).toHaveBeenCalledOnce();
       const [identifier, payload, opts] = workerAddJob.mock.calls[0] as [
         string,
-        { subscription_row_id: string },
+        { subscription_row_id: string; tenant_id: string },
         { runAt: Date },
       ];
       expect(identifier).toBe('m365.subscription.renew');
       expect(payload.subscription_row_id).toBe(row.id);
+      // tenant_id must survive the self-reschedule — otherwise this job renews
+      // successfully once, then silently stops (no tenant GUC on the next run).
+      expect(payload.tenant_id).toBe(tenantId);
       const expectedRunAt = expectedExpiration - TWENTY_FOUR_HOURS_MS;
       expect(Math.abs(opts.runAt.getTime() - expectedRunAt)).toBeLessThan(ONE_MINUTE_MS);
     });
@@ -68,7 +71,7 @@ describe('runRenewSubscription', () => {
 
   it('missing row: exits cleanly without calling Graph or enqueuing a job', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
 
       const patchFn = vi.fn();
       const graphClient = {
@@ -93,7 +96,7 @@ describe('runRenewSubscription', () => {
 
   it('Graph failure: error propagates, DB expiration is unchanged', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
       const tenantId = crypto.randomUUID();
       const subscriptionId = crypto.randomUUID();
 

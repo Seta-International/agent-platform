@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
@@ -28,35 +28,40 @@ describe('updateTask', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'Original', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          const updated = await updateTask({
-            task_id: task.id,
-            expected_version: 1,
-            patch: { title: 'Renamed' },
-            session,
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'Original', session });
+
+            const updated = await updateTask({
+              task_id: task.id,
+              expected_version: 1,
+              patch: { title: 'Renamed' },
+              session,
+            });
+
+            expect(updated.title).toBe('Renamed');
+            expect(updated.version).toBe(2);
+            expect(updated.id).toBe(task.id);
+
+            const events = await readEvents(pool, seeded.tenant_id, 'planner.task.updated');
+            expect(events).toHaveLength(1);
+            // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+            const payload = events[0]?.payload as any;
+            expect(payload.task_id).toBe(task.id);
+            expect(payload.plan_id).toBe(plan.id);
+            expect(payload.group_id).toBe(group.id);
+            expect(payload.before).toEqual({ title: 'Original' });
+            expect(payload.after).toEqual({ title: 'Renamed' });
+            expect(payload.version_before).toBe(1);
+            expect(payload.version_after).toBe(2);
+            expect(payload.actor.user_id).toBe(session.user_id);
           });
-
-          expect(updated.title).toBe('Renamed');
-          expect(updated.version).toBe(2);
-          expect(updated.id).toBe(task.id);
-
-          const events = await readEvents(pool, seeded.tenant_id, 'planner.task.updated');
-          expect(events).toHaveLength(1);
-          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-          const payload = events[0]?.payload as any;
-          expect(payload.task_id).toBe(task.id);
-          expect(payload.plan_id).toBe(plan.id);
-          expect(payload.group_id).toBe(group.id);
-          expect(payload.before).toEqual({ title: 'Original' });
-          expect(payload.after).toEqual({ title: 'Renamed' });
-          expect(payload.version_before).toBe(1);
-          expect(payload.version_after).toBe(2);
-          expect(payload.actor.user_id).toBe(session.user_id);
         } finally {
           resetCoreDb();
           await closePools();
@@ -76,22 +81,27 @@ describe('updateTask', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'Stable', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          const result = await updateTask({
-            task_id: task.id,
-            expected_version: 1,
-            patch: { title: 'Stable' },
-            session,
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'Stable', session });
+
+            const result = await updateTask({
+              task_id: task.id,
+              expected_version: 1,
+              patch: { title: 'Stable' },
+              session,
+            });
+
+            expect(result.version).toBe(1);
+            const eventCount = await countEvents(pool, seeded.tenant_id, 'planner.task.updated');
+            expect(eventCount).toBe(0);
           });
-
-          expect(result.version).toBe(1);
-          const eventCount = await countEvents(pool, seeded.tenant_id, 'planner.task.updated');
-          expect(eventCount).toBe(0);
         } finally {
           resetCoreDb();
           await closePools();
@@ -111,20 +121,25 @@ describe('updateTask', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T1', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          await expect(
-            updateTask({
-              task_id: task.id,
-              expected_version: 99,
-              patch: { title: 'New' },
-              session,
-            }),
-          ).rejects.toMatchObject({ code: 'CONFLICT' });
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'T1', session });
+
+            await expect(
+              updateTask({
+                task_id: task.id,
+                expected_version: 99,
+                patch: { title: 'New' },
+                session,
+              }),
+            ).rejects.toMatchObject({ code: 'CONFLICT' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -144,35 +159,40 @@ describe('updateTask', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({
-            plan_id: plan.id,
-            title: 'T1',
-            due_at: '2026-06-01T00:00:00.000Z',
-            session,
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({
+              plan_id: plan.id,
+              title: 'T1',
+              due_at: '2026-06-01T00:00:00.000Z',
+              session,
+            });
+
+            expect(task.due_at).not.toBeNull();
+
+            const updated = await updateTask({
+              task_id: task.id,
+              expected_version: 1,
+              patch: { due_at: null },
+              session,
+            });
+
+            expect(updated.due_at).toBeNull();
+            expect(updated.version).toBe(2);
+
+            const events = await readEvents(pool, seeded.tenant_id, 'planner.task.updated');
+            expect(events).toHaveLength(1);
+            // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+            const payload = events[0]?.payload as any;
+            expect(payload.before.due_at).not.toBeNull();
+            expect(payload.after.due_at).toBeNull();
           });
-
-          expect(task.due_at).not.toBeNull();
-
-          const updated = await updateTask({
-            task_id: task.id,
-            expected_version: 1,
-            patch: { due_at: null },
-            session,
-          });
-
-          expect(updated.due_at).toBeNull();
-          expect(updated.version).toBe(2);
-
-          const events = await readEvents(pool, seeded.tenant_id, 'planner.task.updated');
-          expect(events).toHaveLength(1);
-          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-          const payload = events[0]?.payload as any;
-          expect(payload.before.due_at).not.toBeNull();
-          expect(payload.after.due_at).toBeNull();
         } finally {
           resetCoreDb();
           await closePools();
@@ -192,23 +212,28 @@ describe('updateTask', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T1', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          expect(task.due_at).toBeNull();
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'T1', session });
 
-          const updated = await updateTask({
-            task_id: task.id,
-            expected_version: 1,
-            patch: { due_at: '2026-06-01T00:00:00.000Z' },
-            session,
+            expect(task.due_at).toBeNull();
+
+            const updated = await updateTask({
+              task_id: task.id,
+              expected_version: 1,
+              patch: { due_at: '2026-06-01T00:00:00.000Z' },
+              session,
+            });
+
+            expect(updated.due_at).toBe('2026-06-01T00:00:00.000Z');
+            expect(updated.version).toBe(2);
           });
-
-          expect(updated.due_at).toBe('2026-06-01T00:00:00.000Z');
-          expect(updated.version).toBe(2);
         } finally {
           resetCoreDb();
           await closePools();
@@ -234,31 +259,36 @@ describe('deleteTask', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'To Delete', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          await deleteTask({ task_id: task.id, expected_version: 1, session });
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'To Delete', session });
 
-          const { rows } = await pool.query(
-            `SELECT deleted_at, version FROM planner.tasks WHERE id = $1`,
-            [task.id],
-          );
-          expect(rows[0].deleted_at).not.toBeNull();
-          expect(rows[0].version).toBe(2);
+            await deleteTask({ task_id: task.id, expected_version: 1, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'planner.task.deleted');
-          expect(events).toHaveLength(1);
-          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-          const payload = events[0]?.payload as any;
-          expect(payload.task_id).toBe(task.id);
-          expect(payload.plan_id).toBe(plan.id);
-          expect(payload.group_id).toBe(group.id);
-          expect(payload.version_before).toBe(1);
-          expect(payload.deleted_at).not.toBeNull();
-          expect(payload.actor.user_id).toBe(session.user_id);
+            const { rows } = await pool.query(
+              `SELECT deleted_at, version FROM planner.tasks WHERE id = $1`,
+              [task.id],
+            );
+            expect(rows[0].deleted_at).not.toBeNull();
+            expect(rows[0].version).toBe(2);
+
+            const events = await readEvents(pool, seeded.tenant_id, 'planner.task.deleted');
+            expect(events).toHaveLength(1);
+            // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+            const payload = events[0]?.payload as any;
+            expect(payload.task_id).toBe(task.id);
+            expect(payload.plan_id).toBe(plan.id);
+            expect(payload.group_id).toBe(group.id);
+            expect(payload.version_before).toBe(1);
+            expect(payload.deleted_at).not.toBeNull();
+            expect(payload.actor.user_id).toBe(session.user_id);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -278,15 +308,20 @@ describe('deleteTask', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          await expect(
-            deleteTask({ task_id: task.id, expected_version: 99, session }),
-          ).rejects.toMatchObject({ code: 'CONFLICT' });
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'T', session });
+
+            await expect(
+              deleteTask({ task_id: task.id, expected_version: 99, session }),
+            ).rejects.toMatchObject({ code: 'CONFLICT' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -312,29 +347,34 @@ describe('restoreTask', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'Restore Me', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          await deleteTask({ task_id: task.id, expected_version: 1, session });
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'Restore Me', session });
 
-          const restored = await restoreTask({ task_id: task.id, session });
+            await deleteTask({ task_id: task.id, expected_version: 1, session });
 
-          expect(restored.deleted_at).toBeNull();
-          expect(restored.version).toBe(3);
-          expect(restored.id).toBe(task.id);
+            const restored = await restoreTask({ task_id: task.id, session });
 
-          const events = await readEvents(pool, seeded.tenant_id, 'planner.task.restored');
-          expect(events).toHaveLength(1);
-          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-          const payload = events[0]?.payload as any;
-          expect(payload.task_id).toBe(task.id);
-          expect(payload.plan_id).toBe(plan.id);
-          expect(payload.group_id).toBe(group.id);
-          expect(payload.version_after).toBe(3);
-          expect(payload.actor.user_id).toBe(session.user_id);
+            expect(restored.deleted_at).toBeNull();
+            expect(restored.version).toBe(3);
+            expect(restored.id).toBe(task.id);
+
+            const events = await readEvents(pool, seeded.tenant_id, 'planner.task.restored');
+            expect(events).toHaveLength(1);
+            // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+            const payload = events[0]?.payload as any;
+            expect(payload.task_id).toBe(task.id);
+            expect(payload.plan_id).toBe(plan.id);
+            expect(payload.group_id).toBe(group.id);
+            expect(payload.version_after).toBe(3);
+            expect(payload.actor.user_id).toBe(session.user_id);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -354,14 +394,19 @@ describe('restoreTask', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'Live Task', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          await expect(restoreTask({ task_id: task.id, session })).rejects.toMatchObject({
-            code: 'VALIDATION',
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'Live Task', session });
+
+            await expect(restoreTask({ task_id: task.id, session })).rejects.toMatchObject({
+              code: 'VALIDATION',
+            });
           });
         } finally {
           resetCoreDb();

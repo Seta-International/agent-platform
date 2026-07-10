@@ -14,7 +14,7 @@ import {
 } from '@seta/shared-orchestration';
 import { defaultAssignBySkillDeps } from '../../workflows/assign-by-skill/deps.ts';
 import { computeAssigneeSuggestions } from '../../workflows/assign-by-skill/workflow.ts';
-import { makeGroupMemberSkills } from './adapters.ts';
+import type { GroupMemberSource } from './adapters.ts';
 import {
   makeAvaiCheckerAgent,
   makeGeneralAnswerAgent,
@@ -48,6 +48,10 @@ export interface AssignmentPorts {
   userProfileLookup: UserProfilePort;
   assign: AssignPort;
   taskAssignees: TaskAssigneesPort;
+  /** Reads planner + people tables, so it is injected like every other adapter here:
+   * constructing it inside this factory made it unreachable for tests, which then
+   * exercised the DAG against a live database without meaning to. */
+  groupMembers: GroupMemberSource;
 }
 
 export interface AssignmentOrchestrationRuntime {
@@ -107,7 +111,7 @@ export function buildAssignmentOrchestrationRuntime(deps: {
   const skillMatcher = makeSkillMatcherAgent({
     skillSearch: ports.skillSearch,
     resolveModel,
-    groupMembers: makeGroupMemberSkills(),
+    groupMembers: ports.groupMembers,
   });
   const avaiChecker = makeAvaiCheckerAgent({ availability: ports.availability });
   const recommender = makeRecommenderAgent();

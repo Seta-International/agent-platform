@@ -10,7 +10,7 @@ try {
 }
 
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { Command } from 'commander';
 import pino from 'pino';
 import { demoSuggestionsCommand } from './commands/demo-suggestions.ts';
@@ -307,4 +307,8 @@ program
     }
   });
 
-await program.parseAsync(process.argv);
+// CLI commands are operator tools run with admin credentials, and several (tenant-create,
+// migrate, seed) are legitimately cross-tenant. Wrapping the single dispatch point — rather
+// than each action — keeps the admin escape greppable: commander awaits the matched action
+// before parseAsync resolves, so this covers whichever command ran.
+await maintenance(() => program.parseAsync(process.argv));

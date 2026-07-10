@@ -31,7 +31,26 @@ import { logStreams } from './log-streams.ts';
 const log = pino({ name: 'apps/worker' }, pino.multistream(logStreams('worker')));
 const env = parseEnv(process.env);
 
-initPools({ databaseUrl: env.DATABASE_URL });
+// appDatabaseUrl gives this process a NOBYPASSRLS pool, so scoped() inside a job
+// or subscriber is genuinely RLS-enforced. Without it, scoped() would silently
+// run as superuser. Falls back to DATABASE_URL for simple self-host, where the
+// backstop is then inert by design.
+//
+// webMax: the app pool is what scoped() hands out to subscriber handlers (one
+// independent timer loop per subscriber, 88 of them, deliberately
+// non-serializing — dispatcher/index.ts) and to graphile-worker tasks
+// (concurrency: 5). Pinning is lazy, so a handler that never touches the DB
+// holds no connection, but ones that do each hold one for their duration.
+// Sized to match the worker (admin) pool at 20 so the app pool — the one with
+// the aggressive 5s acquire timeout — isn't the tighter bottleneck. Total
+// worker-process budget at 20+20+5=45 still clears the Starter-tier headroom
+// (~90) and the Growth-tier headroom (~57) from pools.ts's sizing formula.
+initPools({
+  databaseUrl: env.DATABASE_URL,
+  appDatabaseUrl: env.DATABASE_APP_URL,
+  webMax: 20,
+  log: log.child({ subsystem: 'shared-db' }),
+});
 
 const cryptoEnv = parseCryptoEnv(process.env);
 const keyProvider = await createKeyProviderFromEnv(cryptoEnv);
@@ -68,8 +87,8 @@ if (lag.length > 0) {
   process.exit(1);
 }
 
-const outboxStore = createOutboxStore({ db: coreDb() });
-const configStore = createMailTransportConfigStore({ db: integrationsDb() });
+const outboxStore = createOutboxStore({ db: coreDb });
+const configStore = createMailTransportConfigStore({ db: integrationsDb });
 
 const mailerSendTask = createMailerSendTask({
   outboxStore,

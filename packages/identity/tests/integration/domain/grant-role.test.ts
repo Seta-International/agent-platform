@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createUser } from '../../../src/backend/domain/create-user.ts';
@@ -30,57 +30,61 @@ describe('grantRole / revokeRole', () => {
             `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', 'demo')`,
             [tenantId],
           );
-          const { user_id: adminId } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'admin@d.local',
-              name: 'Admin',
-              password: 'ChangeMe@2026',
-              initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-            },
-            { type: 'cli', user_id: null },
-          );
-          const { user_id: targetId } = await createUser(
-            { tenant_id: tenantId, email: 'u@d.local', name: 'U', password: 'ChangeMe@2026' },
-            { type: 'cli', user_id: null },
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            const { user_id: adminId } = await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'admin@d.local',
+                name: 'Admin',
+                password: 'ChangeMe@2026',
+                initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+              },
+              { type: 'cli', user_id: null },
+            );
+            const { user_id: targetId } = await createUser(
+              { tenant_id: tenantId, email: 'u@d.local', name: 'U', password: 'ChangeMe@2026' },
+              { type: 'cli', user_id: null },
+            );
 
-          const { grant_id } = await grantRole(
-            {
-              user_id: targetId,
-              tenant_id: tenantId,
-              role_slug: 'planner.viewer',
-              scope_kind: 'tenant',
-              scope_id: null,
-            },
-            { type: 'user', user_id: adminId },
-          );
+            const { grant_id } = await grantRole(
+              {
+                user_id: targetId,
+                tenant_id: tenantId,
+                role_slug: 'planner.viewer',
+                scope_kind: 'tenant',
+                scope_id: null,
+              },
+              { type: 'user', user_id: adminId },
+            );
 
-          const active = (
-            await pool.query(
-              `SELECT count(*)::int AS n FROM identity.role_assignments WHERE user_id = $1 AND role_slug = 'planner.viewer' AND revoked_at IS NULL`,
-              [targetId],
-            )
-          ).rows[0] as { n: number };
-          expect(active.n).toBe(1);
+            const active = (
+              await pool.query(
+                `SELECT count(*)::int AS n FROM identity.role_assignments WHERE user_id = $1 AND role_slug = 'planner.viewer' AND revoked_at IS NULL`,
+                [targetId],
+              )
+            ).rows[0] as { n: number };
+            expect(active.n).toBe(1);
 
-          await revokeRole(grant_id, { type: 'user', user_id: adminId });
+            await revokeRole(grant_id, { type: 'user', user_id: adminId });
 
-          const revokedActive = (
-            await pool.query(
-              `SELECT count(*)::int AS n FROM identity.role_assignments WHERE id = $1 AND revoked_at IS NULL`,
-              [grant_id],
-            )
-          ).rows[0] as { n: number };
-          expect(revokedActive.n).toBe(0);
+            const revokedActive = (
+              await pool.query(
+                `SELECT count(*)::int AS n FROM identity.role_assignments WHERE id = $1 AND revoked_at IS NULL`,
+                [grant_id],
+              )
+            ).rows[0] as { n: number };
+            expect(revokedActive.n).toBe(0);
 
-          const events = (
-            await pool.query(
-              `SELECT payload->>'change' AS change FROM core.events WHERE event_type = 'identity.role_grant.changed' AND payload->>'user_id' = $1 ORDER BY occurred_at, ctid`,
-              [targetId],
-            )
-          ).rows as { change: string }[];
-          expect(events.map((e) => e.change)).toEqual(['granted', 'revoked']);
+            const events = (
+              await pool.query(
+                `SELECT payload->>'change' AS change FROM core.events WHERE event_type = 'identity.role_grant.changed' AND payload->>'user_id' = $1 ORDER BY occurred_at, ctid`,
+                [targetId],
+              )
+            ).rows as { change: string }[];
+            expect(events.map((e) => e.change)).toEqual(['granted', 'revoked']);
+          });
         } finally {
           resetCoreDb();
           await closePools();

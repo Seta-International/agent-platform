@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -85,22 +85,26 @@ describe('new event payloads validate', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T1', session });
+          // seedTenant doesn't need an executor context (raw SQL + identity
+          // createUser only), but every planner domain call below does.
+          await scoped(seeded.tenant_id, async () => {
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'T1', session });
 
-          await updateTask({
-            task_id: task.id,
-            expected_version: task.version,
-            patch: { start_at: '2026-06-01T00:00:00.000Z', percent_complete: 50 },
-            session,
+            await updateTask({
+              task_id: task.id,
+              expected_version: task.version,
+              patch: { start_at: '2026-06-01T00:00:00.000Z', percent_complete: 50 },
+              session,
+            });
+
+            const ev = await readEvents(pool, seeded.tenant_id, 'planner.task.updated');
+            expect(ev).toHaveLength(1);
+            const parsed = TaskUpdated.parse(ev[0]?.payload);
+            expect(parsed.changed_fields).toContain('start_at');
+            expect(parsed.changed_fields).toContain('percent_complete');
           });
-
-          const ev = await readEvents(pool, seeded.tenant_id, 'planner.task.updated');
-          expect(ev).toHaveLength(1);
-          const parsed = TaskUpdated.parse(ev[0]?.payload);
-          expect(parsed.changed_fields).toContain('start_at');
-          expect(parsed.changed_fields).toContain('percent_complete');
         } finally {
           resetCoreDb();
           await closePools();
@@ -122,20 +126,24 @@ describe('new event payloads validate', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T1', session });
+          // seedTenant doesn't need an executor context (raw SQL + identity
+          // createUser only), but every planner domain call below does.
+          await scoped(seeded.tenant_id, async () => {
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'T1', session });
 
-          await addTaskReference({
-            task_id: task.id,
-            url: 'https://example.com/spec',
-            alias: 'spec',
-            session,
+            await addTaskReference({
+              task_id: task.id,
+              url: 'https://example.com/spec',
+              alias: 'spec',
+              session,
+            });
+
+            const ev = await readEvents(pool, seeded.tenant_id, 'planner.task.reference-added');
+            expect(ev).toHaveLength(1);
+            RefAdded.parse(ev[0]?.payload);
           });
-
-          const ev = await readEvents(pool, seeded.tenant_id, 'planner.task.reference-added');
-          expect(ev).toHaveLength(1);
-          RefAdded.parse(ev[0]?.payload);
         } finally {
           resetCoreDb();
           await closePools();
@@ -157,17 +165,21 @@ describe('new event payloads validate', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T1', session });
+          // seedTenant doesn't need an executor context (raw SQL + identity
+          // createUser only), but every planner domain call below does.
+          await scoped(seeded.tenant_id, async () => {
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'T1', session });
 
-          const url = 'https://example.com/doc';
-          await addTaskReference({ task_id: task.id, url, session });
-          await removeTaskReference({ task_id: task.id, url, session });
+            const url = 'https://example.com/doc';
+            await addTaskReference({ task_id: task.id, url, session });
+            await removeTaskReference({ task_id: task.id, url, session });
 
-          const ev = await readEvents(pool, seeded.tenant_id, 'planner.task.reference-removed');
-          expect(ev).toHaveLength(1);
-          RefRemoved.parse(ev[0]?.payload);
+            const ev = await readEvents(pool, seeded.tenant_id, 'planner.task.reference-removed');
+            expect(ev).toHaveLength(1);
+            RefRemoved.parse(ev[0]?.payload);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -189,21 +201,25 @@ describe('new event payloads validate', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+          // seedTenant doesn't need an executor context (raw SQL + identity
+          // createUser only), but every planner domain call below does.
+          await scoped(seeded.tenant_id, async () => {
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
 
-          await setCategoryDescription({ plan_id: plan.id, slot: 4, name: 'Bug', session });
+            await setCategoryDescription({ plan_id: plan.id, slot: 4, name: 'Bug', session });
 
-          const ev = await readEvents(
-            pool,
-            seeded.tenant_id,
-            'planner.plan.category-description-changed',
-          );
-          expect(ev).toHaveLength(1);
-          const parsed = CatDescChanged.parse(ev[0]?.payload);
-          expect(parsed.slot).toBe(4);
-          expect(parsed.after).toBe('Bug');
-          expect(parsed.before).toBeNull();
+            const ev = await readEvents(
+              pool,
+              seeded.tenant_id,
+              'planner.plan.category-description-changed',
+            );
+            expect(ev).toHaveLength(1);
+            const parsed = CatDescChanged.parse(ev[0]?.payload);
+            expect(parsed.slot).toBe(4);
+            expect(parsed.after).toBe('Bug');
+            expect(parsed.before).toBeNull();
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -225,38 +241,42 @@ describe('new event payloads validate', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const label = await createLabel({
-            plan_id: plan.id,
-            name: 'Bug',
-            color: '#ff0000',
-            session,
-          });
+          // seedTenant doesn't need an executor context (raw SQL + identity
+          // createUser only), but every planner domain call below does.
+          await scoped(seeded.tenant_id, async () => {
+            const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const label = await createLabel({
+              plan_id: plan.id,
+              name: 'Bug',
+              color: '#ff0000',
+              session,
+            });
 
-          // labels.category_slot FKs to plan_categories(plan_id, slot); the slot must exist.
-          await pool.query(
-            `INSERT INTO planner.plan_categories (tenant_id, plan_id, slot, name)
+            // labels.category_slot FKs to plan_categories(plan_id, slot); the slot must exist.
+            await pool.query(
+              `INSERT INTO planner.plan_categories (tenant_id, plan_id, slot, name)
              VALUES ($1, $2, 3, 'Category 3')`,
-            [seeded.tenant_id, plan.id],
-          );
+              [seeded.tenant_id, plan.id],
+            );
 
-          await attachLabelToCategorySlot({
-            plan_id: plan.id,
-            label_id: label.id,
-            slot: 3,
-            session,
+            await attachLabelToCategorySlot({
+              plan_id: plan.id,
+              label_id: label.id,
+              slot: 3,
+              session,
+            });
+
+            const ev = await readEvents(
+              pool,
+              seeded.tenant_id,
+              'planner.label.category-slot-changed',
+            );
+            expect(ev).toHaveLength(1);
+            const parsed = LabelSlotChanged.parse(ev[0]?.payload);
+            expect(parsed.before).toBeNull();
+            expect(parsed.after).toBe(3);
           });
-
-          const ev = await readEvents(
-            pool,
-            seeded.tenant_id,
-            'planner.label.category-slot-changed',
-          );
-          expect(ev).toHaveLength(1);
-          const parsed = LabelSlotChanged.parse(ev[0]?.payload);
-          expect(parsed.before).toBeNull();
-          expect(parsed.after).toBe(3);
         } finally {
           resetCoreDb();
           await closePools();

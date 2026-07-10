@@ -1,6 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { resetPeopleDb } from '@seta/people/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
@@ -47,33 +47,42 @@ describe('searchUsersBySkills', () => {
             { name: 'Eli', email: 'eli@example.test' },
           ],
         });
-        const session = seeded.adminSession;
-        const [dana, eli] = seeded.users;
-        if (!dana || !eli) throw new Error('Seed did not create all users');
 
-        await seedPeopleSkills(pool, seeded.tenant_id, dana.user_id, ['TypeScript', 'React']);
-        await seedPeopleSkills(pool, seeded.tenant_id, eli.user_id, ['typescript', 'react']);
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const [dana, eli] = seeded.users;
+          if (!dana || !eli) throw new Error('Seed did not create all users');
 
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Frontend', session });
-        await addGroupMember({ group_id: group.id, user_id: dana.user_id, session });
-        await addGroupMember({ group_id: group.id, user_id: eli.user_id, session });
+          await seedPeopleSkills(pool, seeded.tenant_id, dana.user_id, ['TypeScript', 'React']);
+          await seedPeopleSkills(pool, seeded.tenant_id, eli.user_id, ['typescript', 'react']);
 
-        const candidates = await searchUsersBySkills({
-          group_id: group.id,
-          skills: ['typescript', 'react'],
-          limit: 10,
-          session,
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Frontend',
+            session,
+          });
+          await addGroupMember({ group_id: group.id, user_id: dana.user_id, session });
+          await addGroupMember({ group_id: group.id, user_id: eli.user_id, session });
+
+          const candidates = await searchUsersBySkills({
+            group_id: group.id,
+            skills: ['typescript', 'react'],
+            limit: 10,
+            session,
+          });
+
+          expect(candidates).toHaveLength(2);
+          expect(candidates[0]?.matchedSkills.map((s) => s.toLowerCase()).sort()).toEqual([
+            'react',
+            'typescript',
+          ]);
+          expect(candidates[1]?.matchedSkills.map((s) => s.toLowerCase()).sort()).toEqual([
+            'react',
+            'typescript',
+          ]);
         });
-
-        expect(candidates).toHaveLength(2);
-        expect(candidates[0]?.matchedSkills.map((s) => s.toLowerCase()).sort()).toEqual([
-          'react',
-          'typescript',
-        ]);
-        expect(candidates[1]?.matchedSkills.map((s) => s.toLowerCase()).sort()).toEqual([
-          'react',
-          'typescript',
-        ]);
       } finally {
         resetCoreDb();
         resetPeopleDb();
@@ -92,46 +101,51 @@ describe('searchUsersBySkills', () => {
             { name: 'Charlie', email: 'charlie@example.test' },
           ],
         });
-        const session = seeded.adminSession;
-        const [alice, bob, charlie] = seeded.users;
-        if (!alice || !bob || !charlie) throw new Error('Seed did not create all users');
 
-        await seedPeopleSkills(pool, seeded.tenant_id, alice.user_id, [
-          'TypeScript',
-          'React',
-          'PostgreSQL',
-        ]);
-        await seedPeopleSkills(pool, seeded.tenant_id, bob.user_id, ['TypeScript', 'Node.js']);
-        await seedPeopleSkills(pool, seeded.tenant_id, charlie.user_id, ['Python', 'Django']);
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const [alice, bob, charlie] = seeded.users;
+          if (!alice || !bob || !charlie) throw new Error('Seed did not create all users');
 
-        const group = await createGroup({
-          tenant_id: seeded.tenant_id,
-          name: 'Engineering',
-          session,
+          await seedPeopleSkills(pool, seeded.tenant_id, alice.user_id, [
+            'TypeScript',
+            'React',
+            'PostgreSQL',
+          ]);
+          await seedPeopleSkills(pool, seeded.tenant_id, bob.user_id, ['TypeScript', 'Node.js']);
+          await seedPeopleSkills(pool, seeded.tenant_id, charlie.user_id, ['Python', 'Django']);
+
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Engineering',
+            session,
+          });
+          await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
+          await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
+          await addGroupMember({ group_id: group.id, user_id: charlie.user_id, session });
+
+          const candidates = await searchUsersBySkills({
+            group_id: group.id,
+            skills: ['TypeScript', 'React'],
+            limit: 10,
+            session,
+          });
+
+          // Alice matches both (score 2), Bob only TypeScript (score 1), Charlie none.
+          // getPersonSkills returns names ordered by skill_name, so matchedSkills are sorted.
+          expect(candidates).toHaveLength(2);
+          expect(candidates[0]?.userId).toBe(alice.user_id);
+          expect(candidates[0]?.displayName).toBe('Alice');
+          expect(candidates[0]?.matchedSkills).toEqual(['React', 'TypeScript']);
+          expect(candidates[0]?.score).toBe(2);
+
+          expect(candidates[1]?.userId).toBe(bob.user_id);
+          expect(candidates[1]?.displayName).toBe('Bob');
+          expect(candidates[1]?.matchedSkills).toEqual(['TypeScript']);
+          expect(candidates[1]?.score).toBe(1);
         });
-        await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
-        await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
-        await addGroupMember({ group_id: group.id, user_id: charlie.user_id, session });
-
-        const candidates = await searchUsersBySkills({
-          group_id: group.id,
-          skills: ['TypeScript', 'React'],
-          limit: 10,
-          session,
-        });
-
-        // Alice matches both (score 2), Bob only TypeScript (score 1), Charlie none.
-        // getPersonSkills returns names ordered by skill_name, so matchedSkills are sorted.
-        expect(candidates).toHaveLength(2);
-        expect(candidates[0]?.userId).toBe(alice.user_id);
-        expect(candidates[0]?.displayName).toBe('Alice');
-        expect(candidates[0]?.matchedSkills).toEqual(['React', 'TypeScript']);
-        expect(candidates[0]?.score).toBe(2);
-
-        expect(candidates[1]?.userId).toBe(bob.user_id);
-        expect(candidates[1]?.displayName).toBe('Bob');
-        expect(candidates[1]?.matchedSkills).toEqual(['TypeScript']);
-        expect(candidates[1]?.score).toBe(1);
       } finally {
         resetCoreDb();
         resetPeopleDb();
@@ -152,31 +166,36 @@ describe('searchUsersBySkills', () => {
             { name: 'Charlie', email: 'charlie@example.test' },
           ],
         });
-        const session = seeded.adminSession;
-        const [alice, bob, charlie] = seeded.users;
-        if (!alice || !bob || !charlie) throw new Error('Seed did not create all users');
 
-        await seedPeopleSkills(pool, seeded.tenant_id, alice.user_id, ['TypeScript', 'React']);
-        await seedPeopleSkills(pool, seeded.tenant_id, bob.user_id, ['TypeScript']);
-        await seedPeopleSkills(pool, seeded.tenant_id, charlie.user_id, ['TypeScript']);
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const [alice, bob, charlie] = seeded.users;
+          if (!alice || !bob || !charlie) throw new Error('Seed did not create all users');
 
-        const group = await createGroup({
-          tenant_id: seeded.tenant_id,
-          name: 'Engineering',
-          session,
+          await seedPeopleSkills(pool, seeded.tenant_id, alice.user_id, ['TypeScript', 'React']);
+          await seedPeopleSkills(pool, seeded.tenant_id, bob.user_id, ['TypeScript']);
+          await seedPeopleSkills(pool, seeded.tenant_id, charlie.user_id, ['TypeScript']);
+
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Engineering',
+            session,
+          });
+          await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
+          await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
+          await addGroupMember({ group_id: group.id, user_id: charlie.user_id, session });
+
+          const candidates = await searchUsersBySkills({
+            group_id: group.id,
+            skills: ['TypeScript'],
+            limit: 2,
+            session,
+          });
+
+          expect(candidates).toHaveLength(2);
         });
-        await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
-        await addGroupMember({ group_id: group.id, user_id: bob.user_id, session });
-        await addGroupMember({ group_id: group.id, user_id: charlie.user_id, session });
-
-        const candidates = await searchUsersBySkills({
-          group_id: group.id,
-          skills: ['TypeScript'],
-          limit: 2,
-          session,
-        });
-
-        expect(candidates).toHaveLength(2);
       } finally {
         resetCoreDb();
         resetPeopleDb();
@@ -193,27 +212,32 @@ describe('searchUsersBySkills', () => {
         const seeded = await seedTenant(pool, {
           users: [{ name: 'Alice', email: 'alice@example.test' }],
         });
-        const session = seeded.adminSession;
-        const [alice] = seeded.users;
-        if (!alice) throw new Error('Seed did not create Alice');
 
-        await seedPeopleSkills(pool, seeded.tenant_id, alice.user_id, ['Python']);
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const [alice] = seeded.users;
+          if (!alice) throw new Error('Seed did not create Alice');
 
-        const group = await createGroup({
-          tenant_id: seeded.tenant_id,
-          name: 'Engineering',
-          session,
+          await seedPeopleSkills(pool, seeded.tenant_id, alice.user_id, ['Python']);
+
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Engineering',
+            session,
+          });
+          await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
+
+          const candidates = await searchUsersBySkills({
+            group_id: group.id,
+            skills: ['TypeScript'],
+            limit: 10,
+            session,
+          });
+
+          expect(candidates).toHaveLength(0);
         });
-        await addGroupMember({ group_id: group.id, user_id: alice.user_id, session });
-
-        const candidates = await searchUsersBySkills({
-          group_id: group.id,
-          skills: ['TypeScript'],
-          limit: 10,
-          session,
-        });
-
-        expect(candidates).toHaveLength(0);
       } finally {
         resetCoreDb();
         resetPeopleDb();
@@ -228,14 +252,19 @@ describe('searchUsersBySkills', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        await expect(
-          searchUsersBySkills({
-            group_id: crypto.randomUUID(),
-            skills: ['TypeScript'],
-            limit: 10,
-            session: seeded.adminSession,
-          }),
-        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          await expect(
+            searchUsersBySkills({
+              group_id: crypto.randomUUID(),
+              skills: ['TypeScript'],
+              limit: 10,
+              session: seeded.adminSession,
+            }),
+          ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        });
       } finally {
         resetCoreDb();
         resetPeopleDb();
@@ -250,26 +279,31 @@ describe('searchUsersBySkills', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const group = await createGroup({
-          tenant_id: seeded.tenant_id,
-          name: 'Engineering',
-          session: seeded.adminSession,
-        });
 
-        const viewerSession = buildSession({
-          tenant_id: seeded.tenant_id,
-          user_id: crypto.randomUUID(),
-          roles: [],
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Engineering',
+            session: seeded.adminSession,
+          });
 
-        await expect(
-          searchUsersBySkills({
-            group_id: group.id,
-            skills: ['TypeScript'],
-            limit: 10,
-            session: viewerSession,
-          }),
-        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+          const viewerSession = buildSession({
+            tenant_id: seeded.tenant_id,
+            user_id: crypto.randomUUID(),
+            roles: [],
+          });
+
+          await expect(
+            searchUsersBySkills({
+              group_id: group.id,
+              skills: ['TypeScript'],
+              limit: 10,
+              session: viewerSession,
+            }),
+          ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+        });
       } finally {
         resetCoreDb();
         resetPeopleDb();

@@ -5,7 +5,7 @@ import { m365 } from '@seta/integrations';
 import { registerIntegrationsM365Routes } from '@seta/integrations/http';
 import { createGroup } from '@seta/planner';
 import { plannerErrorMapper } from '@seta/planner/register';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -210,19 +210,23 @@ async function seedTenant(pool: Pool, slug: string) {
     slug,
   ]);
   const adminEmail = `admin-${slug}@example.test`;
-  const adminResult = await createUser(
-    {
-      tenant_id: tenantId,
-      email: adminEmail,
-      name: 'Admin',
-      password: 'correct-horse-battery-staple',
-      initial_role: {
-        role_slug: 'org.admin',
-        scope_type: 'tenant',
-        scope_id: null,
+  // seedTenant acts as the CLI seeder (actor: { type: 'cli' }): maintenance() mirrors
+  // the admin-pool context apps/cli opens around program.parseAsync in production.
+  const adminResult = await maintenance(() =>
+    createUser(
+      {
+        tenant_id: tenantId,
+        email: adminEmail,
+        name: 'Admin',
+        password: 'correct-horse-battery-staple',
+        initial_role: {
+          role_slug: 'org.admin',
+          scope_type: 'tenant',
+          scope_id: null,
+        },
       },
-    },
-    { type: 'cli', user_id: null },
+      { type: 'cli', user_id: null },
+    ),
   );
   return { tenantId, adminUserId: adminResult.user_id, adminEmail };
 }
@@ -240,17 +244,22 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
         });
         const addJob = vi.fn().mockResolvedValue(undefined);
 
-        const group = await createGroup({
-          tenant_id: tenantId,
-          name: 'Eng',
-          session: {
-            ...session,
-            email: adminEmail,
-            display_name: 'Admin',
-            group_ids: [],
-            product_access: new Set<string>(),
-          },
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for this direct (non-HTTP) domain call.
+        const group = await scoped(tenantId, () =>
+          createGroup({
+            tenant_id: tenantId,
+            name: 'Eng',
+            session: {
+              ...session,
+              email: adminEmail,
+              display_name: 'Admin',
+              group_ids: [],
+              product_access: new Set<string>(),
+            },
+          }),
+        );
 
         const app = buildTestApp(
           session,
@@ -262,11 +271,16 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
           },
         );
 
-        const res = await app.request(`/api/integrations/m365/groups/${group.id}/link`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ external_id: 'ext-m365-aaa' }),
-        });
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so this route's
+        // linkGroupToM365() call has an executor context.
+        const res = await scoped(tenantId, async () =>
+          app.request(`/api/integrations/m365/groups/${group.id}/link`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ external_id: 'ext-m365-aaa' }),
+          }),
+        );
 
         expect(res.status).toBe(201);
         const body = (await res.json()) as {
@@ -301,11 +315,16 @@ describe('POST /api/integrations/m365/groups/:groupId/link', () => {
           group_ids: [],
           product_access: new Set<string>(),
         };
-        const group = await createGroup({
-          tenant_id: tenantId,
-          name: 'Eng',
-          session: adminSession,
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for this direct (non-HTTP) domain call.
+        const group = await scoped(tenantId, () =>
+          createGroup({
+            tenant_id: tenantId,
+            name: 'Eng',
+            session: adminSession,
+          }),
+        );
 
         const nonAdminSession = buildSession({
           tenant_id: tenantId,
@@ -378,27 +397,39 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
           product_access: new Set<string>(),
         };
 
-        const group = await createGroup({
-          tenant_id: tenantId,
-          name: 'Eng',
-          session: fullSession,
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for this direct (non-HTTP) domain call.
+        const group = await scoped(tenantId, () =>
+          createGroup({
+            tenant_id: tenantId,
+            name: 'Eng',
+            session: fullSession,
+          }),
+        );
 
         const app = buildTestApp(session, async () => {
           throw new Error('unused');
         });
 
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so these routes'
+        // linkGroupToM365()/unlinkGroupFromM365() calls have an executor context.
         // Link first via the route
-        const linkRes = await app.request(`/api/integrations/m365/groups/${group.id}/link`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ external_id: 'ext-m365-ccc' }),
-        });
+        const linkRes = await scoped(tenantId, async () =>
+          app.request(`/api/integrations/m365/groups/${group.id}/link`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ external_id: 'ext-m365-ccc' }),
+          }),
+        );
         expect(linkRes.status).toBe(201);
 
-        const unlinkRes = await app.request(`/api/integrations/m365/groups/${group.id}/unlink`, {
-          method: 'POST',
-        });
+        const unlinkRes = await scoped(tenantId, async () =>
+          app.request(`/api/integrations/m365/groups/${group.id}/unlink`, {
+            method: 'POST',
+          }),
+        );
 
         expect(unlinkRes.status).toBe(200);
         const body = (await unlinkRes.json()) as {
@@ -427,21 +458,31 @@ describe('POST /api/integrations/m365/groups/:groupId/unlink', () => {
           group_ids: [],
           product_access: new Set<string>(),
         };
-        const group = await createGroup({
-          tenant_id: tenantId,
-          name: 'Eng',
-          session: adminSession,
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for this direct (non-HTTP) domain call.
+        const group = await scoped(tenantId, () =>
+          createGroup({
+            tenant_id: tenantId,
+            name: 'Eng',
+            session: adminSession,
+          }),
+        );
 
         // Link via admin first
         const adminApp = buildTestApp(adminSession, async () => {
           throw new Error('unused');
         });
-        const linkRes = await adminApp.request(`/api/integrations/m365/groups/${group.id}/link`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ external_id: 'ext-m365-ddd' }),
-        });
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so this route's
+        // linkGroupToM365() call has an executor context.
+        const linkRes = await scoped(tenantId, async () =>
+          adminApp.request(`/api/integrations/m365/groups/${group.id}/link`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ external_id: 'ext-m365-ddd' }),
+          }),
+        );
         expect(linkRes.status).toBe(201);
 
         const nonAdminSession = buildSession({
@@ -574,9 +615,14 @@ describe('POST /api/integrations/m365/groups/:groupId/refresh', () => {
           },
         );
 
-        const res = await app.request(`/api/integrations/m365/groups/${groupId}/refresh`, {
-          method: 'POST',
-        });
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so plannerDb() has
+        // an executor context for the live group-membership check this route makes.
+        const res = await scoped(tenantId, async () =>
+          app.request(`/api/integrations/m365/groups/${groupId}/refresh`, {
+            method: 'POST',
+          }),
+        );
 
         expect(res.status).toBe(403);
         const body = (await res.json()) as { error: string };
@@ -710,11 +756,16 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
           group_ids: [],
           product_access: new Set<string>(),
         };
-        const group = await createGroup({
-          tenant_id: tid,
-          name: 'Original',
-          session: adminSession,
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for this direct (non-HTTP) domain call.
+        const group = await scoped(tid, () =>
+          createGroup({
+            tenant_id: tid,
+            name: 'Original',
+            session: adminSession,
+          }),
+        );
 
         const resolveLinksRepo = buildResolveLinksRepo({
           findByGroup: vi.fn().mockResolvedValue({
@@ -741,13 +792,18 @@ describe('POST /api/integrations/m365/groups/:groupId/resolve', () => {
           { m365LinksRepo: resolveLinksRepo },
         );
 
-        const res = await app.request(`/api/integrations/m365/groups/${group.id}/resolve`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            decisions: [{ field: 'name', choice: 'remote' }],
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so plannerDb() has
+        // an executor context for resolveGroupConflict's live getGroup() lookup.
+        const res = await scoped(tid, async () =>
+          app.request(`/api/integrations/m365/groups/${group.id}/resolve`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              decisions: [{ field: 'name', choice: 'remote' }],
+            }),
           }),
-        });
+        );
 
         expect(res.status).toBe(200);
         const body = (await res.json()) as { ok: boolean };
@@ -898,7 +954,12 @@ describe('GET /api/integrations/m365/groups/:groupId/sync-status', () => {
           },
         );
 
-        const res = await app.request(`/api/integrations/m365/groups/${groupId}/sync-status`);
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so plannerDb() has
+        // an executor context for hasGroupAccess's live membership check.
+        const res = await scoped(tenantId, async () =>
+          app.request(`/api/integrations/m365/groups/${groupId}/sync-status`),
+        );
         expect(res.status).toBe(403);
         const body = (await res.json()) as { error: string };
         expect(body.error).toBe('FORBIDDEN');
@@ -943,8 +1004,11 @@ describe('GET /api/integrations/m365/groups/:groupId/sync-status/stream', () => 
           },
         );
 
-        const res = await app.request(
-          `/api/integrations/m365/groups/${groupId}/sync-status/stream`,
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so plannerDb() has
+        // an executor context for hasGroupAccess's live membership check.
+        const res = await scoped(tenantId, async () =>
+          app.request(`/api/integrations/m365/groups/${groupId}/sync-status/stream`),
         );
         expect(res.status).toBe(403);
         const body = (await res.json()) as { error: string };

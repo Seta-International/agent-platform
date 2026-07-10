@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { and, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -44,33 +44,37 @@ describe('entraLinkageSubscribers', () => {
           `entra-link-${TENANT.slice(0, 8)}`,
         ]);
 
-        const ev = {
-          eventType: 'integrations.m365_tenant_config.updated',
-          tenantId: TENANT,
-          payload: { entraTenantId: ENTRA_A, enabled: true },
-        };
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(TENANT, async () => {
+          const ev = {
+            eventType: 'integrations.m365_tenant_config.updated',
+            tenantId: TENANT,
+            payload: { entraTenantId: ENTRA_A, enabled: true },
+          };
 
-        await dispatch(entraLinkageSubscribers, ev);
-        await dispatch(entraLinkageSubscribers, ev); // idempotent replay
+          await dispatch(entraLinkageSubscribers, ev);
+          await dispatch(entraLinkageSubscribers, ev); // idempotent replay
 
-        let rows = await findProvider(pool);
-        expect(rows).toHaveLength(1);
-        expect(rows[0]).toMatchObject({
-          entra_tenant_id: ENTRA_A,
-          enabled: false, // seeded disabled; SSO-enable stays admin-controlled
-          config: {},
+          let rows = await findProvider(pool);
+          expect(rows).toHaveLength(1);
+          expect(rows[0]).toMatchObject({
+            entra_tenant_id: ENTRA_A,
+            enabled: false, // seeded disabled; SSO-enable stays admin-controlled
+            config: {},
+          });
+
+          // Changed entra id updates the linkage in place.
+          await dispatch(entraLinkageSubscribers, {
+            eventType: 'integrations.m365_tenant_config.updated',
+            tenantId: TENANT,
+            payload: { entraTenantId: ENTRA_B, enabled: true },
+          });
+
+          rows = await findProvider(pool);
+          expect(rows).toHaveLength(1);
+          expect(rows[0]?.entra_tenant_id).toBe(ENTRA_B);
         });
-
-        // Changed entra id updates the linkage in place.
-        await dispatch(entraLinkageSubscribers, {
-          eventType: 'integrations.m365_tenant_config.updated',
-          tenantId: TENANT,
-          payload: { entraTenantId: ENTRA_B, enabled: true },
-        });
-
-        rows = await findProvider(pool);
-        expect(rows).toHaveLength(1);
-        expect(rows[0]?.entra_tenant_id).toBe(ENTRA_B);
       } finally {
         resetIdentityDb();
         resetCoreDb();
@@ -103,18 +107,22 @@ describe('entraLinkageSubscribers', () => {
           [TENANT, JSON.stringify(adminConfig)],
         );
 
-        await dispatch(entraLinkageSubscribers, {
-          eventType: 'integrations.m365_tenant_config.updated',
-          tenantId: TENANT,
-          payload: { entraTenantId: ENTRA_A, enabled: false },
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(TENANT, async () => {
+          await dispatch(entraLinkageSubscribers, {
+            eventType: 'integrations.m365_tenant_config.updated',
+            tenantId: TENANT,
+            payload: { entraTenantId: ENTRA_A, enabled: false },
+          });
 
-        const rows = await findProvider(pool);
-        expect(rows).toHaveLength(1);
-        expect(rows[0]).toMatchObject({
-          entra_tenant_id: ENTRA_A, // linkage projected in
-          enabled: true, // admin flag preserved (payload.enabled=false ignored)
-          config: adminConfig, // consent metadata preserved
+          const rows = await findProvider(pool);
+          expect(rows).toHaveLength(1);
+          expect(rows[0]).toMatchObject({
+            entra_tenant_id: ENTRA_A, // linkage projected in
+            enabled: true, // admin flag preserved (payload.enabled=false ignored)
+            config: adminConfig, // consent metadata preserved
+          });
         });
       } finally {
         resetIdentityDb();

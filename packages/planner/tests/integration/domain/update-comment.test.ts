@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createComment } from '../../../src/backend/domain/create-comment.ts';
@@ -17,14 +17,18 @@ describe('updateComment', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.member',
-        });
-        const c = await createComment({ task_id, body: 'orig', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { session, task_id } = await seedTenantAndTask(pool, {
+            role: 'planner.member',
+          });
+          const c = await createComment({ task_id, body: 'orig', session });
 
-        const updated = await updateComment({ comment_id: c.id, body: 'edited', session });
-        expect(updated.body).toBe('edited');
-        expect(updated.edited_at).not.toBeNull();
+          const updated = await updateComment({ comment_id: c.id, body: 'edited', session });
+          expect(updated.body).toBe('edited');
+          expect(updated.edited_at).not.toBeNull();
+        });
       } finally {
         resetCoreDb();
         await closePools();
@@ -37,20 +41,24 @@ describe('updateComment', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const {
-          session: author,
-          task_id,
-          group_id,
-          tenant_id,
-        } = await seedTenantAndTask(pool, {
-          role: 'planner.member',
-        });
-        const c = await createComment({ task_id, body: 'orig', session: author });
-        const owner = await makeMemberSession(pool, { tenant_id, group_id, role: 'owner' });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const {
+            session: author,
+            task_id,
+            group_id,
+            tenant_id,
+          } = await seedTenantAndTask(pool, {
+            role: 'planner.member',
+          });
+          const c = await createComment({ task_id, body: 'orig', session: author });
+          const owner = await makeMemberSession(pool, { tenant_id, group_id, role: 'owner' });
 
-        await expect(
-          updateComment({ comment_id: c.id, body: 'hijack', session: owner }),
-        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+          await expect(
+            updateComment({ comment_id: c.id, body: 'hijack', session: owner }),
+          ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+        });
       } finally {
         resetCoreDb();
         await closePools();
@@ -63,13 +71,17 @@ describe('updateComment', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const { session, task_id } = await seedTenantAndTask(pool, {
-          role: 'planner.member',
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { session, task_id } = await seedTenantAndTask(pool, {
+            role: 'planner.member',
+          });
+          const c = await createComment({ task_id, body: 'x', session });
+          await expect(
+            updateComment({ comment_id: c.id, body: '  ', session }),
+          ).rejects.toMatchObject({ code: 'VALIDATION' });
         });
-        const c = await createComment({ task_id, body: 'x', session });
-        await expect(
-          updateComment({ comment_id: c.id, body: '  ', session }),
-        ).rejects.toMatchObject({ code: 'VALIDATION' });
       } finally {
         resetCoreDb();
         await closePools();

@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createUser } from '../../../src/backend/domain/create-user.ts';
@@ -30,39 +30,47 @@ describe('deactivateUser / reactivateUser', () => {
             `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', 'demo')`,
             [tenantId],
           );
-          const { user_id: adminId } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'admin@d.local',
-              name: 'Admin',
-              password: 'ChangeMe@2026',
-              initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-            },
-            { type: 'cli', user_id: null },
-          );
-          const { user_id: targetId } = await createUser(
-            { tenant_id: tenantId, email: 'b@d.local', name: 'B', password: 'ChangeMe@2026' },
-            { type: 'cli', user_id: null },
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            const { user_id: adminId } = await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'admin@d.local',
+                name: 'Admin',
+                password: 'ChangeMe@2026',
+                initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+              },
+              { type: 'cli', user_id: null },
+            );
+            const { user_id: targetId } = await createUser(
+              { tenant_id: tenantId, email: 'b@d.local', name: 'B', password: 'ChangeMe@2026' },
+              { type: 'cli', user_id: null },
+            );
 
-          await deactivateUser(targetId, { type: 'user', user_id: adminId });
-          let row = (
-            await pool.query(`SELECT deactivated_at FROM identity."user" WHERE id = $1`, [targetId])
-          ).rows[0] as { deactivated_at: Date | null };
-          expect(row.deactivated_at).not.toBeNull();
+            await deactivateUser(targetId, { type: 'user', user_id: adminId });
+            let row = (
+              await pool.query(`SELECT deactivated_at FROM identity."user" WHERE id = $1`, [
+                targetId,
+              ])
+            ).rows[0] as { deactivated_at: Date | null };
+            expect(row.deactivated_at).not.toBeNull();
 
-          const event = (
-            await pool.query(
-              `SELECT payload FROM core.events WHERE event_type = 'identity.user.deactivated'`,
-            )
-          ).rows[0] as { payload: { user_id: string } };
-          expect(event.payload.user_id).toBe(targetId);
+            const event = (
+              await pool.query(
+                `SELECT payload FROM core.events WHERE event_type = 'identity.user.deactivated'`,
+              )
+            ).rows[0] as { payload: { user_id: string } };
+            expect(event.payload.user_id).toBe(targetId);
 
-          await reactivateUser(targetId, { type: 'user', user_id: adminId });
-          row = (
-            await pool.query(`SELECT deactivated_at FROM identity."user" WHERE id = $1`, [targetId])
-          ).rows[0] as { deactivated_at: Date | null };
-          expect(row.deactivated_at).toBeNull();
+            await reactivateUser(targetId, { type: 'user', user_id: adminId });
+            row = (
+              await pool.query(`SELECT deactivated_at FROM identity."user" WHERE id = $1`, [
+                targetId,
+              ])
+            ).rows[0] as { deactivated_at: Date | null };
+            expect(row.deactivated_at).toBeNull();
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -91,20 +99,24 @@ describe('deactivateUser / reactivateUser', () => {
             `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', 'demo')`,
             [tenantId],
           );
-          const { user_id: adminId } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'a@d.local',
-              name: 'A',
-              password: 'ChangeMe@2026',
-              initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-            },
-            { type: 'cli', user_id: null },
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            const { user_id: adminId } = await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'a@d.local',
+                name: 'A',
+                password: 'ChangeMe@2026',
+                initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+              },
+              { type: 'cli', user_id: null },
+            );
 
-          await expect(deactivateUser(adminId, { type: 'cli', user_id: null })).rejects.toThrow(
-            /LAST_ORG_ADMIN/,
-          );
+            await expect(deactivateUser(adminId, { type: 'cli', user_id: null })).rejects.toThrow(
+              /LAST_ORG_ADMIN/,
+            );
+          });
         } finally {
           resetCoreDb();
           await closePools();

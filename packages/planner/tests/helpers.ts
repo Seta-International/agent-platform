@@ -1,5 +1,6 @@
 import { hashRoleSummary, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
+import { maintenance, scoped } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -49,15 +50,17 @@ export async function seedTenant(
   ]);
 
   const adminEmail = `admin-${tenantId.slice(0, 8)}@example.test`;
-  const adminResult = await createUser(
-    {
-      tenant_id: tenantId,
-      email: adminEmail,
-      name: 'Test Admin',
-      password: 'correct-horse-battery-staple',
-      initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-    },
-    { type: 'cli', user_id: null },
+  const adminResult = await maintenance(() =>
+    createUser(
+      {
+        tenant_id: tenantId,
+        email: adminEmail,
+        name: 'Test Admin',
+        password: 'correct-horse-battery-staple',
+        initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
   const admin: SeededUser = {
     user_id: adminResult.user_id,
@@ -77,14 +80,16 @@ export async function seedTenant(
   // identity → projection subscriber is not wired yet.
   const users: SeededUser[] = [];
   for (const u of opts.users ?? []) {
-    const r = await createUser(
-      {
-        tenant_id: tenantId,
-        email: u.email,
-        name: u.name,
-        password: 'correct-horse-battery-staple',
-      },
-      { type: 'cli', user_id: null },
+    const r = await maintenance(() =>
+      createUser(
+        {
+          tenant_id: tenantId,
+          email: u.email,
+          name: u.name,
+          password: 'correct-horse-battery-staple',
+        },
+        { type: 'cli', user_id: null },
+      ),
     );
     const normalizedEmail = u.email.toLowerCase().trim();
     users.push({ user_id: r.user_id, name: u.name, email: normalizedEmail });
@@ -145,6 +150,16 @@ export function buildSession(opts: {
   };
 }
 
+/**
+ * sessionMiddleware (packages/core/src/middleware/session.ts) opens scoped(tenantId, ...)
+ * around every authenticated request, so any planner function reaching a db client already
+ * has an executor context in production. Tests call those functions directly, so they must
+ * open one too.
+ */
+export function inScope<T>(session: SessionScope, fn: () => Promise<T>): Promise<T> {
+  return scoped(session.tenant_id, fn);
+}
+
 export interface SeededWithTask {
   tenant_id: string;
   group_id: string;
@@ -176,22 +191,28 @@ export async function seedTenantAndTask(
   const member = seeded.users[0];
   if (!member) throw new Error('seedTenantAndTask: no member user');
 
-  const group = await createGroup({
-    tenant_id: seeded.tenant_id,
-    name: `Group ${tag}`,
-    session: seeded.adminSession,
-    initial_members: [{ user_id: member.user_id, role: 'member' }],
-  });
-  const plan = await createPlan({
-    group_id: group.id,
-    name: `Plan ${tag}`,
-    session: seeded.adminSession,
-  });
-  const task = await createTask({
-    plan_id: plan.id,
-    title: `Task ${tag}`,
-    session: seeded.adminSession,
-  });
+  const group = await maintenance(() =>
+    createGroup({
+      tenant_id: seeded.tenant_id,
+      name: `Group ${tag}`,
+      session: seeded.adminSession,
+      initial_members: [{ user_id: member.user_id, role: 'member' }],
+    }),
+  );
+  const plan = await maintenance(() =>
+    createPlan({
+      group_id: group.id,
+      name: `Plan ${tag}`,
+      session: seeded.adminSession,
+    }),
+  );
+  const task = await maintenance(() =>
+    createTask({
+      plan_id: plan.id,
+      title: `Task ${tag}`,
+      session: seeded.adminSession,
+    }),
+  );
 
   const session = buildSession({
     tenant_id: seeded.tenant_id,
@@ -225,14 +246,16 @@ export async function makeMemberSession(
 ): Promise<SessionScope> {
   const tag = crypto.randomUUID().slice(0, 8);
   const email = `extra-${tag}@example.test`;
-  const r = await createUser(
-    {
-      tenant_id: opts.tenant_id,
-      email,
-      name: `User ${tag}`,
-      password: 'correct-horse-battery-staple',
-    },
-    { type: 'cli', user_id: null },
+  const r = await maintenance(() =>
+    createUser(
+      {
+        tenant_id: opts.tenant_id,
+        email,
+        name: `User ${tag}`,
+        password: 'correct-horse-battery-staple',
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
 
   await pool.query(
@@ -265,16 +288,20 @@ export async function assignTaskInGroup(input: {
   user_id: string;
   session: SessionScope;
 }): Promise<void> {
-  await addGroupMember({
-    group_id: input.group_id,
-    user_id: input.user_id,
-    session: input.session,
-  });
-  await assignTask({
-    task_id: input.task_id,
-    user_id: input.user_id,
-    session: input.session,
-  });
+  await maintenance(() =>
+    addGroupMember({
+      group_id: input.group_id,
+      user_id: input.user_id,
+      session: input.session,
+    }),
+  );
+  await maintenance(() =>
+    assignTask({
+      task_id: input.task_id,
+      user_id: input.user_id,
+      session: input.session,
+    }),
+  );
 }
 
 export async function readEvents(

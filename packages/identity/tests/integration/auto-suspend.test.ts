@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -21,28 +21,32 @@ describe('autoSuspendSubscribers', () => {
       resetIdentityDb();
       initPools({ databaseUrl });
       try {
-        const { person_id, user_id, tenant_id } = await seedDirectoryAccount(pool, {
-          email: 'sus@acme.test',
-          admin: false,
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { person_id, user_id, tenant_id } = await seedDirectoryAccount(pool, {
+            email: 'sus@acme.test',
+            admin: false,
+          });
+
+          await dispatch(autoSuspendSubscribers, {
+            eventType: 'people.worker.terminated',
+            tenantId: tenant_id,
+            payload: { person_id, tenant_id },
+          });
+
+          let [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
+          expect(u!.deactivated_at).not.toBeNull();
+
+          await dispatch(autoSuspendSubscribers, {
+            eventType: 'people.worker.reinstated',
+            tenantId: tenant_id,
+            payload: { person_id, tenant_id },
+          });
+
+          [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
+          expect(u!.deactivated_at).toBeNull();
         });
-
-        await dispatch(autoSuspendSubscribers, {
-          eventType: 'people.worker.terminated',
-          tenantId: tenant_id,
-          payload: { person_id, tenant_id },
-        });
-
-        let [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
-        expect(u!.deactivated_at).not.toBeNull();
-
-        await dispatch(autoSuspendSubscribers, {
-          eventType: 'people.worker.reinstated',
-          tenantId: tenant_id,
-          payload: { person_id, tenant_id },
-        });
-
-        [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
-        expect(u!.deactivated_at).toBeNull();
       } finally {
         resetIdentityDb();
         resetCoreDb();
@@ -57,21 +61,25 @@ describe('autoSuspendSubscribers', () => {
       resetIdentityDb();
       initPools({ databaseUrl });
       try {
-        const { person_id, user_id, tenant_id } = await seedDirectoryAccount(pool, {
-          email: 'lastadmin@acme.test',
-          admin: true,
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { person_id, user_id, tenant_id } = await seedDirectoryAccount(pool, {
+            email: 'lastadmin@acme.test',
+            admin: true,
+          });
+
+          await expect(
+            dispatch(autoSuspendSubscribers, {
+              eventType: 'people.worker.terminated',
+              tenantId: tenant_id,
+              payload: { person_id, tenant_id },
+            }),
+          ).resolves.not.toThrow();
+
+          const [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
+          expect(u!.deactivated_at).toBeNull();
         });
-
-        await expect(
-          dispatch(autoSuspendSubscribers, {
-            eventType: 'people.worker.terminated',
-            tenantId: tenant_id,
-            payload: { person_id, tenant_id },
-          }),
-        ).resolves.not.toThrow();
-
-        const [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
-        expect(u!.deactivated_at).toBeNull();
       } finally {
         resetIdentityDb();
         resetCoreDb();
@@ -86,14 +94,18 @@ describe('autoSuspendSubscribers', () => {
       resetIdentityDb();
       initPools({ databaseUrl });
       try {
-        const { user_id } = await seedDirectoryAccount(pool, {
-          email: 'already-suspended@acme.test',
-          admin: false,
-          suspended: true,
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { user_id } = await seedDirectoryAccount(pool, {
+            email: 'already-suspended@acme.test',
+            admin: false,
+            suspended: true,
+          });
 
-        const [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
-        expect(u!.deactivated_at).not.toBeNull();
+          const [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
+          expect(u!.deactivated_at).not.toBeNull();
+        });
       } finally {
         resetIdentityDb();
         resetCoreDb();

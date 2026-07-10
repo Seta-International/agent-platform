@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import {
@@ -47,15 +47,23 @@ describe('markTaskSyncStatus', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const { seeded, task, systemSession } = await seedLinkedTask(pool);
-        await markTaskSyncStatus({ task_id: task.id, status: 'pushing', session: systemSession });
-        const events = await readEvents(pool, seeded.tenant_id, 'planner.task.sync-status-changed');
-        expect(events).toHaveLength(1);
-        // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-        const p = events[0]?.payload as any;
-        expect(p.task_id).toBe(task.id);
-        expect(p.before_status).toBe('idle');
-        expect(p.after_status).toBe('pushing');
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { seeded, task, systemSession } = await seedLinkedTask(pool);
+          await markTaskSyncStatus({ task_id: task.id, status: 'pushing', session: systemSession });
+          const events = await readEvents(
+            pool,
+            seeded.tenant_id,
+            'planner.task.sync-status-changed',
+          );
+          expect(events).toHaveLength(1);
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+          const p = events[0]?.payload as any;
+          expect(p.task_id).toBe(task.id);
+          expect(p.before_status).toBe('idle');
+          expect(p.after_status).toBe('pushing');
+        });
       } finally {
         resetCoreDb();
         await closePools();
@@ -68,10 +76,14 @@ describe('markTaskSyncStatus', () => {
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const { task, userSession } = await seedLinkedTask(pool);
-        await expect(
-          markTaskSyncStatus({ task_id: task.id, status: 'pulling', session: userSession }),
-        ).rejects.toMatchObject({ code: 'RESERVED_FOR_SYSTEM_ACTOR' });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const { task, userSession } = await seedLinkedTask(pool);
+          await expect(
+            markTaskSyncStatus({ task_id: task.id, status: 'pulling', session: userSession }),
+          ).rejects.toMatchObject({ code: 'RESERVED_FOR_SYSTEM_ACTOR' });
+        });
       } finally {
         resetCoreDb();
         await closePools();

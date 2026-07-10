@@ -4,7 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetPeopleDb } from '../../src/backend/db/client.ts';
 import { createOrgUnit } from '../../src/index.ts';
-import { readEvents, seedTenant } from '../helpers.ts';
+import { inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -20,11 +20,13 @@ describe('createOrgUnit', () => {
       try {
         const t = await seedTenant(pool);
 
-        const { org_unit_id } = await createOrgUnit({
-          name: 'Delivery A',
-          kind: 'delivery',
-          session: t.adminSession,
-        } as never);
+        const { org_unit_id } = await inScope(t.adminSession, () =>
+          createOrgUnit({
+            name: 'Delivery A',
+            kind: 'delivery',
+            session: t.adminSession,
+          } as never),
+        );
 
         const events = await readEvents(pool, t.tenant_id, 'people.org_unit.created');
         expect(events).toHaveLength(1);

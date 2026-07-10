@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createUser } from '../../../src/backend/domain/create-user.ts';
@@ -29,9 +29,11 @@ describe('getUserProfile', () => {
           registerIdentityContributions(reg);
           await runMigrations(reg, { pool });
 
-          const { user_id } = await createUser(
-            { tenant_id: tenantId, email: 'a@d.local', name: 'A', password: 'ChangeMe@2026' },
-            { type: 'cli', user_id: null },
+          const { user_id } = await maintenance(() =>
+            createUser(
+              { tenant_id: tenantId, email: 'a@d.local', name: 'A', password: 'ChangeMe@2026' },
+              { type: 'cli', user_id: null },
+            ),
           );
 
           const profile = await getUserProfile(user_id);

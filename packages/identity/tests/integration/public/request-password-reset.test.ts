@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { FakeMailer } from '@seta/shared-mailer/testing';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
@@ -22,14 +22,16 @@ describe('requestPasswordReset', () => {
             tenantId,
             `acme-${tenantId.slice(0, 8)}`,
           ]);
-          await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'a@b.com',
-              name: 'A',
-              password: 'P@ssw0rd0011',
-            },
-            { type: 'cli', user_id: null },
+          await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'a@b.com',
+                name: 'A',
+                password: 'P@ssw0rd0011',
+              },
+              { type: 'cli', user_id: null },
+            ),
           );
           const mailer = new FakeMailer();
           await requestPasswordReset({

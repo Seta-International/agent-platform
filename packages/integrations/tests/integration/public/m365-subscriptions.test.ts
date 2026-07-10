@@ -23,7 +23,7 @@ describe('runCreateSubscription', () => {
       const subscriptionId = crypto.randomUUID();
       const graphStub = makeGraphStub(subscriptionId);
       const workerAddJob = vi.fn().mockResolvedValue(undefined);
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
 
       await runCreateSubscription(
         {
@@ -64,7 +64,7 @@ describe('runCreateSubscription', () => {
       const subscriptionId = crypto.randomUUID();
       const graphStub = makeGraphStub(subscriptionId);
       const workerAddJob = vi.fn().mockResolvedValue(undefined);
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
 
       await runCreateSubscription(
         {
@@ -84,11 +84,15 @@ describe('runCreateSubscription', () => {
       expect(workerAddJob).toHaveBeenCalledOnce();
       const [identifier, payload, opts] = workerAddJob.mock.calls[0] as [
         string,
-        { subscription_row_id: string },
+        { subscription_row_id: string; tenant_id: string },
         { runAt: Date },
       ];
       expect(identifier).toBe('m365.subscription.renew');
       expect(typeof payload.subscription_row_id).toBe('string');
+      // tenant_id must ride along so wrapJob routes the renew job into scoped();
+      // without it the job reads m365_subscriptions with no tenant GUC and sees
+      // no rows.
+      expect(payload.tenant_id).toBe(tenantId);
 
       // runAt is expiration_at - 24h, where expiration_at = now + 28d - 1h
       const expectedRunAt =
@@ -104,7 +108,7 @@ describe('runCreateSubscription', () => {
       const firstId = crypto.randomUUID();
       const secondId = crypto.randomUUID();
       const workerAddJob = vi.fn().mockResolvedValue(undefined);
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
 
       await runCreateSubscription(
         {

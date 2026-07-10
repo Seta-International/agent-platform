@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { addGroupMembers, createGroup, listGroupMembers } from '../../src/index.ts';
@@ -25,29 +25,37 @@ describe('addGroupMembers (bulk)', () => {
         const [alice, bob] = seeded.users;
         if (!alice || !bob) throw new Error('seed failed');
 
-        const group = await createGroup({
-          tenant_id: seeded.tenant_id,
-          name: 'Bulk',
-          session: seeded.adminSession,
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Bulk',
+            session: seeded.adminSession,
+          });
 
-        await addGroupMembers({
-          group_id: group.id,
-          members: [{ user_id: alice.user_id }, { user_id: bob.user_id }],
-          session: seeded.adminSession,
-        });
+          await addGroupMembers({
+            group_id: group.id,
+            members: [{ user_id: alice.user_id }, { user_id: bob.user_id }],
+            session: seeded.adminSession,
+          });
 
-        const { members } = await listGroupMembers({
-          group_id: group.id,
-          session: seeded.adminSession,
-        });
-        const ids = members.map((m) => m.user_id);
-        expect(ids).toContain(alice.user_id);
-        expect(ids).toContain(bob.user_id);
+          const { members } = await listGroupMembers({
+            group_id: group.id,
+            session: seeded.adminSession,
+          });
+          const ids = members.map((m) => m.user_id);
+          expect(ids).toContain(alice.user_id);
+          expect(ids).toContain(bob.user_id);
 
-        const eventCount = await countEvents(pool, seeded.tenant_id, 'planner.group.member.added');
-        // creator (from createGroup) + alice + bob
-        expect(eventCount).toBe(3);
+          const eventCount = await countEvents(
+            pool,
+            seeded.tenant_id,
+            'planner.group.member.added',
+          );
+          // creator (from createGroup) + alice + bob
+          expect(eventCount).toBe(3);
+        });
       } finally {
         resetCoreDb();
         await closePools();
@@ -66,25 +74,29 @@ describe('addGroupMembers (bulk)', () => {
         const [alice] = seeded.users;
         if (!alice) throw new Error('seed failed');
 
-        const group = await createGroup({
-          tenant_id: seeded.tenant_id,
-          name: 'Owners',
-          default_role: 'owner',
-          session: seeded.adminSession,
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Owners',
+            default_role: 'owner',
+            session: seeded.adminSession,
+          });
 
-        await addGroupMembers({
-          group_id: group.id,
-          members: [{ user_id: alice.user_id }],
-          session: seeded.adminSession,
-        });
+          await addGroupMembers({
+            group_id: group.id,
+            members: [{ user_id: alice.user_id }],
+            session: seeded.adminSession,
+          });
 
-        const { members } = await listGroupMembers({
-          group_id: group.id,
-          session: seeded.adminSession,
+          const { members } = await listGroupMembers({
+            group_id: group.id,
+            session: seeded.adminSession,
+          });
+          const aliceMember = members.find((m) => m.user_id === alice.user_id);
+          expect(aliceMember?.role).toBe('owner');
         });
-        const aliceMember = members.find((m) => m.user_id === alice.user_id);
-        expect(aliceMember?.role).toBe('owner');
       } finally {
         resetCoreDb();
         await closePools();
@@ -103,23 +115,27 @@ describe('addGroupMembers (bulk)', () => {
         const [alice] = seeded.users;
         if (!alice) throw new Error('seed failed');
 
-        const group = await createGroup({
-          tenant_id: seeded.tenant_id,
-          name: 'Idem',
-          session: seeded.adminSession,
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Idem',
+            session: seeded.adminSession,
+          });
 
-        await addGroupMembers({
-          group_id: group.id,
-          members: [{ user_id: alice.user_id }, { user_id: alice.user_id }],
-          session: seeded.adminSession,
-        });
+          await addGroupMembers({
+            group_id: group.id,
+            members: [{ user_id: alice.user_id }, { user_id: alice.user_id }],
+            session: seeded.adminSession,
+          });
 
-        const { rows } = await pool.query(
-          `SELECT user_id FROM planner.group_members WHERE group_id = $1 AND user_id = $2`,
-          [group.id, alice.user_id],
-        );
-        expect(rows).toHaveLength(1);
+          const { rows } = await pool.query(
+            `SELECT user_id FROM planner.group_members WHERE group_id = $1 AND user_id = $2`,
+            [group.id, alice.user_id],
+          );
+          expect(rows).toHaveLength(1);
+        });
       } finally {
         resetCoreDb();
         await closePools();
@@ -151,13 +167,17 @@ describe('addGroupMembers (bulk)', () => {
         );
         const linkedGroupId = rows[0].id as string;
 
-        await expect(
-          addGroupMembers({
-            group_id: linkedGroupId,
-            members: [{ user_id: alice.user_id }],
-            session: seeded.adminSession,
-          }),
-        ).rejects.toMatchObject({ code: 'LINKED_GROUP_IMMUTABLE_MEMBERS' });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          await expect(
+            addGroupMembers({
+              group_id: linkedGroupId,
+              members: [{ user_id: alice.user_id }],
+              session: seeded.adminSession,
+            }),
+          ).rejects.toMatchObject({ code: 'LINKED_GROUP_IMMUTABLE_MEMBERS' });
+        });
       } finally {
         resetCoreDb();
         await closePools();
@@ -176,25 +196,29 @@ describe('addGroupMembers (bulk)', () => {
         const [alice] = seeded.users;
         if (!alice) throw new Error('seed failed');
 
-        const group = await createGroup({
-          tenant_id: seeded.tenant_id,
-          name: 'Forbidden',
-          session: seeded.adminSession,
-        });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Forbidden',
+            session: seeded.adminSession,
+          });
 
-        const viewer = buildSession({
-          tenant_id: seeded.tenant_id,
-          user_id: crypto.randomUUID(),
-          roles: ['planner.viewer'],
-        });
+          const viewer = buildSession({
+            tenant_id: seeded.tenant_id,
+            user_id: crypto.randomUUID(),
+            roles: ['planner.viewer'],
+          });
 
-        await expect(
-          addGroupMembers({
-            group_id: group.id,
-            members: [{ user_id: alice.user_id }],
-            session: viewer,
-          }),
-        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+          await expect(
+            addGroupMembers({
+              group_id: group.id,
+              members: [{ user_id: alice.user_id }],
+              session: viewer,
+            }),
+          ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+        });
       } finally {
         resetCoreDb();
         await closePools();

@@ -1,6 +1,6 @@
 import type { SessionEnv } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
@@ -17,7 +17,9 @@ function appFor(session: unknown) {
   const app = new Hono<SessionEnv>();
   app.use('*', async (c, next) => {
     c.set('user', session as never);
-    await next();
+    // createSessionMiddleware (packages/core/src/middleware/session.ts) opens scoped(tenantId, ...)
+    // around the downstream handler in production; this stub session middleware must do the same.
+    await scoped((session as { tenant_id: string }).tenant_id, next);
   });
   app.route('/', buildPmRoutes({} as never));
   return app;

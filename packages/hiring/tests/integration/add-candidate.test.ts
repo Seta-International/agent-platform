@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
 import { application, candidateEvent, candidateSkill } from '../../src/backend/db/schema.ts';
 import { addCandidate, openRequisition } from '../../src/index.ts';
-import { countEvents, seedTenant } from '../helpers.ts';
+import { countEvents, inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -27,45 +27,56 @@ describe('addCandidate', () => {
           ...t.adminSession,
           permissions: new Set([...t.adminSession.permissions, 'core.skill.manage']),
         };
-        const cat = await createSkillCategory({ input: { name: 'Frontend' }, session: catSession });
-        const skill = await createSkill({
-          input: { category_id: cat.id, name: 'React' },
-          session: catSession,
-        });
-        const { requisition_id } = await openRequisition({
-          title: 'FE',
-          kind: 'new',
-          headcount: 1,
-          session: t.adminSession,
-        });
+        const cat = await inScope(t.adminSession, () =>
+          createSkillCategory({ input: { name: 'Frontend' }, session: catSession }),
+        );
+        const skill = await inScope(t.adminSession, () =>
+          createSkill({
+            input: { category_id: cat.id, name: 'React' },
+            session: catSession,
+          }),
+        );
+        const { requisition_id } = await inScope(t.adminSession, () =>
+          openRequisition({
+            title: 'FE',
+            kind: 'new',
+            headcount: 1,
+            session: t.adminSession,
+          }),
+        );
 
-        const res = await addCandidate({
-          requisition_id,
-          name: 'Ada Lovelace',
-          personal_email: 'ada@example.test',
-          seniority: 'Senior',
-          skills: [{ skill_id: skill.id, skill_name: 'React', level: 4 }],
-          session: t.adminSession,
-        });
+        const res = await inScope(t.adminSession, () =>
+          addCandidate({
+            requisition_id,
+            name: 'Ada Lovelace',
+            personal_email: 'ada@example.test',
+            seniority: 'Senior',
+            skills: [{ skill_id: skill.id, skill_name: 'React', level: 4 }],
+            session: t.adminSession,
+          }),
+        );
 
-        const apps = await hiringDb()
-          .select()
-          .from(application)
-          .where(eq(application.id, res.application_id));
+        const apps = await inScope(t.adminSession, () =>
+          hiringDb().select().from(application).where(eq(application.id, res.application_id)),
+        );
         expect(apps[0]?.stage).toBe('new');
         expect(apps[0]?.status).toBe('active');
         expect(apps[0]?.kind).toBe('external');
 
-        const skills = await hiringDb()
-          .select()
-          .from(candidateSkill)
-          .where(eq(candidateSkill.candidate_id, res.candidate_id));
+        const skills = await inScope(t.adminSession, () =>
+          hiringDb()
+            .select()
+            .from(candidateSkill)
+            .where(eq(candidateSkill.candidate_id, res.candidate_id)),
+        );
         expect(skills).toHaveLength(1);
 
-        const events = await hiringDb()
-          .select()
-          .from(candidateEvent)
-          .where(eq(candidateEvent.candidate_id, res.candidate_id));
+        const events = await inScope(t.adminSession, () =>
+          hiringDb()
+            .select()
+            .from(candidateEvent)
+            .where(eq(candidateEvent.candidate_id, res.candidate_id)),
+        );
         expect(events.map((e) => e.kind)).toContain('created');
 
         expect(await countEvents(pool, t.tenant_id, 'hiring.candidate.added')).toBe(1);
@@ -85,19 +96,23 @@ describe('addCandidate', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'FE',
-          kind: 'new',
-          headcount: 1,
-          session: t.adminSession,
-        });
-        await expect(
-          addCandidate({
-            requisition_id,
-            name: 'Grace',
-            skills: [{ skill_id: crypto.randomUUID(), skill_name: 'Ghost', level: 3 }],
+        const { requisition_id } = await inScope(t.adminSession, () =>
+          openRequisition({
+            title: 'FE',
+            kind: 'new',
+            headcount: 1,
             session: t.adminSession,
           }),
+        );
+        await expect(
+          inScope(t.adminSession, () =>
+            addCandidate({
+              requisition_id,
+              name: 'Grace',
+              skills: [{ skill_id: crypto.randomUUID(), skill_name: 'Ghost', level: 3 }],
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow(/skill/i);
       } finally {
         resetHiringDb();

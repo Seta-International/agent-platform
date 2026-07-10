@@ -3,7 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RequisitionListRow } from '../../src/api/hiring-client.ts';
+import type {
+  RequisitionApplicantSummary,
+  RequisitionListRow,
+} from '../../src/api/hiring-client.ts';
 
 const editRequisition = vi.fn();
 const holdRequisition = vi.fn();
@@ -55,6 +58,17 @@ function row(over: Partial<RequisitionListRow> = {}): RequisitionListRow {
   };
 }
 
+function applicant(over: Partial<RequisitionApplicantSummary> = {}): RequisitionApplicantSummary {
+  return {
+    name: 'Ada Lovelace',
+    role: null,
+    applied_date: '2026-06-18',
+    stage: 'new',
+    kind: 'external',
+    ...over,
+  };
+}
+
 const wrap =
   (qc: QueryClient) =>
   ({ children }: { children: ReactNode }) => (
@@ -72,21 +86,51 @@ describe('RequisitionCard', () => {
     vi.clearAllMocks();
   });
 
-  it('clicking a stage step while open patches the stage directly, without resuming', async () => {
-    editRequisition.mockResolvedValueOnce({ version: 2 });
+  it('renders the stage track as a cumulative applicant funnel, not the requisition stage', async () => {
+    render(
+      <RequisitionCard
+        r={row({
+          stage: 'sourcing',
+          applicants_count: 3,
+          applicants: [
+            applicant({ stage: 'new' }),
+            applicant({ stage: 'screening' }),
+            applicant({ stage: 'interview' }),
+          ],
+        })}
+        canManage
+        canClose
+      />,
+      { wrapper: wrap(newClient()) },
+    );
+
+    // Cumulative: an applicant in Interview also counts toward Screening. Sourcing is
+    // pinned to applicants_count, so the funnel reads 3 / 2 / 1 / 0 even though the
+    // requisition's own `stage` pointer says 'sourcing'.
+    for (const [label, count] of [
+      ['Sourcing', '3'],
+      ['Screening', '2'],
+      ['Interview', '1'],
+      ['Offer', '0'],
+    ]) {
+      const step = screen.getByText(label as string).parentElement;
+      expect(step).not.toBeNull();
+      expect(step).toHaveTextContent(count as string);
+    }
+  });
+
+  it('the stage track is read-only — no step is clickable and none fires a write', async () => {
     render(<RequisitionCard r={row()} canManage canClose />, { wrapper: wrap(newClient()) });
 
-    await userEvent.click(screen.getByRole('button', { name: /Screening/ }));
-    await waitFor(() =>
-      expect(editRequisition).toHaveBeenCalledWith('r1', {
-        expected_version: 1,
-        patch: { stage: 'screening' },
-      }),
-    );
+    for (const label of ['Sourcing', 'Screening', 'Interview', 'Offer']) {
+      expect(screen.queryByRole('button', { name: label })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByText(label));
+    }
+    expect(editRequisition).not.toHaveBeenCalled();
     expect(resumeRequisition).not.toHaveBeenCalled();
   });
 
-  it('locks the stage track while on_hold and shows a Paused summary — no implicit resume-on-click', async () => {
+  it('shows a Paused summary in place of the due date while on_hold', () => {
     render(
       <RequisitionCard
         r={row({ status: 'on_hold', version: 2, updated_at: '2026-07-10T00:00:00Z' })}
@@ -95,10 +139,6 @@ describe('RequisitionCard', () => {
       />,
       { wrapper: wrap(newClient()) },
     );
-
-    await userEvent.click(screen.getByRole('button', { name: /Interview/ }));
-    expect(editRequisition).not.toHaveBeenCalled();
-    expect(resumeRequisition).not.toHaveBeenCalled();
 
     expect(screen.getByText('Paused')).toBeInTheDocument();
     expect(screen.getByText('Since 10 Jul 2026')).toBeInTheDocument();

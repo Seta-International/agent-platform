@@ -1,8 +1,11 @@
+import { scoped } from '@seta/shared-db';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
 import { emit, withEmit } from '../../src/events/index.ts';
 import { startDispatcher } from '../../src/runtime/dispatcher/index.ts';
 import { waitFor, withCoreTestDb } from '../helpers.ts';
+
+const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 describe('dispatcher per-subscriber isolation', () => {
   it('slow subscriber does not block fast one within one wall-clock window', async () => {
@@ -12,13 +15,22 @@ describe('dispatcher per-subscriber isolation', () => {
       let slowSeen = 0;
       let fastSeen = 0;
 
+      // The slow subscriber blocks on a gate the test opens rather than on a 300ms timer.
+      // A timer makes both assertions below a race against the runner: fast has to drain
+      // ten events before slow's sleep elapses. Held open, slow cannot advance past its
+      // first handler at all, so "fast drained everything while slow sat still" becomes a
+      // statement about the dispatcher instead of about wall-clock speed.
+      let openGate!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        openGate = resolve;
+      });
       const slowSub = {
         subscription: 'test.iso.slow',
         event: 'test.iso.entity.created',
         eventVersion: 1,
         handler: async () => {
           slowSeen += 1;
-          await new Promise((r) => setTimeout(r, 300));
+          await gate;
         },
       };
       const fastSub = {
@@ -37,26 +49,29 @@ describe('dispatcher per-subscriber isolation', () => {
         pollIntervalMs: 25,
       });
       try {
-        await withEmit(undefined, async () => {
-          for (let i = 0; i < EVENTS; i++) {
-            await emit({
-              tenantId: '00000000-0000-0000-0000-000000000001',
-              aggregateType: 'test.iso',
-              aggregateId: '00000000-0000-0000-0000-000000000001',
-              eventType: 'test.iso.entity.created',
-              eventVersion: 1,
-              payload: { i },
-            });
-          }
-        });
+        await scoped(TENANT_ID, () =>
+          withEmit(undefined, async () => {
+            for (let i = 0; i < EVENTS; i++) {
+              await emit({
+                tenantId: TENANT_ID,
+                aggregateType: 'test.iso',
+                aggregateId: '00000000-0000-0000-0000-000000000001',
+                eventType: 'test.iso.entity.created',
+                eventVersion: 1,
+                payload: { i },
+              });
+            }
+          }),
+        );
 
-        // Fast must finish all EVENTS while slow is still in its first 1-2 handlers. If the
-        // dispatcher were serializing subscribers (old Promise.all single-flight tick), fast
-        // would be gated behind slow's first handler and the count would lag.
-        await waitFor(() => fastSeen === EVENTS, 1_500);
+        // Fast must drain every event while slow is stuck in its first handler. If the
+        // dispatcher serialized subscribers (old Promise.all single-flight tick), fast
+        // would be gated behind slow and this would never settle.
+        await waitFor(() => fastSeen === EVENTS);
         expect(fastSeen).toBe(EVENTS);
-        expect(slowSeen).toBeLessThanOrEqual(2);
+        expect(slowSeen).toBe(1);
       } finally {
+        openGate();
         await d.shutdown(10_000);
       }
     });

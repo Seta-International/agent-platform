@@ -1,3 +1,4 @@
+import { slugifySkill } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
@@ -12,7 +13,7 @@ import {
   workerCvDownloadUrl,
 } from '../../src/backend/domain/cv.ts';
 import { editWorker } from '../../src/backend/domain/edit-worker.ts';
-import { buildSession, type SeededTenant, seedTenant } from '../helpers.ts';
+import { buildSession, inScope, type SeededTenant, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -26,7 +27,7 @@ function withDb(fn: (a: { pool: Pool; t: SeededTenant }) => Promise<void>): Prom
     initPools({ databaseUrl });
     try {
       const t = await seedTenant(pool);
-      await fn({ pool, t });
+      await inScope(t.adminSession, () => fn({ pool, t }));
     } finally {
       resetPeopleDb();
       resetCoreDb();
@@ -70,9 +71,11 @@ async function seedSkill(pool: Pool, tenant_id: string, name: string): Promise<s
     tenant_id,
     `Cat ${name}`,
   ]);
+  // slug is NOT NULL and is what canonicalizeSkill matches on, so it has to be the
+  // same derivation production uses — a hand-written slug would silently stop matching.
   await pool.query(
-    `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
-    [skillId, tenant_id, catId, name],
+    `INSERT INTO core.skill (id, tenant_id, category_id, name, slug) VALUES ($1,$2,$3,$4,$5)`,
+    [skillId, tenant_id, catId, name, slugifySkill(name)],
   );
   return skillId;
 }

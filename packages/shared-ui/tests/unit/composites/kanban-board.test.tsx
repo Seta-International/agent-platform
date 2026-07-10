@@ -42,9 +42,12 @@ describe('KanbanBoard', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(onAddBucket).toHaveBeenNthCalledWith(1, 'Backlog'));
 
-    // Input stays open and is cleared, ready for the next bucket.
+    // Input stays open and is cleared, ready for the next bucket. onAddBucket fires before
+    // the clear commits, so the reset lands in a later render than the waitFor above.
     expect(screen.getByLabelText(/new bucket name/i)).toBeInTheDocument();
-    expect((screen.getByLabelText(/new bucket name/i) as HTMLInputElement).value).toBe('');
+    await waitFor(() =>
+      expect((screen.getByLabelText(/new bucket name/i) as HTMLInputElement).value).toBe(''),
+    );
 
     fireEvent.change(screen.getByLabelText(/new bucket name/i), {
       target: { value: 'In progress' },

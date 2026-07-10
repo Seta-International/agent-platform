@@ -4,7 +4,7 @@ import { createUser } from '@seta/identity';
 import { assignTask, createGroup, createPlan, createTask, updateTask } from '@seta/planner';
 import { registerPlannerTasksRoutes } from '@seta/planner/http';
 import { plannerErrorMapper } from '@seta/planner/register';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -49,6 +49,11 @@ function buildTestApp(session: SessionScope): Hono<SessionEnv> {
     c.set('user', session);
     await next();
   });
+  // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+  // composition root opens this once the tenant is known, so plannerDb() has an
+  // executor context. No appDatabaseUrl here, so the tenant GUC is inert (self-host
+  // fallback) — this just needs to exist for executorPool() to resolve.
+  app.use('*', (_c, next) => scoped(session.tenant_id, next));
   registerPlannerTasksRoutes(app);
   app.onError(makeErrorHandler(plannerErrorMapper));
   return app;
@@ -62,15 +67,19 @@ async function seedTenant(pool: Pool, slug: string) {
     slug,
   ]);
   const adminEmail = `admin-${slug}@example.test`;
-  const adminResult = await createUser(
-    {
-      tenant_id: tenantId,
-      email: adminEmail,
-      name: 'Admin',
-      password: 'correct-horse-battery-staple',
-      initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-    },
-    { type: 'cli', user_id: null },
+  // seedTenant acts as the CLI seeder (actor: { type: 'cli' }): maintenance() mirrors
+  // the admin-pool context apps/cli opens around program.parseAsync in production.
+  const adminResult = await maintenance(() =>
+    createUser(
+      {
+        tenant_id: tenantId,
+        email: adminEmail,
+        name: 'Admin',
+        password: 'correct-horse-battery-staple',
+        initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
   await pool.query(
     `INSERT INTO planner.assignee_projection
@@ -141,26 +150,32 @@ describe('GET /api/planner/v1/my-tasks', () => {
           email: adminEmail,
           display_name: 'Admin',
         });
-        const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for these direct (non-HTTP) domain calls.
+        const { urgent } = await scoped(tenantId, async () => {
+          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
 
-        const urgent = await createTask({ plan_id: plan.id, title: 'Urgent', session });
-        await updateTask({
-          task_id: urgent.id,
-          expected_version: urgent.version,
-          patch: { priority_number: 1 },
-          session,
-        });
-        await assignTask({ task_id: urgent.id, user_id: session.user_id, session });
+          const urgent = await createTask({ plan_id: plan.id, title: 'Urgent', session });
+          await updateTask({
+            task_id: urgent.id,
+            expected_version: urgent.version,
+            patch: { priority_number: 1 },
+            session,
+          });
+          await assignTask({ task_id: urgent.id, user_id: session.user_id, session });
 
-        const low = await createTask({ plan_id: plan.id, title: 'Low', session });
-        await updateTask({
-          task_id: low.id,
-          expected_version: low.version,
-          patch: { priority_number: 9 },
-          session,
+          const low = await createTask({ plan_id: plan.id, title: 'Low', session });
+          await updateTask({
+            task_id: low.id,
+            expected_version: low.version,
+            patch: { priority_number: 9 },
+            session,
+          });
+          await assignTask({ task_id: low.id, user_id: session.user_id, session });
+          return { urgent, low };
         });
-        await assignTask({ task_id: low.id, user_id: session.user_id, session });
 
         const app = buildTestApp(session);
         const res = await app.request('/api/planner/v1/my-tasks?priority=1');
@@ -186,14 +201,20 @@ describe('GET /api/planner/v1/my-tasks', () => {
           email: adminEmail,
           display_name: 'Admin',
         });
-        const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-        const planA = await createPlan({ group_id: group.id, name: 'A', session });
-        const planB = await createPlan({ group_id: group.id, name: 'B', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for these direct (non-HTTP) domain calls.
+        const { planA, a } = await scoped(tenantId, async () => {
+          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+          const planA = await createPlan({ group_id: group.id, name: 'A', session });
+          const planB = await createPlan({ group_id: group.id, name: 'B', session });
 
-        const a = await createTask({ plan_id: planA.id, title: 'A1', session });
-        await assignTask({ task_id: a.id, user_id: session.user_id, session });
-        const b = await createTask({ plan_id: planB.id, title: 'B1', session });
-        await assignTask({ task_id: b.id, user_id: session.user_id, session });
+          const a = await createTask({ plan_id: planA.id, title: 'A1', session });
+          await assignTask({ task_id: a.id, user_id: session.user_id, session });
+          const b = await createTask({ plan_id: planB.id, title: 'B1', session });
+          await assignTask({ task_id: b.id, user_id: session.user_id, session });
+          return { planA, a, planB, b };
+        });
 
         const app = buildTestApp(session);
         const res = await app.request(`/api/planner/v1/my-tasks?planId=${planA.id}`);
@@ -219,17 +240,23 @@ describe('GET /api/planner/v1/my-tasks', () => {
           email: adminEmail,
           display_name: 'Admin',
         });
-        const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for these direct (non-HTTP) domain calls.
+        const { match } = await scoped(tenantId, async () => {
+          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
 
-        const match = await createTask({
-          plan_id: plan.id,
-          title: 'Quarterly budget review',
-          session,
+          const match = await createTask({
+            plan_id: plan.id,
+            title: 'Quarterly budget review',
+            session,
+          });
+          await assignTask({ task_id: match.id, user_id: session.user_id, session });
+          const other = await createTask({ plan_id: plan.id, title: 'Unrelated work', session });
+          await assignTask({ task_id: other.id, user_id: session.user_id, session });
+          return { match, other };
         });
-        await assignTask({ task_id: match.id, user_id: session.user_id, session });
-        const other = await createTask({ plan_id: plan.id, title: 'Unrelated work', session });
-        await assignTask({ task_id: other.id, user_id: session.user_id, session });
 
         const app = buildTestApp(session);
         const res = await app.request('/api/planner/v1/my-tasks?q=budget');

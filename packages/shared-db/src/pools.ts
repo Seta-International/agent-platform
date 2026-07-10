@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
+import { bindExecutorPools } from './executor.ts';
 import { instrumentPool } from './instrumentation.ts';
-import { bindWebPool, makeTenantAwarePool } from './request-tenant.ts';
+import { bindWebPool, makeTenantAwarePool, unbindWebPool } from './request-tenant.ts';
 
 export interface PoolsConfig {
   databaseUrl: string;
@@ -22,6 +23,11 @@ export interface Pools {
 
 let pools: Pools | null = null;
 let webFacade: Pool | null = null;
+
+function requirePools(): Pools {
+  if (!pools) throw new Error('executorPool called before initPools.');
+  return pools;
+}
 
 // Sizing formula (docs/hosting/aws.md §7):
 //   max = floor(pg_max_connections / (server_tasks + worker_tasks)) − margin
@@ -78,6 +84,20 @@ export function initPools(cfg: PoolsConfig): Pools {
   pools.worker.on('error', swallow);
   pools.mastraState.on('error', swallow);
 
+  // Silent fallback to the admin (BYPASSRLS) pool is correct for simple self-host
+  // but must never be silent in an environment where DATABASE_APP_URL was meant to
+  // be set — surface it loudly so a dropped env var doesn't quietly disable the
+  // RLS backstop. || above already normalizes "" (compose's ${VAR:-} default) to
+  // this same fallback, so this check must too.
+  if (!cfg.appDatabaseUrl) {
+    const msg =
+      'RLS backstop inert: no appDatabaseUrl, so the web pool uses the admin connection ' +
+      '(BYPASSRLS). Tenant isolation rests entirely on explicit WHERE tenant_id. ' +
+      'Set DATABASE_APP_URL to enable the backstop.';
+    if (cfg.log) cfg.log.warn({ subsystem: 'shared-db.pool' }, msg);
+    else console.warn(`[shared-db] ${msg}`);
+  }
+
   instrumentPool(pools.web, 'web');
   instrumentPool(pools.worker, 'worker');
   instrumentPool(pools.mastraState, 'mastraState');
@@ -85,12 +105,27 @@ export function initPools(cfg: PoolsConfig): Pools {
   // The web pool is served through a tenant-aware facade so per-request RLS
   // binding (runRequestTenant) governs every module's reads. Raw pool is bound
   // for the connection-pinning path.
-  bindWebPool(pools.web);
+  bindWebPool();
   webFacade = makeTenantAwarePool(pools.web);
+
+  // The executor decides privilege; modules never pick a pool. `scoped` runs on the
+  // app-role facade (NOBYPASSRLS, request-pinned when a connection is pinned);
+  // `maintenance` runs on the admin pool. Resolve through the live `pools` binding,
+  // not a captured local: closePools() must make executorPool() throw, not hand out
+  // an ended pool.
+  bindExecutorPools(
+    () => webFacade ?? requirePools().web,
+    () => requirePools().worker,
+  );
 
   return pools;
 }
 
+/**
+ * @deprecated Modules must not choose a privilege level. Use `executorPool()`, and let
+ * the composition root open the context with `scoped()` / `maintenance()`.
+ * Removed in PR4 of DB-1; will then be importable only by apps/server and apps/worker.
+ */
 export function getPool(name?: 'web' | 'worker' | 'mastraState'): Pool {
   if (!pools) throw new Error('getPool called before initPools.');
   const key = name ?? 'web';
@@ -128,4 +163,7 @@ export async function closePools(): Promise<void> {
   await Promise.all([pools.web.end(), pools.worker.end(), pools.mastraState.end()]);
   pools = null;
   webFacade = null;
+  // Unbind so pinTenantConnection fails closed instead of calling .connect()
+  // on the now-ended pool.
+  unbindWebPool();
 }

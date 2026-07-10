@@ -7,7 +7,7 @@ import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { person, worker } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { getWorker, getWorkerHistory } from '../../src/index.ts';
-import { buildSession, type SeededTenant, seedOrgUnit, seedTenant } from '../helpers.ts';
+import { buildSession, inScope, type SeededTenant, seedOrgUnit, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -41,19 +41,21 @@ function withDb(
       const t = await seedTenant(pool);
       const userM = crypto.randomUUID();
 
-      // Manager M heads a unit; R is a member (reports to M); U is unrelated.
-      const M = await makePersona(t, 'Manager M', userM, null);
-      const unit = await seedOrgUnit({
-        tenant_id: t.tenant_id,
-        name: 'M Unit',
-        kind: 'operation',
-        head_worker_id: M,
-      });
-      await peopleDb().update(worker).set({ org_unit_id: unit }).where(eq(worker.person_id, M));
-      const R = await makePersona(t, 'Report R', crypto.randomUUID(), unit);
-      const U = await makePersona(t, 'Unrelated U', crypto.randomUUID(), null);
+      await inScope(t.adminSession, async () => {
+        // Manager M heads a unit; R is a member (reports to M); U is unrelated.
+        const M = await makePersona(t, 'Manager M', userM, null);
+        const unit = await seedOrgUnit({
+          tenant_id: t.tenant_id,
+          name: 'M Unit',
+          kind: 'operation',
+          head_worker_id: M,
+        });
+        await peopleDb().update(worker).set({ org_unit_id: unit }).where(eq(worker.person_id, M));
+        const R = await makePersona(t, 'Report R', crypto.randomUUID(), unit);
+        const U = await makePersona(t, 'Unrelated U', crypto.randomUUID(), null);
 
-      await fn({ t, M, R, U, userM });
+        await fn({ t, M, R, U, userM });
+      });
     } finally {
       resetPeopleDb();
       resetCoreDb();

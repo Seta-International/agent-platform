@@ -1,6 +1,6 @@
 import type { SessionEnv } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
@@ -32,21 +32,32 @@ describe('GET /api/planner/v1/plans/:planId/tasks/calendar', () => {
           c.set('user', session);
           await next();
         });
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so plannerDb() has an
+        // executor context. No appDatabaseUrl here, so the tenant GUC is inert (self-host
+        // fallback) — this just needs to exist for executorPool() to resolve.
+        app.use('*', (_c, next) => scoped(session.tenant_id, next));
         registerPlannerTasksRoutes(app);
 
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-        const plan = await createPlan({ group_id: group.id, name: 'Sprint', session });
-        await createTask({
-          plan_id: plan.id,
-          title: 'In June',
-          due_at: '2026-06-10T12:00:00.000Z',
-          session,
-        });
-        await createTask({
-          plan_id: plan.id,
-          title: 'In May',
-          due_at: '2026-05-10T12:00:00.000Z',
-          session,
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for these direct (non-HTTP) domain calls.
+        const plan = await scoped(seeded.tenant_id, async () => {
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint', session });
+          await createTask({
+            plan_id: plan.id,
+            title: 'In June',
+            due_at: '2026-06-10T12:00:00.000Z',
+            session,
+          });
+          await createTask({
+            plan_id: plan.id,
+            title: 'In May',
+            due_at: '2026-05-10T12:00:00.000Z',
+            session,
+          });
+          return plan;
         });
 
         const base = `/api/planner/v1/plans/${plan.id}/tasks/calendar`;

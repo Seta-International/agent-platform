@@ -18,7 +18,7 @@ describe('mail transport config store', () => {
   it('upsert + findEnabled round-trips a Graph config', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       resetIntegrationsDb();
-      const store = createMailTransportConfigStore({ db });
+      const store = createMailTransportConfigStore({ db: () => db });
       const tenantId = crypto.randomUUID();
       await store.upsert({
         tenantId,
@@ -41,7 +41,7 @@ describe('mail transport config store', () => {
   it('findEnabled returns null when disabled', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       resetIntegrationsDb();
-      const store = createMailTransportConfigStore({ db });
+      const store = createMailTransportConfigStore({ db: () => db });
       const tenantId = crypto.randomUUID();
       await store.upsert({
         tenantId,
@@ -59,7 +59,7 @@ describe('mail transport config store', () => {
   it('upsert preserves SMTP password_blob shape', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       resetIntegrationsDb();
-      const store = createMailTransportConfigStore({ db });
+      const store = createMailTransportConfigStore({ db: () => db });
       const tenantId = crypto.randomUUID();
       await store.upsert({
         tenantId,
@@ -87,7 +87,7 @@ describe('mail transport config store', () => {
   it('recordVerification updates lastVerifiedAt on success', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       resetIntegrationsDb();
-      const store = createMailTransportConfigStore({ db });
+      const store = createMailTransportConfigStore({ db: () => db });
       const tenantId = crypto.randomUUID();
       await store.upsert({
         tenantId,
@@ -107,7 +107,7 @@ describe('mail transport config store', () => {
   it('recordVerification records the error message on failure', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
       resetIntegrationsDb();
-      const store = createMailTransportConfigStore({ db });
+      const store = createMailTransportConfigStore({ db: () => db });
       const tenantId = crypto.randomUUID();
       await store.upsert({
         tenantId,

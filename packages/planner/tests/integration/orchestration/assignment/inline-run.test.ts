@@ -4,7 +4,7 @@ import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import type { RunRecord, RunStateRepository } from '@seta/shared-orchestration';
 import { OrchestrationRegistry } from '@seta/shared-orchestration';
 import { MockLanguageModelV3 } from 'ai/test';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   __setAssignmentRunIdForTests,
   buildAssignmentOrchestrationRuntime,
@@ -182,8 +182,13 @@ const portsWith = () => ({
   },
   taskSearch: { byLabels: async () => [], listAvailableLabels: async () => [] },
   skillSearch: {
-    search: async () => [{ userId: 'u1', name: 'A', skills: ['aws'], role: null, similarity: 0.9 }],
+    search: vi.fn(async () => [
+      { userId: 'u1', name: 'A', skills: ['aws'], role: null, similarity: 0.9 },
+    ]),
   },
+  // Reads planner + people tables. Stubbed here, like every other adapter — before it
+  // was a port, skillMatcher reached the real database whenever taskId was truthy.
+  groupMembers: async () => [],
   availability: {
     status: async () => ({ status: 'available' as const, note: null }),
     inProgressCount: async () => 0,
@@ -213,6 +218,7 @@ describe('orchestrator inline run (e2e)', () => {
   it('recommend path: taskAnalyzer → skillMatcher → avaiChecker → recommender, streams sub-cards, persists', async () => {
     __setAssignmentRunIdForTests(() => RUN);
     const repo = new InMemoryRunStateRepository();
+    const ports = portsWith();
     // Models resolve lazily per run (pickModel): the orchestrator's Agent is
     // built first at run start; skillMatcher's Agent only when delegated to.
     // taskAnalyzer + avaiChecker are deterministic here (no model call).
@@ -256,12 +262,16 @@ describe('orchestrator inline run (e2e)', () => {
         // skillMatcher: searchCandidates; run() ranks the hits via fallback.
         scriptedModel([toolCallStep(0, 'staffing_searchCandidates', { skills: ['aws'] }), STOP]),
       ]),
-      ports: portsWith(),
+      ports,
     });
     SpecializedAgentRegistry.freeze();
     OrchestrationRegistry.freeze();
 
     const events = await runInline(rt);
+
+    // Without this, a DAG that silently skipped skillMatcher would still satisfy every
+    // assertion below — the recommendation can be reconstructed from the scripted args.
+    expect(ports.skillSearch.search).toHaveBeenCalled();
 
     const final = events.at(-1) as {
       kind: 'final';

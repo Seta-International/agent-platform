@@ -2,6 +2,7 @@ import { type Runner, run, type Task, type TaskList } from 'graphile-worker';
 import type { Pool } from 'pg';
 import { captureException } from '../../composition/error-capture.ts';
 import { subscriptionDlqAlerter } from './dlq-alerter.ts';
+import { wrapJob } from './job-context.ts';
 import { partitionManagerTick } from './partition-manager.ts';
 import { retentionTick } from './retention.ts';
 
@@ -49,7 +50,7 @@ export async function startWorkerPool(opts: StartWorkerPoolOpts): Promise<Worker
   const taskList: TaskList = Object.fromEntries(
     Object.entries(rawTaskList)
       .filter((entry): entry is [string, Task] => entry[1] !== undefined)
-      .map(([name, task]) => [name, withErrorCapture(task)]),
+      .map(([name, task]) => [name, withErrorCapture(wrapJob(name, task))]),
   );
 
   const defaultCrontab = `

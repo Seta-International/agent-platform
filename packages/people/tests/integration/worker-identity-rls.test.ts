@@ -1,4 +1,4 @@
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetPeopleDb } from '../../src/backend/db/client.ts';
@@ -10,14 +10,14 @@ const ctx = {
 };
 
 describe('getWorkerIdForUser under RLS', () => {
-  // FUT-327 regression: the session middleware resolves the worker id BEFORE the
-  // request's tenant GUC is bound (apps/server wires resolveWorkerId ahead of
-  // runRequestTenant). In production the web pool is seta_app (NOBYPASSRLS), so the
-  // forced tenant_isolation policy on people.person/people.worker hid every row and
-  // session.worker_id was always null — silently disabling AM/EM/TL/PM row scoping.
-  // Dev and the default test harness masked it by connecting as a BYPASSRLS superuser,
-  // so this test runs the lookup through a web pool that mirrors prod's seta_app.
-  it('resolves the worker id via a NOBYPASSRLS web pool with no ambient tenant GUC', () =>
+  // FUT-327 regression: in production the web pool is seta_app (NOBYPASSRLS), so the forced
+  // tenant_isolation policy on people.person/people.worker hides every row unless the tenant
+  // GUC is bound — session.worker_id came back null, silently disabling AM/EM/TL/PM row
+  // scoping. Dev and the default test harness masked it by connecting as a BYPASSRLS
+  // superuser, so this test runs the lookup through a web pool that mirrors prod's seta_app.
+  // FUT-540: the GUC is now bound by sessionMiddleware's scoped(), which is what this test
+  // stands in for. getWorkerIdForUser must not pin its own connection on top of that.
+  it('resolves the worker id via a NOBYPASSRLS web pool inside the request scope', () =>
     withTestDb(ctx, async ({ pool, databaseUrl }) => {
       const role = `rls_probe_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
       await pool.query(`CREATE ROLE ${role} LOGIN PASSWORD 'probe' NOSUPERUSER NOBYPASSRLS`);
@@ -49,7 +49,7 @@ describe('getWorkerIdForUser under RLS', () => {
       resetPeopleDb();
       initPools({ databaseUrl, appDatabaseUrl: appUrl.toString() });
       try {
-        expect(await getWorkerIdForUser(userId, tenantId)).toBe(personId);
+        expect(await scoped(tenantId, () => getWorkerIdForUser(userId, tenantId))).toBe(personId);
       } finally {
         resetPeopleDb();
         await closePools();

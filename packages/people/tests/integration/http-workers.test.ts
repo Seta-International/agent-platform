@@ -9,7 +9,7 @@ import { listWorkers } from '../../src/backend/domain/read-workers.ts';
 import { registerPeopleWorkersRoutes } from '../../src/backend/http/workers.ts';
 import { provisionWorker } from '../../src/index.ts';
 import { peopleErrorMapper } from '../../src/register.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { buildSession, inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -45,7 +45,7 @@ function withDb(
     initPools({ databaseUrl });
     try {
       const t = await seedTenant(pool);
-      await fn({ ...t, pool });
+      await inScope(t.adminSession, () => fn({ ...t, pool }));
     } finally {
       resetPeopleDb();
       resetCoreDb();

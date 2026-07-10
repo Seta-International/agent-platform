@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { MDocument } from '@mastra/rag';
+import { executorPool, maintenance } from '@seta/shared-db';
 import type { Pool } from 'pg';
 import type { ParsedDocument, Parser } from './parsers/contract.ts';
 import { csvParser } from './parsers/csv.ts';
@@ -128,7 +129,9 @@ export async function parseKnowledgeFile(
     if (chunks.length === 0) throw new Error('parser produced no chunks');
 
     // Lazily provision the per-tenant LIST partition before inserting chunks.
-    await ensureChunksPartition(deps.pool, tenant_id);
+    // seta_app lacks CREATE, so this one step runs on the admin pool via
+    // maintenance() — everything else in this job stays at ordinary privilege.
+    await maintenance(() => ensureChunksPartition(executorPool(), tenant_id));
 
     // Insert chunks, flip status, enqueue embed job — all in one tx.
     // pool.connect() pins all statements to a single connection so BEGIN/COMMIT

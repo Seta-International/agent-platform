@@ -6,7 +6,7 @@ import {
 } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
@@ -27,6 +27,10 @@ function buildApp(scope: SessionScope): Hono<SessionEnv> {
     c.set('user', scope);
     await next();
   });
+  // Mirrors apps/server/src/build.ts's per-request scoped() binding. No appDatabaseUrl
+  // here, so the tenant GUC is inert (self-host fallback) — this just opens the
+  // executor context identityDb()/coreDb() require.
+  app.use('*', (_c, next) => scoped(scope.tenant_id, next));
   registerSkillCatalogRoutes(app);
   return app;
 }
@@ -142,6 +146,10 @@ describe('skill catalog HTTP', () => {
         c.set('user', scope);
         await next();
       });
+      // Mirrors apps/server/src/build.ts's per-request scoped() binding. No appDatabaseUrl
+      // here, so the tenant GUC is inert (self-host fallback) — this just opens the
+      // executor context identityDb()/coreDb() require.
+      app.use('*', (_c, next) => scoped(scope.tenant_id, next));
       // Same order as the real app: profile first, then skill-catalog.
       registerProfileRoutes(app);
       registerSkillCatalogRoutes(app);

@@ -104,5 +104,5 @@ describe('ProjectDetailPage org unit field', () => {
     await waitFor(() => expect(editProjectMock).toHaveBeenCalled());
     const body = editProjectMock.mock.calls.at(-1)?.[0] as { patch: { org_unit_id?: string } };
     expect(body.patch.org_unit_id).toBe('ou-2');
-  }, 15_000);
+  });
 });

@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createGroup, createLabel, createPlan, setCategoryDescriptions } from '../../src/index.ts';
@@ -17,40 +17,47 @@ describe('setCategoryDescriptions (batched)', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session,
-          });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
-          const label = await createLabel({
-            plan_id: plan.id,
-            name: 'Bug',
-            color: '#f00',
-            session,
-          });
 
-          await setCategoryDescriptions({
-            plan_id: plan.id,
-            slots: { 4: { name: 'QA' } },
-            session,
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
+            const label = await createLabel({
+              plan_id: plan.id,
+              name: 'Bug',
+              color: '#f00',
+              session,
+            });
+
+            await setCategoryDescriptions({
+              plan_id: plan.id,
+              slots: { 4: { name: 'QA' } },
+              session,
+            });
+
+            // Label-only patch: slot 4 already has "QA"; this attaches a label
+            // but must not throw and must not clear/overwrite the description.
+            const result = await setCategoryDescriptions({
+              plan_id: plan.id,
+              slots: { 4: { label_id: label.id } },
+              session,
+            });
+
+            expect(result.category_descriptions.category4).toBe('QA');
+
+            const [{ rows }] = [
+              await pool.query(`SELECT category_slot FROM planner.labels WHERE id = $1`, [
+                label.id,
+              ]),
+            ];
+            expect(rows[0]?.category_slot).toBe(4);
           });
-
-          // Label-only patch: slot 4 already has "QA"; this attaches a label
-          // but must not throw and must not clear/overwrite the description.
-          const result = await setCategoryDescriptions({
-            plan_id: plan.id,
-            slots: { 4: { label_id: label.id } },
-            session,
-          });
-
-          expect(result.category_descriptions.category4).toBe('QA');
-
-          const [{ rows }] = [
-            await pool.query(`SELECT category_slot FROM planner.labels WHERE id = $1`, [label.id]),
-          ];
-          expect(rows[0]?.category_slot).toBe(4);
         } finally {
           resetCoreDb();
           await closePools();
@@ -70,44 +77,49 @@ describe('setCategoryDescriptions (batched)', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session,
-          });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
-          const label = await createLabel({
-            plan_id: plan.id,
-            name: 'Bug',
-            color: '#f00',
-            session,
-          });
 
-          await setCategoryDescriptions({
-            plan_id: plan.id,
-            slots: { 7: { name: 'Backend' } },
-            session,
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
+            const label = await createLabel({
+              plan_id: plan.id,
+              name: 'Bug',
+              color: '#f00',
+              session,
+            });
+
+            await setCategoryDescriptions({
+              plan_id: plan.id,
+              slots: { 7: { name: 'Backend' } },
+              session,
+            });
+
+            const before = await countEvents(
+              pool,
+              seeded.tenant_id,
+              'planner.plan.category-description-changed',
+            );
+
+            await setCategoryDescriptions({
+              plan_id: plan.id,
+              slots: { 7: { label_id: label.id } },
+              session,
+            });
+
+            const after = await countEvents(
+              pool,
+              seeded.tenant_id,
+              'planner.plan.category-description-changed',
+            );
+            expect(after).toBe(before);
           });
-
-          const before = await countEvents(
-            pool,
-            seeded.tenant_id,
-            'planner.plan.category-description-changed',
-          );
-
-          await setCategoryDescriptions({
-            plan_id: plan.id,
-            slots: { 7: { label_id: label.id } },
-            session,
-          });
-
-          const after = await countEvents(
-            pool,
-            seeded.tenant_id,
-            'planner.plan.category-description-changed',
-          );
-          expect(after).toBe(before);
         } finally {
           resetCoreDb();
           await closePools();
@@ -127,37 +139,42 @@ describe('setCategoryDescriptions (batched)', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session,
-          });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
 
-          await setCategoryDescriptions({
-            plan_id: plan.id,
-            slots: { 3: { name: 'Docs' } },
-            session,
-          });
-          const cleared = await setCategoryDescriptions({
-            plan_id: plan.id,
-            slots: { 3: { name: null } },
-            session,
-          });
-          expect(cleared.category_descriptions.category3).toBeUndefined();
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
 
-          const { rows: events } = await pool.query<{
-            payload: { before: string | null; after: string | null };
-          }>(
-            `SELECT payload FROM core.events
-               WHERE tenant_id = $1 AND event_type = $2
-               ORDER BY occurred_at ASC, payload->>'after' NULLS LAST`,
-            [seeded.tenant_id, 'planner.plan.category-description-changed'],
-          );
-          const last = events[events.length - 1]?.payload;
-          expect(last?.before).toBe('Docs');
-          expect(last?.after).toBeNull();
+            await setCategoryDescriptions({
+              plan_id: plan.id,
+              slots: { 3: { name: 'Docs' } },
+              session,
+            });
+            const cleared = await setCategoryDescriptions({
+              plan_id: plan.id,
+              slots: { 3: { name: null } },
+              session,
+            });
+            expect(cleared.category_descriptions.category3).toBeUndefined();
+
+            const { rows: events } = await pool.query<{
+              payload: { before: string | null; after: string | null };
+            }>(
+              `SELECT payload FROM core.events
+                 WHERE tenant_id = $1 AND event_type = $2
+                 ORDER BY occurred_at ASC, payload->>'after' NULLS LAST`,
+              [seeded.tenant_id, 'planner.plan.category-description-changed'],
+            );
+            const last = events[events.length - 1]?.payload;
+            expect(last?.before).toBe('Docs');
+            expect(last?.after).toBeNull();
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -177,37 +194,42 @@ describe('setCategoryDescriptions (batched)', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session,
-          });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
-          const label = await createLabel({
-            plan_id: plan.id,
-            name: 'Bug',
-            color: '#f00',
-            session,
-          });
 
-          await setCategoryDescriptions({
-            plan_id: plan.id,
-            slots: { 2: { name: 'Backend', label_id: label.id } },
-            session,
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
+            const label = await createLabel({
+              plan_id: plan.id,
+              name: 'Bug',
+              color: '#f00',
+              session,
+            });
 
-          await setCategoryDescriptions({
-            plan_id: plan.id,
-            slots: { 2: { label_id: null } },
-            session,
-          });
+            await setCategoryDescriptions({
+              plan_id: plan.id,
+              slots: { 2: { name: 'Backend', label_id: label.id } },
+              session,
+            });
 
-          const { rows } = await pool.query(
-            `SELECT category_slot FROM planner.labels WHERE id = $1`,
-            [label.id],
-          );
-          expect(rows[0]?.category_slot).toBeNull();
+            await setCategoryDescriptions({
+              plan_id: plan.id,
+              slots: { 2: { label_id: null } },
+              session,
+            });
+
+            const { rows } = await pool.query(
+              `SELECT category_slot FROM planner.labels WHERE id = $1`,
+              [label.id],
+            );
+            expect(rows[0]?.category_slot).toBeNull();
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -227,55 +249,60 @@ describe('setCategoryDescriptions (batched)', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Eng',
-            session,
-          });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
 
-          await setCategoryDescriptions({
-            plan_id: plan.id,
-            slots: { 1: { name: 'Existing' } },
-            session,
-          });
-
-          const beforeEvents = await countEvents(
-            pool,
-            seeded.tenant_id,
-            'planner.plan.category-description-changed',
-          );
-
-          // Slot 1 has a valid update; slot 2's name exceeds the 100-char cap
-          // and will throw inside the loop. The batched op must roll back
-          // both — slot 1 should still read "Existing".
-          const tooLong = 'x'.repeat(101);
-          await expect(
-            setCategoryDescriptions({
-              plan_id: plan.id,
-              slots: {
-                1: { name: 'Updated' },
-                2: { name: tooLong },
-              },
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
               session,
-            }),
-          ).rejects.toThrow();
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
 
-          const { rows } = await pool.query<{ slot: number; name: string }>(
-            `SELECT slot, name FROM planner.plan_categories WHERE plan_id = $1`,
-            [plan.id],
-          );
-          const bySlot = new Map(rows.map((r) => [r.slot, r.name]));
-          expect(bySlot.get(1)).toBe('Existing');
-          expect(bySlot.has(2)).toBe(false);
+            await setCategoryDescriptions({
+              plan_id: plan.id,
+              slots: { 1: { name: 'Existing' } },
+              session,
+            });
 
-          const afterEvents = await countEvents(
-            pool,
-            seeded.tenant_id,
-            'planner.plan.category-description-changed',
-          );
-          expect(afterEvents).toBe(beforeEvents);
+            const beforeEvents = await countEvents(
+              pool,
+              seeded.tenant_id,
+              'planner.plan.category-description-changed',
+            );
+
+            // Slot 1 has a valid update; slot 2's name exceeds the 100-char cap
+            // and will throw inside the loop. The batched op must roll back
+            // both — slot 1 should still read "Existing".
+            const tooLong = 'x'.repeat(101);
+            await expect(
+              setCategoryDescriptions({
+                plan_id: plan.id,
+                slots: {
+                  1: { name: 'Updated' },
+                  2: { name: tooLong },
+                },
+                session,
+              }),
+            ).rejects.toThrow();
+
+            const { rows } = await pool.query<{ slot: number; name: string }>(
+              `SELECT slot, name FROM planner.plan_categories WHERE plan_id = $1`,
+              [plan.id],
+            );
+            const bySlot = new Map(rows.map((r) => [r.slot, r.name]));
+            expect(bySlot.get(1)).toBe('Existing');
+            expect(bySlot.has(2)).toBe(false);
+
+            const afterEvents = await countEvents(
+              pool,
+              seeded.tenant_id,
+              'planner.plan.category-description-changed',
+            );
+            expect(afterEvents).toBe(beforeEvents);
+          });
         } finally {
           resetCoreDb();
           await closePools();

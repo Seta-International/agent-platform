@@ -1,6 +1,6 @@
 import type { SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createGroup, createPlan, createTask, updateTask } from '../../src/index.ts';
@@ -25,20 +25,28 @@ describe('updateTask external-actor gate', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T', session });
-
-          await expect(
-            updateTask({
-              task_id: task.id,
-              expected_version: 1,
-              patch: { external_source: 'm365', external_id: 'abc' },
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
               session,
-            }),
-          ).rejects.toMatchObject({ code: 'RESERVED_FOR_SYSTEM_ACTOR' });
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'T', session });
+
+            await expect(
+              updateTask({
+                task_id: task.id,
+                expected_version: 1,
+                patch: { external_source: 'm365', external_id: 'abc' },
+                session,
+              }),
+            ).rejects.toMatchObject({ code: 'RESERVED_FOR_SYSTEM_ACTOR' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -58,20 +66,28 @@ describe('updateTask external-actor gate', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T', session });
-
-          await expect(
-            updateTask({
-              task_id: task.id,
-              expected_version: 1,
-              patch: { external_etag: 'etag-1' },
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
               session,
-            }),
-          ).rejects.toMatchObject({ code: 'RESERVED_FOR_SYSTEM_ACTOR' });
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'T', session });
+
+            await expect(
+              updateTask({
+                task_id: task.id,
+                expected_version: 1,
+                patch: { external_etag: 'etag-1' },
+                session,
+              }),
+            ).rejects.toMatchObject({ code: 'RESERVED_FOR_SYSTEM_ACTOR' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -91,20 +107,28 @@ describe('updateTask external-actor gate', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T', session });
-
-          await expect(
-            updateTask({
-              task_id: task.id,
-              expected_version: 1,
-              patch: { external_synced_at: '2026-05-01T00:00:00.000Z' },
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
               session,
-            }),
-          ).rejects.toMatchObject({ code: 'RESERVED_FOR_SYSTEM_ACTOR' });
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'T', session });
+
+            await expect(
+              updateTask({
+                task_id: task.id,
+                expected_version: 1,
+                patch: { external_synced_at: '2026-05-01T00:00:00.000Z' },
+                session,
+              }),
+            ).rejects.toMatchObject({ code: 'RESERVED_FOR_SYSTEM_ACTOR' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -124,22 +148,30 @@ describe('updateTask external-actor gate', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T', session });
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-          const systemSession = makeM365SystemSession(session);
-          const updated = await updateTask({
-            task_id: task.id,
-            expected_version: 1,
-            patch: { external_source: 'm365', external_id: 'abc-123' },
-            session: systemSession,
+            const systemSession = makeM365SystemSession(session);
+            const updated = await updateTask({
+              task_id: task.id,
+              expected_version: 1,
+              patch: { external_source: 'm365', external_id: 'abc-123' },
+              session: systemSession,
+            });
+
+            expect(updated.external_source).toBe('m365');
+            expect(updated.external_id).toBe('abc-123');
           });
-
-          expect(updated.external_source).toBe('m365');
-          expect(updated.external_id).toBe('abc-123');
         } finally {
           resetCoreDb();
           await closePools();
@@ -159,23 +191,31 @@ describe('updateTask external-actor gate', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'Original', session });
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'Original', session });
 
-          const systemSession = makeM365SystemSession(session);
-          const updated = await updateTask({
-            task_id: task.id,
-            expected_version: 1,
-            patch: { title: 'new', external_source: 'm365', external_id: 'x' },
-            session: systemSession,
+            const systemSession = makeM365SystemSession(session);
+            const updated = await updateTask({
+              task_id: task.id,
+              expected_version: 1,
+              patch: { title: 'new', external_source: 'm365', external_id: 'x' },
+              session: systemSession,
+            });
+
+            expect(updated.title).toBe('new');
+            expect(updated.external_source).toBe('m365');
+            expect(updated.external_id).toBe('x');
           });
-
-          expect(updated.title).toBe('new');
-          expect(updated.external_source).toBe('m365');
-          expect(updated.external_id).toBe('x');
         } finally {
           resetCoreDb();
           await closePools();
@@ -195,21 +235,29 @@ describe('updateTask external-actor gate', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'Original', session });
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'Original', session });
 
-          const updated = await updateTask({
-            task_id: task.id,
-            expected_version: 1,
-            patch: { title: 'new' },
-            session,
+            const updated = await updateTask({
+              task_id: task.id,
+              expected_version: 1,
+              patch: { title: 'new' },
+              session,
+            });
+
+            expect(updated.title).toBe('new');
+            expect(updated.version).toBe(2);
           });
-
-          expect(updated.title).toBe('new');
-          expect(updated.version).toBe(2);
         } finally {
           resetCoreDb();
           await closePools();
@@ -229,21 +277,29 @@ describe('updateTask external-actor gate', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
 
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
-          const task = await createTask({ plan_id: plan.id, title: 'T', session });
-
-          await expect(
-            updateTask({
-              task_id: task.id,
-              expected_version: 1,
-              // biome-ignore lint/suspicious/noExplicitAny: deliberately invalid input
-              patch: { priority: 'urgent' } as any,
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
               session,
-            }),
-          ).rejects.toMatchObject({ code: 'VALIDATION' });
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+            const task = await createTask({ plan_id: plan.id, title: 'T', session });
+
+            await expect(
+              updateTask({
+                task_id: task.id,
+                expected_version: 1,
+                // biome-ignore lint/suspicious/noExplicitAny: deliberately invalid input
+                patch: { priority: 'urgent' } as any,
+                session,
+              }),
+            ).rejects.toMatchObject({ code: 'VALIDATION' });
+          });
         } finally {
           resetCoreDb();
           await closePools();

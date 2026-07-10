@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
@@ -20,39 +20,44 @@ describe('person_skill table', () => {
       try {
         const t = await seedTenant(pool);
 
-        // Create a person row to satisfy the person_id FK
-        const [p] = await peopleDb().insert(person).values({ tenant_id: t.tenant_id }).returning();
-        const personId = p!.id;
+        await maintenance(async () => {
+          // Create a person row to satisfy the person_id FK
+          const [p] = await peopleDb()
+            .insert(person)
+            .values({ tenant_id: t.tenant_id })
+            .returning();
+          const personId = p!.id;
 
-        const skillId1 = crypto.randomUUID();
-        const skillId2 = crypto.randomUUID();
+          const skillId1 = crypto.randomUUID();
+          const skillId2 = crypto.randomUUID();
 
-        // Insert two distinct skills — both must succeed
-        await peopleDb().insert(personSkill).values({
-          tenant_id: t.tenant_id,
-          person_id: personId,
-          skill_id: skillId1,
-          skill_name: 'TypeScript',
-        });
-        await peopleDb().insert(personSkill).values({
-          tenant_id: t.tenant_id,
-          person_id: personId,
-          skill_id: skillId2,
-          skill_name: 'React',
-        });
-
-        const rows = await peopleDb().select().from(personSkill);
-        expect(rows.length).toBeGreaterThanOrEqual(2);
-
-        // Duplicate (tenant_id, person_id, skill_id) must throw
-        await expect(
-          peopleDb().insert(personSkill).values({
+          // Insert two distinct skills — both must succeed
+          await peopleDb().insert(personSkill).values({
             tenant_id: t.tenant_id,
             person_id: personId,
             skill_id: skillId1,
-            skill_name: 'TypeScript duplicate',
-          }),
-        ).rejects.toThrow();
+            skill_name: 'TypeScript',
+          });
+          await peopleDb().insert(personSkill).values({
+            tenant_id: t.tenant_id,
+            person_id: personId,
+            skill_id: skillId2,
+            skill_name: 'React',
+          });
+
+          const rows = await peopleDb().select().from(personSkill);
+          expect(rows.length).toBeGreaterThanOrEqual(2);
+
+          // Duplicate (tenant_id, person_id, skill_id) must throw
+          await expect(
+            peopleDb().insert(personSkill).values({
+              tenant_id: t.tenant_id,
+              person_id: personId,
+              skill_id: skillId1,
+              skill_name: 'TypeScript duplicate',
+            }),
+          ).rejects.toThrow();
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();

@@ -49,11 +49,13 @@ export async function runCreateSubscription(
     clientStateHmac: clientState,
   });
 
-  // Schedule renewal 24h before expiration
+  // Schedule renewal 24h before expiration. tenant_id must ride along so wrapJob
+  // routes the job into scoped() — without it the renew job reads m365_subscriptions
+  // through an RLS-enforced connection with no tenant GUC and silently sees no rows.
   const renewAt = new Date(expirationAt.getTime() - 24 * 60 * 60 * 1000);
   await workerAddJob(
     'm365.subscription.renew',
-    { subscription_row_id: row.id },
+    { subscription_row_id: row.id, tenant_id: input.tenant_id },
     { runAt: renewAt },
   );
 

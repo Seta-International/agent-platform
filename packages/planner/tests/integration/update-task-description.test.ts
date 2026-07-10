@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createGroup, createPlan, createTask, updateTask } from '../../src/index.ts';
@@ -17,22 +17,26 @@ describe('updateTask description sanitization', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
-        const task = await createTask({ plan_id: plan.id, title: 'T', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-        await updateTask({
-          task_id: task.id,
-          expected_version: 1,
-          patch: { description: '<script>alert(1)</script>' },
-          session,
+          await updateTask({
+            task_id: task.id,
+            expected_version: 1,
+            patch: { description: '<script>alert(1)</script>' },
+            session,
+          });
+
+          const { rows } = await pool.query('SELECT description FROM planner.tasks WHERE id = $1', [
+            task.id,
+          ]);
+          expect(rows[0].description).not.toContain('<script>');
         });
-
-        const { rows } = await pool.query('SELECT description FROM planner.tasks WHERE id = $1', [
-          task.id,
-        ]);
-        expect(rows[0].description).not.toContain('<script>');
       } finally {
         resetCoreDb();
         await closePools();
@@ -46,22 +50,26 @@ describe('updateTask description sanitization', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
-        const task = await createTask({ plan_id: plan.id, title: 'T', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-        await updateTask({
-          task_id: task.id,
-          expected_version: 1,
-          patch: { description: '<iframe src="x">evil</iframe>' },
-          session,
+          await updateTask({
+            task_id: task.id,
+            expected_version: 1,
+            patch: { description: '<iframe src="x">evil</iframe>' },
+            session,
+          });
+
+          const { rows } = await pool.query('SELECT description FROM planner.tasks WHERE id = $1', [
+            task.id,
+          ]);
+          expect(rows[0].description).not.toContain('<iframe');
         });
-
-        const { rows } = await pool.query('SELECT description FROM planner.tasks WHERE id = $1', [
-          task.id,
-        ]);
-        expect(rows[0].description).not.toContain('<iframe');
       } finally {
         resetCoreDb();
         await closePools();
@@ -75,22 +83,26 @@ describe('updateTask description sanitization', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
-        const task = await createTask({ plan_id: plan.id, title: 'T', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-        await updateTask({
-          task_id: task.id,
-          expected_version: 1,
-          patch: { description: '<strong>bold</strong>' },
-          session,
+          await updateTask({
+            task_id: task.id,
+            expected_version: 1,
+            patch: { description: '<strong>bold</strong>' },
+            session,
+          });
+
+          const { rows } = await pool.query('SELECT description FROM planner.tasks WHERE id = $1', [
+            task.id,
+          ]);
+          expect(rows[0].description).toBe('<strong>bold</strong>');
         });
-
-        const { rows } = await pool.query('SELECT description FROM planner.tasks WHERE id = $1', [
-          task.id,
-        ]);
-        expect(rows[0].description).toBe('<strong>bold</strong>');
       } finally {
         resetCoreDb();
         await closePools();
@@ -104,24 +116,28 @@ describe('updateTask description sanitization', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
-        const task = await createTask({ plan_id: plan.id, title: 'T', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-        await updateTask({
-          task_id: task.id,
-          expected_version: 1,
-          patch: { description: 'plain text here' },
-          session,
+          await updateTask({
+            task_id: task.id,
+            expected_version: 1,
+            patch: { description: 'plain text here' },
+            session,
+          });
+
+          const { rows } = await pool.query(
+            'SELECT description, description_text FROM planner.tasks WHERE id = $1',
+            [task.id],
+          );
+          expect(rows[0].description).toBe('plain text here');
+          expect(rows[0].description_text).toBe('plain text here');
         });
-
-        const { rows } = await pool.query(
-          'SELECT description, description_text FROM planner.tasks WHERE id = $1',
-          [task.id],
-        );
-        expect(rows[0].description).toBe('plain text here');
-        expect(rows[0].description_text).toBe('plain text here');
       } finally {
         resetCoreDb();
         await closePools();
@@ -135,23 +151,27 @@ describe('updateTask description sanitization', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
-        const task = await createTask({ plan_id: plan.id, title: 'T', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-        await updateTask({
-          task_id: task.id,
-          expected_version: 1,
-          patch: { description: '<p>Hello <strong>world</strong></p>' },
-          session,
+          await updateTask({
+            task_id: task.id,
+            expected_version: 1,
+            patch: { description: '<p>Hello <strong>world</strong></p>' },
+            session,
+          });
+
+          const { rows } = await pool.query(
+            'SELECT description_text FROM planner.tasks WHERE id = $1',
+            [task.id],
+          );
+          expect(rows[0].description_text).toBe('Hello world');
         });
-
-        const { rows } = await pool.query(
-          'SELECT description_text FROM planner.tasks WHERE id = $1',
-          [task.id],
-        );
-        expect(rows[0].description_text).toBe('Hello world');
       } finally {
         resetCoreDb();
         await closePools();
@@ -165,22 +185,26 @@ describe('updateTask description sanitization', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
-        const task = await createTask({ plan_id: plan.id, title: 'T', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-        await updateTask({
-          task_id: task.id,
-          expected_version: 1,
-          patch: { description: '<a href="https://example.com">link</a>' },
-          session,
+          await updateTask({
+            task_id: task.id,
+            expected_version: 1,
+            patch: { description: '<a href="https://example.com">link</a>' },
+            session,
+          });
+
+          const { rows } = await pool.query('SELECT description FROM planner.tasks WHERE id = $1', [
+            task.id,
+          ]);
+          expect(rows[0].description).toContain('rel="noopener noreferrer"');
         });
-
-        const { rows } = await pool.query('SELECT description FROM planner.tasks WHERE id = $1', [
-          task.id,
-        ]);
-        expect(rows[0].description).toContain('rel="noopener noreferrer"');
       } finally {
         resetCoreDb();
         await closePools();
@@ -194,24 +218,28 @@ describe('updateTask description sanitization', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
-        const task = await createTask({ plan_id: plan.id, title: 'T', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-        await updateTask({
-          task_id: task.id,
-          expected_version: 1,
-          patch: { description: null },
-          session,
+          await updateTask({
+            task_id: task.id,
+            expected_version: 1,
+            patch: { description: null },
+            session,
+          });
+
+          const { rows } = await pool.query(
+            'SELECT description, description_text FROM planner.tasks WHERE id = $1',
+            [task.id],
+          );
+          expect(rows[0].description).toBeNull();
+          expect(rows[0].description_text).toBeNull();
         });
-
-        const { rows } = await pool.query(
-          'SELECT description, description_text FROM planner.tasks WHERE id = $1',
-          [task.id],
-        );
-        expect(rows[0].description).toBeNull();
-        expect(rows[0].description_text).toBeNull();
       } finally {
         resetCoreDb();
         await closePools();
@@ -225,23 +253,27 @@ describe('updateTask description sanitization', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
-        const task = await createTask({ plan_id: plan.id, title: 'T', session });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          const task = await createTask({ plan_id: plan.id, title: 'T', session });
 
-        await updateTask({
-          task_id: task.id,
-          expected_version: 1,
-          patch: { description: '<p>   </p>' },
-          session,
+          await updateTask({
+            task_id: task.id,
+            expected_version: 1,
+            patch: { description: '<p>   </p>' },
+            session,
+          });
+
+          const { rows } = await pool.query(
+            'SELECT description_text FROM planner.tasks WHERE id = $1',
+            [task.id],
+          );
+          expect(rows[0].description_text).toBeNull();
         });
-
-        const { rows } = await pool.query(
-          'SELECT description_text FROM planner.tasks WHERE id = $1',
-          [task.id],
-        );
-        expect(rows[0].description_text).toBeNull();
       } finally {
         resetCoreDb();
         await closePools();

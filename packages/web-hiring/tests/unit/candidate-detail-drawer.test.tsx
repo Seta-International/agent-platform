@@ -11,6 +11,10 @@ vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   fetchCandidate: (id: string) => fetchCandidate(id),
   moveApplicationStage: (id: string, input: unknown) => moveApplicationStage(id, input),
+  // The drawer mounts RejectDialog and TransferDialog, whose queries are not gated on
+  // `open`. Left unmocked they reach the real client and open a socket to the dev server.
+  fetchRejectionReasons: () => Promise.resolve([]),
+  fetchRequisitions: () => Promise.resolve([]),
 }));
 
 vi.mock('@seta/web-identity', async (importOriginal) => ({
@@ -58,6 +62,13 @@ const detail: CandidateDetail = {
       created_at: '2026-06-20T10:00:00Z',
       actor_user_id: null,
     },
+    {
+      id: 'e2',
+      kind: 'stage_changed',
+      summary: 'Moved to Screening',
+      created_at: '2026-06-21T10:00:00Z',
+      actor_user_id: 'u1',
+    },
   ],
 };
 
@@ -80,8 +91,10 @@ describe('CandidateDetailDrawer', () => {
     expect(screen.getByText('female')).toBeInTheDocument();
     expect(screen.getByText('Strong fundamentals')).toBeInTheDocument();
     expect(screen.getByText('3/5')).toBeInTheDocument();
-    // Fields with no schema support are labeled honestly instead of fabricated.
-    expect(screen.getAllByText('No Data').length).toBeGreaterThan(0);
+    // A null actor is reliably a system event; a real actor id has no name projection in
+    // this module, so it is labeled honestly rather than guessed.
+    expect(screen.getByText(/by System/)).toBeInTheDocument();
+    expect(screen.getByText(/by No Data/)).toBeInTheDocument();
   });
 
   it('moves stage from the Move stage menu', async () => {

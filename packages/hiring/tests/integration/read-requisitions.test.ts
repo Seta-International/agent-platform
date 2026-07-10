@@ -16,7 +16,7 @@ import {
   listRequisitions,
   openRequisition,
 } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -31,22 +31,24 @@ describe('read requisitions', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'SRE',
-          kind: 'new',
-          headcount: 2,
-          skills: [{ skill_id: crypto.randomUUID(), skill_name: 'Go' }],
-          session: t.adminSession,
-        });
-        const list = await listRequisitions(t.adminSession);
-        const row = list.find((r) => r.id === requisition_id);
-        expect(row?.openings_total).toBe(2);
-        expect(row?.openings_open).toBe(2);
-        expect(row?.applicants_count).toBe(0);
+        await inScope(t.adminSession, async () => {
+          const { requisition_id } = await openRequisition({
+            title: 'SRE',
+            kind: 'new',
+            headcount: 2,
+            skills: [{ skill_id: crypto.randomUUID(), skill_name: 'Go' }],
+            session: t.adminSession,
+          });
+          const list = await listRequisitions(t.adminSession);
+          const row = list.find((r) => r.id === requisition_id);
+          expect(row?.openings_total).toBe(2);
+          expect(row?.openings_open).toBe(2);
+          expect(row?.applicants_count).toBe(0);
 
-        const detail = await getRequisition({ requisition_id, session: t.adminSession });
-        expect(detail.openings).toHaveLength(2);
-        expect(detail.skills[0]?.skill_name).toBe('Go');
+          const detail = await getRequisition({ requisition_id, session: t.adminSession });
+          expect(detail.openings).toHaveLength(2);
+          expect(detail.skills[0]?.skill_name).toBe('Go');
+        });
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -62,41 +64,43 @@ describe('read requisitions', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'Senior React Engineer',
-          kind: 'replacement',
-          role_title: 'Frontend Engineer',
-          grade: 'L4',
-          note: 'Backfill — a senior FE rotates off in Aug.',
-          start_date: '2026-05-22',
-          due_date: '2026-07-20',
-          headcount: 1,
-          skills: [
-            { skill_id: crypto.randomUUID(), skill_name: 'React', min_level: 3 },
-            { skill_id: crypto.randomUUID(), skill_name: 'TypeScript', min_level: 3 },
-          ],
-          session: t.adminSession,
-        });
+        await inScope(t.adminSession, async () => {
+          const { requisition_id } = await openRequisition({
+            title: 'Senior React Engineer',
+            kind: 'replacement',
+            role_title: 'Frontend Engineer',
+            grade: 'L4',
+            note: 'Backfill — a senior FE rotates off in Aug.',
+            start_date: '2026-05-22',
+            due_date: '2026-07-20',
+            headcount: 1,
+            skills: [
+              { skill_id: crypto.randomUUID(), skill_name: 'React', min_level: 3 },
+              { skill_id: crypto.randomUUID(), skill_name: 'TypeScript', min_level: 3 },
+            ],
+            session: t.adminSession,
+          });
 
-        await addCandidate({
-          requisition_id,
-          name: 'Pham Tien Manh',
-          personal_email: 'manh@example.test',
-          seniority: 'Frontend Engineer',
-          session: t.adminSession,
-        });
+          await addCandidate({
+            requisition_id,
+            name: 'Pham Tien Manh',
+            personal_email: 'manh@example.test',
+            seniority: 'Frontend Engineer',
+            session: t.adminSession,
+          });
 
-        const row = (await listRequisitions(t.adminSession)).find((r) => r.id === requisition_id);
-        expect(row?.role_title).toBe('Frontend Engineer');
-        expect(row?.approval_status).toBe('approved');
-        expect(row?.note).toBe('Backfill — a senior FE rotates off in Aug.');
-        expect(row?.start_date).toBe('2026-05-22');
-        expect(row?.due_date).toBe('2026-07-20');
-        expect(row?.created_at).toBeTruthy();
-        expect(row?.skills.map((s) => s.skill_name).sort()).toEqual(['React', 'TypeScript']);
-        expect(row?.applicants_count).toBe(1);
-        expect(row?.applicants[0]?.name).toBe('Pham Tien Manh');
-        expect(row?.applicants[0]?.role).toBe('Frontend Engineer');
+          const row = (await listRequisitions(t.adminSession)).find((r) => r.id === requisition_id);
+          expect(row?.role_title).toBe('Frontend Engineer');
+          expect(row?.approval_status).toBe('approved');
+          expect(row?.note).toBe('Backfill — a senior FE rotates off in Aug.');
+          expect(row?.start_date).toBe('2026-05-22');
+          expect(row?.due_date).toBe('2026-07-20');
+          expect(row?.created_at).toBeTruthy();
+          expect(row?.skills.map((s) => s.skill_name).sort()).toEqual(['React', 'TypeScript']);
+          expect(row?.applicants_count).toBe(1);
+          expect(row?.applicants[0]?.name).toBe('Pham Tien Manh');
+          expect(row?.applicants[0]?.role).toBe('Frontend Engineer');
+        });
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -116,57 +120,59 @@ describe('read requisitions', () => {
         const project_id = crypto.randomUUID();
         const am_worker_id = crypto.randomUUID();
 
-        // The pm.account.created subscriber builds the account_projection — run it twice
-        // to prove idempotency (at-least-once delivery).
-        const evt = {
-          payload: { account_id, tenant_id: t.tenant_id, name: 'Vinfast', am_worker_id },
-        } as DomainEvent<unknown>;
-        await accountProjectionCreated.handler(evt, { tx: hiringDb() });
-        await accountProjectionCreated.handler(evt, { tx: hiringDb() });
-        const projRows = await hiringDb()
-          .select()
-          .from(accountProjection)
-          .where(eq(accountProjection.account_id, account_id));
-        expect(projRows).toHaveLength(1);
-        expect(projRows[0]?.name).toBe('Vinfast');
-        // FUT-327 — am_worker_id must round-trip so AM row scoping can filter on it.
-        expect(projRows[0]?.am_worker_id).toBe(am_worker_id);
+        await inScope(t.adminSession, async () => {
+          // The pm.account.created subscriber builds the account_projection — run it twice
+          // to prove idempotency (at-least-once delivery).
+          const evt = {
+            payload: { account_id, tenant_id: t.tenant_id, name: 'Vinfast', am_worker_id },
+          } as DomainEvent<unknown>;
+          await accountProjectionCreated.handler(evt, { tx: hiringDb() });
+          await accountProjectionCreated.handler(evt, { tx: hiringDb() });
+          const projRows = await hiringDb()
+            .select()
+            .from(accountProjection)
+            .where(eq(accountProjection.account_id, account_id));
+          expect(projRows).toHaveLength(1);
+          expect(projRows[0]?.name).toBe('Vinfast');
+          // FUT-327 — am_worker_id must round-trip so AM row scoping can filter on it.
+          expect(projRows[0]?.am_worker_id).toBe(am_worker_id);
 
-        await hiringDb().insert(projectProjection).values({
-          project_id,
-          tenant_id: t.tenant_id,
-          account_id,
-          name: 'Connected Vehicle App',
+          await hiringDb().insert(projectProjection).values({
+            project_id,
+            tenant_id: t.tenant_id,
+            account_id,
+            name: 'Connected Vehicle App',
+          });
+
+          const { requisition_id } = await openRequisition({
+            title: 'Senior React Engineer',
+            kind: 'new',
+            account_id,
+            project_id,
+            session: t.adminSession,
+          });
+
+          const row = (await listRequisitions(t.adminSession)).find((r) => r.id === requisition_id);
+          expect(row?.account_name).toBe('Vinfast');
+          expect(row?.project_id).toBe(project_id);
+          expect(row?.project_name).toBe('Connected Vehicle App');
+
+          // getRequisition (the New Requisition dialog's account/project display source) must
+          // resolve the same names, not just the list view.
+          const detail = await getRequisition({ requisition_id, session: t.adminSession });
+          expect(detail.account_name).toBe('Vinfast');
+          expect(detail.project_name).toBe('Connected Vehicle App');
+
+          const accounts = await listAccounts(t.adminSession);
+          expect(accounts).toEqual([{ account_id, name: 'Vinfast' }]);
+
+          const projects = await listProjects(t.adminSession, account_id);
+          expect(projects).toEqual([{ project_id, account_id, name: 'Connected Vehicle App' }]);
+          // Unfiltered listProjects still returns it (no account_id passed).
+          expect(await listProjects(t.adminSession)).toEqual([
+            { project_id, account_id, name: 'Connected Vehicle App' },
+          ]);
         });
-
-        const { requisition_id } = await openRequisition({
-          title: 'Senior React Engineer',
-          kind: 'new',
-          account_id,
-          project_id,
-          session: t.adminSession,
-        });
-
-        const row = (await listRequisitions(t.adminSession)).find((r) => r.id === requisition_id);
-        expect(row?.account_name).toBe('Vinfast');
-        expect(row?.project_id).toBe(project_id);
-        expect(row?.project_name).toBe('Connected Vehicle App');
-
-        // getRequisition (the New Requisition dialog's account/project display source) must
-        // resolve the same names, not just the list view.
-        const detail = await getRequisition({ requisition_id, session: t.adminSession });
-        expect(detail.account_name).toBe('Vinfast');
-        expect(detail.project_name).toBe('Connected Vehicle App');
-
-        const accounts = await listAccounts(t.adminSession);
-        expect(accounts).toEqual([{ account_id, name: 'Vinfast' }]);
-
-        const projects = await listProjects(t.adminSession, account_id);
-        expect(projects).toEqual([{ project_id, account_id, name: 'Connected Vehicle App' }]);
-        // Unfiltered listProjects still returns it (no account_id passed).
-        expect(await listProjects(t.adminSession)).toEqual([
-          { project_id, account_id, name: 'Connected Vehicle App' },
-        ]);
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -182,39 +188,41 @@ describe('read requisitions', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { requisition_id: oldest } = await openRequisition({
-          title: 'Oldest',
-          kind: 'new',
-          session: t.adminSession,
-        });
-        const { requisition_id: middle } = await openRequisition({
-          title: 'Middle',
-          kind: 'new',
-          session: t.adminSession,
-        });
-        const { requisition_id: newest } = await openRequisition({
-          title: 'Newest',
-          kind: 'new',
-          session: t.adminSession,
-        });
-        // Force explicit, unambiguous created_at values — real-clock timestamps from three
-        // back-to-back inserts aren't a reliable enough signal to prove ORDER BY is doing the
-        // work rather than incidental insertion order.
-        await hiringDb()
-          .update(requisition)
-          .set({ created_at: new Date('2026-01-01T00:00:00Z') })
-          .where(eq(requisition.id, oldest));
-        await hiringDb()
-          .update(requisition)
-          .set({ created_at: new Date('2026-01-02T00:00:00Z') })
-          .where(eq(requisition.id, middle));
-        await hiringDb()
-          .update(requisition)
-          .set({ created_at: new Date('2026-01-03T00:00:00Z') })
-          .where(eq(requisition.id, newest));
+        await inScope(t.adminSession, async () => {
+          const { requisition_id: oldest } = await openRequisition({
+            title: 'Oldest',
+            kind: 'new',
+            session: t.adminSession,
+          });
+          const { requisition_id: middle } = await openRequisition({
+            title: 'Middle',
+            kind: 'new',
+            session: t.adminSession,
+          });
+          const { requisition_id: newest } = await openRequisition({
+            title: 'Newest',
+            kind: 'new',
+            session: t.adminSession,
+          });
+          // Force explicit, unambiguous created_at values — real-clock timestamps from three
+          // back-to-back inserts aren't a reliable enough signal to prove ORDER BY is doing the
+          // work rather than incidental insertion order.
+          await hiringDb()
+            .update(requisition)
+            .set({ created_at: new Date('2026-01-01T00:00:00Z') })
+            .where(eq(requisition.id, oldest));
+          await hiringDb()
+            .update(requisition)
+            .set({ created_at: new Date('2026-01-02T00:00:00Z') })
+            .where(eq(requisition.id, middle));
+          await hiringDb()
+            .update(requisition)
+            .set({ created_at: new Date('2026-01-03T00:00:00Z') })
+            .where(eq(requisition.id, newest));
 
-        const ids = (await listRequisitions(t.adminSession)).map((r) => r.id);
-        expect(ids).toEqual([newest, middle, oldest]);
+          const ids = (await listRequisitions(t.adminSession)).map((r) => r.id);
+          expect(ids).toEqual([newest, middle, oldest]);
+        });
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -231,14 +239,18 @@ describe('read requisitions', () => {
       try {
         const a = await seedTenant(pool);
         const b = await seedTenant(pool);
-        const { requisition_id } = await openRequisition({
-          title: 'X',
-          kind: 'new',
-          session: a.adminSession,
-        });
-        await expect(getRequisition({ requisition_id, session: b.adminSession })).rejects.toThrow(
-          'not found',
+        const { requisition_id } = await inScope(a.adminSession, () =>
+          openRequisition({
+            title: 'X',
+            kind: 'new',
+            session: a.adminSession,
+          }),
         );
+        await expect(
+          inScope(b.adminSession, () =>
+            getRequisition({ requisition_id, session: b.adminSession }),
+          ),
+        ).rejects.toThrow('not found');
       } finally {
         resetHiringDb();
         resetCoreDb();

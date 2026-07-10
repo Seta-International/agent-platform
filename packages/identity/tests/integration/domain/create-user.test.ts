@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createUser } from '../../../src/backend/domain/create-user.ts';
@@ -22,14 +22,16 @@ describe('createUser', () => {
             [tenantId],
           );
 
-          const result = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'Alice@Example.COM',
-              name: 'Alice',
-              password: 'correct-horse-battery-staple',
-            },
-            { type: 'cli', user_id: null },
+          const result = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'Alice@Example.COM',
+                name: 'Alice',
+                password: 'correct-horse-battery-staple',
+              },
+              { type: 'cli', user_id: null },
+            ),
           );
 
           expect(result.user_id).toBeTypeOf('string');
@@ -92,15 +94,17 @@ describe('createUser', () => {
             [tenantId],
           );
 
-          const result = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'bob@example.com',
-              name: 'Bob',
-              password: 'correct-horse-battery-staple',
-              initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-            },
-            { type: 'cli', user_id: null },
+          const result = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'bob@example.com',
+                name: 'Bob',
+                password: 'correct-horse-battery-staple',
+                initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+              },
+              { type: 'cli', user_id: null },
+            ),
           );
 
           // role_assignments row exists

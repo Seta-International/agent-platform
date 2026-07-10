@@ -14,7 +14,13 @@ import {
   reopenProject,
   submitCharter,
 } from '../../src/index.ts';
-import { approveCharterTwoStage, buildSession, readEvents, seedTenant } from '../helpers.ts';
+import {
+  approveCharterTwoStage,
+  buildSession,
+  inScope,
+  readEvents,
+  seedTenant,
+} from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -30,15 +36,17 @@ async function liveProject(
     `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
     [tenantId],
   );
-  const { charter_id } = await submitCharter({
-    account_id: acc.rows[0].id,
-    name: 'P',
-    pm_worker_id: session.user_id,
-    methodology: 'scrum',
-    pricing_model: 'fixed_price',
-    budget_bmm: 100,
-    session,
-  });
+  const { charter_id } = await inScope(session, () =>
+    submitCharter({
+      account_id: acc.rows[0].id,
+      name: 'P',
+      pm_worker_id: session.user_id,
+      methodology: 'scrum',
+      pricing_model: 'fixed_price',
+      budget_bmm: 100,
+      session,
+    }),
+  );
   return (await approveCharterTwoStage(charter_id, session.tenant_id)).project_id;
 }
 
@@ -52,28 +60,42 @@ describe('project run', () => {
         const t = await seedTenant(pool);
         const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
 
-        const e = await editProject({
-          project_id: projectId,
-          patch: { phase: 'execution', objective: 'Ship' },
-          session: t.adminSession,
-        });
+        const e = await inScope(t.adminSession, () =>
+          editProject({
+            project_id: projectId,
+            patch: { phase: 'execution', objective: 'Ship' },
+            session: t.adminSession,
+          }),
+        );
         expect(e.version).toBe(2);
 
         const gid = crypto.randomUUID();
-        await linkPlannerGroup({
-          project_id: projectId,
-          planner_group_id: gid,
-          session: t.adminSession,
-        });
+        await inScope(t.adminSession, () =>
+          linkPlannerGroup({
+            project_id: projectId,
+            planner_group_id: gid,
+            session: t.adminSession,
+          }),
+        );
 
-        await closeProject({ project_id: projectId, session: t.adminSession });
-        const [p] = await pmDb().select().from(project).where(eq(project.id, projectId));
+        await inScope(t.adminSession, () =>
+          closeProject({ project_id: projectId, session: t.adminSession }),
+        );
+        const [p] = await inScope(t.adminSession, () =>
+          pmDb().select().from(project).where(eq(project.id, projectId)),
+        );
         expect(p?.status).toBe('closed');
         expect(p?.planner_group_id).toBe(gid);
 
-        const detail = await getProject({ project_id: projectId, session: t.adminSession });
+        const detail = await inScope(t.adminSession, () =>
+          getProject({ project_id: projectId, session: t.adminSession }),
+        );
         expect(detail.phase).toBe('closed');
-        expect((await listProjects(t.adminSession)).map((x) => x.project_id)).toContain(projectId);
+        expect(
+          (await inScope(t.adminSession, () => listProjects(t.adminSession))).map(
+            (x) => x.project_id,
+          ),
+        ).toContain(projectId);
         const updatedEvents = await readEvents(pool, t.tenant_id, 'pm.project.updated');
         expect(updatedEvents.length).toBeGreaterThanOrEqual(3);
         // each event carries name + account_id (enriched payload)
@@ -99,45 +121,59 @@ describe('project run', () => {
         const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
 
         // Close the project
-        await closeProject({ project_id: projectId, session: t.adminSession });
+        await inScope(t.adminSession, () =>
+          closeProject({ project_id: projectId, session: t.adminSession }),
+        );
 
         // editProject on closed project → CONFLICT
         await expect(
-          editProject({
-            project_id: projectId,
-            patch: { objective: 'blocked' },
-            session: t.adminSession,
-          }),
+          inScope(t.adminSession, () =>
+            editProject({
+              project_id: projectId,
+              patch: { objective: 'blocked' },
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toMatchObject({ code: 'CONFLICT' });
 
         // linkPlannerGroup on closed project → CONFLICT
         await expect(
-          linkPlannerGroup({
-            project_id: projectId,
-            planner_group_id: crypto.randomUUID(),
-            session: t.adminSession,
-          }),
+          inScope(t.adminSession, () =>
+            linkPlannerGroup({
+              project_id: projectId,
+              planner_group_id: crypto.randomUUID(),
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toMatchObject({ code: 'CONFLICT' });
 
         // reopenProject restores status=active, phase=execution
-        const r = await reopenProject({ project_id: projectId, session: t.adminSession });
+        const r = await inScope(t.adminSession, () =>
+          reopenProject({ project_id: projectId, session: t.adminSession }),
+        );
         expect(r.version).toBeGreaterThan(1);
 
-        const detail = await getProject({ project_id: projectId, session: t.adminSession });
+        const detail = await inScope(t.adminSession, () =>
+          getProject({ project_id: projectId, session: t.adminSession }),
+        );
         expect(detail.status).toBe('active');
         expect(detail.phase).toBe('execution');
 
         // subsequent editProject succeeds
-        const e2 = await editProject({
-          project_id: projectId,
-          patch: { objective: 'now editable' },
-          session: t.adminSession,
-        });
+        const e2 = await inScope(t.adminSession, () =>
+          editProject({
+            project_id: projectId,
+            patch: { objective: 'now editable' },
+            session: t.adminSession,
+          }),
+        );
         expect(e2.version).toBeGreaterThan(r.version);
 
         // reopenProject on non-closed project → CONFLICT
         await expect(
-          reopenProject({ project_id: projectId, session: t.adminSession }),
+          inScope(t.adminSession, () =>
+            reopenProject({ project_id: projectId, session: t.adminSession }),
+          ),
         ).rejects.toMatchObject({ code: 'CONFLICT' });
       } finally {
         resetPmDb();
@@ -157,12 +193,14 @@ describe('project run', () => {
         const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
 
         await expect(
-          editProject({
-            project_id: projectId,
-            expected_version: 99,
-            patch: { objective: 'stale' },
-            session: t.adminSession,
-          }),
+          inScope(t.adminSession, () =>
+            editProject({
+              project_id: projectId,
+              expected_version: 99,
+              patch: { objective: 'stale' },
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toMatchObject({ code: 'CONFLICT' });
 
         const viewer = buildSession({
@@ -171,7 +209,9 @@ describe('project run', () => {
           roles: ['pm.viewer'],
         });
         await expect(
-          editProject({ project_id: projectId, patch: { objective: 'x' }, session: viewer }),
+          inScope(t.adminSession, () =>
+            editProject({ project_id: projectId, patch: { objective: 'x' }, session: viewer }),
+          ),
         ).rejects.toMatchObject({ code: 'FORBIDDEN' });
       } finally {
         resetPmDb();
@@ -191,13 +231,17 @@ describe('project run', () => {
         const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
         const orgUnitId = crypto.randomUUID();
 
-        await editProject({
-          project_id: projectId,
-          patch: { org_unit_id: orgUnitId },
-          session: t.adminSession,
-        });
+        await inScope(t.adminSession, () =>
+          editProject({
+            project_id: projectId,
+            patch: { org_unit_id: orgUnitId },
+            session: t.adminSession,
+          }),
+        );
 
-        const p = await getProject({ project_id: projectId, session: t.adminSession });
+        const p = await inScope(t.adminSession, () =>
+          getProject({ project_id: projectId, session: t.adminSession }),
+        );
         expect(p.org_unit_id).toBe(orgUnitId);
       } finally {
         resetPmDb();
@@ -218,11 +262,13 @@ describe('project run', () => {
         const pid1 = await liveProject(pool, t1.adminSession, t1.tenant_id);
         await liveProject(pool, t2.adminSession, t2.tenant_id);
 
-        const rows = await listProjects(t1.adminSession);
+        const rows = await inScope(t1.adminSession, () => listProjects(t1.adminSession));
         expect(rows.map((r) => r.project_id)).toContain(pid1);
         expect(rows.every((r) => r.project_id !== undefined)).toBe(true);
         // all rows belong to t1
-        const details = await getProject({ project_id: pid1, session: t1.adminSession });
+        const details = await inScope(t1.adminSession, () =>
+          getProject({ project_id: pid1, session: t1.adminSession }),
+        );
         expect(details.project_id).toBe(pid1);
       } finally {
         resetPmDb();

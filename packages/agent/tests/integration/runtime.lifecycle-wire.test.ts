@@ -1,8 +1,37 @@
 import { randomUUID } from 'node:crypto';
 import { RequestContext } from '@mastra/core/request-context';
+import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { buildMastra } from '../../src/backend/runtime.ts';
 import { withAgentTestDb } from '../helpers.ts';
+
+type Row = Record<string, unknown>;
+
+// The lifecycle hooks land asynchronously off the pubsub topic, so sleeping a fixed 50ms
+// only chooses where the flake threshold sits — on CI's shared runner the row had not
+// landed yet. Poll for the state the assertion needs.
+async function pollRow(
+  pool: Pool,
+  sql: string,
+  params: unknown[],
+  ready: (row: Row) => boolean,
+  what: string,
+): Promise<Row> {
+  const deadline = Date.now() + 10_000;
+  let last: Row | undefined;
+  do {
+    last = (await pool.query(sql, params)).rows[0] as Row | undefined;
+    if (last && ready(last)) return last;
+    await new Promise((r) => setTimeout(r, 25));
+  } while (Date.now() < deadline);
+  throw new Error(`${what} never settled; last row: ${JSON.stringify(last ?? null)}`);
+}
+
+const RUN_SQL = `SELECT workflow_id, tenant_id, started_by, started_via, status, duration_ms, suspend_reason
+                   FROM agent.workflow_runs WHERE run_id = $1`;
+
+const waitForRunStatus = (pool: Pool, runId: string, status: string): Promise<Row> =>
+  pollRow(pool, RUN_SQL, [runId], (r) => r.status === status, `workflow_runs(${runId}).${status}`);
 
 // Build a requestContext.toJSON()-shaped payload from the codebase convention:
 // `actor: { user_id }` + `tenant_id`. Goes through a real RequestContext so the
@@ -35,18 +64,11 @@ describe('lifecycle hook wiring', () => {
         },
       });
 
-      await new Promise((r) => setTimeout(r, 100));
-
-      const r = await pool.query(
-        `SELECT workflow_id, tenant_id, started_by, started_via, status FROM agent.workflow_runs WHERE run_id = $1`,
-        [runId],
-      );
-      expect(r.rowCount).toBe(1);
-      expect(r.rows[0]!.workflow_id).toBe('agent.test.noop');
-      expect(r.rows[0]!.tenant_id).toBe(tenantId);
-      expect(r.rows[0]!.started_by).toBe(startedBy);
-      expect(r.rows[0]!.started_via).toBe('event');
-      expect(r.rows[0]!.status).toBe('running');
+      const row = await waitForRunStatus(pool, runId, 'running');
+      expect(row.workflow_id).toBe('agent.test.noop');
+      expect(row.tenant_id).toBe(tenantId);
+      expect(row.started_by).toBe(startedBy);
+      expect(row.started_via).toBe('event');
     });
   });
 
@@ -69,7 +91,7 @@ describe('lifecycle hook wiring', () => {
           prevResult: { status: 'success', output: {} },
         },
       });
-      await new Promise((r) => setTimeout(r, 50));
+      await waitForRunStatus(pool, runId, 'running');
 
       await mastra.pubsub.publish('workflows-finish', {
         type: 'workflow.end',
@@ -81,14 +103,9 @@ describe('lifecycle hook wiring', () => {
           state: { result: { output: { ok: true } } },
         },
       });
-      await new Promise((r) => setTimeout(r, 100));
 
-      const r = await pool.query(
-        `SELECT status, duration_ms FROM agent.workflow_runs WHERE run_id = $1`,
-        [runId],
-      );
-      expect(r.rows[0]!.status).toBe('success');
-      expect(r.rows[0]!.duration_ms).toBe(123);
+      const row = await waitForRunStatus(pool, runId, 'success');
+      expect(row.duration_ms).toBe(123);
     });
   });
 
@@ -114,7 +131,7 @@ describe('lifecycle hook wiring', () => {
           prevResult: { status: 'success', output: {} },
         },
       });
-      await new Promise((r) => setTimeout(r, 50));
+      await waitForRunStatus(pool, runId, 'running');
 
       // Now publish workflow.suspend with the live RequestContext object — the
       // exact shape Mastra produces internally for evented suspend.
@@ -134,22 +151,19 @@ describe('lifecycle hook wiring', () => {
           expiresAt: new Date(Date.now() + 86400000).toISOString(),
         },
       });
-      await new Promise((r) => setTimeout(r, 100));
+      const run = await waitForRunStatus(pool, runId, 'paused');
+      expect(run.suspend_reason).toBe('hitl_pending');
 
-      const run = await pool.query(
-        `SELECT status, suspend_reason FROM agent.workflow_runs WHERE run_id = $1`,
-        [runId],
-      );
-      expect(run.rows[0]!.status).toBe('paused');
-      expect(run.rows[0]!.suspend_reason).toBe('hitl_pending');
-
-      const approval = await pool.query(
+      const approval = await pollRow(
+        pool,
         `SELECT step_id, status, approver_user_id FROM agent.workflow_approvals WHERE run_id = $1`,
         [runId],
+        () => true,
+        `workflow_approvals(${runId})`,
       );
-      expect(approval.rowCount).toBe(1);
-      expect(approval.rows[0]!.status).toBe('pending');
-      expect(approval.rows[0]!.approver_user_id).toBe(startedBy);
+      expect(approval.step_id).toBe('await-approval');
+      expect(approval.status).toBe('pending');
+      expect(approval.approver_user_id).toBe(startedBy);
     });
   });
 
@@ -163,6 +177,9 @@ describe('lifecycle hook wiring', () => {
         runId,
         data: { workflowId: 'agent.x' },
       });
+      // A negative assertion can't be polled for — there is no state to wait on. The sleep
+      // just gives a handler that shouldn't fire the chance to; a slow runner only makes
+      // this pass more easily, never flake.
       await new Promise((r) => setTimeout(r, 50));
       const r = await pool.query(
         `SELECT count(*)::int AS n FROM agent.workflow_runs WHERE run_id = $1`,

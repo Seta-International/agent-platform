@@ -5,7 +5,7 @@ import {
   PLANNER_VECTOR_NAMESPACE,
   type TaskVectorMetadata,
 } from '@seta/planner';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
@@ -32,7 +32,9 @@ function withDb<T>(
         schemaName: PLANNER_VECTOR_NAMESPACE,
       });
       try {
-        return await fn({ pool, pgVector });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        return await scoped(crypto.randomUUID(), () => fn({ pool, pgVector }));
       } finally {
         await pgVector.disconnect().catch(() => {});
         resetCoreDb();

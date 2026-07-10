@@ -23,7 +23,6 @@ How the `docs/` tree is organized. Start with `platform/architecture.md` — the
 - [`people-roadmap.md`](modules/people-roadmap.md) — People delivery tracker (PPL slice status); scope/sequencing in [`people-wbs.csv`](modules/people-wbs.csv).
 
 ## reference/ — engineering design behind the modules
-- [`db-design.md`](reference/db-design.md) — the DB constitution and the descriptive schema map across all ten module schemas + ER diagrams.
 - [`ddd-design.md`](reference/ddd-design.md) — bounded contexts, domain-event contracts, the integration backbone.
 - [`review-schema.sql`](reference/review-schema.sql) — the authoritative DDL for a standalone review DB (DBeaver), regenerated from the live baselines by [`scripts/dev/dump-review-schema.sh`](../scripts/dev/dump-review-schema.sh); populate it with sample data via `pnpm db:seed`.
 

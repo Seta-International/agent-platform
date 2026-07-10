@@ -61,7 +61,7 @@ const FULLY_SYNCED_LOCAL_STATE = {
 describe('runPlanPull — incremental walk, steady state (no changes)', () => {
   it('issues exactly 4 graph requests and writes nothing when all etags match', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const groupLinkRepo = createM365GroupLinkRepo({ db });
+      const groupLinkRepo = createM365GroupLinkRepo({ db: () => db });
       await groupLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -69,7 +69,7 @@ describe('runPlanPull — incremental walk, steady state (no changes)', () => {
         lastSyncedFields: {},
       });
 
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
       const link = await planLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -81,7 +81,7 @@ describe('runPlanPull — incremental walk, steady state (no changes)', () => {
         },
       });
 
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       // Pre-seed all 16 etag rows matching the fixture etag values.
       // plan + planDetails

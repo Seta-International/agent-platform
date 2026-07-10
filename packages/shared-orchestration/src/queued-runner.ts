@@ -40,7 +40,7 @@ export async function enqueueRun(
   });
   await deps.addJob(
     ORCH_JOBS.RUN_STEP,
-    { runId, orchestrationId, stepIndex: 0, tenantId: ctx.tenantId, actorUserId: ctx.actorUserId },
+    { runId, orchestrationId, stepIndex: 0, tenant_id: ctx.tenantId, actorUserId: ctx.actorUserId },
     { queueName: spec.serializationKey(runInput, ctx) },
   );
   return { runId };
@@ -52,7 +52,7 @@ export function makeOrchestrationTaskList(deps: OrchestrationRunnerDeps): TaskLi
     const payload = RunStepPayloadSchema.parse(raw);
     const spec = deps.getOrchestration(payload.orchestrationId);
     if (!spec) throw new UnknownOrchestrationError(payload.orchestrationId);
-    const ctx: RunCtx = { tenantId: payload.tenantId, actorUserId: payload.actorUserId };
+    const ctx: RunCtx = { tenantId: payload.tenant_id, actorUserId: payload.actorUserId };
 
     try {
       const run = await deps.repo.loadRun(payload.runId);

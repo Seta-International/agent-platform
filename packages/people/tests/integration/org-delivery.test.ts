@@ -12,7 +12,7 @@ import {
 } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { getOrgDelivery } from '../../src/backend/domain/org-structure.ts';
-import { buildSession, type SeededTenant, seedTenant } from '../helpers.ts';
+import { buildSession, inScope, type SeededTenant, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -41,53 +41,58 @@ interface DeliveryGraph {
 
 async function buildDelivery(pool: import('pg').Pool): Promise<DeliveryGraph> {
   const t = await seedTenant(pool);
-  const { worker_id: am } = await createWorker({
-    session: t.adminSession,
-    full_name: 'AM Name',
-  } as never);
-  const { worker_id: lead } = await createWorker({
-    session: t.adminSession,
-    full_name: 'Lead Name',
-  } as never);
-  const { worker_id: member } = await createWorker({
-    session: t.adminSession,
-    full_name: 'Member Name',
-  } as never);
-  const amUser = await personaUserId(am);
+  return inScope(t.adminSession, async () => {
+    const { worker_id: am } = await createWorker({
+      session: t.adminSession,
+      full_name: 'AM Name',
+    } as never);
+    const { worker_id: lead } = await createWorker({
+      session: t.adminSession,
+      full_name: 'Lead Name',
+    } as never);
+    const { worker_id: member } = await createWorker({
+      session: t.adminSession,
+      full_name: 'Member Name',
+    } as never);
+    const amUser = await personaUserId(am);
 
-  const accountA = crypto.randomUUID();
-  const projectId = crypto.randomUUID();
-  await peopleDb()
-    .insert(accountProjection)
-    .values({ account_id: accountA, tenant_id: t.tenant_id, name: 'Account A', am_worker_id: am });
-  await peopleDb().insert(projectProjection).values({
-    project_id: projectId,
-    tenant_id: t.tenant_id,
-    account_id: accountA,
-    name: 'Project P',
-  });
-  await peopleDb().insert(workerAllocationProjection).values({
-    allocation_id: crypto.randomUUID(),
-    tenant_id: t.tenant_id,
-    worker_id: lead,
-    project_id: projectId,
-    account_id: accountA,
-    account_name: 'Account A',
-    lead_worker_id: lead,
-    active: true,
-  });
-  await peopleDb().insert(workerAllocationProjection).values({
-    allocation_id: crypto.randomUUID(),
-    tenant_id: t.tenant_id,
-    worker_id: member,
-    project_id: projectId,
-    account_id: accountA,
-    account_name: 'Account A',
-    lead_worker_id: lead,
-    active: true,
-  });
+    const accountA = crypto.randomUUID();
+    const projectId = crypto.randomUUID();
+    await peopleDb().insert(accountProjection).values({
+      account_id: accountA,
+      tenant_id: t.tenant_id,
+      name: 'Account A',
+      am_worker_id: am,
+    });
+    await peopleDb().insert(projectProjection).values({
+      project_id: projectId,
+      tenant_id: t.tenant_id,
+      account_id: accountA,
+      name: 'Project P',
+    });
+    await peopleDb().insert(workerAllocationProjection).values({
+      allocation_id: crypto.randomUUID(),
+      tenant_id: t.tenant_id,
+      worker_id: lead,
+      project_id: projectId,
+      account_id: accountA,
+      account_name: 'Account A',
+      lead_worker_id: lead,
+      active: true,
+    });
+    await peopleDb().insert(workerAllocationProjection).values({
+      allocation_id: crypto.randomUUID(),
+      tenant_id: t.tenant_id,
+      worker_id: member,
+      project_id: projectId,
+      account_id: accountA,
+      account_name: 'Account A',
+      lead_worker_id: lead,
+      active: true,
+    });
 
-  return { t, accountA, projectId, am, amUser, lead, member };
+    return { t, accountA, projectId, am, amUser, lead, member };
+  });
 }
 
 describe('getOrgDelivery', () => {
@@ -98,12 +103,14 @@ describe('getOrgDelivery', () => {
       initPools({ databaseUrl });
       try {
         const g = await buildDelivery(pool);
-        const { accounts } = await getOrgDelivery(g.t.adminSession);
-        const acct = accounts.find((a) => a.account_id === g.accountA)!;
-        expect(acct.am?.full_name).toBe('AM Name');
-        const proj = acct.projects.find((p) => p.project_id === g.projectId)!;
-        expect(proj.members.some((m) => m.is_lead)).toBe(true);
-        expect(proj.members.map((m) => m.person_id).sort()).toEqual([g.lead, g.member].sort());
+        await inScope(g.t.adminSession, async () => {
+          const { accounts } = await getOrgDelivery(g.t.adminSession);
+          const acct = accounts.find((a) => a.account_id === g.accountA)!;
+          expect(acct.am?.full_name).toBe('AM Name');
+          const proj = acct.projects.find((p) => p.project_id === g.projectId)!;
+          expect(proj.members.some((m) => m.is_lead)).toBe(true);
+          expect(proj.members.map((m) => m.person_id).sort()).toEqual([g.lead, g.member].sort());
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -119,14 +126,16 @@ describe('getOrgDelivery', () => {
       initPools({ databaseUrl });
       try {
         const g = await buildDelivery(pool);
-        const { worker_id: stranger } = await createWorker({
-          session: g.t.adminSession,
-          full_name: 'Stranger',
-        } as never);
-        const strangerUser = await personaUserId(stranger);
+        await inScope(g.t.adminSession, async () => {
+          const { worker_id: stranger } = await createWorker({
+            session: g.t.adminSession,
+            full_name: 'Stranger',
+          } as never);
+          const strangerUser = await personaUserId(stranger);
 
-        const { accounts } = await getOrgDelivery(viewer(g.t, strangerUser));
-        expect(accounts.find((a) => a.account_id === g.accountA)).toBeDefined();
+          const { accounts } = await getOrgDelivery(viewer(g.t, strangerUser));
+          expect(accounts.find((a) => a.account_id === g.accountA)).toBeDefined();
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -142,10 +151,12 @@ describe('getOrgDelivery', () => {
       initPools({ databaseUrl });
       try {
         const g = await buildDelivery(pool);
-        const { accounts } = await getOrgDelivery(viewer(g.t, g.amUser));
-        const acct = accounts.find((a) => a.account_id === g.accountA);
-        expect(acct).toBeDefined();
-        expect(acct!.am?.full_name).toBe('AM Name');
+        await inScope(g.t.adminSession, async () => {
+          const { accounts } = await getOrgDelivery(viewer(g.t, g.amUser));
+          const acct = accounts.find((a) => a.account_id === g.accountA);
+          expect(acct).toBeDefined();
+          expect(acct!.am?.full_name).toBe('AM Name');
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();

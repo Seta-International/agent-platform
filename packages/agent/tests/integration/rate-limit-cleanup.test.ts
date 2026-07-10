@@ -1,3 +1,4 @@
+import { maintenance } from '@seta/shared-db';
 import { describe, expect, it } from 'vitest';
 import { cleanupExpiredRateLimitBuckets } from '../../src/backend/jobs/rate-limit-cleanup.ts';
 import { withAgentTestDb } from '../helpers.ts';
@@ -17,7 +18,10 @@ describe('rate-limit cleanup job', () => {
         [TENANT, USER],
       );
 
-      await cleanupExpiredRateLimitBuckets();
+      // Production reaches this through runRetention, which passes its own admin pool from
+      // inside maintenance(). Expiring buckets spans every tenant, so exercise it at the
+      // privilege it actually runs at rather than the scope withAgentTestDb happens to open.
+      await maintenance(() => cleanupExpiredRateLimitBuckets());
 
       const rows = await pool.query<{ tokens_in: number }>(
         `SELECT tokens_in FROM agent.rate_limits WHERE tenant_id = $1 AND user_id = $2`,

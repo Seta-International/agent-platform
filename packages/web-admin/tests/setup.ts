@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
 // Node ≥ 24 exposes an experimental opt-in localStorage that resolves to undefined
@@ -37,6 +37,11 @@ if (typeof localStorage === 'undefined') {
 if (typeof globalThis.jest === 'undefined') {
   (globalThis as Record<string, unknown>).jest = vi;
 }
+
+// findBy*/waitFor have their own 1s budget that testTimeout does not raise. CI runs every
+// package's suite in parallel on a 4-vCPU runner, so a query that resolves in ~50ms locally
+// can miss that budget there.
+configure({ asyncUtilTimeout: 5_000 });
 
 afterEach(() => {
   cleanup();

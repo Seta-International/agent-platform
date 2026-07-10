@@ -3,6 +3,7 @@ import type { SubscriberDef } from '@seta/shared-types';
 import { describe, expect, it } from 'vitest';
 import { resetNotificationsDb } from '../../src/backend/db/client.ts';
 import { notifierSubscriber, requestNotification } from '../../src/index.ts';
+import { inScope } from '../helpers.ts';
 import { waitFor, withDispatcher, withNotificationsTestDb } from './test-helpers.ts';
 
 describe('core.notifier subscriber', () => {
@@ -32,15 +33,17 @@ describe('core.notifier subscriber', () => {
         await withDispatcher(
           { subscribers: [notifierSubscriber() as SubscriberDef], pool },
           async () => {
-            await withEmit(undefined, async () => {
-              await requestNotification({
-                tenant_id: tenantId,
-                event_type: 'planner.task.mentioned',
-                user_ids: [u1, u2],
-                payload: { title: 'hi' },
-                source_event_id: sourceEventId,
-              });
-            });
+            await inScope(tenantId, () =>
+              withEmit(undefined, async () => {
+                await requestNotification({
+                  tenant_id: tenantId,
+                  event_type: 'planner.task.mentioned',
+                  user_ids: [u1, u2],
+                  payload: { title: 'hi' },
+                  source_event_id: sourceEventId,
+                });
+              }),
+            );
 
             await waitFor(async () => {
               const r = await pool.query<{ n: string }>(
@@ -77,39 +80,40 @@ describe('core.notifier subscriber', () => {
 
       await withDispatcher(
         { subscribers: [notifierSubscriber() as SubscriberDef], pool },
-        async () => {
-          await withEmit(undefined, async () => {
-            await requestNotification({
-              tenant_id: tenantId,
-              event_type: 'planner.task.mentioned',
-              user_ids: [u1],
-              payload: {},
-              source_event_id: sourceEventId,
+        async () =>
+          inScope(tenantId, async () => {
+            await withEmit(undefined, async () => {
+              await requestNotification({
+                tenant_id: tenantId,
+                event_type: 'planner.task.mentioned',
+                user_ids: [u1],
+                payload: {},
+                source_event_id: sourceEventId,
+              });
             });
-          });
-          await waitFor(async () => {
+            await waitFor(async () => {
+              const r = await pool.query<{ n: string }>(
+                `SELECT COUNT(*)::text AS n FROM notifications.notifications WHERE source_event_id = $1`,
+                [sourceEventId],
+              );
+              return r.rows[0]?.n === '1';
+            });
+            await withEmit(undefined, async () => {
+              await requestNotification({
+                tenant_id: tenantId,
+                event_type: 'planner.task.mentioned',
+                user_ids: [u1],
+                payload: {},
+                source_event_id: sourceEventId,
+              });
+            });
+            await new Promise((r) => setTimeout(r, 500));
             const r = await pool.query<{ n: string }>(
               `SELECT COUNT(*)::text AS n FROM notifications.notifications WHERE source_event_id = $1`,
               [sourceEventId],
             );
-            return r.rows[0]?.n === '1';
-          });
-          await withEmit(undefined, async () => {
-            await requestNotification({
-              tenant_id: tenantId,
-              event_type: 'planner.task.mentioned',
-              user_ids: [u1],
-              payload: {},
-              source_event_id: sourceEventId,
-            });
-          });
-          await new Promise((r) => setTimeout(r, 500));
-          const r = await pool.query<{ n: string }>(
-            `SELECT COUNT(*)::text AS n FROM notifications.notifications WHERE source_event_id = $1`,
-            [sourceEventId],
-          );
-          expect(r.rows[0]?.n).toBe('1');
-        },
+            expect(r.rows[0]?.n).toBe('1');
+          }),
       );
     });
   });
@@ -135,23 +139,24 @@ describe('core.notifier subscriber', () => {
 
       await withDispatcher(
         { subscribers: [notifierSubscriber() as SubscriberDef], pool },
-        async () => {
-          await withEmit(undefined, async () => {
-            await requestNotification({
-              tenant_id: tenantId,
-              event_type: 'planner.task.assigned',
-              user_ids: [u1],
-              payload: {},
-              source_event_id: sourceEventId,
+        async () =>
+          inScope(tenantId, async () => {
+            await withEmit(undefined, async () => {
+              await requestNotification({
+                tenant_id: tenantId,
+                event_type: 'planner.task.assigned',
+                user_ids: [u1],
+                payload: {},
+                source_event_id: sourceEventId,
+              });
             });
-          });
-          await new Promise((r) => setTimeout(r, 500));
-          const r = await pool.query<{ n: string }>(
-            `SELECT COUNT(*)::text AS n FROM notifications.notifications WHERE source_event_id = $1`,
-            [sourceEventId],
-          );
-          expect(r.rows[0]?.n).toBe('0');
-        },
+            await new Promise((r) => setTimeout(r, 500));
+            const r = await pool.query<{ n: string }>(
+              `SELECT COUNT(*)::text AS n FROM notifications.notifications WHERE source_event_id = $1`,
+              [sourceEventId],
+            );
+            expect(r.rows[0]?.n).toBe('0');
+          }),
       );
     });
   });
@@ -173,29 +178,30 @@ describe('core.notifier subscriber', () => {
 
       await withDispatcher(
         { subscribers: [notifierSubscriber() as SubscriberDef], pool },
-        async () => {
-          await withEmit(undefined, async () => {
-            await requestNotification({
-              tenant_id: tenantId,
-              event_type: 'planner.task.assigned',
-              user_ids: [u1, u2],
-              payload: {},
-              source_event_id: sourceEventId,
+        async () =>
+          inScope(tenantId, async () => {
+            await withEmit(undefined, async () => {
+              await requestNotification({
+                tenant_id: tenantId,
+                event_type: 'planner.task.assigned',
+                user_ids: [u1, u2],
+                payload: {},
+                source_event_id: sourceEventId,
+              });
             });
-          });
-          await waitFor(async () => {
+            await waitFor(async () => {
+              const r = await pool.query<{ n: string }>(
+                `SELECT COUNT(*)::text AS n FROM notifications.notifications WHERE source_event_id = $1`,
+                [sourceEventId],
+              );
+              return r.rows[0]?.n === '2';
+            });
             const r = await pool.query<{ n: string }>(
               `SELECT COUNT(*)::text AS n FROM notifications.notifications WHERE source_event_id = $1`,
               [sourceEventId],
             );
-            return r.rows[0]?.n === '2';
-          });
-          const r = await pool.query<{ n: string }>(
-            `SELECT COUNT(*)::text AS n FROM notifications.notifications WHERE source_event_id = $1`,
-            [sourceEventId],
-          );
-          expect(r.rows[0]?.n).toBe('2');
-        },
+            expect(r.rows[0]?.n).toBe('2');
+          }),
       );
     });
   });
@@ -221,29 +227,30 @@ describe('core.notifier subscriber', () => {
 
       await withDispatcher(
         { subscribers: [notifierSubscriber() as SubscriberDef], pool },
-        async () => {
-          await withEmit(undefined, async () => {
-            await requestNotification({
-              tenant_id: tenantId,
-              event_type: 'planner.task.assigned',
-              user_ids: [u1],
-              payload: {},
-              source_event_id: sourceEventId,
+        async () =>
+          inScope(tenantId, async () => {
+            await withEmit(undefined, async () => {
+              await requestNotification({
+                tenant_id: tenantId,
+                event_type: 'planner.task.assigned',
+                user_ids: [u1],
+                payload: {},
+                source_event_id: sourceEventId,
+              });
             });
-          });
-          await waitFor(async () => {
+            await waitFor(async () => {
+              const r = await pool.query<{ n: string }>(
+                `SELECT COUNT(*)::text AS n FROM notifications.notifications WHERE source_event_id = $1`,
+                [sourceEventId],
+              );
+              return r.rows[0]?.n === '1';
+            });
             const r = await pool.query<{ n: string }>(
               `SELECT COUNT(*)::text AS n FROM notifications.notifications WHERE source_event_id = $1`,
               [sourceEventId],
             );
-            return r.rows[0]?.n === '1';
-          });
-          const r = await pool.query<{ n: string }>(
-            `SELECT COUNT(*)::text AS n FROM notifications.notifications WHERE source_event_id = $1`,
-            [sourceEventId],
-          );
-          expect(r.rows[0]?.n).toBe('1');
-        },
+            expect(r.rows[0]?.n).toBe('1');
+          }),
       );
     });
   });

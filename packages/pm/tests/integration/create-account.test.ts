@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
 import { account } from '../../src/backend/db/schema.ts';
 import { createAccount } from '../../src/index.ts';
-import { countEvents, readEvents, seedTenant } from '../helpers.ts';
+import { countEvents, inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -22,13 +22,17 @@ describe('createAccount', () => {
       try {
         const t = await seedTenant(pool);
 
-        const { account_id } = await createAccount({
-          name: 'Acme Corp',
-          industry: 'Fintech',
-          session: t.adminSession,
-        });
+        const { account_id } = await inScope(t.adminSession, () =>
+          createAccount({
+            name: 'Acme Corp',
+            industry: 'Fintech',
+            session: t.adminSession,
+          }),
+        );
 
-        const [a] = await pmDb().select().from(account).where(eq(account.id, account_id));
+        const [a] = await inScope(t.adminSession, () =>
+          pmDb().select().from(account).where(eq(account.id, account_id)),
+        );
         expect(a?.tenant_id).toBe(t.tenant_id);
         expect(a?.name).toBe('Acme Corp');
 
@@ -55,11 +59,13 @@ describe('createAccount', () => {
         const t = await seedTenant(pool);
         const workerId = crypto.randomUUID();
 
-        const { account_id } = await createAccount({
-          name: 'Beta Ltd',
-          am_worker_id: workerId,
-          session: t.adminSession,
-        });
+        const { account_id } = await inScope(t.adminSession, () =>
+          createAccount({
+            name: 'Beta Ltd',
+            am_worker_id: workerId,
+            session: t.adminSession,
+          }),
+        );
 
         const events = await readEvents(pool, t.tenant_id, 'pm.account.created');
         expect(events).toHaveLength(1);
@@ -84,11 +90,13 @@ describe('createAccount', () => {
 
         // am_worker_id 'not-a-uuid' fails the Postgres uuid cast inside the tx → full rollback.
         await expect(
-          createAccount({
-            name: 'Atomic Rollback',
-            am_worker_id: 'not-a-uuid',
-            session: t.adminSession,
-          }),
+          inScope(t.adminSession, () =>
+            createAccount({
+              name: 'Atomic Rollback',
+              am_worker_id: 'not-a-uuid',
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow();
 
         const rows = await pool.query(`SELECT count(*)::int n FROM pm.account WHERE tenant_id=$1`, [

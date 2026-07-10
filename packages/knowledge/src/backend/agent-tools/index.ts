@@ -1,6 +1,6 @@
 import { type AgentTool, actorFromContext, defineAgentTool } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
-import { getPool } from '@seta/shared-db';
+import { executorPool } from '@seta/shared-db';
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { resolveReranker } from '@seta/shared-retrieval';
 import { z } from 'zod';
@@ -44,7 +44,10 @@ export const searchTenantKnowledgeAgentTool = defineAgentTool({
     const actor = actorFromContext(ctx);
     const session = await buildActorSession(actor);
     const provider = resolveEmbeddingProvider();
-    const pool = getPool('worker');
+    // The request's scope, not this tool's WHERE clause, is what confines the read to one
+    // tenant. On the admin pool a wrong tenant_id here would silently return another
+    // tenant's documents to the model.
+    const pool = executorPool();
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) throw new Error('DATABASE_URL required for knowledge search');
     const pgVector = getKnowledgeVectorStore(databaseUrl);

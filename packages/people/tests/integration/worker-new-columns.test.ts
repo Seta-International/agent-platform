@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { worker } from '../../src/backend/db/schema.ts';
 import { provisionWorker } from '../../src/index.ts';
-import { seedOrgUnit, seedTenant } from '../helpers.ts';
+import { inScope, seedOrgUnit, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -21,29 +21,30 @@ describe('worker.job_title + worker.org_unit_id', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
+        await inScope(t.adminSession, async () => {
+          const { worker_id: reportId } = await provisionWorker({
+            full_name: 'Report Person',
+            start_date: '2026-01-02',
+            employment_type: 'full_time',
+            session: t.adminSession,
+          });
 
-        const { worker_id: reportId } = await provisionWorker({
-          full_name: 'Report Person',
-          start_date: '2026-01-02',
-          employment_type: 'full_time',
-          session: t.adminSession,
+          const unit = await seedOrgUnit({
+            tenant_id: t.tenant_id,
+            name: 'Engineering',
+            kind: 'function',
+          });
+
+          await peopleDb()
+            .update(worker)
+            .set({ job_title: 'Software Engineer', org_unit_id: unit })
+            .where(eq(worker.person_id, reportId));
+
+          const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, reportId));
+
+          expect(w?.job_title).toBe('Software Engineer');
+          expect(w?.org_unit_id).toBe(unit);
         });
-
-        const unit = await seedOrgUnit({
-          tenant_id: t.tenant_id,
-          name: 'Engineering',
-          kind: 'function',
-        });
-
-        await peopleDb()
-          .update(worker)
-          .set({ job_title: 'Software Engineer', org_unit_id: unit })
-          .where(eq(worker.person_id, reportId));
-
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, reportId));
-
-        expect(w?.job_title).toBe('Software Engineer');
-        expect(w?.org_unit_id).toBe(unit);
       } finally {
         resetPeopleDb();
         resetCoreDb();

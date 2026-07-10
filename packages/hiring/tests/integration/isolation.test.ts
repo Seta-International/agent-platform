@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
 import { requisition } from '../../src/backend/db/schema.ts';
 import { openRequisition } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -24,21 +24,25 @@ describe('hiring org isolation', () => {
         const orgA = await seedTenant(pool);
         const orgB = await seedTenant(pool);
 
-        const { requisition_id } = await openRequisition({
-          title: 'Org A role',
-          kind: 'new',
-          session: orgA.adminSession,
-        });
+        const { requisition_id } = await inScope(orgA.adminSession, () =>
+          openRequisition({
+            title: 'Org A role',
+            kind: 'new',
+            session: orgA.adminSession,
+          }),
+        );
 
-        const visibleToB = await hiringDb()
-          .select()
-          .from(requisition)
-          .where(
-            and(
-              eq(requisition.id, requisition_id),
-              tenantScoped(requisition.tenant_id, orgB.adminSession),
+        const visibleToB = await inScope(orgB.adminSession, () =>
+          hiringDb()
+            .select()
+            .from(requisition)
+            .where(
+              and(
+                eq(requisition.id, requisition_id),
+                tenantScoped(requisition.tenant_id, orgB.adminSession),
+              ),
             ),
-          );
+        );
         expect(visibleToB).toHaveLength(0);
       } finally {
         resetHiringDb();

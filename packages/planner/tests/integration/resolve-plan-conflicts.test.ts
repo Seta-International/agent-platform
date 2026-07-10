@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -23,40 +23,45 @@ describe('resolvePlanConflicts', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
-        await linkGroupToM365({ group_id: group.id, external_id: 'G-EXT', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
-        await linkPlanToM365({ plan_id: plan.id, external_id: 'P-EXT-1', session });
 
-        const enqueuePlanPush = vi.fn().mockResolvedValue(undefined);
-        const decisions = [
-          { kind: 'plan' as const, field: 'name', choice: 'local' as const },
-          {
-            kind: 'task' as const,
-            task_id: '00000000-0000-0000-0000-000000000123',
-            field: 'due_at',
-            choice: 'remote' as const,
-          },
-        ];
-        const result = await resolvePlanConflicts(
-          { plan_id: plan.id, decisions, session },
-          { enqueuePlanPush },
-        );
-        expect(result.applied).toBe(2);
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          await linkGroupToM365({ group_id: group.id, external_id: 'G-EXT', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          await linkPlanToM365({ plan_id: plan.id, external_id: 'P-EXT-1', session });
 
-        // Only the 'local' decision is pushed.
-        expect(enqueuePlanPush).toHaveBeenCalledWith({
-          tenant_id: seeded.tenant_id,
-          plan_id: plan.id,
-          decisions: [decisions[0]],
+          const enqueuePlanPush = vi.fn().mockResolvedValue(undefined);
+          const decisions = [
+            { kind: 'plan' as const, field: 'name', choice: 'local' as const },
+            {
+              kind: 'task' as const,
+              task_id: '00000000-0000-0000-0000-000000000123',
+              field: 'due_at',
+              choice: 'remote' as const,
+            },
+          ];
+          const result = await resolvePlanConflicts(
+            { plan_id: plan.id, decisions, session },
+            { enqueuePlanPush },
+          );
+          expect(result.applied).toBe(2);
+
+          // Only the 'local' decision is pushed.
+          expect(enqueuePlanPush).toHaveBeenCalledWith({
+            tenant_id: seeded.tenant_id,
+            plan_id: plan.id,
+            decisions: [decisions[0]],
+          });
+
+          const events = await readEvents(pool, seeded.tenant_id, 'planner.plan.conflict-resolved');
+          expect(events).toHaveLength(1);
+          // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
+          const p = events[0]?.payload as any;
+          expect(p.decisions).toHaveLength(2);
         });
-
-        const events = await readEvents(pool, seeded.tenant_id, 'planner.plan.conflict-resolved');
-        expect(events).toHaveLength(1);
-        // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-        const p = events[0]?.payload as any;
-        expect(p.decisions).toHaveLength(2);
       } finally {
         resetCoreDb();
         await closePools();
@@ -70,15 +75,20 @@ describe('resolvePlanConflicts', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
-        await linkGroupToM365({ group_id: group.id, external_id: 'G-EXT', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
-        await linkPlanToM365({ plan_id: plan.id, external_id: 'P-EXT-1', session });
-        const enqueuePlanPush = vi.fn();
-        await expect(
-          resolvePlanConflicts({ plan_id: plan.id, decisions: [], session }, { enqueuePlanPush }),
-        ).rejects.toMatchObject({ code: 'VALIDATION' });
+
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          await linkGroupToM365({ group_id: group.id, external_id: 'G-EXT', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          await linkPlanToM365({ plan_id: plan.id, external_id: 'P-EXT-1', session });
+          const enqueuePlanPush = vi.fn();
+          await expect(
+            resolvePlanConflicts({ plan_id: plan.id, decisions: [], session }, { enqueuePlanPush }),
+          ).rejects.toMatchObject({ code: 'VALIDATION' });
+        });
       } finally {
         resetCoreDb();
         await closePools();
@@ -92,20 +102,25 @@ describe('resolvePlanConflicts', () => {
       initPools({ databaseUrl });
       try {
         const seeded = await seedTenant(pool);
-        const session = seeded.adminSession;
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
-        const plan = await createPlan({ group_id: group.id, name: 'P', session });
-        const enqueuePlanPush = vi.fn();
-        await expect(
-          resolvePlanConflicts(
-            {
-              plan_id: plan.id,
-              decisions: [{ kind: 'plan', field: 'name', choice: 'local' }],
-              session,
-            },
-            { enqueuePlanPush },
-          ),
-        ).rejects.toMatchObject({ code: 'PLAN_NOT_LINKED' });
+
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const session = seeded.adminSession;
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'G', session });
+          const plan = await createPlan({ group_id: group.id, name: 'P', session });
+          const enqueuePlanPush = vi.fn();
+          await expect(
+            resolvePlanConflicts(
+              {
+                plan_id: plan.id,
+                decisions: [{ kind: 'plan', field: 'name', choice: 'local' }],
+                session,
+              },
+              { enqueuePlanPush },
+            ),
+          ).rejects.toMatchObject({ code: 'PLAN_NOT_LINKED' });
+        });
       } finally {
         resetCoreDb();
         await closePools();

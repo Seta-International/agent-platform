@@ -5,6 +5,15 @@ export type { NodePgDatabase, Pool, PoolClient };
 export type PoolName = 'web' | 'worker' | 'mastraState';
 
 export { createDb } from './db.ts';
+export {
+  bindExecutorPools,
+  currentExecutorMode,
+  ExecutorContextError,
+  type ExecutorMode,
+  executorPool,
+  maintenance,
+  scoped,
+} from './executor.ts';
 export { halfvec } from './halfvec.ts';
 export {
   getLifecycleEntries,

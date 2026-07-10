@@ -33,10 +33,14 @@ export async function runRenewSubscription(
 
   await subscriptionsRepo.setExpiration(row.id, newExpiration);
 
+  // tenant_id must be threaded through every reschedule, not just the first enqueue
+  // (from runCreateSubscription) — this job reschedules itself indefinitely, and a
+  // payload that drops tenant_id here would renew successfully once then silently
+  // stop (no tenant GUC, RLS-enforced connection reads zero rows on the next run).
   const renewAt = new Date(newExpiration.getTime() - 24 * 60 * 60 * 1000);
   await workerAddJob(
     'm365.subscription.renew',
-    { subscription_row_id: row.id },
+    { subscription_row_id: row.id, tenant_id: row.tenantId },
     { runAt: renewAt },
   );
 }

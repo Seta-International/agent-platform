@@ -167,7 +167,7 @@ const autoMirrorSub = findSub('integrations.m365.plan-auto-mirror');
 describe('runPlanDeleteLink', () => {
   it('group_unlinked trigger tombstones all link rows for that group, leaves other group untouched', async () => {
     await withSetup(async ({ db }) => {
-      const repo = createM365PlanLinkRepo({ db: db as never });
+      const repo = createM365PlanLinkRepo({ db: () => db as never });
 
       // Seed 3 links for group G
       await repo.upsert({
@@ -220,7 +220,7 @@ describe('runPlanDeleteLink', () => {
 
   it('plan_deleted trigger tombstones the single link', async () => {
     await withSetup(async ({ db }) => {
-      const repo = createM365PlanLinkRepo({ db: db as never });
+      const repo = createM365PlanLinkRepo({ db: () => db as never });
 
       await repo.upsert({
         tenantId: TENANT_ID,
@@ -242,7 +242,7 @@ describe('runPlanDeleteLink', () => {
 
   it('plan_deleted trigger is a no-op when no link exists', async () => {
     await withSetup(async ({ db }) => {
-      const repo = createM365PlanLinkRepo({ db: db as never });
+      const repo = createM365PlanLinkRepo({ db: () => db as never });
 
       const result = await runPlanDeleteLink(
         {

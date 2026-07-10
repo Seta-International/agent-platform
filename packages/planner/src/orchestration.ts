@@ -3,6 +3,7 @@
 export {
   makeAssign,
   makeAvailability,
+  makeGroupMemberSkills,
   makeSkillSearch,
   makeTaskAssignees,
   makeTaskReader,

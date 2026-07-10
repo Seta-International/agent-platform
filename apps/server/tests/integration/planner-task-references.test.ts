@@ -4,7 +4,7 @@ import { createUser } from '@seta/identity';
 import { addGroupMember, createBucket, createGroup, createPlan, createTask } from '@seta/planner';
 import { registerPlannerTasksRoutes } from '@seta/planner/http';
 import { plannerErrorMapper } from '@seta/planner/register';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import type { Pool } from 'pg';
@@ -49,6 +49,11 @@ function buildTestApp(session: SessionScope): Hono<SessionEnv> {
     c.set('user', session);
     await next();
   });
+  // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+  // composition root opens this once the tenant is known, so plannerDb() has an
+  // executor context. No appDatabaseUrl here, so the tenant GUC is inert (self-host
+  // fallback) — this just needs to exist for executorPool() to resolve.
+  app.use('*', (_c, next) => scoped(session.tenant_id, next));
   registerPlannerTasksRoutes(app);
   app.onError(makeErrorHandler(plannerErrorMapper));
   return app;
@@ -62,15 +67,19 @@ async function seedTenant(pool: Pool, slug: string) {
     slug,
   ]);
   const adminEmail = `admin-${slug}@example.test`;
-  const adminResult = await createUser(
-    {
-      tenant_id: tenantId,
-      email: adminEmail,
-      name: 'Admin',
-      password: 'correct-horse-battery-staple',
-      initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-    },
-    { type: 'cli', user_id: null },
+  // seedTenant acts as the CLI seeder (actor: { type: 'cli' }): maintenance() mirrors
+  // the admin-pool context apps/cli opens around program.parseAsync in production.
+  const adminResult = await maintenance(() =>
+    createUser(
+      {
+        tenant_id: tenantId,
+        email: adminEmail,
+        name: 'Admin',
+        password: 'correct-horse-battery-staple',
+        initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+      },
+      { type: 'cli', user_id: null },
+    ),
   );
   await pool.query(
     `INSERT INTO planner.assignee_projection
@@ -100,14 +109,19 @@ describe('task references HTTP routes', () => {
             email: adminEmail,
             display_name: 'Admin',
           });
-          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
-          const bucket = await createBucket({ plan_id: plan.id, name: 'B', session });
-          const task = await createTask({
-            plan_id: plan.id,
-            bucket_id: bucket.id,
-            title: 'T',
-            session,
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires
+          // for these direct (non-HTTP) domain calls.
+          const task = await scoped(tenantId, async () => {
+            const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
+            const bucket = await createBucket({ plan_id: plan.id, name: 'B', session });
+            return createTask({
+              plan_id: plan.id,
+              bucket_id: bucket.id,
+              title: 'T',
+              session,
+            });
           });
 
           const app = buildTestApp(session);
@@ -156,14 +170,19 @@ describe('task references HTTP routes', () => {
             email: adminEmail,
             display_name: 'Admin',
           });
-          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
-          const bucket = await createBucket({ plan_id: plan.id, name: 'B', session });
-          const task = await createTask({
-            plan_id: plan.id,
-            bucket_id: bucket.id,
-            title: 'T',
-            session,
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires
+          // for these direct (non-HTTP) domain calls.
+          const task = await scoped(tenantId, async () => {
+            const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
+            const bucket = await createBucket({ plan_id: plan.id, name: 'B', session });
+            return createTask({
+              plan_id: plan.id,
+              bucket_id: bucket.id,
+              title: 'T',
+              session,
+            });
           });
 
           const app = buildTestApp(session);
@@ -214,14 +233,20 @@ describe('task assignees HTTP routes', () => {
             email: adminEmail,
             display_name: 'Admin',
           });
-          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
-          const bucket = await createBucket({ plan_id: plan.id, name: 'B', session });
-          const task = await createTask({
-            plan_id: plan.id,
-            bucket_id: bucket.id,
-            title: 'T',
-            session,
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires
+          // for these direct (non-HTTP) domain calls.
+          const { group, task } = await scoped(tenantId, async () => {
+            const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
+            const bucket = await createBucket({ plan_id: plan.id, name: 'B', session });
+            const task = await createTask({
+              plan_id: plan.id,
+              bucket_id: bucket.id,
+              title: 'T',
+              session,
+            });
+            return { group, task };
           });
 
           const memberId = crypto.randomUUID();
@@ -232,7 +257,9 @@ describe('task assignees HTTP routes', () => {
             [memberId, tenantId],
           );
           // Assignees must be group members (FUT-55).
-          await addGroupMember({ group_id: group.id, user_id: memberId, session });
+          await scoped(tenantId, () =>
+            addGroupMember({ group_id: group.id, user_id: memberId, session }),
+          );
 
           const app = buildTestApp(session);
 
@@ -281,14 +308,19 @@ describe('task assignees HTTP routes', () => {
             email: adminEmail,
             display_name: 'Admin',
           });
-          const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'P', session });
-          const bucket = await createBucket({ plan_id: plan.id, name: 'B', session });
-          const task = await createTask({
-            plan_id: plan.id,
-            bucket_id: bucket.id,
-            title: 'T',
-            session,
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires
+          // for these direct (non-HTTP) domain calls.
+          const task = await scoped(tenantId, async () => {
+            const group = await createGroup({ tenant_id: tenantId, name: 'Eng', session });
+            const plan = await createPlan({ group_id: group.id, name: 'P', session });
+            const bucket = await createBucket({ plan_id: plan.id, name: 'B', session });
+            return createTask({
+              plan_id: plan.id,
+              bucket_id: bucket.id,
+              title: 'T',
+              session,
+            });
           });
 
           const app = buildTestApp(session);

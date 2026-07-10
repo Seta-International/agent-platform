@@ -1,6 +1,6 @@
 import { hashRoleSummary, type SessionEnv, type SessionScope } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
@@ -74,12 +74,16 @@ describe('m365 group routes — tenant scoping', () => {
       try {
         const { tenantId: tenantAId, groupId: groupAId } = await seedTenantAndLinkedGroup(pool);
 
-        const m365LinksRepo = createM365GroupLinkRepo({ db: integrationsDb() });
-        await m365LinksRepo.upsert({
-          tenantId: tenantAId,
-          groupId: groupAId,
-          externalId: 'ext-a',
-          lastSyncedFields: {},
+        // Seeding, like the CLI seeder, runs under maintenance() rather than a real tenant session.
+        const m365LinksRepo = await maintenance(async () => {
+          const repo = createM365GroupLinkRepo({ db: integrationsDb });
+          await repo.upsert({
+            tenantId: tenantAId,
+            groupId: groupAId,
+            externalId: 'ext-a',
+            lastSyncedFields: {},
+          });
+          return repo;
         });
 
         // Attacker: real session in tenant B holding planner permissions there, plus a
@@ -104,9 +108,11 @@ describe('m365 group routes — tenant scoping', () => {
 
         const addJob = vi.fn().mockResolvedValue(undefined);
         const app = new Hono<SessionEnv>();
+        // createSessionMiddleware (packages/core/src/middleware/session.ts) opens scoped(tenantId, ...)
+        // around the downstream handler in production; this stub session middleware must do the same.
         app.use(async (c, next) => {
           c.set('user', session);
-          await next();
+          await scoped(session.tenant_id, next);
         });
         registerIntegrationsM365Routes(app, {
           graphClientFor: vi.fn(),

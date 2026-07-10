@@ -1,3 +1,4 @@
+import { maintenance } from '@seta/shared-db';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
 import { partitionManagerTick } from '../../src/runtime/workers/partition-manager.ts';
@@ -12,7 +13,9 @@ describe('partition manager', () => {
       );
       const baseN = before.rows[0]?.n ?? 0;
 
-      await partitionManagerTick();
+      // partition_manager_tick is a MAINTENANCE_JOBS job in production (job-context.ts);
+      // wrapJob runs it inside maintenance(), so the test must too.
+      await maintenance(() => partitionManagerTick());
 
       const after = await pool.query(
         `SELECT count(*)::int AS n FROM pg_inherits WHERE inhparent='core.events'::regclass`,

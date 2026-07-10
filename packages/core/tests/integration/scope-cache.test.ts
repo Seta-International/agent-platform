@@ -1,6 +1,6 @@
 import { createUser, listRoleAssignments } from '@seta/identity';
 import { registerIdentityContributions } from '@seta/identity/register';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../src/db/client.ts';
@@ -57,86 +57,90 @@ describe('session scope cache', () => {
         await runMigrations(reg, { pool });
         resetCoreDb();
         initPools({ databaseUrl });
+        const tenantId = crypto.randomUUID();
         try {
-          const tenantId = crypto.randomUUID();
           await pool.query(
             `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', 'demo')`,
             [tenantId],
           );
-          const { user_id } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'a@d.local',
-              name: 'A',
-              password: 'ChangeMe@2026',
-              initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-            },
-            { type: 'cli', user_id: null },
-          );
-          const sessionId = `test-session-${crypto.randomUUID()}`;
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            const { user_id } = await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'a@d.local',
+                name: 'A',
+                password: 'ChangeMe@2026',
+                initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+              },
+              { type: 'cli', user_id: null },
+            );
+            const sessionId = `test-session-${crypto.randomUUID()}`;
 
-          const scope1 = await getSessionScope(
-            { listRoleAssignments, resolvePermissions: () => new Set() },
-            sessionId,
-            user_id,
-            'a@d.local',
-            'A',
-          );
-          expect(scope1.role_summary.roles).toEqual(['org.admin']);
+            const scope1 = await getSessionScope(
+              { listRoleAssignments, resolvePermissions: () => new Set() },
+              sessionId,
+              user_id,
+              'a@d.local',
+              'A',
+            );
+            expect(scope1.role_summary.roles).toEqual(['org.admin']);
 
-          const durableRow = (
-            await pool.query(
-              `SELECT session_id FROM core.session_scope_cache WHERE session_id = $1`,
-              [sessionId],
-            )
-          ).rows[0];
-          expect(durableRow.session_id).toBe(sessionId);
+            const durableRow = (
+              await pool.query(
+                `SELECT session_id FROM core.session_scope_cache WHERE session_id = $1`,
+                [sessionId],
+              )
+            ).rows[0];
+            expect(durableRow.session_id).toBe(sessionId);
 
-          _clearHotForTest();
-          const scope2 = await getSessionScope(
-            { listRoleAssignments, resolvePermissions: () => new Set() },
-            sessionId,
-            user_id,
-            'a@d.local',
-            'A',
-          );
-          expect(scope2.role_summary.roles).toEqual(['org.admin']);
+            _clearHotForTest();
+            const scope2 = await getSessionScope(
+              { listRoleAssignments, resolvePermissions: () => new Set() },
+              sessionId,
+              user_id,
+              'a@d.local',
+              'A',
+            );
+            expect(scope2.role_summary.roles).toEqual(['org.admin']);
 
-          const orgSessionId = `test-session-${crypto.randomUUID()}`;
-          const deps = {
-            listRoleAssignments: async () => ({
-              tenant_id: tenantId,
-              assignments: [
-                {
-                  role_slug: 'pm.manager',
-                  scope_kind: 'org_unit' as const,
-                  scope_id: 'root-a',
-                  granted_at: new Date(),
-                },
-                {
-                  role_slug: 'pm.viewer',
-                  scope_kind: 'tenant' as const,
-                  scope_id: null,
-                  granted_at: new Date(),
-                },
-              ],
-            }),
-            resolvePermissions: async () => new Set(['pm.project.read']),
-            expandOrgUnits: async (_t: string, ids: readonly string[]) =>
-              Object.fromEntries(ids.map((id) => [id, [id, 'child-1']])),
-            resolveWorkerId: async () => 'worker-42',
-          };
-          const scope3 = await getSessionScope(deps, orgSessionId, user_id, 'a@b.c', 'A');
-          const orgAssignment = scope3.assignments.find((a) => a.scope_kind === 'org_unit');
-          expect(orgAssignment?.org_unit_ids).toEqual(['root-a', 'child-1']);
-          expect(scope3.worker_id).toBe('worker-42');
+            const orgSessionId = `test-session-${crypto.randomUUID()}`;
+            const deps = {
+              listRoleAssignments: async () => ({
+                tenant_id: tenantId,
+                assignments: [
+                  {
+                    role_slug: 'pm.manager',
+                    scope_kind: 'org_unit' as const,
+                    scope_id: 'root-a',
+                    granted_at: new Date(),
+                  },
+                  {
+                    role_slug: 'pm.viewer',
+                    scope_kind: 'tenant' as const,
+                    scope_id: null,
+                    granted_at: new Date(),
+                  },
+                ],
+              }),
+              resolvePermissions: async () => new Set(['pm.project.read']),
+              expandOrgUnits: async (_t: string, ids: readonly string[]) =>
+                Object.fromEntries(ids.map((id) => [id, [id, 'child-1']])),
+              resolveWorkerId: async () => 'worker-42',
+            };
+            const scope3 = await getSessionScope(deps, orgSessionId, user_id, 'a@b.c', 'A');
+            const orgAssignment = scope3.assignments.find((a) => a.scope_kind === 'org_unit');
+            expect(orgAssignment?.org_unit_ids).toEqual(['root-a', 'child-1']);
+            expect(scope3.worker_id).toBe('worker-42');
 
-          _clearHotForTest();
-          const hydrated = await getSessionScope(deps, orgSessionId, user_id, 'a@b.c', 'A');
-          expect(
-            hydrated.assignments.find((a) => a.scope_kind === 'org_unit')?.org_unit_ids,
-          ).toEqual(['root-a', 'child-1']);
-          expect(hydrated.worker_id).toBe('worker-42');
+            _clearHotForTest();
+            const hydrated = await getSessionScope(deps, orgSessionId, user_id, 'a@b.c', 'A');
+            expect(
+              hydrated.assignments.find((a) => a.scope_kind === 'org_unit')?.org_unit_ids,
+            ).toEqual(['root-a', 'child-1']);
+            expect(hydrated.worker_id).toBe('worker-42');
+          });
         } finally {
           await closePools();
           resetCoreDb();

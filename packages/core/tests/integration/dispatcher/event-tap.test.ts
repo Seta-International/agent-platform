@@ -1,8 +1,11 @@
+import { scoped } from '@seta/shared-db';
 import { describe, expect, it } from 'vitest';
 import { resetCoreDb } from '../../../src/db/client.ts';
 import { emit, withEmit } from '../../../src/events/index.ts';
 import { _clearTapsForTest, addEventTap } from '../../../src/runtime/dispatcher/event-tap.ts';
 import { waitFor, withCoreTestDb, withDispatcher } from '../../helpers.ts';
+
+const TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 describe('addEventTap', () => {
   it('fires tap handler for events emitted after dispatcher starts', async () => {
@@ -18,16 +21,18 @@ describe('addEventTap', () => {
 
       try {
         await withDispatcher({ subscribers: [], pool }, async () => {
-          await withEmit(undefined, async () => {
-            await emit({
-              tenantId: '00000000-0000-0000-0000-000000000001',
-              aggregateType: 'test.tap',
-              aggregateId: '00000000-0000-0000-0000-000000000002',
-              eventType: 'test.tap.happened',
-              eventVersion: 1,
-              payload: { label: 'hello-tap' },
-            });
-          });
+          await scoped(TENANT_ID, () =>
+            withEmit(undefined, async () => {
+              await emit({
+                tenantId: TENANT_ID,
+                aggregateType: 'test.tap',
+                aggregateId: '00000000-0000-0000-0000-000000000002',
+                eventType: 'test.tap.happened',
+                eventVersion: 1,
+                payload: { label: 'hello-tap' },
+              });
+            }),
+          );
 
           await waitFor(() => received.length > 0, 10_000);
         });
@@ -53,24 +58,26 @@ describe('addEventTap', () => {
 
       try {
         await withDispatcher({ subscribers: [], pool }, async () => {
-          await withEmit(undefined, async () => {
-            await emit({
-              tenantId: '00000000-0000-0000-0000-000000000001',
-              aggregateType: 'test.tap',
-              aggregateId: '00000000-0000-0000-0000-000000000003',
-              eventType: 'test.tap.ignored',
-              eventVersion: 1,
-              payload: { label: 'should-be-dropped' },
-            });
-            await emit({
-              tenantId: '00000000-0000-0000-0000-000000000001',
-              aggregateType: 'test.tap',
-              aggregateId: '00000000-0000-0000-0000-000000000004',
-              eventType: 'test.tap.wanted',
-              eventVersion: 1,
-              payload: { label: 'kept' },
-            });
-          });
+          await scoped(TENANT_ID, () =>
+            withEmit(undefined, async () => {
+              await emit({
+                tenantId: TENANT_ID,
+                aggregateType: 'test.tap',
+                aggregateId: '00000000-0000-0000-0000-000000000003',
+                eventType: 'test.tap.ignored',
+                eventVersion: 1,
+                payload: { label: 'should-be-dropped' },
+              });
+              await emit({
+                tenantId: TENANT_ID,
+                aggregateType: 'test.tap',
+                aggregateId: '00000000-0000-0000-0000-000000000004',
+                eventType: 'test.tap.wanted',
+                eventVersion: 1,
+                payload: { label: 'kept' },
+              });
+            }),
+          );
 
           await waitFor(() => received.length > 0, 10_000);
           // Allow a brief window for any extra events to arrive.
@@ -101,16 +108,18 @@ describe('addEventTap', () => {
 
       try {
         await withDispatcher({ subscribers: [], pool }, async () => {
-          await withEmit(undefined, async () => {
-            await emit({
-              tenantId: '00000000-0000-0000-0000-000000000001',
-              aggregateType: 'test.tap',
-              aggregateId: '00000000-0000-0000-0000-000000000005',
-              eventType: 'test.tap.unsub',
-              eventVersion: 1,
-              payload: { label: 'after-unsub' },
-            });
-          });
+          await scoped(TENANT_ID, () =>
+            withEmit(undefined, async () => {
+              await emit({
+                tenantId: TENANT_ID,
+                aggregateType: 'test.tap',
+                aggregateId: '00000000-0000-0000-0000-000000000005',
+                eventType: 'test.tap.unsub',
+                eventVersion: 1,
+                payload: { label: 'after-unsub' },
+              });
+            }),
+          );
 
           // Give the dispatcher enough time to pick up the event if the tap were still
           // registered. The received array should remain empty.
@@ -143,16 +152,18 @@ describe('addEventTap', () => {
 
       try {
         await withDispatcher({ subscribers: [], pool }, async () => {
-          await withEmit(undefined, async () => {
-            await emit({
-              tenantId: '00000000-0000-0000-0000-000000000001',
-              aggregateType: 'test.tap',
-              aggregateId: '00000000-0000-0000-0000-000000000006',
-              eventType: 'test.tap.multi',
-              eventVersion: 1,
-              payload: { label: 'survives-bad-tap' },
-            });
-          });
+          await scoped(TENANT_ID, () =>
+            withEmit(undefined, async () => {
+              await emit({
+                tenantId: TENANT_ID,
+                aggregateType: 'test.tap',
+                aggregateId: '00000000-0000-0000-0000-000000000006',
+                eventType: 'test.tap.multi',
+                eventVersion: 1,
+                payload: { label: 'survives-bad-tap' },
+              });
+            }),
+          );
 
           await waitFor(() => received.length > 0, 10_000);
         });

@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { getUserProfile, updateMyDisplayName } from '../../src/index.ts';
@@ -23,13 +23,17 @@ describe('updateMyDisplayName', () => {
           registerCoreContributions(reg);
           registerIdentityContributions(reg);
           await runMigrations(reg, { pool });
-          const { admin_user_id } = await createTestTenantWithAdmin({ pool });
-          await updateMyDisplayName(
-            { user_id: admin_user_id, type: 'user' },
-            { displayName: 'Renamed Admin' },
-          );
-          const profile = await getUserProfile(admin_user_id);
-          expect(profile?.display_name).toBe('Renamed Admin');
+          const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenant_id, async () => {
+            await updateMyDisplayName(
+              { user_id: admin_user_id, type: 'user' },
+              { displayName: 'Renamed Admin' },
+            );
+            const profile = await getUserProfile(admin_user_id);
+            expect(profile?.display_name).toBe('Renamed Admin');
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -52,10 +56,14 @@ describe('updateMyDisplayName', () => {
           registerCoreContributions(reg);
           registerIdentityContributions(reg);
           await runMigrations(reg, { pool });
-          const { admin_user_id } = await createTestTenantWithAdmin({ pool });
-          await expect(
-            updateMyDisplayName({ user_id: admin_user_id, type: 'user' }, { displayName: '   ' }),
-          ).rejects.toThrow();
+          const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenant_id, () =>
+            expect(
+              updateMyDisplayName({ user_id: admin_user_id, type: 'user' }, { displayName: '   ' }),
+            ).rejects.toThrow(),
+          );
         } finally {
           resetCoreDb();
           await closePools();

@@ -8,7 +8,7 @@ import {
   markGroupSyncStatus,
   type PlannerSessionScope,
 } from '../../src/index.ts';
-import { countEvents, seedTenant } from '../helpers.ts';
+import { countEvents, inScope, seedTenant } from '../helpers.ts';
 
 describe('markGroupSyncStatus', () => {
   it('updates external_synced_at and emits no group.updated event', async () => {
@@ -22,27 +22,33 @@ describe('markGroupSyncStatus', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const g = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'G',
-            session: seeded.adminSession,
-          });
-          await linkGroupToM365({
-            group_id: g.id,
-            external_id: 'x',
-            session: seeded.adminSession,
-          });
+          const g = await inScope(seeded.adminSession, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'G',
+              session: seeded.adminSession,
+            }),
+          );
+          await inScope(seeded.adminSession, () =>
+            linkGroupToM365({
+              group_id: g.id,
+              external_id: 'x',
+              session: seeded.adminSession,
+            }),
+          );
           const beforeCount = await countEvents(pool, seeded.tenant_id, 'planner.group.updated');
           const ts = new Date().toISOString();
           const systemSession: PlannerSessionScope = {
             ...seeded.adminSession,
             actor: { kind: 'system', system_id: 'integrations.m365' },
           };
-          await markGroupSyncStatus({
-            group_id: g.id,
-            external_synced_at: ts,
-            session: systemSession,
-          });
+          await inScope(seeded.adminSession, () =>
+            markGroupSyncStatus({
+              group_id: g.id,
+              external_synced_at: ts,
+              session: systemSession,
+            }),
+          );
           const afterCount = await countEvents(pool, seeded.tenant_id, 'planner.group.updated');
           expect(afterCount).toBe(beforeCount);
 
@@ -72,22 +78,28 @@ describe('markGroupSyncStatus', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const g = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'G',
-            session: seeded.adminSession,
-          });
-          await linkGroupToM365({
-            group_id: g.id,
-            external_id: 'x',
-            session: seeded.adminSession,
-          });
-          await expect(
-            markGroupSyncStatus({
-              group_id: g.id,
-              external_synced_at: new Date().toISOString(),
+          const g = await inScope(seeded.adminSession, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'G',
               session: seeded.adminSession,
             }),
+          );
+          await inScope(seeded.adminSession, () =>
+            linkGroupToM365({
+              group_id: g.id,
+              external_id: 'x',
+              session: seeded.adminSession,
+            }),
+          );
+          await expect(
+            inScope(seeded.adminSession, () =>
+              markGroupSyncStatus({
+                group_id: g.id,
+                external_synced_at: new Date().toISOString(),
+                session: seeded.adminSession,
+              }),
+            ),
           ).rejects.toMatchObject({ code: 'FORBIDDEN' });
         } finally {
           resetCoreDb();

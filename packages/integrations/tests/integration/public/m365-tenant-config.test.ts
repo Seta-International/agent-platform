@@ -8,6 +8,7 @@ import { createM365TenantConfigStore } from '../../../src/backend/domain/m365-te
 import { setM365TenantConfig } from '../../../src/backend/domain/set-m365-tenant-config.ts';
 import { INTEGRATIONS_PERMISSIONS } from '../../../src/backend/rbac.ts';
 import { withIntegrationsTestDb } from '../../helpers/test-db.ts';
+import { inScope } from '../../helpers.ts';
 
 const fakeBlob: EncryptedBlob = {
   v: 1,
@@ -123,22 +124,23 @@ describe('setM365TenantConfig domain', () => {
       },
       async ({ pool, databaseUrl }) => {
         const { tenantId, actor } = await setup(pool, databaseUrl);
-        const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-        // `as never`: dynamic import's inferred db type isn't structurally assignable to NodePgDatabase here
-        const store = createM365TenantConfigStore({ db: db as never });
         try {
-          await setM365TenantConfig({
-            tenantId,
-            actor,
-            input: {
-              entra_tenant_id: crypto.randomUUID(),
-              client_id: 'test-client',
-              client_secret_plaintext: 'test-secret',
-            },
-            crypto: { encrypt: fakeEncrypt },
+          const row = await inScope(tenantId, async () => {
+            const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
+            // `as never`: dynamic import's inferred db type isn't structurally assignable to NodePgDatabase here
+            const store = createM365TenantConfigStore({ db: db as never });
+            await setM365TenantConfig({
+              tenantId,
+              actor,
+              input: {
+                entra_tenant_id: crypto.randomUUID(),
+                client_id: 'test-client',
+                client_secret_plaintext: 'test-secret',
+              },
+              crypto: { encrypt: fakeEncrypt },
+            });
+            return store.findEnabled(tenantId);
           });
-
-          const row = await store.findEnabled(tenantId);
           expect(row).toMatchObject({
             tenantId,
             clientId: 'test-client',

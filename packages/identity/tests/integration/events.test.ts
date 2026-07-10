@@ -1,6 +1,6 @@
 import { withEmit } from '@seta/core/events';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { emitIdentityRoleGrantChanged, emitIdentityUserCreated } from '../../src/events/index.ts';
@@ -23,18 +23,20 @@ describe('identity event emit helpers', () => {
           );
 
           const userId = crypto.randomUUID();
-          await withEmit({ actor: { userId: 'system', tenantId } }, async () => {
-            await emitIdentityUserCreated({
-              actor: { type: 'cli', user_id: null },
-              after: {
-                user_id: userId,
-                tenant_id: tenantId,
-                email: 'a@d.local',
-                name: 'A',
-                created_via: 'cli',
-              },
-            });
-          });
+          await maintenance(() =>
+            withEmit({ actor: { userId: 'system', tenantId } }, async () => {
+              await emitIdentityUserCreated({
+                actor: { type: 'cli', user_id: null },
+                after: {
+                  user_id: userId,
+                  tenant_id: tenantId,
+                  email: 'a@d.local',
+                  name: 'A',
+                  created_via: 'cli',
+                },
+              });
+            }),
+          );
 
           const rows = (
             await pool.query(
@@ -71,21 +73,23 @@ describe('identity event emit helpers', () => {
 
           const userId = crypto.randomUUID();
           const grantId = crypto.randomUUID();
-          await withEmit({ actor: { userId: 'system', tenantId } }, async () => {
-            await emitIdentityRoleGrantChanged({
-              actor: { type: 'cli', user_id: null },
-              user_id: userId,
-              tenant_id: tenantId,
-              change: 'granted',
-              grant: {
-                grant_id: grantId,
-                role_slug: 'org.admin',
-                scope_kind: 'tenant',
-                scope_id: null,
-                granted_via: 'cli',
-              },
-            });
-          });
+          await maintenance(() =>
+            withEmit({ actor: { userId: 'system', tenantId } }, async () => {
+              await emitIdentityRoleGrantChanged({
+                actor: { type: 'cli', user_id: null },
+                user_id: userId,
+                tenant_id: tenantId,
+                change: 'granted',
+                grant: {
+                  grant_id: grantId,
+                  role_slug: 'org.admin',
+                  scope_kind: 'tenant',
+                  scope_id: null,
+                  granted_via: 'cli',
+                },
+              });
+            }),
+          );
 
           const rows = (
             await pool.query(

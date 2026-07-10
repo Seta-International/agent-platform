@@ -6,7 +6,7 @@ import {
 } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -29,6 +29,11 @@ function buildApp(scope: SessionScope): Hono<SessionEnv> {
     c.set('user', scope);
     await next();
   });
+  // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+  // composition root opens this once the tenant is known, so identityDb() has an
+  // executor context. No appDatabaseUrl here, so the tenant GUC is inert (self-host
+  // fallback) — this just needs to exist for executorPool() to resolve.
+  app.use('*', (_c, next) => scoped(scope.tenant_id, next));
   registerDirectoryRoutes(app);
   app.onError((err, c) => {
     if (err instanceof IdentityError) {
@@ -69,9 +74,11 @@ function withDb(fn: (ctx: { tenant: string }) => Promise<void>): Promise<void> {
 }
 
 const seed = (tenant: string, email: string, name: string) =>
-  createUser(
-    { tenant_id: tenant, email, name, password: 'correct-horse-battery-staple' },
-    { type: 'cli', user_id: null },
+  maintenance(() =>
+    createUser(
+      { tenant_id: tenant, email, name, password: 'correct-horse-battery-staple' },
+      { type: 'cli', user_id: null },
+    ),
   );
 
 describe('directory HTTP route', () => {
@@ -110,8 +117,12 @@ describe('directory HTTP route', () => {
   it('excludes deactivated users from the directory', async () => {
     await withDb(async ({ tenant }) => {
       const { user_id } = await seed(tenant, 'charlie@test.local', 'Charlie Clark');
-      await identityDb().execute(
-        sql`UPDATE identity."user" SET deactivated_at = now() WHERE id = ${user_id}`,
+      // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+      // fallback) — this only opens the executor context identityDb() requires.
+      await scoped(tenant, () =>
+        identityDb().execute(
+          sql`UPDATE identity."user" SET deactivated_at = now() WHERE id = ${user_id}`,
+        ),
       );
       const app = buildApp(session(tenant, ['identity.user.read']));
       const res = await app.request('/api/identity/v1/directory?search=charlie');

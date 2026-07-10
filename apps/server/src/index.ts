@@ -30,6 +30,7 @@ import {
   buildWeeklyPlanRuntime,
   makeAssign,
   makeAvailability,
+  makeGroupMemberSkills,
   makeSkillSearch,
   makeTaskAssignees,
   makeTaskReader,
@@ -124,7 +125,7 @@ const getMailer = (): import('@seta/shared-mailer').Mailer => {
   return mailerRef;
 };
 
-const outboxStore = createOutboxStore({ db: coreDb() });
+const outboxStore = createOutboxStore({ db: coreDb });
 
 // Build the assignment orchestration runtime (specialized agents + DAG) and
 // freeze the kernel registries. apps/server is the only layer allowed to bind
@@ -163,6 +164,7 @@ const assignmentOrchestration = buildAssignmentOrchestrationRuntime({
     userProfileLookup: makeUserProfileLookup(),
     assign: makeAssign(),
     taskAssignees: makeTaskAssignees(),
+    groupMembers: makeGroupMemberSkills(),
   },
 });
 

@@ -95,7 +95,7 @@ describe('m365_plan_links migration', () => {
 describe('createM365PlanLinkRepo', () => {
   it('upsert + findByPlan + findByExternal + setSyncStatus + persistSnapshot + tombstone', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365PlanLinkRepo({ db });
+      const repo = createM365PlanLinkRepo({ db: () => db });
 
       const link = await repo.upsert({
         tenantId: '11111111-1111-1111-1111-111111111111',
@@ -130,7 +130,7 @@ describe('createM365PlanLinkRepo', () => {
 
   it('listByGroup returns multiple links', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365PlanLinkRepo({ db });
+      const repo = createM365PlanLinkRepo({ db: () => db });
 
       const tenantId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
       const groupId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -159,7 +159,7 @@ describe('createM365PlanLinkRepo', () => {
 
   it('re-upsert after tombstone creates a new live row', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365PlanLinkRepo({ db });
+      const repo = createM365PlanLinkRepo({ db: () => db });
 
       const tenantId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
       const groupId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
@@ -195,8 +195,8 @@ describe('createM365PlanLinkRepo', () => {
 describe('createM365ResourceEtagRepo', () => {
   it('upsert + get + listForLink + remove', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const planRepo = createM365PlanLinkRepo({ db });
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const planRepo = createM365PlanLinkRepo({ db: () => db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       const tenantId = '11111111-1111-1111-1111-111111111112';
       const link = await planRepo.upsert({

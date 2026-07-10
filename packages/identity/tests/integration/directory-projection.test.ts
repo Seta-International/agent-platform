@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -30,34 +30,38 @@ describe('directoryProjectionSubscribers', () => {
           `dir-proj-${TENANT.slice(0, 8)}`,
         ]);
 
-        const ev = {
-          eventType: 'people.worker.created',
-          tenantId: TENANT,
-          payload: {
-            worker_id: PERSON,
-            person_id: PERSON,
-            tenant_id: TENANT,
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(TENANT, async () => {
+          const ev = {
+            eventType: 'people.worker.created',
+            tenantId: TENANT,
+            payload: {
+              worker_id: PERSON,
+              person_id: PERSON,
+              tenant_id: TENANT,
+              full_name: 'Mai Tran',
+              work_email: 'mai@acme.test',
+              job_title: 'Engineer',
+            },
+          };
+
+          await dispatch(directoryProjectionSubscribers, ev);
+          await dispatch(directoryProjectionSubscribers, ev); // idempotency replay
+
+          const db = drizzle(pool, { schema });
+          const rows = await db
+            .select()
+            .from(schema.personProjection)
+            .where(eq(schema.personProjection.person_id, PERSON));
+
+          expect(rows).toHaveLength(1);
+          expect(rows[0]).toMatchObject({
             full_name: 'Mai Tran',
             work_email: 'mai@acme.test',
             job_title: 'Engineer',
-          },
-        };
-
-        await dispatch(directoryProjectionSubscribers, ev);
-        await dispatch(directoryProjectionSubscribers, ev); // idempotency replay
-
-        const db = drizzle(pool, { schema });
-        const rows = await db
-          .select()
-          .from(schema.personProjection)
-          .where(eq(schema.personProjection.person_id, PERSON));
-
-        expect(rows).toHaveLength(1);
-        expect(rows[0]).toMatchObject({
-          full_name: 'Mai Tran',
-          work_email: 'mai@acme.test',
-          job_title: 'Engineer',
-          employment_status: 'active',
+            employment_status: 'active',
+          });
         });
       } finally {
         resetIdentityDb();
@@ -80,40 +84,44 @@ describe('directoryProjectionSubscribers', () => {
           `dir-proj2-${TENANT.slice(0, 8)}`,
         ]);
 
-        await dispatch(directoryProjectionSubscribers, {
-          eventType: 'people.worker.created',
-          tenantId: TENANT,
-          payload: {
-            worker_id: PERSON2,
-            person_id: PERSON2,
-            tenant_id: TENANT,
-            full_name: 'Old Name',
-            work_email: null,
-            job_title: null,
-          },
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(TENANT, async () => {
+          await dispatch(directoryProjectionSubscribers, {
+            eventType: 'people.worker.created',
+            tenantId: TENANT,
+            payload: {
+              worker_id: PERSON2,
+              person_id: PERSON2,
+              tenant_id: TENANT,
+              full_name: 'Old Name',
+              work_email: null,
+              job_title: null,
+            },
+          });
+
+          await dispatch(directoryProjectionSubscribers, {
+            eventType: 'people.worker.updated',
+            tenantId: TENANT,
+            payload: {
+              worker_id: PERSON2,
+              person_id: PERSON2,
+              tenant_id: TENANT,
+              fields: ['full_name', 'job_title'],
+              full_name: 'New Name',
+              work_email: null,
+              job_title: 'Senior Engineer',
+            },
+          });
+
+          const db = drizzle(pool, { schema });
+          const [row] = await db
+            .select()
+            .from(schema.personProjection)
+            .where(eq(schema.personProjection.person_id, PERSON2));
+
+          expect(row).toMatchObject({ full_name: 'New Name', job_title: 'Senior Engineer' });
         });
-
-        await dispatch(directoryProjectionSubscribers, {
-          eventType: 'people.worker.updated',
-          tenantId: TENANT,
-          payload: {
-            worker_id: PERSON2,
-            person_id: PERSON2,
-            tenant_id: TENANT,
-            fields: ['full_name', 'job_title'],
-            full_name: 'New Name',
-            work_email: null,
-            job_title: 'Senior Engineer',
-          },
-        });
-
-        const db = drizzle(pool, { schema });
-        const [row] = await db
-          .select()
-          .from(schema.personProjection)
-          .where(eq(schema.personProjection.person_id, PERSON2));
-
-        expect(row).toMatchObject({ full_name: 'New Name', job_title: 'Senior Engineer' });
       } finally {
         resetIdentityDb();
         resetCoreDb();
@@ -135,46 +143,50 @@ describe('directoryProjectionSubscribers', () => {
           `dir-proj3-${TENANT.slice(0, 8)}`,
         ]);
 
-        await dispatch(directoryProjectionSubscribers, {
-          eventType: 'people.worker.created',
-          tenantId: TENANT,
-          payload: {
-            worker_id: PERSON3,
-            person_id: PERSON3,
-            tenant_id: TENANT,
-            full_name: 'Bob Jones',
-            work_email: null,
-            job_title: null,
-          },
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(TENANT, async () => {
+          await dispatch(directoryProjectionSubscribers, {
+            eventType: 'people.worker.created',
+            tenantId: TENANT,
+            payload: {
+              worker_id: PERSON3,
+              person_id: PERSON3,
+              tenant_id: TENANT,
+              full_name: 'Bob Jones',
+              work_email: null,
+              job_title: null,
+            },
+          });
+
+          const base = {
+            tenantId: TENANT,
+            payload: { worker_id: PERSON3, person_id: PERSON3, tenant_id: TENANT },
+          };
+
+          await dispatch(directoryProjectionSubscribers, {
+            ...base,
+            eventType: 'people.worker.terminated',
+          });
+
+          const db = drizzle(pool, { schema });
+          let [row] = await db
+            .select()
+            .from(schema.personProjection)
+            .where(eq(schema.personProjection.person_id, PERSON3));
+          expect(row?.employment_status).toBe('terminated');
+
+          await dispatch(directoryProjectionSubscribers, {
+            ...base,
+            eventType: 'people.worker.reinstated',
+          });
+
+          [row] = await db
+            .select()
+            .from(schema.personProjection)
+            .where(eq(schema.personProjection.person_id, PERSON3));
+          expect(row?.employment_status).toBe('active');
         });
-
-        const base = {
-          tenantId: TENANT,
-          payload: { worker_id: PERSON3, person_id: PERSON3, tenant_id: TENANT },
-        };
-
-        await dispatch(directoryProjectionSubscribers, {
-          ...base,
-          eventType: 'people.worker.terminated',
-        });
-
-        const db = drizzle(pool, { schema });
-        let [row] = await db
-          .select()
-          .from(schema.personProjection)
-          .where(eq(schema.personProjection.person_id, PERSON3));
-        expect(row?.employment_status).toBe('terminated');
-
-        await dispatch(directoryProjectionSubscribers, {
-          ...base,
-          eventType: 'people.worker.reinstated',
-        });
-
-        [row] = await db
-          .select()
-          .from(schema.personProjection)
-          .where(eq(schema.personProjection.person_id, PERSON3));
-        expect(row?.employment_status).toBe('active');
       } finally {
         resetIdentityDb();
         resetCoreDb();

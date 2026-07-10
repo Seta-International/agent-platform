@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations, type SessionScope } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -24,16 +24,20 @@ function withDb(
       resetCoreDb();
       initPools({ databaseUrl });
       try {
-        const reg = createContributionRegistry();
-        registerCoreContributions(reg);
-        registerIdentityContributions(reg);
-        await runMigrations(reg, { pool });
-        const tenant = crypto.randomUUID();
-        await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', $2)`, [
-          tenant,
-          `demo-${tenant.slice(0, 8)}`,
-        ]);
-        await fn({ tenant, pool });
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const reg = createContributionRegistry();
+          registerCoreContributions(reg);
+          registerIdentityContributions(reg);
+          await runMigrations(reg, { pool });
+          const tenant = crypto.randomUUID();
+          await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', $2)`, [
+            tenant,
+            `demo-${tenant.slice(0, 8)}`,
+          ]);
+          await fn({ tenant, pool });
+        });
       } finally {
         resetCoreDb();
         await closePools();

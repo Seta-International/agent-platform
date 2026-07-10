@@ -37,7 +37,7 @@ const EMPTY_LOCAL_STATE = {
 describe('runPlanPull — throttle / 429 error path', () => {
   it('marks plan sync status error and rethrows when Graph throws a 429', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const groupLinkRepo = createM365GroupLinkRepo({ db });
+      const groupLinkRepo = createM365GroupLinkRepo({ db: () => db });
       await groupLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -45,7 +45,7 @@ describe('runPlanPull — throttle / 429 error path', () => {
         lastSyncedFields: {},
       });
 
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
       await planLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -54,7 +54,7 @@ describe('runPlanPull — throttle / 429 error path', () => {
         initialSnapshot: {},
       });
 
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       // Build a stub graph whose getPlan throws a 429-like error (simulating the Graph SDK
       // exhausting its built-in RetryHandler retries and surfacing the error to the caller).
@@ -88,7 +88,7 @@ describe('runPlanPull — throttle / 429 error path', () => {
 
   it('marks status error for any other throw (non-429)', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const groupLinkRepo = createM365GroupLinkRepo({ db });
+      const groupLinkRepo = createM365GroupLinkRepo({ db: () => db });
       await groupLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -96,7 +96,7 @@ describe('runPlanPull — throttle / 429 error path', () => {
         lastSyncedFields: {},
       });
 
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
       await planLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -105,7 +105,7 @@ describe('runPlanPull — throttle / 429 error path', () => {
         initialSnapshot: {},
       });
 
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       const genericError = new Error('boom');
       const { graph: baseGraph } = buildStubGraph(MINIMAL_FIXTURE as Record<string, unknown>);

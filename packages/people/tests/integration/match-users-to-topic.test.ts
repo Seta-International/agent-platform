@@ -8,7 +8,7 @@
  */
 import { PgVector } from '@mastra/pg';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
@@ -107,82 +107,90 @@ describe('matchUsersToTopic (People)', () => {
   it('returns ranked hits for a matching topic and hydrates display fields from worker', async () => {
     await withDb(async ({ pool, pgVector, provider }) => {
       const tenant_id = await seedTenant(pool);
-      const { user_id } = await seedWorkerAndEmbed(pgVector, provider, {
-        tenant_id,
-        full_name: 'Ada Lovelace',
-        work_email: 'ada@example.test',
-        skills: ['typescript', 'postgres'],
+      await scoped(tenant_id, async () => {
+        const { user_id } = await seedWorkerAndEmbed(pgVector, provider, {
+          tenant_id,
+          full_name: 'Ada Lovelace',
+          work_email: 'ada@example.test',
+          skills: ['typescript', 'postgres'],
+        });
+
+        const hits = await matchUsersToTopic(
+          { topic: 'typescript, postgres', tenant_id, limit: 10, minScore: 0 },
+          { provider, pgVector },
+        );
+
+        expect(hits.length).toBeGreaterThanOrEqual(1);
+        const top = hits[0]!;
+        expect(top.rank).toBe(1);
+        expect(top.item.user_id).toBe(user_id);
+        // Display fields come from the worker join, not vector metadata.
+        expect(top.item.display_name).toBe('Ada Lovelace');
+        expect(top.item.email).toBe('ada@example.test');
+        expect(top.item.skills).toEqual(['typescript', 'postgres']);
       });
-
-      const hits = await matchUsersToTopic(
-        { topic: 'typescript, postgres', tenant_id, limit: 10, minScore: 0 },
-        { provider, pgVector },
-      );
-
-      expect(hits.length).toBeGreaterThanOrEqual(1);
-      const top = hits[0]!;
-      expect(top.rank).toBe(1);
-      expect(top.item.user_id).toBe(user_id);
-      // Display fields come from the worker join, not vector metadata.
-      expect(top.item.display_name).toBe('Ada Lovelace');
-      expect(top.item.email).toBe('ada@example.test');
-      expect(top.item.skills).toEqual(['typescript', 'postgres']);
     });
   });
 
   it('respects the minScore threshold', async () => {
     await withDb(async ({ pool, pgVector, provider }) => {
       const tenant_id = await seedTenant(pool);
-      await seedWorkerAndEmbed(pgVector, provider, {
-        tenant_id,
-        full_name: 'Grace Hopper',
-        work_email: 'grace@example.test',
-        skills: ['cobol'],
+      await scoped(tenant_id, async () => {
+        await seedWorkerAndEmbed(pgVector, provider, {
+          tenant_id,
+          full_name: 'Grace Hopper',
+          work_email: 'grace@example.test',
+          skills: ['cobol'],
+        });
+
+        // An impossibly high threshold filters everything out.
+        const none = await matchUsersToTopic(
+          { topic: 'quantum chromodynamics', tenant_id, limit: 10, minScore: 0.999999 },
+          { provider, pgVector },
+        );
+        expect(none).toEqual([]);
+
+        // A permissive threshold returns the seeded worker.
+        const some = await matchUsersToTopic(
+          { topic: 'cobol', tenant_id, limit: 10, minScore: 0 },
+          { provider, pgVector },
+        );
+        expect(some.length).toBeGreaterThanOrEqual(1);
       });
-
-      // An impossibly high threshold filters everything out.
-      const none = await matchUsersToTopic(
-        { topic: 'quantum chromodynamics', tenant_id, limit: 10, minScore: 0.999999 },
-        { provider, pgVector },
-      );
-      expect(none).toEqual([]);
-
-      // A permissive threshold returns the seeded worker.
-      const some = await matchUsersToTopic(
-        { topic: 'cobol', tenant_id, limit: 10, minScore: 0 },
-        { provider, pgVector },
-      );
-      expect(some.length).toBeGreaterThanOrEqual(1);
     });
   });
 
   it('returns empty array when no embeddings exist for the tenant', async () => {
     await withDb(async ({ pool, pgVector, provider }) => {
       const tenant_id = await seedTenant(pool);
-      const hits = await matchUsersToTopic(
-        { topic: 'anything', tenant_id, limit: 10, minScore: 0 },
-        { provider, pgVector },
-      );
-      expect(hits).toEqual([]);
+      await scoped(tenant_id, async () => {
+        const hits = await matchUsersToTopic(
+          { topic: 'anything', tenant_id, limit: 10, minScore: 0 },
+          { provider, pgVector },
+        );
+        expect(hits).toEqual([]);
+      });
     });
   });
 
   it('drops hits whose person has no linked user account (cannot be assigned)', async () => {
     await withDb(async ({ pool, pgVector, provider }) => {
       const tenant_id = await seedTenant(pool);
-      await seedWorkerAndEmbed(pgVector, provider, {
-        tenant_id,
-        full_name: 'No User Worker',
-        work_email: 'nouser@example.test',
-        skills: ['rust'],
-        user_id: null,
-      });
+      await scoped(tenant_id, async () => {
+        await seedWorkerAndEmbed(pgVector, provider, {
+          tenant_id,
+          full_name: 'No User Worker',
+          work_email: 'nouser@example.test',
+          skills: ['rust'],
+          user_id: null,
+        });
 
-      const hits = await matchUsersToTopic(
-        { topic: 'rust', tenant_id, limit: 10, minScore: 0 },
-        { provider, pgVector },
-      );
-      expect(hits).toEqual([]);
+        const hits = await matchUsersToTopic(
+          { topic: 'rust', tenant_id, limit: 10, minScore: 0 },
+          { provider, pgVector },
+        );
+        expect(hits).toEqual([]);
+      });
     });
   });
 });

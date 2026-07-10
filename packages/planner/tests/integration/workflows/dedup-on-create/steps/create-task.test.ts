@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -20,34 +20,42 @@ describe('createTaskStep', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const session = seeded.adminSession;
-          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const session = seeded.adminSession;
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Eng',
+              session,
+            });
+            const plan = await createPlan({ group_id: group.id, name: 'Sprint 1', session });
 
-          const out = await createTaskStep({
-            draft: {
-              title: 'New task',
-              description: 'desc',
-              labels: ['a'],
-              plan_id: plan.id,
-            },
-            session,
-          });
+            const out = await createTaskStep({
+              draft: {
+                title: 'New task',
+                description: 'desc',
+                labels: ['a'],
+                plan_id: plan.id,
+              },
+              session,
+            });
 
-          expect(out.taskId).toMatch(/^[0-9a-f-]{36}$/);
-          const [row] = await plannerDb().select().from(tasks).where(eq(tasks.id, out.taskId));
-          expect(row?.title).toBe('New task');
-          expect(row?.tenant_id).toBe(seeded.tenant_id);
+            expect(out.taskId).toMatch(/^[0-9a-f-]{36}$/);
+            const [row] = await plannerDb().select().from(tasks).where(eq(tasks.id, out.taskId));
+            expect(row?.title).toBe('New task');
+            expect(row?.tenant_id).toBe(seeded.tenant_id);
 
-          // Verify label 'a' was applied to the task via the labels join tables
-          const labelRows = await pool.query<{ name: string }>(
-            `SELECT l.name
+            // Verify label 'a' was applied to the task via the labels join tables
+            const labelRows = await pool.query<{ name: string }>(
+              `SELECT l.name
                FROM planner.task_labels tl
                JOIN planner.labels l ON l.id = tl.label_id
                WHERE tl.task_id = $1`,
-            [out.taskId],
-          );
-          expect(labelRows.rows.map((r) => r.name)).toContain('a');
+              [out.taskId],
+            );
+            expect(labelRows.rows.map((r) => r.name)).toContain('a');
+          });
         } finally {
           resetCoreDb();
           await closePools();

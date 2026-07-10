@@ -29,7 +29,7 @@ describe('RunStepPayloadSchema', () => {
       runId: 'r1',
       orchestrationId: 'o1',
       stepIndex: 0,
-      tenantId: 't1',
+      tenant_id: 't1',
       actorUserId: 'u1',
     });
     expect(p.stepIndex).toBe(0);
@@ -41,7 +41,7 @@ describe('RunStepPayloadSchema', () => {
         runId: 'r1',
         orchestrationId: 'o1',
         stepIndex: -1,
-        tenantId: 't1',
+        tenant_id: 't1',
         actorUserId: 'u1',
       }),
     ).toThrow();

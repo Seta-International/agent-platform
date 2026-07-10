@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -20,18 +20,22 @@ describe('syncLoginIdentity', () => {
       resetIdentityDb();
       initPools({ databaseUrl });
       try {
-        const tenantId = await seedTenantRaw(pool);
-        const { user_id } = await provisionLogin(
-          { tenant_id: tenantId, email: 'old@corp.test', name: 'Old Name' },
-          { type: 'system', user_id: null },
-        );
-        await syncLoginIdentity(
-          { user_id, email: 'new@corp.test', name: 'New Name' },
-          { type: 'system', user_id: null },
-        );
-        const [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
-        expect(u?.email).toBe('new@corp.test');
-        expect(u?.name).toBe('New Name');
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context identityDb() requires.
+        await scoped(crypto.randomUUID(), async () => {
+          const tenantId = await seedTenantRaw(pool);
+          const { user_id } = await provisionLogin(
+            { tenant_id: tenantId, email: 'old@corp.test', name: 'Old Name' },
+            { type: 'system', user_id: null },
+          );
+          await syncLoginIdentity(
+            { user_id, email: 'new@corp.test', name: 'New Name' },
+            { type: 'system', user_id: null },
+          );
+          const [u] = await identityDb().select().from(user).where(eq(user.id, user_id));
+          expect(u?.email).toBe('new@corp.test');
+          expect(u?.name).toBe('New Name');
+        });
       } finally {
         resetIdentityDb();
         resetCoreDb();

@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, maintenance, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createUser } from '../../../src/backend/domain/create-user.ts';
@@ -22,9 +22,11 @@ describe('updateUserProfile', () => {
     await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Demo', 'demo')`, [
       tenantId,
     ]);
-    const { user_id } = await createUser(
-      { tenant_id: tenantId, email: 'a@d.local', name: 'A', password: 'ChangeMe@2026' },
-      { type: 'cli', user_id: null },
+    const { user_id } = await maintenance(() =>
+      createUser(
+        { tenant_id: tenantId, email: 'a@d.local', name: 'A', password: 'ChangeMe@2026' },
+        { type: 'cli', user_id: null },
+      ),
     );
     return { tenantId, userId: user_id };
   }
@@ -37,24 +39,28 @@ describe('updateUserProfile', () => {
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
-        const { userId } = await setup(pool, databaseUrl);
+        const { tenantId, userId } = await setup(pool, databaseUrl);
         try {
-          const result = await updateUserProfile(
-            userId,
-            { display_name: 'A2' },
-            { type: 'user', user_id: userId },
-          );
-          expect(result.display_name).toBe('A2');
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            const result = await updateUserProfile(
+              userId,
+              { display_name: 'A2' },
+              { type: 'user', user_id: userId },
+            );
+            expect(result.display_name).toBe('A2');
 
-          const event = (
-            await pool.query(
-              `SELECT payload FROM core.events WHERE event_type = 'identity.user.profile.updated'`,
-            )
-          ).rows[0] as {
-            payload: { before: Record<string, unknown>; after: Record<string, unknown> };
-          };
-          expect(event.payload.before).toEqual({ display_name: 'A' });
-          expect(event.payload.after).toEqual({ display_name: 'A2' });
+            const event = (
+              await pool.query(
+                `SELECT payload FROM core.events WHERE event_type = 'identity.user.profile.updated'`,
+              )
+            ).rows[0] as {
+              payload: { before: Record<string, unknown>; after: Record<string, unknown> };
+            };
+            expect(event.payload.before).toEqual({ display_name: 'A' });
+            expect(event.payload.after).toEqual({ display_name: 'A2' });
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -82,50 +88,64 @@ describe('updateUserProfile', () => {
             tenantId,
             `t-${tenantId.slice(0, 8)}`,
           ]);
-          const { user_id: adminId } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'admin@t.local',
-              name: 'Admin',
-              password: 'admin-password-1234',
-              initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-            },
-            { type: 'cli', user_id: null },
-          );
-          const { user_id: viewerId } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'viewer@t.local',
-              name: 'Viewer',
-              password: 'viewer-password-1234',
-              initial_role: { role_slug: 'identity.viewer', scope_type: 'tenant', scope_id: null },
-            },
-            { type: 'cli', user_id: null },
-          );
-          const { user_id: subjectId } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 's@t.local',
-              name: 'S',
-              password: 'subject-password-1234',
-            },
-            { type: 'cli', user_id: null },
-          );
-
-          const result = await updateUserProfile(
-            subjectId,
-            { display_name: 'S Renamed' },
-            { type: 'user', user_id: adminId },
-          );
-          expect(result.display_name).toBe('S Renamed');
-
-          await expect(
-            updateUserProfile(
-              subjectId,
-              { display_name: 'Nope' },
-              { type: 'user', user_id: viewerId },
+          const { user_id: adminId } = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'admin@t.local',
+                name: 'Admin',
+                password: 'admin-password-1234',
+                initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+              },
+              { type: 'cli', user_id: null },
             ),
-          ).rejects.toThrow();
+          );
+          const { user_id: viewerId } = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 'viewer@t.local',
+                name: 'Viewer',
+                password: 'viewer-password-1234',
+                initial_role: {
+                  role_slug: 'identity.viewer',
+                  scope_type: 'tenant',
+                  scope_id: null,
+                },
+              },
+              { type: 'cli', user_id: null },
+            ),
+          );
+          const { user_id: subjectId } = await maintenance(() =>
+            createUser(
+              {
+                tenant_id: tenantId,
+                email: 's@t.local',
+                name: 'S',
+                password: 'subject-password-1234',
+              },
+              { type: 'cli', user_id: null },
+            ),
+          );
+
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            const result = await updateUserProfile(
+              subjectId,
+              { display_name: 'S Renamed' },
+              { type: 'user', user_id: adminId },
+            );
+            expect(result.display_name).toBe('S Renamed');
+
+            await expect(
+              updateUserProfile(
+                subjectId,
+                { display_name: 'Nope' },
+                { type: 'user', user_id: viewerId },
+              ),
+            ).rejects.toThrow();
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -142,15 +162,23 @@ describe('updateUserProfile', () => {
       },
       async ({ pool, databaseUrl }) => {
         resetCoreDb();
-        const { userId } = await setup(pool, databaseUrl);
+        const { tenantId, userId } = await setup(pool, databaseUrl);
         try {
-          await updateUserProfile(userId, { display_name: 'A' }, { type: 'user', user_id: userId });
-          const count = (
-            await pool.query(
-              `SELECT count(*)::int AS n FROM core.events WHERE event_type = 'identity.user.profile.updated'`,
-            )
-          ).rows[0] as { n: number };
-          expect(count.n).toBe(0);
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            await updateUserProfile(
+              userId,
+              { display_name: 'A' },
+              { type: 'user', user_id: userId },
+            );
+            const count = (
+              await pool.query(
+                `SELECT count(*)::int AS n FROM core.events WHERE event_type = 'identity.user.profile.updated'`,
+              )
+            ).rows[0] as { n: number };
+            expect(count.n).toBe(0);
+          });
         } finally {
           resetCoreDb();
           await closePools();

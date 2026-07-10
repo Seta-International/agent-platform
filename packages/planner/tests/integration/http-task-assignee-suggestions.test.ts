@@ -2,7 +2,7 @@ import { PgVector } from '@mastra/pg';
 import { AgentRegistry, type CrossModuleReadToolSpec } from '@seta/agent-sdk';
 import type { SessionEnv } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { NoopReranker } from '@seta/shared-retrieval';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
@@ -89,22 +89,33 @@ describe('GET /api/planner/v1/tasks/:id/assignee-suggestions', () => {
           c.set('user', session);
           await next();
         });
+        // Mirrors apps/server/src/build.ts's per-request scoped() binding: the real
+        // composition root opens this once the tenant is known, so plannerDb() has an
+        // executor context. No appDatabaseUrl here, so the tenant GUC is inert (self-host
+        // fallback) — this just needs to exist for executorPool() to resolve.
+        app.use('*', (_c, next) => scoped(session.tenant_id, next));
         registerPlannerTasksRoutes(app);
 
-        const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-        const plan = await createPlan({ group_id: group.id, name: 'Sprint', session });
-        const task = await createTask({
-          plan_id: plan.id,
-          title: 'Fix login',
-          description: 'OAuth flow broken',
-          session,
-        });
-        await applyLabels(pool, {
-          tenant_id: seeded.tenant_id,
-          plan_id: plan.id,
-          task_id: task.id,
-          applied_by: seeded.admin.user_id,
-          names: ['react'],
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires
+        // for these direct (non-HTTP) domain calls.
+        const task = await scoped(seeded.tenant_id, async () => {
+          const group = await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
+          const plan = await createPlan({ group_id: group.id, name: 'Sprint', session });
+          const task = await createTask({
+            plan_id: plan.id,
+            title: 'Fix login',
+            description: 'OAuth flow broken',
+            session,
+          });
+          await applyLabels(pool, {
+            tenant_id: seeded.tenant_id,
+            plan_id: plan.id,
+            task_id: task.id,
+            applied_by: seeded.admin.user_id,
+            names: ['react'],
+          });
+          return task;
         });
 
         // The group creator (admin) is auto-added as owner by createGroup;

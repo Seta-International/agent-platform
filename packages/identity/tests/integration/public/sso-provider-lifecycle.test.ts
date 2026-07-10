@@ -1,6 +1,6 @@
 import { getTenantEmailDomains } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { _resetGraphCacheForTest } from '../../../src/backend/sso/graph.ts';
@@ -62,71 +62,75 @@ describe('@seta/identity SSO provider lifecycle', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const tenantId = crypto.randomUUID();
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme', 'acme')`,
-            [tenantId],
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const tenantId = crypto.randomUUID();
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme', 'acme')`,
+              [tenantId],
+            );
 
-          // Integrations owns the Entra linkage; seed the column as the projection would, so
-          // registerSsoProvider's domain verification (via setTenantEmailDomains) runs.
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+            // Integrations owns the Entra linkage; seed the column as the projection would, so
+            // registerSsoProvider's domain verification (via setTenantEmailDomains) runs.
+            await pool.query(
+              `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
              VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
-            [tenantId, ENTRA_TID],
-          );
-          mockGraphHappy(fetchMock);
-          await registerSsoProvider(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email_domains: ['acme.com', 'acme.co.uk'],
-            },
-            CLI_ACTOR,
-          );
+              [tenantId, ENTRA_TID],
+            );
+            mockGraphHappy(fetchMock);
+            await registerSsoProvider(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email_domains: ['acme.com', 'acme.co.uk'],
+              },
+              CLI_ACTOR,
+            );
 
-          await recordSsoConsent(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              granted_by_oid: 'oid-admin',
-              granted_by_email: 'admin@acme.com',
-            },
-            CLI_ACTOR,
-          );
+            await recordSsoConsent(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                granted_by_oid: 'oid-admin',
+                granted_by_email: 'admin@acme.com',
+              },
+              CLI_ACTOR,
+            );
 
-          await enableSsoProvider(
-            { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
-            CLI_ACTOR,
-          );
-          await disableSsoProvider(
-            { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
-            CLI_ACTOR,
-          );
-          await disconnectSsoProvider(
-            { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
-            CLI_ACTOR,
-          );
+            await enableSsoProvider(
+              { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
+              CLI_ACTOR,
+            );
+            await disableSsoProvider(
+              { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
+              CLI_ACTOR,
+            );
+            await disconnectSsoProvider(
+              { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
+              CLI_ACTOR,
+            );
 
-          // All 5 events in order
-          const { rows: events } = await pool.query<{ event_type: string }>(
-            `SELECT event_type FROM core.events WHERE tenant_id = $1 ORDER BY occurred_at, id`,
-            [tenantId],
-          );
-          expect(events.map((e) => e.event_type)).toEqual([
-            // register now persists domains to core.tenants via setTenantEmailDomains,
-            // which emits core.tenant.email_domains.changed right after the registered event.
-            'identity.sso_provider.registered',
-            'core.tenant.email_domains.changed',
-            'identity.sso_provider.consent_granted',
-            'identity.sso_provider.enabled',
-            'identity.sso_provider.disabled',
-            'identity.sso_provider.disconnected',
-          ]);
+            // All 5 events in order
+            const { rows: events } = await pool.query<{ event_type: string }>(
+              `SELECT event_type FROM core.events WHERE tenant_id = $1 ORDER BY occurred_at, id`,
+              [tenantId],
+            );
+            expect(events.map((e) => e.event_type)).toEqual([
+              // register now persists domains to core.tenants via setTenantEmailDomains,
+              // which emits core.tenant.email_domains.changed right after the registered event.
+              'identity.sso_provider.registered',
+              'core.tenant.email_domains.changed',
+              'identity.sso_provider.consent_granted',
+              'identity.sso_provider.enabled',
+              'identity.sso_provider.disabled',
+              'identity.sso_provider.disconnected',
+            ]);
 
-          // listSsoProviders returns empty after disconnect
-          const providers = await listSsoProviders(tenantId);
-          expect(providers).toHaveLength(0);
+            // listSsoProviders returns empty after disconnect
+            const providers = await listSsoProviders(tenantId);
+            expect(providers).toHaveLength(0);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -145,32 +149,36 @@ describe('@seta/identity SSO provider lifecycle', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const tenantId = crypto.randomUUID();
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'NoDomains', 'no-domains')`,
-            [tenantId],
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const tenantId = crypto.randomUUID();
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'NoDomains', 'no-domains')`,
+              [tenantId],
+            );
 
-          // No Graph calls expected: an empty domain list skips Entra verification.
-          const row = await registerSsoProvider(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email_domains: [],
-            },
-            CLI_ACTOR,
-          );
+            // No Graph calls expected: an empty domain list skips Entra verification.
+            const row = await registerSsoProvider(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email_domains: [],
+              },
+              CLI_ACTOR,
+            );
 
-          expect(row.provider_id).toBe('microsoft-entra-id');
-          expect(row.enabled).toBe(false);
+            expect(row.provider_id).toBe('microsoft-entra-id');
+            expect(row.enabled).toBe(false);
 
-          const providers = await listSsoProviders(tenantId);
-          expect(providers).toHaveLength(1);
+            const providers = await listSsoProviders(tenantId);
+            expect(providers).toHaveLength(1);
 
-          const domains = await getTenantEmailDomains(tenantId);
-          expect(domains).toEqual([]);
+            const domains = await getTenantEmailDomains(tenantId);
+            expect(domains).toEqual([]);
 
-          expect(fetchMock).not.toHaveBeenCalled();
+            expect(fetchMock).not.toHaveBeenCalled();
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -189,47 +197,51 @@ describe('@seta/identity SSO provider lifecycle', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const tenantId = crypto.randomUUID();
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme2', 'acme2')`,
-            [tenantId],
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const tenantId = crypto.randomUUID();
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme2', 'acme2')`,
+              [tenantId],
+            );
 
-          // Seed the Entra linkage (owned by integrations) so domain verification runs.
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+            // Seed the Entra linkage (owned by integrations) so domain verification runs.
+            await pool.query(
+              `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
              VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
-            [tenantId, ENTRA_TID],
-          );
+              [tenantId, ENTRA_TID],
+            );
 
-          // Mock token
-          fetchMock.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({ access_token: 'tkn-test', expires_in: 3600 }),
-          } as Response);
-          // Domains — only acme.com is verified, not evil.com
-          fetchMock.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({
-              value: [
-                { id: 'acme.com', isVerified: true },
-                { id: 'evil.com', isVerified: false },
-              ],
-            }),
-          } as Response);
+            // Mock token
+            fetchMock.mockResolvedValueOnce({
+              ok: true,
+              json: async () => ({ access_token: 'tkn-test', expires_in: 3600 }),
+            } as Response);
+            // Domains — only acme.com is verified, not evil.com
+            fetchMock.mockResolvedValueOnce({
+              ok: true,
+              json: async () => ({
+                value: [
+                  { id: 'acme.com', isVerified: true },
+                  { id: 'evil.com', isVerified: false },
+                ],
+              }),
+            } as Response);
 
-          await expect(
-            registerSsoProvider(
-              {
-                tenant_id: tenantId,
-                provider_id: 'microsoft-entra-id',
-                email_domains: ['evil.com'],
-              },
-              CLI_ACTOR,
-            ),
-          ).rejects.toSatisfy(
-            (e: unknown) => e instanceof IdentityError && e.code === 'DOMAIN_NOT_VERIFIED',
-          );
+            await expect(
+              registerSsoProvider(
+                {
+                  tenant_id: tenantId,
+                  provider_id: 'microsoft-entra-id',
+                  email_domains: ['evil.com'],
+                },
+                CLI_ACTOR,
+              ),
+            ).rejects.toSatisfy(
+              (e: unknown) => e instanceof IdentityError && e.code === 'DOMAIN_NOT_VERIFIED',
+            );
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -248,28 +260,32 @@ describe('@seta/identity SSO provider lifecycle', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const tenantA = crypto.randomUUID();
-          const tenantB = crypto.randomUUID();
-          // tenantA already claims acme.com on core.tenants (where email_domains now live).
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug, email_domains) VALUES ($1, 'TenantA', 'tenant-a', $3), ($2, 'TenantB', 'tenant-b', '{}')`,
-            [tenantA, tenantB, ['acme.com']],
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const tenantA = crypto.randomUUID();
+            const tenantB = crypto.randomUUID();
+            // tenantA already claims acme.com on core.tenants (where email_domains now live).
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug, email_domains) VALUES ($1, 'TenantA', 'tenant-a', $3), ($2, 'TenantB', 'tenant-b', '{}')`,
+              [tenantA, tenantB, ['acme.com']],
+            );
 
-          // tenantB tries to register with acme.com
-          mockGraphHappy(fetchMock);
-          await expect(
-            registerSsoProvider(
-              {
-                tenant_id: tenantB,
-                provider_id: 'microsoft-entra-id',
-                email_domains: ['acme.com'],
-              },
-              CLI_ACTOR,
-            ),
-          ).rejects.toSatisfy(
-            (e: unknown) => e instanceof IdentityError && e.code === 'DOMAIN_TAKEN',
-          );
+            // tenantB tries to register with acme.com
+            mockGraphHappy(fetchMock);
+            await expect(
+              registerSsoProvider(
+                {
+                  tenant_id: tenantB,
+                  provider_id: 'microsoft-entra-id',
+                  email_domains: ['acme.com'],
+                },
+                CLI_ACTOR,
+              ),
+            ).rejects.toSatisfy(
+              (e: unknown) => e instanceof IdentityError && e.code === 'DOMAIN_TAKEN',
+            );
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -288,37 +304,41 @@ describe('@seta/identity SSO provider lifecycle', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const tenantId = crypto.randomUUID();
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'NoConsent', 'no-consent')`,
-            [tenantId],
-          );
-          // Seed the Entra linkage (owned by integrations) so registering domains passes
-          // the fail-closed verification guard and we reach the consent check.
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const tenantId = crypto.randomUUID();
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'NoConsent', 'no-consent')`,
+              [tenantId],
+            );
+            // Seed the Entra linkage (owned by integrations) so registering domains passes
+            // the fail-closed verification guard and we reach the consent check.
+            await pool.query(
+              `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
              VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
-            [tenantId, ENTRA_TID],
-          );
+              [tenantId, ENTRA_TID],
+            );
 
-          mockGraphHappy(fetchMock);
-          await registerSsoProvider(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email_domains: ['acme.com'],
-            },
-            CLI_ACTOR,
-          );
-
-          await expect(
-            enableSsoProvider(
-              { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
+            mockGraphHappy(fetchMock);
+            await registerSsoProvider(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email_domains: ['acme.com'],
+              },
               CLI_ACTOR,
-            ),
-          ).rejects.toSatisfy(
-            (e: unknown) => e instanceof IdentityError && e.code === 'CONSENT_NOT_GRANTED',
-          );
+            );
+
+            await expect(
+              enableSsoProvider(
+                { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
+                CLI_ACTOR,
+              ),
+            ).rejects.toSatisfy(
+              (e: unknown) => e instanceof IdentityError && e.code === 'CONSENT_NOT_GRANTED',
+            );
+          });
         } finally {
           resetCoreDb();
           await closePools();

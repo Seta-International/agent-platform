@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { syncSsoConsentFromGraph } from '../../../src/backend/domain/sync-sso-consent.ts';
@@ -43,65 +43,62 @@ describe('syncSsoConsentFromGraph', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const tenantId = crypto.randomUUID();
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme', 'acme')`,
-            [tenantId],
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const tenantId = crypto.randomUUID();
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Acme', 'acme')`,
+              [tenantId],
+            );
 
-          // Integrations owns the Entra linkage; seed the column as the projection would, so
-          // registerSsoProvider's domain verification (via setTenantEmailDomains) runs.
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+            // Integrations owns the Entra linkage; seed the column as the projection would, so
+            // registerSsoProvider's domain verification (via setTenantEmailDomains) runs.
+            await pool.query(
+              `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
              VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
-            [tenantId, ENTRA_TID],
-          );
+              [tenantId, ENTRA_TID],
+            );
 
-          // Registration itself calls Graph once to verify domains.
-          mockGraphToken(fetchMock);
-          fetchMock.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({ value: [{ id: 'acme.com', isVerified: true }] }),
-          } as Response);
-          // Seed the Entra tenant linkage the way the entra-linkage subscriber (owned by
-          // integrations) would have already projected it before an admin registers domains.
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
-             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
-            [tenantId, ENTRA_TID],
-          );
-          await registerSsoProvider(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email_domains: ['acme.com'],
-            },
-            CLI_ACTOR,
-          );
+            // Registration itself calls Graph once to verify domains.
+            mockGraphToken(fetchMock);
+            fetchMock.mockResolvedValueOnce({
+              ok: true,
+              json: async () => ({ value: [{ id: 'acme.com', isVerified: true }] }),
+            } as Response);
+            await registerSsoProvider(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email_domains: ['acme.com'],
+              },
+              CLI_ACTOR,
+            );
 
-          // Consent was granted directly in the Entra admin center, so the app-only Graph
-          // call now succeeds even though recordSsoConsent was never called. The app token
-          // from registration is still cached (same Entra tenant), so only the domains
-          // response needs queuing here.
-          fetchMock.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({ value: [{ id: 'acme.com', isVerified: true }] }),
-          } as Response);
+            // Consent was granted directly in the Entra admin center, so the app-only Graph
+            // call now succeeds even though recordSsoConsent was never called. The app token
+            // from registration is still cached (same Entra tenant), so only the domains
+            // response needs queuing here.
+            fetchMock.mockResolvedValueOnce({
+              ok: true,
+              json: async () => ({ value: [{ id: 'acme.com', isVerified: true }] }),
+            } as Response);
 
-          const row = await syncSsoConsentFromGraph(
-            { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
-            CLI_ACTOR,
-          );
+            const row = await syncSsoConsentFromGraph(
+              { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
+              CLI_ACTOR,
+            );
 
-          expect(row.config.consent_granted_at).not.toBeNull();
+            expect(row.config.consent_granted_at).not.toBeNull();
 
-          const { rows: events } = await pool.query<{ event_type: string }>(
-            `SELECT event_type FROM core.events WHERE tenant_id = $1 ORDER BY occurred_at, id`,
-            [tenantId],
-          );
-          expect(events.map((e) => e.event_type)).toContain(
-            'identity.sso_provider.consent_granted',
-          );
+            const { rows: events } = await pool.query<{ event_type: string }>(
+              `SELECT event_type FROM core.events WHERE tenant_id = $1 ORDER BY occurred_at, id`,
+              [tenantId],
+            );
+            expect(events.map((e) => e.event_type)).toContain(
+              'identity.sso_provider.consent_granted',
+            );
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -120,53 +117,50 @@ describe('syncSsoConsentFromGraph', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const tenantId = crypto.randomUUID();
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'NoConsent', 'no-consent')`,
-            [tenantId],
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const tenantId = crypto.randomUUID();
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'NoConsent', 'no-consent')`,
+              [tenantId],
+            );
 
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+            await pool.query(
+              `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
              VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
-            [tenantId, ENTRA_TID],
-          );
+              [tenantId, ENTRA_TID],
+            );
 
-          mockGraphToken(fetchMock);
-          fetchMock.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({ value: [{ id: 'acme.com', isVerified: true }] }),
-          } as Response);
-          // Seed the Entra tenant linkage the way the entra-linkage subscriber (owned by
-          // integrations) would have already projected it before an admin registers domains.
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
-             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
-            [tenantId, ENTRA_TID],
-          );
-          await registerSsoProvider(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email_domains: ['acme.com'],
-            },
-            CLI_ACTOR,
-          );
+            mockGraphToken(fetchMock);
+            fetchMock.mockResolvedValueOnce({
+              ok: true,
+              json: async () => ({ value: [{ id: 'acme.com', isVerified: true }] }),
+            } as Response);
+            await registerSsoProvider(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email_domains: ['acme.com'],
+              },
+              CLI_ACTOR,
+            );
 
-          // Admin consent still not granted at Microsoft's side: app-only Graph call fails.
-          // The app token from registration is still cached, so only the domains call fails.
-          fetchMock.mockResolvedValueOnce({
-            ok: false,
-            status: 403,
-            text: async () => 'consent_required',
-          } as Response);
+            // Admin consent still not granted at Microsoft's side: app-only Graph call fails.
+            // The app token from registration is still cached, so only the domains call fails.
+            fetchMock.mockResolvedValueOnce({
+              ok: false,
+              status: 403,
+              text: async () => 'consent_required',
+            } as Response);
 
-          const row = await syncSsoConsentFromGraph(
-            { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
-            CLI_ACTOR,
-          );
+            const row = await syncSsoConsentFromGraph(
+              { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
+              CLI_ACTOR,
+            );
 
-          expect(row.config.consent_granted_at).toBeNull();
+            expect(row.config.consent_granted_at).toBeNull();
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -185,53 +179,50 @@ describe('syncSsoConsentFromGraph', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const tenantId = crypto.randomUUID();
-          await pool.query(
-            `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Already', 'already')`,
-            [tenantId],
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const tenantId = crypto.randomUUID();
+            await pool.query(
+              `INSERT INTO core.tenants (id, name, slug) VALUES ($1, 'Already', 'already')`,
+              [tenantId],
+            );
 
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
+            await pool.query(
+              `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
              VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
-            [tenantId, ENTRA_TID],
-          );
+              [tenantId, ENTRA_TID],
+            );
 
-          mockGraphToken(fetchMock);
-          fetchMock.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({ value: [{ id: 'acme.com', isVerified: true }] }),
-          } as Response);
-          // Seed the Entra tenant linkage the way the entra-linkage subscriber (owned by
-          // integrations) would have already projected it before an admin registers domains.
-          await pool.query(
-            `INSERT INTO identity.tenant_sso_providers (tenant_id, provider_id, enabled, entra_tenant_id, config)
-             VALUES ($1, 'microsoft-entra-id', false, $2, '{}'::jsonb)`,
-            [tenantId, ENTRA_TID],
-          );
-          await registerSsoProvider(
-            {
-              tenant_id: tenantId,
-              provider_id: 'microsoft-entra-id',
-              email_domains: ['acme.com'],
-            },
-            CLI_ACTOR,
-          );
+            mockGraphToken(fetchMock);
+            fetchMock.mockResolvedValueOnce({
+              ok: true,
+              json: async () => ({ value: [{ id: 'acme.com', isVerified: true }] }),
+            } as Response);
+            await registerSsoProvider(
+              {
+                tenant_id: tenantId,
+                provider_id: 'microsoft-entra-id',
+                email_domains: ['acme.com'],
+              },
+              CLI_ACTOR,
+            );
 
-          const { recordSsoConsent } = await import('../../../src/index.ts');
-          await recordSsoConsent(
-            { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
-            CLI_ACTOR,
-          );
+            const { recordSsoConsent } = await import('../../../src/index.ts');
+            await recordSsoConsent(
+              { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
+              CLI_ACTOR,
+            );
 
-          fetchMock.mockClear();
-          const row = await syncSsoConsentFromGraph(
-            { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
-            CLI_ACTOR,
-          );
+            fetchMock.mockClear();
+            const row = await syncSsoConsentFromGraph(
+              { tenant_id: tenantId, provider_id: 'microsoft-entra-id' },
+              CLI_ACTOR,
+            );
 
-          expect(row.config.consent_granted_at).not.toBeNull();
-          expect(fetchMock).not.toHaveBeenCalled();
+            expect(row.config.consent_granted_at).not.toBeNull();
+            expect(fetchMock).not.toHaveBeenCalled();
+          });
         } finally {
           resetCoreDb();
           await closePools();

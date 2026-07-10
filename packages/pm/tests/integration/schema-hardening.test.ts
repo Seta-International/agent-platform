@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
 import { account, project } from '../../src/backend/db/schema.ts';
 import { createAccount } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { inScope, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -21,15 +21,21 @@ describe('pm schema hardening', () => {
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const { account_id } = await createAccount({ name: 'A', session: t.adminSession });
+        const { account_id } = await inScope(t.adminSession, () =>
+          createAccount({ name: 'A', session: t.adminSession }),
+        );
 
-        const [acc] = await pmDb().select().from(account).where(eq(account.id, account_id));
+        const [acc] = await inScope(t.adminSession, () =>
+          pmDb().select().from(account).where(eq(account.id, account_id)),
+        );
         expect(acc?.version).toBe(1);
 
-        const [proj] = await pmDb()
-          .insert(project)
-          .values({ tenant_id: t.tenant_id, account_id, name: 'P' })
-          .returning();
+        const [proj] = await inScope(t.adminSession, () =>
+          pmDb()
+            .insert(project)
+            .values({ tenant_id: t.tenant_id, account_id, name: 'P' })
+            .returning(),
+        );
         expect(proj?.version).toBe(1);
         expect(proj?.deleted_at).toBeNull();
       } finally {

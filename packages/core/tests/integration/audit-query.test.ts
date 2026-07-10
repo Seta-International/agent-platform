@@ -1,3 +1,4 @@
+import { scoped } from '@seta/shared-db';
 import { describe, expect, it } from 'vitest';
 import { queryAudit } from '../../src/backend/audit.ts';
 import { resetCoreDb } from '../../src/db/client.ts';
@@ -38,18 +39,20 @@ describe('queryAudit() sort param', () => {
     await withCoreTestDb(async () => {
       resetCoreDb();
       const tenantId = crypto.randomUUID();
-      await seedAuditEvents(tenantId);
+      await scoped(tenantId, async () => {
+        await seedAuditEvents(tenantId);
 
-      const result = await queryAudit({
-        tenant_id: tenantId,
-        limit: 50,
-        offset: 0,
+        const result = await queryAudit({
+          tenant_id: tenantId,
+          limit: 50,
+          offset: 0,
+        });
+
+        expect(result.total).toBe(3);
+        const times = result.rows.map((r) => r.occurred_at);
+        const sorted = [...times].sort().reverse();
+        expect(times).toEqual(sorted);
       });
-
-      expect(result.total).toBe(3);
-      const times = result.rows.map((r) => r.occurred_at);
-      const sorted = [...times].sort().reverse();
-      expect(times).toEqual(sorted);
     });
   });
 
@@ -57,21 +60,23 @@ describe('queryAudit() sort param', () => {
     await withCoreTestDb(async () => {
       resetCoreDb();
       const tenantId = crypto.randomUUID();
-      await seedAuditEvents(tenantId);
+      await scoped(tenantId, async () => {
+        await seedAuditEvents(tenantId);
 
-      const result = await queryAudit({
-        tenant_id: tenantId,
-        limit: 50,
-        offset: 0,
-        sort_by: 'event_type',
-        sort_dir: 'asc',
+        const result = await queryAudit({
+          tenant_id: tenantId,
+          limit: 50,
+          offset: 0,
+          sort_by: 'event_type',
+          sort_dir: 'asc',
+        });
+
+        expect(result.rows.map((r) => r.event_type)).toEqual([
+          'identity.role_grant.changed',
+          'identity.user.created',
+          'identity.user.deactivated',
+        ]);
       });
-
-      expect(result.rows.map((r) => r.event_type)).toEqual([
-        'identity.role_grant.changed',
-        'identity.user.created',
-        'identity.user.deactivated',
-      ]);
     });
   });
 
@@ -79,21 +84,23 @@ describe('queryAudit() sort param', () => {
     await withCoreTestDb(async () => {
       resetCoreDb();
       const tenantId = crypto.randomUUID();
-      await seedAuditEvents(tenantId);
+      await scoped(tenantId, async () => {
+        await seedAuditEvents(tenantId);
 
-      const result = await queryAudit({
-        tenant_id: tenantId,
-        limit: 50,
-        offset: 0,
-        sort_by: 'event_type',
-        sort_dir: 'desc',
+        const result = await queryAudit({
+          tenant_id: tenantId,
+          limit: 50,
+          offset: 0,
+          sort_by: 'event_type',
+          sort_dir: 'desc',
+        });
+
+        expect(result.rows.map((r) => r.event_type)).toEqual([
+          'identity.user.deactivated',
+          'identity.user.created',
+          'identity.role_grant.changed',
+        ]);
       });
-
-      expect(result.rows.map((r) => r.event_type)).toEqual([
-        'identity.user.deactivated',
-        'identity.user.created',
-        'identity.role_grant.changed',
-      ]);
     });
   });
 
@@ -101,18 +108,20 @@ describe('queryAudit() sort param', () => {
     await withCoreTestDb(async () => {
       resetCoreDb();
       const tenantId = crypto.randomUUID();
-      await seedAuditEvents(tenantId);
+      await scoped(tenantId, async () => {
+        await seedAuditEvents(tenantId);
 
-      const future = new Date(Date.now() + 60_000).toISOString();
-      const result = await queryAudit({
-        tenant_id: tenantId,
-        limit: 50,
-        offset: 0,
-        from: future,
+        const future = new Date(Date.now() + 60_000).toISOString();
+        const result = await queryAudit({
+          tenant_id: tenantId,
+          limit: 50,
+          offset: 0,
+          from: future,
+        });
+
+        expect(result.total).toBe(0);
+        expect(result.rows).toHaveLength(0);
       });
-
-      expect(result.total).toBe(0);
-      expect(result.rows).toHaveLength(0);
     });
   });
 });

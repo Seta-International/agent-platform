@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createGroup, listGroups } from '../../src/index.ts';
@@ -17,22 +17,26 @@ describe('listGroups visibility', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Creators Group',
-            visibility: 'private',
-            session: seeded.adminSession,
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            const group = await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Creators Group',
+              visibility: 'private',
+              session: seeded.adminSession,
+            });
 
-          // Non-admin session — visibility comes from the creator's real planner.group_members row.
-          const creatorSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: seeded.adminSession.user_id,
-            roles: ['planner.viewer'],
-          });
+            // Non-admin session — visibility comes from the creator's real planner.group_members row.
+            const creatorSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: seeded.adminSession.user_id,
+              roles: ['planner.viewer'],
+            });
 
-          const groups = await listGroups({ session: creatorSession });
-          expect(groups.map((g) => g.id)).toContain(group.id);
+            const groups = await listGroups({ session: creatorSession });
+            expect(groups.map((g) => g.id)).toContain(group.id);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -52,33 +56,37 @@ describe('listGroups visibility', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Secret',
-            visibility: 'private',
-            session: seeded.adminSession,
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context plannerDb() requires.
+          await scoped(seeded.tenant_id, async () => {
+            await createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Secret',
+              visibility: 'private',
+              session: seeded.adminSession,
+            });
 
-          const outsider = await import('@seta/identity').then((m) =>
-            m.createUser(
-              {
-                tenant_id: seeded.tenant_id,
-                email: `out-${crypto.randomUUID().slice(0, 8)}@t.com`,
-                name: 'Out',
-                password: 'pass',
-              },
-              { type: 'cli', user_id: null },
-            ),
-          );
-          // Non-admin with no group membership — cannot see private groups
-          const outsiderSession = buildSession({
-            tenant_id: seeded.tenant_id,
-            user_id: outsider.user_id,
-            roles: ['planner.viewer'],
-          });
+            const outsider = await import('@seta/identity').then((m) =>
+              m.createUser(
+                {
+                  tenant_id: seeded.tenant_id,
+                  email: `out-${crypto.randomUUID().slice(0, 8)}@t.com`,
+                  name: 'Out',
+                  password: 'pass',
+                },
+                { type: 'cli', user_id: null },
+              ),
+            );
+            // Non-admin with no group membership — cannot see private groups
+            const outsiderSession = buildSession({
+              tenant_id: seeded.tenant_id,
+              user_id: outsider.user_id,
+              roles: ['planner.viewer'],
+            });
 
-          const groups = await listGroups({ session: outsiderSession });
-          expect(groups.map((g) => g.name)).not.toContain('Secret');
+            const groups = await listGroups({ session: outsiderSession });
+            expect(groups.map((g) => g.name)).not.toContain('Secret');
+          });
         } finally {
           resetCoreDb();
           await closePools();

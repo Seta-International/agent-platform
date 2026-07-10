@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createUser } from '../../../src/backend/domain/create-user.ts';
@@ -32,36 +32,40 @@ describe('getUserGrants', () => {
             [tenantId],
           );
 
-          const { user_id } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'admin@d.local',
-              name: 'Admin',
-              password: 'ChangeMe@2026',
-              initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-            },
-            { type: 'cli', user_id: null },
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            const { user_id } = await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'admin@d.local',
+                name: 'Admin',
+                password: 'ChangeMe@2026',
+                initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+              },
+              { type: 'cli', user_id: null },
+            );
 
-          const { grant_id } = await grantRole(
-            {
-              user_id,
-              tenant_id: tenantId,
-              role_slug: 'planner.viewer',
-              scope_kind: 'tenant',
-              scope_id: null,
-            },
-            { type: 'cli', user_id: null },
-          );
+            const { grant_id } = await grantRole(
+              {
+                user_id,
+                tenant_id: tenantId,
+                role_slug: 'planner.viewer',
+                scope_kind: 'tenant',
+                scope_id: null,
+              },
+              { type: 'cli', user_id: null },
+            );
 
-          await revokeRole(grant_id, { type: 'cli', user_id: null });
+            await revokeRole(grant_id, { type: 'cli', user_id: null });
 
-          const grants = await getUserGrants(user_id);
-          expect(grants.map((g) => g.role_slug).sort()).toEqual(['org.admin']);
-          expect(grants[0]?.id).toBeDefined();
-          expect(grants[0]?.granted_via).toBe('cli');
-          expect(grants[0]?.scope_type).toBe('tenant');
-          expect(grants[0]?.granted_at).toBeInstanceOf(Date);
+            const grants = await getUserGrants(user_id);
+            expect(grants.map((g) => g.role_slug).sort()).toEqual(['org.admin']);
+            expect(grants[0]?.id).toBeDefined();
+            expect(grants[0]?.granted_via).toBe('cli');
+            expect(grants[0]?.scope_type).toBe('tenant');
+            expect(grants[0]?.granted_at).toBeInstanceOf(Date);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -91,43 +95,47 @@ describe('getUserGrants', () => {
             [tenantId],
           );
 
-          const { user_id: adminId } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'admin@d.local',
-              name: 'Admin User',
-              password: 'ChangeMe@2026',
-              initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-            },
-            { type: 'cli', user_id: null },
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            const { user_id: adminId } = await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'admin@d.local',
+                name: 'Admin User',
+                password: 'ChangeMe@2026',
+                initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+              },
+              { type: 'cli', user_id: null },
+            );
 
-          const { user_id: subjectId } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'subject@d.local',
-              name: 'Subject',
-              password: 'ChangeMe@2026',
-            },
-            { type: 'cli', user_id: null },
-          );
+            const { user_id: subjectId } = await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'subject@d.local',
+                name: 'Subject',
+                password: 'ChangeMe@2026',
+              },
+              { type: 'cli', user_id: null },
+            );
 
-          await grantRole(
-            {
-              user_id: subjectId,
-              tenant_id: tenantId,
-              role_slug: 'planner.viewer',
-              scope_kind: 'tenant',
-              scope_id: null,
-            },
-            { type: 'user', user_id: adminId },
-          );
+            await grantRole(
+              {
+                user_id: subjectId,
+                tenant_id: tenantId,
+                role_slug: 'planner.viewer',
+                scope_kind: 'tenant',
+                scope_id: null,
+              },
+              { type: 'user', user_id: adminId },
+            );
 
-          const grants = await getUserGrants(subjectId);
-          expect(grants).toHaveLength(1);
-          expect(grants[0]?.granted_by_user_id).toBe(adminId);
-          expect(grants[0]?.granted_by_name).toBe('Admin User');
-          expect(grants[0]?.scope_label).toBeNull();
+            const grants = await getUserGrants(subjectId);
+            expect(grants).toHaveLength(1);
+            expect(grants[0]?.granted_by_user_id).toBe(adminId);
+            expect(grants[0]?.granted_by_name).toBe('Admin User');
+            expect(grants[0]?.scope_label).toBeNull();
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -157,21 +165,25 @@ describe('getUserGrants', () => {
             [tenantId],
           );
 
-          const { user_id } = await createUser(
-            {
-              tenant_id: tenantId,
-              email: 'cli@d.local',
-              name: 'CLI Created',
-              password: 'ChangeMe@2026',
-              initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
-            },
-            { type: 'cli', user_id: null },
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenantId, async () => {
+            const { user_id } = await createUser(
+              {
+                tenant_id: tenantId,
+                email: 'cli@d.local',
+                name: 'CLI Created',
+                password: 'ChangeMe@2026',
+                initial_role: { role_slug: 'org.admin', scope_type: 'tenant', scope_id: null },
+              },
+              { type: 'cli', user_id: null },
+            );
 
-          const grants = await getUserGrants(user_id);
-          expect(grants[0]?.granted_by_user_id).toBeNull();
-          expect(grants[0]?.granted_by_name).toBeNull();
-          expect(grants[0]?.scope_label).toBeNull();
+            const grants = await getUserGrants(user_id);
+            expect(grants[0]?.granted_by_user_id).toBeNull();
+            expect(grants[0]?.granted_by_name).toBeNull();
+            expect(grants[0]?.scope_label).toBeNull();
+          });
         } finally {
           resetCoreDb();
           await closePools();

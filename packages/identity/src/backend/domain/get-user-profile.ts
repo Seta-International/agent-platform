@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { identityDb } from '../db/index.ts';
+import { identityAuthDb } from '../db/index.ts';
 import { user } from '../db/schema.ts';
 
 // Identity owns the account only. HR fields (presence, skills, bio, job role)
@@ -14,7 +14,7 @@ export interface UserProfile {
 }
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
-  const [row] = await identityDb()
+  const [row] = await identityAuthDb()
     .select({
       user_id: user.id,
       tenant_id: user.tenant_id,

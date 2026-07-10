@@ -110,7 +110,7 @@ async function seedBaseState(
   snapshotTasks: Record<string, { title?: string }>,
   snapshotPlanTitle = 'Roadmap',
 ) {
-  const groupLinkRepo = createM365GroupLinkRepo({ db });
+  const groupLinkRepo = createM365GroupLinkRepo({ db: () => db });
   await groupLinkRepo.upsert({
     tenantId: TENANT_ID,
     groupId: GROUP_ID,
@@ -118,7 +118,7 @@ async function seedBaseState(
     lastSyncedFields: {},
   });
 
-  const planLinkRepo = createM365PlanLinkRepo({ db });
+  const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
   const link = await planLinkRepo.upsert({
     tenantId: TENANT_ID,
     groupId: GROUP_ID,
@@ -131,7 +131,7 @@ async function seedBaseState(
     },
   });
 
-  const etagRepo = createM365ResourceEtagRepo({ db });
+  const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
   await etagRepo.upsert({
     tenantId: TENANT_ID,

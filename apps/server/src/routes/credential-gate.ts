@@ -1,6 +1,7 @@
 import { coreDb } from '@seta/core/db';
 import { coreTenants } from '@seta/core/db/schema';
 import { discoverProvider } from '@seta/identity';
+import { ExecutorContextError, scoped } from '@seta/shared-db';
 import { eq } from 'drizzle-orm';
 import type { Hono } from 'hono';
 
@@ -12,12 +13,15 @@ export function registerCredentialGate(app: Hono<any>): void {
       const body = (await cloned.json().catch(() => ({}))) as { email?: string };
       const email = body.email ?? '';
       const disc = await discoverProvider(email);
-      if (disc.tenant_id) {
-        const [tenant] = await coreDb()
-          .select({ local_password_disabled: coreTenants.local_password_disabled })
-          .from(coreTenants)
-          .where(eq(coreTenants.id, disc.tenant_id))
-          .limit(1);
+      const tenantId = disc.tenant_id;
+      if (tenantId) {
+        const [tenant] = await scoped(tenantId, async () =>
+          coreDb()
+            .select({ local_password_disabled: coreTenants.local_password_disabled })
+            .from(coreTenants)
+            .where(eq(coreTenants.id, tenantId))
+            .limit(1),
+        );
         if (tenant?.local_password_disabled) {
           return c.json(
             {
@@ -28,8 +32,11 @@ export function registerCredentialGate(app: Hono<any>): void {
           );
         }
       }
-    } catch {
-      // If discovery fails for any reason, allow the request to fall through to better-auth.
+    } catch (err) {
+      // A tenant that cannot be discovered is a normal miss — fall through to better-auth.
+      // An ExecutorContextError is not: it means this gate did not run, and failing open
+      // here would let an SSO-only tenant sign in with a password.
+      if (err instanceof ExecutorContextError) throw err;
     }
     await next();
   });

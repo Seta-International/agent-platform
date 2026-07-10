@@ -7,7 +7,7 @@ import {
   listUserEvents,
   resetUserPasswordByAdmin,
 } from '@seta/identity';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 
@@ -56,26 +56,30 @@ describe('@seta/identity listUserEvents', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const { tenantId, adminId, subjectId } = await seed(pool);
-          await grantRole(
-            {
-              user_id: subjectId,
-              tenant_id: tenantId,
-              role_slug: 'planner.viewer',
-              scope_kind: 'tenant',
-              scope_id: null,
-            },
-            { type: 'user', user_id: adminId },
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const { tenantId, adminId, subjectId } = await seed(pool);
+            await grantRole(
+              {
+                user_id: subjectId,
+                tenant_id: tenantId,
+                role_slug: 'planner.viewer',
+                scope_kind: 'tenant',
+                scope_id: null,
+              },
+              { type: 'user', user_id: adminId },
+            );
 
-          const { rows, total } = await listUserEvents(
-            { tenant_id: tenantId, user_id: adminId, role: 'actor', limit: 25, offset: 0 },
-            { type: 'user', user_id: adminId },
-          );
+            const { rows, total } = await listUserEvents(
+              { tenant_id: tenantId, user_id: adminId, role: 'actor', limit: 25, offset: 0 },
+              { type: 'user', user_id: adminId },
+            );
 
-          expect(total).toBeGreaterThanOrEqual(1);
-          expect(rows.every((r) => r.actor_user_id === adminId)).toBe(true);
-          expect(rows.some((r) => r.event_type === 'identity.role_grant.changed')).toBe(true);
+            expect(total).toBeGreaterThanOrEqual(1);
+            expect(rows.every((r) => r.actor_user_id === adminId)).toBe(true);
+            expect(rows.some((r) => r.event_type === 'identity.role_grant.changed')).toBe(true);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -94,26 +98,30 @@ describe('@seta/identity listUserEvents', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const { tenantId, adminId, subjectId } = await seed(pool);
-          await grantRole(
-            {
-              user_id: subjectId,
-              tenant_id: tenantId,
-              role_slug: 'planner.viewer',
-              scope_kind: 'tenant',
-              scope_id: null,
-            },
-            { type: 'user', user_id: adminId },
-          );
-          await deactivateUser(subjectId, { type: 'user', user_id: adminId });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const { tenantId, adminId, subjectId } = await seed(pool);
+            await grantRole(
+              {
+                user_id: subjectId,
+                tenant_id: tenantId,
+                role_slug: 'planner.viewer',
+                scope_kind: 'tenant',
+                scope_id: null,
+              },
+              { type: 'user', user_id: adminId },
+            );
+            await deactivateUser(subjectId, { type: 'user', user_id: adminId });
 
-          const { rows } = await listUserEvents(
-            { tenant_id: tenantId, user_id: subjectId, role: 'subject', limit: 25, offset: 0 },
-            { type: 'user', user_id: adminId },
-          );
+            const { rows } = await listUserEvents(
+              { tenant_id: tenantId, user_id: subjectId, role: 'subject', limit: 25, offset: 0 },
+              { type: 'user', user_id: adminId },
+            );
 
-          expect(rows.length).toBeGreaterThanOrEqual(2); // role_grant + deactivated + created
-          expect(rows.every((r) => r.subject_user_id === subjectId)).toBe(true);
+            expect(rows.length).toBeGreaterThanOrEqual(2); // role_grant + deactivated + created
+            expect(rows.every((r) => r.subject_user_id === subjectId)).toBe(true);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -132,30 +140,34 @@ describe('@seta/identity listUserEvents', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const { tenantId, adminId, subjectId } = await seed(pool);
-          // admin is both actor and subject of their own creation event (created_via=cli)
-          // Generate one event where adminId is the actor:
-          await grantRole(
-            {
-              user_id: subjectId,
-              tenant_id: tenantId,
-              role_slug: 'planner.viewer',
-              scope_kind: 'tenant',
-              scope_id: null,
-            },
-            { type: 'user', user_id: adminId },
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const { tenantId, adminId, subjectId } = await seed(pool);
+            // admin is both actor and subject of their own creation event (created_via=cli)
+            // Generate one event where adminId is the actor:
+            await grantRole(
+              {
+                user_id: subjectId,
+                tenant_id: tenantId,
+                role_slug: 'planner.viewer',
+                scope_kind: 'tenant',
+                scope_id: null,
+              },
+              { type: 'user', user_id: adminId },
+            );
 
-          const { rows: actorOnly } = await listUserEvents(
-            { tenant_id: tenantId, user_id: adminId, role: 'actor', limit: 25, offset: 0 },
-            { type: 'user', user_id: adminId },
-          );
-          const { rows: allRows } = await listUserEvents(
-            { tenant_id: tenantId, user_id: adminId, role: 'all', limit: 25, offset: 0 },
-            { type: 'user', user_id: adminId },
-          );
+            const { rows: actorOnly } = await listUserEvents(
+              { tenant_id: tenantId, user_id: adminId, role: 'actor', limit: 25, offset: 0 },
+              { type: 'user', user_id: adminId },
+            );
+            const { rows: allRows } = await listUserEvents(
+              { tenant_id: tenantId, user_id: adminId, role: 'all', limit: 25, offset: 0 },
+              { type: 'user', user_id: adminId },
+            );
 
-          expect(allRows.length).toBeGreaterThanOrEqual(actorOnly.length);
+            expect(allRows.length).toBeGreaterThanOrEqual(actorOnly.length);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -174,16 +186,20 @@ describe('@seta/identity listUserEvents', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const a = await seed(pool);
-          const b = await seed(pool);
-          await deactivateUser(b.subjectId, { type: 'user', user_id: b.adminId });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const a = await seed(pool);
+            const b = await seed(pool);
+            await deactivateUser(b.subjectId, { type: 'user', user_id: b.adminId });
 
-          // Query tenant A for the subject in tenant B — must return zero.
-          const { rows } = await listUserEvents(
-            { tenant_id: a.tenantId, user_id: b.subjectId, role: 'all', limit: 25, offset: 0 },
-            { type: 'user', user_id: a.adminId },
-          );
-          expect(rows).toHaveLength(0);
+            // Query tenant A for the subject in tenant B — must return zero.
+            const { rows } = await listUserEvents(
+              { tenant_id: a.tenantId, user_id: b.subjectId, role: 'all', limit: 25, offset: 0 },
+              { type: 'user', user_id: a.adminId },
+            );
+            expect(rows).toHaveLength(0);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -202,36 +218,40 @@ describe('@seta/identity listUserEvents', () => {
         resetCoreDb();
         initPools({ databaseUrl });
         try {
-          const { tenantId, adminId, subjectId } = await seed(pool);
-          await grantRole(
-            {
-              user_id: subjectId,
-              tenant_id: tenantId,
-              role_slug: 'planner.viewer',
-              scope_kind: 'tenant',
-              scope_id: null,
-            },
-            { type: 'user', user_id: adminId },
-          );
-          await changeUserEmail(
-            { user_id: subjectId, new_email: 'new@t.local', reason: 'admin' },
-            { type: 'user', user_id: adminId },
-          );
-          await resetUserPasswordByAdmin(
-            { tenant_id: tenantId, user_id: subjectId },
-            { type: 'user', user_id: adminId },
-          );
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(crypto.randomUUID(), async () => {
+            const { tenantId, adminId, subjectId } = await seed(pool);
+            await grantRole(
+              {
+                user_id: subjectId,
+                tenant_id: tenantId,
+                role_slug: 'planner.viewer',
+                scope_kind: 'tenant',
+                scope_id: null,
+              },
+              { type: 'user', user_id: adminId },
+            );
+            await changeUserEmail(
+              { user_id: subjectId, new_email: 'new@t.local', reason: 'admin' },
+              { type: 'user', user_id: adminId },
+            );
+            await resetUserPasswordByAdmin(
+              { tenant_id: tenantId, user_id: subjectId },
+              { type: 'user', user_id: adminId },
+            );
 
-          const { rows } = await listUserEvents(
-            { tenant_id: tenantId, user_id: subjectId, role: 'subject', limit: 25, offset: 0 },
-            { type: 'user', user_id: adminId },
-          );
+            const { rows } = await listUserEvents(
+              { tenant_id: tenantId, user_id: subjectId, role: 'subject', limit: 25, offset: 0 },
+              { type: 'user', user_id: adminId },
+            );
 
-          expect(rows.every((r) => typeof r.summary === 'string' && r.summary.length > 0)).toBe(
-            true,
-          );
-          const rolesSummary = rows.find((r) => r.event_type === 'identity.role_grant.changed');
-          expect(rolesSummary?.summary).toMatch(/planner.viewer.*granted/);
+            expect(rows.every((r) => typeof r.summary === 'string' && r.summary.length > 0)).toBe(
+              true,
+            );
+            const rolesSummary = rows.find((r) => r.event_type === 'identity.role_grant.changed');
+            expect(rolesSummary?.summary).toMatch(/planner.viewer.*granted/);
+          });
         } finally {
           resetCoreDb();
           await closePools();

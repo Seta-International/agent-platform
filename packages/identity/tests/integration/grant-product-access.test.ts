@@ -1,7 +1,7 @@
 import { createContributionRegistry, runMigrations, type SessionScope } from '@seta/core';
 import { registerCoreContributions } from '@seta/core/register';
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { grantProductAccess, listProductAccess, resolveProductAccess } from '../../src/index.ts';
@@ -27,42 +27,46 @@ describe('grantProductAccess', () => {
           const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
           const actor = { type: 'user' as const, user_id: admin_user_id };
 
-          await grantProductAccess(
-            {
-              tenant_id,
-              subject_type: 'tenant',
-              subject_id: tenant_id,
-              product_id: 'people',
-              effect: 'grant',
-            },
-            actor,
-          );
-          await grantProductAccess(
-            {
-              tenant_id,
-              subject_type: 'user',
-              subject_id: admin_user_id,
-              product_id: 'people',
-              effect: 'grant',
-            },
-            actor,
-          );
-          expect([...(await resolveProductAccess(admin_user_id, tenant_id, []))]).toEqual([
-            'people',
-          ]);
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenant_id, async () => {
+            await grantProductAccess(
+              {
+                tenant_id,
+                subject_type: 'tenant',
+                subject_id: tenant_id,
+                product_id: 'people',
+                effect: 'grant',
+              },
+              actor,
+            );
+            await grantProductAccess(
+              {
+                tenant_id,
+                subject_type: 'user',
+                subject_id: admin_user_id,
+                product_id: 'people',
+                effect: 'grant',
+              },
+              actor,
+            );
+            expect([...(await resolveProductAccess(admin_user_id, tenant_id, []))]).toEqual([
+              'people',
+            ]);
 
-          // upsert: revoke updates the existing row (no unique-violation)
-          await grantProductAccess(
-            {
-              tenant_id,
-              subject_type: 'user',
-              subject_id: admin_user_id,
-              product_id: 'people',
-              effect: 'revoke',
-            },
-            actor,
-          );
-          expect([...(await resolveProductAccess(admin_user_id, tenant_id, []))]).toEqual([]);
+            // upsert: revoke updates the existing row (no unique-violation)
+            await grantProductAccess(
+              {
+                tenant_id,
+                subject_type: 'user',
+                subject_id: admin_user_id,
+                product_id: 'people',
+                effect: 'revoke',
+              },
+              actor,
+            );
+            expect([...(await resolveProductAccess(admin_user_id, tenant_id, []))]).toEqual([]);
+          });
         } finally {
           resetCoreDb();
           await closePools();
@@ -89,29 +93,33 @@ describe('grantProductAccess', () => {
           const { tenant_id, admin_user_id } = await createTestTenantWithAdmin({ pool });
           const actor = { type: 'user' as const, user_id: admin_user_id };
 
-          await grantProductAccess(
-            {
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          await scoped(tenant_id, async () => {
+            await grantProductAccess(
+              {
+                tenant_id,
+                subject_type: 'tenant',
+                subject_id: tenant_id,
+                product_id: 'people',
+                effect: 'grant',
+              },
+              actor,
+            );
+
+            // org.admin wildcard covers identity.product_access.read
+            const adminSession = {
+              user_id: admin_user_id,
               tenant_id,
-              subject_type: 'tenant',
-              subject_id: tenant_id,
+              permissions: new Set(['identity.product_access.read']),
+            } as unknown as SessionScope;
+
+            const entries = await listProductAccess(adminSession, admin_user_id);
+            expect(entries).toContainEqual({
               product_id: 'people',
+              source: 'tenant',
               effect: 'grant',
-            },
-            actor,
-          );
-
-          // org.admin wildcard covers identity.product_access.read
-          const adminSession = {
-            user_id: admin_user_id,
-            tenant_id,
-            permissions: new Set(['identity.product_access.read']),
-          } as unknown as SessionScope;
-
-          const entries = await listProductAccess(adminSession, admin_user_id);
-          expect(entries).toContainEqual({
-            product_id: 'people',
-            source: 'tenant',
-            effect: 'grant',
+            });
           });
         } finally {
           resetCoreDb();

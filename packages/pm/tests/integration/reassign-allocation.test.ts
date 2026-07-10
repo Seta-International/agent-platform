@@ -12,7 +12,7 @@ import {
   reassignAllocation,
   submitCharter,
 } from '../../src/index.ts';
-import { approveCharterTwoStage, readEvents, seedTenant } from '../helpers.ts';
+import { approveCharterTwoStage, inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -24,18 +24,22 @@ async function seedProject(
   name: string,
   bounds?: { date_from?: string; date_to?: string },
 ): Promise<string> {
-  const { account_id } = await createAccount({ name: `A-${name}`, session });
-  const { charter_id } = await submitCharter({
-    account_id,
-    name,
-    pm_worker_id: session.user_id,
-    methodology: 'scrum',
-    pricing_model: 'fixed_price',
-    budget_bmm: 100,
-    date_from: bounds?.date_from,
-    date_to: bounds?.date_to,
-    session,
-  });
+  const { account_id } = await inScope(session, () =>
+    createAccount({ name: `A-${name}`, session }),
+  );
+  const { charter_id } = await inScope(session, () =>
+    submitCharter({
+      account_id,
+      name,
+      pm_worker_id: session.user_id,
+      methodology: 'scrum',
+      pricing_model: 'fixed_price',
+      budget_bmm: 100,
+      date_from: bounds?.date_from,
+      date_to: bounds?.date_to,
+      session,
+    }),
+  );
   const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
   return project_id;
 }
@@ -53,50 +57,55 @@ describe('reassignAllocation', () => {
         const yyy = await seedProject(t.adminSession, 'YYY');
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: automate,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automate,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        const result = await reassignAllocation({
-          allocation_id,
-          source: { date_to: '2026-06-30' },
-          targets: [
-            {
-              project_id: xxx,
-              date_from: '2026-07-01',
-              planned_pct: 40,
-              bucket: 'billable',
-              date_to: null,
-            },
-            {
-              project_id: yyy,
-              date_from: '2026-07-01',
-              planned_pct: 60,
-              bucket: 'billable',
-              date_to: '2026-12-31',
-            },
-          ],
-          session: t.adminSession,
-        });
+        const result = await inScope(t.adminSession, () =>
+          reassignAllocation({
+            allocation_id,
+            source: { date_to: '2026-06-30' },
+            targets: [
+              {
+                project_id: xxx,
+                date_from: '2026-07-01',
+                planned_pct: 40,
+                bucket: 'billable',
+                date_to: null,
+              },
+              {
+                project_id: yyy,
+                date_from: '2026-07-01',
+                planned_pct: 60,
+                bucket: 'billable',
+                date_to: '2026-12-31',
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         expect(result.source_updated_version).toBe(2);
         expect(result.target_ids).toHaveLength(2);
 
-        const [source] = await pmDb()
-          .select()
-          .from(allocation)
-          .where(eq(allocation.id, allocation_id));
+        const [source] = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.id, allocation_id)),
+        );
         expect(source?.date_to).toBe('2026-06-30');
         expect(source?.planned_pct).toBe('100.0000'); // history preserved, untouched
 
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.worker_id, worker)),
+        );
         expect(rows).toHaveLength(3);
 
         const targetXxx = rows.find((r) => r.project_id === xxx);
@@ -132,36 +141,42 @@ describe('reassignAllocation', () => {
         const xxx = await seedProject(t.adminSession, 'XXX');
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: automate,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automate,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        const result = await reassignAllocation({
-          allocation_id,
-          source: { date_to: '2026-06-30' },
-          targets: [
-            {
-              project_id: xxx,
-              date_from: '2026-08-01', // a full month gap (July) with no allocation at all
-              planned_pct: 100,
-              bucket: 'billable',
-            },
-          ],
-          session: t.adminSession,
-        });
+        const result = await inScope(t.adminSession, () =>
+          reassignAllocation({
+            allocation_id,
+            source: { date_to: '2026-06-30' },
+            targets: [
+              {
+                project_id: xxx,
+                date_from: '2026-08-01', // a full month gap (July) with no allocation at all
+                planned_pct: 100,
+                bucket: 'billable',
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         expect(result.target_ids).toHaveLength(1);
-        const [target] = await pmDb()
-          .select()
-          .from(allocation)
-          .where(eq(allocation.id, result.target_ids[0] as string));
+        const [target] = await inScope(t.adminSession, () =>
+          pmDb()
+            .select()
+            .from(allocation)
+            .where(eq(allocation.id, result.target_ids[0] as string)),
+        );
         expect(target?.date_from).toBe('2026-08-01');
       } finally {
         resetPmDb();
@@ -181,34 +196,40 @@ describe('reassignAllocation', () => {
         const automate = await seedProject(t.adminSession, 'Automate');
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: automate,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automate,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        const result = await reassignAllocation({
-          allocation_id,
-          source: { date_to: '2026-02-28' },
-          targets: [
-            {
-              project_id: automate,
-              date_from: '2026-03-01',
-              planned_pct: 30,
-              bucket: 'billable',
-              date_to: '2026-12-31',
-            },
-          ],
-          session: t.adminSession,
-        });
+        const result = await inScope(t.adminSession, () =>
+          reassignAllocation({
+            allocation_id,
+            source: { date_to: '2026-02-28' },
+            targets: [
+              {
+                project_id: automate,
+                date_from: '2026-03-01',
+                planned_pct: 30,
+                bucket: 'billable',
+                date_to: '2026-12-31',
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         expect(result.target_ids).toHaveLength(1);
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.worker_id, worker)),
+        );
         expect(rows).toHaveLength(2);
         const continuation = rows.find((r) => r.id === result.target_ids[0]);
         expect(continuation?.project_id).toBe(automate);
@@ -232,22 +253,26 @@ describe('reassignAllocation', () => {
         const automate = await seedProject(t.adminSession, 'Automate');
         const xxx = await seedProject(t.adminSession, 'XXX');
 
-        const { allocation_id } = await createAllocation({
-          project_id: automate,
-          status: 'placeholder',
-          bucket: 'billable',
-          session: t.adminSession,
-        });
-
-        await expect(
-          reassignAllocation({
-            allocation_id,
-            source: { date_to: '2026-06-30' },
-            targets: [
-              { project_id: xxx, date_from: '2026-07-01', planned_pct: 100, bucket: 'billable' },
-            ],
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automate,
+            status: 'placeholder',
+            bucket: 'billable',
             session: t.adminSession,
           }),
+        );
+
+        await expect(
+          inScope(t.adminSession, () =>
+            reassignAllocation({
+              allocation_id,
+              source: { date_to: '2026-06-30' },
+              targets: [
+                { project_id: xxx, date_from: '2026-07-01', planned_pct: 100, bucket: 'billable' },
+              ],
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow(/worker/i);
       } finally {
         resetPmDb();
@@ -268,26 +293,30 @@ describe('reassignAllocation', () => {
         const xxx = await seedProject(t.adminSession, 'XXX');
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: automate,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-06-30',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
-
-        await expect(
-          reassignAllocation({
-            allocation_id,
-            source: { date_to: '2026-09-30' },
-            targets: [
-              { project_id: xxx, date_from: '2026-10-01', planned_pct: 100, bucket: 'billable' },
-            ],
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automate,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-06-30',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
             session: t.adminSession,
           }),
+        );
+
+        await expect(
+          inScope(t.adminSession, () =>
+            reassignAllocation({
+              allocation_id,
+              source: { date_to: '2026-09-30' },
+              targets: [
+                { project_id: xxx, date_from: '2026-10-01', planned_pct: 100, bucket: 'billable' },
+              ],
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow(/allocation end/i);
       } finally {
         resetPmDb();
@@ -311,33 +340,37 @@ describe('reassignAllocation', () => {
         });
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: automate,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automate,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
         let caught: unknown;
         try {
-          await reassignAllocation({
-            allocation_id,
-            source: { date_to: '2026-06-30' },
-            targets: [
-              {
-                project_id: xxx,
-                date_from: '2026-07-01',
-                planned_pct: 100,
-                bucket: 'billable',
-                date_to: '2026-10-31',
-              },
-            ],
-            session: t.adminSession,
-          });
+          await inScope(t.adminSession, () =>
+            reassignAllocation({
+              allocation_id,
+              source: { date_to: '2026-06-30' },
+              targets: [
+                {
+                  project_id: xxx,
+                  date_from: '2026-07-01',
+                  planned_pct: 100,
+                  bucket: 'billable',
+                  date_to: '2026-10-31',
+                },
+              ],
+              session: t.adminSession,
+            }),
+          );
         } catch (e) {
           caught = e;
         }
@@ -365,36 +398,42 @@ describe('reassignAllocation', () => {
         const xxx = await seedProject(t.adminSession, 'XXX');
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: automate,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automate,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
         // Project's own end date is shortened after the allocation was created.
-        await pmDb().update(project).set({ date_to: '2026-06-30' }).where(eq(project.id, automate));
+        await inScope(t.adminSession, () =>
+          pmDb().update(project).set({ date_to: '2026-06-30' }).where(eq(project.id, automate)),
+        );
 
         let caught: unknown;
         try {
-          await reassignAllocation({
-            allocation_id,
-            source: { date_to: '2026-08-30' },
-            targets: [
-              {
-                project_id: xxx,
-                date_from: '2026-09-01',
-                planned_pct: 100,
-                bucket: 'billable',
-                date_to: null,
-              },
-            ],
-            session: t.adminSession,
-          });
+          await inScope(t.adminSession, () =>
+            reassignAllocation({
+              allocation_id,
+              source: { date_to: '2026-08-30' },
+              targets: [
+                {
+                  project_id: xxx,
+                  date_from: '2026-09-01',
+                  planned_pct: 100,
+                  bucket: 'billable',
+                  date_to: null,
+                },
+              ],
+              session: t.adminSession,
+            }),
+          );
         } catch (e) {
           caught = e;
         }
@@ -421,27 +460,31 @@ describe('reassignAllocation', () => {
         const xxx = await seedProject(t.adminSession, 'XXX');
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: automate,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
-
-        await expect(
-          reassignAllocation({
-            allocation_id,
-            source: { date_to: '2026-06-30' },
-            targets: [
-              { project_id: xxx, date_from: '2026-07-01', planned_pct: 100, bucket: 'billable' },
-            ],
-            expected_version: 99,
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automate,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
             session: t.adminSession,
           }),
+        );
+
+        await expect(
+          inScope(t.adminSession, () =>
+            reassignAllocation({
+              allocation_id,
+              source: { date_to: '2026-06-30' },
+              targets: [
+                { project_id: xxx, date_from: '2026-07-01', planned_pct: 100, bucket: 'billable' },
+              ],
+              expected_version: 99,
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow(/version/i);
       } finally {
         resetPmDb();
@@ -465,38 +508,42 @@ describe('previewReassignAllocation', () => {
         const mobility = await seedProject(t.adminSession, 'Mobility');
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: automotive,
-          worker_id: worker,
-          date_from: '2026-08-09',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automotive,
+            worker_id: worker,
+            date_from: '2026-08-09',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        const preview = await previewReassignAllocation({
-          allocation_id,
-          source: { date_to: '2026-09-30' },
-          targets: [
-            {
-              project_id: crm,
-              date_from: '2026-10-01',
-              planned_pct: 50,
-              bucket: 'billable',
-              date_to: '2026-12-31',
-            },
-            {
-              project_id: mobility,
-              date_from: '2026-10-01',
-              planned_pct: 50,
-              bucket: 'billable',
-              date_to: '2026-12-31',
-            },
-          ],
-          session: t.adminSession,
-        });
+        const preview = await inScope(t.adminSession, () =>
+          previewReassignAllocation({
+            allocation_id,
+            source: { date_to: '2026-09-30' },
+            targets: [
+              {
+                project_id: crm,
+                date_from: '2026-10-01',
+                planned_pct: 50,
+                bucket: 'billable',
+                date_to: '2026-12-31',
+              },
+              {
+                project_id: mobility,
+                date_from: '2026-10-01',
+                planned_pct: 50,
+                bucket: 'billable',
+                date_to: '2026-12-31',
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         expect(preview.worker_name).toBeNull(); // no worker_projection row synced for this random worker id
         expect(preview.source).toMatchObject({
@@ -541,32 +588,36 @@ describe('previewReassignAllocation', () => {
         const crm = await seedProject(t.adminSession, 'CRM');
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: automotive,
-          worker_id: worker,
-          date_from: '2026-08-09',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automotive,
+            worker_id: worker,
+            date_from: '2026-08-09',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
         // "Keep current allocation": new end date == its original end date (unchanged).
-        const preview = await previewReassignAllocation({
-          allocation_id,
-          source: { date_to: '2026-12-31' },
-          targets: [
-            {
-              project_id: crm,
-              date_from: '2026-10-01',
-              planned_pct: 50,
-              bucket: 'billable',
-              date_to: '2026-12-31',
-            },
-          ],
-          session: t.adminSession,
-        });
+        const preview = await inScope(t.adminSession, () =>
+          previewReassignAllocation({
+            allocation_id,
+            source: { date_to: '2026-12-31' },
+            targets: [
+              {
+                project_id: crm,
+                date_from: '2026-10-01',
+                planned_pct: 50,
+                bucket: 'billable',
+                date_to: '2026-12-31',
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         expect(preview.peak_pct).toBe(150);
         expect(preview.exceeds).toBe(true);
@@ -592,32 +643,36 @@ describe('previewReassignAllocation', () => {
         const crm = await seedProject(t.adminSession, 'CRM');
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: automotive,
-          worker_id: worker,
-          date_from: '2026-08-09',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automotive,
+            worker_id: worker,
+            date_from: '2026-08-09',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
         // "Keep current allocation" + an open-ended overlapping target.
-        const preview = await previewReassignAllocation({
-          allocation_id,
-          source: { date_to: '2026-12-31' },
-          targets: [
-            {
-              project_id: crm,
-              date_from: '2026-10-01',
-              planned_pct: 50,
-              bucket: 'billable',
-              date_to: null,
-            },
-          ],
-          session: t.adminSession,
-        });
+        const preview = await inScope(t.adminSession, () =>
+          previewReassignAllocation({
+            allocation_id,
+            source: { date_to: '2026-12-31' },
+            targets: [
+              {
+                project_id: crm,
+                date_from: '2026-10-01',
+                planned_pct: 50,
+                bucket: 'billable',
+                date_to: null,
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         expect(preview.peak_pct).toBe(150);
         expect(preview.peak_from).toBe('2026-10-01');
@@ -643,40 +698,44 @@ describe('previewReassignAllocation', () => {
         const gridbeyond = await seedProject(t.adminSession, 'Gridbeyond');
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: aiData,
-          worker_id: worker,
-          date_from: '2026-04-01',
-          date_to: '2026-12-30',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: aiData,
+            worker_id: worker,
+            date_from: '2026-04-01',
+            date_to: '2026-12-30',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
         // "Keep current allocation" + two new targets that both overlap it, at
         // different (staggered) end dates — Finch Mobile runs a month past Gridbeyond.
-        const preview = await previewReassignAllocation({
-          allocation_id,
-          source: { date_to: '2026-12-30' },
-          targets: [
-            {
-              project_id: finchMobile,
-              date_from: '2026-07-01',
-              planned_pct: 40,
-              bucket: 'billable',
-              date_to: '2026-10-01',
-            },
-            {
-              project_id: gridbeyond,
-              date_from: '2026-07-01',
-              planned_pct: 50,
-              bucket: 'billable',
-              date_to: '2026-08-01',
-            },
-          ],
-          session: t.adminSession,
-        });
+        const preview = await inScope(t.adminSession, () =>
+          previewReassignAllocation({
+            allocation_id,
+            source: { date_to: '2026-12-30' },
+            targets: [
+              {
+                project_id: finchMobile,
+                date_from: '2026-07-01',
+                planned_pct: 40,
+                bucket: 'billable',
+                date_to: '2026-10-01',
+              },
+              {
+                project_id: gridbeyond,
+                date_from: '2026-07-01',
+                planned_pct: 50,
+                bucket: 'billable',
+                date_to: '2026-08-01',
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         expect(preview.peak_pct).toBe(190); // 100 + 40 + 50, while all three run together
         expect(preview.exceeds).toBe(true);
@@ -704,31 +763,35 @@ describe('previewReassignAllocation', () => {
         const crm = await seedProject(t.adminSession, 'CRM');
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: automotive,
-          worker_id: worker,
-          date_from: '2026-08-09',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: automotive,
+            worker_id: worker,
+            date_from: '2026-08-09',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        const result = await reassignAllocation({
-          allocation_id,
-          source: { date_to: '2026-12-31' },
-          targets: [
-            {
-              project_id: crm,
-              date_from: '2026-10-01',
-              planned_pct: 50,
-              bucket: 'billable',
-              date_to: '2026-12-31',
-            },
-          ],
-          session: t.adminSession,
-        });
+        const result = await inScope(t.adminSession, () =>
+          reassignAllocation({
+            allocation_id,
+            source: { date_to: '2026-12-31' },
+            targets: [
+              {
+                project_id: crm,
+                date_from: '2026-10-01',
+                planned_pct: 50,
+                bucket: 'billable',
+                date_to: '2026-12-31',
+              },
+            ],
+            session: t.adminSession,
+          }),
+        );
 
         expect(result.warnings).toHaveLength(1);
         expect(result.warnings[0]).toMatchObject({ project_name: 'CRM', peak_pct: 150 });

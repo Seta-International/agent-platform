@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it, vi } from 'vitest';
 import { getGroup } from '../../../src/backend/domain/get-group.ts';
@@ -133,37 +133,41 @@ describe('resolveGroupConflict', () => {
         const seeded = await seedTenant(pool);
         const session = seeded.adminSession;
 
-        const group = await createGroup({
-          tenant_id: seeded.tenant_id,
-          name: 'Original Name',
-          session,
-        });
-
-        const linkId = crypto.randomUUID();
-        const setSyncStatus = vi.fn().mockResolvedValue(undefined);
-        const enqueueGroupPush = vi.fn().mockResolvedValue(undefined);
-        const getLink = vi.fn().mockResolvedValue({
-          id: linkId,
-          lastSyncedFields: { name: 'Remote Name' },
-          externalId: 'ext-remote-ok',
-          tenantId: seeded.tenant_id,
-        });
-
-        await resolveGroupConflict(
-          {
-            group_id: group.id,
-            decisions: [{ field: 'name', choice: 'remote' }],
+        // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+        // fallback) — this only opens the executor context plannerDb() requires.
+        await scoped(seeded.tenant_id, async () => {
+          const group = await createGroup({
+            tenant_id: seeded.tenant_id,
+            name: 'Original Name',
             session,
-          },
-          { getLink, setSyncStatus, enqueueGroupPush },
-        );
+          });
 
-        expect(setSyncStatus).toHaveBeenCalledWith(linkId, 'idle');
-        expect(enqueueGroupPush).not.toHaveBeenCalled();
+          const linkId = crypto.randomUUID();
+          const setSyncStatus = vi.fn().mockResolvedValue(undefined);
+          const enqueueGroupPush = vi.fn().mockResolvedValue(undefined);
+          const getLink = vi.fn().mockResolvedValue({
+            id: linkId,
+            lastSyncedFields: { name: 'Remote Name' },
+            externalId: 'ext-remote-ok',
+            tenantId: seeded.tenant_id,
+          });
 
-        const updated = await getGroup({ group_id: group.id, session });
-        expect(updated.name).toBe('Remote Name');
-        expect(updated.version).toBe(2);
+          await resolveGroupConflict(
+            {
+              group_id: group.id,
+              decisions: [{ field: 'name', choice: 'remote' }],
+              session,
+            },
+            { getLink, setSyncStatus, enqueueGroupPush },
+          );
+
+          expect(setSyncStatus).toHaveBeenCalledWith(linkId, 'idle');
+          expect(enqueueGroupPush).not.toHaveBeenCalled();
+
+          const updated = await getGroup({ group_id: group.id, session });
+          expect(updated.name).toBe('Remote Name');
+          expect(updated.version).toBe(2);
+        });
       } finally {
         resetCoreDb();
         await closePools();

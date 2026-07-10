@@ -1,5 +1,5 @@
 import { resetCoreDb } from '@seta/core/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { findEntraOidByUserId } from '../../../src/backend/domain/find-entra-oid-by-user-id.ts';
@@ -35,7 +35,11 @@ describe('findUserByEntraOid', () => {
             [crypto.randomUUID(), userId, entraOid],
           );
 
-          const result = await findUserByEntraOid({ entra_oid: entraOid, tenant_id: tenantId });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          const result = await scoped(tenantId, () =>
+            findUserByEntraOid({ entra_oid: entraOid, tenant_id: tenantId }),
+          );
           expect(result).not.toBeNull();
           expect(result!.user_id).toBe(userId);
           expect(result!.tenant_id).toBe(tenantId);
@@ -63,10 +67,14 @@ describe('findUserByEntraOid', () => {
             [tenantId, `t-${tenantId.slice(0, 8)}`],
           );
 
-          const result = await findUserByEntraOid({
-            entra_oid: crypto.randomUUID(),
-            tenant_id: tenantId,
-          });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          const result = await scoped(tenantId, () =>
+            findUserByEntraOid({
+              entra_oid: crypto.randomUUID(),
+              tenant_id: tenantId,
+            }),
+          );
           expect(result).toBeNull();
         } finally {
           resetCoreDb();
@@ -108,7 +116,11 @@ describe('findUserByEntraOid', () => {
             userId,
           ]);
 
-          const result = await findUserByEntraOid({ entra_oid: entraOid, tenant_id: tenantId });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          const result = await scoped(tenantId, () =>
+            findUserByEntraOid({ entra_oid: entraOid, tenant_id: tenantId }),
+          );
           expect(result).toBeNull();
         } finally {
           resetCoreDb();
@@ -149,7 +161,11 @@ describe('findUserByEntraOid', () => {
           );
 
           // Look up in tenant B — should not find the user from tenant A
-          const result = await findUserByEntraOid({ entra_oid: entraOid, tenant_id: tenantB });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          const result = await scoped(tenantB, () =>
+            findUserByEntraOid({ entra_oid: entraOid, tenant_id: tenantB }),
+          );
           expect(result).toBeNull();
         } finally {
           resetCoreDb();
@@ -190,7 +206,11 @@ describe('findEntraOidByUserId', () => {
             [crypto.randomUUID(), userId, entraOid],
           );
 
-          const result = await findEntraOidByUserId({ user_id: userId, tenant_id: tenantId });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          const result = await scoped(tenantId, () =>
+            findEntraOidByUserId({ user_id: userId, tenant_id: tenantId }),
+          );
           expect(result).toBe(entraOid);
         } finally {
           resetCoreDb();
@@ -232,7 +252,11 @@ describe('findEntraOidByUserId', () => {
             userId,
           ]);
 
-          const result = await findEntraOidByUserId({ user_id: userId, tenant_id: tenantId });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          const result = await scoped(tenantId, () =>
+            findEntraOidByUserId({ user_id: userId, tenant_id: tenantId }),
+          );
           expect(result).toBeNull();
         } finally {
           resetCoreDb();
@@ -265,7 +289,11 @@ describe('findEntraOidByUserId', () => {
             [userId, tenantId],
           );
 
-          const result = await findEntraOidByUserId({ user_id: userId, tenant_id: tenantId });
+          // No appDatabaseUrl here, so scoped()'s tenant GUC is inert (self-host
+          // fallback) — this only opens the executor context identityDb() requires.
+          const result = await scoped(tenantId, () =>
+            findEntraOidByUserId({ user_id: userId, tenant_id: tenantId }),
+          );
           expect(result).toBeNull();
         } finally {
           resetCoreDb();
