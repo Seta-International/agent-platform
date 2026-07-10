@@ -1,0 +1,2 @@
+ALTER TABLE "identity"."user" ADD COLUMN "person_id" uuid;--> statement-breakpoint
+CREATE UNIQUE INDEX "user_tenant_person_uniq" ON "identity"."user" USING btree ("tenant_id","person_id") WHERE "identity"."user"."person_id" IS NOT NULL;
