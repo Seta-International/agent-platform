@@ -111,20 +111,58 @@ describe('linkUserToPerson', () => {
           email: 'bo@seta.test',
         });
 
-        for (let i = 0; i < 2; i++) {
-          await peopleDb().transaction(async (tx) => {
-            await emitContext.run(
-              { tx: tx as never, causedByEventId: eventId, traceId: undefined },
-              () => linkUserToPerson.handler(evt, { tx } as never),
-            );
-          });
-        }
+        // Two invocations inside the SAME transaction: the first insert is committed
+        // nowhere yet, but it IS visible to the second call's `notExists` subquery
+        // (same-transaction MVCC visibility), so the second call filters the worker
+        // out at the SELECT and returns at `if (!w) return` — it never reaches
+        // `onConflictDoNothing`.
+        //
+        // This is deliberate, not an oversight: two genuinely concurrent, separately
+        // committing transactions were built and run against real Postgres (gating
+        // each transaction's insert behind a 2-party latch so neither's INSERT could
+        // reach the server until both had already read "not linked yet" — ruling out
+        // a timing fluke). That reproduction showed `onConflictDoNothing({ target:
+        // userProjection.user_id })` does NOT reliably no-op the loser: a second,
+        // untargeted unique index (`user_projection_uniq_person` on (tenant_id,
+        // person_id)) also conflicts on the exact same row, and Postgres's ON
+        // CONFLICT only suppresses violations on the named arbiter — violations on
+        // any other index still raise. Redelivering the identical event threw a raw
+        // 23505 in 4 of 5 trials; racing two DIFFERENT user_ids for the same person
+        // (the arbiter can never match there) threw in 5 of 5 trials. So a
+        // cross-transaction version of this test would be flaky at best and would
+        // fail against the CURRENT, unmodified code most of the time — the opposite
+        // of what a guard-removal mutation test needs. See the task report for the
+        // full reproduction; the guard itself was intentionally left unmodified here
+        // per this task's scope.
+        //
+        // Separately, the real dispatcher (packages/core/src/runtime/dispatcher/drain.ts)
+        // takes `FOR UPDATE SKIP LOCKED` on the subscription cursor row and wraps the
+        // whole drain batch (cursor read, event batch, every handler invocation) in one
+        // outer transaction — so no other replica can process this event concurrently,
+        // and any failure before the outer transaction commits rolls back everything
+        // this handler did, leaving no partial state for a real redelivery to collide
+        // with. `onConflictDoNothing` cannot be reached via any currently-possible real
+        // invocation path; this same-transaction reproduction is the closest a test can
+        // deterministically get to "redelivered", and it correctly shows `notExists`
+        // — not `onConflictDoNothing` — is what actually keeps redelivery safe today.
+        await peopleDb().transaction(async (tx) => {
+          await emitContext.run(
+            { tx: tx as never, causedByEventId: eventId, traceId: undefined },
+            async () => {
+              await linkUserToPerson.handler(evt, { tx } as never);
+              await linkUserToPerson.handler(evt, { tx } as never);
+            },
+          );
+        });
 
         const rows = await peopleDb()
           .select()
           .from(userProjection)
           .where(eq(userProjection.user_id, userId));
         expect(rows).toHaveLength(1);
+
+        const events = await readEvents(pool, t.tenant_id, 'people.worker.user_linked');
+        expect(events).toHaveLength(1);
       } finally {
         resetPeopleDb();
         resetCoreDb();
