@@ -11,6 +11,7 @@ import {
 import { linkUserToPerson } from './link-user-to-person.ts';
 import { projectProjectionCreated, projectProjectionUpdated } from './project-projection.ts';
 import { personSkillRenamed } from './skill-renamed.ts';
+import { userDeactivatedSynced, userReactivatedSynced } from './sync-user-status.ts';
 
 export function peopleSubscribers(): SubscriberDef[] {
   return [
@@ -24,5 +25,7 @@ export function peopleSubscribers(): SubscriberDef[] {
     refreshPersonSkillAddedSubscriber,
     refreshPersonSkillRemovedSubscriber,
     personSkillRenamed,
+    userDeactivatedSynced,
+    userReactivatedSynced,
   ];
 }
