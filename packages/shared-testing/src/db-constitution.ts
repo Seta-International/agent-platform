@@ -269,6 +269,258 @@ async function noCrossSchemaFk(pool: Pool, schemas: readonly string[]): Promise<
   }));
 }
 
+interface TenantScopedUniqueRow {
+  sch: string;
+  tbl: string;
+  idx: string;
+  col: string | null;
+  typ: string | null;
+  indkey0: number | null;
+}
+
+// The two subtle queries (this one and ordered-pair-check below) are reproduced verbatim from
+// the validated brief, including the parts that don't route through OWNED_TABLE_CTE — they
+// were checked against the live migrated database and re-deriving them risks the exact drift
+// the CTE exists to prevent. `indkey0` is selected in addition to the brief's own columns so
+// JS can tell an expression index (indkey[0] = 0) apart from a wrong-typed natural key.
+async function tenantScopedUnique(pool: Pool, schemas: readonly string[]): Promise<Violation[]> {
+  const { rows } = await pool.query<TenantScopedUniqueRow>(
+    `WITH lead AS (
+       SELECT n.nspname sch, c.relname tbl, ic.relname idx, i.indkey[0] AS indkey0,
+         (SELECT a.attname FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum=i.indkey[0]) col,
+         (SELECT format_type(a.atttypid,NULL) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum=i.indkey[0]) typ
+       FROM pg_index i
+       JOIN pg_class ic ON ic.oid=i.indexrelid
+       JOIN pg_class c ON c.oid=i.indrelid
+       JOIN pg_namespace n ON n.oid=c.relnamespace
+       WHERE i.indisunique AND c.relkind IN ('r','p') AND NOT c.relispartition
+         AND n.nspname = ANY($1::text[]) AND c.relname !~ '^mastra_'
+         AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='tenant_id'
+                     AND a.attnum>0 AND NOT a.attisdropped)
+     )
+     SELECT sch, tbl, idx, col, typ, indkey0 FROM lead
+     WHERE col IS DISTINCT FROM 'tenant_id' AND typ IS DISTINCT FROM 'uuid'`,
+    [schemas],
+  );
+  return rows.map((r) => ({
+    rule: 'tenant-scoped-unique',
+    object: `${r.sch}.${r.tbl}::${r.idx}`,
+    detail: r.indkey0 === 0 ? 'expression index' : `lead=${r.col ?? '?'} typ=${r.typ ?? '?'}`,
+  }));
+}
+
+interface OrderedPairRow {
+  sch: string;
+  tbl: string;
+  lo: string;
+  hi: string;
+}
+
+async function orderedPairCheck(pool: Pool, schemas: readonly string[]): Promise<Violation[]> {
+  const { rows } = await pool.query<OrderedPairRow>(
+    `WITH cols AS (
+       SELECT n.nspname sch, c.relname tbl, c.oid, a.attname col, format_type(a.atttypid,NULL) typ
+       FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+       JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+       WHERE c.relkind IN ('r','p') AND NOT c.relispartition
+         AND n.nspname = ANY($1::text[]) AND c.relname !~ '^mastra_'
+         AND (format_type(a.atttypid,NULL) = 'date' OR format_type(a.atttypid,NULL) LIKE 'timestamp%')
+     ), pairs AS (
+       SELECT l.sch, l.tbl, l.oid, l.col lo, h.col hi
+       FROM cols l JOIN cols h ON l.oid = h.oid
+       WHERE l.col ~ '(^|_)(from|start)(_|$)' AND h.col ~ '(^|_)(to|end)(_|$)'
+         AND regexp_replace(l.col,'(^|_)(from|start)(_|$)','\\1|\\3')
+           = regexp_replace(h.col,'(^|_)(to|end)(_|$)','\\1|\\3')
+     )
+     SELECT p.sch, p.tbl, p.lo, p.hi FROM pairs p
+     WHERE NOT EXISTS (
+       SELECT 1 FROM pg_constraint co WHERE co.conrelid = p.oid AND co.contype = 'c'
+         AND pg_get_constraintdef(co.oid) ~ ('\\m' || p.lo || '\\M')
+         AND pg_get_constraintdef(co.oid) ~ ('\\m' || p.hi || '\\M'))`,
+    [schemas],
+  );
+  return rows.map((r) => ({
+    rule: 'ordered-pair-check',
+    object: `${r.sch}.${r.tbl}.(${r.lo},${r.hi})`,
+    detail: 'no CHECK orders the pair',
+  }));
+}
+
+interface TimestampShapeRow {
+  sch: string;
+  tbl: string;
+  col: string;
+  typ: string;
+  notnull: boolean;
+  hasdefault: boolean;
+}
+
+async function timestampShape(pool: Pool, schemas: readonly string[]): Promise<Violation[]> {
+  const { rows } = await pool.query<TimestampShapeRow>(
+    `${OWNED_TABLE_CTE}
+     SELECT t.sch, t.tbl, a.attname AS col, format_type(a.atttypid,NULL) AS typ, a.attnotnull AS notnull,
+       EXISTS (SELECT 1 FROM pg_attrdef d WHERE d.adrelid = t.oid AND d.adnum = a.attnum) AS hasdefault
+     FROM t
+     JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum > 0 AND NOT a.attisdropped
+       AND a.attname IN ('created_at','updated_at')
+     WHERE format_type(a.atttypid,NULL) <> 'timestamp with time zone' OR NOT a.attnotnull
+       OR NOT EXISTS (SELECT 1 FROM pg_attrdef d WHERE d.adrelid = t.oid AND d.adnum = a.attnum)`,
+    [schemas],
+  );
+  return rows.map((r) => {
+    const reasons: string[] = [];
+    if (r.typ !== 'timestamp with time zone') reasons.push(`type=${r.typ}`);
+    if (!r.notnull) reasons.push('nullable');
+    if (!r.hasdefault) reasons.push('no default');
+    return {
+      rule: 'timestamp-shape',
+      object: `${r.sch}.${r.tbl}.${r.col}`,
+      detail: reasons.join(', '),
+    };
+  });
+}
+
+async function updatedAtTrigger(pool: Pool, schemas: readonly string[]): Promise<Violation[]> {
+  const { rows } = await pool.query<TableRow>(
+    `${OWNED_TABLE_CTE}
+     SELECT t.sch, t.tbl
+     FROM t
+     WHERE EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = t.oid AND a.attname = 'updated_at'
+                   AND a.attnum > 0 AND NOT a.attisdropped)
+       AND NOT EXISTS (SELECT 1 FROM pg_trigger tg WHERE tg.tgrelid = t.oid AND NOT tg.tgisinternal)`,
+    [schemas],
+  );
+  return rows.map((r) => ({
+    rule: 'updated-at-trigger',
+    object: `${r.sch}.${r.tbl}`,
+    detail: 'has updated_at but no non-internal trigger',
+  }));
+}
+
+interface VersionColumnRow {
+  sch: string;
+  tbl: string;
+  typ: string | null;
+  notnull: boolean | null;
+  defexpr: string | null;
+}
+
+async function versionColumn(pool: Pool, schemas: readonly string[]): Promise<Violation[]> {
+  const { rows } = await pool.query<VersionColumnRow>(
+    `${OWNED_TABLE_CTE}
+     SELECT t.sch, t.tbl, format_type(a.atttypid,NULL) AS typ, a.attnotnull AS notnull,
+       pg_get_expr(d.adbin, d.adrelid) AS defexpr
+     FROM t
+     LEFT JOIN pg_attribute a ON a.attrelid = t.oid AND a.attname = 'version'
+       AND a.attnum > 0 AND NOT a.attisdropped
+     LEFT JOIN pg_attrdef d ON d.adrelid = t.oid AND d.adnum = a.attnum
+     WHERE EXISTS (SELECT 1 FROM pg_trigger tg WHERE tg.tgrelid = t.oid AND NOT tg.tgisinternal)
+       AND NOT (
+         a.attname IS NOT NULL
+         AND format_type(a.atttypid,NULL) = 'integer'
+         AND a.attnotnull
+         AND pg_get_expr(d.adbin, d.adrelid) = '1'
+       )`,
+    [schemas],
+  );
+  return rows.map((r) => {
+    const reasons: string[] = [];
+    if (r.typ === null) reasons.push('column missing');
+    else {
+      if (r.typ !== 'integer') reasons.push(`type=${r.typ}`);
+      if (!r.notnull) reasons.push('nullable');
+      if (r.defexpr !== '1') reasons.push(`default=${r.defexpr ?? 'none'}`);
+    }
+    return { rule: 'version-column', object: `${r.sch}.${r.tbl}`, detail: reasons.join(', ') };
+  });
+}
+
+interface NumericRangeRow {
+  sch: string;
+  tbl: string;
+  col: string;
+  detail: string;
+}
+
+async function numericRangeCheck(pool: Pool, schemas: readonly string[]): Promise<Violation[]> {
+  const { rows } = await pool.query<NumericRangeRow>(
+    `${OWNED_TABLE_CTE}
+     SELECT t.sch, t.tbl, a.attname AS col, 'no range check' AS detail
+     FROM t
+     JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum > 0 AND NOT a.attisdropped
+     WHERE format_type(a.atttypid,NULL) = 'numeric'
+       AND NOT EXISTS (
+         SELECT 1 FROM pg_constraint co WHERE co.conrelid = t.oid AND co.contype = 'c'
+           AND pg_get_constraintdef(co.oid) ~ ('\\m' || a.attname || '\\M'))
+     UNION ALL
+     SELECT t.sch, t.tbl, a.attname AS col, 'float type' AS detail
+     FROM t
+     JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum > 0 AND NOT a.attisdropped
+     WHERE format_type(a.atttypid,NULL) IN ('double precision','real')`,
+    [schemas],
+  );
+  return rows.map((r) => ({
+    rule: 'numeric-range-check',
+    object: `${r.sch}.${r.tbl}.${r.col}`,
+    detail: r.detail,
+  }));
+}
+
+interface ProjectionShapeRow {
+  sch: string;
+  tbl: string;
+  hastenant: boolean;
+  hasupdated: boolean;
+}
+
+async function projectionShape(pool: Pool, schemas: readonly string[]): Promise<Violation[]> {
+  const { rows } = await pool.query<ProjectionShapeRow>(
+    `${OWNED_TABLE_CTE}
+     SELECT t.sch, t.tbl,
+       EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = t.oid AND a.attname = 'tenant_id'
+               AND a.attnum > 0 AND NOT a.attisdropped) AS hastenant,
+       EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = t.oid AND a.attname = 'updated_at'
+               AND a.attnum > 0 AND NOT a.attisdropped) AS hasupdated
+     FROM t
+     WHERE t.tbl LIKE '%\\_projection' ESCAPE '\\'
+       AND NOT (
+         EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = t.oid AND a.attname = 'tenant_id'
+                 AND a.attnum > 0 AND NOT a.attisdropped)
+         AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = t.oid AND a.attname = 'updated_at'
+                     AND a.attnum > 0 AND NOT a.attisdropped)
+       )`,
+    [schemas],
+  );
+  return rows.map((r) => {
+    const missing = [!r.hastenant && 'tenant_id', !r.hasupdated && 'updated_at']
+      .filter((x): x is string => Boolean(x))
+      .join(',');
+    return {
+      rule: 'projection-shape',
+      object: `${r.sch}.${r.tbl}`,
+      detail: `missing=${missing}`,
+    };
+  });
+}
+
+async function lifecycleRegistered(
+  pool: Pool,
+  schemas: readonly string[],
+  lifecycleTables: readonly string[],
+): Promise<Violation[]> {
+  const { rows } = await pool.query<TableRow>(
+    `${OWNED_TABLE_CTE}
+     SELECT t.sch, t.tbl FROM t
+     WHERE (t.sch || '.' || t.tbl) <> ALL($2::text[])`,
+    [schemas, lifecycleTables],
+  );
+  return rows.map((r) => ({
+    rule: 'lifecycle-registered',
+    object: `${r.sch}.${r.tbl}`,
+    detail: 'not present in the shared-db lifecycle registry',
+  }));
+}
+
 export async function collectViolations(pool: Pool, opts: ConstitutionOpts): Promise<Violation[]> {
   const appRole = opts.appRole ?? 'seta_app';
   const results = await Promise.all([
@@ -280,6 +532,14 @@ export async function collectViolations(pool: Pool, opts: ConstitutionOpts): Pro
     appRoleGrants(pool, opts.schemas, appRole),
     appRoleNoCreate(pool, opts.schemas, appRole),
     noCrossSchemaFk(pool, opts.schemas),
+    tenantScopedUnique(pool, opts.schemas),
+    orderedPairCheck(pool, opts.schemas),
+    timestampShape(pool, opts.schemas),
+    updatedAtTrigger(pool, opts.schemas),
+    versionColumn(pool, opts.schemas),
+    numericRangeCheck(pool, opts.schemas),
+    projectionShape(pool, opts.schemas),
+    lifecycleRegistered(pool, opts.schemas, opts.lifecycleTables),
   ]);
   // Byte order, not localeCompare: `object` is the baseline's join key, and ICU collation
   // orders `.` `:` `::` differently across versions — a baseline generated on one machine
