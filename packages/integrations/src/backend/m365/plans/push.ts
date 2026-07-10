@@ -166,7 +166,7 @@ interface PushCreateTaskJobPayload {
 
 async function lookupPlanLinkId(tx: NodeTx, planId: string): Promise<string | null> {
   // biome-ignore lint/suspicious/noExplicitAny: NodeTx omits schema generic; structurally compatible with the repo's reads.
-  const repo = createM365PlanLinkRepo({ db: tx as any });
+  const repo = createM365PlanLinkRepo({ db: () => tx as any });
   const link = await repo.findByPlan(planId);
   return link?.id ?? null;
 }

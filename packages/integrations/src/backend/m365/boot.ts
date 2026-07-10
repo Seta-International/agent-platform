@@ -31,30 +31,18 @@ export interface M365Boot {
   buildRoutes: (deps: RouteBuildDeps) => Hono<SessionEnv>;
 }
 
-/**
- * buildM365Boot() and its buildRoutes() both run once at process boot, outside any
- * executor context (no HTTP request or job is in flight yet) — integrationsDb() would
- * throw ExecutorContextError if called here directly. Defer each repo's construction to
- * its first method call instead, which only ever happens from inside a job handler or an
- * HTTP route handler, both scoped()-wrapped in production (wrapJob, sessionMiddleware).
- */
-function lazyRepo<T extends object>(build: () => T): T {
-  let cached: T | null = null;
-  return new Proxy({} as T, {
-    get(_target, prop, receiver) {
-      cached ??= build();
-      return Reflect.get(cached as object, prop, receiver);
-    },
-  });
-}
-
 export function buildM365Boot(deps: M365BootDeps): M365Boot {
   const { webhookSecret, cryptoSvc, getWorkers } = deps;
 
-  const m365LinksRepo = lazyRepo(() => m365.createM365GroupLinkRepo({ db: integrationsDb() }));
-  const m365PlanLinksRepo = lazyRepo(() => m365.createM365PlanLinkRepo({ db: integrationsDb() }));
-  const m365EtagsRepo = lazyRepo(() => m365.createM365ResourceEtagRepo({ db: integrationsDb() }));
-  const m365SubsRepo = lazyRepo(() => m365.createM365SubscriptionsRepo({ db: integrationsDb() }));
+  // buildM365Boot() runs once at process boot, outside any executor context (no HTTP
+  // request or job is in flight yet) — integrationsDb() would throw ExecutorContextError
+  // if resolved here. Each repo instead takes integrationsDb itself as a resolver and
+  // calls it per query, inside whichever context is open when a method runs (a job
+  // handler or an HTTP route handler, both scoped()-wrapped in production).
+  const m365LinksRepo = m365.createM365GroupLinkRepo({ db: integrationsDb });
+  const m365PlanLinksRepo = m365.createM365PlanLinkRepo({ db: integrationsDb });
+  const m365EtagsRepo = m365.createM365ResourceEtagRepo({ db: integrationsDb });
+  const m365SubsRepo = m365.createM365SubscriptionsRepo({ db: integrationsDb });
 
   async function graphClientFor(setaTenantId: string): Promise<Client> {
     const config = await getM365TenantConfig(setaTenantId, {

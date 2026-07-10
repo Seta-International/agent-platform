@@ -113,14 +113,14 @@ async function withSetup<T>(
         await installWorkerSchema(pool);
         const seeded = await seedLinkedPlan(pool);
         const db = drizzle(pool, { schema: {} });
-        const groupRepo = createM365GroupLinkRepo({ db: db as never });
+        const groupRepo = createM365GroupLinkRepo({ db: () => db as never });
         await groupRepo.upsert({
           tenantId: seeded.tenantId,
           groupId: seeded.groupId,
           externalId: 'ext-grp-push-test',
           lastSyncedFields: {},
         });
-        const planLinkRepo = createM365PlanLinkRepo({ db: db as never });
+        const planLinkRepo = createM365PlanLinkRepo({ db: () => db as never });
         await planLinkRepo.upsert({
           tenantId: seeded.tenantId,
           groupId: seeded.groupId,

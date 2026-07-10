@@ -65,7 +65,7 @@ const POST_FIRST_RUN_LOCAL_STATE = {
 describe('runPlanPull — idempotency across two runs', () => {
   it('second run on unchanged remote state issues 4 graph requests and writes nothing', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const groupLinkRepo = createM365GroupLinkRepo({ db });
+      const groupLinkRepo = createM365GroupLinkRepo({ db: () => db });
       await groupLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -73,7 +73,7 @@ describe('runPlanPull — idempotency across two runs', () => {
         lastSyncedFields: {},
       });
 
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
       await planLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -82,7 +82,7 @@ describe('runPlanPull — idempotency across two runs', () => {
         initialSnapshot: {},
       });
 
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
 
       // --- First run: initial full pull ---
       const { graph: graph1, requestPaths: requestPaths1 } = buildStubGraph(

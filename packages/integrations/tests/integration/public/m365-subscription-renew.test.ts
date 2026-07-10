@@ -11,7 +11,7 @@ const ONE_MINUTE_MS = 60 * 1000;
 describe('runRenewSubscription', () => {
   it('happy path: patches Graph, updates DB expiration, enqueues next renewal', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
       const tenantId = crypto.randomUUID();
       const subscriptionId = crypto.randomUUID();
 
@@ -71,7 +71,7 @@ describe('runRenewSubscription', () => {
 
   it('missing row: exits cleanly without calling Graph or enqueuing a job', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
 
       const patchFn = vi.fn();
       const graphClient = {
@@ -96,7 +96,7 @@ describe('runRenewSubscription', () => {
 
   it('Graph failure: error propagates, DB expiration is unchanged', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
       const tenantId = crypto.randomUUID();
       const subscriptionId = crypto.randomUUID();
 

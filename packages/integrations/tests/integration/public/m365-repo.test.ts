@@ -5,7 +5,7 @@ import { withIntegrationsTestDb } from '../../helpers/test-db.ts';
 describe('m365GroupLinkRepo CRUD round-trip', () => {
   it('findByGroup returns null when no link exists', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365GroupLinkRepo({ db });
+      const repo = createM365GroupLinkRepo({ db: () => db });
       const result = await repo.findByGroup(crypto.randomUUID());
       expect(result).toBeNull();
     });
@@ -13,7 +13,7 @@ describe('m365GroupLinkRepo CRUD round-trip', () => {
 
   it('upsert creates a row when none exists', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365GroupLinkRepo({ db });
+      const repo = createM365GroupLinkRepo({ db: () => db });
       const tenantId = crypto.randomUUID();
       const groupId = crypto.randomUUID();
 
@@ -34,7 +34,7 @@ describe('m365GroupLinkRepo CRUD round-trip', () => {
 
   it('upsert updates existing row — same (tenant_id, group_id), no duplicates', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365GroupLinkRepo({ db });
+      const repo = createM365GroupLinkRepo({ db: () => db });
       const tenantId = crypto.randomUUID();
       const groupId = crypto.randomUUID();
 
@@ -63,7 +63,7 @@ describe('m365GroupLinkRepo CRUD round-trip', () => {
 
   it('findByGroup returns the row after upsert', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365GroupLinkRepo({ db });
+      const repo = createM365GroupLinkRepo({ db: () => db });
       const tenantId = crypto.randomUUID();
       const groupId = crypto.randomUUID();
 
@@ -83,7 +83,7 @@ describe('m365GroupLinkRepo CRUD round-trip', () => {
 
   it('findByExternal returns the row via (tenant_id, external_id)', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365GroupLinkRepo({ db });
+      const repo = createM365GroupLinkRepo({ db: () => db });
       const tenantId = crypto.randomUUID();
       const groupId = crypto.randomUUID();
 
@@ -102,7 +102,7 @@ describe('m365GroupLinkRepo CRUD round-trip', () => {
 
   it("setSyncStatus('pulling') then setSyncStatus('idle') round-trips", async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365GroupLinkRepo({ db });
+      const repo = createM365GroupLinkRepo({ db: () => db });
       const row = await repo.upsert({
         tenantId: crypto.randomUUID(),
         groupId: crypto.randomUUID(),
@@ -123,7 +123,7 @@ describe('m365GroupLinkRepo CRUD round-trip', () => {
 
   it("setSyncStatus('error', 'some msg') persists the error string", async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365GroupLinkRepo({ db });
+      const repo = createM365GroupLinkRepo({ db: () => db });
       const row = await repo.upsert({
         tenantId: crypto.randomUUID(),
         groupId: crypto.randomUUID(),
@@ -140,7 +140,7 @@ describe('m365GroupLinkRepo CRUD round-trip', () => {
 
   it('persistDeltaLink updates row, sets syncStatus to idle, clears lastError', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365GroupLinkRepo({ db });
+      const repo = createM365GroupLinkRepo({ db: () => db });
       const row = await repo.upsert({
         tenantId: crypto.randomUUID(),
         groupId: crypto.randomUUID(),
@@ -163,7 +163,7 @@ describe('m365GroupLinkRepo CRUD round-trip', () => {
 
   it('tombstone sets unlinkedAt; subsequent findByGroup returns null', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365GroupLinkRepo({ db });
+      const repo = createM365GroupLinkRepo({ db: () => db });
       const groupId = crypto.randomUUID();
       const row = await repo.upsert({
         tenantId: crypto.randomUUID(),
@@ -180,7 +180,7 @@ describe('m365GroupLinkRepo CRUD round-trip', () => {
 
   it('after tombstone, a new upsert with same (tenant_id, group_id) creates a fresh row', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const repo = createM365GroupLinkRepo({ db });
+      const repo = createM365GroupLinkRepo({ db: () => db });
       const tenantId = crypto.randomUUID();
       const groupId = crypto.randomUUID();
 

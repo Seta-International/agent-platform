@@ -23,7 +23,7 @@ describe('runCreateSubscription', () => {
       const subscriptionId = crypto.randomUUID();
       const graphStub = makeGraphStub(subscriptionId);
       const workerAddJob = vi.fn().mockResolvedValue(undefined);
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
 
       await runCreateSubscription(
         {
@@ -64,7 +64,7 @@ describe('runCreateSubscription', () => {
       const subscriptionId = crypto.randomUUID();
       const graphStub = makeGraphStub(subscriptionId);
       const workerAddJob = vi.fn().mockResolvedValue(undefined);
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
 
       await runCreateSubscription(
         {
@@ -108,7 +108,7 @@ describe('runCreateSubscription', () => {
       const firstId = crypto.randomUUID();
       const secondId = crypto.randomUUID();
       const workerAddJob = vi.fn().mockResolvedValue(undefined);
-      const repo = createM365SubscriptionsRepo({ db });
+      const repo = createM365SubscriptionsRepo({ db: () => db });
 
       await runCreateSubscription(
         {

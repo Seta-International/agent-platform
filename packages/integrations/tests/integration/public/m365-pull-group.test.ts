@@ -136,7 +136,7 @@ describe('runPullGroup', () => {
           const repo = await maintenance(async () => {
             const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
             // Using db as never: dynamic import's inferred type doesn't align with NodePgDatabase generic
-            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            const linkRepo = createM365GroupLinkRepo({ db: () => db as never });
             await linkRepo.upsert({
               tenantId,
               groupId,
@@ -217,7 +217,7 @@ describe('runPullGroup', () => {
           // the CLI seeder, runs under maintenance() rather than a real tenant session.
           const repo = await maintenance(async () => {
             const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            const linkRepo = createM365GroupLinkRepo({ db: () => db as never });
             await linkRepo.upsert({
               tenantId,
               groupId,
@@ -289,7 +289,7 @@ describe('runPullGroup', () => {
           // Seeding, like the CLI seeder, runs under maintenance() rather than a real tenant session.
           const repo = await maintenance(async () => {
             const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            const linkRepo = createM365GroupLinkRepo({ db: () => db as never });
             await linkRepo.upsert({
               tenantId,
               groupId,
@@ -358,7 +358,7 @@ describe('runPullGroup', () => {
           // Seeding, like the CLI seeder, runs under maintenance() rather than a real tenant session.
           const repo = await maintenance(async () => {
             const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            const linkRepo = createM365GroupLinkRepo({ db: () => db as never });
             await linkRepo.upsert({
               tenantId,
               groupId,
@@ -455,7 +455,7 @@ describe('runPullGroup', () => {
           // Seeding, like the CLI seeder, runs under maintenance() rather than a real tenant session.
           const repo = await maintenance(async () => {
             const db = (await import('../../../src/backend/db/client.ts')).integrationsDb();
-            const linkRepo = createM365GroupLinkRepo({ db: db as never });
+            const linkRepo = createM365GroupLinkRepo({ db: () => db as never });
             await linkRepo.upsert({
               tenantId,
               groupId,

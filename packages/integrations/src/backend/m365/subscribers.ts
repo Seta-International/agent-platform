@@ -81,7 +81,7 @@ async function handleGroupUpdated(
   // createM365GroupLinkRepo expects NodePgDatabase<typeof schema>; NodeTx is structurally
   // compatible for the select/update operations we perform here.
   // biome-ignore lint/suspicious/noExplicitAny: NodeTx generic param omits schema, structurally compatible
-  const repo = createM365GroupLinkRepo({ db: ctx.tx as any });
+  const repo = createM365GroupLinkRepo({ db: () => ctx.tx as any });
 
   const link = await repo.findByGroup(payload.group_id);
   if (!link) return;
@@ -105,7 +105,7 @@ async function handleGroupDeleted(
   const payload = event.payload;
 
   // biome-ignore lint/suspicious/noExplicitAny: NodeTx generic param omits schema, structurally compatible
-  const repo = createM365GroupLinkRepo({ db: ctx.tx as any });
+  const repo = createM365GroupLinkRepo({ db: () => ctx.tx as any });
 
   const link = await repo.findByGroup(payload.group_id);
   if (!link) return;
@@ -126,7 +126,7 @@ async function handleMemberRoleChanged(
   if (payload.actor?.type === 'system' && payload.actor.system_id === M365_SYSTEM_ID) return;
 
   // biome-ignore lint/suspicious/noExplicitAny: NodeTx generic param omits schema, structurally compatible
-  const repo = createM365GroupLinkRepo({ db: ctx.tx as any });
+  const repo = createM365GroupLinkRepo({ db: () => ctx.tx as any });
 
   const link = await repo.findByGroup(payload.group_id);
   if (!link) return;
@@ -158,7 +158,7 @@ async function handlePlanAutoMirror(
   if (payload.after?.external_source !== 'm365') return;
 
   // biome-ignore lint/suspicious/noExplicitAny: NodeTx generic param omits schema, structurally compatible
-  const repo = createM365GroupLinkRepo({ db: ctx.tx as any });
+  const repo = createM365GroupLinkRepo({ db: () => ctx.tx as any });
 
   const link = await repo.findByGroup(payload.group_id);
   if (!link) return;

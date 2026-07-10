@@ -11,7 +11,7 @@ const GROUP_B = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 describe('runPlanPullCron', () => {
   it('no live links → no enqueues', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
       const addJob = vi.fn().mockResolvedValue(undefined);
 
       const result = await runPlanPullCron({ planLinkRepo, addJob });
@@ -23,7 +23,7 @@ describe('runPlanPullCron', () => {
 
   it('N live links → N enqueues with correct payload, jobKey, and deterministic runAt', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
 
       await planLinkRepo.upsert({
         tenantId: TENANT_A,
@@ -94,7 +94,7 @@ describe('runPlanPullCron', () => {
 
   it('tombstoned link is NOT enqueued', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
 
       const _live = await planLinkRepo.upsert({
         tenantId: TENANT_A,
@@ -123,7 +123,7 @@ describe('runPlanPullCron', () => {
 
   it('jitter range: random=0 → runAt=now, random=0.999 → runAt=now+59940ms', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
 
       await planLinkRepo.upsert({
         tenantId: TENANT_A,

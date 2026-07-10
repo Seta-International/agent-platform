@@ -76,7 +76,7 @@ describe('m365 group routes — tenant scoping', () => {
 
         // Seeding, like the CLI seeder, runs under maintenance() rather than a real tenant session.
         const m365LinksRepo = await maintenance(async () => {
-          const repo = createM365GroupLinkRepo({ db: integrationsDb() });
+          const repo = createM365GroupLinkRepo({ db: integrationsDb });
           await repo.upsert({
             tenantId: tenantAId,
             groupId: groupAId,

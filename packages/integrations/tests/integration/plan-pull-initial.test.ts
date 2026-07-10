@@ -124,7 +124,7 @@ function buildPlannerMocks(): PlannerPullSurface {
 describe('runPlanPull — initial full pull', () => {
   it('creates 2 buckets, 4 tasks, resolves assignees, persists 16 etag rows + snapshot', async () => {
     await withIntegrationsTestDb(async ({ db }) => {
-      const groupLinkRepo = createM365GroupLinkRepo({ db });
+      const groupLinkRepo = createM365GroupLinkRepo({ db: () => db });
       await groupLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -132,7 +132,7 @@ describe('runPlanPull — initial full pull', () => {
         lastSyncedFields: {},
       });
 
-      const planLinkRepo = createM365PlanLinkRepo({ db });
+      const planLinkRepo = createM365PlanLinkRepo({ db: () => db });
       const link = await planLinkRepo.upsert({
         tenantId: TENANT_ID,
         groupId: GROUP_ID,
@@ -141,7 +141,7 @@ describe('runPlanPull — initial full pull', () => {
         initialSnapshot: {},
       });
 
-      const etagRepo = createM365ResourceEtagRepo({ db });
+      const etagRepo = createM365ResourceEtagRepo({ db: () => db });
       const { graph, requestPaths } = buildStubGraph();
       const planner = buildPlannerMocks();
       const emit = vi.fn().mockResolvedValue(undefined);
