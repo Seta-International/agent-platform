@@ -7,7 +7,7 @@ import {
   type KnowledgeChunkVectorMetadata,
 } from '@seta/knowledge';
 import { resetKnowledgeDb } from '@seta/knowledge/testing';
-import { closePools, initPools } from '@seta/shared-db';
+import { closePools, initPools, scoped } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { embedKnowledgeChunks } from '../../../src/backend/embeddings/embed-knowledge-chunks.ts';
@@ -49,9 +49,11 @@ describe('embedKnowledgeChunks worker', () => {
         { text: 'second chunk', page_hint: 'p.2' },
       ]);
 
-      await embedKnowledgeChunks(
-        { tenant_id, file_id, event_id: randomUUID() },
-        { pool, pgVector, provider },
+      await scoped(tenant_id, () =>
+        embedKnowledgeChunks(
+          { tenant_id, file_id, event_id: randomUUID() },
+          { pool, pgVector, provider },
+        ),
       );
 
       const rows = await pgVector.query({
@@ -90,9 +92,11 @@ describe('embedKnowledgeChunks worker', () => {
           throw new Error('provider down');
         },
       };
-      await embedKnowledgeChunks(
-        { tenant_id, file_id, event_id: randomUUID() },
-        { pool, pgVector, provider: failingProvider as never },
+      await scoped(tenant_id, () =>
+        embedKnowledgeChunks(
+          { tenant_id, file_id, event_id: randomUUID() },
+          { pool, pgVector, provider: failingProvider as never },
+        ),
       );
 
       const status = await pool.query<{ status: string; error_reason: string | null }>(
@@ -114,9 +118,11 @@ describe('embedKnowledgeChunks worker', () => {
         { text: 'attached chat doc chunk', page_hint: 'p.1' },
       ]);
 
-      await embedKnowledgeChunks(
-        { tenant_id, file_id, event_id: randomUUID() },
-        { pool, pgVector, provider },
+      await scoped(tenant_id, () =>
+        embedKnowledgeChunks(
+          { tenant_id, file_id, event_id: randomUUID() },
+          { pool, pgVector, provider },
+        ),
       );
 
       const rows = await pgVector.query({

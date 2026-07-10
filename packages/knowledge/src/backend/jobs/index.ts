@@ -1,5 +1,5 @@
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { getPool } from '@seta/shared-db';
+import { executorPool } from '@seta/shared-db';
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { getS3Client } from '@seta/shared-storage';
 import type { TaskList } from 'graphile-worker';
@@ -40,7 +40,7 @@ export const knowledgeJobs: TaskList = {
     });
   },
   parse_knowledge_file: async (payload, helpers) => {
-    const pool = getPool('worker');
+    const pool = executorPool();
     await parseKnowledgeFile(payload as ParseKnowledgeFilePayload, {
       pool,
       fetchObject: fetchS3Object,
@@ -58,7 +58,7 @@ export const knowledgeJobs: TaskList = {
   },
   embed_knowledge_chunks: async (payload, _helpers) => {
     const provider = resolveEmbeddingProvider();
-    const pool = getPool('worker');
+    const pool = executorPool();
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) throw new Error('DATABASE_URL required for knowledge embed worker');
     const pgVector = getKnowledgeVectorStore(databaseUrl);
