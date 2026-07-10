@@ -19,6 +19,7 @@ describe('people schema migration', () => {
         'person',
         'person_skill',
         'project_projection',
+        'user_projection',
         'worker',
         'worker_allocation_projection',
         'worker_history',

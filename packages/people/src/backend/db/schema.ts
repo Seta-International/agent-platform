@@ -265,3 +265,16 @@ export const projectProjection = peopleSchema.table(
   },
   (t) => [index('project_proj_by_account').on(t.tenant_id, t.account_id)],
 );
+
+export const userProjection = peopleSchema.table(
+  'user_projection',
+  {
+    user_id: uuid('user_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    person_id: uuid('person_id').notNull(),
+    deactivated_at: timestamp('deactivated_at', { withTimezone: true }),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('user_projection_uniq_person').on(t.tenant_id, t.person_id)],
+);
