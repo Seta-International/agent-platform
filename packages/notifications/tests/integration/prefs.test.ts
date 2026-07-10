@@ -18,6 +18,7 @@ import {
   NotificationPrefError,
   setNotificationPref,
 } from '../../src/index.ts';
+import { inScope } from '../helpers.ts';
 import { withNotificationsTestDb } from './test-helpers.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
@@ -49,7 +50,7 @@ describe('listNotificationPrefs', () => {
     await withNotificationsTestDb(async () => {
       resetNotificationsDb();
       const session = makeAdminSession();
-      const result = await listNotificationPrefs({ session });
+      const result = await inScope(session.tenant_id, () => listNotificationPrefs({ session }));
       expect(result.rows).toHaveLength(NOTIFICATION_CATEGORIES.length);
       expect(result.rows[0]).toMatchObject({
         event_type: 'planner.task.assigned',
@@ -65,14 +66,16 @@ describe('listNotificationPrefs', () => {
     await withNotificationsTestDb(async () => {
       resetNotificationsDb();
       const session = makeAdminSession();
-      await notificationsDb().insert(notificationPrefs).values({
-        tenantId: session.tenant_id,
-        eventType: 'planner.task.assigned',
-        channel: 'in_app',
-        enabled: false,
-        updatedBy: session.user_id,
+      const result = await inScope(session.tenant_id, async () => {
+        await notificationsDb().insert(notificationPrefs).values({
+          tenantId: session.tenant_id,
+          eventType: 'planner.task.assigned',
+          channel: 'in_app',
+          enabled: false,
+          updatedBy: session.user_id,
+        });
+        return listNotificationPrefs({ session });
       });
-      const result = await listNotificationPrefs({ session });
       const row = result.rows.find((r) => r.event_type === 'planner.task.assigned');
       expect(row?.in_app_enabled).toBe(false);
       expect(row?.email_enabled).toBe(false);
@@ -84,14 +87,16 @@ describe('listNotificationPrefs', () => {
       resetNotificationsDb();
       const session = makeAdminSession();
       const otherTenant = crypto.randomUUID();
-      await notificationsDb().insert(notificationPrefs).values({
-        tenantId: otherTenant,
-        eventType: 'planner.task.assigned',
-        channel: 'in_app',
-        enabled: false,
-        updatedBy: session.user_id,
+      const result = await inScope(session.tenant_id, async () => {
+        await notificationsDb().insert(notificationPrefs).values({
+          tenantId: otherTenant,
+          eventType: 'planner.task.assigned',
+          channel: 'in_app',
+          enabled: false,
+          updatedBy: session.user_id,
+        });
+        return listNotificationPrefs({ session });
       });
-      const result = await listNotificationPrefs({ session });
       const row = result.rows.find((r) => r.event_type === 'planner.task.assigned');
       expect(row?.in_app_enabled).toBe(true);
     });
@@ -115,18 +120,20 @@ describe('setNotificationPref', () => {
     await withNotificationsTestDb(async () => {
       resetNotificationsDb();
       const session = makeAdminSession();
-      await withEmit(
-        { actor: { userId: session.user_id, tenantId: session.tenant_id } },
-        async () => {
-          await setNotificationPref({
-            event_type: 'planner.task.assigned',
-            channel: 'in_app',
-            enabled: false,
-            session,
-          });
-        },
-      );
-      const rows = await notificationsDb().select().from(notificationPrefs);
+      const rows = await inScope(session.tenant_id, async () => {
+        await withEmit(
+          { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+          async () => {
+            await setNotificationPref({
+              event_type: 'planner.task.assigned',
+              channel: 'in_app',
+              enabled: false,
+              session,
+            });
+          },
+        );
+        return notificationsDb().select().from(notificationPrefs);
+      });
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({ enabled: false, updatedBy: session.user_id });
     });
@@ -136,25 +143,27 @@ describe('setNotificationPref', () => {
     await withNotificationsTestDb(async () => {
       resetNotificationsDb();
       const session = makeAdminSession();
-      await notificationsDb().insert(notificationPrefs).values({
-        tenantId: session.tenant_id,
-        eventType: 'planner.task.assigned',
-        channel: 'in_app',
-        enabled: false,
-        updatedBy: session.user_id,
+      const rows = await inScope(session.tenant_id, async () => {
+        await notificationsDb().insert(notificationPrefs).values({
+          tenantId: session.tenant_id,
+          eventType: 'planner.task.assigned',
+          channel: 'in_app',
+          enabled: false,
+          updatedBy: session.user_id,
+        });
+        await withEmit(
+          { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+          async () => {
+            await setNotificationPref({
+              event_type: 'planner.task.assigned',
+              channel: 'in_app',
+              enabled: true,
+              session,
+            });
+          },
+        );
+        return notificationsDb().select().from(notificationPrefs);
       });
-      await withEmit(
-        { actor: { userId: session.user_id, tenantId: session.tenant_id } },
-        async () => {
-          await setNotificationPref({
-            event_type: 'planner.task.assigned',
-            channel: 'in_app',
-            enabled: true,
-            session,
-          });
-        },
-      );
-      const rows = await notificationsDb().select().from(notificationPrefs);
       expect(rows).toHaveLength(0);
     });
   });
@@ -164,13 +173,15 @@ describe('setNotificationPref', () => {
       resetNotificationsDb();
       const session = makeAdminSession();
       await expect(
-        withEmit({ actor: { userId: session.user_id, tenantId: session.tenant_id } }, () =>
-          setNotificationPref({
-            event_type: 'unknown.event',
-            channel: 'in_app',
-            enabled: false,
-            session,
-          }),
+        inScope(session.tenant_id, () =>
+          withEmit({ actor: { userId: session.user_id, tenantId: session.tenant_id } }, () =>
+            setNotificationPref({
+              event_type: 'unknown.event',
+              channel: 'in_app',
+              enabled: false,
+              session,
+            }),
+          ),
         ),
       ).rejects.toBeInstanceOf(NotificationPrefError);
     });
@@ -180,28 +191,30 @@ describe('setNotificationPref', () => {
     await withNotificationsTestDb(async () => {
       resetNotificationsDb();
       const session = makeAdminSession();
-      await notificationsDb().insert(notificationPrefs).values({
-        tenantId: session.tenant_id,
-        eventType: 'planner.task.assigned',
-        channel: 'in_app',
-        enabled: false,
-        updatedBy: session.user_id,
+      const events = await inScope(session.tenant_id, async () => {
+        await notificationsDb().insert(notificationPrefs).values({
+          tenantId: session.tenant_id,
+          eventType: 'planner.task.assigned',
+          channel: 'in_app',
+          enabled: false,
+          updatedBy: session.user_id,
+        });
+        await withEmit(
+          { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+          async () => {
+            await setNotificationPref({
+              event_type: 'planner.task.assigned',
+              channel: 'in_app',
+              enabled: true,
+              session,
+            });
+          },
+        );
+        return notificationsDb()
+          .select()
+          .from(coreEvents)
+          .where(eq(coreEvents.eventType, 'notification.tenant_prefs.changed'));
       });
-      await withEmit(
-        { actor: { userId: session.user_id, tenantId: session.tenant_id } },
-        async () => {
-          await setNotificationPref({
-            event_type: 'planner.task.assigned',
-            channel: 'in_app',
-            enabled: true,
-            session,
-          });
-        },
-      );
-      const events = await notificationsDb()
-        .select()
-        .from(coreEvents)
-        .where(eq(coreEvents.eventType, 'notification.tenant_prefs.changed'));
       expect(events).toHaveLength(1);
       const payload = events[0]?.payload as Record<string, unknown>;
       expect(payload).toMatchObject({
@@ -221,13 +234,15 @@ describe('setNotificationPref', () => {
         role_summary: { roles: ['planner.member'], cross_tenant_read: false },
       });
       await expect(
-        withEmit({ actor: { userId: session.user_id, tenantId: session.tenant_id } }, () =>
-          setNotificationPref({
-            event_type: 'planner.task.assigned',
-            channel: 'in_app',
-            enabled: false,
-            session,
-          }),
+        inScope(session.tenant_id, () =>
+          withEmit({ actor: { userId: session.user_id, tenantId: session.tenant_id } }, () =>
+            setNotificationPref({
+              event_type: 'planner.task.assigned',
+              channel: 'in_app',
+              enabled: false,
+              session,
+            }),
+          ),
         ),
       ).rejects.toBeInstanceOf(NotificationPrefError);
     });

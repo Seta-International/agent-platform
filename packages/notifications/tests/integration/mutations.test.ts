@@ -7,6 +7,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../../src/index.ts';
+import { inScope } from '../helpers.ts';
 import { waitFor, withNotificationsTestDb } from './test-helpers.ts';
 
 async function seedOne(tenantId: string, userId: string): Promise<string> {
@@ -30,7 +31,6 @@ describe('notification mutations', () => {
       resetNotificationsDb();
       const tenantId = crypto.randomUUID();
       const userId = crypto.randomUUID();
-      const id = await seedOne(tenantId, userId);
 
       const listener = await pool.connect();
       const got: string[] = [];
@@ -40,12 +40,15 @@ describe('notification mutations', () => {
       await listener.query('LISTEN notifications_changes');
 
       try {
-        const res1 = await markNotificationRead({ id, userId, tenantId });
-        expect(res1.read_at).not.toBeNull();
-        const firstReadAt = res1.read_at;
+        await inScope(tenantId, async () => {
+          const id = await seedOne(tenantId, userId);
+          const res1 = await markNotificationRead({ id, userId, tenantId });
+          expect(res1.read_at).not.toBeNull();
+          const firstReadAt = res1.read_at;
 
-        const res2 = await markNotificationRead({ id, userId, tenantId });
-        expect(res2.read_at).toBe(firstReadAt);
+          const res2 = await markNotificationRead({ id, userId, tenantId });
+          expect(res2.read_at).toBe(firstReadAt);
+        });
 
         await waitFor(() => got.includes(userId));
       } finally {
@@ -61,10 +64,12 @@ describe('notification mutations', () => {
       const tenantId = crypto.randomUUID();
       const owner = crypto.randomUUID();
       const intruder = crypto.randomUUID();
-      const id = await seedOne(tenantId, owner);
-      await expect(markNotificationRead({ id, userId: intruder, tenantId })).rejects.toThrow(
-        /not found/i,
-      );
+      await inScope(tenantId, async () => {
+        const id = await seedOne(tenantId, owner);
+        await expect(markNotificationRead({ id, userId: intruder, tenantId })).rejects.toThrow(
+          /not found/i,
+        );
+      });
     });
   });
 
@@ -73,20 +78,22 @@ describe('notification mutations', () => {
       resetNotificationsDb();
       const tenantId = crypto.randomUUID();
       const userId = crypto.randomUUID();
-      await seedOne(tenantId, userId);
-      await seedOne(tenantId, userId);
-      await seedOne(tenantId, userId);
-      const { updated } = await markAllNotificationsRead({ userId, tenantId });
-      expect(updated).toBe(3);
-      const stillUnread = await notificationsDb()
-        .select({ id: notificationsTable.id })
-        .from(notificationsTable)
-        .where(
-          and(eq(notificationsTable.userId, userId), eq(notificationsTable.tenantId, tenantId)),
-        );
-      const { updated: again } = await markAllNotificationsRead({ userId, tenantId });
-      expect(again).toBe(0);
-      expect(stillUnread).toHaveLength(3);
+      await inScope(tenantId, async () => {
+        await seedOne(tenantId, userId);
+        await seedOne(tenantId, userId);
+        await seedOne(tenantId, userId);
+        const { updated } = await markAllNotificationsRead({ userId, tenantId });
+        expect(updated).toBe(3);
+        const stillUnread = await notificationsDb()
+          .select({ id: notificationsTable.id })
+          .from(notificationsTable)
+          .where(
+            and(eq(notificationsTable.userId, userId), eq(notificationsTable.tenantId, tenantId)),
+          );
+        const { updated: again } = await markAllNotificationsRead({ userId, tenantId });
+        expect(again).toBe(0);
+        expect(stillUnread).toHaveLength(3);
+      });
     });
   });
 
@@ -95,9 +102,11 @@ describe('notification mutations', () => {
       resetNotificationsDb();
       const tenantId = crypto.randomUUID();
       const userId = crypto.randomUUID();
-      const id = await seedOne(tenantId, userId);
-      const res = await dismissNotification({ id, userId, tenantId });
-      expect(res.dismissed_at).not.toBeNull();
+      await inScope(tenantId, async () => {
+        const id = await seedOne(tenantId, userId);
+        const res = await dismissNotification({ id, userId, tenantId });
+        expect(res.dismissed_at).not.toBeNull();
+      });
     });
   });
 });
