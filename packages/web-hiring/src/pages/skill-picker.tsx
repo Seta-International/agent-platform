@@ -22,8 +22,6 @@ import { useMemo, useState } from 'react';
 import { fetchSkillCatalog } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 
-const NONE = '__none__';
-
 export interface PickedSkill {
   skill_id: string;
   skill_name: string;
@@ -45,12 +43,12 @@ export function SkillPicker({
 
   function add(skillId: string, name: string) {
     if (chosen.has(skillId)) return;
-    onChange([...value, { skill_id: skillId, skill_name: name }]);
+    onChange([...value, { skill_id: skillId, skill_name: name, level: 0 }]);
   }
   function remove(skillId: string) {
     onChange(value.filter((v) => v.skill_id !== skillId));
   }
-  function setLevel(skillId: string, level: number | undefined) {
+  function setLevel(skillId: string, level: number) {
     onChange(value.map((v) => (v.skill_id === skillId ? { ...v, level } : v)));
   }
 
@@ -97,17 +95,16 @@ export function SkillPicker({
           >
             <span className="whitespace-nowrap">{v.skill_name}</span>
             <Select
-              value={v.level !== undefined ? String(v.level) : NONE}
-              onValueChange={(val) => setLevel(v.skill_id, val === NONE ? undefined : Number(val))}
+              value={String(v.level ?? 0)}
+              onValueChange={(val) => setLevel(v.skill_id, Number(val))}
             >
               <SelectTrigger
                 aria-label={`${v.skill_name} level`}
                 className="ml-1 h-auto gap-1 border-0 bg-transparent p-0 text-body-sm shadow-none focus-visible:shadow-none"
               >
-                <SelectValue placeholder="lvl" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE}>lvl</SelectItem>
                 {[0, 1, 2, 3, 4, 5].map((n) => (
                   <SelectItem key={n} value={String(n)}>
                     {n}

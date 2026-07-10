@@ -422,6 +422,13 @@ export function RaMonitoringPage() {
     () => (projects ?? []).filter((p) => !accountId || p.account_id === accountId),
     [projects, accountId],
   );
+  // `canManage` is only "has pm.project.manage somewhere"; the Add-allocation action needs at
+  // least one project the caller actually manages (a self-scoped EM with no owned project must
+  // not see it). Per-row edit actions gate on each row's own `can_manage` (FUT-353).
+  const canManageAny = useMemo(
+    () => canManage && (projects ?? []).some((p) => p.can_manage),
+    [canManage, projects],
+  );
   const accountOptions = useMemo<ComboboxOption[]>(
     () => (accounts ?? []).map((a) => ({ value: a.account_id, label: a.name })),
     [accounts],
@@ -597,7 +604,9 @@ export function RaMonitoringPage() {
         cell: ({ row, table }: Ctx) => {
           const r = row.original;
           const m = table.options.meta as RaTableMeta;
-          if (!m.canManage || !m.firstInGroup.has(r.allocation_id)) return null;
+          // Row-scoped (FUT-353): only projects the caller manages get edit actions; rows
+          // visible through wider read scope stay read-only.
+          if (!r.can_manage || !m.firstInGroup.has(r.allocation_id)) return null;
           return (
             <div className="flex justify-end gap-1">
               <Button
@@ -623,7 +632,7 @@ export function RaMonitoringPage() {
     <PageChrome
       title="RA Monitoring"
       actions={
-        canManage ? (
+        canManageAny ? (
           <SelectEmployeeDialog
             onSelect={(worker) =>
               setWizardTarget({
