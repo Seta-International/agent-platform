@@ -155,13 +155,13 @@
     "rule": "rls-enabled-forced",
     "object": "core.session_scope_cache",
     "status": "accepted",
-    "reason": "written before the tenant GUC is bound — see planner/core migration 0002_session_scope_cache_no_rls.sql"
+    "reason": "written before the tenant GUC is bound \u2014 see planner/core migration 0002_session_scope_cache_no_rls.sql"
   },
   {
     "rule": "rls-enabled-forced",
     "object": "identity.user",
     "status": "accepted",
-    "reason": "better-auth's pre-tenant email lookup runs with no bound tenant — see identity 0001_identity_platform.sql:30"
+    "reason": "better-auth's pre-tenant email lookup runs with no bound tenant \u2014 see identity 0001_identity_platform.sql:30"
   },
   {
     "rule": "tenant-scoped-unique",
@@ -173,7 +173,7 @@
     "rule": "timestamp-shape",
     "object": "planner.task_comments.updated_at",
     "status": "debt",
-    "reason": "S8: updated_at is nullable with no default — the only table breaking NOT NULL DEFAULT now(); DB-6 fixes it",
+    "reason": "S8: updated_at is nullable with no default \u2014 the only table breaking NOT NULL DEFAULT now(); DB-6 fixes it",
     "ticket": "FUT-554"
   },
   {
@@ -282,21 +282,21 @@
     "rule": "version-column",
     "object": "integrations.m365_group_links",
     "status": "debt",
-    "reason": "S8: sync_status/delta_link/last_synced_at mutated by concurrent sync workers — the lost-update case; DB-6 adds version",
+    "reason": "S8: sync_status/delta_link/last_synced_at mutated by concurrent sync workers \u2014 the lost-update case; DB-6 adds version",
     "ticket": "FUT-554"
   },
   {
     "rule": "version-column",
     "object": "integrations.m365_plan_links",
     "status": "debt",
-    "reason": "S8: sync_status/delta_link/last_synced_at mutated by concurrent sync workers — the lost-update case; DB-6 adds version",
+    "reason": "S8: sync_status/delta_link/last_synced_at mutated by concurrent sync workers \u2014 the lost-update case; DB-6 adds version",
     "ticket": "FUT-554"
   },
   {
     "rule": "version-column",
     "object": "integrations.m365_resource_etags",
     "status": "accepted",
-    "reason": "per-resource etag change-detection cache keyed by (tenant, plan, resource, platform_id); last-writer-wins is correct — a stale etag only forces a redundant re-sync, it loses no domain data"
+    "reason": "per-resource etag change-detection cache keyed by (tenant, plan, resource, platform_id); last-writer-wins is correct \u2014 a stale etag only forces a redundant re-sync, it loses no domain data"
   },
   {
     "rule": "version-column",
@@ -350,8 +350,9 @@
   {
     "rule": "version-column",
     "object": "planner.group_join_requests",
-    "status": "accepted",
-    "reason": "join request resolved once; the pending->resolved transition is guarded by a WHERE status = 'pending' predicate, which is the concurrency guard a version column would otherwise provide"
+    "status": "debt",
+    "reason": "lost update: resolve-join-request.ts reads status !== 'pending' and then updates on (group_id, user_id) with no status or version predicate \u2014 two concurrent approvals both pass the check and both add the member. Not named in S8; the gate found it",
+    "ticket": "FUT-554"
   },
   {
     "rule": "version-column",
