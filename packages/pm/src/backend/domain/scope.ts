@@ -50,15 +50,29 @@ function accessOwnerProjectsSubquery(session: SessionScope): SQL {
  * closed) rather than matching everything.
  */
 export function buildProjectScope(session: SessionScope): SQL | null {
+  return decide(session, 'pm.project.read', projectPlan(session));
+}
+
+/**
+ * Row-scope predicate for `pm.project.manage` mutations (allocations, FUT-353). Same arms as
+ * `buildProjectScope` but resolved against the manage permission: a self-scoped EM/TL manages
+ * only projects they lead/own (or their AM accounts / org reach), while a tenant-scoped
+ * manager gets `null` (no restriction).
+ */
+export function buildProjectManageScope(session: SessionScope): SQL | null {
+  return decide(session, 'pm.project.manage', projectPlan(session));
+}
+
+function projectPlan(session: SessionScope): ScopePlan {
   const w = session.worker_id;
-  return decide(session, 'pm.project.read', {
+  return {
     orgUnit: { column: project.org_unit_id },
     relationships: [
       () => (w ? sql`${project.pm_worker_id} = ${w}` : null),
       () => (w ? sql`${project.account_id} IN ${amAccountsSubquery(session)}` : null),
       () => (w ? sql`${project.id} IN ${accessOwnerProjectsSubquery(session)}` : null),
     ],
-  });
+  };
 }
 
 /**
