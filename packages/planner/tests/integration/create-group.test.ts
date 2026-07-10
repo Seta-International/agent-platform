@@ -3,7 +3,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createGroup } from '../../src/index.ts';
-import { buildSession, readEvents, seedTenant } from '../helpers.ts';
+import { buildSession, inScope, readEvents, seedTenant } from '../helpers.ts';
 
 describe('createGroup', () => {
   it('rejects a duplicate group name with CONFLICT (not a raw 500)', async () => {
@@ -25,10 +25,14 @@ describe('createGroup', () => {
             roles: ['planner.admin'],
           });
 
-          await createGroup({ tenant_id: seeded.tenant_id, name: 'Test Scroll View', session });
+          await inScope(session, () =>
+            createGroup({ tenant_id: seeded.tenant_id, name: 'Test Scroll View', session }),
+          );
 
           await expect(
-            createGroup({ tenant_id: seeded.tenant_id, name: 'Test Scroll View', session }),
+            inScope(session, () =>
+              createGroup({ tenant_id: seeded.tenant_id, name: 'Test Scroll View', session }),
+            ),
           ).rejects.toMatchObject({ code: 'CONFLICT' });
         } finally {
           resetCoreDb();
@@ -57,11 +61,13 @@ describe('createGroup', () => {
             roles: ['planner.admin'],
           });
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Engineering',
-            session,
-          });
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Engineering',
+              session,
+            }),
+          );
 
           expect(group.name).toBe('Engineering');
           expect(group.version).toBe(1);
@@ -103,7 +109,9 @@ describe('createGroup', () => {
           });
 
           await expect(
-            createGroup({ tenant_id: seeded.tenant_id, name: 'X', session }),
+            inScope(session, () =>
+              createGroup({ tenant_id: seeded.tenant_id, name: 'X', session }),
+            ),
           ).rejects.toMatchObject({ name: 'PlannerError', code: 'FORBIDDEN' });
         } finally {
           resetCoreDb();
@@ -131,7 +139,9 @@ describe('createGroup', () => {
           });
 
           await expect(
-            createGroup({ tenant_id: seeded.tenant_id, name: 'X', session }),
+            inScope(session, () =>
+              createGroup({ tenant_id: seeded.tenant_id, name: 'X', session }),
+            ),
           ).rejects.toMatchObject({ code: 'CROSS_TENANT' });
         } finally {
           resetCoreDb();
@@ -152,15 +162,17 @@ describe('createGroup', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Engineering',
-            description: 'Platform work',
-            theme: 'green',
-            visibility: 'public',
-            default_role: 'owner',
-            session: seeded.adminSession,
-          });
+          const group = await inScope(seeded.adminSession, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Engineering',
+              description: 'Platform work',
+              theme: 'green',
+              visibility: 'public',
+              default_role: 'owner',
+              session: seeded.adminSession,
+            }),
+          );
           expect(group.description).toBe('Platform work');
           expect(group.theme).toBe('green');
           expect(group.visibility).toBe('public');
@@ -198,9 +210,13 @@ describe('createGroup', () => {
             roles: ['planner.admin'],
           });
 
-          await createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session });
-          await expect(
+          await inScope(session, () =>
             createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session }),
+          );
+          await expect(
+            inScope(session, () =>
+              createGroup({ tenant_id: seeded.tenant_id, name: 'Eng', session }),
+            ),
           ).rejects.toThrow();
         } finally {
           resetCoreDb();
@@ -221,11 +237,13 @@ describe('createGroup', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'AutoOwner',
-            session: seeded.adminSession,
-          });
+          const group = await inScope(seeded.adminSession, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'AutoOwner',
+              session: seeded.adminSession,
+            }),
+          );
           const { rows } = await pool.query(
             `SELECT user_id, role FROM planner.group_members WHERE group_id = $1`,
             [group.id],
@@ -252,12 +270,14 @@ describe('createGroup', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'DedupOwner',
-            session: seeded.adminSession,
-            initial_members: [{ user_id: seeded.admin.user_id, role: 'member' }],
-          });
+          const group = await inScope(seeded.adminSession, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'DedupOwner',
+              session: seeded.adminSession,
+              initial_members: [{ user_id: seeded.admin.user_id, role: 'member' }],
+            }),
+          );
           const { rows } = await pool.query(
             `SELECT user_id, role FROM planner.group_members WHERE group_id = $1`,
             [group.id],

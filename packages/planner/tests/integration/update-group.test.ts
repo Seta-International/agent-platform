@@ -3,7 +3,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { createGroup, updateGroup } from '../../src/index.ts';
-import { buildSession, readEvents, seedTenant } from '../helpers.ts';
+import { buildSession, inScope, readEvents, seedTenant } from '../helpers.ts';
 
 describe('updateGroup', () => {
   it('updates group name, bumps version, emits planner.group.updated', async () => {
@@ -19,18 +19,22 @@ describe('updateGroup', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Original',
-            session,
-          });
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Original',
+              session,
+            }),
+          );
 
-          const updated = await updateGroup({
-            group_id: group.id,
-            expected_version: 1,
-            patch: { name: 'Renamed' },
-            session,
-          });
+          const updated = await inScope(session, () =>
+            updateGroup({
+              group_id: group.id,
+              expected_version: 1,
+              patch: { name: 'Renamed' },
+              session,
+            }),
+          );
 
           expect(updated.name).toBe('Renamed');
           expect(updated.version).toBe(2);
@@ -68,18 +72,22 @@ describe('updateGroup', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'SameName',
-            session,
-          });
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'SameName',
+              session,
+            }),
+          );
 
-          const updated = await updateGroup({
-            group_id: group.id,
-            expected_version: 1,
-            patch: { name: 'SameName' },
-            session,
-          });
+          const updated = await inScope(session, () =>
+            updateGroup({
+              group_id: group.id,
+              expected_version: 1,
+              patch: { name: 'SameName' },
+              session,
+            }),
+          );
 
           expect(updated.version).toBe(1);
 
@@ -104,17 +112,21 @@ describe('updateGroup', () => {
         initPools({ databaseUrl });
         try {
           const seeded = await seedTenant(pool);
-          const g = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'X',
-            session: seeded.adminSession,
-          });
-          const u = await updateGroup({
-            group_id: g.id,
-            expected_version: 1,
-            patch: { description: 'new', theme: 'pink', visibility: 'public' },
-            session: seeded.adminSession,
-          });
+          const g = await inScope(seeded.adminSession, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'X',
+              session: seeded.adminSession,
+            }),
+          );
+          const u = await inScope(seeded.adminSession, () =>
+            updateGroup({
+              group_id: g.id,
+              expected_version: 1,
+              patch: { description: 'new', theme: 'pink', visibility: 'public' },
+              session: seeded.adminSession,
+            }),
+          );
           expect(u.description).toBe('new');
           expect(u.theme).toBe('pink');
           expect(u.visibility).toBe('public');
@@ -146,19 +158,23 @@ describe('updateGroup', () => {
           const seeded = await seedTenant(pool);
           const session = seeded.adminSession;
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'ConflictTest',
-            session,
-          });
-
-          await expect(
-            updateGroup({
-              group_id: group.id,
-              expected_version: 99,
-              patch: { name: 'NewName' },
+          const group = await inScope(session, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'ConflictTest',
               session,
             }),
+          );
+
+          await expect(
+            inScope(session, () =>
+              updateGroup({
+                group_id: group.id,
+                expected_version: 99,
+                patch: { name: 'NewName' },
+                session,
+              }),
+            ),
           ).rejects.toMatchObject({ code: 'CONFLICT' });
         } finally {
           resetCoreDb();
@@ -182,12 +198,14 @@ describe('updateGroup', () => {
           const session = seeded.adminSession;
 
           await expect(
-            updateGroup({
-              group_id: crypto.randomUUID(),
-              expected_version: 1,
-              patch: { name: 'Ghost' },
-              session,
-            }),
+            inScope(session, () =>
+              updateGroup({
+                group_id: crypto.randomUUID(),
+                expected_version: 1,
+                patch: { name: 'Ghost' },
+                session,
+              }),
+            ),
           ).rejects.toMatchObject({ code: 'NOT_FOUND' });
         } finally {
           resetCoreDb();
@@ -210,11 +228,13 @@ describe('updateGroup', () => {
           const seeded = await seedTenant(pool);
           const adminSession = seeded.adminSession;
 
-          const group = await createGroup({
-            tenant_id: seeded.tenant_id,
-            name: 'Protected',
-            session: adminSession,
-          });
+          const group = await inScope(adminSession, () =>
+            createGroup({
+              tenant_id: seeded.tenant_id,
+              name: 'Protected',
+              session: adminSession,
+            }),
+          );
 
           const viewerSession = buildSession({
             tenant_id: seeded.tenant_id,
@@ -223,12 +243,14 @@ describe('updateGroup', () => {
           });
 
           await expect(
-            updateGroup({
-              group_id: group.id,
-              expected_version: 1,
-              patch: { name: 'Hacked' },
-              session: viewerSession,
-            }),
+            inScope(viewerSession, () =>
+              updateGroup({
+                group_id: group.id,
+                expected_version: 1,
+                patch: { name: 'Hacked' },
+                session: viewerSession,
+              }),
+            ),
           ).rejects.toMatchObject({ code: 'FORBIDDEN' });
         } finally {
           resetCoreDb();
