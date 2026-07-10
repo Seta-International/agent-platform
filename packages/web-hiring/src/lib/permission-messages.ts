@@ -6,5 +6,6 @@ export const PERMISSION_DENIED = {
   requisition: {
     create: "You don't have permission to create requisitions.",
     edit: "You don't have permission to edit this requisition.",
+    manage: "You don't have permission to manage this requisition.",
   },
 } as const;

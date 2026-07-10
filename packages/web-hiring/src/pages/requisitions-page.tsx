@@ -160,9 +160,6 @@ export function RequisitionsPage() {
                 <TooltipContent>{row.original.title}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <div className="font-mono text-caption text-ink-muted">
-              {row.original.id.slice(0, 8)}
-            </div>
           </div>
         ),
       },
