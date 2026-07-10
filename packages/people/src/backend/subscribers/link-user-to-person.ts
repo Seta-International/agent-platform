@@ -40,10 +40,15 @@ export const linkUserToPerson: SubscriberDef = {
       .limit(1);
     if (!w) return;
 
+    // No arbiter: a redelivered event collides on the user_id PK, and a second user racing the
+    // same worker collides on user_projection_uniq_person (tenant_id, person_id). ON CONFLICT
+    // DO NOTHING only suppresses a violation on its named arbiter — naming user_id would let the
+    // uniq_person violation raise 23505 instead of no-opping. Unqualified DO NOTHING takes the
+    // empty-returning early exit for BOTH races: idempotent redelivery and refuse-to-steal.
     const inserted = await ctx.tx
       .insert(userProjection)
       .values({ user_id, tenant_id, person_id: w.person_id })
-      .onConflictDoNothing({ target: userProjection.user_id })
+      .onConflictDoNothing()
       .returning({ user_id: userProjection.user_id });
     if (inserted.length === 0) return;
 

@@ -35,6 +35,62 @@ function userCreatedEvent(args: {
   } as never;
 }
 
+/**
+ * A latch that opens once `arrivalsNeeded` callers have reached it; every caller (before and
+ * after the open) awaits the same promise, so callers past the threshold resolve immediately.
+ * Used to force two transactions to both finish their SELECT before either issues its INSERT.
+ */
+function insertLatch(arrivalsNeeded: number): () => Promise<void> {
+  let arrivals = 0;
+  let release: () => void = () => {};
+  const opened = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return async () => {
+    arrivals += 1;
+    if (arrivals >= arrivalsNeeded) release();
+    await opened;
+  };
+}
+
+/**
+ * Wraps a transaction so the FIRST `insert(...).values(...)` issued through it does not reach
+ * Postgres until `arrive()` resolves. drizzle's `.values()` returns a `PgInsertBase` (extends
+ * `QueryPromise`); `.onConflictDoNothing()`/`.returning()` mutate and return that same instance,
+ * so patching `.then` once, right after `.values()`, gates the query regardless of how the rest
+ * of the chain is built — nothing actually executes until the patched `.then` is awaited. This
+ * is how we deterministically interleave two transactions: both run their SELECT (each sees the
+ * worker unlinked, since neither has committed), then both attempt the INSERT — the second one
+ * blocks on the unique index until the first commits, then no-ops via ON CONFLICT DO NOTHING.
+ */
+function gateFirstInsert<T extends object>(tx: T, arrive: () => Promise<void>): T {
+  let gated = false;
+  return new Proxy(tx, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (prop !== 'insert' || typeof value !== 'function' || gated) {
+        return typeof value === 'function' ? value.bind(target) : value;
+      }
+      return (...insertArgs: unknown[]) => {
+        // biome-ignore lint/suspicious/noExplicitAny: drizzle's insert builder has no shared interface across `.values`/`.onConflictDoNothing`/`.returning` worth typing out for a test gate.
+        const builder: any = (value as (...a: unknown[]) => unknown).apply(target, insertArgs);
+        const originalValues = builder.values.bind(builder);
+        builder.values = (...valuesArgs: unknown[]) => {
+          const base = originalValues(...valuesArgs);
+          if (!gated) {
+            gated = true;
+            const originalThen = base.then.bind(base);
+            // biome-ignore lint/suspicious/noThenProperty: intentionally patching the QueryPromise's thenable so the query is deferred until the latch opens — that deferral is the whole point of the gate.
+            base.then = (...thenArgs: unknown[]) => arrive().then(() => originalThen(...thenArgs));
+          }
+          return base;
+        };
+        return builder;
+      };
+    },
+  }) as T;
+}
+
 describe('linkUserToPerson', () => {
   it('links the worker holding that work_email, writes user_projection, and emits people.worker.user_linked', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
@@ -90,7 +146,7 @@ describe('linkUserToPerson', () => {
     });
   });
 
-  it('is idempotent — a redelivered event does not fail or duplicate', async () => {
+  it('is idempotent under concurrent redelivery — same event twice, no duplicate, no throw', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -111,49 +167,22 @@ describe('linkUserToPerson', () => {
           email: 'bo@seta.test',
         });
 
-        // Two invocations inside the SAME transaction: the first insert is committed
-        // nowhere yet, but it IS visible to the second call's `notExists` subquery
-        // (same-transaction MVCC visibility), so the second call filters the worker
-        // out at the SELECT and returns at `if (!w) return` — it never reaches
-        // `onConflictDoNothing`.
-        //
-        // This is deliberate, not an oversight: two genuinely concurrent, separately
-        // committing transactions were built and run against real Postgres (gating
-        // each transaction's insert behind a 2-party latch so neither's INSERT could
-        // reach the server until both had already read "not linked yet" — ruling out
-        // a timing fluke). That reproduction showed `onConflictDoNothing({ target:
-        // userProjection.user_id })` does NOT reliably no-op the loser: a second,
-        // untargeted unique index (`user_projection_uniq_person` on (tenant_id,
-        // person_id)) also conflicts on the exact same row, and Postgres's ON
-        // CONFLICT only suppresses violations on the named arbiter — violations on
-        // any other index still raise. Redelivering the identical event threw a raw
-        // 23505 in 4 of 5 trials; racing two DIFFERENT user_ids for the same person
-        // (the arbiter can never match there) threw in 5 of 5 trials. So a
-        // cross-transaction version of this test would be flaky at best and would
-        // fail against the CURRENT, unmodified code most of the time — the opposite
-        // of what a guard-removal mutation test needs. See the task report for the
-        // full reproduction; the guard itself was intentionally left unmodified here
-        // per this task's scope.
-        //
-        // Separately, the real dispatcher (packages/core/src/runtime/dispatcher/drain.ts)
-        // takes `FOR UPDATE SKIP LOCKED` on the subscription cursor row and wraps the
-        // whole drain batch (cursor read, event batch, every handler invocation) in one
-        // outer transaction — so no other replica can process this event concurrently,
-        // and any failure before the outer transaction commits rolls back everything
-        // this handler did, leaving no partial state for a real redelivery to collide
-        // with. `onConflictDoNothing` cannot be reached via any currently-possible real
-        // invocation path; this same-transaction reproduction is the closest a test can
-        // deterministically get to "redelivered", and it correctly shows `notExists`
-        // — not `onConflictDoNothing` — is what actually keeps redelivery safe today.
-        await peopleDb().transaction(async (tx) => {
-          await emitContext.run(
-            { tx: tx as never, causedByEventId: eventId, traceId: undefined },
-            async () => {
-              await linkUserToPerson.handler(evt, { tx } as never);
-              await linkUserToPerson.handler(evt, { tx } as never);
-            },
+        // Genuine concurrency, not a sequential loop: two separately-committing
+        // transactions both run the SELECT before either INSERTs (the latch holds
+        // every INSERT until both have arrived), so both see the worker unlinked and
+        // both proceed to insert. The loser blocks on the unique index until the
+        // winner commits, then `onConflictDoNothing` (no arbiter) takes the empty-
+        // `returning` early exit. Exactly one row, one event, neither call throws.
+        const arrive = insertLatch(2);
+        const run = () =>
+          peopleDb().transaction((tx) =>
+            emitContext.run({ tx: tx as never, causedByEventId: eventId, traceId: undefined }, () =>
+              linkUserToPerson.handler(evt, { tx: gateFirstInsert(tx, arrive) } as never),
+            ),
           );
-        });
+
+        const results = await Promise.allSettled([run(), run()]);
+        expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
 
         const rows = await peopleDb()
           .select()
@@ -163,6 +192,70 @@ describe('linkUserToPerson', () => {
 
         const events = await readEvents(pool, t.tenant_id, 'people.worker.user_linked');
         expect(events).toHaveLength(1);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('does not steal under concurrency — two users racing the same worker link exactly one', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        await createWorker({
+          full_name: 'Di',
+          work_email: 'di@seta.test',
+          session: t.adminSession,
+        });
+        const userA = crypto.randomUUID();
+        const userB = crypto.randomUUID();
+        const eventA = crypto.randomUUID();
+        const eventB = crypto.randomUUID();
+
+        // Two DIFFERENT user_ids, same work_email, racing for the same worker. Both
+        // SELECTs run before either INSERT (the latch), so `notExists` passes for
+        // both. The loser's insert collides on user_projection_uniq_person
+        // (tenant_id, person_id) — NOT on the user_id PK, since the user_ids differ.
+        // Unqualified `onConflictDoNothing` still no-ops it: exactly one user is
+        // linked to the worker, exactly one event is emitted, and neither call throws
+        // (a user_id-arbitered ON CONFLICT would raise 23505 here — that is the bug
+        // this fix closes and the mutation test below proves).
+        const arrive = insertLatch(2);
+        const run = (user_id: string, event_id: string) =>
+          peopleDb().transaction((tx) =>
+            emitContext.run(
+              { tx: tx as never, causedByEventId: event_id, traceId: undefined },
+              () =>
+                linkUserToPerson.handler(
+                  userCreatedEvent({
+                    id: event_id,
+                    tenant_id: t.tenant_id,
+                    user_id,
+                    email: 'di@seta.test',
+                  }),
+                  { tx: gateFirstInsert(tx, arrive) } as never,
+                ),
+            ),
+          );
+
+        const results = await Promise.allSettled([run(userA, eventA), run(userB, eventB)]);
+        expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
+
+        const rows = await peopleDb()
+          .select()
+          .from(userProjection)
+          .where(eq(userProjection.tenant_id, t.tenant_id));
+        expect(rows).toHaveLength(1);
+        expect([userA, userB]).toContain(rows[0]?.user_id);
+
+        const events = await readEvents(pool, t.tenant_id, 'people.worker.user_linked');
+        expect(events).toHaveLength(1);
+        expect(events[0]?.payload.user_id).toBe(rows[0]?.user_id);
       } finally {
         resetPeopleDb();
         resetCoreDb();
