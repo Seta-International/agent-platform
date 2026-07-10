@@ -11,7 +11,7 @@ import {
   splitAllocation,
   submitCharter,
 } from '../../src/index.ts';
-import { approveCharterTwoStage, readEvents, seedTenant } from '../helpers.ts';
+import { approveCharterTwoStage, inScope, readEvents, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -22,18 +22,20 @@ async function seedProject(
   session: import('@seta/core').SessionScope,
   bounds?: { date_from?: string; date_to?: string },
 ): Promise<string> {
-  const { account_id } = await createAccount({ name: 'A', session });
-  const { charter_id } = await submitCharter({
-    account_id,
-    name: 'P',
-    pm_worker_id: session.user_id,
-    methodology: 'scrum',
-    pricing_model: 'fixed_price',
-    budget_bmm: 100,
-    date_from: bounds?.date_from,
-    date_to: bounds?.date_to,
-    session,
-  });
+  const { account_id } = await inScope(session, () => createAccount({ name: 'A', session }));
+  const { charter_id } = await inScope(session, () =>
+    submitCharter({
+      account_id,
+      name: 'P',
+      pm_worker_id: session.user_id,
+      methodology: 'scrum',
+      pricing_model: 'fixed_price',
+      budget_bmm: 100,
+      date_from: bounds?.date_from,
+      date_to: bounds?.date_to,
+      session,
+    }),
+  );
   const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
   return project_id;
 }
@@ -49,38 +51,40 @@ describe('splitAllocation', () => {
         const project = await seedProject(t.adminSession);
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: project,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-10-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: project,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-10-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        const result = await splitAllocation({
-          allocation_id,
-          new_end_date: '2026-02-28',
-          continuation: { planned_pct: 50 },
-          session: t.adminSession,
-        });
+        const result = await inScope(t.adminSession, () =>
+          splitAllocation({
+            allocation_id,
+            new_end_date: '2026-02-28',
+            continuation: { planned_pct: 50 },
+            session: t.adminSession,
+          }),
+        );
 
         expect(result.continuation_id).toBeTruthy();
         expect(result.updated_version).toBe(2);
 
-        const [original] = await pmDb()
-          .select()
-          .from(allocation)
-          .where(eq(allocation.id, allocation_id));
+        const [original] = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.id, allocation_id)),
+        );
         expect(original?.date_to).toBe('2026-02-28');
         expect(original?.planned_pct).toBe('100.0000');
 
-        const [continuation] = await pmDb()
-          .select()
-          .from(allocation)
-          .where(eq(allocation.id, result.continuation_id));
+        const [continuation] = await inScope(t.adminSession, () =>
+          pmDb().select().from(allocation).where(eq(allocation.id, result.continuation_id)),
+        );
         expect(continuation?.project_id).toBe(project);
         expect(continuation?.worker_id).toBe(worker);
         expect(continuation?.date_from).toBe('2026-03-01');
@@ -110,20 +114,24 @@ describe('splitAllocation', () => {
         const t = await seedTenant(pool);
         const project = await seedProject(t.adminSession);
 
-        const { allocation_id } = await createAllocation({
-          project_id: project,
-          status: 'placeholder',
-          bucket: 'billable',
-          session: t.adminSession,
-        });
-
-        await expect(
-          splitAllocation({
-            allocation_id,
-            new_end_date: '2026-02-28',
-            continuation: { planned_pct: 50 },
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: project,
+            status: 'placeholder',
+            bucket: 'billable',
             session: t.adminSession,
           }),
+        );
+
+        await expect(
+          inScope(t.adminSession, () =>
+            splitAllocation({
+              allocation_id,
+              new_end_date: '2026-02-28',
+              continuation: { planned_pct: 50 },
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow(/worker/i);
       } finally {
         resetPmDb();
@@ -143,24 +151,28 @@ describe('splitAllocation', () => {
         const project = await seedProject(t.adminSession);
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: project,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-10-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
-
-        await expect(
-          splitAllocation({
-            allocation_id,
-            new_end_date: '2026-11-30',
-            continuation: { planned_pct: 50 },
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: project,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-10-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
             session: t.adminSession,
           }),
+        );
+
+        await expect(
+          inScope(t.adminSession, () =>
+            splitAllocation({
+              allocation_id,
+              new_end_date: '2026-11-30',
+              continuation: { planned_pct: 50 },
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow(/allocation end/i);
       } finally {
         resetPmDb();
@@ -180,25 +192,29 @@ describe('splitAllocation', () => {
         const project = await seedProject(t.adminSession);
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: project,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-10-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
-
-        await expect(
-          splitAllocation({
-            allocation_id,
-            new_end_date: '2026-02-28',
-            continuation: { planned_pct: 50 },
-            expected_version: 99,
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: project,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-10-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
             session: t.adminSession,
           }),
+        );
+
+        await expect(
+          inScope(t.adminSession, () =>
+            splitAllocation({
+              allocation_id,
+              new_end_date: '2026-02-28',
+              continuation: { planned_pct: 50 },
+              expected_version: 99,
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow(/version/i);
       } finally {
         resetPmDb();
@@ -221,24 +237,28 @@ describe('splitAllocation', () => {
         });
         const worker = crypto.randomUUID();
 
-        const { allocation_id } = await createAllocation({
-          project_id: project,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-10-31',
-          bucket: 'billable',
-          planned_pct: 100,
-          status: 'committed',
-          session: t.adminSession,
-        });
-
-        await expect(
-          splitAllocation({
-            allocation_id,
-            new_end_date: '2026-02-28',
-            continuation: { planned_pct: 50, date_to: '2026-12-31' },
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: project,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-10-31',
+            bucket: 'billable',
+            planned_pct: 100,
+            status: 'committed',
             session: t.adminSession,
           }),
+        );
+
+        await expect(
+          inScope(t.adminSession, () =>
+            splitAllocation({
+              allocation_id,
+              new_end_date: '2026-02-28',
+              continuation: { planned_pct: 50, date_to: '2026-12-31' },
+              session: t.adminSession,
+            }),
+          ),
         ).rejects.toThrow(/project/i);
       } finally {
         resetPmDb();
@@ -259,34 +279,40 @@ describe('splitAllocation', () => {
         const otherProject = await seedProject(t.adminSession);
         const worker = crypto.randomUUID();
 
-        await createAllocation({
-          project_id: otherProject,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-12-31',
-          bucket: 'billable',
-          planned_pct: 60,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: otherProject,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-12-31',
+            bucket: 'billable',
+            planned_pct: 60,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        const { allocation_id } = await createAllocation({
-          project_id: project,
-          worker_id: worker,
-          date_from: '2026-01-01',
-          date_to: '2026-10-31',
-          bucket: 'billable',
-          planned_pct: 30,
-          status: 'committed',
-          session: t.adminSession,
-        });
+        const { allocation_id } = await inScope(t.adminSession, () =>
+          createAllocation({
+            project_id: project,
+            worker_id: worker,
+            date_from: '2026-01-01',
+            date_to: '2026-10-31',
+            bucket: 'billable',
+            planned_pct: 30,
+            status: 'committed',
+            session: t.adminSession,
+          }),
+        );
 
-        const result = await splitAllocation({
-          allocation_id,
-          new_end_date: '2026-02-28',
-          continuation: { planned_pct: 70 },
-          session: t.adminSession,
-        });
+        const result = await inScope(t.adminSession, () =>
+          splitAllocation({
+            allocation_id,
+            new_end_date: '2026-02-28',
+            continuation: { planned_pct: 70 },
+            session: t.adminSession,
+          }),
+        );
 
         expect(result.warning).toBeTruthy();
         expect(result.warning?.peak_pct).toBe(130);
