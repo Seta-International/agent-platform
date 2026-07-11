@@ -57,9 +57,9 @@ export const person = peopleSchema.table(
     emergency_contact: jsonb('emergency_contact'),
     profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
     cv_storage_key: text('cv_storage_key'),
-    // Lazy column-level reference (not table-level foreignKey()): org_unit and worker
-    // FK each other (head_worker_id), and org_unit is declared after worker below —
-    // a table-level foreignKey() would evaluate `orgUnit` eagerly and hit the TDZ.
+    // Lazy column-level reference (not table-level foreignKey()): org_unit is
+    // declared after person below, so a table-level foreignKey() would evaluate
+    // `orgUnit` eagerly and hit the TDZ.
     org_unit_id: uuid('org_unit_id').references((): AnyPgColumn => orgUnit.id),
     availability_status: textEnum('availability_status', AVAILABILITY_STATUS)
       .default('available')
