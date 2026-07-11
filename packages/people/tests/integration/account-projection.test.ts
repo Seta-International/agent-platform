@@ -44,7 +44,7 @@ function updatedEvent(payload: AccountUpdatedPayload): DomainEvent<AccountUpdate
 }
 
 describe('accountProjectionCreated', () => {
-  it('upserts an account_projection row with name and am_worker_id', async () => {
+  it('upserts an account_projection row with name (am ownership is not projected)', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -52,13 +52,12 @@ describe('accountProjectionCreated', () => {
       try {
         const t = await seedTenant(pool);
         const accountId = crypto.randomUUID();
-        const amWorkerId = crypto.randomUUID();
 
         const payload: AccountCreatedPayload = {
           account_id: accountId,
           tenant_id: t.tenant_id,
           name: 'Acme Corp',
-          am_worker_id: amWorkerId,
+          am_worker_id: crypto.randomUUID(),
         };
 
         await peopleDb().transaction(async (tx) => {
@@ -75,7 +74,6 @@ describe('accountProjectionCreated', () => {
           account_id: accountId,
           tenant_id: t.tenant_id,
           name: 'Acme Corp',
-          am_worker_id: amWorkerId,
         });
       } finally {
         resetPeopleDb();
@@ -85,7 +83,7 @@ describe('accountProjectionCreated', () => {
     });
   });
 
-  it('upserts with am_worker_id null', async () => {
+  it('upserts a row when the event carries am_worker_id null', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -111,7 +109,7 @@ describe('accountProjectionCreated', () => {
           .where(eq(accountProjection.account_id, accountId));
 
         expect(rows).toHaveLength(1);
-        expect(rows[0]!.am_worker_id).toBeNull();
+        expect(rows[0]!.name).toBe('No AM Corp');
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -155,7 +153,6 @@ describe('accountProjectionCreated', () => {
 
         expect(rows).toHaveLength(1);
         expect(rows[0]!.name).toBe('Updated Name');
-        expect(rows[0]!.am_worker_id).toBe(second.am_worker_id);
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -182,7 +179,6 @@ describe('accountProjectionUpdated', () => {
           account_id: accountId,
           tenant_id: t.tenant_id,
           name: 'Old Name',
-          am_worker_id: null,
         });
 
         // Seed an allocation row with the old account_name

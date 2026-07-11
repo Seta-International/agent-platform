@@ -1,16 +1,27 @@
 import { resetCoreDb } from '@seta/core/testing';
+import { createAccount } from '@seta/pm';
+import { resetPmDb } from '@seta/pm/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
-  accountProjection,
   person,
   projectProjection,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { getAllocationGrid } from '../../src/backend/domain/allocation-grid.ts';
 import { buildSession, seedTenant } from '../helpers.ts';
+
+/** A pm-capable session for seeding accounts (am ownership) through pm's public surface. */
+function pmManagerSession(tenantId: string) {
+  return buildSession({
+    tenant_id: tenantId,
+    user_id: crypto.randomUUID(),
+    roles: ['pm.manager'],
+    assignments: [{ role_slug: 'pm.manager', scope_kind: 'tenant', scope_id: null }],
+  });
+}
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -22,6 +33,7 @@ describe('getAllocationGrid', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool); // adminSession holds a tenant-scope assignment
@@ -92,6 +104,7 @@ describe('getAllocationGrid', () => {
         expect(alpha.total_mm).toBeGreaterThan(0);
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -102,6 +115,7 @@ describe('getAllocationGrid', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
@@ -169,6 +183,7 @@ describe('getAllocationGrid', () => {
         expect(filtered.kpis.member_count).toBe(2);
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -179,6 +194,7 @@ describe('getAllocationGrid', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
@@ -296,6 +312,7 @@ describe('getAllocationGrid', () => {
         expect(over.kpis.member_count).toBe(2);
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -306,6 +323,7 @@ describe('getAllocationGrid', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
@@ -356,6 +374,7 @@ describe('getAllocationGrid', () => {
         expect(over.rows.find((r) => r.worker_id === nam)).toBeUndefined();
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -366,10 +385,10 @@ describe('getAllocationGrid', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
-        const acc = crypto.randomUUID();
         const am = crypto.randomUUID();
         const member = crypto.randomUUID();
         await peopleDb()
@@ -388,9 +407,12 @@ describe('getAllocationGrid', () => {
               employee_no: '7001',
             },
           ]);
-        await peopleDb()
-          .insert(accountProjection)
-          .values({ account_id: acc, tenant_id: t.tenant_id, name: 'Fabrikam', am_worker_id: am });
+        // AM ownership is sourced from pm.account (am_person_id); acc is the pm-created id.
+        const { account_id: acc } = await createAccount({
+          name: 'Fabrikam',
+          am_worker_id: am,
+          session: pmManagerSession(t.tenant_id),
+        });
         await peopleDb()
           .insert(workerAllocationProjection)
           .values([
@@ -431,6 +453,7 @@ describe('getAllocationGrid', () => {
         expect(memberRow.is_account_am).toBe(false); // a plain member on the same account
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -441,6 +464,7 @@ describe('getAllocationGrid', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
@@ -474,6 +498,7 @@ describe('getAllocationGrid', () => {
         expect(grid.rows.find((r) => r.worker_id === stranger)).toBeUndefined();
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }

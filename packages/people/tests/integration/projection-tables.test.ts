@@ -45,14 +45,12 @@ describe('people projection tables', () => {
           account_id: ACCT,
           tenant_id: T1,
           name: 'Acme Corp',
-          am_worker_id: null,
         });
         const [row] = await db
           .select()
           .from(accountProjection)
           .where(eq(accountProjection.account_id, ACCT));
         expect(row?.name).toBe('Acme Corp');
-        expect(row?.am_worker_id).toBeNull();
 
         await db
           .insert(accountProjection)

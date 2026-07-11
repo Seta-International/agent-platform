@@ -1,4 +1,5 @@
 import type { SessionScope } from '@seta/core';
+import { listAccountManagers } from '@seta/pm';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
@@ -97,9 +98,11 @@ export async function getOrgDelivery(
   const nameByPerson = new Map(workers.map((w) => [w.person_id, w.full_name]));
 
   const accounts = await peopleDb()
-    .select()
+    .select({ account_id: accountProjection.account_id, name: accountProjection.name })
     .from(accountProjection)
     .where(eq(accountProjection.tenant_id, tenantId));
+  const amRows = await listAccountManagers(tenantId);
+  const amByAccount = new Map(amRows.map((a) => [a.account_id, a.am_person_id]));
   const projects = await peopleDb()
     .select()
     .from(projectProjection)
@@ -140,12 +143,11 @@ export async function getOrgDelivery(
           is_lead: a.lead_worker_id === a.worker_id,
         })),
     }));
+    const amId = amByAccount.get(acc.account_id);
     out.push({
       account_id: acc.account_id,
       name: acc.name,
-      am: acc.am_worker_id
-        ? { person_id: acc.am_worker_id, full_name: nameByPerson.get(acc.am_worker_id) ?? '' }
-        : null,
+      am: amId ? { person_id: amId, full_name: nameByPerson.get(amId) ?? '' } : null,
       projects: accProjects,
     });
   }

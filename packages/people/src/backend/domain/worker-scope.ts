@@ -1,4 +1,5 @@
 import type { SessionScope } from '@seta/core';
+import { listAccountIdsManagedBy } from '@seta/pm';
 import {
   decisionPredicate,
   getDefaultRegistry,
@@ -45,15 +46,20 @@ function meSubquery(userId: string, tenantId: string): SQL {
       LIMIT 1)`;
 }
 
-/** Workers actively allocated under an account the viewer (`:me`) manages (AM). */
-function amArmSql(me: SQL, tenantId: string): SQL {
+/**
+ * Workers actively allocated under an account the viewer manages (AM). The managed-account list
+ * is sourced from `@seta/pm.listAccountIdsManagedBy` (pm.account.am_person_id), not a local
+ * projection column. Fail-closed: a viewer managing no account contributes no rows to the scope.
+ */
+function amArmSql(managedAccountIds: string[], tenantId: string): SQL | null {
+  if (managedAccountIds.length === 0) return null;
   return sql`${person.id} IN (
       SELECT worker_id FROM people.worker_allocation_projection
         WHERE active AND tenant_id = ${tenantId}
-          AND account_id IN (
-            SELECT account_id FROM people.account_projection
-              WHERE am_worker_id = ${me} AND tenant_id = ${tenantId}
-          )
+          AND account_id IN (${sql.join(
+            managedAccountIds.map((id) => sql`${id}::uuid`),
+            sql`, `,
+          )})
     )`;
 }
 
@@ -79,13 +85,14 @@ function leadArmSql(me: SQL, tenantId: string): SQL {
  *   1. explicit org-unit assignment reach
  *   2. self
  *   3. transitive reports (org-unit subtree headed by the viewer)
- *   4. workers actively allocated under an account the viewer manages (AM)
+ *   4. workers actively allocated under an account the viewer manages (AM) — accounts sourced
+ *      from `@seta/pm.listAccountIdsManagedBy`, not a local projection column
  *   5. workers actively allocated to a project the viewer leads
  *
  * `:me` and the tenant id are bound as parameters — never interpolated as text. All referenced
  * tables live in the `people` schema (same module), so raw `people.<table>` refs are permitted.
  */
-export function buildWorkerScope(session: SessionScope): SQL | null {
+export async function buildWorkerScope(session: SessionScope): Promise<SQL | null> {
   const scope = resolveScope(
     getDefaultRegistry(),
     session.assignments,
@@ -93,6 +100,9 @@ export function buildWorkerScope(session: SessionScope): SQL | null {
     'people.worker.read',
   );
   const me = meSubquery(session.user_id, session.tenant_id);
+  const managedAccountIds = session.person_id
+    ? await listAccountIdsManagedBy(session.person_id, session.tenant_id)
+    : [];
 
   return decisionPredicate(
     scopeDecision(
@@ -102,7 +112,7 @@ export function buildWorkerScope(session: SessionScope): SQL | null {
         self: () => sql`${person.id} = ${me}`,
         relationships: [
           () => sql`${person.id} IN ${reportsSubtreeSql(me, session.tenant_id)}`,
-          () => amArmSql(me, session.tenant_id),
+          () => amArmSql(managedAccountIds, session.tenant_id),
           () => leadArmSql(me, session.tenant_id),
         ],
       },

@@ -10,7 +10,7 @@ export const accountProjectionCreated: SubscriberDef = {
   eventVersion: 1,
   handler: async (event, ctx) => {
     const e = event as DomainEvent<AccountCreatedPayload>;
-    const { account_id, tenant_id, name, am_worker_id } = e.payload;
+    const { account_id, tenant_id, name } = e.payload;
 
     await ctx.tx
       .insert(accountProjection)
@@ -18,13 +18,11 @@ export const accountProjectionCreated: SubscriberDef = {
         account_id,
         tenant_id,
         name,
-        am_worker_id: am_worker_id ?? null,
       })
       .onConflictDoUpdate({
         target: accountProjection.account_id,
         set: {
           name,
-          am_worker_id: am_worker_id ?? null,
           updated_at: new Date(),
         },
       });
@@ -37,7 +35,7 @@ export const accountProjectionUpdated: SubscriberDef = {
   eventVersion: 1,
   handler: async (event, ctx) => {
     const e = event as DomainEvent<AccountUpdatedPayload>;
-    const { account_id, tenant_id, name, am_worker_id } = e.payload;
+    const { account_id, tenant_id, name } = e.payload;
 
     await ctx.tx
       .insert(accountProjection)
@@ -45,13 +43,11 @@ export const accountProjectionUpdated: SubscriberDef = {
         account_id,
         tenant_id,
         name,
-        am_worker_id: am_worker_id ?? null,
       })
       .onConflictDoUpdate({
         target: accountProjection.account_id,
         set: {
           name,
-          am_worker_id: am_worker_id ?? null,
           updated_at: new Date(),
         },
       });

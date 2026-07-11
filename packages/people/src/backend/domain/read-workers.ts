@@ -298,7 +298,7 @@ export async function getWorker({
     WHERE ps.person_id = ${person.id} AND ps.tenant_id = ${tenantId}
   )`;
 
-  const scope = buildWorkerScope(session);
+  const scope = await buildWorkerScope(session);
   const [row] = await peopleDb()
     .select({
       worker_id: person.id,
@@ -352,7 +352,7 @@ export async function getWorkerHistory({
   }>
 > {
   requirePermission(session, 'people.worker.read');
-  const scope = buildWorkerScope(session);
+  const scope = await buildWorkerScope(session);
   if (scope) {
     const [visible] = await peopleDb()
       .select({ person_id: person.id })

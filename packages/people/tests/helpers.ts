@@ -70,6 +70,7 @@ export function buildSession(opts: {
   display_name?: string;
   roles?: string[];
   assignments?: SessionAssignmentInput[];
+  person_id?: string | null;
 }): SessionScope {
   const roles = opts.roles ?? [];
   // Default: each role carries a self-scoped assignment, matching pre-scope-kit behavior
@@ -98,7 +99,7 @@ export function buildSession(opts: {
     assignments,
     group_ids: [],
     product_access: new Set<string>(),
-    person_id: null,
+    person_id: opts.person_id ?? null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

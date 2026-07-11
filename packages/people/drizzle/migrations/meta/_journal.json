@@ -43,6 +43,13 @@
       "when": 1783735586605,
       "tag": "0011_naive_cyclops",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783744894707,
+      "tag": "0012_ambitious_christian_walker",
+      "breakpoints": true
     }
   ]
 }

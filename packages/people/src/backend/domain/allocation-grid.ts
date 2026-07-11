@@ -1,12 +1,8 @@
 import type { SessionScope } from '@seta/core';
+import { listAccountManagers } from '@seta/pm';
 import { and, asc, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import {
-  accountProjection,
-  person,
-  projectProjection,
-  workerAllocationProjection,
-} from '../db/schema.ts';
+import { person, projectProjection, workerAllocationProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 import { buildWorkerScope } from './worker-scope.ts';
 
@@ -110,7 +106,7 @@ export async function getAllocationGrid(
   requirePermission(session, 'people.worker.read');
 
   const year = query.year ?? new Date().getUTCFullYear();
-  const scope = buildWorkerScope(session); // SQL predicate on person.id, or null for tenant scope
+  const scope = await buildWorkerScope(session); // SQL predicate on person.id, or null for tenant scope
 
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),
@@ -159,14 +155,8 @@ export async function getAllocationGrid(
     )) as RawRow[];
 
   // Which account each worker is the AM of — so an AM's row renders the account, not the project.
-  const amRows = await peopleDb()
-    .select({
-      account_id: accountProjection.account_id,
-      am_worker_id: accountProjection.am_worker_id,
-    })
-    .from(accountProjection)
-    .where(eq(accountProjection.tenant_id, session.tenant_id));
-  const amByAccount = new Map(amRows.map((a) => [a.account_id, a.am_worker_id]));
+  const amRows = await listAccountManagers(session.tenant_id);
+  const amByAccount = new Map(amRows.map((a) => [a.account_id, a.am_person_id]));
 
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const yearEnd = new Date(Date.UTC(year, 11, 31));

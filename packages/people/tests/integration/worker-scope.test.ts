@@ -1,4 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
+import { createAccount } from '@seta/pm';
+import { resetPmDb } from '@seta/pm/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { tenantScoped } from '@seta/shared-rbac';
 import { withTestDb } from '@seta/shared-testing';
@@ -6,12 +8,7 @@ import { and, eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import {
-  accountProjection,
-  person,
-  userProjection,
-  workerAllocationProjection,
-} from '../../src/backend/db/schema.ts';
+import { person, userProjection, workerAllocationProjection } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { buildWorkerScope } from '../../src/backend/domain/worker-scope.ts';
 import {
@@ -45,7 +42,7 @@ async function makePersona(
 
 /** Resolve the set of person_ids visible to a persona session under the scope predicate. */
 async function visible(session: ReturnType<typeof buildSession>): Promise<Set<string>> {
-  const predicate = buildWorkerScope(session);
+  const predicate = await buildWorkerScope(session);
   const where = predicate
     ? and(tenantScoped(person.tenant_id, session), predicate)
     : tenantScoped(person.tenant_id, session);
@@ -111,15 +108,14 @@ async function buildGraph(pool: Pool): Promise<Graph> {
   const W_lead = await makePersona(t, 'Worker on Lead Project', crypto.randomUUID(), null);
   const U = await makePersona(t, 'Unrelated U', userU, null);
 
-  const accountA = crypto.randomUUID();
   const projectAcct = crypto.randomUUID();
   const projectP = crypto.randomUUID();
 
-  await peopleDb().insert(accountProjection).values({
-    account_id: accountA,
-    tenant_id: t.tenant_id,
+  // AM ownership is sourced from pm.account (am_person_id), not a local projection column.
+  const { account_id: accountA } = await createAccount({
     name: 'Account A',
     am_worker_id: AM,
+    session: pmManagerSession(t),
   });
 
   // W_am allocated to a project under account A (active)
@@ -149,8 +145,27 @@ async function buildGraph(pool: Pool): Promise<Graph> {
   return { t, M, R1, R2, AM, W_am, L, W_lead, U, accountA, projectAcct, projectP, u1, u2 };
 }
 
-function viewer(t: SeededTenant, userId: string): ReturnType<typeof buildSession> {
-  return buildSession({ tenant_id: t.tenant_id, user_id: userId, roles: ['people.viewer'] });
+function viewer(
+  t: SeededTenant,
+  userId: string,
+  personId: string | null = null,
+): ReturnType<typeof buildSession> {
+  return buildSession({
+    tenant_id: t.tenant_id,
+    user_id: userId,
+    roles: ['people.viewer'],
+    person_id: personId,
+  });
+}
+
+/** A pm-capable session for seeding accounts (am ownership) through pm's public surface. */
+function pmManagerSession(t: SeededTenant): ReturnType<typeof buildSession> {
+  return buildSession({
+    tenant_id: t.tenant_id,
+    user_id: crypto.randomUUID(),
+    roles: ['pm.manager'],
+    assignments: [{ role_slug: 'pm.manager', scope_kind: 'tenant', scope_id: null }],
+  });
 }
 
 describe('buildWorkerScope', () => {
@@ -158,6 +173,7 @@ describe('buildWorkerScope', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const g = await buildGraph(pool);
@@ -174,6 +190,7 @@ describe('buildWorkerScope', () => {
         expect(seen.has(g.W_lead)).toBe(false);
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -184,6 +201,7 @@ describe('buildWorkerScope', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const g = await buildGraph(pool);
@@ -193,11 +211,12 @@ describe('buildWorkerScope', () => {
             .from(userProjection)
             .where(eq(userProjection.person_id, g.AM))
         )[0]!.u!;
-        const seen = await visible(viewer(g.t, userAM));
+        const seen = await visible(viewer(g.t, userAM, g.AM));
         expect(seen).toEqual(new Set([g.AM, g.W_am]));
         expect(seen.has(g.U)).toBe(false);
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -208,6 +227,7 @@ describe('buildWorkerScope', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const g = await buildGraph(pool);
@@ -222,6 +242,7 @@ describe('buildWorkerScope', () => {
         expect(seen.has(g.U)).toBe(false);
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -232,6 +253,7 @@ describe('buildWorkerScope', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const g = await buildGraph(pool);
@@ -245,6 +267,7 @@ describe('buildWorkerScope', () => {
         expect(seen).toEqual(new Set([g.U]));
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -255,6 +278,7 @@ describe('buildWorkerScope', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const g = await buildGraph(pool);
@@ -265,11 +289,12 @@ describe('buildWorkerScope', () => {
           roles: ['people.manager'],
           assignments: [{ role_slug: 'people.manager', scope_kind: 'tenant', scope_id: null }],
         });
-        expect(buildWorkerScope(session)).toBeNull();
+        expect(await buildWorkerScope(session)).toBeNull();
         const seen = await visible(session);
         expect(seen).toEqual(new Set([g.M, g.R1, g.R2, g.AM, g.W_am, g.L, g.W_lead, g.U]));
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -280,6 +305,7 @@ describe('buildWorkerScope', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const g = await buildGraph(pool);
@@ -302,6 +328,7 @@ describe('buildWorkerScope', () => {
         expect(seen).toEqual(new Set([g.R1, g.R2]));
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -312,6 +339,7 @@ describe('buildWorkerScope', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const g = await buildGraph(pool);
@@ -325,6 +353,7 @@ describe('buildWorkerScope', () => {
         expect(seen).toEqual(new Set());
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -335,6 +364,7 @@ describe('buildWorkerScope', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const tA = await seedTenant(pool);
@@ -364,12 +394,10 @@ describe('buildWorkerScope', () => {
 
         // Tenant B: an allocation referencing M_A as both AM and lead, plus a B-tenant account
         // managed by M_A — exercises tenant scoping of the AM/lead subqueries.
-        const accountB = crypto.randomUUID();
-        await peopleDb().insert(accountProjection).values({
-          account_id: accountB,
-          tenant_id: tB.tenant_id,
+        const { account_id: accountB } = await createAccount({
           name: 'Account B',
           am_worker_id: M_A,
+          session: pmManagerSession(tB),
         });
         await peopleDb().insert(workerAllocationProjection).values({
           allocation_id: crypto.randomUUID(),
@@ -382,10 +410,11 @@ describe('buildWorkerScope', () => {
           active: true,
         });
 
-        const seen = await visible(viewer(tA, userMA));
+        const seen = await visible(viewer(tA, userMA, M_A));
         expect(seen).toEqual(new Set([M_A, R_A]));
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -396,6 +425,7 @@ describe('buildWorkerScope', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
@@ -405,12 +435,10 @@ describe('buildWorkerScope', () => {
         const L = await makePersona(t, 'L2', userL, null);
         const W = await makePersona(t, 'Inactive Worker', crypto.randomUUID(), null);
 
-        const accountA = crypto.randomUUID();
-        await peopleDb().insert(accountProjection).values({
-          account_id: accountA,
-          tenant_id: t.tenant_id,
+        const { account_id: accountA } = await createAccount({
           name: 'Acct',
           am_worker_id: AM,
+          session: pmManagerSession(t),
         });
         // inactive allocation under AM's account AND led by L
         await peopleDb().insert(workerAllocationProjection).values({
@@ -424,7 +452,7 @@ describe('buildWorkerScope', () => {
           active: false,
         });
 
-        const amSeen = await visible(viewer(t, userAM));
+        const amSeen = await visible(viewer(t, userAM, AM));
         expect(amSeen).toEqual(new Set([AM]));
         expect(amSeen.has(W)).toBe(false);
 
@@ -433,6 +461,7 @@ describe('buildWorkerScope', () => {
         expect(lSeen.has(W)).toBe(false);
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }

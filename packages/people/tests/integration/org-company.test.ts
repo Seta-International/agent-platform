@@ -1,4 +1,6 @@
 import { resetCoreDb } from '@seta/core/testing';
+import { createAccount } from '@seta/pm';
+import { resetPmDb } from '@seta/pm/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
@@ -7,7 +9,17 @@ import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { accountProjection, person, projectProjection } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { getOrgCompany } from '../../src/backend/domain/org-structure.ts';
-import { seedOrgUnit, seedTenant } from '../helpers.ts';
+import { buildSession, seedOrgUnit, seedTenant } from '../helpers.ts';
+
+/** A pm-capable session for seeding accounts (am ownership) through pm's public surface. */
+function pmManagerSession(tenantId: string) {
+  return buildSession({
+    tenant_id: tenantId,
+    user_id: crypto.randomUUID(),
+    roles: ['pm.manager'],
+    assignments: [{ role_slug: 'pm.manager', scope_kind: 'tenant', scope_id: null }],
+  });
+}
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -19,6 +31,7 @@ describe('getOrgCompany', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
@@ -59,13 +72,17 @@ describe('getOrgCompany', () => {
           full_name: 'AM One',
         } as never);
 
-        const accountA = crypto.randomUUID();
+        // AM ownership lives in pm.account (am_person_id); the people projection carries id + name.
+        const { account_id: accountA } = await createAccount({
+          name: 'Account A',
+          am_worker_id: am,
+          session: pmManagerSession(t.tenant_id),
+        });
         const projectId = crypto.randomUUID();
         await peopleDb().insert(accountProjection).values({
           account_id: accountA,
           tenant_id: t.tenant_id,
           name: 'Account A',
-          am_worker_id: am,
         });
         await peopleDb().insert(projectProjection).values({
           project_id: projectId,
@@ -99,6 +116,7 @@ describe('getOrgCompany', () => {
         expect(nodes.some((n) => n.id.startsWith('person:'))).toBe(false);
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -109,6 +127,7 @@ describe('getOrgCompany', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
@@ -134,7 +153,6 @@ describe('getOrgCompany', () => {
           account_id: accountA,
           tenant_id: t.tenant_id,
           name: 'No AM Co',
-          am_worker_id: null,
         });
         await peopleDb().insert(projectProjection).values({
           project_id: projectId,
@@ -150,6 +168,7 @@ describe('getOrgCompany', () => {
         expect(nodes.some((n) => n.kind === 'am')).toBe(false);
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }

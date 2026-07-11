@@ -42,7 +42,7 @@ export async function getUtilizationByPerson(
   requirePermission(session, 'people.worker.read');
 
   const asOf = query.asOf ?? new Date().toISOString().slice(0, 10);
-  const scope = buildWorkerScope(session);
+  const scope = await buildWorkerScope(session);
 
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),

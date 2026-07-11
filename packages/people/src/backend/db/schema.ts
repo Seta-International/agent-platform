@@ -230,7 +230,6 @@ export const accountProjection = peopleSchema.table('account_projection', {
   account_id: uuid('account_id').primaryKey(),
   tenant_id: uuid('tenant_id').notNull(),
   name: text('name').notNull(),
-  am_worker_id: uuid('am_worker_id'),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
