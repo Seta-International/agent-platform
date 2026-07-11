@@ -50,6 +50,13 @@
       "when": 1783761863756,
       "tag": "0010_gorgeous_nico_minoru",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783763262213,
+      "tag": "0013_daily_wolfpack",
+      "breakpoints": true
     }
   ]
 }

@@ -78,10 +78,10 @@ export const requisition = hiringSchema.table(
     start_date: date('start_date'),
     note: text('note'),
     default_interview_mode: textEnum('default_interview_mode', INTERVIEW_MODES),
-    // Lazy column-level reference: opening_close_reason is declared after requisition below —
-    // a table-level foreignKey() would evaluate `openingCloseReason` eagerly and hit the TDZ.
+    // Lazy column-level reference: reason is declared after requisition below —
+    // a table-level foreignKey() would evaluate `reason` eagerly and hit the TDZ.
     // Only meaningful when status = 'cancelled' (see closeRequisition in requisition-lifecycle.ts).
-    close_reason_id: uuid('close_reason_id').references((): AnyPgColumn => openingCloseReason.id),
+    close_reason_id: uuid('close_reason_id').references((): AnyPgColumn => reason.id),
     closed_at: timestamp('closed_at', { withTimezone: true }),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -108,10 +108,10 @@ export const opening = hiringSchema.table(
       .references(() => requisition.id),
     seq: integer('seq').notNull(),
     status: textEnum('status', OPENING_STATUS).notNull().default('open'),
-    // Lazy column-level reference (not table-level foreignKey()): opening_close_reason
+    // Lazy column-level reference (not table-level foreignKey()): reason
     // is declared after opening below — a table-level foreignKey() would evaluate
-    // `openingCloseReason` eagerly and hit the TDZ.
-    close_reason_id: uuid('close_reason_id').references((): AnyPgColumn => openingCloseReason.id),
+    // `reason` eagerly and hit the TDZ.
+    close_reason_id: uuid('close_reason_id').references((): AnyPgColumn => reason.id),
     closed_at: timestamp('closed_at', { withTimezone: true }),
     // Lazy column-level reference: application is declared after opening below —
     // a table-level foreignKey() would evaluate `application` eagerly and hit the TDZ.
@@ -173,20 +173,6 @@ export const requisitionSkill = hiringSchema.table(
     primaryKey({ columns: [t.tenant_id, t.requisition_id, t.skill_id] }),
     index('requisition_skill_by_skill').on(t.tenant_id, t.skill_id),
   ],
-);
-
-export const openingCloseReason = hiringSchema.table(
-  'opening_close_reason',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    tenant_id: uuid('tenant_id').notNull(),
-    label: text('label').notNull(),
-    active: boolean('active').notNull().default(true),
-    version: integer('version').default(1).notNull(),
-    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [uniqueIndex('close_reason_uniq_label').on(t.tenant_id, t.label)],
 );
 
 export const REASON_KINDS = ['opening_close', 'rejection'] as const;
@@ -298,24 +284,6 @@ export const candidateSkill = hiringSchema.table(
   ],
 );
 
-export const rejectionReason = hiringSchema.table(
-  'rejection_reason',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    tenant_id: uuid('tenant_id').notNull(),
-    label: text('label').notNull(),
-    category: textEnum('category', REJECTION_CATEGORIES).notNull(),
-    active: boolean('active').notNull().default(true),
-    version: integer('version').default(1).notNull(),
-    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    uniqueIndex('rejection_reason_uniq_label').on(t.tenant_id, t.label),
-    textEnumCheck('rejection_reason', 'category', REJECTION_CATEGORIES),
-  ],
-);
-
 export const candidateEvent = hiringSchema.table(
   'candidate_event',
   {
@@ -356,7 +324,7 @@ export const application = hiringSchema.table(
     stage: textEnum('stage', APPLICATION_STAGES).notNull().default('new'),
     status: textEnum('status', APPLICATION_STATUS).notNull().default('active'),
     rating: integer('rating'),
-    rejection_reason_id: uuid('rejection_reason_id').references(() => rejectionReason.id),
+    rejection_reason_id: uuid('rejection_reason_id').references(() => reason.id),
     tags: jsonb('tags').notNull().default(sql`'[]'::jsonb`),
     note: text('note'),
     closed_at: timestamp('closed_at', { withTimezone: true }),

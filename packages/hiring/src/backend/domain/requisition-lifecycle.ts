@@ -4,7 +4,7 @@ import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, inArray } from 'drizzle-orm';
 import { HIRING_REQUISITION_CLOSED, HIRING_REQUISITION_UPDATED } from '../../events.ts';
 import { hiringDb } from '../db/client.ts';
-import { opening, openingCloseReason, type REQUISITION_STATUS, requisition } from '../db/schema.ts';
+import { opening, type REQUISITION_STATUS, reason, requisition } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 
 type RequisitionStatus = (typeof REQUISITION_STATUS)[number];
@@ -107,17 +107,18 @@ export async function closeRequisition(input: {
   let close_reason_id: string | undefined;
   if (status === 'cancelled') {
     if (!input.close_reason_id) throw new HiringError('VALIDATION', 'close_reason_id is required');
-    const [reason] = await hiringDb()
-      .select({ id: openingCloseReason.id })
-      .from(openingCloseReason)
+    const [reasonRow] = await hiringDb()
+      .select({ id: reason.id })
+      .from(reason)
       .where(
         and(
-          eq(openingCloseReason.id, input.close_reason_id),
-          tenantScoped(openingCloseReason.tenant_id, session),
+          eq(reason.id, input.close_reason_id),
+          eq(reason.kind, 'opening_close'),
+          tenantScoped(reason.tenant_id, session),
         ),
       )
       .limit(1);
-    if (!reason) throw new HiringError('VALIDATION', 'unknown close reason');
+    if (!reasonRow) throw new HiringError('VALIDATION', 'unknown close reason');
     close_reason_id = input.close_reason_id;
   }
   const next = cur.version + 1;

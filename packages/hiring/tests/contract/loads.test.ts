@@ -8,7 +8,7 @@ const ctx = {
 };
 
 describe('hiring schema', () => {
-  it('migrates all fifteen hiring tables', async () => {
+  it('migrates all thirteen hiring tables', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       initPools({ databaseUrl });
       try {
@@ -25,10 +25,8 @@ describe('hiring schema', () => {
           'jd_template',
           'jd_template_section',
           'opening',
-          'opening_close_reason',
           'project_projection',
           'reason',
-          'rejection_reason',
           'requisition',
           'requisition_jd_section',
           'requisition_skill',
