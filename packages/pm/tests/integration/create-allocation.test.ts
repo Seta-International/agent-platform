@@ -59,7 +59,7 @@ describe('createAllocation', () => {
           .from(allocation)
           .where(eq(allocation.id, allocation_id));
         expect(row?.project_id).toBe(projectId);
-        expect(row?.worker_id).toBe(workerId);
+        expect(row?.person_id).toBe(workerId);
         expect(row?.status).toBe('committed');
 
         const events = await readEvents(pool, t.tenant_id, 'pm.allocation.created');

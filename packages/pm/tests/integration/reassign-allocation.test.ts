@@ -96,7 +96,7 @@ describe('reassignAllocation', () => {
         expect(source?.date_to).toBe('2026-06-30');
         expect(source?.planned_pct).toBe('100.0000'); // history preserved, untouched
 
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
         expect(rows).toHaveLength(3);
 
         const targetXxx = rows.find((r) => r.project_id === xxx);
@@ -208,7 +208,7 @@ describe('reassignAllocation', () => {
         });
 
         expect(result.target_ids).toHaveLength(1);
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
         expect(rows).toHaveLength(2);
         const continuation = rows.find((r) => r.id === result.target_ids[0]);
         expect(continuation?.project_id).toBe(automate);

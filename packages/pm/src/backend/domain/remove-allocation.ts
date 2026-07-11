@@ -63,7 +63,7 @@ export async function removeAllocation(input: {
         payload: {
           allocation_id,
           project_id: current.project_id,
-          worker_id: current.worker_id ?? null,
+          worker_id: current.person_id ?? null,
           account_id: proj.account_id,
           tenant_id: session.tenant_id,
         },

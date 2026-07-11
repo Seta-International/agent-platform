@@ -22,7 +22,7 @@ export async function assertNoProjectOverlap(
 ): Promise<void> {
   const conds: (SQL | undefined)[] = [
     eq(allocation.tenant_id, args.tenant_id),
-    eq(allocation.worker_id, args.worker_id),
+    eq(allocation.person_id, args.worker_id),
     eq(allocation.project_id, args.project_id),
     isNull(allocation.deleted_at),
   ];

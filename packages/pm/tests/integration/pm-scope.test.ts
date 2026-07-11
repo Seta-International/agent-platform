@@ -87,7 +87,7 @@ async function buildGraph(pool: Pool): Promise<Graph> {
       .values({
         tenant_id: t.tenant_id,
         project_id,
-        worker_id: crypto.randomUUID(),
+        person_id: crypto.randomUUID(),
         date_from: '2026-01-01',
         status: 'committed',
       })

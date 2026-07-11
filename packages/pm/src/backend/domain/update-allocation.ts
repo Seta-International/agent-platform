@@ -85,10 +85,10 @@ export async function updateAllocation(
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      if (current.worker_id && (datesChanged || projectChanged)) {
+      if (current.person_id && (datesChanged || projectChanged)) {
         await assertNoProjectOverlap(tx, {
           tenant_id: session.tenant_id,
-          worker_id: current.worker_id,
+          worker_id: current.person_id,
           project_id: targetProjectId,
           date_from: patch.date_from !== undefined ? patch.date_from : current.date_from,
           date_to: patch.date_to !== undefined ? patch.date_to : current.date_to,
@@ -120,7 +120,7 @@ export async function updateAllocation(
         payload: {
           allocation_id,
           project_id: targetProjectId,
-          worker_id: current.worker_id ?? null,
+          worker_id: current.person_id ?? null,
           account_id: proj.account_id,
           tenant_id: session.tenant_id,
           planned_pct: patch.planned_pct ?? null,

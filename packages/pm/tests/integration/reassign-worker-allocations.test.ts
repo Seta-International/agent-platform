@@ -94,7 +94,7 @@ describe('reassignWorkerAllocations', () => {
         expect(result.target_ids).toHaveLength(1);
         expect(result.warnings).toEqual([]);
 
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
         expect(rows).toHaveLength(3);
         const w1 = rows.find((r) => r.id === a1.allocation_id);
         const w2 = rows.find((r) => r.id === a2.allocation_id);
@@ -280,7 +280,7 @@ describe('reassignWorkerAllocations', () => {
         expect(result.updated).toEqual([]);
         expect(result.target_ids).toHaveLength(1);
 
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
         expect(rows).toHaveLength(2);
         const keptRow = rows.find((r) => r.id === kept.allocation_id);
         expect(keptRow?.date_to).toBe('2026-12-31'); // untouched, still version 1

@@ -161,7 +161,7 @@ export const allocation = pmSchema.table(
     project_id: uuid('project_id')
       .notNull()
       .references(() => project.id),
-    worker_id: uuid('worker_id'),
+    person_id: uuid('person_id'),
     task_id: uuid('task_id'),
     role: text('role'),
     date_from: date('date_from'),
@@ -182,19 +182,19 @@ export const allocation = pmSchema.table(
     index('allocation_by_project').on(t.tenant_id, t.project_id),
     index('allocation_by_task').on(t.tenant_id, t.task_id),
     index('allocation_by_worker')
-      .on(t.tenant_id, t.worker_id)
-      .where(sql`worker_id IS NOT NULL AND deleted_at IS NULL`),
+      .on(t.tenant_id, t.person_id)
+      .where(sql`person_id IS NOT NULL AND deleted_at IS NULL`),
     index('allocation_open_demand')
       .on(t.tenant_id, t.status)
-      .where(sql`worker_id IS NULL AND deleted_at IS NULL`),
+      .where(sql`person_id IS NULL AND deleted_at IS NULL`),
     uniqueIndex('allocation_one_placeholder_per_request')
       .on(t.tenant_id, t.resource_request_id)
-      .where(sql`resource_request_id IS NOT NULL AND worker_id IS NULL`),
+      .where(sql`resource_request_id IS NOT NULL AND person_id IS NULL`),
     textEnumCheck('allocation', 'bucket', ALLOCATION_BUCKETS),
     textEnumCheck('allocation', 'status', ALLOCATION_STATUS),
     check(
       'allocation_worker_rule_check',
-      sql`(status = 'placeholder' AND worker_id IS NULL) OR (status IN ('tentative','committed') AND worker_id IS NOT NULL)`,
+      sql`(status = 'placeholder' AND person_id IS NULL) OR (status IN ('tentative','committed') AND person_id IS NOT NULL)`,
     ),
     check('allocation_committed_dates_check', sql`status = 'placeholder' OR date_from IS NOT NULL`),
     check('allocation_weekday_mask_check', sql`weekday_mask BETWEEN 0 AND 127`),

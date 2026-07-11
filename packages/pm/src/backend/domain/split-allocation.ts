@@ -47,7 +47,7 @@ export async function splitAllocation(
     )
     .limit(1);
   if (!current) throw new PmError('NOT_FOUND', 'allocation not found');
-  if (!current.worker_id)
+  if (!current.person_id)
     throw new PmError('VALIDATION', 'cannot split an allocation with no worker');
   if (expected_version !== undefined && expected_version !== current.version) {
     throw new PmError('CONFLICT', 'version mismatch');
@@ -102,7 +102,7 @@ export async function splitAllocation(
     continuationTo && continuationPct !== null
       ? await (async () => {
           const check = await checkAllocationEffort({
-            worker_id: current.worker_id as string,
+            worker_id: current.person_id as string,
             date_from: continuationFrom,
             date_to: continuationTo,
             planned_pct: continuationPct,
@@ -120,7 +120,7 @@ export async function splitAllocation(
     async (tx) => {
       await assertNoProjectOverlap(tx, {
         tenant_id: session.tenant_id,
-        worker_id: current.worker_id as string,
+        worker_id: current.person_id as string,
         project_id: current.project_id,
         date_from: continuationFrom,
         date_to: continuationTo,
@@ -151,7 +151,7 @@ export async function splitAllocation(
         payload: {
           allocation_id,
           project_id: current.project_id,
-          worker_id: current.worker_id,
+          worker_id: current.person_id,
           account_id: proj.account_id,
           tenant_id: session.tenant_id,
           planned_pct: Number(current.planned_pct),
@@ -164,7 +164,7 @@ export async function splitAllocation(
         .values({
           tenant_id: session.tenant_id,
           project_id: current.project_id,
-          worker_id: current.worker_id,
+          person_id: current.person_id,
           role: current.role,
           date_from: continuationFrom,
           date_to: continuationTo,
@@ -187,7 +187,7 @@ export async function splitAllocation(
         payload: {
           allocation_id: row.id,
           project_id: current.project_id,
-          worker_id: current.worker_id,
+          worker_id: current.person_id,
           tenant_id: session.tenant_id,
           account_id: proj.account_id,
           account_name: acc.name,

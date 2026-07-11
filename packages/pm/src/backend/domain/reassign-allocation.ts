@@ -181,7 +181,7 @@ async function computeCombinedPeak(args: {
 
   const conds: (SQL | undefined)[] = [
     tenantScoped(allocation.tenant_id, session),
-    eq(allocation.worker_id, worker_id),
+    eq(allocation.person_id, worker_id),
     isNull(allocation.deleted_at),
     notInArray(allocation.id, exclude_allocation_ids),
     or(eq(allocation.status, 'tentative'), eq(allocation.status, 'committed')),
@@ -295,7 +295,7 @@ async function resolveReassignment(
     )
     .limit(1);
   if (!current) throw new PmError('NOT_FOUND', 'allocation not found');
-  if (!current.worker_id)
+  if (!current.person_id)
     throw new PmError('VALIDATION', 'cannot reassign an allocation with no worker');
   if (expected_version !== undefined && expected_version !== current.version) {
     throw new PmError('CONFLICT', 'version mismatch');
@@ -308,7 +308,7 @@ async function resolveReassignment(
   }
 
   const sourceProj = await loadProject(current.project_id, session);
-  const workerId = current.worker_id;
+  const workerId = current.person_id;
 
   try {
     assertWithinProjectRange({
@@ -434,7 +434,7 @@ export async function reassignAllocation(
           .values({
             tenant_id: session.tenant_id,
             project_id: t.input.project_id,
-            worker_id: workerId,
+            person_id: workerId,
             role: current.role,
             date_from: t.input.date_from,
             date_to: t.input.date_to ?? null,
@@ -566,7 +566,7 @@ async function resolveGroupReassignment(
     .where(
       and(
         inArray(allocation.id, allocation_ids),
-        eq(allocation.worker_id, worker_id),
+        eq(allocation.person_id, worker_id),
         tenantScoped(allocation.tenant_id, session),
         isNull(allocation.deleted_at),
       ),
@@ -733,7 +733,7 @@ export async function reassignWorkerAllocations(
           .values({
             tenant_id: session.tenant_id,
             project_id: t.input.project_id,
-            worker_id,
+            person_id: worker_id,
             role: template.role,
             date_from: t.input.date_from,
             date_to: t.input.date_to ?? null,

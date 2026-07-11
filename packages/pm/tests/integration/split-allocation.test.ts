@@ -82,7 +82,7 @@ describe('splitAllocation', () => {
           .from(allocation)
           .where(eq(allocation.id, result.continuation_id));
         expect(continuation?.project_id).toBe(project);
-        expect(continuation?.worker_id).toBe(worker);
+        expect(continuation?.person_id).toBe(worker);
         expect(continuation?.date_from).toBe('2026-03-01');
         expect(continuation?.date_to).toBe('2026-10-31');
         expect(continuation?.planned_pct).toBe('50.0000');

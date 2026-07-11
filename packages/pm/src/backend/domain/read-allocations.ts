@@ -48,7 +48,7 @@ export async function listProjectAllocations(input: {
   const rows = await pmDb()
     .select({
       allocation_id: allocation.id,
-      worker_id: allocation.worker_id,
+      worker_id: allocation.person_id,
       role: allocation.role,
       planned_pct: allocation.planned_pct,
       bucket: allocation.bucket,
@@ -113,7 +113,7 @@ export async function listAllocations(input: {
   ];
   if (input.project_id) conds.push(eq(allocation.project_id, input.project_id));
   if (input.account_id) conds.push(eq(project.account_id, input.account_id));
-  if (input.worker_id) conds.push(eq(allocation.worker_id, input.worker_id));
+  if (input.worker_id) conds.push(eq(allocation.person_id, input.worker_id));
   const joinScope = buildAllocationJoinScope(session);
   if (joinScope) conds.push(joinScope);
   if (input.active_from) {
@@ -141,7 +141,7 @@ export async function listAllocations(input: {
   const rows = await pmDb()
     .select({
       allocation_id: allocation.id,
-      worker_id: allocation.worker_id,
+      worker_id: allocation.person_id,
       worker_name: workerProjection.full_name,
       worker_title: workerProjection.job_title,
       role: allocation.role,
@@ -164,7 +164,7 @@ export async function listAllocations(input: {
     .leftJoin(
       workerProjection,
       and(
-        eq(workerProjection.worker_id, allocation.worker_id),
+        eq(workerProjection.worker_id, allocation.person_id),
         eq(workerProjection.tenant_id, allocation.tenant_id),
       ),
     )

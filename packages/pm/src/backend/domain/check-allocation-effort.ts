@@ -38,7 +38,7 @@ export async function checkAllocationEffort(input: {
 
   const conds: (SQL | undefined)[] = [
     tenantScoped(allocation.tenant_id, session),
-    eq(allocation.worker_id, worker_id),
+    eq(allocation.person_id, worker_id),
     isNull(allocation.deleted_at),
     or(eq(allocation.status, 'tentative'), eq(allocation.status, 'committed')),
     or(isNull(allocation.date_from), lte(allocation.date_from, date_to)),

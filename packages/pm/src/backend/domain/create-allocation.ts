@@ -82,7 +82,7 @@ export async function createAllocation(
         .values({
           tenant_id: session.tenant_id,
           project_id: parsed.project_id,
-          worker_id: parsed.worker_id ?? null,
+          person_id: parsed.worker_id ?? null,
           role: parsed.role ?? null,
           date_from: parsed.date_from ?? null,
           date_to: parsed.date_to ?? null,

@@ -31,7 +31,7 @@ describe('allocation worker-rule CHECK', () => {
             tenant_id: t.tenant_id,
             project_id: proj!.id,
             status: 'placeholder',
-            worker_id: crypto.randomUUID(),
+            person_id: crypto.randomUUID(),
           }),
         ).rejects.toThrow();
 
@@ -58,7 +58,7 @@ describe('allocation worker-rule CHECK', () => {
             tenant_id: t.tenant_id,
             project_id: proj!.id,
             status: 'committed',
-            worker_id: crypto.randomUUID(),
+            person_id: crypto.randomUUID(),
             date_from: '2026-01-01',
           })
           .returning({ id: allocation.id });
@@ -89,7 +89,7 @@ describe('allocation worker-rule CHECK', () => {
             tenant_id: t.tenant_id,
             project_id: proj!.id,
             status: 'committed',
-            worker_id: crypto.randomUUID(),
+            person_id: crypto.randomUUID(),
           }),
         ).rejects.toThrow();
 
