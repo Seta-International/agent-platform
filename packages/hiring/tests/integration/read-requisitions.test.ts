@@ -129,8 +129,6 @@ describe('read requisitions', () => {
           .where(eq(accountProjection.account_id, account_id));
         expect(projRows).toHaveLength(1);
         expect(projRows[0]?.name).toBe('Vinfast');
-        // FUT-327 — am_worker_id must round-trip so AM row scoping can filter on it.
-        expect(projRows[0]?.am_worker_id).toBe(am_worker_id);
 
         await hiringDb().insert(projectProjection).values({
           project_id,

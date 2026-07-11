@@ -132,8 +132,9 @@ export interface OpenRequisitionsBoard {
  * Row scoping delegates to `buildRequisitionScope` (the unified RBAC scope layer, FUT-378):
  * a tenant-wide `hiring.requisition.read` grant sees every non-filled requisition
  * company-wide; a scoped grant is limited to requisitions the viewer owns, is an assigned
- * recruiter or the AM on its account (via `@seta/pm` / `account_projection.am_worker_id`,
- * FUT-330), or owns the project of as EM/TL/PM (FUT-328).
+ * recruiter or the AM on its account (via `@seta/pm.listAccountIdsManagedBy`, FUT-330;
+ * AM ownership resolves against `pm.account` directly, not a local projection), or owns
+ * the project of as EM/TL/PM (FUT-328).
  * `scoped_account_names`/`scoped_project_names` are derived from the returned rows rather
  * than a second lookup, so they always match what's actually shown.
  */

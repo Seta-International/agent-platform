@@ -370,17 +370,11 @@ export const application = hiringSchema.table(
 // Local read-model projections of pm.account / pm.project names, fed by pm domain events
 // (see backend/subscribers). Hiring stores only account_id/project_id on a requisition;
 // these tables resolve the display names without a cross-module join.
-export const accountProjection = hiringSchema.table(
-  'account_projection',
-  {
-    account_id: uuid('account_id').primaryKey(),
-    tenant_id: uuid('tenant_id').notNull(),
-    name: text('name').notNull(),
-    // AM ownership, projected from pm.account.am_worker_id for FUT-327 row scoping.
-    am_worker_id: uuid('am_worker_id'),
-  },
-  (t) => [index('account_projection_by_am').on(t.tenant_id, t.am_worker_id)],
-);
+export const accountProjection = hiringSchema.table('account_projection', {
+  account_id: uuid('account_id').primaryKey(),
+  tenant_id: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
+});
 
 export const projectProjection = hiringSchema.table(
   'project_projection',

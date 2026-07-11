@@ -9,13 +9,13 @@ async function upsert(
   event: DomainEvent<AccountCreatedPayload | AccountUpdatedPayload>,
   ctx: { tx: Parameters<SubscriberDef['handler']>[1]['tx'] },
 ): Promise<void> {
-  const { account_id, tenant_id, name, am_worker_id } = event.payload;
+  const { account_id, tenant_id, name } = event.payload;
   await ctx.tx
     .insert(accountProjection)
-    .values({ account_id, tenant_id, name, am_worker_id })
+    .values({ account_id, tenant_id, name })
     .onConflictDoUpdate({
       target: accountProjection.account_id,
-      set: { tenant_id, name, am_worker_id },
+      set: { tenant_id, name },
     });
 }
 
