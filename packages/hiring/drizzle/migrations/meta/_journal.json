@@ -43,6 +43,13 @@
       "when": 1783743881514,
       "tag": "0009_steady_lake",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783761863756,
+      "tag": "0010_gorgeous_nico_minoru",
+      "breakpoints": true
     }
   ]
 }

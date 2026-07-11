@@ -18,6 +18,7 @@ const TOUCH_TABLES = [
   'candidate',
   'candidate_skill',
   'rejection_reason',
+  'reason',
   'application',
 ];
 
@@ -36,6 +37,7 @@ const RLS_TABLES = [
   'candidate',
   'candidate_skill',
   'rejection_reason',
+  'reason',
   'candidate_event',
   'application',
   'account_projection',

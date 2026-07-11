@@ -189,6 +189,33 @@ export const openingCloseReason = hiringSchema.table(
   (t) => [uniqueIndex('close_reason_uniq_label').on(t.tenant_id, t.label)],
 );
 
+export const REASON_KINDS = ['opening_close', 'rejection'] as const;
+
+export const reason = hiringSchema.table(
+  'reason',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    kind: textEnum('kind', REASON_KINDS).notNull(),
+    label: text('label').notNull(),
+    category: textEnum('category', REJECTION_CATEGORIES),
+    active: boolean('active').notNull().default(true),
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('reason_by_tenant_kind').on(t.tenant_id, t.kind),
+    uniqueIndex('reason_uniq_label').on(t.tenant_id, t.kind, t.label),
+    textEnumCheck('reason', 'kind', REASON_KINDS),
+    textEnumCheck('reason', 'category', REJECTION_CATEGORIES),
+    check(
+      'reason_category_required_for_rejection',
+      sql`kind <> 'rejection' OR category IS NOT NULL`,
+    ),
+  ],
+);
+
 export const jdTemplate = hiringSchema.table(
   'jd_template',
   {
