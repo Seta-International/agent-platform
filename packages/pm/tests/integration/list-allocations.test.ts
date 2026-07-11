@@ -23,7 +23,7 @@ async function seedProject(
   accName: string,
 ): Promise<{ projectId: string; accountId: string }> {
   const { account_id } = await createAccount({ name: accName, session });
-  const { charter_id } = await submitCharter({
+  const { project_id: charterId } = await submitCharter({
     account_id,
     name: `P-${accName}`,
     pm_worker_id: session.user_id,
@@ -32,7 +32,7 @@ async function seedProject(
     budget_bmm: 100,
     session,
   });
-  const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
+  const { project_id } = await approveCharterTwoStage(charterId, session.tenant_id);
   return { projectId: project_id, accountId: account_id };
 }
 

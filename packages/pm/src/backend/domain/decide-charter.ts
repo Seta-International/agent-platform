@@ -13,17 +13,36 @@ import {
   PM_PROJECT_CREATED,
 } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { charter, project, projectAccess } from '../db/schema.ts';
+import { project, projectAccess, projectApproval } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
-async function loadCharter(charter_id: string, session: SessionScope) {
-  const [c] = await pmDb()
-    .select()
-    .from(charter)
-    .where(and(eq(charter.id, charter_id), tenantScoped(charter.tenant_id, session)))
+async function loadProject(project_id: string, session: SessionScope) {
+  const [p] = await pmDb()
+    .select({
+      id: project.id,
+      status: project.status,
+      version: project.version,
+      account_id: project.account_id,
+      name: project.name,
+      pm_person_id: project.pm_person_id,
+      pmo_person_id: project.pmo_person_id,
+      methodology: project.methodology,
+      pricing_model: project.pricing_model,
+      budget_bmm: project.budget_bmm,
+      submitted_by_user_id: projectApproval.submitted_by_user_id,
+    })
+    .from(project)
+    .leftJoin(
+      projectApproval,
+      and(
+        eq(projectApproval.project_id, project.id),
+        tenantScoped(projectApproval.tenant_id, session),
+      ),
+    )
+    .where(and(eq(project.id, project_id), tenantScoped(project.tenant_id, session)))
     .limit(1);
-  if (!c) throw new PmError('NOT_FOUND', 'charter not found');
-  return c;
+  if (!p) throw new PmError('NOT_FOUND', 'charter not found');
+  return p;
 }
 
 export async function pmoSignOffCharter(input: {
@@ -33,7 +52,7 @@ export async function pmoSignOffCharter(input: {
 }): Promise<{ version: number }> {
   const { charter_id, session } = input;
   requirePermission(session, 'pm.charter.pmo_signoff');
-  const c = await loadCharter(charter_id, session);
+  const c = await loadProject(charter_id, session);
   if (c.status !== 'submitted') throw new PmError('CONFLICT', 'charter is not awaiting PMO review');
   if (input.expected_version !== undefined && input.expected_version !== c.version) {
     throw new PmError('CONFLICT', 'version mismatch');
@@ -43,23 +62,26 @@ export async function pmoSignOffCharter(input: {
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
       const updated = await tx
-        .update(charter)
-        .set({
-          status: 'pmo_approved',
-          pmo_signed_off_at: new Date(),
-          pmo_signed_off_by_user_id: session.user_id,
-          version: nextVersion,
-          updated_at: new Date(),
-        })
+        .update(project)
+        .set({ status: 'pmo_approved', version: nextVersion, updated_at: new Date() })
         .where(
           and(
-            eq(charter.id, charter_id),
-            eq(charter.version, c.version),
-            eq(charter.status, 'submitted'),
+            eq(project.id, charter_id),
+            eq(project.version, c.version),
+            eq(project.status, 'submitted'),
           ),
         )
-        .returning({ id: charter.id });
+        .returning({ id: project.id });
       if (updated.length === 0) throw new PmError('CONFLICT', 'charter was modified concurrently');
+
+      await tx
+        .update(projectApproval)
+        .set({
+          pmo_signed_off_at: new Date(),
+          pmo_signed_off_by_user_id: session.user_id,
+          updated_at: new Date(),
+        })
+        .where(eq(projectApproval.project_id, charter_id));
 
       const { eventId } = await emit({
         tenantId: session.tenant_id,
@@ -99,7 +121,7 @@ export async function bodApproveCharter(input: {
 }): Promise<{ project_id: string; version: number }> {
   const { charter_id, session } = input;
   requirePermission(session, 'pm.charter.bod_approve');
-  const c = await loadCharter(charter_id, session);
+  const c = await loadProject(charter_id, session);
   if (c.status !== 'pmo_approved') {
     throw new PmError('CONFLICT', 'charter is not awaiting BoD review');
   }
@@ -111,70 +133,51 @@ export async function bodApproveCharter(input: {
   }
 
   const nextVersion = c.version + 1;
-  let projectId!: string;
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      const [proj] = await tx
-        .insert(project)
-        .values({
-          tenant_id: session.tenant_id,
-          account_id: c.account_id,
-          name: c.name,
-          objective: c.objective,
-          scope: c.scope as Record<string, unknown> | undefined,
-          budget_bmm: c.budget_bmm ?? undefined,
-          pm_person_id: c.pm_worker_id,
-          pmo_person_id: c.pmo_worker_id ?? undefined,
-          team_size: c.team_size ?? undefined,
-          methodology: c.methodology ?? undefined,
-          pricing_model: c.pricing_model ?? undefined,
-          date_from: c.date_from ?? undefined,
-          date_to: c.date_to ?? undefined,
-          phase: 'initiation',
-          status: 'active',
-        })
-        .returning({ id: project.id });
-      if (!proj) throw new Error('project insert returned no row');
-      projectId = proj.id;
-
-      const decided = await tx
-        .update(charter)
-        .set({
-          status: 'approved',
-          approved_at: new Date(),
-          project_id: proj.id,
-          decided_by_user_id: session.user_id,
-          version: nextVersion,
-          updated_at: new Date(),
-        })
+      // The project row already exists (created at submission) — approval is
+      // activation, so we flip its status rather than inserting a new project.
+      const activated = await tx
+        .update(project)
+        .set({ status: 'active', version: nextVersion, updated_at: new Date() })
         .where(
           and(
-            eq(charter.id, charter_id),
-            eq(charter.version, c.version),
-            eq(charter.status, 'pmo_approved'),
+            eq(project.id, charter_id),
+            eq(project.version, c.version),
+            eq(project.status, 'pmo_approved'),
           ),
         )
-        .returning({ id: charter.id });
-      if (decided.length === 0) throw new PmError('CONFLICT', 'charter was modified concurrently');
+        .returning({ id: project.id });
+      if (activated.length === 0)
+        throw new PmError('CONFLICT', 'charter was modified concurrently');
 
-      if (c.pm_worker_id) {
+      await tx
+        .update(projectApproval)
+        .set({
+          approved_at: new Date(),
+          decided_by_user_id: session.user_id,
+          updated_at: new Date(),
+        })
+        .where(eq(projectApproval.project_id, charter_id));
+
+      if (c.pm_person_id) {
         await tx.insert(projectAccess).values({
           tenant_id: session.tenant_id,
-          project_id: proj.id,
-          person_id: c.pm_worker_id,
+          project_id: charter_id,
+          person_id: c.pm_person_id,
           level: 'owner',
         });
         await emit({
           tenantId: session.tenant_id,
           aggregateType: 'pm.project',
-          aggregateId: proj.id,
+          aggregateId: charter_id,
           eventType: PM_PROJECT_ACCESS_CHANGED,
           eventVersion: 1,
           payload: {
-            project_id: proj.id,
+            project_id: charter_id,
             tenant_id: session.tenant_id,
-            owner_worker_ids: [c.pm_worker_id],
+            owner_worker_ids: [c.pm_person_id],
           },
         });
       }
@@ -185,7 +188,7 @@ export async function bodApproveCharter(input: {
         aggregateId: charter_id,
         eventType: PM_CHARTER_APPROVED,
         eventVersion: 1,
-        payload: { charter_id, tenant_id: session.tenant_id, project_id: proj.id },
+        payload: { charter_id, tenant_id: session.tenant_id, project_id: charter_id },
       });
 
       if (c.submitted_by_user_id && c.submitted_by_user_id !== session.user_id) {
@@ -198,7 +201,7 @@ export async function bodApproveCharter(input: {
             title: 'Charter approved',
             body: `"${c.name}" is now a live project`,
             charter_id,
-            project_id: proj.id,
+            project_id: charter_id,
           },
         });
       }
@@ -206,11 +209,11 @@ export async function bodApproveCharter(input: {
       await emit({
         tenantId: session.tenant_id,
         aggregateType: 'pm.project',
-        aggregateId: proj.id,
+        aggregateId: charter_id,
         eventType: PM_PROJECT_CREATED,
         eventVersion: 1,
         payload: {
-          project_id: proj.id,
+          project_id: charter_id,
           tenant_id: session.tenant_id,
           account_id: c.account_id,
           charter_id,
@@ -219,14 +222,14 @@ export async function bodApproveCharter(input: {
       });
     },
   );
-  return { project_id: projectId, version: nextVersion };
+  return { project_id: charter_id, version: nextVersion };
 }
 
 export async function rejectCharter(
   input: RejectCharterInput & { session: SessionScope },
 ): Promise<{ version: number }> {
   const { charter_id, reason, session } = input;
-  const c = await loadCharter(charter_id, session);
+  const c = await loadProject(charter_id, session);
 
   let stage: 'pmo' | 'bod';
   if (c.status === 'submitted') {
@@ -247,25 +250,28 @@ export async function rejectCharter(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
       const decided = await tx
-        .update(charter)
-        .set({
-          status: 'rejected',
-          rejection_reason: reason,
-          rejected_stage: stage,
-          rejected_at: new Date(),
-          decided_by_user_id: session.user_id,
-          version: nextVersion,
-          updated_at: new Date(),
-        })
+        .update(project)
+        .set({ status: 'rejected', version: nextVersion, updated_at: new Date() })
         .where(
           and(
-            eq(charter.id, charter_id),
-            eq(charter.version, c.version),
-            eq(charter.status, c.status),
+            eq(project.id, charter_id),
+            eq(project.version, c.version),
+            eq(project.status, c.status),
           ),
         )
-        .returning({ id: charter.id });
+        .returning({ id: project.id });
       if (decided.length === 0) throw new PmError('CONFLICT', 'charter was modified concurrently');
+
+      await tx
+        .update(projectApproval)
+        .set({
+          rejected_at: new Date(),
+          rejected_stage: stage,
+          rejection_reason: reason,
+          decided_by_user_id: session.user_id,
+          updated_at: new Date(),
+        })
+        .where(eq(projectApproval.project_id, charter_id));
 
       const { eventId: rejectedEventId } = await emit({
         tenantId: session.tenant_id,

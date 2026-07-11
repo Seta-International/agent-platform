@@ -5,8 +5,17 @@ import { and, eq } from 'drizzle-orm';
 import type { EditCharterInput } from '../../contracts.ts';
 import { PM_CHARTER_UPDATED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { charter } from '../db/schema.ts';
+import { project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
+
+// Patch fields whose names differ from their `project` column (mirrors the
+// edit-account.ts field→column map precedent from PR3). All other patch fields
+// (name, objective, scope, budget_bmm, team_size, methodology, pricing_model,
+// date_from, date_to) map 1:1.
+const FIELD_TO_COLUMN: Record<string, string> = {
+  pm_worker_id: 'pm_person_id',
+  pmo_worker_id: 'pmo_person_id',
+};
 
 export async function editCharter(
   input: EditCharterInput & { session: SessionScope },
@@ -16,8 +25,8 @@ export async function editCharter(
 
   const [current] = await pmDb()
     .select()
-    .from(charter)
-    .where(and(eq(charter.id, charter_id), tenantScoped(charter.tenant_id, session)))
+    .from(project)
+    .where(and(eq(project.id, charter_id), tenantScoped(project.tenant_id, session)))
     .limit(1);
   if (!current) throw new PmError('NOT_FOUND', 'charter not found');
   if (current.status !== 'submitted') {
@@ -30,9 +39,11 @@ export async function editCharter(
   const normalized: Record<string, unknown> = { ...patch };
   if (patch.budget_bmm !== undefined) normalized.budget_bmm = patch.budget_bmm?.toString();
   const entries = Object.entries(normalized).filter(([, v]) => v !== undefined);
-  const changes = entries.filter(
-    ([f, v]) => JSON.stringify((current as Record<string, unknown>)[f]) !== JSON.stringify(v),
-  );
+  // Compare against the mapped column value; report the patch field name in the event.
+  const changes = entries.filter(([f, v]) => {
+    const col = FIELD_TO_COLUMN[f] ?? f;
+    return JSON.stringify((current as Record<string, unknown>)[col]) !== JSON.stringify(v);
+  });
   if (changes.length === 0) return { version: current.version };
 
   const nextVersion = current.version + 1;
@@ -40,18 +51,18 @@ export async function editCharter(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
       const set: Record<string, unknown> = { version: nextVersion, updated_at: new Date() };
-      for (const [f, v] of changes) set[f] = v;
+      for (const [f, v] of changes) set[FIELD_TO_COLUMN[f] ?? f] = v;
       const updated = await tx
-        .update(charter)
+        .update(project)
         .set(set)
         .where(
           and(
-            eq(charter.id, charter_id),
-            eq(charter.version, current.version),
-            eq(charter.status, 'submitted'),
+            eq(project.id, charter_id),
+            eq(project.version, current.version),
+            eq(project.status, 'submitted'),
           ),
         )
-        .returning({ id: charter.id });
+        .returning({ id: project.id });
       if (updated.length === 0) throw new PmError('CONFLICT', 'charter was modified concurrently');
       await emit({
         tenantId: session.tenant_id,

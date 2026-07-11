@@ -27,7 +27,7 @@ async function seedProject(
     `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
     [tenantId],
   );
-  const { charter_id } = await submitCharter({
+  const { project_id: charterId } = await submitCharter({
     account_id: acc.rows[0].id,
     name: 'P',
     pm_worker_id: session.user_id,
@@ -36,7 +36,7 @@ async function seedProject(
     budget_bmm: 100,
     session,
   });
-  return approveCharterTwoStage(charter_id, tenantId);
+  return approveCharterTwoStage(charterId, tenantId);
 }
 
 describe('staffing_plan_line_skill child table', () => {

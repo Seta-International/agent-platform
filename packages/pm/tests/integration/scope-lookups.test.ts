@@ -35,7 +35,7 @@ describe('scope lookups', () => {
           session: t.adminSession,
         });
 
-        const { charter_id } = await submitCharter({
+        const { project_id: charterId } = await submitCharter({
           account_id,
           name: 'Project A',
           pm_worker_id: t.adminSession.user_id,
@@ -44,7 +44,7 @@ describe('scope lookups', () => {
           budget_bmm: 100,
           session: t.adminSession,
         });
-        const { project_id } = await approveCharterTwoStage(charter_id, t.tenant_id);
+        const { project_id } = await approveCharterTwoStage(charterId, t.tenant_id);
 
         await setProjectAccess({
           project_id,
@@ -84,7 +84,7 @@ describe('scope lookups', () => {
           am_worker_id: managerId,
           session: t1.adminSession,
         });
-        const { charter_id } = await submitCharter({
+        const { project_id: charterId } = await submitCharter({
           account_id,
           name: 'Project A',
           pm_worker_id: t1.adminSession.user_id,
@@ -93,7 +93,7 @@ describe('scope lookups', () => {
           budget_bmm: 100,
           session: t1.adminSession,
         });
-        const { project_id } = await approveCharterTwoStage(charter_id, t1.tenant_id);
+        const { project_id } = await approveCharterTwoStage(charterId, t1.tenant_id);
         await setProjectAccess({
           project_id,
           grants: [{ worker_id: managerId, level: 'owner' }],

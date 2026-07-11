@@ -30,7 +30,7 @@ async function liveProject(
     `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
     [tenantId],
   );
-  const { charter_id } = await submitCharter({
+  const { project_id: charterId } = await submitCharter({
     account_id: acc.rows[0].id,
     name: 'P',
     pm_worker_id: session.user_id,
@@ -39,7 +39,7 @@ async function liveProject(
     budget_bmm: 100,
     session,
   });
-  return (await approveCharterTwoStage(charter_id, session.tenant_id)).project_id;
+  return (await approveCharterTwoStage(charterId, session.tenant_id)).project_id;
 }
 
 describe('project run', () => {
@@ -57,7 +57,10 @@ describe('project run', () => {
           patch: { phase: 'execution', objective: 'Ship' },
           session: t.adminSession,
         });
-        expect(e.version).toBe(2);
+        // The project accrues version through the governance lifecycle
+        // (submit=1, pmo sign-off=2, BoD approve=3), so the first post-approval
+        // edit lands on version 4.
+        expect(e.version).toBe(4);
 
         const gid = crypto.randomUUID();
         await linkPlannerGroup({

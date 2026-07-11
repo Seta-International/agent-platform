@@ -112,7 +112,7 @@ export async function seedOwnedProject(opts: {
     name: `Acct ${crypto.randomUUID().slice(0, 8)}`,
     session: opts.session,
   });
-  const { charter_id } = await submitCharter({
+  const { project_id } = await submitCharter({
     account_id,
     name: opts.projectName ?? 'Seeded Project',
     pm_worker_id: opts.session.user_id,
@@ -131,8 +131,8 @@ export async function seedOwnedProject(opts: {
     user_id: crypto.randomUUID(),
     roles: ['pm.bod'],
   });
-  await pmoSignOffCharter({ charter_id, session: pmo });
-  const { project_id } = await bodApproveCharter({ charter_id, session: bod });
+  await pmoSignOffCharter({ charter_id: project_id, session: pmo });
+  await bodApproveCharter({ charter_id: project_id, session: bod });
   await setProjectAccess({
     project_id,
     grants: [{ worker_id: opts.ownerWorkerId, level: 'owner' }],
