@@ -174,7 +174,7 @@ export function buildServerApp(
     resolvePermissions: resolve,
     resolveGroupIds: listUserGroupIds,
     resolveProductAccess,
-    resolveWorkerId: getWorkerIdForUser,
+    resolvePersonId: getWorkerIdForUser,
     expandOrgUnits,
   });
 
