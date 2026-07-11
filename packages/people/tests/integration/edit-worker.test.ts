@@ -1,10 +1,10 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { worker } from '../../src/backend/db/schema.ts';
+import { employmentPeriod, person } from '../../src/backend/db/schema.ts';
 import { createWorker, editWorker } from '../../src/index.ts';
 import { buildSession, countEvents, readEvents, seedOrgUnit, seedTenant } from '../helpers.ts';
 
@@ -43,9 +43,9 @@ describe('editWorker', () => {
 
         expect(result.version).toBeGreaterThan(1);
 
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w?.phone).toBe('555-1234');
-        expect(w?.profile_completed_at).not.toBeNull();
+        const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
+        expect(p?.phone).toBe('555-1234');
+        expect(p?.profile_completed_at).not.toBeNull();
 
         const histRows = await pool.query(
           `SELECT * FROM people.worker_history WHERE person_id = $1 AND action = 'updated'`,
@@ -170,11 +170,11 @@ describe('editWorker', () => {
         const t = await seedTenant(pool);
         const { worker_id } = await createWorker({ full_name: 'Eve', session: t.adminSession });
 
-        const [w] = await peopleDb()
-          .select({ version: worker.version })
-          .from(worker)
-          .where(eq(worker.person_id, worker_id));
-        const originalVersion = w!.version;
+        const [p] = await peopleDb()
+          .select({ version: person.version })
+          .from(person)
+          .where(eq(person.id, worker_id));
+        const originalVersion = p!.version;
 
         const result = await editWorker({
           worker_id,
@@ -224,7 +224,7 @@ describe('editWorker', () => {
     });
   });
 
-  it('admin edits job_title + org_unit_id: two history rows, event fields includes both, worker row updated', async () => {
+  it('admin edits job_title + org_unit_id: two history rows, event fields includes both, split across employment_period/person', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -250,9 +250,14 @@ describe('editWorker', () => {
         });
         expect(result.version).toBeGreaterThan(1);
 
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w?.job_title).toBe('Staff Engineer');
-        expect(w?.org_unit_id).toBe(unit);
+        const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
+        expect(p?.org_unit_id).toBe(unit);
+
+        const [ep] = await peopleDb()
+          .select()
+          .from(employmentPeriod)
+          .where(and(eq(employmentPeriod.person_id, worker_id), isNull(employmentPeriod.end_date)));
+        expect(ep?.job_title).toBe('Staff Engineer');
 
         const histRows = await pool.query(
           `SELECT field FROM people.worker_history WHERE person_id = $1 AND action = 'updated' ORDER BY field`,
@@ -266,6 +271,47 @@ describe('editWorker', () => {
         expect(events).toHaveLength(1);
         const eventFields = (events[0]?.payload.fields as string[]).sort();
         expect(eventFields).toEqual(['job_title', 'org_unit_id']);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('admin edits job_title + phone: job_title lands on the open employment_period, phone on person, event reflects new job_title/full_name/work_email', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { worker_id } = await createWorker({ full_name: 'Ivy', session: t.adminSession });
+
+        const result = await editWorker({
+          worker_id,
+          patch: { job_title: 'Principal Engineer', phone: '555-7777' },
+          session: t.adminSession,
+        });
+        expect(result.version).toBeGreaterThan(1);
+
+        const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
+        expect(p?.phone).toBe('555-7777');
+
+        const [ep] = await peopleDb()
+          .select()
+          .from(employmentPeriod)
+          .where(and(eq(employmentPeriod.person_id, worker_id), isNull(employmentPeriod.end_date)));
+        expect(ep?.job_title).toBe('Principal Engineer');
+
+        const events = await readEvents(pool, t.tenant_id, 'people.worker.updated');
+        expect(events).toHaveLength(1);
+        expect(events[0]?.payload).toMatchObject({
+          worker_id,
+          full_name: 'Ivy',
+          work_email: null,
+          job_title: 'Principal Engineer',
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();
