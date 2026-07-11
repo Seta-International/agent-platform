@@ -39,16 +39,53 @@ export const GENDERS = ['male', 'female', 'prefer_not_to_say'] as const;
 
 export const PROJECTION_BUCKETS = ['billable', 'internal', 'bench'] as const;
 
-export const person = peopleSchema.table('person', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenant_id: uuid('tenant_id').notNull(),
-  bio: text('bio'),
-  original_hire_date: date('original_hire_date'),
-  seniority_date: date('seniority_date'),
-  version: integer('version').default(1).notNull(),
-  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const person = peopleSchema.table(
+  'person',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    bio: text('bio'),
+    original_hire_date: date('original_hire_date'),
+    seniority_date: date('seniority_date'),
+    employee_no: text('employee_no'),
+    full_name: text('full_name'),
+    work_email: text('work_email'),
+    personal_email: text('personal_email'),
+    dob: date('dob'),
+    gender: textEnum('gender', GENDERS),
+    phone: text('phone'),
+    emergency_contact: jsonb('emergency_contact'),
+    profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
+    cv_storage_key: text('cv_storage_key'),
+    // Lazy column-level reference (not table-level foreignKey()): org_unit and worker
+    // FK each other (head_worker_id), and org_unit is declared after worker below —
+    // a table-level foreignKey() would evaluate `orgUnit` eagerly and hit the TDZ.
+    org_unit_id: uuid('org_unit_id').references((): AnyPgColumn => orgUnit.id),
+    availability_status: textEnum('availability_status', AVAILABILITY_STATUS)
+      .default('available')
+      .notNull(),
+    ooo_until: timestamp('ooo_until', { withTimezone: true }),
+    work_start: time('work_start'),
+    work_end: time('work_end'),
+    timezone: text('timezone').default('UTC').notNull(),
+    deleted_at: timestamp('deleted_at', { withTimezone: true }),
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('person_uniq_employee_no_per_tenant')
+      .on(t.tenant_id, t.employee_no)
+      .where(sql`employee_no IS NOT NULL AND deleted_at IS NULL`),
+    uniqueIndex('person_uniq_email_per_tenant')
+      .on(t.tenant_id, t.work_email)
+      .where(sql`work_email IS NOT NULL AND deleted_at IS NULL`),
+    index('person_by_tenant_live').on(t.tenant_id).where(sql`deleted_at IS NULL`),
+    index('person_by_org_unit').on(t.tenant_id, t.org_unit_id),
+    textEnumCheck('person', 'gender', GENDERS),
+    textEnumCheck('person', 'availability_status', AVAILABILITY_STATUS),
+  ],
+);
 
 export const employmentPeriod = peopleSchema.table(
   'employment_period',
@@ -61,6 +98,7 @@ export const employmentPeriod = peopleSchema.table(
     end_date: date('end_date'),
     lifecycle_stage: textEnum('lifecycle_stage', LIFECYCLE_STAGES).notNull().default('preboarding'),
     employment_type: text('employment_type'),
+    job_title: text('job_title'),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
