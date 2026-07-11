@@ -1,8 +1,7 @@
 import type { AccountCreatedPayload, AccountUpdatedPayload } from '@seta/pm/events';
 import { PM_ACCOUNT_CREATED, PM_ACCOUNT_UPDATED } from '@seta/pm/events';
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
-import { and, eq } from 'drizzle-orm';
-import { accountProjection, workerAllocationProjection } from '../db/schema.ts';
+import { accountProjection } from '../db/schema.ts';
 
 export const accountProjectionCreated: SubscriberDef = {
   subscription: 'people.account-projection.created',
@@ -51,15 +50,5 @@ export const accountProjectionUpdated: SubscriberDef = {
           updated_at: new Date(),
         },
       });
-
-    await ctx.tx
-      .update(workerAllocationProjection)
-      .set({ account_name: name, updated_at: new Date() })
-      .where(
-        and(
-          eq(workerAllocationProjection.account_id, account_id),
-          eq(workerAllocationProjection.tenant_id, tenant_id),
-        ),
-      );
   },
 };

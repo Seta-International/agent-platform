@@ -47,10 +47,9 @@ describe('People allocation HTTP routes', () => {
         await peopleDb().insert(workerAllocationProjection).values({
           allocation_id: crypto.randomUUID(),
           tenant_id: t.tenant_id,
-          worker_id: personId,
+          person_id: personId,
           project_id: crypto.randomUUID(),
           account_id: crypto.randomUUID(),
-          account_name: 'Acme',
           date_from: '2026-01-01',
           date_to: '2026-12-31',
           planned_pct: '100',
@@ -93,10 +92,9 @@ describe('People allocation HTTP routes', () => {
         await peopleDb().insert(workerAllocationProjection).values({
           allocation_id: crypto.randomUUID(),
           tenant_id: t.tenant_id,
-          worker_id: personId,
+          person_id: personId,
           project_id: crypto.randomUUID(),
           account_id: crypto.randomUUID(),
-          account_name: 'Acme',
           date_from: '2026-01-01',
           date_to: '2026-12-31',
           planned_pct: '60',

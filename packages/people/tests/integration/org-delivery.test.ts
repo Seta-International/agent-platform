@@ -84,21 +84,19 @@ async function buildDelivery(pool: import('pg').Pool): Promise<DeliveryGraph> {
   await peopleDb().insert(workerAllocationProjection).values({
     allocation_id: crypto.randomUUID(),
     tenant_id: t.tenant_id,
-    worker_id: lead,
+    person_id: lead,
     project_id: projectId,
     account_id: accountA,
-    account_name: 'Account A',
-    lead_worker_id: lead,
+    lead_person_id: lead,
     active: true,
   });
   await peopleDb().insert(workerAllocationProjection).values({
     allocation_id: crypto.randomUUID(),
     tenant_id: t.tenant_id,
-    worker_id: member,
+    person_id: member,
     project_id: projectId,
     account_id: accountA,
-    account_name: 'Account A',
-    lead_worker_id: lead,
+    lead_person_id: lead,
     active: true,
   });
 

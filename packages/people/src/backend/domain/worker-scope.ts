@@ -54,7 +54,7 @@ function meSubquery(userId: string, tenantId: string): SQL {
 function amArmSql(managedAccountIds: string[], tenantId: string): SQL | null {
   if (managedAccountIds.length === 0) return null;
   return sql`${person.id} IN (
-      SELECT worker_id FROM people.worker_allocation_projection
+      SELECT person_id FROM people.worker_allocation_projection
         WHERE active AND tenant_id = ${tenantId}
           AND account_id IN (${sql.join(
             managedAccountIds.map((id) => sql`${id}::uuid`),
@@ -66,8 +66,8 @@ function amArmSql(managedAccountIds: string[], tenantId: string): SQL | null {
 /** Workers actively allocated to a project the viewer (`:me`) leads. */
 function leadArmSql(me: SQL, tenantId: string): SQL {
   return sql`${person.id} IN (
-      SELECT worker_id FROM people.worker_allocation_projection
-        WHERE active AND tenant_id = ${tenantId} AND lead_worker_id = ${me}
+      SELECT person_id FROM people.worker_allocation_projection
+        WHERE active AND tenant_id = ${tenantId} AND lead_person_id = ${me}
     )`;
 }
 

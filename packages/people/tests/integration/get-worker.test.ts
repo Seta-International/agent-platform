@@ -6,7 +6,12 @@ import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { person, personSkill, workerAllocationProjection } from '../../src/backend/db/schema.ts';
+import {
+  accountProjection,
+  person,
+  personSkill,
+  workerAllocationProjection,
+} from '../../src/backend/db/schema.ts';
 import { registerPeopleWorkersRoutes } from '../../src/backend/http/workers.ts';
 import { createWorker, getWorker } from '../../src/index.ts';
 import { peopleErrorMapper } from '../../src/register.ts';
@@ -79,14 +84,18 @@ describe('getWorker enriched fields', () => {
       } as never);
 
       const accountId = crypto.randomUUID();
+      await peopleDb().insert(accountProjection).values({
+        account_id: accountId,
+        tenant_id: t.tenant_id,
+        name: 'Test Account',
+      });
       await peopleDb().insert(workerAllocationProjection).values({
         allocation_id: crypto.randomUUID(),
         tenant_id: t.tenant_id,
-        worker_id,
+        person_id: worker_id,
         project_id: crypto.randomUUID(),
         account_id: accountId,
-        account_name: 'Test Account',
-        lead_worker_id: null,
+        lead_person_id: null,
         active: true,
       });
 

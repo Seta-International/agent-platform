@@ -136,11 +136,11 @@ export async function getOrgDelivery(
       project_id: p.project_id,
       name: p.name,
       members: (allocByProject.get(p.project_id) ?? [])
-        .filter((a) => a.worker_id)
+        .filter((a) => a.person_id)
         .map((a) => ({
-          person_id: a.worker_id ?? '',
-          full_name: nameByPerson.get(a.worker_id ?? '') ?? '',
-          is_lead: a.lead_worker_id === a.worker_id,
+          person_id: a.person_id ?? '',
+          full_name: nameByPerson.get(a.person_id ?? '') ?? '',
+          is_lead: a.lead_person_id === a.person_id,
         })),
     }));
     const amId = amByAccount.get(acc.account_id);

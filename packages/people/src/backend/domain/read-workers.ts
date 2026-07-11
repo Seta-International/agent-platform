@@ -101,9 +101,11 @@ export async function listWorkers(
       ilike(employmentPeriod.job_title, like),
       sql`EXISTS (
         SELECT 1 FROM people.worker_allocation_projection wap
-          WHERE wap.worker_id = ${person.id} AND wap.active
+          LEFT JOIN people.account_projection ap
+            ON ap.account_id = wap.account_id AND ap.tenant_id = wap.tenant_id
+          WHERE wap.person_id = ${person.id} AND wap.active
             AND wap.tenant_id = ${tenantId}
-            AND wap.account_name ILIKE ${like}
+            AND ap.name ILIKE ${like}
       )`,
       sql`EXISTS (
         SELECT 1 FROM people.person_skill ps
@@ -127,7 +129,7 @@ export async function listWorkers(
   if (query.account_id && query.account_id.length > 0) {
     filters.push(sql`EXISTS (
       SELECT 1 FROM people.worker_allocation_projection wap
-        WHERE wap.worker_id = ${person.id} AND wap.active
+        WHERE wap.person_id = ${person.id} AND wap.active
           AND wap.tenant_id = ${tenantId}
           AND wap.account_id IN (${sql.join(query.account_id, sql`, `)})
     )`);
@@ -136,7 +138,7 @@ export async function listWorkers(
   if (query.project_id && query.project_id.length > 0) {
     filters.push(sql`EXISTS (
       SELECT 1 FROM people.worker_allocation_projection wap
-        WHERE wap.worker_id = ${person.id} AND wap.active
+        WHERE wap.person_id = ${person.id} AND wap.active
           AND wap.tenant_id = ${tenantId}
           AND wap.project_id IN (${sql.join(query.project_id, sql`, `)})
     )`);
@@ -155,11 +157,13 @@ export async function listWorkers(
   // pm.worker_id / am_worker_id / lead_worker_id all map to people.person_id — shared human identity.
   const accountsAgg = sql<Array<{ id: string; name: string }>>`(
     SELECT coalesce(
-      jsonb_agg(DISTINCT jsonb_build_object('id', wap.account_id, 'name', wap.account_name))
+      jsonb_agg(DISTINCT jsonb_build_object('id', wap.account_id, 'name', ap.name))
         FILTER (WHERE wap.account_id IS NOT NULL),
       '[]'::jsonb)
     FROM people.worker_allocation_projection wap
-    WHERE wap.worker_id = ${person.id} AND wap.active AND wap.tenant_id = ${tenantId}
+    LEFT JOIN people.account_projection ap
+      ON ap.account_id = wap.account_id AND ap.tenant_id = wap.tenant_id
+    WHERE wap.person_id = ${person.id} AND wap.active AND wap.tenant_id = ${tenantId}
   )`;
 
   const skillsAgg = sql<Array<{ id: string; name: string; level: number | null }>>`(
@@ -182,7 +186,7 @@ export async function listWorkers(
     FROM people.worker_allocation_projection wap
     LEFT JOIN people.project_projection pp
       ON pp.project_id = wap.project_id AND pp.tenant_id = wap.tenant_id
-    WHERE wap.worker_id = ${person.id} AND wap.active AND wap.tenant_id = ${tenantId}
+    WHERE wap.person_id = ${person.id} AND wap.active AND wap.tenant_id = ${tenantId}
   )`;
 
   const selection = {
@@ -280,11 +284,13 @@ export async function getWorker({
 
   const accountsAgg = sql<Array<{ id: string; name: string }>>`(
     SELECT coalesce(
-      jsonb_agg(DISTINCT jsonb_build_object('id', wap.account_id, 'name', wap.account_name))
+      jsonb_agg(DISTINCT jsonb_build_object('id', wap.account_id, 'name', ap.name))
         FILTER (WHERE wap.account_id IS NOT NULL),
       '[]'::jsonb)
     FROM people.worker_allocation_projection wap
-    WHERE wap.worker_id = ${person.id} AND wap.active AND wap.tenant_id = ${tenantId}
+    LEFT JOIN people.account_projection ap
+      ON ap.account_id = wap.account_id AND ap.tenant_id = wap.tenant_id
+    WHERE wap.person_id = ${person.id} AND wap.active AND wap.tenant_id = ${tenantId}
   )`;
 
   const skillsAgg = sql<Array<{ id: string; name: string; level: number | null }>>`(

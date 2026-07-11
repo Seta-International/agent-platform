@@ -2,7 +2,12 @@ import type { SessionScope } from '@seta/core';
 import { listAccountManagers } from '@seta/pm';
 import { and, asc, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { person, projectProjection, workerAllocationProjection } from '../db/schema.ts';
+import {
+  accountProjection,
+  person,
+  projectProjection,
+  workerAllocationProjection,
+} from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 import { buildWorkerScope } from './worker-scope.ts';
 
@@ -111,17 +116,17 @@ export async function getAllocationGrid(
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),
     eq(workerAllocationProjection.active, true),
-    isNotNull(workerAllocationProjection.worker_id),
+    isNotNull(workerAllocationProjection.person_id),
   ];
   if (scope) where.push(scope);
 
   const raw = (await peopleDb()
     .select({
-      worker_id: workerAllocationProjection.worker_id,
+      worker_id: workerAllocationProjection.person_id,
       employee_no: person.employee_no,
       full_name: person.full_name,
       account_id: workerAllocationProjection.account_id,
-      account_name: workerAllocationProjection.account_name,
+      account_name: sql<string>`coalesce(${accountProjection.name}, '')`,
       project_id: workerAllocationProjection.project_id,
       project_name: projectProjection.name,
       bucket: workerAllocationProjection.bucket,
@@ -133,9 +138,16 @@ export async function getAllocationGrid(
     .innerJoin(
       person,
       and(
-        eq(person.id, workerAllocationProjection.worker_id),
+        eq(person.id, workerAllocationProjection.person_id),
         eq(person.tenant_id, workerAllocationProjection.tenant_id),
         sql`${person.deleted_at} IS NULL`,
+      ),
+    )
+    .leftJoin(
+      accountProjection,
+      and(
+        eq(accountProjection.account_id, workerAllocationProjection.account_id),
+        eq(accountProjection.tenant_id, workerAllocationProjection.tenant_id),
       ),
     )
     .leftJoin(
@@ -150,7 +162,7 @@ export async function getAllocationGrid(
     // allocations as one consecutive block.
     .orderBy(
       asc(person.full_name),
-      asc(workerAllocationProjection.worker_id),
+      asc(workerAllocationProjection.person_id),
       asc(projectProjection.name),
     )) as RawRow[];
 

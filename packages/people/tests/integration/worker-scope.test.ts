@@ -122,11 +122,10 @@ async function buildGraph(pool: Pool): Promise<Graph> {
   await peopleDb().insert(workerAllocationProjection).values({
     allocation_id: crypto.randomUUID(),
     tenant_id: t.tenant_id,
-    worker_id: W_am,
+    person_id: W_am,
     project_id: projectAcct,
     account_id: accountA,
-    account_name: 'Account A',
-    lead_worker_id: null,
+    lead_person_id: null,
     active: true,
   });
 
@@ -134,11 +133,10 @@ async function buildGraph(pool: Pool): Promise<Graph> {
   await peopleDb().insert(workerAllocationProjection).values({
     allocation_id: crypto.randomUUID(),
     tenant_id: t.tenant_id,
-    worker_id: W_lead,
+    person_id: W_lead,
     project_id: projectP,
     account_id: crypto.randomUUID(),
-    account_name: 'Other Account',
-    lead_worker_id: L,
+    lead_person_id: L,
     active: true,
   });
 
@@ -402,11 +400,10 @@ describe('buildWorkerScope', () => {
         await peopleDb().insert(workerAllocationProjection).values({
           allocation_id: crypto.randomUUID(),
           tenant_id: tB.tenant_id,
-          worker_id: X_B,
+          person_id: X_B,
           project_id: crypto.randomUUID(),
           account_id: accountB,
-          account_name: 'Account B',
-          lead_worker_id: M_A,
+          lead_person_id: M_A,
           active: true,
         });
 
@@ -444,11 +441,10 @@ describe('buildWorkerScope', () => {
         await peopleDb().insert(workerAllocationProjection).values({
           allocation_id: crypto.randomUUID(),
           tenant_id: t.tenant_id,
-          worker_id: W,
+          person_id: W,
           project_id: crypto.randomUUID(),
           account_id: accountA,
-          account_name: 'Acct',
-          lead_worker_id: L,
+          lead_person_id: L,
           active: false,
         });
 

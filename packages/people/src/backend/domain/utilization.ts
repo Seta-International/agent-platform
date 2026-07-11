@@ -47,7 +47,7 @@ export async function getUtilizationByPerson(
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),
     eq(workerAllocationProjection.active, true),
-    isNotNull(workerAllocationProjection.worker_id),
+    isNotNull(workerAllocationProjection.person_id),
     isNotNull(workerAllocationProjection.planned_pct),
     sql`(${workerAllocationProjection.date_from} IS NULL OR ${workerAllocationProjection.date_from} <= ${asOf})`,
     sql`(${workerAllocationProjection.date_to} IS NULL OR ${workerAllocationProjection.date_to} >= ${asOf})`,
@@ -56,7 +56,7 @@ export async function getUtilizationByPerson(
 
   const raw = (await peopleDb()
     .select({
-      worker_id: workerAllocationProjection.worker_id,
+      worker_id: workerAllocationProjection.person_id,
       full_name: person.full_name,
       project_id: workerAllocationProjection.project_id,
       project_name: projectProjection.name,
@@ -67,7 +67,7 @@ export async function getUtilizationByPerson(
     .innerJoin(
       person,
       and(
-        eq(person.id, workerAllocationProjection.worker_id),
+        eq(person.id, workerAllocationProjection.person_id),
         eq(person.tenant_id, workerAllocationProjection.tenant_id),
         sql`${person.deleted_at} IS NULL`,
       ),

@@ -203,11 +203,10 @@ export const workerAllocationProjection = peopleSchema.table(
   {
     allocation_id: uuid('allocation_id').primaryKey(),
     tenant_id: uuid('tenant_id').notNull(),
-    worker_id: uuid('worker_id'),
+    person_id: uuid('person_id'),
     project_id: uuid('project_id').notNull(),
     account_id: uuid('account_id').notNull(),
-    account_name: text('account_name').notNull(),
-    lead_worker_id: uuid('lead_worker_id'),
+    lead_person_id: uuid('lead_person_id'),
     date_from: date('date_from'),
     date_to: date('date_to'),
     planned_pct: numeric('planned_pct', { precision: 10, scale: 4 }),
@@ -216,7 +215,7 @@ export const workerAllocationProjection = peopleSchema.table(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    index('worker_alloc_by_worker').on(t.tenant_id, t.worker_id),
+    index('worker_alloc_by_person').on(t.tenant_id, t.person_id),
     index('worker_alloc_by_account').on(t.tenant_id, t.account_id),
     index('worker_alloc_by_project').on(t.tenant_id, t.project_id),
     check(

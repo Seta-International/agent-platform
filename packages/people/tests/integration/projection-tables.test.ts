@@ -122,41 +122,38 @@ describe('people projection tables', () => {
         await db.insert(workerAllocationProjection).values({
           allocation_id: ALLOC,
           tenant_id: T1,
-          worker_id: WORKER,
+          person_id: WORKER,
           project_id: PROJ,
           account_id: ACCT,
-          account_name: 'Acme Corp',
-          lead_worker_id: null,
+          lead_person_id: null,
           active: true,
         });
         const [row] = await db
           .select()
           .from(workerAllocationProjection)
           .where(eq(workerAllocationProjection.allocation_id, ALLOC));
-        expect(row?.account_name).toBe('Acme Corp');
         expect(row?.active).toBe(true);
-        expect(row?.worker_id).toBe(WORKER);
+        expect(row?.person_id).toBe(WORKER);
 
         await db
           .insert(workerAllocationProjection)
           .values({
             allocation_id: ALLOC,
             tenant_id: T1,
-            worker_id: WORKER,
+            person_id: WORKER,
             project_id: PROJ,
             account_id: ACCT,
-            account_name: 'Acme Corp Renamed',
             active: false,
           })
           .onConflictDoUpdate({
             target: workerAllocationProjection.allocation_id,
-            set: { account_name: 'Acme Corp Renamed', active: false },
+            set: { active: false },
           });
         const [updated] = await db
           .select()
           .from(workerAllocationProjection)
           .where(eq(workerAllocationProjection.allocation_id, ALLOC));
-        expect(updated?.account_name).toBe('Acme Corp Renamed');
+        expect(updated?.person_id).toBe(WORKER);
         expect(updated?.active).toBe(false);
       } finally {
         resetPeopleDb();
@@ -170,11 +167,11 @@ describe('people projection tables', () => {
     await withTestDb(ctx, async ({ pool }) => {
       const r = await pool.query(
         `SELECT indexname FROM pg_indexes WHERE schemaname='people' AND indexname IN (
-          'worker_alloc_by_worker','worker_alloc_by_account','worker_alloc_by_project','project_proj_by_account'
+          'worker_alloc_by_person','worker_alloc_by_account','worker_alloc_by_project','project_proj_by_account'
         ) ORDER BY 1`,
       );
       const names = r.rows.map((x: { indexname: string }) => x.indexname);
-      expect(names).toContain('worker_alloc_by_worker');
+      expect(names).toContain('worker_alloc_by_person');
       expect(names).toContain('worker_alloc_by_account');
       expect(names).toContain('worker_alloc_by_project');
       expect(names).toContain('project_proj_by_account');

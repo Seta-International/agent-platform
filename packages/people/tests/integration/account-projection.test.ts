@@ -4,10 +4,10 @@ import { PM_ACCOUNT_CREATED, PM_ACCOUNT_UPDATED } from '@seta/pm/events';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import type { DomainEvent } from '@seta/shared-types';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { accountProjection, workerAllocationProjection } from '../../src/backend/db/schema.ts';
+import { accountProjection } from '../../src/backend/db/schema.ts';
 import {
   accountProjectionCreated,
   accountProjectionUpdated,
@@ -163,7 +163,7 @@ describe('accountProjectionCreated', () => {
 });
 
 describe('accountProjectionUpdated', () => {
-  it('upserts account_projection AND cascades account_name to worker_allocation_projection', async () => {
+  it('upserts the account_projection name (allocation rows read the name via join, not a cascade)', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -171,26 +171,12 @@ describe('accountProjectionUpdated', () => {
       try {
         const t = await seedTenant(pool);
         const accountId = crypto.randomUUID();
-        const allocationId = crypto.randomUUID();
-        const projectId = crypto.randomUUID();
 
         // Seed an existing account_projection row
         await peopleDb().insert(accountProjection).values({
           account_id: accountId,
           tenant_id: t.tenant_id,
           name: 'Old Name',
-        });
-
-        // Seed an allocation row with the old account_name
-        await peopleDb().insert(workerAllocationProjection).values({
-          allocation_id: allocationId,
-          tenant_id: t.tenant_id,
-          worker_id: null,
-          project_id: projectId,
-          account_id: accountId,
-          account_name: 'Old Name',
-          lead_worker_id: null,
-          active: true,
         });
 
         const payload: AccountUpdatedPayload = {
@@ -212,85 +198,6 @@ describe('accountProjectionUpdated', () => {
 
         expect(acctRows).toHaveLength(1);
         expect(acctRows[0]!.name).toBe('New Name');
-
-        const allocRows = await peopleDb()
-          .select()
-          .from(workerAllocationProjection)
-          .where(eq(workerAllocationProjection.allocation_id, allocationId));
-
-        expect(allocRows).toHaveLength(1);
-        expect(allocRows[0]!.account_name).toBe('New Name');
-      } finally {
-        resetPeopleDb();
-        resetCoreDb();
-        await closePools();
-      }
-    });
-  });
-
-  it('cascade only touches rows for that account_id — other accounts unchanged', async () => {
-    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
-      resetCoreDb();
-      resetPeopleDb();
-      initPools({ databaseUrl });
-      try {
-        const t = await seedTenant(pool);
-        const accountId = crypto.randomUUID();
-        const otherAccountId = crypto.randomUUID();
-        const allocationId = crypto.randomUUID();
-        const otherAllocationId = crypto.randomUUID();
-        const projectId = crypto.randomUUID();
-
-        // Seed both allocation rows
-        await peopleDb()
-          .insert(workerAllocationProjection)
-          .values([
-            {
-              allocation_id: allocationId,
-              tenant_id: t.tenant_id,
-              worker_id: null,
-              project_id: projectId,
-              account_id: accountId,
-              account_name: 'Old Name',
-              lead_worker_id: null,
-              active: true,
-            },
-            {
-              allocation_id: otherAllocationId,
-              tenant_id: t.tenant_id,
-              worker_id: null,
-              project_id: projectId,
-              account_id: otherAccountId,
-              account_name: 'Other Account Name',
-              lead_worker_id: null,
-              active: true,
-            },
-          ]);
-
-        const payload: AccountUpdatedPayload = {
-          account_id: accountId,
-          tenant_id: t.tenant_id,
-          name: 'New Name',
-          am_worker_id: null,
-          fields: ['name'],
-        };
-
-        await peopleDb().transaction(async (tx) => {
-          await accountProjectionUpdated.handler(updatedEvent(payload), { tx } as never);
-        });
-
-        const otherRows = await peopleDb()
-          .select()
-          .from(workerAllocationProjection)
-          .where(
-            and(
-              eq(workerAllocationProjection.allocation_id, otherAllocationId),
-              eq(workerAllocationProjection.tenant_id, t.tenant_id),
-            ),
-          );
-
-        expect(otherRows).toHaveLength(1);
-        expect(otherRows[0]!.account_name).toBe('Other Account Name');
       } finally {
         resetPeopleDb();
         resetCoreDb();

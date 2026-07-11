@@ -6,6 +6,7 @@ import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
+  accountProjection,
   employmentPeriod,
   type LIFECYCLE_STAGES,
   person,
@@ -104,16 +105,24 @@ async function addAllocation(
     active?: boolean;
   },
 ): Promise<void> {
+  // Account name now lives in account_projection; read-workers joins it in. Seed it so the
+  // allocation's account resolves to a name.
+  await peopleDb()
+    .insert(accountProjection)
+    .values({ account_id: opts.accountId, tenant_id: t.tenant_id, name: opts.accountName })
+    .onConflictDoUpdate({
+      target: accountProjection.account_id,
+      set: { name: opts.accountName },
+    });
   await peopleDb()
     .insert(workerAllocationProjection)
     .values({
       allocation_id: crypto.randomUUID(),
       tenant_id: t.tenant_id,
-      worker_id: opts.workerId,
+      person_id: opts.workerId,
       project_id: opts.projectId ?? crypto.randomUUID(),
       account_id: opts.accountId,
-      account_name: opts.accountName,
-      lead_worker_id: opts.leadId ?? null,
+      lead_person_id: opts.leadId ?? null,
       active: opts.active ?? true,
     });
 }
