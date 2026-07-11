@@ -47,6 +47,11 @@ export {
 } from './backend/domain/reassign-allocation.ts';
 export { listRecruiterAccountIds } from './backend/domain/recruiter-accounts.ts';
 export { removeAllocation } from './backend/domain/remove-allocation.ts';
+export {
+  listAccountIdsManagedBy,
+  listAccountManagers,
+  listProjectIdsOwnedBy,
+} from './backend/domain/scope-lookups.ts';
 export { setAccountRecruiters } from './backend/domain/set-account-recruiters.ts';
 export type { SplitAllocationResult } from './backend/domain/split-allocation.ts';
 export { splitAllocation } from './backend/domain/split-allocation.ts';
