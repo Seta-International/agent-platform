@@ -29,5 +29,5 @@
   "R4:packages/planner/src/backend/db/schema.ts:group_members",
   "R4:packages/planner/src/backend/db/schema.ts:task_assignments",
   "R4:packages/planner/src/backend/db/schema.ts:task_labels",
-  "R4:packages/pm/src/backend/db/schema.ts:worker_projection"
+  "R4:packages/pm/src/backend/db/schema.ts:person_projection"
 ]
