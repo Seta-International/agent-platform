@@ -5,6 +5,7 @@ export {
   type AuditSortDir,
   queryAudit,
 } from './backend/audit.ts';
+export { makeProjectionUpsertSubscribers } from './backend/projections/upsert-subscriber.ts';
 export {
   type CanonicalSkill,
   canonicalizeSkill,
