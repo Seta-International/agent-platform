@@ -49,14 +49,6 @@ export const ALLOCATION_BUCKETS = ['billable', 'internal', 'bench'] as const;
 
 export const ALLOCATION_STATUS = ['placeholder', 'tentative', 'committed'] as const;
 
-export const CHARTER_STATUS = [
-  'submitted',
-  'pmo_approved',
-  'approved',
-  'rejected',
-  'withdrawn',
-] as const;
-
 export const CHARTER_REJECTED_STAGES = ['pmo', 'bod'] as const;
 
 export const PROJECT_ACCESS_LEVELS = ['owner', 'edit', 'view'] as const;
@@ -207,50 +199,6 @@ export const allocation = pmSchema.table(
     check('allocation_committed_dates_check', sql`status = 'placeholder' OR date_from IS NOT NULL`),
     check('allocation_weekday_mask_check', sql`weekday_mask BETWEEN 0 AND 127`),
     check('allocation_planned_pct_check', sql`planned_pct >= 0 AND planned_pct <= 100`),
-  ],
-);
-
-export const charter = pmSchema.table(
-  'charter',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    tenant_id: uuid('tenant_id').notNull(),
-    account_id: uuid('account_id')
-      .notNull()
-      .references(() => account.id),
-    name: text('name').notNull(),
-    pm_worker_id: uuid('pm_worker_id').notNull(),
-    submitted_by_user_id: uuid('submitted_by_user_id'),
-    decided_by_user_id: uuid('decided_by_user_id'),
-    pmo_worker_id: uuid('pmo_worker_id'),
-    budget_bmm: numeric('budget_bmm', { precision: 15, scale: 4 }),
-    team_size: integer('team_size'),
-    methodology: textEnum('methodology', METHODOLOGIES),
-    pricing_model: textEnum('pricing_model', PRICING_MODELS),
-    date_from: date('date_from'),
-    date_to: date('date_to'),
-    objective: text('objective'),
-    scope: jsonb('scope'),
-    status: textEnum('status', CHARTER_STATUS).notNull().default('submitted'),
-    rejection_reason: text('rejection_reason'),
-    rejected_stage: textEnum('rejected_stage', CHARTER_REJECTED_STAGES),
-    pmo_signed_off_by_user_id: uuid('pmo_signed_off_by_user_id'),
-    pmo_signed_off_at: timestamp('pmo_signed_off_at', { withTimezone: true }),
-    approved_at: timestamp('approved_at', { withTimezone: true }),
-    rejected_at: timestamp('rejected_at', { withTimezone: true }),
-    project_id: uuid('project_id').references(() => project.id, { onDelete: 'set null' }),
-    version: integer('version').default(1).notNull(),
-    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    index('charter_by_account_status').on(t.tenant_id, t.account_id, t.status),
-    index('charter_by_tenant').on(t.tenant_id),
-    index('charter_by_project').on(t.tenant_id, t.project_id),
-    textEnumCheck('charter', 'status', CHARTER_STATUS),
-    textEnumCheck('charter', 'rejected_stage', CHARTER_REJECTED_STAGES),
-    textEnumCheck('charter', 'methodology', METHODOLOGIES),
-    textEnumCheck('charter', 'pricing_model', PRICING_MODELS),
   ],
 );
 

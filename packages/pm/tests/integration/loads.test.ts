@@ -20,7 +20,6 @@ describe('pm schema', () => {
           'account',
           'account_recruiter',
           'allocation',
-          'charter',
           'project',
           'project_access',
           'project_approval',
