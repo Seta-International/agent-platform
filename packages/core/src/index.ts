@@ -32,6 +32,7 @@ export {
   CORE_SKILL_UPDATED,
   type SkillRenamedEventPayload,
 } from './backend/skills/events.ts';
+export { makeSkillRenamedSubscriber } from './backend/skills/skill-renamed-subscriber.ts';
 export {
   archiveSkill,
   createSkill,
