@@ -12,7 +12,6 @@
   "R4:packages/core/src/db/schema/subscriptions.ts:subscription_processed",
   "R4:packages/hiring/src/backend/db/schema.ts:account_projection",
   "R4:packages/hiring/src/backend/db/schema.ts:project_projection",
-  "R4:packages/hiring/src/backend/db/schema.ts:worker_user_projection",
   "R4:packages/identity/src/backend/db/schema.ts:access_group_membership",
   "R4:packages/identity/src/backend/db/schema.ts:access_group_role",
   "R4:packages/identity/src/backend/db/schema.ts:failed_login_alerts_sent",
