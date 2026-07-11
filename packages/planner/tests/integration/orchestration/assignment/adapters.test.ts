@@ -145,20 +145,16 @@ describe('assignment orchestration adapters (real DB)', () => {
         },
         { type: 'cli', user_id: null },
       );
-      // Presence lives on people.worker now; link a worker to the user with a known status.
+      // Presence lives on people.person now; link a person to the user with a known status.
       const personId = randomUUID();
-      await pool.query(`INSERT INTO people.person (id, tenant_id) VALUES ($1, $2)`, [
-        personId,
-        tenantId,
-      ]);
+      await pool.query(
+        `INSERT INTO people.person (id, tenant_id, full_name, availability_status)
+         VALUES ($1, $2, 'Busy Bee', 'busy')`,
+        [personId, tenantId],
+      );
       await pool.query(
         `INSERT INTO people.user_projection (user_id, tenant_id, person_id) VALUES ($1, $2, $3)`,
         [u.user_id, tenantId, personId],
-      );
-      await pool.query(
-        `INSERT INTO people.worker (id, tenant_id, person_id, full_name, availability_status)
-         VALUES (gen_random_uuid(), $1, $2, 'Busy Bee', 'busy')`,
-        [tenantId, personId],
       );
 
       const ctx = { tenantId, actorUserId: u.user_id };
