@@ -37,7 +37,7 @@ export const plannerMembershipJobs: TaskList = {
       assignments: [] as readonly [],
       group_ids: [] as readonly string[],
       product_access: new Set<string>(),
-      worker_id: null,
+      person_id: null,
       cross_tenant_read: false,
       built_at: new Date(),
       invalidated_at: null,

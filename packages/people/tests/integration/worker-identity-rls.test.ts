@@ -11,10 +11,10 @@ const ctx = {
 
 describe('getWorkerIdForUser under RLS', () => {
   // FUT-327 regression: the session middleware resolves the worker id BEFORE the
-  // request's tenant GUC is bound (apps/server wires resolveWorkerId ahead of
+  // request's tenant GUC is bound (apps/server wires resolvePersonId ahead of
   // runRequestTenant). In production the web pool is seta_app (NOBYPASSRLS), so the
   // forced tenant_isolation policy on people.person/people.worker hid every row and
-  // session.worker_id was always null — silently disabling AM/EM/TL/PM row scoping.
+  // session.person_id was always null — silently disabling AM/EM/TL/PM row scoping.
   // Dev and the default test harness masked it by connecting as a BYPASSRLS superuser,
   // so this test runs the lookup through a web pool that mirrors prod's seta_app.
   it('resolves the worker id via a NOBYPASSRLS web pool with no ambient tenant GUC', () =>

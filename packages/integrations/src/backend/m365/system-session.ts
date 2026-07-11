@@ -38,7 +38,7 @@ export function buildSystemSession(tenantId: string): PlannerSessionScope {
     assignments: [{ role_slug: 'system.integrations.m365', scope_kind: 'tenant', scope_id: null }],
     group_ids: [],
     product_access: new Set<string>(),
-    worker_id: null,
+    person_id: null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
