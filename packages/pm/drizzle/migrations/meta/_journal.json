@@ -43,6 +43,13 @@
       "when": 1783777412354,
       "tag": "0009_curious_union_jack",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783778040860,
+      "tag": "0010_wooden_glorian",
+      "breakpoints": true
     }
   ]
 }

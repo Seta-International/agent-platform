@@ -6,8 +6,8 @@ import {
   account,
   allocation,
   LIVE_PROJECT_STATUSES,
+  personProjection,
   project,
-  workerProjection,
 } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { buildAllocationJoinScope, buildProjectManageFlag, buildProjectScope } from './scope.ts';
@@ -129,7 +129,7 @@ export async function listAllocations(input: {
   if (input.q) {
     const like = `%${input.q}%`;
     const searchCond = or(
-      ilike(workerProjection.full_name, like),
+      ilike(personProjection.full_name, like),
       ilike(project.name, like),
       ilike(account.name, like),
       ilike(allocation.note, like),
@@ -142,8 +142,8 @@ export async function listAllocations(input: {
     .select({
       allocation_id: allocation.id,
       worker_id: allocation.person_id,
-      worker_name: workerProjection.full_name,
-      worker_title: workerProjection.job_title,
+      worker_name: personProjection.full_name,
+      worker_title: personProjection.job_title,
       role: allocation.role,
       planned_pct: allocation.planned_pct,
       bucket: allocation.bucket,
@@ -162,14 +162,14 @@ export async function listAllocations(input: {
     .innerJoin(project, eq(project.id, allocation.project_id))
     .innerJoin(account, eq(account.id, project.account_id))
     .leftJoin(
-      workerProjection,
+      personProjection,
       and(
-        eq(workerProjection.worker_id, allocation.person_id),
-        eq(workerProjection.tenant_id, allocation.tenant_id),
+        eq(personProjection.person_id, allocation.person_id),
+        eq(personProjection.tenant_id, allocation.tenant_id),
       ),
     )
     .where(and(...conds))
-    .orderBy(account.name, project.name, workerProjection.full_name);
+    .orderBy(account.name, project.name, personProjection.full_name);
 
   return rows.map((r) => ({
     allocation_id: r.allocation_id,

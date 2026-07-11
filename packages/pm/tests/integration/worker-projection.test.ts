@@ -5,7 +5,7 @@ import type { DomainEvent } from '@seta/shared-types';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
-import { workerProjection } from '../../src/backend/db/schema.ts';
+import { personProjection } from '../../src/backend/db/schema.ts';
 import {
   PEOPLE_WORKER_CREATED,
   PEOPLE_WORKER_UPDATED,
@@ -63,12 +63,12 @@ describe('workerProjectionCreated', () => {
 
         const rows = await pmDb()
           .select()
-          .from(workerProjection)
-          .where(eq(workerProjection.worker_id, workerId));
+          .from(personProjection)
+          .where(eq(personProjection.person_id, workerId));
 
         expect(rows).toHaveLength(1);
         expect(rows[0]).toMatchObject({
-          worker_id: workerId,
+          person_id: workerId,
           tenant_id: t.tenant_id,
           full_name: 'Alice Example',
           job_title: 'Senior Engineer',
@@ -103,8 +103,8 @@ describe('workerProjectionCreated', () => {
 
         const rows = await pmDb()
           .select()
-          .from(workerProjection)
-          .where(eq(workerProjection.worker_id, workerId));
+          .from(personProjection)
+          .where(eq(personProjection.person_id, workerId));
 
         expect(rows).toHaveLength(1);
         expect(rows[0]?.job_title).toBeNull();
@@ -154,8 +154,8 @@ describe('workerProjectionUpdated', () => {
 
         const rows = await pmDb()
           .select()
-          .from(workerProjection)
-          .where(eq(workerProjection.worker_id, workerId));
+          .from(personProjection)
+          .where(eq(personProjection.person_id, workerId));
 
         expect(rows).toHaveLength(1);
         expect(rows[0]?.full_name).toBe('Carol Renamed');

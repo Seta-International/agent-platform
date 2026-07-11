@@ -498,7 +498,7 @@ describe('previewReassignAllocation', () => {
           session: t.adminSession,
         });
 
-        expect(preview.worker_name).toBeNull(); // no worker_projection row synced for this random worker id
+        expect(preview.worker_name).toBeNull(); // no person_projection row synced for this random worker id
         expect(preview.source).toMatchObject({
           project_name: 'Automotive',
           account_name: 'A-Automotive',

@@ -9,8 +9,8 @@ import {
   account,
   allocation,
   LIVE_PROJECT_STATUSES,
+  personProjection,
   project,
-  workerProjection,
 } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
@@ -100,12 +100,12 @@ async function loadProject(
 
 async function loadWorkerName(workerId: string, session: SessionScope): Promise<string | null> {
   const [row] = await pmDb()
-    .select({ full_name: workerProjection.full_name })
-    .from(workerProjection)
+    .select({ full_name: personProjection.full_name })
+    .from(personProjection)
     .where(
       and(
-        eq(workerProjection.worker_id, workerId),
-        tenantScoped(workerProjection.tenant_id, session),
+        eq(personProjection.person_id, workerId),
+        tenantScoped(personProjection.tenant_id, session),
       ),
     )
     .limit(1);

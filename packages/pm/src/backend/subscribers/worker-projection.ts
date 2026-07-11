@@ -1,5 +1,5 @@
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
-import { workerProjection } from '../db/schema.ts';
+import { personProjection } from '../db/schema.ts';
 
 // Local event contract — no import from @seta/people to preserve the module boundary
 // (People already depends on @seta/pm; importing back would create a package cycle).
@@ -23,10 +23,10 @@ function projectWorker(eventType: string): SubscriberDef {
         event as DomainEvent<PeopleWorkerProjected>
       ).payload;
       await ctx.tx
-        .insert(workerProjection)
-        .values({ worker_id, tenant_id, full_name, job_title: job_title ?? null })
+        .insert(personProjection)
+        .values({ person_id: worker_id, tenant_id, full_name, job_title: job_title ?? null })
         .onConflictDoUpdate({
-          target: workerProjection.worker_id,
+          target: personProjection.person_id,
           set: { tenant_id, full_name, job_title: job_title ?? null, updated_at: new Date() },
         });
     },

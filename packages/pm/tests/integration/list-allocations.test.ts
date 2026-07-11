@@ -4,7 +4,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
-import { workerProjection } from '../../src/backend/db/schema.ts';
+import { personProjection } from '../../src/backend/db/schema.ts';
 import {
   createAccount,
   createAllocation,
@@ -140,16 +140,16 @@ describe('listAllocations', () => {
 
         // seed worker projections
         await pmDb()
-          .insert(workerProjection)
+          .insert(personProjection)
           .values([
             {
-              worker_id: workerIdAlice,
+              person_id: workerIdAlice,
               tenant_id: t.tenant_id,
               full_name: 'Alice Finder',
               job_title: 'Engineer',
             },
             {
-              worker_id: workerIdBob,
+              person_id: workerIdBob,
               tenant_id: t.tenant_id,
               full_name: 'Bob Other',
               job_title: null,
