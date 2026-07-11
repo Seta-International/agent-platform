@@ -50,11 +50,11 @@ async function buildGraph(pool: Pool): Promise<Graph> {
 
   const [a1] = await pmDb()
     .insert(account)
-    .values({ tenant_id: t.tenant_id, name: 'A1 (AM-managed)', am_worker_id: W_am })
+    .values({ tenant_id: t.tenant_id, name: 'A1 (AM-managed)', am_person_id: W_am })
     .returning({ id: account.id });
   const [a2] = await pmDb()
     .insert(account)
-    .values({ tenant_id: t.tenant_id, name: 'A2 (unmanaged)', am_worker_id: null })
+    .values({ tenant_id: t.tenant_id, name: 'A2 (unmanaged)', am_person_id: null })
     .returning({ id: account.id });
   const A1 = a1!.id;
   const A2 = a2!.id;
@@ -310,7 +310,7 @@ describe('pm scope builders (D-1)', () => {
         // Tenant B: lookalike rows reusing tenant A's org_unit id and W_lead worker id.
         const [a2b] = await pmDb()
           .insert(account)
-          .values({ tenant_id: t2.tenant_id, name: 'B-Acct', am_worker_id: g.W_am })
+          .values({ tenant_id: t2.tenant_id, name: 'B-Acct', am_person_id: g.W_am })
           .returning({ id: account.id });
         await pmDb().insert(project).values({
           tenant_id: t2.tenant_id,

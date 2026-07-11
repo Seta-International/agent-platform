@@ -21,7 +21,7 @@ export async function listProjectAccess(input: { project_id: string; session: Se
   const { project_id, session } = input;
   requirePermission(session, 'pm.project.read');
   return pmDb()
-    .select({ worker_id: projectAccess.worker_id, level: projectAccess.level })
+    .select({ worker_id: projectAccess.person_id, level: projectAccess.level })
     .from(projectAccess)
     .where(
       and(eq(projectAccess.project_id, project_id), tenantScoped(projectAccess.tenant_id, session)),
@@ -44,7 +44,7 @@ export async function setProjectAccess(
   }
 
   const existing = await pmDb()
-    .select({ worker_id: projectAccess.worker_id, level: projectAccess.level })
+    .select({ worker_id: projectAccess.person_id, level: projectAccess.level })
     .from(projectAccess)
     .where(
       and(eq(projectAccess.project_id, project_id), tenantScoped(projectAccess.tenant_id, session)),
@@ -67,11 +67,11 @@ export async function setProjectAccess(
           .values({
             tenant_id: session.tenant_id,
             project_id,
-            worker_id: g.worker_id,
+            person_id: g.worker_id,
             level: g.level,
           })
           .onConflictDoUpdate({
-            target: [projectAccess.tenant_id, projectAccess.project_id, projectAccess.worker_id],
+            target: [projectAccess.tenant_id, projectAccess.project_id, projectAccess.person_id],
             set: { level: g.level, updated_at: new Date() },
           });
         if (prior === undefined) added += 1;
@@ -84,7 +84,7 @@ export async function setProjectAccess(
           .where(
             and(
               eq(projectAccess.project_id, project_id),
-              eq(projectAccess.worker_id, e.worker_id),
+              eq(projectAccess.person_id, e.worker_id),
               eq(projectAccess.tenant_id, session.tenant_id),
             ),
           );

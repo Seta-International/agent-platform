@@ -163,7 +163,7 @@ export async function bodApproveCharter(input: {
         await tx.insert(projectAccess).values({
           tenant_id: session.tenant_id,
           project_id: proj.id,
-          worker_id: c.pm_worker_id,
+          person_id: c.pm_worker_id,
           level: 'owner',
         });
         await emit({

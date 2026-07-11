@@ -25,7 +25,7 @@ function decide(session: SessionScope, permission: string, plan: ScopePlan): SQL
 function amAccountsSubquery(session: SessionScope): SQL {
   return sql`(SELECT ${account.id} FROM ${account}
     WHERE ${account.tenant_id} = ${session.tenant_id}
-      AND ${account.am_worker_id} = ${session.person_id})`;
+      AND ${account.am_person_id} = ${session.person_id})`;
 }
 
 // Projects the viewer owns via a project_access grant (level 'owner') — the same "owner"
@@ -34,7 +34,7 @@ function amAccountsSubquery(session: SessionScope): SQL {
 function accessOwnerProjectsSubquery(session: SessionScope): SQL {
   return sql`(SELECT ${projectAccess.project_id} FROM ${projectAccess}
     WHERE ${projectAccess.tenant_id} = ${session.tenant_id}
-      AND ${projectAccess.worker_id} = ${session.person_id}
+      AND ${projectAccess.person_id} = ${session.person_id}
       AND ${projectAccess.level} = 'owner')`;
 }
 
@@ -100,7 +100,7 @@ export function buildAccountScope(session: SessionScope): SQL | null {
   const w = session.person_id;
   return decide(session, 'pm.account.read', {
     relationships: [
-      () => (w ? sql`${account.am_worker_id} = ${w}` : null),
+      () => (w ? sql`${account.am_person_id} = ${w}` : null),
       () =>
         w
           ? sql`EXISTS (SELECT 1 FROM ${project}
@@ -125,7 +125,7 @@ export function buildAllocationJoinScope(session: SessionScope): SQL | null {
     orgUnit: { column: project.org_unit_id },
     relationships: [
       () => (w ? sql`${project.pm_worker_id} = ${w}` : null),
-      () => (w ? sql`${account.am_worker_id} = ${w}` : null),
+      () => (w ? sql`${account.am_person_id} = ${w}` : null),
       () => (w ? sql`${project.id} IN ${accessOwnerProjectsSubquery(session)}` : null),
     ],
   });

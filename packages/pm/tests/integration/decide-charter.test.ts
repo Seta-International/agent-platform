@@ -108,7 +108,7 @@ describe('two-stage charter governance', () => {
           .select()
           .from(projectAccess)
           .where(eq(projectAccess.project_id, project_id));
-        expect(grants.find((g) => g.level === 'owner')?.worker_id).toBe(t.adminSession.user_id);
+        expect(grants.find((g) => g.level === 'owner')?.person_id).toBe(t.adminSession.user_id);
 
         expect(await readEvents(pool, t.tenant_id, 'pm.charter.approved')).toHaveLength(1);
         const createdEvents = await readEvents(pool, t.tenant_id, 'pm.project.created');

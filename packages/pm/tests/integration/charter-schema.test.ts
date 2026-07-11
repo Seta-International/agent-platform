@@ -48,7 +48,7 @@ describe('charter schema', () => {
         const projectId = proj.rows[0].id;
 
         await pool.query(
-          `INSERT INTO pm.project_access (tenant_id, project_id, worker_id, level)
+          `INSERT INTO pm.project_access (tenant_id, project_id, person_id, level)
            VALUES ($1,$2,$3,'owner')`,
           [t.tenant_id, projectId, t.admin_user_id],
         );

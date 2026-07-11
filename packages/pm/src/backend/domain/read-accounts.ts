@@ -26,7 +26,7 @@ export async function listAccounts(session: SessionScope): Promise<AccountListRo
       account_id: account.id,
       name: account.name,
       industry: account.industry,
-      am_worker_id: account.am_worker_id,
+      am_worker_id: account.am_person_id,
     })
     .from(account)
     .where(and(...conds))
@@ -88,7 +88,7 @@ export async function getAccount(input: { account_id: string; session: SessionSc
     account_id: a.id,
     name: a.name,
     industry: a.industry,
-    am_worker_id: a.am_worker_id,
+    am_worker_id: a.am_person_id,
     version: a.version,
     recruiter_worker_ids: recs.map((r) => r.id),
   };

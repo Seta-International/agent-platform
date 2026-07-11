@@ -56,7 +56,7 @@ export const account = pmSchema.table(
     tenant_id: uuid('tenant_id').notNull(),
     name: text('name').notNull(),
     industry: text('industry'),
-    am_worker_id: uuid('am_worker_id'),
+    am_person_id: uuid('am_person_id'),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -230,14 +230,14 @@ export const projectAccess = pmSchema.table(
     project_id: uuid('project_id')
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
-    worker_id: uuid('worker_id').notNull(),
+    person_id: uuid('person_id').notNull(),
     level: textEnum('level', PROJECT_ACCESS_LEVELS).notNull(),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex('project_access_uniq').on(t.tenant_id, t.project_id, t.worker_id),
+    uniqueIndex('project_access_uniq').on(t.tenant_id, t.project_id, t.person_id),
     index('project_access_by_project').on(t.tenant_id, t.project_id),
     textEnumCheck('project_access', 'level', PROJECT_ACCESS_LEVELS),
   ],

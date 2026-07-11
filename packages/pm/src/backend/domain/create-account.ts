@@ -19,7 +19,7 @@ export async function createAccount(
           tenant_id: input.session.tenant_id,
           name: input.name,
           industry: input.industry,
-          am_worker_id: input.am_worker_id,
+          am_person_id: input.am_worker_id,
         })
         .returning();
       if (!row) throw new Error('account insert returned no row');
@@ -34,7 +34,7 @@ export async function createAccount(
           account_id: row.id,
           tenant_id: input.session.tenant_id,
           name: row.name,
-          am_worker_id: row.am_worker_id ?? null,
+          am_worker_id: row.am_person_id ?? null,
         },
       });
 
