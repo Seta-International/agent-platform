@@ -16,7 +16,7 @@ export async function listRecruiterAccountIds(
     .where(
       and(
         eq(accountRecruiter.tenant_id, tenantId),
-        eq(accountRecruiter.recruiter_worker_id, workerId),
+        eq(accountRecruiter.recruiter_person_id, workerId),
       ),
     );
   return rows.map((r) => r.account_id);

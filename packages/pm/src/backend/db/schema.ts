@@ -141,15 +141,15 @@ export const accountRecruiter = pmSchema.table(
     account_id: uuid('account_id')
       .notNull()
       .references(() => account.id, { onDelete: 'cascade' }),
-    recruiter_worker_id: uuid('recruiter_worker_id').notNull(),
+    recruiter_person_id: uuid('recruiter_person_id').notNull(),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex('account_recruiter_uniq').on(t.tenant_id, t.account_id, t.recruiter_worker_id),
+    uniqueIndex('account_recruiter_uniq').on(t.tenant_id, t.account_id, t.recruiter_person_id),
     index('account_recruiter_by_account').on(t.tenant_id, t.account_id),
-    index('account_recruiter_by_recruiter').on(t.tenant_id, t.recruiter_worker_id),
+    index('account_recruiter_by_recruiter').on(t.tenant_id, t.recruiter_person_id),
   ],
 );
 

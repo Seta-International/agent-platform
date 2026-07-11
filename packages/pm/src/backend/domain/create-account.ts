@@ -42,7 +42,7 @@ export async function createAccount(
         await tx.insert(accountRecruiter).values({
           tenant_id: input.session.tenant_id,
           account_id: row.id,
-          recruiter_worker_id: rid,
+          recruiter_person_id: rid,
         });
         await emit({
           tenantId: input.session.tenant_id,

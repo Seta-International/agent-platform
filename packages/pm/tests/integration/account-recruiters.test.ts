@@ -66,7 +66,7 @@ describe('account recruiters', () => {
         expect(res).toEqual({ added: 1, removed: 1 });
 
         const rows = await pmDb()
-          .select({ id: accountRecruiter.recruiter_worker_id })
+          .select({ id: accountRecruiter.recruiter_person_id })
           .from(accountRecruiter)
           .where(eq(accountRecruiter.account_id, account_id));
         expect(rows.map((x) => x.id).sort()).toEqual([r2, r3].sort());
@@ -95,7 +95,7 @@ describe('account recruiters', () => {
         const { account_id } = await createAccount({ name: 'Acme', session: t.adminSession });
         // Directly insert the recruiter row to simulate a concurrent caller having already committed it.
         await pool.query(
-          'INSERT INTO pm.account_recruiter (tenant_id, account_id, recruiter_worker_id) VALUES ($1,$2,$3)',
+          'INSERT INTO pm.account_recruiter (tenant_id, account_id, recruiter_person_id) VALUES ($1,$2,$3)',
           [t.tenant_id, account_id, r1],
         );
         const res = await setAccountRecruiters({

@@ -81,7 +81,7 @@ export async function getAccount(input: { account_id: string; session: SessionSc
   if (!a) throw new PmError('NOT_FOUND', 'account not found');
 
   const recs = await pmDb()
-    .select({ id: accountRecruiter.recruiter_worker_id })
+    .select({ id: accountRecruiter.recruiter_person_id })
     .from(accountRecruiter)
     .where(
       and(
