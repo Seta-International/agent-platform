@@ -1,8 +1,14 @@
 import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, ilike, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
-import { account, allocation, project, workerProjection } from '../db/schema.ts';
+import {
+  account,
+  allocation,
+  LIVE_PROJECT_STATUSES,
+  project,
+  workerProjection,
+} from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { buildAllocationJoinScope, buildProjectManageFlag, buildProjectScope } from './scope.ts';
 
@@ -28,6 +34,7 @@ export async function listProjectAllocations(input: {
     eq(project.id, project_id),
     tenantScoped(project.tenant_id, session),
     isNull(project.deleted_at),
+    inArray(project.status, LIVE_PROJECT_STATUSES),
   ];
   const projectScope = buildProjectScope(session);
   if (projectScope) visibilityConds.push(projectScope);
@@ -99,7 +106,11 @@ export async function listAllocations(input: {
   const { session } = input;
   requirePermission(session, 'pm.project.read');
 
-  const conds = [tenantScoped(allocation.tenant_id, session), isNull(allocation.deleted_at)];
+  const conds = [
+    tenantScoped(allocation.tenant_id, session),
+    isNull(allocation.deleted_at),
+    inArray(project.status, LIVE_PROJECT_STATUSES),
+  ];
   if (input.project_id) conds.push(eq(allocation.project_id, input.project_id));
   if (input.account_id) conds.push(eq(project.account_id, input.account_id));
   if (input.worker_id) conds.push(eq(allocation.worker_id, input.worker_id));

@@ -1,10 +1,10 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { PM_ALLOCATION_REMOVED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { allocation, project } from '../db/schema.ts';
+import { allocation, LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
 
@@ -32,7 +32,13 @@ export async function removeAllocation(input: {
   const [proj] = await pmDb()
     .select({ account_id: project.account_id })
     .from(project)
-    .where(and(eq(project.id, current.project_id), tenantScoped(project.tenant_id, session)))
+    .where(
+      and(
+        eq(project.id, current.project_id),
+        tenantScoped(project.tenant_id, session),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .limit(1);
   if (!proj) throw new PmError('NOT_FOUND', `project ${current.project_id} not found`);
 

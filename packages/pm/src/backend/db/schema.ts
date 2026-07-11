@@ -37,6 +37,10 @@ export const PROJECT_STATUS = [
   'withdrawn',
 ] as const;
 
+/** Statuses a "real project" reader (boards, pickers, allocations) may see — excludes
+ * the pre-approval charter statuses (submitted/pmo_approved/rejected/withdrawn). */
+export const LIVE_PROJECT_STATUSES = ['active', 'on_hold', 'closed'] as const;
+
 export const METHODOLOGIES = ['scrum', 'kanban'] as const;
 
 export const PRICING_MODELS = ['fixed_price', 'time_materials'] as const;

@@ -1,18 +1,24 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { SetProjectAccessInput } from '../../contracts.ts';
 import { PM_PROJECT_ACCESS_CHANGED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { project, projectAccess } from '../db/schema.ts';
+import { LIVE_PROJECT_STATUSES, project, projectAccess } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 async function assertProject(project_id: string, session: SessionScope) {
   const [p] = await pmDb()
     .select({ id: project.id })
     .from(project)
-    .where(and(eq(project.id, project_id), tenantScoped(project.tenant_id, session)))
+    .where(
+      and(
+        eq(project.id, project_id),
+        tenantScoped(project.tenant_id, session),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .limit(1);
   if (!p) throw new PmError('NOT_FOUND', 'project not found');
 }

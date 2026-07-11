@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
-import { project } from '../db/schema.ts';
+import { LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { buildProjectManageFlag, buildProjectScope } from './scope.ts';
 
@@ -21,7 +21,11 @@ export interface ProjectListRow {
 
 export async function listProjects(session: SessionScope): Promise<ProjectListRow[]> {
   requirePermission(session, 'pm.project.read');
-  const conds = [tenantScoped(project.tenant_id, session), isNull(project.deleted_at)];
+  const conds = [
+    tenantScoped(project.tenant_id, session),
+    isNull(project.deleted_at),
+    inArray(project.status, LIVE_PROJECT_STATUSES),
+  ];
   const scope = buildProjectScope(session);
   if (scope) conds.push(scope);
   const rows = await pmDb()
@@ -48,6 +52,7 @@ export async function getProject(input: { project_id: string; session: SessionSc
     eq(project.id, project_id),
     tenantScoped(project.tenant_id, session),
     isNull(project.deleted_at),
+    inArray(project.status, LIVE_PROJECT_STATUSES),
   ];
   const scope = buildProjectScope(session);
   if (scope) conds.push(scope);

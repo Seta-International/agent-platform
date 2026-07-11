@@ -1,11 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { SplitAllocationInput } from '../../contracts.ts';
 import { PM_ALLOCATION_CREATED, PM_ALLOCATION_UPDATED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { account, allocation, project } from '../db/schema.ts';
+import { account, allocation, LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 import { assertWithinProjectRange } from './assert-within-project-range.ts';
@@ -67,7 +67,13 @@ export async function splitAllocation(
       date_to: project.date_to,
     })
     .from(project)
-    .where(and(eq(project.id, current.project_id), tenantScoped(project.tenant_id, session)))
+    .where(
+      and(
+        eq(project.id, current.project_id),
+        tenantScoped(project.tenant_id, session),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .limit(1);
   if (!proj) throw new PmError('NOT_FOUND', `project ${current.project_id} not found`);
 

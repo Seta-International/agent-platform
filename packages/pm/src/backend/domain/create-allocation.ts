@@ -1,10 +1,10 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { type CreateAllocationInput, createAllocationInput } from '../../contracts.ts';
 import { PM_ALLOCATION_CREATED } from '../../events.ts';
-import { account, allocation, project } from '../db/schema.ts';
+import { account, allocation, LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
@@ -43,7 +43,13 @@ export async function createAllocation(
           date_to: project.date_to,
         })
         .from(project)
-        .where(and(eq(project.id, parsed.project_id), tenantScoped(project.tenant_id, session)))
+        .where(
+          and(
+            eq(project.id, parsed.project_id),
+            tenantScoped(project.tenant_id, session),
+            inArray(project.status, LIVE_PROJECT_STATUSES),
+          ),
+        )
         .limit(1);
       if (!proj[0]) throw new PmError('NOT_FOUND', `project ${parsed.project_id} not found`);
 

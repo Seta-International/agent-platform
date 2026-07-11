@@ -5,7 +5,13 @@ import { and, eq, gte, inArray, isNull, lte, notInArray, or, type SQL } from 'dr
 import type { ReassignAllocationInput, ReassignWorkerAllocationsInput } from '../../contracts.ts';
 import { PM_ALLOCATION_CREATED, PM_ALLOCATION_UPDATED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { account, allocation, project, workerProjection } from '../db/schema.ts';
+import {
+  account,
+  allocation,
+  LIVE_PROJECT_STATUSES,
+  project,
+  workerProjection,
+} from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 import { assertWithinProjectRange } from './assert-within-project-range.ts';
@@ -72,7 +78,13 @@ async function loadProject(
       date_to: project.date_to,
     })
     .from(project)
-    .where(and(eq(project.id, projectId), tenantScoped(project.tenant_id, session)))
+    .where(
+      and(
+        eq(project.id, projectId),
+        tenantScoped(project.tenant_id, session),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .limit(1);
   if (!proj) throw new PmError('NOT_FOUND', `project ${projectId} not found`);
 

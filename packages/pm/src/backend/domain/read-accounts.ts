@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
-import { account, accountRecruiter, project } from '../db/schema.ts';
+import { account, accountRecruiter, LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { buildAccountScope } from './scope.ts';
 
@@ -40,7 +40,13 @@ export async function listAccounts(session: SessionScope): Promise<AccountListRo
   const projectCounts = await pmDb()
     .select({ account_id: project.account_id, n: sql<number>`count(*)::int` })
     .from(project)
-    .where(and(tenantScoped(project.tenant_id, session), isNull(project.deleted_at)))
+    .where(
+      and(
+        tenantScoped(project.tenant_id, session),
+        isNull(project.deleted_at),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .groupBy(project.account_id);
 
   const recMap = new Map(recruiterCounts.map((r) => [r.account_id, r.n]));
