@@ -83,7 +83,7 @@ export async function editWorker(
 
       const jobTitleChange = changes.find(([f]) => f === 'job_title');
       if (jobTitleChange) {
-        await tx
+        const jobTitleUpdated = await tx
           .update(employmentPeriod)
           .set({ job_title: jobTitleChange[1] as string | null, updated_at: new Date() })
           .where(
@@ -92,7 +92,14 @@ export async function editWorker(
               isNull(employmentPeriod.end_date),
               tenantScoped(employmentPeriod.tenant_id, session),
             ),
+          )
+          .returning({ id: employmentPeriod.id });
+        if (jobTitleUpdated.length === 0) {
+          throw new PeopleError(
+            'CONFLICT',
+            'cannot set job_title: worker has no active employment period',
           );
+        }
       }
 
       for (const [f, v] of changes) {

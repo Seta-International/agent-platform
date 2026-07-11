@@ -320,6 +320,61 @@ describe('editWorker', () => {
     });
   });
 
+  it('job_title edit on a terminated worker (no open employment period) throws and rolls back version/history/event', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { worker_id } = await createWorker({ full_name: 'Judy', session: t.adminSession });
+        // terminateWorker is broken independently of this fix (its loadWorker still
+        // queries the pre-fold `worker` table, which createWorker no longer populates);
+        // close the open employment_period directly to isolate this test from that bug.
+        await pool.query(
+          `UPDATE people.employment_period SET end_date = CURRENT_DATE, lifecycle_stage = 'alumni' WHERE person_id = $1 AND end_date IS NULL`,
+          [worker_id],
+        );
+
+        const [before] = await peopleDb()
+          .select({ version: person.version })
+          .from(person)
+          .where(eq(person.id, worker_id));
+        const versionBeforeEdit = before!.version;
+
+        await expect(
+          editWorker({
+            worker_id,
+            patch: { job_title: 'Staff Engineer' },
+            session: t.adminSession,
+          }),
+        ).rejects.toMatchObject({
+          code: 'CONFLICT',
+          message: 'cannot set job_title: worker has no active employment period',
+        });
+
+        const [after] = await peopleDb()
+          .select({ version: person.version })
+          .from(person)
+          .where(eq(person.id, worker_id));
+        expect(after?.version).toBe(versionBeforeEdit);
+
+        const histRows = await pool.query(
+          `SELECT * FROM people.worker_history WHERE person_id = $1 AND action = 'updated'`,
+          [worker_id],
+        );
+        expect(histRows.rows).toHaveLength(0);
+
+        const n = await countEvents(pool, t.tenant_id, 'people.worker.updated');
+        expect(n).toBe(0);
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('cross-tenant worker_id returns NOT_FOUND', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
