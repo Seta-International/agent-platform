@@ -8,6 +8,13 @@
       "when": 1783017992464,
       "tag": "0000_ambitious_joseph",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783748618160,
+      "tag": "0003_wealthy_maggott",
+      "breakpoints": true
     }
   ]
 }
