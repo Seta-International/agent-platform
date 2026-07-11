@@ -1,10 +1,10 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { orgUnit, worker } from '../../src/backend/db/schema.ts';
+import { employmentPeriod, orgUnit, person, worker } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/index.ts';
 import { readEvents, seedTenant } from '../helpers.ts';
 
@@ -27,9 +27,12 @@ describe('createWorker', () => {
           session: t.adminSession,
         });
 
+        const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
+        expect(p?.full_name).toBe('Alice Example');
+        expect(p?.work_email).toBeNull();
+
         const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w?.full_name).toBe('Alice Example');
-        expect(w?.work_email).toBeNull();
+        expect(w).toBeUndefined();
 
         const events = await readEvents(pool, t.tenant_id, 'people.worker.created');
         expect(events).toHaveLength(1);
@@ -78,8 +81,8 @@ describe('createWorker', () => {
           session: t.adminSession,
         });
 
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w?.work_email).toBe('jane.doe@acme.com');
+        const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
+        expect(p?.work_email).toBe('jane.doe@acme.com');
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -106,8 +109,8 @@ describe('createWorker', () => {
           session: t.adminSession,
         });
 
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w?.work_email).toBe('jane.doe2@acme.com');
+        const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
+        expect(p?.work_email).toBe('jane.doe2@acme.com');
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -129,8 +132,8 @@ describe('createWorker', () => {
           session: t.adminSession,
         });
 
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w?.work_email).toBeNull();
+        const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
+        expect(p?.work_email).toBeNull();
       } finally {
         resetPeopleDb();
         resetCoreDb();
@@ -166,7 +169,7 @@ describe('createWorker', () => {
     });
   });
 
-  it('persists job_title and org_unit_id when supplied', async () => {
+  it('persists job_title and org_unit_id on person/employment_period and emits event', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -186,9 +189,28 @@ describe('createWorker', () => {
           session: t.adminSession,
         } as never);
 
+        const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
+        expect(p?.full_name).toBe('Worker With Title');
+        expect(p?.org_unit_id).toBe(u!.id);
+
+        const [ep] = await peopleDb()
+          .select()
+          .from(employmentPeriod)
+          .where(and(eq(employmentPeriod.person_id, worker_id), isNull(employmentPeriod.end_date)));
+        expect(ep?.job_title).toBe('Senior Engineer');
+
         const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w?.job_title).toBe('Senior Engineer');
-        expect(w?.org_unit_id).toBe(u!.id);
+        expect(w).toBeUndefined();
+
+        const events = await readEvents(pool, t.tenant_id, 'people.worker.created');
+        expect(events).toHaveLength(1);
+        expect(events[0]?.payload).toMatchObject({
+          worker_id,
+          person_id: worker_id,
+          full_name: 'Worker With Title',
+          work_email: null,
+          job_title: 'Senior Engineer',
+        });
       } finally {
         resetPeopleDb();
         resetCoreDb();
