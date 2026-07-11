@@ -5,7 +5,7 @@ import { can, tenantScoped } from '@seta/shared-rbac';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { EditWorkerInput } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
-import { employmentPeriod, person, userProjection, workerHistory } from '../db/schema.ts';
+import { employmentPeriod, person, personHistory, userProjection } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { classifyField } from './field-rules.ts';
 
@@ -103,7 +103,7 @@ export async function editWorker(
       }
 
       for (const [f, v] of changes) {
-        await tx.insert(workerHistory).values({
+        await tx.insert(personHistory).values({
           tenant_id: session.tenant_id,
           person_id: worker_id,
           action: 'updated',

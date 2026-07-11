@@ -2,7 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { employmentPeriod, LIFECYCLE_STAGES, person, workerHistory } from '../db/schema.ts';
+import { employmentPeriod, LIFECYCLE_STAGES, person, personHistory } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { buildWorkerScope } from './worker-scope.ts';
 
@@ -363,17 +363,17 @@ export async function getWorkerHistory({
   }
   const rows = await peopleDb()
     .select({
-      at: workerHistory.at,
-      action: workerHistory.action,
-      field: workerHistory.field,
-      from_val: workerHistory.from_val,
-      to_val: workerHistory.to_val,
-      by_user_id: workerHistory.by_user_id,
+      at: personHistory.at,
+      action: personHistory.action,
+      field: personHistory.field,
+      from_val: personHistory.from_val,
+      to_val: personHistory.to_val,
+      by_user_id: personHistory.by_user_id,
     })
-    .from(workerHistory)
+    .from(personHistory)
     .where(
-      and(eq(workerHistory.person_id, worker_id), tenantScoped(workerHistory.tenant_id, session)),
+      and(eq(personHistory.person_id, worker_id), tenantScoped(personHistory.tenant_id, session)),
     )
-    .orderBy(desc(workerHistory.at));
+    .orderBy(desc(personHistory.at));
   return rows;
 }

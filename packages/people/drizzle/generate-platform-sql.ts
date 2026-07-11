@@ -5,12 +5,11 @@ import { buildRlsSql, buildTouchTriggerSql, buildTouchUpdatedAtFnSql } from '@se
 
 const SCHEMA = 'people';
 
-// Tables with an updated_at column that must be bumped on every UPDATE. worker_history is a
+// Tables with an updated_at column that must be bumped on every UPDATE. person_history is a
 // append-only audit log (timestamped by `at`, no updated_at) and is intentionally excluded.
 const TOUCH_TABLES = [
   'person',
   'employment_period',
-  'worker',
   'org_unit',
   'person_skill',
   'worker_allocation_projection',
@@ -24,10 +23,9 @@ const TOUCH_TABLES = [
 const RLS_TABLES = [
   'person',
   'employment_period',
-  'worker',
   'org_unit',
   'person_skill',
-  'worker_history',
+  'person_history',
   'worker_allocation_projection',
   'account_projection',
   'project_projection',

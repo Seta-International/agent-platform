@@ -48,7 +48,7 @@ describe('editWorker', () => {
         expect(p?.profile_completed_at).not.toBeNull();
 
         const histRows = await pool.query(
-          `SELECT * FROM people.worker_history WHERE person_id = $1 AND action = 'updated'`,
+          `SELECT * FROM people.person_history WHERE person_id = $1 AND action = 'updated'`,
           [worker_id],
         );
         expect(histRows.rows).toHaveLength(1);
@@ -116,7 +116,7 @@ describe('editWorker', () => {
         expect(result.version).toBeGreaterThan(1);
 
         const histRows = await pool.query(
-          `SELECT field FROM people.worker_history WHERE person_id = $1 AND action = 'updated' ORDER BY field`,
+          `SELECT field FROM people.person_history WHERE person_id = $1 AND action = 'updated' ORDER BY field`,
           [worker_id],
         );
         expect(histRows.rows).toHaveLength(2);
@@ -187,7 +187,7 @@ describe('editWorker', () => {
         expect(n).toBe(0);
 
         const histRows = await pool.query(
-          `SELECT * FROM people.worker_history WHERE person_id = $1 AND action = 'updated'`,
+          `SELECT * FROM people.person_history WHERE person_id = $1 AND action = 'updated'`,
           [worker_id],
         );
         expect(histRows.rows).toHaveLength(0);
@@ -260,7 +260,7 @@ describe('editWorker', () => {
         expect(ep?.job_title).toBe('Staff Engineer');
 
         const histRows = await pool.query(
-          `SELECT field FROM people.worker_history WHERE person_id = $1 AND action = 'updated' ORDER BY field`,
+          `SELECT field FROM people.person_history WHERE person_id = $1 AND action = 'updated' ORDER BY field`,
           [worker_id],
         );
         expect(histRows.rows).toHaveLength(2);
@@ -360,7 +360,7 @@ describe('editWorker', () => {
         expect(after?.version).toBe(versionBeforeEdit);
 
         const histRows = await pool.query(
-          `SELECT * FROM people.worker_history WHERE person_id = $1 AND action = 'updated'`,
+          `SELECT * FROM people.person_history WHERE person_id = $1 AND action = 'updated'`,
           [worker_id],
         );
         expect(histRows.rows).toHaveLength(0);

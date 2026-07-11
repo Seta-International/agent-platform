@@ -2,7 +2,7 @@ import { emit } from '@seta/core/events';
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import { and, eq, isNull, notExists, sql } from 'drizzle-orm';
 import { PEOPLE_WORKER_USER_LINKED } from '../../events.ts';
-import { person, userProjection, workerHistory } from '../db/schema.ts';
+import { person, personHistory, userProjection } from '../db/schema.ts';
 
 interface UserCreatedPayload {
   after: { user_id: string; tenant_id: string; email: string; name: string };
@@ -52,7 +52,7 @@ export const linkUserToPerson: SubscriberDef = {
       .returning({ user_id: userProjection.user_id });
     if (inserted.length === 0) return;
 
-    await ctx.tx.insert(workerHistory).values({
+    await ctx.tx.insert(personHistory).values({
       tenant_id,
       person_id: w.person_id,
       action: 'user_linked',

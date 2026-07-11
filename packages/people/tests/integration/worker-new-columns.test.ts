@@ -57,10 +57,10 @@ describe('job_title (employment_period) + org_unit_id (person)', () => {
     });
   });
 
-  it('worker_by_org_unit index exists', async () => {
+  it('person_by_org_unit index exists', async () => {
     await withTestDb(ctx, async ({ pool }) => {
       const idx = await pool.query(
-        `SELECT indexname FROM pg_indexes WHERE schemaname='people' AND indexname='worker_by_org_unit'`,
+        `SELECT indexname FROM pg_indexes WHERE schemaname='people' AND indexname='person_by_org_unit'`,
       );
       expect(idx.rowCount).toBe(1);
     });

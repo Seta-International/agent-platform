@@ -1,7 +1,7 @@
 import { emit } from '@seta/core/events';
 import type { NodeTx } from '@seta/shared-db';
 import type { GenderValue } from '../../contracts.ts';
-import { employmentPeriod, person, workerHistory } from '../db/schema.ts';
+import { employmentPeriod, person, personHistory } from '../db/schema.ts';
 
 export interface InsertWorkerArgs {
   tenant_id: string;
@@ -55,7 +55,7 @@ export async function insertWorkerAggregate(
     job_title: args.job_title ?? null,
   });
 
-  await tx.insert(workerHistory).values({
+  await tx.insert(personHistory).values({
     tenant_id: args.tenant_id,
     person_id: p.id,
     action: args.history_action,

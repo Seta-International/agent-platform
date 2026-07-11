@@ -4,7 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { and, eq, isNull } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { employmentPeriod, orgUnit, person, worker } from '../../src/backend/db/schema.ts';
+import { employmentPeriod, orgUnit, person } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/index.ts';
 import { readEvents, seedTenant } from '../helpers.ts';
 
@@ -30,9 +30,6 @@ describe('createWorker', () => {
         const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
         expect(p?.full_name).toBe('Alice Example');
         expect(p?.work_email).toBeNull();
-
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w).toBeUndefined();
 
         const events = await readEvents(pool, t.tenant_id, 'people.worker.created');
         expect(events).toHaveLength(1);
@@ -198,9 +195,6 @@ describe('createWorker', () => {
           .from(employmentPeriod)
           .where(and(eq(employmentPeriod.person_id, worker_id), isNull(employmentPeriod.end_date)));
         expect(ep?.job_title).toBe('Senior Engineer');
-
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w).toBeUndefined();
 
         const events = await readEvents(pool, t.tenant_id, 'people.worker.created');
         expect(events).toHaveLength(1);
