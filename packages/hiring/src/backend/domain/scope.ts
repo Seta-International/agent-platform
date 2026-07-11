@@ -57,17 +57,17 @@ async function buildScope(
     permission,
   );
   if (scope.kind === 'tenant') return null;
-  const accountIds = session.worker_id
+  const accountIds = session.person_id
     ? Array.from(
         new Set([
-          ...(await listRecruiterAccountIds(session.worker_id, session.tenant_id)),
-          ...(await listManagedAccountIds(session.worker_id, session.tenant_id)),
+          ...(await listRecruiterAccountIds(session.person_id, session.tenant_id)),
+          ...(await listManagedAccountIds(session.person_id, session.tenant_id)),
         ]),
       )
     : [];
   const projectIds =
-    opts.includeProjects && session.worker_id
-      ? await listOwnedProjectIds(session.worker_id, session.tenant_id)
+    opts.includeProjects && session.person_id
+      ? await listOwnedProjectIds(session.person_id, session.tenant_id)
       : [];
   return decisionPredicate(
     scopeDecision(scope, plan(accountIds, projectIds), {
@@ -85,7 +85,7 @@ async function buildScope(
  * requisition row iff the viewer owns it (`owner_user_id`), is an assigned recruiter or the AM
  * on its account (`pm.account_recruiter` via `@seta/pm`, or `account_projection.am_worker_id`,
  * FUT-330), or owns its project as EM/TL/PM (`project_owner_projection`, FUT-328). Null-safe on
- * `session.worker_id`: a scoped viewer with no worker link sees only requisitions they own.
+ * `session.person_id`: a scoped viewer with no worker link sees only requisitions they own.
  */
 export function buildRequisitionScope(session: SessionScope): Promise<SQL | null> {
   return buildScope(

@@ -25,7 +25,7 @@ function decide(session: SessionScope, permission: string, plan: ScopePlan): SQL
 function amAccountsSubquery(session: SessionScope): SQL {
   return sql`(SELECT ${account.id} FROM ${account}
     WHERE ${account.tenant_id} = ${session.tenant_id}
-      AND ${account.am_worker_id} = ${session.worker_id})`;
+      AND ${account.am_worker_id} = ${session.person_id})`;
 }
 
 // Projects the viewer owns via a project_access grant (level 'owner') — the same "owner"
@@ -34,7 +34,7 @@ function amAccountsSubquery(session: SessionScope): SQL {
 function accessOwnerProjectsSubquery(session: SessionScope): SQL {
   return sql`(SELECT ${projectAccess.project_id} FROM ${projectAccess}
     WHERE ${projectAccess.tenant_id} = ${session.tenant_id}
-      AND ${projectAccess.worker_id} = ${session.worker_id}
+      AND ${projectAccess.worker_id} = ${session.person_id}
       AND ${projectAccess.level} = 'owner')`;
 }
 
@@ -45,7 +45,7 @@ function accessOwnerProjectsSubquery(session: SessionScope): SQL {
  * returns a predicate matching a project row iff it falls on any of: the viewer's org-unit
  * reach, projects the viewer leads (`pm_worker_id`) or owns via a `project_access` 'owner'
  * grant (EM/TL, FUT-353), or projects on accounts the viewer manages (AM). The relationship
- * arms are null-safe: when `session.worker_id` is null they contribute no
+ * arms are null-safe: when `session.person_id` is null they contribute no
  * arm, so a scoped viewer with no worker link and no org reach resolves to `sql\`false\`` (fail-
  * closed) rather than matching everything.
  */
@@ -77,7 +77,7 @@ export function buildProjectManageFlag(session: SessionScope): SQL<boolean> {
 }
 
 function projectPlan(session: SessionScope): ScopePlan {
-  const w = session.worker_id;
+  const w = session.person_id;
   return {
     orgUnit: { column: project.org_unit_id },
     relationships: [
@@ -94,10 +94,10 @@ function projectPlan(session: SessionScope): ScopePlan {
  * Returns `null` for tenant-wide `pm.account.read` scope; otherwise a predicate matching an
  * account row iff the viewer is its AM, or the viewer leads/owns a project on that account
  * (`pm_worker_id` or a `project_access` 'owner' grant). Null-safe
- * on `session.worker_id` per `buildProjectScope`.
+ * on `session.person_id` per `buildProjectScope`.
  */
 export function buildAccountScope(session: SessionScope): SQL | null {
-  const w = session.worker_id;
+  const w = session.person_id;
   return decide(session, 'pm.account.read', {
     relationships: [
       () => (w ? sql`${account.am_worker_id} = ${w}` : null),
@@ -120,7 +120,7 @@ export function buildAccountScope(session: SessionScope): SQL | null {
  * directly against the joined tables rather than a subquery for the AM arm.
  */
 export function buildAllocationJoinScope(session: SessionScope): SQL | null {
-  const w = session.worker_id;
+  const w = session.person_id;
   return decide(session, 'pm.project.read', {
     orgUnit: { column: project.org_unit_id },
     relationships: [
