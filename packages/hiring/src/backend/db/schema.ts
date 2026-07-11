@@ -392,33 +392,3 @@ export const projectProjection = hiringSchema.table(
   },
   (t) => [index('project_projection_by_account').on(t.tenant_id, t.account_id)],
 );
-
-// Local {project_id <-> owner worker_id} read-model, fed by pm.project.access.changed (which
-// carries the full current owner set), so hiring can resolve "which projects does this worker
-// manage" for EM/TL/PM row scoping (FUT-328) without a cross-module join. A project can have
-// several owners (PM + EM/TL); a worker can own several projects.
-export const projectOwnerProjection = hiringSchema.table(
-  'project_owner_projection',
-  {
-    project_id: uuid('project_id').notNull(),
-    tenant_id: uuid('tenant_id').notNull(),
-    worker_id: uuid('worker_id').notNull(),
-    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    primaryKey({ columns: [t.project_id, t.worker_id] }),
-    index('project_owner_projection_by_worker').on(t.tenant_id, t.worker_id),
-  ],
-);
-
-// Local projection of "which user is this worker", fed by people.worker.user_linked, so
-// hiring can resolve session.user_id -> worker_id without a cross-module join (FUT-327).
-export const workerUserProjection = hiringSchema.table(
-  'worker_user_projection',
-  {
-    worker_id: uuid('worker_id').primaryKey(),
-    tenant_id: uuid('tenant_id').notNull(),
-    user_id: uuid('user_id').notNull(),
-  },
-  (t) => [index('worker_user_projection_by_user').on(t.tenant_id, t.user_id)],
-);

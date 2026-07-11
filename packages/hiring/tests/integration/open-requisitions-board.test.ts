@@ -8,14 +8,9 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
-import {
-  accountProjection,
-  projectOwnerProjection,
-  projectProjection,
-  requisition,
-} from '../../src/backend/db/schema.ts';
+import { accountProjection, projectProjection, requisition } from '../../src/backend/db/schema.ts';
 import { listOpenRequisitions, openRequisition } from '../../src/index.ts';
-import { buildSession, seedTenant } from '../helpers.ts';
+import { buildSession, seedOwnedProject, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -298,20 +293,27 @@ describe('AM account-scoped requisitions board (FUT-330)', () => {
         const t = await seedTenant(pool);
         const amUserId = crypto.randomUUID();
         const amWorkerId = crypto.randomUUID();
-        const myAccount = crypto.randomUUID();
-        const otherAccount = crypto.randomUUID();
 
-        // account_projection.am_worker_id is normally synced from pm.account.am_worker_id by
-        // a subscriber; seed it directly here, same as the recruiter test above.
+        const manager = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['pm.manager'],
+        });
+        // AM scope now resolves via @seta/pm (listAccountIdsManagedBy → pm.account.am_person_id).
+        const { account_id: myAccount } = await createAccount({
+          name: 'My Account',
+          am_worker_id: amWorkerId,
+          session: manager,
+        });
+        const { account_id: otherAccount } = await createAccount({
+          name: 'Other Account',
+          session: manager,
+        });
+        // hiring.account_projection still supplies the display name for the scope note (leftJoin).
         await hiringDb()
           .insert(accountProjection)
           .values([
-            {
-              account_id: myAccount,
-              tenant_id: t.tenant_id,
-              name: 'My Account',
-              am_worker_id: amWorkerId,
-            },
+            { account_id: myAccount, tenant_id: t.tenant_id, name: 'My Account' },
             { account_id: otherAccount, tenant_id: t.tenant_id, name: 'Other Account' },
           ]);
 
@@ -356,23 +358,32 @@ describe('project-scoped requisitions board (FUT-328)', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetHiringDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const t = await seedTenant(pool);
         const leaderUserId = crypto.randomUUID();
         const workerId = crypto.randomUUID();
-        const myProject = crypto.randomUUID();
         const otherProject = crypto.randomUUID();
 
+        const manager = buildSession({
+          tenant_id: t.tenant_id,
+          user_id: crypto.randomUUID(),
+          roles: ['pm.manager'],
+        });
+        // Owner scope now resolves via @seta/pm (listProjectIdsOwnedBy → pm.project_access).
+        const { project_id: myProject, account_id } = await seedOwnedProject({
+          tenant_id: t.tenant_id,
+          session: manager,
+          ownerWorkerId: workerId,
+        });
+        // hiring.project_projection still supplies the display name for the scope note (leftJoin).
         await hiringDb().insert(projectProjection).values({
           project_id: myProject,
           tenant_id: t.tenant_id,
-          account_id: crypto.randomUUID(),
+          account_id,
           name: 'My Project',
         });
-        await hiringDb()
-          .insert(projectOwnerProjection)
-          .values({ project_id: myProject, tenant_id: t.tenant_id, worker_id: workerId });
 
         const { requisition_id: mine } = await openRequisition({
           title: 'Req on my project',
@@ -401,6 +412,7 @@ describe('project-scoped requisitions board (FUT-328)', () => {
         expect(result.scoped_project_names).toEqual(['My Project']);
         expect(result.requisitions.map((r) => r.id)).toEqual([mine]);
       } finally {
+        resetPmDb();
         resetHiringDb();
         resetCoreDb();
         await closePools();
@@ -418,7 +430,6 @@ describe('project-scoped requisitions board (FUT-328)', () => {
         const t = await seedTenant(pool);
         const userId = crypto.randomUUID();
         const workerId = crypto.randomUUID();
-        const myProject = crypto.randomUUID();
 
         const manager = buildSession({
           tenant_id: t.tenant_id,
@@ -433,9 +444,12 @@ describe('project-scoped requisitions board (FUT-328)', () => {
         await hiringDb()
           .insert(accountProjection)
           .values({ account_id: myAccount, tenant_id: t.tenant_id, name: 'My Account' });
-        await hiringDb()
-          .insert(projectOwnerProjection)
-          .values({ project_id: myProject, tenant_id: t.tenant_id, worker_id: workerId });
+        // Owner scope now resolves via @seta/pm (listProjectIdsOwnedBy → pm.project_access).
+        const { project_id: myProject } = await seedOwnedProject({
+          tenant_id: t.tenant_id,
+          session: manager,
+          ownerWorkerId: workerId,
+        });
 
         const { requisition_id: viaAccount } = await openRequisition({
           title: 'Req via account',
@@ -481,7 +495,6 @@ describe('project-scoped requisitions board (FUT-328)', () => {
         const t = await seedTenant(pool);
         const userId = crypto.randomUUID();
         const workerId = crypto.randomUUID();
-        const myProject = crypto.randomUUID();
 
         const manager = buildSession({
           tenant_id: t.tenant_id,
@@ -493,9 +506,12 @@ describe('project-scoped requisitions board (FUT-328)', () => {
           recruiter_worker_ids: [workerId],
           session: manager,
         });
-        await hiringDb()
-          .insert(projectOwnerProjection)
-          .values({ project_id: myProject, tenant_id: t.tenant_id, worker_id: workerId });
+        // Owner scope now resolves via @seta/pm (listProjectIdsOwnedBy → pm.project_access).
+        const { project_id: myProject } = await seedOwnedProject({
+          tenant_id: t.tenant_id,
+          session: manager,
+          ownerWorkerId: workerId,
+        });
 
         const { requisition_id: both } = await openRequisition({
           title: 'Req on both my account and my project',
