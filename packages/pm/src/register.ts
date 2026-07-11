@@ -36,6 +36,7 @@ export function registerPmContributions(reg: ContributionRegistry): void {
       { table: 'pm.account_recruiter', policy: { kind: 'permanent' } },
       { table: 'pm.allocation', policy: { kind: 'permanent' } },
       { table: 'pm.project_access', policy: { kind: 'permanent' } },
+      { table: 'pm.project_approval', policy: { kind: 'permanent' } },
       { table: 'pm.worker_projection', policy: { kind: 'permanent' } },
       { table: 'pm.staffing_plan_line', policy: { kind: 'permanent' } },
       { table: 'pm.staffing_plan_line_skill', policy: { kind: 'permanent' } },

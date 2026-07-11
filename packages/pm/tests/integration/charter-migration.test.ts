@@ -98,7 +98,7 @@ describe('0006 charter -> project + project_approval data migration', () => {
           [t.tenant_id, accountId],
         );
         const approvedProjectId = approvedProj.rows[0].id as string;
-        const approvedCharter = await pool.query(
+        await pool.query(
           `INSERT INTO pm.charter
              (tenant_id, account_id, name, pm_worker_id, submitted_by_user_id, decided_by_user_id,
               status, project_id, approved_at, pmo_signed_off_by_user_id, pmo_signed_off_at)
@@ -114,7 +114,6 @@ describe('0006 charter -> project + project_approval data migration', () => {
             pmoUser,
           ],
         );
-        const approvedCharterId = approvedCharter.rows[0].id as string;
 
         // submitted charter (no project)
         const submitted = await pool.query(
@@ -194,7 +193,6 @@ describe('0006 charter -> project + project_approval data migration', () => {
         expect(approvedApproval.decided_by_user_id).toBe(deciderUser);
         expect(approvedApproval.approved_at).not.toBeNull();
         expect(approvedApproval.version).toBe(1);
-        void approvedCharterId;
 
         // pre-active approvals keyed on charter.id (identity preserved)
         const submittedApproval = await approvalOf(submittedId);

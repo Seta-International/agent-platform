@@ -56,6 +56,41 @@ describe('project_approval schema', () => {
     });
   });
 
+  it('rejects an invalid rejected_stage value', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const acc = await pool.query(
+          `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
+          [t.tenant_id],
+        );
+        const accountId = acc.rows[0].id;
+
+        const proj = await pool.query(
+          `INSERT INTO pm.project (tenant_id, account_id, name, status)
+           VALUES ($1,$2,'P','submitted') RETURNING id`,
+          [t.tenant_id, accountId],
+        );
+        const projectId = proj.rows[0].id;
+
+        await expect(
+          pool.query(
+            `INSERT INTO pm.project_approval (project_id, tenant_id, submitted_by_user_id, rejected_stage)
+             VALUES ($1,$2,$3,'nonsense')`,
+            [projectId, t.tenant_id, t.admin_user_id],
+          ),
+        ).rejects.toThrow();
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('accepts project.status = submitted (previously rejected by the status check)', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
