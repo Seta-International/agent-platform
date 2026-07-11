@@ -41,9 +41,9 @@ describe('charter schema', () => {
 
         // new project columns exist
         const proj = await pool.query(
-          `INSERT INTO pm.project (tenant_id, account_id, name, methodology, pricing_model, team_size, charter_id)
-           VALUES ($1,$2,'P','kanban','time_materials',5,$3) RETURNING id`,
-          [t.tenant_id, accountId, ins.rows[0].id],
+          `INSERT INTO pm.project (tenant_id, account_id, name, methodology, pricing_model, team_size)
+           VALUES ($1,$2,'P','kanban','time_materials',5) RETURNING id`,
+          [t.tenant_id, accountId],
         );
         const projectId = proj.rows[0].id;
 

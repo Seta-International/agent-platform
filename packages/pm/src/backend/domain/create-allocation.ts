@@ -38,7 +38,7 @@ export async function createAllocation(
         .select({
           id: project.id,
           account_id: project.account_id,
-          pm_worker_id: project.pm_worker_id,
+          pm_worker_id: project.pm_person_id,
           date_from: project.date_from,
           date_to: project.date_to,
         })

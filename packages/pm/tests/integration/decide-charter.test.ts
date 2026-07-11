@@ -94,7 +94,6 @@ describe('two-stage charter governance', () => {
         const { project_id } = await bodApproveCharter({ charter_id, session: bod });
 
         const [p] = await pmDb().select().from(project).where(eq(project.id, project_id));
-        expect(p?.charter_id).toBe(charter_id);
         expect(p?.phase).toBe('initiation');
         expect(p?.status).toBe('active');
         expect(p?.methodology).toBe('scrum');

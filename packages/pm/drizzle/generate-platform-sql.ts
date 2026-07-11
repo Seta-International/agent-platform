@@ -9,6 +9,7 @@ const SCHEMA = 'pm';
 const TOUCH_TABLES = [
   'account',
   'project',
+  'project_approval',
   'account_recruiter',
   'allocation',
   'charter',
@@ -23,6 +24,7 @@ const TOUCH_TABLES = [
 const RLS_TABLES = [
   'account',
   'project',
+  'project_approval',
   'account_recruiter',
   'allocation',
   'charter',

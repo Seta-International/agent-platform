@@ -66,7 +66,7 @@ async function buildGraph(pool: Pool): Promise<Graph> {
       account_id: A2,
       name: 'P1',
       org_unit_id: u1,
-      pm_worker_id: W_lead,
+      pm_person_id: W_lead,
     })
     .returning({ id: project.id });
   const [p2] = await pmDb()
@@ -317,7 +317,7 @@ describe('pm scope builders (D-1)', () => {
           account_id: a2b!.id,
           name: 'B-Project',
           org_unit_id: g.u1,
-          pm_worker_id: g.W_lead,
+          pm_person_id: g.W_lead,
         });
 
         const orgSession = orgManager(g.t, g.u1);

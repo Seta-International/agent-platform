@@ -43,7 +43,7 @@ describe('pm allocations HTTP', () => {
           [t.tenant_id],
         );
         const proj = await pool.query(
-          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_person_id, phase, status)
            VALUES ($1,$2,'P',$3,'initiation','active') RETURNING id`,
           [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
         );
@@ -123,7 +123,7 @@ describe('pm allocations HTTP', () => {
           [t.tenant_id],
         );
         const proj = await pool.query(
-          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_person_id, phase, status)
            VALUES ($1,$2,'P',$3,'initiation','active') RETURNING id`,
           [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
         );
@@ -175,7 +175,7 @@ describe('pm allocations HTTP', () => {
           [t.tenant_id],
         );
         const proj = await pool.query(
-          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_person_id, phase, status)
            VALUES ($1,$2,'P',$3,'initiation','active') RETURNING id`,
           [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
         );
@@ -239,12 +239,12 @@ describe('pm allocations HTTP', () => {
           [t.tenant_id],
         );
         const automate = await pool.query(
-          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_person_id, phase, status)
            VALUES ($1,$2,'Automate',$3,'initiation','active') RETURNING id`,
           [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
         );
         const xxx = await pool.query(
-          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_person_id, phase, status)
            VALUES ($1,$2,'XXX',$3,'initiation','active') RETURNING id`,
           [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
         );
@@ -309,12 +309,12 @@ describe('pm allocations HTTP', () => {
           [t.tenant_id],
         );
         const automate = await pool.query(
-          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_person_id, phase, status)
            VALUES ($1,$2,'Automate',$3,'initiation','active') RETURNING id`,
           [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
         );
         const xxx = await pool.query(
-          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_person_id, phase, status)
            VALUES ($1,$2,'XXX',$3,'initiation','active') RETURNING id`,
           [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
         );
@@ -392,17 +392,17 @@ describe('pm allocations HTTP', () => {
           [t.tenant_id],
         );
         const watchtower = await pool.query(
-          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_person_id, phase, status)
            VALUES ($1,$2,'Watchtower',$3,'initiation','active') RETURNING id`,
           [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
         );
         const projectX = await pool.query(
-          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_person_id, phase, status)
            VALUES ($1,$2,'ProjectX',$3,'initiation','active') RETURNING id`,
           [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
         );
         const newProj = await pool.query(
-          `INSERT INTO pm.project (tenant_id, account_id, name, pm_worker_id, phase, status)
+          `INSERT INTO pm.project (tenant_id, account_id, name, pm_person_id, phase, status)
            VALUES ($1,$2,'NewProj',$3,'initiation','active') RETURNING id`,
           [t.tenant_id, acc.rows[0].id, t.adminSession.user_id],
         );

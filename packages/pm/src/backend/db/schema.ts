@@ -1,9 +1,9 @@
 import { textEnum, textEnumCheck } from '@seta/shared-db';
 import { sql } from 'drizzle-orm';
 import {
-  type AnyPgColumn,
   check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -27,7 +27,15 @@ export const PROJECT_PHASES = [
   'closed',
 ] as const;
 
-export const PROJECT_STATUS = ['active', 'on_hold', 'closed'] as const;
+export const PROJECT_STATUS = [
+  'submitted',
+  'pmo_approved',
+  'active',
+  'on_hold',
+  'closed',
+  'rejected',
+  'withdrawn',
+] as const;
 
 export const METHODOLOGIES = ['scrum', 'kanban'] as const;
 
@@ -76,14 +84,8 @@ export const project = pmSchema.table(
     objective: text('objective'),
     scope: jsonb('scope'),
     budget_bmm: numeric('budget_bmm', { precision: 15, scale: 4 }),
-    pm_worker_id: uuid('pm_worker_id'),
-    // Lazy column-level reference (not table-level foreignKey()): project and charter
-    // FK each other (charter.project_id), and charter is declared after project below —
-    // a table-level foreignKey() would evaluate `charter` eagerly and hit the TDZ.
-    charter_id: uuid('charter_id').references((): AnyPgColumn => charter.id, {
-      onDelete: 'set null',
-    }),
-    pmo_worker_id: uuid('pmo_worker_id'),
+    pm_person_id: uuid('pm_person_id'),
+    pmo_person_id: uuid('pmo_person_id'),
     team_size: integer('team_size'),
     methodology: textEnum('methodology', METHODOLOGIES),
     pricing_model: textEnum('pricing_model', PRICING_MODELS),
@@ -101,11 +103,37 @@ export const project = pmSchema.table(
   (t) => [
     index('project_by_account_status').on(t.tenant_id, t.account_id, t.status),
     index('project_by_org_unit').on(t.tenant_id, t.org_unit_id),
-    index('project_by_charter').on(t.tenant_id, t.charter_id),
     textEnumCheck('project', 'phase', PROJECT_PHASES),
     textEnumCheck('project', 'status', PROJECT_STATUS),
     textEnumCheck('project', 'methodology', METHODOLOGIES),
     textEnumCheck('project', 'pricing_model', PRICING_MODELS),
+  ],
+);
+
+export const projectApproval = pmSchema.table(
+  'project_approval',
+  {
+    project_id: uuid('project_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    submitted_by_user_id: uuid('submitted_by_user_id'),
+    pmo_signed_off_at: timestamp('pmo_signed_off_at', { withTimezone: true }),
+    pmo_signed_off_by_user_id: uuid('pmo_signed_off_by_user_id'),
+    approved_at: timestamp('approved_at', { withTimezone: true }),
+    decided_by_user_id: uuid('decided_by_user_id'),
+    rejected_at: timestamp('rejected_at', { withTimezone: true }),
+    rejected_stage: textEnum('rejected_stage', CHARTER_REJECTED_STAGES),
+    rejection_reason: text('rejection_reason'),
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.project_id],
+      foreignColumns: [project.id],
+      name: 'project_approval_project_fk',
+    }).onDelete('cascade'),
+    textEnumCheck('project_approval', 'rejected_stage', CHARTER_REJECTED_STAGES),
   ],
 );
 
