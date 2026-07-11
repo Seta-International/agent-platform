@@ -2,7 +2,7 @@ import { emit } from '@seta/core/events';
 import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import { and, eq, isNull, notExists, sql } from 'drizzle-orm';
 import { PEOPLE_WORKER_USER_LINKED } from '../../events.ts';
-import { userProjection, worker, workerHistory } from '../db/schema.ts';
+import { person, userProjection, workerHistory } from '../db/schema.ts';
 
 interface UserCreatedPayload {
   after: { user_id: string; tenant_id: string; email: string; name: string };
@@ -17,13 +17,13 @@ export const linkUserToPerson: SubscriberDef = {
     const { user_id, tenant_id, email } = e.payload.after;
 
     const [w] = await ctx.tx
-      .select({ person_id: worker.person_id })
-      .from(worker)
+      .select({ person_id: person.id })
+      .from(person)
       .where(
         and(
-          eq(worker.tenant_id, tenant_id),
-          sql`lower(${worker.work_email}) = ${email.toLowerCase()}`,
-          isNull(worker.deleted_at),
+          eq(person.tenant_id, tenant_id),
+          sql`lower(${person.work_email}) = ${email.toLowerCase()}`,
+          isNull(person.deleted_at),
           notExists(
             ctx.tx
               .select({ one: sql`1` })
@@ -31,7 +31,7 @@ export const linkUserToPerson: SubscriberDef = {
               .where(
                 and(
                   eq(userProjection.tenant_id, tenant_id),
-                  eq(userProjection.person_id, worker.person_id),
+                  eq(userProjection.person_id, person.id),
                 ),
               ),
           ),

@@ -106,9 +106,9 @@ export function buildSession(opts: {
 }
 
 /**
- * Insert the parent `person` rows for the given person_ids. worker.person_id FKs person.id,
- * so any fixture that inserts a `worker` directly (rather than via createWorker) must seed the
- * person first. Tests key workers on person_id (the domain's canonical handle), so id === person_id.
+ * Insert bare `person` rows (id + tenant only) for the given person_ids. Biographical display
+ * fields now live on `person` directly, so a fixture needing a name/email seeds them on the
+ * person row. Tests key workers on person_id (the domain's canonical handle), so id === person_id.
  */
 export async function seedPersons(tenant_id: string, ...person_ids: string[]): Promise<void> {
   await peopleDb()

@@ -4,12 +4,12 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
+  person,
   projectProjection,
-  worker,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { getUtilizationByPerson } from '../../src/backend/domain/utilization.ts';
-import { buildSession, seedPersons, seedTenant } from '../helpers.ts';
+import { buildSession, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -29,10 +29,9 @@ describe('getUtilizationByPerson', () => {
         const projA = crypto.randomUUID();
         const projB = crypto.randomUUID();
 
-        await seedPersons(t.tenant_id, personId);
-        await peopleDb().insert(worker).values({
+        await peopleDb().insert(person).values({
+          id: personId,
           tenant_id: t.tenant_id,
-          person_id: personId,
           full_name: 'Pat Lin',
         });
         await peopleDb()
@@ -108,10 +107,9 @@ describe('getUtilizationByPerson', () => {
       try {
         const t = await seedTenant(pool);
         const stranger = crypto.randomUUID();
-        await seedPersons(t.tenant_id, stranger);
-        await peopleDb().insert(worker).values({
+        await peopleDb().insert(person).values({
+          id: stranger,
           tenant_id: t.tenant_id,
-          person_id: stranger,
           full_name: 'Out Of Scope',
         });
         await peopleDb().insert(workerAllocationProjection).values({

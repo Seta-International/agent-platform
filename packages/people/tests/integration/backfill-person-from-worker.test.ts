@@ -8,7 +8,6 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { employmentPeriod, person, worker } from '../../src/backend/db/schema.ts';
-import { createWorker } from '../../src/index.ts';
 import { seedTenant } from '../helpers.ts';
 
 const ctx = {
@@ -31,30 +30,57 @@ describe('person/employment_period backfill from worker (0008)', () => {
       try {
         const t = await seedTenant(pool);
 
-        const { worker_id: liveId } = await createWorker({
-          full_name: 'Alice Example',
-          job_title: 'Senior Engineer',
-          session: t.adminSession,
-        } as never);
+        // Seed the PRE-fold shape directly: raw worker rows carry biographical data, person rows
+        // are bare, and job_title still lives on worker — exactly what migration 0008 backfills.
+        const tenant_id = t.tenant_id;
 
-        const { worker_id: deletedId } = await createWorker({
+        // liveId: live worker + open period → biographical + job_title get copied.
+        const liveId = crypto.randomUUID();
+        await peopleDb().insert(person).values({ id: liveId, tenant_id });
+        await peopleDb().insert(worker).values({
+          tenant_id,
+          person_id: liveId,
+          full_name: 'Alice Example',
+          work_email: 'alice@example.test',
+          job_title: 'Senior Engineer',
+        });
+        await peopleDb()
+          .insert(employmentPeriod)
+          .values({ tenant_id, person_id: liveId, seq: 1, lifecycle_stage: 'active' });
+
+        // deletedId: soft-deleted worker → deleted_at copied onto person.
+        const deletedId = crypto.randomUUID();
+        await peopleDb().insert(person).values({ id: deletedId, tenant_id });
+        await peopleDb().insert(worker).values({
+          tenant_id,
+          person_id: deletedId,
           full_name: 'Departed Worker',
           job_title: 'Contractor',
-          session: t.adminSession,
-        } as never);
+        });
+        await peopleDb()
+          .insert(employmentPeriod)
+          .values({ tenant_id, person_id: deletedId, seq: 1, lifecycle_stage: 'active' });
         await pool.query(`UPDATE people.worker SET deleted_at = now() WHERE person_id = $1`, [
           deletedId,
         ]);
 
-        const { worker_id: noOpenPeriodId } = await createWorker({
+        // noOpenPeriodId: only a CLOSED period → job_title must NOT be copied.
+        const noOpenPeriodId = crypto.randomUUID();
+        await peopleDb().insert(person).values({ id: noOpenPeriodId, tenant_id });
+        await peopleDb().insert(worker).values({
+          tenant_id,
+          person_id: noOpenPeriodId,
           full_name: 'Closed Period Worker',
           job_title: 'Analyst',
-          session: t.adminSession,
-        } as never);
-        await pool.query(
-          `UPDATE people.employment_period SET end_date = CURRENT_DATE WHERE person_id = $1`,
-          [noOpenPeriodId],
-        );
+        });
+        await peopleDb().insert(employmentPeriod).values({
+          tenant_id,
+          person_id: noOpenPeriodId,
+          seq: 1,
+          lifecycle_stage: 'alumni',
+          start_date: '2020-01-01',
+          end_date: '2021-01-01',
+        });
 
         // RED: before the backfill runs, person.full_name is still null.
         const [beforeLive] = await peopleDb().select().from(person).where(eq(person.id, liveId));

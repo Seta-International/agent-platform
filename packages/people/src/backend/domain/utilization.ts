@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { projectProjection, worker, workerAllocationProjection } from '../db/schema.ts';
+import { person, projectProjection, workerAllocationProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 import { buildWorkerScope } from './worker-scope.ts';
 
@@ -57,7 +57,7 @@ export async function getUtilizationByPerson(
   const raw = (await peopleDb()
     .select({
       worker_id: workerAllocationProjection.worker_id,
-      full_name: worker.full_name,
+      full_name: person.full_name,
       project_id: workerAllocationProjection.project_id,
       project_name: projectProjection.name,
       bucket: workerAllocationProjection.bucket,
@@ -65,11 +65,11 @@ export async function getUtilizationByPerson(
     })
     .from(workerAllocationProjection)
     .innerJoin(
-      worker,
+      person,
       and(
-        eq(worker.person_id, workerAllocationProjection.worker_id),
-        eq(worker.tenant_id, workerAllocationProjection.tenant_id),
-        sql`${worker.deleted_at} IS NULL`,
+        eq(person.id, workerAllocationProjection.worker_id),
+        eq(person.tenant_id, workerAllocationProjection.tenant_id),
+        sql`${person.deleted_at} IS NULL`,
       ),
     )
     .leftJoin(

@@ -8,9 +8,9 @@ import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
   employmentPeriod,
   type LIFECYCLE_STAGES,
+  person,
   personSkill,
   projectProjection,
-  worker,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
@@ -62,12 +62,17 @@ async function makeWorker(
     work_email: opts.email,
     org_unit_id: opts.orgUnitId ?? null,
   } as never);
-  const patch: Record<string, unknown> = {};
-  if (opts.job_title !== undefined) patch.job_title = opts.job_title;
-  if (opts.gender !== undefined) patch.gender = opts.gender;
-  if (opts.phone !== undefined) patch.phone = opts.phone;
-  if (Object.keys(patch).length > 0) {
-    await peopleDb().update(worker).set(patch).where(eq(worker.person_id, worker_id));
+  const personPatch: Record<string, unknown> = {};
+  if (opts.gender !== undefined) personPatch.gender = opts.gender;
+  if (opts.phone !== undefined) personPatch.phone = opts.phone;
+  if (Object.keys(personPatch).length > 0) {
+    await peopleDb().update(person).set(personPatch).where(eq(person.id, worker_id));
+  }
+  if (opts.job_title !== undefined) {
+    await peopleDb()
+      .update(employmentPeriod)
+      .set({ job_title: opts.job_title })
+      .where(and(eq(employmentPeriod.person_id, worker_id), isNull(employmentPeriod.end_date)));
   }
   if (opts.userId) {
     await linkUserToPerson(t.tenant_id, worker_id, opts.userId);
@@ -357,10 +362,7 @@ describe('listWorkers (SQL filter/sort/paginate)', () => {
       await makeWorker(t, { name: 'Orphaned Worker', orgUnitId: unit });
 
       // Soft-delete the manager
-      await peopleDb()
-        .update(worker)
-        .set({ deleted_at: new Date() })
-        .where(eq(worker.person_id, mgr));
+      await peopleDb().update(person).set({ deleted_at: new Date() }).where(eq(person.id, mgr));
 
       const { rows } = await listWorkers(admin(t), { search: 'Orphaned Worker' });
       expect(rows).toHaveLength(1);

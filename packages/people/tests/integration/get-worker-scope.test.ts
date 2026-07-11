@@ -4,7 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { worker } from '../../src/backend/db/schema.ts';
+import { person } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { getWorker, getWorkerHistory } from '../../src/index.ts';
 import {
@@ -55,7 +55,7 @@ function withDb(
         kind: 'operation',
         head_worker_id: M,
       });
-      await peopleDb().update(worker).set({ org_unit_id: unit }).where(eq(worker.person_id, M));
+      await peopleDb().update(person).set({ org_unit_id: unit }).where(eq(person.id, M));
       const R = await makePersona(t, 'Report R', crypto.randomUUID(), unit);
       const U = await makePersona(t, 'Unrelated U', crypto.randomUUID(), null);
 

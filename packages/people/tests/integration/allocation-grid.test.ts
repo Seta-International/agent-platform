@@ -5,12 +5,12 @@ import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
   accountProjection,
+  person,
   projectProjection,
-  worker,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { getAllocationGrid } from '../../src/backend/domain/allocation-grid.ts';
-import { buildSession, seedPersons, seedTenant } from '../helpers.ts';
+import { buildSession, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -30,10 +30,9 @@ describe('getAllocationGrid', () => {
         const projA = crypto.randomUUID();
         const projB = crypto.randomUUID();
 
-        await seedPersons(t.tenant_id, personId);
-        await peopleDb().insert(worker).values({
+        await peopleDb().insert(person).values({
+          id: personId,
           tenant_id: t.tenant_id,
-          person_id: personId,
           full_name: 'Pat Lin',
         });
         await peopleDb()
@@ -109,12 +108,11 @@ describe('getAllocationGrid', () => {
         const accountId = crypto.randomUUID();
         const zoe = crypto.randomUUID();
         const amy = crypto.randomUUID();
-        await seedPersons(t.tenant_id, zoe, amy);
         await peopleDb()
-          .insert(worker)
+          .insert(person)
           .values([
-            { tenant_id: t.tenant_id, person_id: zoe, full_name: 'Zoe Last' },
-            { tenant_id: t.tenant_id, person_id: amy, full_name: 'Amy First' },
+            { id: zoe, tenant_id: t.tenant_id, full_name: 'Zoe Last' },
+            { id: amy, tenant_id: t.tenant_id, full_name: 'Amy First' },
           ]);
         // Interleave insert order: Zoe, Amy, Amy — the query must still group + alphabetize.
         await peopleDb()
@@ -191,12 +189,11 @@ describe('getAllocationGrid', () => {
         const hung = crypto.randomUUID(); // over-allocated
         const dung = crypto.randomUUID(); // under-utilized, đ in name
 
-        await seedPersons(t.tenant_id, hung, dung);
         await peopleDb()
-          .insert(worker)
+          .insert(person)
           .values([
-            { tenant_id: t.tenant_id, person_id: hung, full_name: 'Hưng Vũ' },
-            { tenant_id: t.tenant_id, person_id: dung, full_name: 'Đũng Trần' },
+            { id: hung, tenant_id: t.tenant_id, full_name: 'Hưng Vũ' },
+            { id: dung, tenant_id: t.tenant_id, full_name: 'Đũng Trần' },
           ]);
         await peopleDb()
           .insert(projectProjection)
@@ -314,10 +311,9 @@ describe('getAllocationGrid', () => {
         const t = await seedTenant(pool);
         const acc = crypto.randomUUID();
         const nam = crypto.randomUUID();
-        await seedPersons(t.tenant_id, nam);
-        await peopleDb().insert(worker).values({
+        await peopleDb().insert(person).values({
+          id: nam,
           tenant_id: t.tenant_id,
-          person_id: nam,
           full_name: 'Hoàng Phó Nam',
         });
         await peopleDb()
@@ -376,19 +372,18 @@ describe('getAllocationGrid', () => {
         const acc = crypto.randomUUID();
         const am = crypto.randomUUID();
         const member = crypto.randomUUID();
-        await seedPersons(t.tenant_id, am, member);
         await peopleDb()
-          .insert(worker)
+          .insert(person)
           .values([
             {
+              id: am,
               tenant_id: t.tenant_id,
-              person_id: am,
               full_name: 'Ann Manager',
               employee_no: '6885',
             },
             {
+              id: member,
               tenant_id: t.tenant_id,
-              person_id: member,
               full_name: 'Ben Dev',
               employee_no: '7001',
             },
@@ -450,10 +445,9 @@ describe('getAllocationGrid', () => {
       try {
         const t = await seedTenant(pool);
         const stranger = crypto.randomUUID();
-        await seedPersons(t.tenant_id, stranger);
-        await peopleDb().insert(worker).values({
+        await peopleDb().insert(person).values({
+          id: stranger,
           tenant_id: t.tenant_id,
-          person_id: stranger,
           full_name: 'Out Of Scope',
         });
         await peopleDb().insert(workerAllocationProjection).values({

@@ -4,7 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { accountProjection, projectProjection, worker } from '../../src/backend/db/schema.ts';
+import { accountProjection, person, projectProjection } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { getOrgCompany } from '../../src/backend/domain/org-structure.ts';
 import { seedOrgUnit, seedTenant } from '../helpers.ts';
@@ -142,10 +142,7 @@ describe('getOrgCompany', () => {
           account_id: accountA,
           name: 'P1',
         });
-        await peopleDb()
-          .update(worker)
-          .set({ org_unit_id: delivery })
-          .where(eq(worker.person_id, m));
+        await peopleDb().update(person).set({ org_unit_id: delivery }).where(eq(person.id, m));
 
         const { nodes } = await getOrgCompany(t.adminSession);
         const acctNode = nodes.find((n) => n.id === `account:${accountA}`)!;

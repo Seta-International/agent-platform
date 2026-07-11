@@ -4,7 +4,7 @@ import { tenantScoped } from '@seta/shared-rbac';
 import { buildTenantKey, presignedDownloadUrl, presignedUploadUrl } from '@seta/shared-storage';
 import { and, eq, isNull } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { worker } from '../db/schema.ts';
+import { person } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 
 export const CV_ALLOWED_EXTENSIONS = new Set(['pdf', 'docx']);
@@ -94,13 +94,13 @@ export async function parseWorkerCvDraft(
 
 async function requireWorkerRow(worker_id: string, session: SessionScope) {
   const [row] = await peopleDb()
-    .select({ person_id: worker.person_id, cv_storage_key: worker.cv_storage_key })
-    .from(worker)
+    .select({ person_id: person.id, cv_storage_key: person.cv_storage_key })
+    .from(person)
     .where(
       and(
-        eq(worker.person_id, worker_id),
-        tenantScoped(worker.tenant_id, session),
-        isNull(worker.deleted_at),
+        eq(person.id, worker_id),
+        tenantScoped(person.tenant_id, session),
+        isNull(person.deleted_at),
       ),
     )
     .limit(1);

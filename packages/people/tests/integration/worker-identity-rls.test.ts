@@ -32,14 +32,11 @@ describe('getWorkerIdForUser under RLS', () => {
         `RLS Probe ${tenantId.slice(0, 8)}`,
         `rls-${tenantId.slice(0, 8)}`,
       ]);
-      await pool.query(`INSERT INTO people.person (id, tenant_id) VALUES ($1, $2)`, [
+      await pool.query(`INSERT INTO people.person (id, tenant_id, full_name) VALUES ($1, $2, $3)`, [
         personId,
         tenantId,
+        'RLS Probe Worker',
       ]);
-      await pool.query(
-        `INSERT INTO people.worker (tenant_id, person_id, full_name) VALUES ($1, $2, $3)`,
-        [tenantId, personId, 'RLS Probe Worker'],
-      );
       await pool.query(
         `INSERT INTO people.user_projection (user_id, tenant_id, person_id) VALUES ($1, $2, $3)`,
         [userId, tenantId, personId],

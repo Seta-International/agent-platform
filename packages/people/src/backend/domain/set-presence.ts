@@ -2,7 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { userProjection, worker } from '../db/schema.ts';
+import { person, userProjection } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 
 export interface SetPresenceInput {
@@ -16,11 +16,11 @@ export async function setPresence(session: SessionScope, input: SetPresenceInput
   requirePermission(session, 'people.self.manage');
 
   const [row] = await peopleDb()
-    .select({ person_id: worker.person_id })
-    .from(worker)
-    .innerJoin(userProjection, eq(userProjection.person_id, worker.person_id))
+    .select({ person_id: person.id })
+    .from(person)
+    .innerJoin(userProjection, eq(userProjection.person_id, person.id))
     .where(
-      and(tenantScoped(worker.tenant_id, session), eq(userProjection.user_id, session.user_id)),
+      and(tenantScoped(person.tenant_id, session), eq(userProjection.user_id, session.user_id)),
     )
     .limit(1);
 
@@ -37,5 +37,5 @@ export async function setPresence(session: SessionScope, input: SetPresenceInput
 
   if (Object.keys(set).length === 1) return;
 
-  await peopleDb().update(worker).set(set).where(eq(worker.person_id, row.person_id));
+  await peopleDb().update(person).set(set).where(eq(person.id, row.person_id));
 }

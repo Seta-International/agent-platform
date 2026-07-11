@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { employmentPeriod, person, worker, workerHistory } from '../../src/backend/db/schema.ts';
+// `worker` is read only to assert the fold left no row on the (dead) worker table.
 import { provisionWorker } from '../../src/index.ts';
 import { countEvents, readEvents, seedTenant } from '../helpers.ts';
 
@@ -14,7 +15,7 @@ const ctx = {
 };
 
 describe('provisionWorker', () => {
-  it('creates person + open period + worker + history and emits worker.created in one tx', async () => {
+  it('creates person + open period + history and emits worker.created in one tx', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -31,6 +32,7 @@ describe('provisionWorker', () => {
 
         const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
         expect(p?.tenant_id).toBe(t.tenant_id);
+        expect(p?.full_name).toBe('Alice Example');
 
         const periods = await peopleDb()
           .select()
@@ -42,7 +44,7 @@ describe('provisionWorker', () => {
         expect(periods[0]?.end_date).toBeNull();
 
         const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w?.full_name).toBe('Alice Example');
+        expect(w).toBeUndefined();
 
         const history = await peopleDb()
           .select()

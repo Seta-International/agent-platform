@@ -2,7 +2,7 @@ import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { person, userProjection, worker } from '../db/schema.ts';
+import { person, userProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 import { fetchPersonSkills, type PersonSkill } from './person-skills.ts';
 import { fetchPresenceByUserId, type PresenceResult } from './read-presence.ts';
@@ -23,9 +23,8 @@ export async function readMyProfile(session: SessionScope): Promise<MyProfile> {
   const skills = await fetchPersonSkills(session.tenant_id, session.user_id);
 
   const [row] = await peopleDb()
-    .select({ bio: person.bio, full_name: worker.full_name })
+    .select({ bio: person.bio, full_name: person.full_name })
     .from(person)
-    .leftJoin(worker, eq(worker.person_id, person.id))
     .innerJoin(userProjection, eq(userProjection.person_id, person.id))
     .where(
       and(tenantScoped(person.tenant_id, session), eq(userProjection.user_id, session.user_id)),

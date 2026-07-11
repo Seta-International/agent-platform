@@ -3,14 +3,14 @@ import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, isNull, max } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { employmentPeriod, worker } from '../db/schema.ts';
+import { employmentPeriod, person } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 
 async function loadWorker(worker_id: string, session: SessionScope) {
   const [row] = await peopleDb()
-    .select({ person_id: worker.person_id })
-    .from(worker)
-    .where(and(eq(worker.person_id, worker_id), tenantScoped(worker.tenant_id, session)))
+    .select({ person_id: person.id })
+    .from(person)
+    .where(and(eq(person.id, worker_id), tenantScoped(person.tenant_id, session)))
     .limit(1);
   if (!row) throw new PeopleError('NOT_FOUND', 'worker not found');
   return row;

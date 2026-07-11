@@ -3,7 +3,7 @@ import { provisionLogin } from '@seta/identity';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { PeoplePermission } from '../../rbac.ts';
 import { peopleDb } from '../db/client.ts';
-import { worker } from '../db/schema.ts';
+import { person } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 
 export async function provisionAccount(
@@ -16,13 +16,13 @@ export async function provisionAccount(
   requirePermission(session, 'identity.user.update' as PeoplePermission);
 
   const [row] = await peopleDb()
-    .select({ email: worker.work_email, name: worker.full_name })
-    .from(worker)
+    .select({ email: person.work_email, name: person.full_name })
+    .from(person)
     .where(
       and(
-        eq(worker.person_id, input.person_id),
-        eq(worker.tenant_id, session.tenant_id),
-        isNull(worker.deleted_at),
+        eq(person.id, input.person_id),
+        eq(person.tenant_id, session.tenant_id),
+        isNull(person.deleted_at),
       ),
     )
     .limit(1);
@@ -31,7 +31,7 @@ export async function provisionAccount(
   if (!row.email) throw new PeopleError('VALIDATION', 'work_email required to provision');
 
   return provisionLogin(
-    { tenant_id: session.tenant_id, email: row.email, name: row.name },
+    { tenant_id: session.tenant_id, email: row.email, name: row.name ?? '' },
     { type: 'user', user_id: session.user_id },
   );
 }

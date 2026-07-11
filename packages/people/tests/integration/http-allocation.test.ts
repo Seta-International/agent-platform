@@ -5,10 +5,10 @@ import { withTestDb } from '@seta/shared-testing';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { worker, workerAllocationProjection } from '../../src/backend/db/schema.ts';
+import { person, workerAllocationProjection } from '../../src/backend/db/schema.ts';
 import { registerPeopleAllocationRoutes } from '../../src/backend/http/allocations.ts';
 import { peopleErrorMapper } from '../../src/register.ts';
-import { seedPersons, seedTenant } from '../helpers.ts';
+import { seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -39,10 +39,9 @@ describe('People allocation HTTP routes', () => {
       try {
         const t = await seedTenant(pool);
         const personId = crypto.randomUUID();
-        await seedPersons(t.tenant_id, personId);
-        await peopleDb().insert(worker).values({
+        await peopleDb().insert(person).values({
+          id: personId,
           tenant_id: t.tenant_id,
-          person_id: personId,
           full_name: 'Grid Person',
         });
         await peopleDb().insert(workerAllocationProjection).values({
@@ -86,10 +85,9 @@ describe('People allocation HTTP routes', () => {
       try {
         const t = await seedTenant(pool);
         const personId = crypto.randomUUID();
-        await seedPersons(t.tenant_id, personId);
-        await peopleDb().insert(worker).values({
+        await peopleDb().insert(person).values({
+          id: personId,
           tenant_id: t.tenant_id,
-          person_id: personId,
           full_name: 'Util Person',
         });
         await peopleDb().insert(workerAllocationProjection).values({

@@ -50,7 +50,7 @@ describe('worker pg_trgm GIN indexes', () => {
           session: t.adminSession,
         });
         const r = await pool.query(
-          `SELECT full_name FROM people.worker WHERE full_name ILIKE '%trigram%'`,
+          `SELECT full_name FROM people.person WHERE full_name ILIKE '%trigram%'`,
         );
         expect(r.rowCount).toBeGreaterThanOrEqual(1);
         expect(r.rows[0].full_name).toBe('Trigram Testworker');

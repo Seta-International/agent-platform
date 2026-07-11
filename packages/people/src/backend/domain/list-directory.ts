@@ -3,7 +3,7 @@ import { listGroupMembers, listGroupNamesForUsers, listRolesForUsers } from '@se
 import { and, eq, ilike, inArray, isNotNull, isNull, or, type SQL, sql } from 'drizzle-orm';
 import type { PeoplePermission } from '../../rbac.ts';
 import { peopleDb } from '../db/client.ts';
-import { employmentPeriod, person, userProjection, worker } from '../db/schema.ts';
+import { employmentPeriod, person, userProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 
 export interface DirectoryRow {
@@ -46,13 +46,11 @@ export async function listDirectory(
   const page = Math.max(opts.page ?? 0, 0);
   const pageSize = Math.min(Math.max(opts.pageSize ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
 
-  // FROM person LEFT JOIN worker: every person in this system has a worker row (they're
-  // created together), but base on the person set so a person without one still surfaces
-  // (with blanked display fields) instead of silently vanishing.
-  const fullName = sql<string>`coalesce(${worker.full_name}, '')`;
+  // Biographical fields live on person; job_title on the open employment_period.
+  const fullName = sql<string>`coalesce(${person.full_name}, '')`;
 
   const searchFilter = opts.search
-    ? or(ilike(worker.full_name, `%${opts.search}%`), ilike(worker.work_email, `%${opts.search}%`))
+    ? or(ilike(person.full_name, `%${opts.search}%`), ilike(person.work_email, `%${opts.search}%`))
     : undefined;
 
   const statusFilter =
@@ -82,7 +80,7 @@ export async function listDirectory(
 
   const whereClause = and(
     eq(person.tenant_id, session.tenant_id),
-    isNull(worker.deleted_at),
+    isNull(person.deleted_at),
     searchFilter,
     statusFilter,
     employmentFilter,
@@ -92,8 +90,8 @@ export async function listDirectory(
   const selection = {
     person_id: person.id,
     full_name: fullName,
-    work_email: worker.work_email,
-    job_title: worker.job_title,
+    work_email: person.work_email,
+    job_title: employmentPeriod.job_title,
     employment_status: sql<
       'active' | 'terminated'
     >`CASE WHEN ${employmentPeriod.id} IS NOT NULL THEN 'active' ELSE 'terminated' END`,
@@ -105,7 +103,6 @@ export async function listDirectory(
     peopleDb()
       .select(selection)
       .from(person)
-      .leftJoin(worker, eq(worker.person_id, person.id))
       .leftJoin(
         employmentPeriod,
         and(eq(employmentPeriod.person_id, person.id), isNull(employmentPeriod.end_date)),
@@ -121,7 +118,6 @@ export async function listDirectory(
     peopleDb()
       .select({ total: sql<number>`count(*)::int` })
       .from(person)
-      .leftJoin(worker, eq(worker.person_id, person.id))
       .leftJoin(
         employmentPeriod,
         and(eq(employmentPeriod.person_id, person.id), isNull(employmentPeriod.end_date)),

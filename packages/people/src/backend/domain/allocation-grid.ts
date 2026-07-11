@@ -3,8 +3,8 @@ import { and, asc, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import {
   accountProjection,
+  person,
   projectProjection,
-  worker,
   workerAllocationProjection,
 } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
@@ -110,7 +110,7 @@ export async function getAllocationGrid(
   requirePermission(session, 'people.worker.read');
 
   const year = query.year ?? new Date().getUTCFullYear();
-  const scope = buildWorkerScope(session); // SQL predicate on worker.person_id, or null for tenant scope
+  const scope = buildWorkerScope(session); // SQL predicate on person.id, or null for tenant scope
 
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),
@@ -122,8 +122,8 @@ export async function getAllocationGrid(
   const raw = (await peopleDb()
     .select({
       worker_id: workerAllocationProjection.worker_id,
-      employee_no: worker.employee_no,
-      full_name: worker.full_name,
+      employee_no: person.employee_no,
+      full_name: person.full_name,
       account_id: workerAllocationProjection.account_id,
       account_name: workerAllocationProjection.account_name,
       project_id: workerAllocationProjection.project_id,
@@ -135,11 +135,11 @@ export async function getAllocationGrid(
     })
     .from(workerAllocationProjection)
     .innerJoin(
-      worker,
+      person,
       and(
-        eq(worker.person_id, workerAllocationProjection.worker_id),
-        eq(worker.tenant_id, workerAllocationProjection.tenant_id),
-        sql`${worker.deleted_at} IS NULL`,
+        eq(person.id, workerAllocationProjection.worker_id),
+        eq(person.tenant_id, workerAllocationProjection.tenant_id),
+        sql`${person.deleted_at} IS NULL`,
       ),
     )
     .leftJoin(
@@ -153,7 +153,7 @@ export async function getAllocationGrid(
     // Group each person's project rows together (sorted by name) so the grid renders a worker's
     // allocations as one consecutive block.
     .orderBy(
-      asc(worker.full_name),
+      asc(person.full_name),
       asc(workerAllocationProjection.worker_id),
       asc(projectProjection.name),
     )) as RawRow[];
