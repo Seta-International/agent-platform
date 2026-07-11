@@ -18,7 +18,7 @@ export function makeProjectionUpsertSubscribers<P>(opts: {
   table: PgTable;
   conflictTarget: PgColumn;
   toRow: (payload: P) => Record<string, unknown>;
-}): SubscriberDef[] {
+}): [SubscriberDef, SubscriberDef] {
   const targetName = opts.conflictTarget.name;
 
   const upsert = async (event: DomainEvent<P>, ctx: SubscriberCtx): Promise<void> => {
