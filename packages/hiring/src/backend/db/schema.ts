@@ -320,7 +320,7 @@ export const application = hiringSchema.table(
       .references(() => requisition.id),
     kind: textEnum('kind', APPLICATION_KINDS).notNull(),
     candidate_id: uuid('candidate_id').references(() => candidate.id),
-    worker_id: uuid('worker_id'), // people.worker (no cross-schema FK)
+    person_id: uuid('person_id'), // people.person (no cross-schema FK)
     stage: textEnum('stage', APPLICATION_STAGES).notNull().default('new'),
     status: textEnum('status', APPLICATION_STATUS).notNull().default('active'),
     rating: integer('rating'),
@@ -338,11 +338,11 @@ export const application = hiringSchema.table(
       .on(t.tenant_id, t.requisition_id, t.candidate_id)
       .where(sql`candidate_id IS NOT NULL AND status = 'active'`),
     uniqueIndex('application_uniq_worker')
-      .on(t.tenant_id, t.requisition_id, t.worker_id)
-      .where(sql`worker_id IS NOT NULL AND status = 'active'`),
+      .on(t.tenant_id, t.requisition_id, t.person_id)
+      .where(sql`person_id IS NOT NULL AND status = 'active'`),
     index('application_by_requisition').on(t.tenant_id, t.requisition_id),
     index('application_by_candidate').on(t.tenant_id, t.candidate_id),
-    index('application_by_worker').on(t.tenant_id, t.worker_id),
+    index('application_by_worker').on(t.tenant_id, t.person_id),
     // Self-FK via the table's own column proxy (t) — not the lazily-bound `application`
     // export — since both endpoints belong to this table, no TDZ issue like the
     // cross-table forward refs above.
@@ -357,7 +357,7 @@ export const application = hiringSchema.table(
     check('application_rating_check', sql`rating IS NULL OR rating BETWEEN 0 AND 5`),
     check(
       'application_one_subject_check',
-      sql`(candidate_id IS NOT NULL) <> (worker_id IS NOT NULL)`,
+      sql`(candidate_id IS NOT NULL) <> (person_id IS NOT NULL)`,
     ),
   ],
 );

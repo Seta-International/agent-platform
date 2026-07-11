@@ -31,7 +31,7 @@ describe('application exactly-one-subject CHECK', () => {
             requisition_id,
             kind: 'external',
             candidate_id: crypto.randomUUID(),
-            worker_id: crypto.randomUUID(),
+            person_id: crypto.randomUUID(),
           }),
         ).rejects.toThrow();
 
@@ -44,7 +44,7 @@ describe('application exactly-one-subject CHECK', () => {
           }),
         ).rejects.toThrow();
 
-        // exactly one → accepted. Uses worker_id (an FK-less people.worker soft ref) so the row
+        // exactly one → accepted. Uses person_id (an FK-less people.person soft ref) so the row
         // exercises the exactly-one-subject CHECK without needing a candidate row to satisfy
         // application.candidate_id → candidate.id.
         const inserted = await hiringDb()
@@ -53,7 +53,7 @@ describe('application exactly-one-subject CHECK', () => {
             tenant_id: t.tenant_id,
             requisition_id,
             kind: 'internal',
-            worker_id: crypto.randomUUID(),
+            person_id: crypto.randomUUID(),
           })
           .returning({ id: application.id });
         expect(inserted).toHaveLength(1);
