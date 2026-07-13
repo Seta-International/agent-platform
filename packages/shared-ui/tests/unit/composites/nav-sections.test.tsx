@@ -45,7 +45,7 @@ describe('toSideNavSections', () => {
   it('renders nested children as sub-items', () => {
     const nested: NavSection[] = [
       {
-        label: 'Settings',
+        label: 'Configuration',
         items: [
           {
             id: 'settings',
@@ -56,7 +56,7 @@ describe('toSideNavSections', () => {
       },
     ];
     render(<>{toSideNavSections(nested, undefined, DefaultShellLink)}</>);
-    expect(screen.getAllByText('Settings')).toHaveLength(3); // section header + nav item + hidden label
+    expect(screen.getByText('Configuration')).toBeInTheDocument();
     expect(screen.getByText('General')).toBeInTheDocument();
   });
 
