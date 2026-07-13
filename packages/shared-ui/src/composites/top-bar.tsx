@@ -21,8 +21,6 @@ export interface TopBarProps {
   /** Slot that replaces the default bell button. Pass a self-contained NotificationPopover here. */
   notificationPanel?: React.ReactNode;
   onMobileNavOpen?: () => void;
-  onLauncherOpen?: () => void;
-  launcherOpen?: boolean;
   /** Content rendered in the app-launcher popover, typically an AppLauncher. */
   launcherContent?: React.ReactNode;
   className?: string;
