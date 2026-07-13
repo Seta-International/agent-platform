@@ -33,7 +33,6 @@ import {
   Check,
   FolderKanban,
   Info,
-  Percent,
   Plus,
   Trash2,
 } from 'lucide-react';
@@ -49,11 +48,17 @@ import {
 } from '../api/pm-client.ts';
 import { AllocationTimeline, type TimelineRow } from './allocation-timeline.tsx';
 import {
+  ALLOCATION_FRACTION_STEPS,
   type Bucket,
   daysBetweenInclusive,
   emptyReassignRow,
+  existingAllocationErrors,
   formatDisplayDate,
+  fractionToPct,
+  isValidIsoDate,
+  pctToFraction,
   type ReassignTargetRow,
+  targetAllocationErrors,
   todayIso,
 } from './ra-shared.tsx';
 
@@ -156,7 +161,8 @@ export function ReassignWizardDialog({
     return {
       account_id: effective.account_id,
       project_id: effective.project_id,
-      planned_pct: String(effective.planned_pct),
+      // Held as a 0–1 fraction in the draft; converted back to a percentage on save.
+      planned_pct: pctToFraction(effective.planned_pct),
       date_from: effective.date_from ?? '',
       date_to: effective.date_to ?? '',
       bucket: effective.bucket,
@@ -175,7 +181,7 @@ export function ReassignWizardDialog({
     mutationFn: (vars: { allocationId: string; draft: RowDraft; expectedVersion: number }) =>
       updateAllocation(vars.allocationId, {
         project_id: vars.draft.project_id,
-        planned_pct: Number(vars.draft.planned_pct),
+        planned_pct: fractionToPct(vars.draft.planned_pct),
         date_from: vars.draft.date_from,
         date_to: vars.draft.date_to || null,
         bucket: vars.draft.bucket,
@@ -189,7 +195,8 @@ export function ReassignWizardDialog({
         [vars.allocationId]: {
           account_id: vars.draft.account_id,
           project_id: vars.draft.project_id,
-          planned_pct: Number(vars.draft.planned_pct),
+          // savedOverrides mirror the backend's percentage semantics (feeds effectiveRow/timeline).
+          planned_pct: fractionToPct(vars.draft.planned_pct),
           date_from: vars.draft.date_from,
           date_to: vars.draft.date_to,
           bucket: vars.draft.bucket,
@@ -225,7 +232,7 @@ export function ReassignWizardDialog({
         targets: targetRows.map((r) => ({
           project_id: r.project_id,
           date_from: r.date_from,
-          planned_pct: Number(r.planned_pct),
+          planned_pct: fractionToPct(r.planned_pct),
           bucket: r.bucket,
           date_to: r.date_to || null,
         })),
@@ -242,7 +249,7 @@ export function ReassignWizardDialog({
         targets: targetRows.map((r) => ({
           project_id: r.project_id,
           date_from: r.date_from,
-          planned_pct: Number(r.planned_pct),
+          planned_pct: fractionToPct(r.planned_pct),
           bucket: r.bucket,
           date_to: r.date_to || null,
         })),
@@ -267,9 +274,45 @@ export function ReassignWizardDialog({
     previewMutation.mutate();
   }
 
+  // Per-row validation errors for the "Add project" rows: a past start date, or an overlap with
+  // another allocation on the same project (FUT-349). Shown inline in red and used to gate Review.
+  const targetErrors = useMemo(
+    () => targetAllocationErrors(targetRows, allocations, todayIso()),
+    [targetRows, allocations],
+  );
+
+  // Same validation for the existing ("update") rows: a start edited into the past, or an
+  // overlap between two of this person's allocations on one project. Keyed by allocation id;
+  // gates each row's own Save and surfaces above the Add project button. Cheap (a handful of
+  // rows) and depends on per-render draft state, so it's computed inline rather than memoized.
+  const existingErrors = existingAllocationErrors(
+    futureAllocations.map((a) => {
+      const eff = effectiveRow(a);
+      const draft = draftFor(a);
+      return {
+        id: a.allocation_id,
+        project_id: draft.project_id,
+        date_from: draft.date_from,
+        date_to: draft.date_to,
+        locked: !!eff.date_from && eff.date_from < todayIso(),
+      };
+    }),
+    todayIso(),
+  );
+
+  // Start and end date are both mandatory for a new allocation — Review impact stays disabled
+  // until every target row has a project, a positive allocation, two valid calendar dates, and
+  // no validation error.
   const canReview =
     targetRows.length > 0 &&
-    targetRows.every((r) => r.project_id && r.date_from && Number(r.planned_pct) > 0);
+    targetRows.every(
+      (r, i) =>
+        r.project_id &&
+        Number(r.planned_pct) > 0 &&
+        isValidIsoDate(r.date_from) &&
+        isValidIsoDate(r.date_to) &&
+        targetErrors[i] == null,
+    );
 
   const dialogScrollRef = useRef<HTMLDivElement>(null);
 
@@ -298,238 +341,274 @@ export function ReassignWizardDialog({
           if (!open) onClose();
         }}
       >
-        <DialogContent
-          ref={dialogScrollRef}
-          onPointerDownCapture={preserveScrollPosition}
-          className="max-h-[90vh] overflow-y-auto sm:max-w-6xl"
-        >
-          <DialogHeader>
-            <DialogTitle>{target?.worker_name ?? 'Employee'}</DialogTitle>
-          </DialogHeader>
+        {/* Scroll lives on an inner wrapper, not DialogContent itself, so account/project
+            dropdowns (portaled into the dialog) aren't clipped by the scroll container's
+            overflow when they open upward near the bottom of a tall dialog. */}
+        <DialogContent className="sm:max-w-6xl">
+          <div
+            ref={dialogScrollRef}
+            onPointerDownCapture={preserveScrollPosition}
+            className="max-h-[calc(90vh-3rem)] overflow-y-auto"
+          >
+            <DialogHeader className="mb-3">
+              <DialogTitle>{target?.worker_name ?? 'Employee'}</DialogTitle>
+            </DialogHeader>
 
-          {step === 2 ? (
-            <ReviewStep
-              preview={preview}
-              currentAllocations={futureAllocations}
-              previewMutation={previewMutation}
-              mutation={mutation}
-              onBack={() => setStep(1)}
-              onConfirm={() => mutation.mutate()}
-            />
-          ) : (
-            <div className="space-y-4">
-              <div className="overflow-hidden rounded-md border border-hairline">
-                <div className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] gap-2 bg-surface-1 px-2 py-2 text-caption text-ink-muted">
-                  <div className="text-left font-medium">Account</div>
-                  <div className="text-left font-medium">Project</div>
-                  <div className="text-left font-medium">Allocation</div>
-                  <div className="text-left font-medium">Start date</div>
-                  <div className="text-left font-medium">End date</div>
-                  <div className="text-left font-medium">Type</div>
-                  <div className="text-left font-medium">Note</div>
-                  <div className="text-left font-medium">Action</div>
-                </div>
-                {futureAllocations.map((a) => {
-                  const draft = draftFor(a);
-                  return (
-                    <div
-                      key={a.allocation_id}
-                      className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] items-center gap-2 border-t border-hairline px-2 py-2 text-body-sm"
-                    >
-                      <div className="relative">
-                        <Building2
-                          aria-hidden="true"
-                          className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
-                        />
-                        <Combobox
-                          options={accountOptions}
-                          value={draft.account_id || null}
-                          onChange={(v) =>
-                            updateRowDraft(a, { account_id: v ?? '', project_id: '' })
-                          }
-                          placeholder="Select account…"
-                          searchPlaceholder="Search accounts…"
-                          className="w-full pl-7"
-                          aria-label={`Account for ${a.project_name}`}
-                        />
-                      </div>
-                      <div className="relative">
-                        <FolderKanban
-                          aria-hidden="true"
-                          className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
-                        />
-                        <Combobox
-                          options={projects
-                            // Reassign target must be a project the caller manages (FUT-353) —
-                            // the backend rejects others, so don't offer them.
-                            .filter(
-                              (p) =>
-                                p.can_manage &&
-                                (!draft.account_id || p.account_id === draft.account_id),
-                            )
-                            .map((p) => ({ value: p.project_id, label: p.name }))}
-                          value={draft.project_id || null}
-                          onChange={(v) => updateRowDraft(a, { project_id: v ?? '' })}
-                          placeholder={
-                            draft.account_id ? 'Select project…' : 'Pick an account first'
-                          }
-                          searchPlaceholder="Search projects…"
-                          className="w-full pl-7"
-                          aria-label={`Project for ${a.project_name}`}
-                        />
-                      </div>
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          className="h-8 pr-5"
-                          value={draft.planned_pct}
-                          onChange={(e) => updateRowDraft(a, { planned_pct: e.target.value })}
-                        />
-                        <Percent
-                          aria-hidden="true"
-                          className="pointer-events-none absolute right-2 top-1/2 size-3 -translate-y-1/2 text-ink-subtle"
-                        />
-                      </div>
-                      <Input
-                        type="date"
-                        aria-label={`Start date for ${a.project_name}`}
-                        className="h-8 text-caption"
-                        value={draft.date_from}
-                        onChange={(e) => {
-                          const newFrom = e.target.value;
-                          updateRowDraft(a, {
-                            date_from: newFrom,
-                            date_to:
-                              draft.date_to && draft.date_to < newFrom ? newFrom : draft.date_to,
-                          });
-                        }}
-                      />
-                      <Input
-                        type="date"
-                        aria-label={`End date for ${a.project_name}`}
-                        className="h-8 text-caption"
-                        min={draft.date_from || undefined}
-                        value={draft.date_to}
-                        onChange={(e) => updateRowDraft(a, { date_to: e.target.value })}
-                      />
-                      <Select
-                        value={draft.bucket}
-                        onValueChange={(v) => updateRowDraft(a, { bucket: v as Bucket })}
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="billable">Billable</SelectItem>
-                          <SelectItem value="internal">Internal</SelectItem>
-                          <SelectItem value="bench">Bench</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        className="h-8"
-                        value={draft.note}
-                        onChange={(e) => updateRowDraft(a, { note: e.target.value })}
-                      />
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          aria-label={`Save ${a.project_name}`}
-                          disabled={
-                            saveRowMutation.isPending || !draft.account_id || !draft.project_id
-                          }
-                          onClick={() =>
-                            saveRowMutation.mutate({
-                              allocationId: a.allocation_id,
-                              draft,
-                              expectedVersion: a.version,
-                            })
-                          }
-                        >
-                          <Check className="size-3.5 text-[var(--color-success)]" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          aria-label={`Delete ${a.project_name}`}
-                          onClick={() => setConfirmTarget(a)}
-                        >
-                          <Trash2 className="size-3.5 text-ink-subtle" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-fit gap-1.5 border-primary text-primary hover:bg-primary-tint"
-                onClick={() => setTargetRows((rs) => [...rs, emptyReassignRow(todayIso())])}
-              >
-                <Plus className="size-4" />
-                Add project
-              </Button>
-
-              {targetRows.length > 0 ? (
+            {step === 2 ? (
+              <ReviewStep
+                preview={preview}
+                currentAllocations={futureAllocations}
+                previewMutation={previewMutation}
+                mutation={mutation}
+                onBack={() => setStep(1)}
+                onConfirm={() => mutation.mutate()}
+              />
+            ) : (
+              <div className="space-y-4">
                 <div className="overflow-hidden rounded-md border border-hairline">
-                  <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] gap-2 bg-surface-1 px-2 py-2 text-caption text-ink-muted">
-                    <div className="text-left font-medium">
-                      Account <span className="text-danger-ink">*</span>
-                    </div>
-                    <div className="text-left font-medium">
-                      Project <span className="text-danger-ink">*</span>
-                    </div>
-                    <div className="text-left font-medium">
-                      Allocation (%) <span className="text-danger-ink">*</span>
-                    </div>
+                  <div className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] gap-2 bg-surface-1 px-2 py-2 text-caption text-ink-muted">
+                    <div className="text-left font-medium">Account</div>
+                    <div className="text-left font-medium">Project</div>
+                    <div className="text-left font-medium">Allocation</div>
                     <div className="text-left font-medium">Start date</div>
                     <div className="text-left font-medium">End date</div>
                     <div className="text-left font-medium">Type</div>
+                    <div className="text-left font-medium">Note</div>
                     <div className="text-left font-medium">Action</div>
                   </div>
-                  {targetRows.map((row, i) => (
-                    <TargetRowFields
-                      key={row.key}
-                      row={row}
-                      accountOptions={accountOptions}
-                      projects={projects}
-                      onChange={(patch) =>
-                        setTargetRows((rs) =>
-                          rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
-                        )
-                      }
-                      onRemove={() => setTargetRows((rs) => rs.filter((_, idx) => idx !== i))}
-                      canRemove={targetRows.length > 1}
-                    />
-                  ))}
+                  {futureAllocations.map((a) => {
+                    const draft = draftFor(a);
+                    // A row that already started (start date in the past) is locked to end-date and
+                    // delete only — you can shorten/extend or remove it, but not rewrite its terms.
+                    const eff = effectiveRow(a);
+                    const startLocked = !!eff.date_from && eff.date_from < todayIso();
+                    return (
+                      <div
+                        key={a.allocation_id}
+                        className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] items-center gap-2 border-t border-hairline px-2 py-2 text-body-sm"
+                      >
+                        <div className="relative">
+                          <Building2
+                            aria-hidden="true"
+                            className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
+                          />
+                          <Combobox
+                            options={accountOptions}
+                            value={draft.account_id || null}
+                            disabled={startLocked}
+                            onChange={(v) =>
+                              updateRowDraft(a, {
+                                account_id: v ?? '',
+                                project_id: '',
+                              })
+                            }
+                            placeholder="Select account…"
+                            searchPlaceholder="Search accounts…"
+                            className="w-full pl-7"
+                            aria-label={`Account for ${a.project_name}`}
+                          />
+                        </div>
+                        <div className="relative">
+                          <FolderKanban
+                            aria-hidden="true"
+                            className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
+                          />
+                          <Combobox
+                            options={projects
+                              // Reassign target must be a project the caller manages (FUT-353) —
+                              // the backend rejects others, so don't offer them.
+                              .filter(
+                                (p) =>
+                                  p.can_manage &&
+                                  (!draft.account_id || p.account_id === draft.account_id),
+                              )
+                              .map((p) => ({
+                                value: p.project_id,
+                                label: p.name,
+                              }))}
+                            value={draft.project_id || null}
+                            disabled={startLocked}
+                            onChange={(v) => updateRowDraft(a, { project_id: v ?? '' })}
+                            placeholder={
+                              draft.account_id ? 'Select project…' : 'Pick an account first'
+                            }
+                            searchPlaceholder="Search projects…"
+                            className="w-full pl-7"
+                            aria-label={`Project for ${a.project_name}`}
+                          />
+                        </div>
+                        <AllocationSelect
+                          value={draft.planned_pct}
+                          disabled={startLocked}
+                          ariaLabel={`Allocation for ${a.project_name}`}
+                          onChange={(v) => updateRowDraft(a, { planned_pct: v })}
+                        />
+                        <Input
+                          type="date"
+                          aria-label={`Start date for ${a.project_name}`}
+                          className="h-8 text-caption"
+                          disabled={startLocked}
+                          value={draft.date_from}
+                          onChange={(e) => {
+                            const newFrom = e.target.value;
+                            updateRowDraft(a, {
+                              date_from: newFrom,
+                              date_to:
+                                draft.date_to && draft.date_to < newFrom ? newFrom : draft.date_to,
+                            });
+                          }}
+                        />
+                        <Input
+                          type="date"
+                          aria-label={`End date for ${a.project_name}`}
+                          className="h-8 text-caption"
+                          min={draft.date_from || undefined}
+                          value={draft.date_to}
+                          onChange={(e) => updateRowDraft(a, { date_to: e.target.value })}
+                        />
+                        <Select
+                          value={draft.bucket}
+                          disabled={startLocked}
+                          onValueChange={(v) => updateRowDraft(a, { bucket: v as Bucket })}
+                        >
+                          <SelectTrigger className="h-8" aria-label={`Type for ${a.project_name}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="billable">Billable</SelectItem>
+                            <SelectItem value="internal">Internal</SelectItem>
+                            <SelectItem value="bench">Bench</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          className="h-8"
+                          aria-label={`Note for ${a.project_name}`}
+                          disabled={startLocked}
+                          value={draft.note}
+                          onChange={(e) => updateRowDraft(a, { note: e.target.value })}
+                        />
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            aria-label={`Save ${a.project_name}`}
+                            disabled={
+                              saveRowMutation.isPending ||
+                              !draft.account_id ||
+                              !draft.project_id ||
+                              existingErrors[a.allocation_id] != null
+                            }
+                            onClick={() =>
+                              saveRowMutation.mutate({
+                                allocationId: a.allocation_id,
+                                draft,
+                                expectedVersion: a.version,
+                              })
+                            }
+                          >
+                            <Check className="size-3.5 text-[var(--color-success)]" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            aria-label={`Delete ${a.project_name}`}
+                            onClick={() => setConfirmTarget(a)}
+                          >
+                            <Trash2 className="size-3.5 text-ink-subtle" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ) : null}
 
-              <Alert variant="info">
-                <Info />
-                <AlertDescription>
-                  <strong className="text-ink">Note:</strong> new allocation(s) added above will be
-                  applied after you review and confirm in the next step.
-                </AlertDescription>
-              </Alert>
-            </div>
-          )}
+                {futureAllocations.some((a) => existingErrors[a.allocation_id]) ? (
+                  <div className="space-y-0.5">
+                    {futureAllocations.map((a) =>
+                      existingErrors[a.allocation_id] ? (
+                        <p
+                          key={a.allocation_id}
+                          role="alert"
+                          className="text-caption font-medium text-danger-ink"
+                        >
+                          {a.project_name}: {existingErrors[a.allocation_id]}
+                        </p>
+                      ) : null,
+                    )}
+                  </div>
+                ) : null}
 
-          {step === 1 ? (
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="ghost" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button disabled={!canReview} className="gap-1.5" onClick={goToReview}>
-                Review impact
-                <ArrowRight className="size-4" />
-              </Button>
-            </div>
-          ) : null}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-fit gap-1.5 border-primary text-primary hover:bg-primary-tint"
+                  onClick={() => setTargetRows((rs) => [...rs, emptyReassignRow(todayIso())])}
+                >
+                  <Plus className="size-4" />
+                  Add project
+                </Button>
+
+                {targetRows.length > 0 ? (
+                  <div className="overflow-hidden rounded-md border border-hairline">
+                    <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] gap-2 bg-surface-1 px-2 py-2 text-caption text-ink-muted">
+                      <div className="text-left font-medium">
+                        Account <span className="text-danger-ink">*</span>
+                      </div>
+                      <div className="text-left font-medium">
+                        Project <span className="text-danger-ink">*</span>
+                      </div>
+                      <div className="text-left font-medium">
+                        Allocation <span className="text-danger-ink">*</span>
+                      </div>
+                      <div className="text-left font-medium">Start date</div>
+                      <div className="text-left font-medium">End date</div>
+                      <div className="text-left font-medium">Type</div>
+                      <div className="text-left font-medium">Action</div>
+                    </div>
+                    {targetRows.map((row, i) => (
+                      <TargetRowFields
+                        key={row.key}
+                        row={row}
+                        error={targetErrors[i] ?? null}
+                        accountOptions={accountOptions}
+                        projects={projects}
+                        onChange={(patch) =>
+                          setTargetRows((rs) =>
+                            rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
+                          )
+                        }
+                        onRemove={() => setTargetRows((rs) => rs.filter((_, idx) => idx !== i))}
+                        canRemove={targetRows.length > 1}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                <div
+                  role="alert"
+                  className="flex items-center gap-3 rounded-md bg-primary-tint p-sm text-body-sm text-primary-ink"
+                >
+                  <Info className="size-4 shrink-0 text-primary" />
+                  <div>
+                    <strong className="text-ink">Note:</strong> new allocation(s) added above will
+                    be applied after you review and confirm in the next step.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 1 ? (
+              <div className="flex justify-end gap-2 pt-3">
+                <Button variant="ghost" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button disabled={!canReview} className="gap-1.5" onClick={goToReview}>
+                  Review impact
+                  <ArrowRight className="size-4" />
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -569,6 +648,38 @@ export function ReassignWizardDialog({
   );
 }
 
+// Allocation picker: a 0–1 fraction in 0.1 steps (0, 0.1 … 1). An off-step stored value
+// (e.g. a legacy 33% → '0.33') is kept as an extra option so editing never silently snaps it.
+function AllocationSelect({
+  value,
+  onChange,
+  disabled,
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  ariaLabel: string;
+}) {
+  const options = (ALLOCATION_FRACTION_STEPS as readonly string[]).includes(value)
+    ? ALLOCATION_FRACTION_STEPS
+    : [value, ...ALLOCATION_FRACTION_STEPS];
+  return (
+    <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger className="h-8" aria-label={ariaLabel}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((v) => (
+          <SelectItem key={v} value={v}>
+            {v}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function TargetRowFields({
   row,
   accountOptions,
@@ -576,6 +687,7 @@ function TargetRowFields({
   onChange,
   onRemove,
   canRemove,
+  error,
 }: {
   row: ReassignTargetRow;
   accountOptions: ComboboxOption[];
@@ -583,93 +695,92 @@ function TargetRowFields({
   onChange: (patch: Partial<ReassignTargetRow>) => void;
   onRemove: () => void;
   canRemove: boolean;
+  error: string | null;
 }) {
   return (
-    <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] items-center gap-2 border-t border-hairline px-2 py-2">
-      <div className="relative">
-        <Building2
-          aria-hidden="true"
-          className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
-        />
-        <Combobox
-          options={accountOptions}
-          value={row.account_id || null}
-          onChange={(v) => onChange({ account_id: v ?? '', project_id: '' })}
-          placeholder="Select account…"
-          searchPlaceholder="Search accounts…"
-          className="w-full pl-7"
-          aria-label="Account"
-        />
-      </div>
-      <div className="relative">
-        <FolderKanban
-          aria-hidden="true"
-          className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
-        />
-        <Combobox
-          options={projects
-            .filter((p) => !row.account_id || p.account_id === row.account_id)
-            .map((p) => ({ value: p.project_id, label: p.name }))}
-          value={row.project_id || null}
-          onChange={(v) => onChange({ project_id: v ?? '' })}
-          placeholder={row.account_id ? 'Select project…' : 'Pick an account first'}
-          searchPlaceholder="Search projects…"
-          className="w-full pl-7"
-          aria-label="Project"
-        />
-      </div>
-      <div className="relative">
-        <Input
-          type="number"
-          min={0}
-          max={100}
-          className="pr-6"
+    <div className="border-t border-hairline">
+      <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] items-center gap-2 px-2 py-2">
+        <div className="relative">
+          <Building2
+            aria-hidden="true"
+            className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
+          />
+          <Combobox
+            options={accountOptions}
+            value={row.account_id || null}
+            onChange={(v) => onChange({ account_id: v ?? '', project_id: '' })}
+            placeholder="Select account…"
+            searchPlaceholder="Search accounts…"
+            className="w-full pl-7"
+            aria-label="Account"
+          />
+        </div>
+        <div className="relative">
+          <FolderKanban
+            aria-hidden="true"
+            className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
+          />
+          <Combobox
+            options={projects
+              .filter((p) => !row.account_id || p.account_id === row.account_id)
+              .map((p) => ({ value: p.project_id, label: p.name }))}
+            value={row.project_id || null}
+            onChange={(v) => onChange({ project_id: v ?? '' })}
+            placeholder={row.account_id ? 'Select project…' : 'Pick an account first'}
+            searchPlaceholder="Search projects…"
+            className="w-full pl-7"
+            aria-label="Project"
+          />
+        </div>
+        <AllocationSelect
           value={row.planned_pct}
-          onChange={(e) => onChange({ planned_pct: e.target.value })}
+          ariaLabel="Allocation"
+          onChange={(v) => onChange({ planned_pct: v })}
         />
-        <Percent
-          aria-hidden="true"
-          className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-ink-subtle"
+        <Input
+          type="date"
+          aria-label="Start date"
+          value={row.date_from}
+          onChange={(e) => {
+            const newFrom = e.target.value;
+            onChange({
+              date_from: newFrom,
+              date_to: row.date_to && row.date_to < newFrom ? newFrom : row.date_to,
+            });
+          }}
         />
+        <Input
+          type="date"
+          aria-label="End date"
+          min={row.date_from || undefined}
+          value={row.date_to}
+          onChange={(e) => onChange({ date_to: e.target.value })}
+        />
+        <Select value={row.bucket} onValueChange={(v) => onChange({ bucket: v as Bucket })}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="billable">Billable</SelectItem>
+            <SelectItem value="internal">Internal</SelectItem>
+            <SelectItem value="bench">Bench</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label="Remove"
+          disabled={!canRemove}
+          onClick={onRemove}
+        >
+          <Trash2 className="size-4" />
+        </Button>
       </div>
-      <Input
-        type="date"
-        aria-label="Start date"
-        value={row.date_from}
-        onChange={(e) => {
-          const newFrom = e.target.value;
-          onChange({
-            date_from: newFrom,
-            date_to: row.date_to && row.date_to < newFrom ? newFrom : row.date_to,
-          });
-        }}
-      />
-      <Input
-        type="date"
-        aria-label="End date"
-        min={row.date_from || undefined}
-        value={row.date_to}
-        onChange={(e) => onChange({ date_to: e.target.value })}
-      />
-      <Select value={row.bucket} onValueChange={(v) => onChange({ bucket: v as Bucket })}>
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="billable">Billable</SelectItem>
-          <SelectItem value="internal">Internal</SelectItem>
-          <SelectItem value="bench">Bench</SelectItem>
-        </SelectContent>
-      </Select>
-      <Button
-        size="icon"
-        variant="ghost"
-        aria-label="Remove"
-        disabled={!canRemove}
-        onClick={onRemove}
-      >
-        <Trash2 className="size-4" />
-      </Button>
+      {error ? (
+        <p role="alert" className="px-2 pb-2 text-caption font-medium text-danger-ink">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -730,9 +841,14 @@ function ReviewStep({
       ) : null}
 
       {preview?.exceeds ? (
-        <Alert variant="destructive">
-          <AlertCircle />
-          <AlertDescription>
+        // Over-allocation is a soft warning (you can still confirm), so it's amber, not red — and
+        // laid out as a centered flex row so the icon lines up with the middle of the text.
+        <div
+          role="alert"
+          className="flex items-center gap-3 rounded-md bg-semantic-warning-tint p-sm text-body-sm text-semantic-warning"
+        >
+          <AlertCircle className="size-4 shrink-0" />
+          <div>
             This will allocate {preview.worker_name ?? 'this person'} to{' '}
             <strong>{preview.peak_pct}%</strong> at the busiest point.
             {preview.peak_from ? (
@@ -748,8 +864,8 @@ function ReviewStep({
             ) : (
               ' — over 100%. You can still confirm below.'
             )}
-          </AlertDescription>
-        </Alert>
+          </div>
+        </div>
       ) : null}
 
       <AllocationTimeline rows={timelineRows} todayIso={todayIso()} />
@@ -759,7 +875,7 @@ function ReviewStep({
           Back
         </Button>
         <Button disabled={mutation.isPending} onClick={onConfirm}>
-          {mutation.isPending ? 'Confirming…' : 'Confirm reassign'}
+          {mutation.isPending ? 'Confirming…' : 'Confirm'}
         </Button>
       </div>
     </div>

@@ -355,7 +355,7 @@ export function CandidateDetailDrawer({
                       data.skills.map((s) => (
                         <Badge key={s.skill_id} variant="secondary">
                           <span>{s.skill_name}</span>
-                          {s.level != null ? <span>{` · L${s.level}`}</span> : null}
+                          {s.level ? <span>{` · L${s.level}`}</span> : null}
                         </Badge>
                       ))
                     )}

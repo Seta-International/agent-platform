@@ -41,12 +41,8 @@ import {
 } from '../api/pm-client.ts';
 import { useWorkerSearch } from '../api/worker-search.ts';
 import { pmKeys } from '../state/query-keys.ts';
-import {
-  clippedCalendarEffort,
-  type EffortWindow,
-  overAllocatedWorkers,
-  rollupKpis,
-} from './ra-effort.ts';
+import { rowCalendarEffort } from '../utils/common.ts';
+import { type EffortWindow, overAllocatedWorkers, rollupKpis } from './ra-effort.ts';
 import { firstInGroupIds, groupByPerson, SECONDARY_SORT_FIELDS } from './ra-grouping.ts';
 import { type Bucket, bucketBadge, formatDisplayDate } from './ra-shared.tsx';
 import { ReassignWizardDialog, type ReassignWizardTarget } from './reassign-wizard.tsx';
@@ -405,8 +401,8 @@ export function RaMonitoringPage() {
   const secondaryField = search.sort ?? 'start';
   const secondaryDesc = search.dir === 'desc';
   const groupedRows = useMemo(
-    () => groupByPerson(allocations, secondaryField, secondaryDesc, win),
-    [allocations, secondaryField, secondaryDesc, win],
+    () => groupByPerson(allocations, secondaryField, secondaryDesc),
+    [allocations, secondaryField, secondaryDesc],
   );
   const firstInGroup = useMemo(() => firstInGroupIds(groupedRows), [groupedRows]);
   const rowClassName = useCallback(
@@ -464,9 +460,9 @@ export function RaMonitoringPage() {
     [canManage, overWorkers, firstInGroup],
   );
 
-  // Columns depend only on `win` (the effort accessor). All volatile edit state
-  // is read from `table.options.meta`, so typing in a cell never rebuilds the
-  // column defs — which would remount the inputs and drop focus.
+  // Column defs are static — Calendar effort is computed from each row's own dates against
+  // today, and all volatile edit state is read from `table.options.meta`, so typing in a cell
+  // never rebuilds the column defs (which would remount the inputs and drop focus).
   const columns = useMemo(() => {
     type Ctx = {
       row: { original: RaMonitoringAllocation };
@@ -539,12 +535,15 @@ export function RaMonitoringPage() {
       },
       {
         id: 'planned',
-        header: 'Allocation %',
+        header: 'Allocation',
         accessorFn: (r: RaMonitoringAllocation) => r.planned_pct ?? 0,
         enableSorting: true,
         sortingFn: () => 0,
+        // Shown as a 0–1 fraction (e.g. 100% → 1.0, 40% → 0.4); stored value stays a percentage.
         cell: ({ row }: Ctx) => (
-          <span className="font-mono tabular-nums text-ink">{row.original.planned_pct ?? 0}%</span>
+          <span className="font-mono tabular-nums text-ink">
+            {((row.original.planned_pct ?? 0) / 100).toFixed(1)}
+          </span>
         ),
       },
       {
@@ -574,12 +573,12 @@ export function RaMonitoringPage() {
       {
         id: 'effort',
         header: 'Calendar effort',
-        accessorFn: (r: RaMonitoringAllocation) => clippedCalendarEffort(r, win),
+        accessorFn: (r: RaMonitoringAllocation) => rowCalendarEffort(r),
         enableSorting: true,
         sortingFn: () => 0,
         cell: ({ row }: Ctx) => (
           <span className="font-mono font-semibold tabular-nums text-ink">
-            {clippedCalendarEffort(row.original, win).toFixed(1)}
+            {rowCalendarEffort(row.original).toFixed(2)}
           </span>
         ),
       },
@@ -622,7 +621,7 @@ export function RaMonitoringPage() {
         },
       },
     ];
-  }, [win]);
+  }, []);
 
   const scopeLabel = projectId
     ? (visibleProjects.find((p) => p.project_id === projectId)?.name ?? '1 project')
