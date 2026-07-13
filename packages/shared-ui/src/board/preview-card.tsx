@@ -29,6 +29,7 @@ export interface PreviewCardTask {
   title: string;
   description?: string;
   checklist?: ReadonlyArray<ChecklistItem>;
+  checklist_summary?: { total: number; checked: number };
   references?: ReadonlyArray<PreviewReference>;
   priority: 'urgent' | 'important' | 'medium' | 'low';
   labels?: ReadonlyArray<{ name: string; color?: string }>;
@@ -44,6 +45,7 @@ export interface PreviewCardProps {
 export interface PreviewBodyTask {
   description?: string;
   checklist?: ReadonlyArray<ChecklistItem>;
+  checklist_summary?: { total: number; checked: number };
   references?: ReadonlyArray<PreviewReference>;
 }
 
@@ -117,7 +119,7 @@ function bodyForSource(task: PreviewBodyTask, source: PickedSource) {
   }
   const items = task.checklist ?? [];
   if (items.length === 0) return null;
-  return <ChecklistBody items={items} />;
+  return <ChecklistBody items={items} summary={task.checklist_summary} />;
 }
 
 function ReferenceBody({ refRow }: { refRow: PreviewReference }) {
@@ -165,9 +167,16 @@ function DescriptionBody({ markdown }: { markdown: string }) {
   );
 }
 
-function ChecklistBody({ items }: { items: ReadonlyArray<ChecklistItem> }) {
+function ChecklistBody({
+  items,
+  summary,
+}: {
+  items: ReadonlyArray<ChecklistItem>;
+  summary?: { total: number; checked: number };
+}) {
   const shown = items.slice(0, 3);
-  const doneCount = items.filter((c) => c.done).length;
+  const total = summary ? summary.total : items.length;
+  const doneCount = summary ? summary.checked : items.filter((c) => c.done).length;
   return (
     <div style={checklistBoxStyle}>
       {shown.map((c) => (
@@ -177,7 +186,7 @@ function ChecklistBody({ items }: { items: ReadonlyArray<ChecklistItem> }) {
         </div>
       ))}
       <div className="t-xs subtle" style={{ marginTop: 2 }}>
-        {doneCount} of {items.length}
+        {doneCount} of {total}
       </div>
     </div>
   );

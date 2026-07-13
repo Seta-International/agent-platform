@@ -133,6 +133,7 @@ export function PlanPage({
           text: c.label,
           done: c.checked,
         })),
+        checklist_summary: t.checklist_summary,
         references: t.reference_preview.map((r) => ({
           id: r.id,
           type: r.type,
