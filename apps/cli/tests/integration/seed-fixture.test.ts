@@ -58,7 +58,7 @@ interface Counts {
 async function getCounts(): Promise<Counts> {
   const r = await coreDb().execute(sql`
     SELECT
-      (SELECT COUNT(*) FROM people.worker WHERE deleted_at IS NULL)::int AS workers,
+      (SELECT COUNT(*) FROM people.person WHERE deleted_at IS NULL)::int AS workers,
       (SELECT COUNT(*) FROM identity."user")::int AS users,
       (SELECT COUNT(*) FROM identity.role_assignments WHERE revoked_at IS NULL)::int AS role_assignments,
       (SELECT COUNT(*) FROM pm.account)::int AS accounts,
@@ -304,7 +304,7 @@ describe('seed-fixture end-to-end', () => {
         // Edge-cases phase is skipped, so no worker is deactivated.
         const deactivated = (
           await coreDb().execute(
-            sql`SELECT COUNT(*)::int AS n FROM people.worker WHERE deleted_at IS NOT NULL`,
+            sql`SELECT COUNT(*)::int AS n FROM people.person WHERE deleted_at IS NOT NULL`,
           )
         ).rows[0] as { n: number };
         expect(deactivated.n).toBe(0);

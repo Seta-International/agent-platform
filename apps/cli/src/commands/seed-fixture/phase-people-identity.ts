@@ -13,12 +13,12 @@ import { techStackFor } from './skill-catalog.ts';
 // editWorker); resolve the same id here so create vs. find agree.
 async function findWorkerId(tenantId: string, email: string): Promise<string | undefined> {
   const r = await coreDb().execute(
-    sql`SELECT person_id FROM people.worker
+    sql`SELECT id FROM people.person
         WHERE tenant_id = ${tenantId} AND lower(work_email) = lower(${email})
           AND deleted_at IS NULL
         LIMIT 1`,
   );
-  return (r.rows[0] as { person_id: string } | undefined)?.person_id;
+  return (r.rows[0] as { id: string } | undefined)?.id;
 }
 
 export async function seedPeopleIdentity(
@@ -56,11 +56,11 @@ export async function seedPeopleIdentity(
       // the base seed created from a CSV that lacked the id/phone/gender columns.
       const genderVal = gender.success ? gender.data : null;
       await coreDb().execute(
-        sql`UPDATE people.worker
+        sql`UPDATE people.person
               SET employee_no = ${e.id},
                   phone = coalesce(${e.phone || null}, phone),
                   gender = coalesce(${genderVal}, gender)
-            WHERE person_id = ${workerId}
+            WHERE id = ${workerId}
               AND (employee_no IS DISTINCT FROM ${e.id}
                    OR phone IS DISTINCT FROM ${e.phone || null}
                    OR gender IS DISTINCT FROM ${genderVal})`,
@@ -102,13 +102,13 @@ export async function seedPeopleIdentity(
         );
     }
 
-    // Presence lives on people.worker now. availability defaults to 'available' at
+    // Presence lives on people.person now. availability defaults to 'available' at
     // createWorker; set the fixture timezone (all staff are VN-based). Keyed by the
-    // worker, not a session, so this is not the self-service setPresence path.
+    // person, not a session, so this is not the self-service setPresence path.
     await coreDb().execute(
-      sql`UPDATE people.worker
+      sql`UPDATE people.person
             SET timezone = 'Asia/Ho_Chi_Minh', updated_at = now()
-          WHERE person_id = ${workerId} AND timezone IS DISTINCT FROM 'Asia/Ho_Chi_Minh'`,
+          WHERE id = ${workerId} AND timezone IS DISTINCT FROM 'Asia/Ho_Chi_Minh'`,
     );
 
     // Tech stack — populate people.person_skill (what the directory Techstack column reads).

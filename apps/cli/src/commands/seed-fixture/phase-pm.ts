@@ -68,7 +68,7 @@ async function allocationExists(
     sql`SELECT 1 FROM pm.allocation
         WHERE tenant_id = ${tenantId}
           AND project_id = ${projectId}
-          AND worker_id = ${workerId}
+          AND person_id = ${workerId}
           AND date_from = ${dateFrom}
           AND deleted_at IS NULL
         LIMIT 1`,
