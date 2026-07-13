@@ -57,12 +57,12 @@ interface Props {
 function DetailSkeleton() {
   return (
     <div className="flex flex-col gap-4 p-6" data-testid="skeleton-detail">
-      <Skeleton className="h-16 w-full" />
-      <Skeleton className="h-14 w-full" />
-      <Skeleton className="h-8 w-64" />
+      <Skeleton height={64} />
+      <Skeleton height={56} />
+      <Skeleton height={32} width={256} />
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mt-4">
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
+        <Skeleton height={256} />
+        <Skeleton height={256} />
       </div>
     </div>
   );

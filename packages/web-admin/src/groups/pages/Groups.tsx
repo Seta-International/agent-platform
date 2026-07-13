@@ -88,9 +88,9 @@ export function GroupsPage() {
             <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
               {isLoading ? (
                 <>
-                  <Skeleton className="h-12 w-full rounded-md" />
-                  <Skeleton className="h-12 w-full rounded-md" />
-                  <Skeleton className="h-12 w-full rounded-md" />
+                  <Skeleton height={48} radius={2} />
+                  <Skeleton height={48} radius={2} />
+                  <Skeleton height={48} radius={2} />
                 </>
               ) : groups.length === 0 ? (
                 <p className="px-3 py-6 text-center text-body-sm text-ink-tertiary">

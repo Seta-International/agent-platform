@@ -95,9 +95,9 @@ export function AdminSso({ status, error }: AdminSsoProps) {
 
         {providers === null && !fetchError ? (
           <div className="space-y-4">
-            <Skeleton className="h-56 w-full rounded-lg" />
-            <Skeleton className="h-32 w-full rounded-lg" />
-            <Skeleton className="h-44 w-full rounded-lg" />
+            <Skeleton height={224} radius={3} />
+            <Skeleton height={128} radius={3} />
+            <Skeleton height={176} radius={3} />
           </div>
         ) : (
           <>

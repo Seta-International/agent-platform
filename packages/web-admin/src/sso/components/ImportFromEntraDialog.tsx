@@ -225,7 +225,7 @@ export function ImportFromEntraDialog({
                 {loading ? (
                   <div className="space-y-2">
                     {[0, 1, 2, 3].map((i) => (
-                      <Skeleton key={`skeleton-${i}`} className="h-8 w-full" />
+                      <Skeleton key={`skeleton-${i}`} height={32} />
                     ))}
                   </div>
                 ) : users !== null ? (

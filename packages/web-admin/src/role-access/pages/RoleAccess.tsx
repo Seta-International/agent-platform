@@ -67,9 +67,9 @@ export function RoleAccess() {
             <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
               {isLoading || !data ? (
                 <>
-                  <Skeleton className="h-10 w-full rounded-md" />
-                  <Skeleton className="h-10 w-full rounded-md" />
-                  <Skeleton className="h-10 w-full rounded-md" />
+                  <Skeleton height={40} radius={2} />
+                  <Skeleton height={40} radius={2} />
+                  <Skeleton height={40} radius={2} />
                 </>
               ) : (
                 modules.map((m) => {
@@ -99,8 +99,8 @@ export function RoleAccess() {
           <div className="min-w-0 flex-1 overflow-y-auto">
             {isLoading || !data ? (
               <div className="space-y-4 px-8 py-7">
-                <Skeleton className="h-16 w-full max-w-md rounded-lg" />
-                <Skeleton className="h-96 w-full rounded-lg" />
+                <Skeleton className="max-w-md" height={64} radius={3} />
+                <Skeleton height={384} radius={3} />
               </div>
             ) : (
               active && <ModuleDetail module={active} roles={roles} canWrite={canWrite} />

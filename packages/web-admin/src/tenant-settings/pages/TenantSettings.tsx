@@ -52,7 +52,7 @@ export function TenantSettings() {
               </p>
             </div>
             {isLoading ? (
-              <Skeleton className="h-9 w-full" />
+              <Skeleton height={36} />
             ) : (
               <>
                 <DomainsField domains={domains} onChange={setDomains} idPrefix="org-domains" />

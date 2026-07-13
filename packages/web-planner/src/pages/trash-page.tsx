@@ -99,9 +99,9 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
     return (
       <PageChrome breadcrumb={['Planner']} title="Trash">
         <div data-testid="skeleton-trash" className="space-y-3 p-6">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
+          <Skeleton height={48} />
+          <Skeleton height={48} />
+          <Skeleton height={48} />
         </div>
       </PageChrome>
     );

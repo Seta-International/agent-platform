@@ -165,13 +165,13 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
         <div className="page-container p-6 space-y-4">
           <Card>
             <CardHeader>
-              <Skeleton className="h-5 w-48" />
+              <Skeleton height={20} width={192} />
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {Array.from({ length: 6 }).map((_, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                  <Skeleton key={i} className="h-4 w-full" />
+                  <Skeleton key={i} height={16} />
                 ))}
               </div>
             </CardContent>

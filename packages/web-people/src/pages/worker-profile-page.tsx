@@ -248,10 +248,10 @@ export function WorkerProfilePage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-4">
-                <Skeleton className="size-14 rounded-full" />
+                <Skeleton height={56} width={56} radius="rounded" />
                 <div className="space-y-2">
-                  <Skeleton className="h-5 w-40" />
-                  <Skeleton className="h-4 w-24" />
+                  <Skeleton height={20} width={160} />
+                  <Skeleton height={16} width={96} />
                 </div>
               </div>
             </CardHeader>
@@ -259,7 +259,7 @@ export function WorkerProfilePage() {
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                  <Skeleton key={i} className="h-4 w-full" />
+                  <Skeleton key={i} height={16} />
                 ))}
               </div>
             </CardContent>
@@ -536,7 +536,7 @@ export function WorkerProfilePage() {
                 <div className="space-y-3">
                   {Array.from({ length: 3 }).map((_, i) => (
                     // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                    <Skeleton key={i} className="h-10 w-full" />
+                    <Skeleton key={i} height={40} />
                   ))}
                 </div>
               ) : !history || history.length === 0 ? (

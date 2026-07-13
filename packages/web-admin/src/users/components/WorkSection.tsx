@@ -255,8 +255,8 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
 
         {allocationsLoading ? (
           <div className="flex flex-col gap-1.5">
-            <Skeleton className="h-14 w-full rounded-lg" />
-            <Skeleton className="h-14 w-full rounded-lg" />
+            <Skeleton height={56} radius={3} />
+            <Skeleton height={56} radius={3} />
           </div>
         ) : groups.length === 0 ? (
           !adding && (

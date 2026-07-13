@@ -72,14 +72,14 @@ export function PeopleCardGrid({
           <Card key={k}>
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <Skeleton className="size-9 rounded-full shrink-0" />
+                <Skeleton className="shrink-0" height={36} width={36} radius="rounded" />
                 <div className="space-y-1.5 flex-1 min-w-0">
-                  <Skeleton className="h-3.5 w-2/3" />
-                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton height={14} width="66.6667%" />
+                  <Skeleton height={12} width="50%" />
                 </div>
               </div>
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-3/4" />
+              <Skeleton height={12} />
+              <Skeleton height={12} width="75%" />
             </CardContent>
           </Card>
         ))}

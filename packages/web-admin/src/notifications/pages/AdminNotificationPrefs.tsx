@@ -22,7 +22,7 @@ export function AdminNotificationPrefs() {
         )}
 
         {isLoading || !data ? (
-          <Skeleton className="h-72 w-full rounded-lg" />
+          <Skeleton height={288} radius={3} />
         ) : (
           <section className="overflow-hidden rounded-lg border border-hairline bg-canvas">
             <header className="border-b border-hairline-tertiary px-5 py-4">

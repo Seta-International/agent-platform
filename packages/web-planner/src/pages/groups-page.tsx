@@ -99,9 +99,9 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
     return (
       <PageChrome breadcrumb={['Planner']} title="Groups">
         <div data-testid="groups-page-skeleton" className="space-y-3 p-6">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
+          <Skeleton height={48} />
+          <Skeleton height={48} />
+          <Skeleton height={48} />
         </div>
       </PageChrome>
     );

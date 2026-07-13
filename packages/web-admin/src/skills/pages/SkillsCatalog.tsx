@@ -171,11 +171,11 @@ export function SkillsCatalog() {
         {loading ? (
           <>
             <div className="grid grid-cols-3 gap-3">
-              <Skeleton className="h-[68px] rounded-lg" />
-              <Skeleton className="h-[68px] rounded-lg" />
-              <Skeleton className="h-[68px] rounded-lg" />
+              <Skeleton height={68} radius={3} />
+              <Skeleton height={68} radius={3} />
+              <Skeleton height={68} radius={3} />
             </div>
-            <Skeleton className="h-96 w-full rounded-lg" />
+            <Skeleton height={384} radius={3} />
           </>
         ) : (
           <>

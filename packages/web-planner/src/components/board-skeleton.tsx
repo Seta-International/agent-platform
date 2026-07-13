@@ -9,12 +9,13 @@ export function BoardSkeleton() {
           key={ci}
           className="board-skeleton__column"
         >
-          <Skeleton className="h-4 w-24" />
+          <Skeleton height={16} width={96} />
           {Array.from({ length: 3 }).map((__, ti) => (
             <Skeleton
               // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows have no semantic identity
               key={ti}
-              className="h-16 w-full rounded-md"
+              height={64}
+              radius={2}
             />
           ))}
         </div>
@@ -30,7 +31,7 @@ export function GridSkeleton() {
         <Skeleton
           // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows have no semantic identity
           key={i}
-          className="h-8 w-full"
+          height={32}
         />
       ))}
     </div>

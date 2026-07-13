@@ -310,7 +310,7 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
                 <TableRow key={skId} className="border-b border-hairline-tertiary">
                   {effectiveColumns.map((col, j) => (
                     <TableCell key={`${skId}-${col.id ?? String(j)}`} className={cellClass}>
-                      <Skeleton className="h-4 w-full" data-skeleton="true" />
+                      <Skeleton height={16} data-skeleton="true" />
                     </TableCell>
                   ))}
                 </TableRow>

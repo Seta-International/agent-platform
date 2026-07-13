@@ -211,8 +211,8 @@ function MyTasksSkeleton() {
           data-testid="mt-section-skeleton"
           className="rounded-md border border-hairline overflow-hidden"
         >
-          <Skeleton className="h-9 w-full" />
-          {i < 2 && <Skeleton className="h-11 w-full mt-px" />}
+          <Skeleton height={36} />
+          {i < 2 && <Skeleton className="mt-px" height={44} />}
         </div>
       ))}
     </div>

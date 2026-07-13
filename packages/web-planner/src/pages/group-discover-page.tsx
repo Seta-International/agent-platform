@@ -59,7 +59,7 @@ export function GroupDiscoverPage() {
         {searchQuery.isPending && submittedQ && (
           <div className="flex flex-col gap-3">
             {(['sk-0', 'sk-1', 'sk-2'] as const).map((k) => (
-              <Skeleton key={k} className="h-20 w-full rounded-lg" />
+              <Skeleton key={k} height={80} radius={3} />
             ))}
           </div>
         )}
