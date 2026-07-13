@@ -1,3 +1,4 @@
+import { Theme as AstryxTheme } from '@astryxdesign/core/theme';
 import {
   createContext,
   type ReactNode,
@@ -7,6 +8,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { setaTheme } from './astryx-seta.theme';
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -66,7 +68,13 @@ export function ThemeProvider({
     [theme, resolvedTheme, setTheme],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>
+      <AstryxTheme theme={setaTheme} mode={resolvedTheme}>
+        {children}
+      </AstryxTheme>
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme(): ThemeContextValue {

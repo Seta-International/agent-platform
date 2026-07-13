@@ -5,6 +5,8 @@ import { ThemeProvider, useTheme } from '../../../src/theme/theme-provider';
 beforeEach(() => {
   localStorage.clear();
   document.documentElement.classList.remove('theme-dark', 'theme-light');
+  document.documentElement.removeAttribute('data-theme');
+  document.documentElement.removeAttribute('data-astryx-theme');
 });
 
 function Probe() {
@@ -56,5 +58,27 @@ describe('ThemeProvider', () => {
 
   it('throws when useTheme called outside provider', () => {
     expect(() => render(<Probe />)).toThrow(/useTheme must be used inside <ThemeProvider>/);
+  });
+
+  it('mounts Astryx Theme at the root with data-astryx-theme="seta"', () => {
+    render(
+      <ThemeProvider defaultTheme="light">
+        <Probe />
+      </ThemeProvider>,
+    );
+    expect(document.documentElement.getAttribute('data-astryx-theme')).toBe('seta');
+  });
+
+  it('flips Astryx data-theme when the mode changes', () => {
+    const { getByText } = render(
+      <ThemeProvider defaultTheme="dark">
+        <Probe />
+      </ThemeProvider>,
+    );
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    act(() => {
+      getByText('to-light').click();
+    });
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
   });
 });
