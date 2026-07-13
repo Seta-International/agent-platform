@@ -40,6 +40,7 @@
     "gen:dashboards": "pnpm -F @seta/grafana-dashboards run gen"
   },
   "devDependencies": {
+    "@astryxdesign/cli": "^0.1.4",
     "@biomejs/biome": "^2.5.2",
     "@commitlint/cli": "^21.2.0",
     "@commitlint/config-conventional": "^21.2.0",
