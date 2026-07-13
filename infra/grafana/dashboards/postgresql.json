@@ -94,10 +94,6 @@
               },
               {
                 "value": 1,
-                "color": "yellow"
-              },
-              {
-                "value": 1,
                 "color": "green"
               }
             ]
@@ -157,7 +153,7 @@
         "orientation": "auto"
       },
       "title": "Connections used",
-      "description": "% of max_connections. Amber > 70%, red > 85%.",
+      "description": "% of max_connections. Amber > 70%, red > 80% (matches PostgresTooManyConns).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -179,7 +175,7 @@
                 "color": "yellow"
               },
               {
-                "value": 85,
+                "value": 80,
                 "color": "red"
               }
             ]

@@ -11,12 +11,6 @@ route:
   group_interval: 5m
   repeat_interval: 4h
   routes:
-    # Heartbeat: a twice-daily "pipeline alive" ping (not chat spam). Its absence
-    # is the signal; a true dead-man's-snitch (healthchecks.io) is the lever.
-    - receiver: teams
-      matchers: [ alertname="Watchdog" ]
-      group_wait: 0s
-      repeat_interval: 12h
     # Critical: notify fast.
     - receiver: teams
       matchers: [ severity="critical" ]

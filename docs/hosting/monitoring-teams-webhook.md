@@ -48,11 +48,10 @@ docker restart seta-monitoring-alertmanager-1
 
 ## Verify
 
-Alertmanager always fires a `Watchdog` alert (routed on a short interval), so within a
-few minutes of a valid webhook a heartbeat card appears in the target chat. To force one:
+Send a synthetic alert through Alertmanager and confirm a card appears in the target chat:
 
 ```bash
-# on the box — send a synthetic alert through Alertmanager
+# on the box
 docker exec seta-monitoring-alertmanager-1 amtool alert add \
   alertname=WebhookTest severity=warning env=uat --alertmanager.url=http://localhost:9093
 ```

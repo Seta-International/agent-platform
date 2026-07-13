@@ -27,6 +27,20 @@ groups:
           summary: "Postgres connections >80% ({{ $labels.env }})"
           description: "Active connections above 80% of max_connections for 10m."
 
+      # Rate-windowed, not the dashboard's cumulative-since-startup ratio: a
+      # long-uptime server's lifetime ratio barely moves, so it can't detect a
+      # recent regression the way a 10m window can.
+      - alert: PostgresLowCacheHitRatio
+        expr: |
+          sum by (env) (rate(pg_stat_database_blks_hit[10m]))
+          / (sum by (env) (rate(pg_stat_database_blks_hit[10m])) + sum by (env) (rate(pg_stat_database_blks_read[10m])))
+          * 100 < 95
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: "Postgres cache hit ratio <95% ({{ $labels.env }})"
+          description: "Buffer cache hit ratio below 95% over a 10m window, sustained 30m — working set exceeds shared_buffers or an index is missing."
+
       # RDS is prod-only (CloudWatch is monitored for prod alone). Storage-fill is
       # the #1 single-box-RDS killer — same threshold philosophy as HostHighDisk.
       - alert: RDSFreeStorageLow

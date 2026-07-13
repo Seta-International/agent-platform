@@ -1,0 +1,12 @@
+# LLM inference latency (agent module metrics, not GPU hardware — see gpu.rules.yml
+# for dcgm-exporter alerts). Single on-prem inference box, no per-env split.
+groups:
+  - name: llm
+    rules:
+      - alert: LLMHighTTFT
+        expr: histogram_quantile(0.95, sum by (le) (rate(agent_llm_ttft_seconds_bucket[5m]))) > 5
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "LLM time-to-first-token p95 >5s"
+          description: "TTFT p95 above 5s for 10m — inference queueing or an oversized model on the box."
