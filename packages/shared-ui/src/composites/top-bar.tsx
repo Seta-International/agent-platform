@@ -55,6 +55,11 @@ export function TopBar({
           logo={<SetaMark size={20} />}
           heading="Seta"
           headingHref={homeHref}
+          // Known @astryxdesign/core@0.1.4 vendor bug: showDelay:0 + an
+          // always-toggle click handler means a hover-capable mouse's first
+          // click here can net the menu closed, not open (opens on hover
+          // alone, or a 2nd click). Not fixable in this module — flag to the
+          // Astryx relationship owner if this surfaces again.
           menu={launcherContent}
         />
       }
