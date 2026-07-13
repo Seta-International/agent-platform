@@ -66,9 +66,12 @@ export function SkillsTab({
     <div className="space-y-3">
       <SkillPicker value={skills} onChange={setSkills} />
       <div className="flex justify-end">
-        <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
-          {save.isPending ? 'Saving…' : 'Save skills'}
-        </Button>
+        <Button
+          size="sm"
+          label={save.isPending ? 'Saving…' : 'Save skills'}
+          onClick={() => save.mutate()}
+          isDisabled={save.isPending}
+        />
       </div>
     </div>
   );

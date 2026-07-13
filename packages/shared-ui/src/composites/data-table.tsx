@@ -152,19 +152,21 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
           row.getCanExpand() ? (
             <Button
               variant="ghost"
-              size="icon"
-              aria-label="Expand row"
+              size="sm"
+              isIconOnly
+              icon={
+                row.getIsExpanded() ? (
+                  <ChevronDown className="size-4" />
+                ) : (
+                  <ChevronRight className="size-4" />
+                )
+              }
+              label="Expand row"
               onClick={(e) => {
                 e.stopPropagation();
                 row.getToggleExpandedHandler()();
               }}
-            >
-              {row.getIsExpanded() ? (
-                <ChevronDown className="size-4" />
-              ) : (
-                <ChevronRight className="size-4" />
-              )}
-            </Button>
+            />
           ) : null,
         enableSorting: false,
         enableHiding: false,
@@ -310,7 +312,7 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
                 <TableRow key={skId} className="border-b border-hairline-tertiary">
                   {effectiveColumns.map((col, j) => (
                     <TableCell key={`${skId}-${col.id ?? String(j)}`} className={cellClass}>
-                      <Skeleton className="h-4 w-full" data-skeleton="true" />
+                      <Skeleton height={16} data-skeleton="true" />
                     </TableCell>
                   ))}
                 </TableRow>

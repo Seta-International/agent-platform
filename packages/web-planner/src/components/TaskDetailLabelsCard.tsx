@@ -159,8 +159,13 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
         >
           <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
             <PopoverTrigger asChild disabled={!canUpdate}>
-              <Button size="sm" variant="ghost" aria-label="Add label" disabled={!canUpdate}>
-                <Plus className="size-3" />
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<Plus className="size-3" />}
+                label="Add label"
+                isDisabled={!canUpdate}
+              >
                 Add
               </Button>
             </PopoverTrigger>
@@ -195,9 +200,11 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
                               <div>
                                 <CommandItem value={l.name} disabled className="opacity-50">
                                   <LabelChip name={l.name} color={l.color || undefined} />
-                                  <Badge variant="outline" className="ml-auto shrink-0">
-                                    Local only
-                                  </Badge>
+                                  <Badge
+                                    variant="neutral"
+                                    className="ml-auto shrink-0"
+                                    label="Local only"
+                                  />
                                 </CommandItem>
                               </div>
                             </TooltipTrigger>
@@ -358,23 +365,25 @@ function LabelEditPanel({
         <Button
           variant="ghost"
           size="sm"
+          icon={<Trash2 className="size-3" />}
+          label="Delete"
           onClick={() => setConfirmOpen(true)}
-          disabled={update.isPending || del.isPending}
-        >
-          <Trash2 className="size-3" />
-          Delete
-        </Button>
+          isDisabled={update.isPending || del.isPending}
+        />
         <div className="flex gap-1.5">
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={del.isPending}>
-            Cancel
-          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            label="Cancel"
+            onClick={onClose}
+            isDisabled={del.isPending}
+          />
           <Button
             size="sm"
+            label="Save"
             onClick={handleSave}
-            disabled={!canSave || update.isPending || del.isPending}
-          >
-            Save
-          </Button>
+            isDisabled={!canSave || update.isPending || del.isPending}
+          />
         </div>
       </div>
 

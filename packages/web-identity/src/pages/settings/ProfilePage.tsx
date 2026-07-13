@@ -10,8 +10,8 @@ export function ProfilePage() {
     <SettingsSurface title="Profile">
       {!profile ? (
         <>
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-40 w-full" />
+          <Skeleton height={256} />
+          <Skeleton height={160} />
         </>
       ) : (
         <ProfileIdentityCard

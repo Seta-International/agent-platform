@@ -1,6 +1,5 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   DataTable,
   Dialog,
@@ -58,7 +57,7 @@ function CreateAccountDialog({ onCreated }: { onCreated: () => void }) {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">New account</Button>
+        <Button size="sm" label="New account" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -73,18 +72,14 @@ function CreateAccountDialog({ onCreated }: { onCreated: () => void }) {
             <Label>Industry</Label>
             <Input value={industry} onChange={(e) => setIndustry(e.target.value)} />
           </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !name.trim()}>
-              {mutation.isPending ? 'Creating…' : 'Create'}
-            </Button>
+            <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
+            <Button
+              label={mutation.isPending ? 'Creating…' : 'Create'}
+              onClick={() => mutation.mutate()}
+              isDisabled={mutation.isPending || !name.trim()}
+            />
           </div>
         </div>
       </DialogContent>
@@ -164,9 +159,7 @@ export function AccountsPage() {
     <PageChrome title="Accounts" actions={actions}>
       <div className="page-container space-y-4 p-6">
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={(error as Error).message} />
         ) : (
           <DataTable
             columns={columns}

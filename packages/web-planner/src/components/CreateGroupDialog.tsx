@@ -1,7 +1,6 @@
 import type { GroupRow } from '@seta/planner';
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   cn,
   Dialog,
@@ -267,27 +266,29 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                   <span className="flex-1 text-sm">
                     Will link to <b>{m365Selection.display_name}</b> on create
                   </span>
-                  <Button size="sm" variant="ghost" onClick={() => setM365Selection(null)}>
-                    Clear
-                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    label="Clear"
+                    onClick={() => setM365Selection(null)}
+                  />
                 </>
               ) : (
                 <>
                   <span className="flex-1 text-sm">
                     Link with a <b>Microsoft 365 group</b> to keep members in sync
                   </span>
-                  <Button size="sm" variant="ghost" onClick={() => setLinkPickerOpen(true)}>
-                    Link…
-                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    label="Link…"
+                    onClick={() => setLinkPickerOpen(true)}
+                  />
                 </>
               )}
             </div>
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            {error && <Banner status="error" title={error} />}
 
             {/* Members chip-input is deferred — identity.searchUsers API is not yet exposed to the
               planner module. Members can be added from the group page after creation. */}
@@ -309,16 +310,17 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
               <span className="text-xs text-ink-tertiary">⌘ Return</span>
               <Button
                 variant="secondary"
+                label="Cancel"
                 onClick={() => {
                   reset();
                   onOpenChange(false);
                 }}
-              >
-                Cancel
-              </Button>
-              <Button onClick={() => submit()} disabled={!name.trim() || createGroup.isPending}>
-                Create group
-              </Button>
+              />
+              <Button
+                label="Create group"
+                onClick={() => submit()}
+                isDisabled={!name.trim() || createGroup.isPending}
+              />
             </div>
           </div>
         </DialogContent>

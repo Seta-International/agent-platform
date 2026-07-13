@@ -7,7 +7,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  buttonVariants,
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -59,7 +58,6 @@ export function MarkFilledDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={mutation.isPending}>Back</AlertDialogCancel>
           <AlertDialogAction
-            className={buttonVariants({ variant: 'default' })}
             disabled={mutation.isPending}
             onClick={(e) => {
               e.preventDefault();

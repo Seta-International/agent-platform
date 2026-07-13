@@ -28,7 +28,12 @@ export function FilterPill<T extends string>({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="secondary" size="sm" className="h-7 gap-1">
+        <Button
+          variant="secondary"
+          size="sm"
+          className="h-7 gap-1"
+          label={`${label}${selected ? `: ${selected.label}` : ''} filter`}
+        >
           <span className="text-ink-muted">{label}</span>
           {selected ? <span className="font-medium">{selected.label}</span> : null}
           <ChevronDown className="size-3 opacity-60" />
@@ -102,7 +107,7 @@ export function MultiFilterPill<T extends string>({
           variant="secondary"
           size="sm"
           className={`h-7 gap-1 ${active ? 'border-primary text-ink' : ''}`}
-          aria-label={`${label} filter`}
+          label={`${label} filter`}
         >
           <span className="text-ink-muted">{label}</span>
           <span className="font-medium">{summary}</span>

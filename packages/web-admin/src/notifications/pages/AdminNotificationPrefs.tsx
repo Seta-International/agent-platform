@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, PageChrome, Skeleton } from '@seta/shared-ui';
+import { Banner, PageChrome, Skeleton } from '@seta/shared-ui';
 import { NotificationPrefRow } from '../components/NotificationPrefRow';
 import { useNotificationPrefs, useSetNotificationPref } from '../hooks/usePrefs';
 
@@ -14,15 +14,14 @@ export function AdminNotificationPrefs() {
     >
       <div className="page-container space-y-4">
         {error && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              Couldn&apos;t load notification settings: {(error as Error).message}
-            </AlertDescription>
-          </Alert>
+          <Banner
+            status="error"
+            title={<>Couldn&apos;t load notification settings: {(error as Error).message}</>}
+          />
         )}
 
         {isLoading || !data ? (
-          <Skeleton className="h-72 w-full rounded-lg" />
+          <Skeleton height={288} radius={3} />
         ) : (
           <section className="overflow-hidden rounded-lg border border-hairline bg-canvas">
             <header className="border-b border-hairline-tertiary px-5 py-4">

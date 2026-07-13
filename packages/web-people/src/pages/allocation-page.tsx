@@ -2,7 +2,6 @@ import {
   Avatar,
   AvatarFallback,
   Card,
-  CardContent,
   Combobox,
   cn,
   DataTable,
@@ -110,14 +109,12 @@ function Kpi({
           ? 'var(--color-danger)'
           : undefined;
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-[11px] uppercase tracking-wide text-ink-muted">{label}</div>
-        <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
-          {value}
-        </div>
-        {sub && <div className="text-[11px] text-ink-muted">{sub}</div>}
-      </CardContent>
+    <Card padding={4}>
+      <div className="text-[11px] uppercase tracking-wide text-ink-muted">{label}</div>
+      <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
+        {value}
+      </div>
+      {sub && <div className="text-[11px] text-ink-muted">{sub}</div>}
     </Card>
   );
 }
@@ -328,10 +325,8 @@ export function AllocationPage() {
     <PageChrome title="Resource Allocation">
       <div className="space-y-4 p-6">
         {error ? (
-          <Card>
-            <CardContent className="p-4 text-body-sm text-[color:var(--color-danger)]">
-              {(error as Error).message}
-            </CardContent>
+          <Card className="p-4 text-body-sm text-[color:var(--color-danger)]">
+            {(error as Error).message}
           </Card>
         ) : (
           <>

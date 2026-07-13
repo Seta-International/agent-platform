@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Button, Card, PageChrome, Skeleton } from '@seta/shared-ui';
+import { Banner, Button, Card, PageChrome, Skeleton } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { DomainsField } from '../../components/DomainsField.tsx';
@@ -38,12 +38,8 @@ export function TenantSettings() {
   return (
     <PageChrome breadcrumb={['Admin']} title="General">
       <div className="page-container space-y-4">
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
-        )}
-        <Card className="p-5">
+        {error && <Banner status="error" title={(error as Error).message} />}
+        <Card padding={5}>
           <div className="space-y-3">
             <div>
               <div className="font-medium text-ink">Email domains</div>
@@ -52,7 +48,7 @@ export function TenantSettings() {
               </p>
             </div>
             {isLoading ? (
-              <Skeleton className="h-9 w-full" />
+              <Skeleton height={36} />
             ) : (
               <>
                 <DomainsField domains={domains} onChange={setDomains} idPrefix="org-domains" />
@@ -66,11 +62,10 @@ export function TenantSettings() {
                 )}
                 <div className="flex justify-end">
                   <Button
+                    label="Save"
                     onClick={() => saveDomainsM.mutate(domains)}
-                    disabled={saveDomainsM.isPending}
-                  >
-                    Save
-                  </Button>
+                    isDisabled={saveDomainsM.isPending}
+                  />
                 </div>
               </>
             )}

@@ -26,16 +26,19 @@ export function DataTableColumnHeader<TData, TValue>({
         '-ml-2 h-7 px-2 gap-1.5 text-eyebrow uppercase tracking-[0.04em] font-medium text-ink-subtle hover:text-ink',
         className,
       )}
+      label={typeof title === 'string' ? `Sort by ${title}` : `Sort by ${column.id}`}
+      endContent={
+        sorted === 'desc' ? (
+          <ArrowDown className="size-3" />
+        ) : sorted === 'asc' ? (
+          <ArrowUp className="size-3" />
+        ) : (
+          <ChevronsUpDown className="size-3 opacity-60" />
+        )
+      }
       onClick={(e) => column.getToggleSortingHandler()?.(e)}
     >
       <span>{title}</span>
-      {sorted === 'desc' ? (
-        <ArrowDown className="size-3" />
-      ) : sorted === 'asc' ? (
-        <ArrowUp className="size-3" />
-      ) : (
-        <ChevronsUpDown className="size-3 opacity-60" />
-      )}
     </Button>
   );
 }

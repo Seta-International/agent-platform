@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Switch } from '@seta/shared-ui';
+import { Banner, Switch } from '@seta/shared-ui';
 import { useState } from 'react';
 import { setLocalPasswordDisabled } from '../api/sso-client.ts';
 
@@ -124,9 +124,7 @@ export function SignInMethodsCard({
 
       {error && (
         <div className="border-t border-hairline-tertiary px-5 py-3">
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={error} />
         </div>
       )}
     </section>

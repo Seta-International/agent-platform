@@ -236,9 +236,13 @@ export function CandidateDetailDrawer({
                 {hasMoreActions && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="More actions">
-                        <MoreHorizontal className="size-4" />
-                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        isIconOnly
+                        icon={<MoreHorizontal className="size-4" />}
+                        label="More actions"
+                      />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {canTransfer && !terminal && (
@@ -257,9 +261,14 @@ export function CandidateDetailDrawer({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose}>
-                  <X className="size-4" />
-                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  isIconOnly
+                  icon={<X className="size-4" />}
+                  label="Close"
+                  onClick={onClose}
+                />
               </div>
             </div>
 
@@ -278,12 +287,11 @@ export function CandidateDetailDrawer({
                   <Button
                     variant="secondary"
                     size="sm"
-                    disabled={!canManage || terminal || move.isPending}
-                  >
-                    <RefreshCw className="size-3.5" aria-hidden />
-                    Move stage
-                    <ChevronDown className="size-3.5" aria-hidden />
-                  </Button>
+                    label="Move stage"
+                    icon={<RefreshCw className="size-3.5" aria-hidden />}
+                    endContent={<ChevronDown className="size-3.5" aria-hidden />}
+                    isDisabled={!canManage || terminal || move.isPending}
+                  />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
                   {STAGES.map((s) => (
@@ -346,7 +354,7 @@ export function CandidateDetailDrawer({
                 <DetailCard
                   title="Skills"
                   action={
-                    fit && <Badge variant={fit.strong ? 'success' : 'secondary'}>{fit.text}</Badge>
+                    fit && <Badge variant={fit.strong ? 'success' : 'neutral'} label={fit.text} />
                   }
                 >
                   <div className="flex flex-wrap gap-1.5">
@@ -354,10 +362,16 @@ export function CandidateDetailDrawer({
                       <span className="text-caption text-ink-muted">No skills recorded.</span>
                     ) : (
                       data.skills.map((s) => (
-                        <Badge key={s.skill_id} variant="secondary">
-                          <span>{s.skill_name}</span>
-                          {s.level ? <span>{` · L${s.level}`}</span> : null}
-                        </Badge>
+                        <Badge
+                          key={s.skill_id}
+                          variant="neutral"
+                          label={
+                            <>
+                              <span>{s.skill_name}</span>
+                              {s.level ? <span>{` · L${s.level}`}</span> : null}
+                            </>
+                          }
+                        />
                       ))
                     )}
                   </div>

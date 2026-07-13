@@ -68,9 +68,7 @@ export function GroupsTable({ groups, onRestore }: Props) {
               <p className="truncate font-medium text-ink">
                 {group.name}
                 {group.deleted_at && (
-                  <Badge variant="secondary" className="ml-1.5 align-middle">
-                    Archived
-                  </Badge>
+                  <Badge variant="neutral" className="ml-1.5 align-middle" label="Archived" />
                 )}
                 {group.external_source !== 'native' && (
                   <span
@@ -141,15 +139,14 @@ export function GroupsTable({ groups, onRestore }: Props) {
                   <Button
                     size="sm"
                     variant="secondary"
-                    disabled={!canUpdateGroup}
+                    label="Restore"
+                    isDisabled={!canUpdateGroup}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       onRestore(group.id);
                     }}
-                  >
-                    Restore
-                  </Button>
+                  />
                 </DisabledActionTooltip>
               ) : (
                 <ChevronRight className="size-3 text-ink-tertiary" aria-hidden="true" />

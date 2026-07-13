@@ -1,4 +1,4 @@
-import { Card, CardContent, ChartLegend, EmptyState, Input } from '@seta/shared-ui';
+import { Card, ChartLegend, EmptyState, Input } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Gauge } from 'lucide-react';
@@ -90,119 +90,117 @@ export function UtilizationPanel() {
   const slice = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   return (
-    <Card>
-      <CardContent className="space-y-3 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-body font-semibold">Utilization by person</h3>
-          <Input
-            className="h-8 w-56"
-            placeholder="Search name or worker ID…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
+    <Card className="space-y-3 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-body font-semibold">Utilization by person</h3>
+        <Input
+          className="h-8 w-56"
+          placeholder="Search name or worker ID…"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+        />
+      </div>
 
-        {error ? (
-          <div className="text-body-sm text-[color:var(--color-danger)]">
-            {(error as Error).message}
+      {error ? (
+        <div className="text-body-sm text-[color:var(--color-danger)]">
+          {(error as Error).message}
+        </div>
+      ) : isLoading ? (
+        <div className="text-body-sm text-ink-muted">Loading…</div>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={<Gauge className="size-6" />}
+          title="No utilization"
+          description="No one is currently allocated in your view."
+        />
+      ) : (
+        <>
+          {legendItems.length > 0 && <ChartLegend items={legendItems} />}
+          <div className="space-y-3">
+            {slice.map((r: UtilizationRow) => {
+              const free = r.total_pct < 100 ? 100 - r.total_pct : 0;
+              const totalColor = r.over_allocated
+                ? 'var(--color-danger)'
+                : r.total_pct >= 70
+                  ? 'var(--color-success)'
+                  : 'var(--color-warning)';
+              return (
+                <button
+                  key={r.worker_id}
+                  type="button"
+                  className="block w-full text-left"
+                  onClick={() =>
+                    void navigate({
+                      to: '/people/employees/$workerId',
+                      params: { workerId: r.worker_id },
+                    })
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="w-40 shrink-0 truncate text-body-sm font-medium"
+                      title={r.full_name}
+                    >
+                      {r.full_name}
+                    </span>
+                    <span className="flex h-3 flex-1 overflow-hidden rounded-full bg-surface-2">
+                      {segmentKeys(r.segments).map(({ key, seg }) => (
+                        <span
+                          key={key}
+                          style={{
+                            width: `${Math.min(seg.pct, 100)}%`,
+                            background: colorByProject.get(seg.project_id),
+                          }}
+                          title={`${seg.project_name ?? '—'} · ${seg.pct}%`}
+                        />
+                      ))}
+                      {free > 0 && (
+                        <span style={{ width: `${free}%` }} className="bg-transparent" />
+                      )}
+                    </span>
+                    <span
+                      className="w-16 shrink-0 text-right font-mono text-[12px]"
+                      style={{ color: totalColor }}
+                    >
+                      {r.total_pct}%{r.over_allocated ? ' ⚠' : ''}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 pl-[172px] text-[11px] text-ink-subtle">
+                    billable {r.split.billable}% · internal {r.split.internal}% · bench{' '}
+                    {r.split.bench}%
+                  </div>
+                </button>
+              );
+            })}
           </div>
-        ) : isLoading ? (
-          <div className="text-body-sm text-ink-muted">Loading…</div>
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={<Gauge className="size-6" />}
-            title="No utilization"
-            description="No one is currently allocated in your view."
-          />
-        ) : (
-          <>
-            {legendItems.length > 0 && <ChartLegend items={legendItems} />}
-            <div className="space-y-3">
-              {slice.map((r: UtilizationRow) => {
-                const free = r.total_pct < 100 ? 100 - r.total_pct : 0;
-                const totalColor = r.over_allocated
-                  ? 'var(--color-danger)'
-                  : r.total_pct >= 70
-                    ? 'var(--color-success)'
-                    : 'var(--color-warning)';
-                return (
-                  <button
-                    key={r.worker_id}
-                    type="button"
-                    className="block w-full text-left"
-                    onClick={() =>
-                      void navigate({
-                        to: '/people/employees/$workerId',
-                        params: { workerId: r.worker_id },
-                      })
-                    }
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="w-40 shrink-0 truncate text-body-sm font-medium"
-                        title={r.full_name}
-                      >
-                        {r.full_name}
-                      </span>
-                      <span className="flex h-3 flex-1 overflow-hidden rounded-full bg-surface-2">
-                        {segmentKeys(r.segments).map(({ key, seg }) => (
-                          <span
-                            key={key}
-                            style={{
-                              width: `${Math.min(seg.pct, 100)}%`,
-                              background: colorByProject.get(seg.project_id),
-                            }}
-                            title={`${seg.project_name ?? '—'} · ${seg.pct}%`}
-                          />
-                        ))}
-                        {free > 0 && (
-                          <span style={{ width: `${free}%` }} className="bg-transparent" />
-                        )}
-                      </span>
-                      <span
-                        className="w-16 shrink-0 text-right font-mono text-[12px]"
-                        style={{ color: totalColor }}
-                      >
-                        {r.total_pct}%{r.over_allocated ? ' ⚠' : ''}
-                      </span>
-                    </div>
-                    <div className="mt-0.5 pl-[172px] text-[11px] text-ink-subtle">
-                      billable {r.split.billable}% · internal {r.split.internal}% · bench{' '}
-                      {r.split.bench}%
-                    </div>
-                  </button>
-                );
-              })}
+          <div className="flex items-center justify-between text-body-sm text-ink-muted">
+            <span>
+              {filtered.length} people · page {safePage} of {pageCount}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="rounded border border-hairline px-2 py-1 disabled:opacity-50"
+                disabled={safePage === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                className="rounded border border-hairline px-2 py-1 disabled:opacity-50"
+                disabled={safePage === pageCount}
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              >
+                Next
+              </button>
             </div>
-            <div className="flex items-center justify-between text-body-sm text-ink-muted">
-              <span>
-                {filtered.length} people · page {safePage} of {pageCount}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="rounded border border-hairline px-2 py-1 disabled:opacity-50"
-                  disabled={safePage === 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Prev
-                </button>
-                <button
-                  type="button"
-                  className="rounded border border-hairline px-2 py-1 disabled:opacity-50"
-                  disabled={safePage === pageCount}
-                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-      </CardContent>
+          </div>
+        </>
+      )}
     </Card>
   );
 }

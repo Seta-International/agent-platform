@@ -1,7 +1,6 @@
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Checkbox,
   DataTable,
@@ -64,22 +63,10 @@ const columns: ColumnDef<EntraImportableUserDto>[] = [
     cell: ({ row }) => {
       const u = row.original;
       if (!u.account_enabled)
-        return (
-          <Badge variant="secondary" className="text-xs">
-            Disabled
-          </Badge>
-        );
+        return <Badge variant="neutral" className="text-xs" label="Disabled" />;
       if (u.already_in_seta)
-        return (
-          <Badge variant="secondary" className="text-xs">
-            Already added
-          </Badge>
-        );
-      return (
-        <Badge variant="default" className="text-xs">
-          New
-        </Badge>
-      );
+        return <Badge variant="neutral" className="text-xs" label="Already added" />;
+      return <Badge variant="neutral" className="text-xs" label="New" />;
     },
   },
 ];
@@ -147,11 +134,7 @@ export function ImportFromEntraDialog({
     }
   }
 
-  const trigger = (
-    <Button variant="secondary" disabled={!enabled}>
-      Import from Entra
-    </Button>
-  );
+  const trigger = <Button variant="secondary" isDisabled={!enabled} label="Import from Entra" />;
 
   return (
     <>
@@ -173,12 +156,15 @@ export function ImportFromEntraDialog({
           <div className="mt-4 space-y-4">
             {result ? (
               <div className="space-y-3">
-                <Alert>
-                  <AlertDescription>
-                    Added <strong>{result.imported.length}</strong>{' '}
-                    {result.imported.length === 1 ? 'person' : 'people'} to your organization.
-                  </AlertDescription>
-                </Alert>
+                <Banner
+                  status="info"
+                  title={
+                    <>
+                      Added <strong>{result.imported.length}</strong>{' '}
+                      {result.imported.length === 1 ? 'person' : 'people'} to your organization.
+                    </>
+                  }
+                />
 
                 {result.skipped.length > 0 && (
                   <details className="text-sm">
@@ -201,31 +187,24 @@ export function ImportFromEntraDialog({
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"
+                    label="Refresh"
                     onClick={() => {
                       setResult(null);
                       setUsers(null);
                       void loadUsers();
                     }}
-                  >
-                    Refresh
-                  </Button>
-                  <Button variant="ghost" onClick={() => setOpen(false)}>
-                    Close
-                  </Button>
+                  />
+                  <Button variant="ghost" label="Close" onClick={() => setOpen(false)} />
                 </div>
               </div>
             ) : (
               <>
-                {loadError && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{loadError}</AlertDescription>
-                  </Alert>
-                )}
+                {loadError && <Banner status="error" title={loadError} />}
 
                 {loading ? (
                   <div className="space-y-2">
                     {[0, 1, 2, 3].map((i) => (
-                      <Skeleton key={`skeleton-${i}`} className="h-8 w-full" />
+                      <Skeleton key={`skeleton-${i}`} height={32} />
                     ))}
                   </div>
                 ) : users !== null ? (
@@ -241,26 +220,21 @@ export function ImportFromEntraDialog({
                   />
                 ) : null}
 
-                {submitError && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{submitError}</AlertDescription>
-                  </Alert>
-                )}
+                {submitError && <Banner status="error" title={submitError} />}
 
                 <div className="flex justify-end gap-2">
-                  <Button variant="ghost" onClick={() => setOpen(false)}>
-                    Cancel
-                  </Button>
+                  <Button variant="ghost" label="Cancel" onClick={() => setOpen(false)} />
                   <Button
+                    label={
+                      submitting
+                        ? 'Adding…'
+                        : selectedOids.length > 0
+                          ? `Add ${selectedOids.length} ${selectedOids.length === 1 ? 'person' : 'people'}`
+                          : 'Select people to add'
+                    }
                     onClick={() => void submit()}
-                    disabled={submitting || selectedOids.length === 0}
-                  >
-                    {submitting
-                      ? 'Adding…'
-                      : selectedOids.length > 0
-                        ? `Add ${selectedOids.length} ${selectedOids.length === 1 ? 'person' : 'people'}`
-                        : 'Select people to add'}
-                  </Button>
+                    isDisabled={submitting || selectedOids.length === 0}
+                  />
                 </div>
               </>
             )}

@@ -1,7 +1,16 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import type * as React from 'react';
 import { cn } from '../lib/cn';
-import { buttonVariants } from './button';
+
+// `AlertDialogAction`/`AlertDialogCancel` render plain `<button>`/`DialogPrimitive.Close`
+// elements (not the shared `Button` component), so they carry their own small slice of the old
+// shadcn button classes rather than depending on `Button`'s (now-Astryx-backed) internals. This
+// primitive is not part of the Astryx migration yet — only its Button-shaped dependency needed
+// to be removed.
+const ALERT_DIALOG_ACTION_CLASSES =
+  'inline-flex h-8 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary px-2.5 text-button font-medium text-on-primary transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0';
+const ALERT_DIALOG_CANCEL_CLASSES =
+  'inline-flex h-8 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-hairline bg-surface-1 px-2.5 text-button font-medium text-ink transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0';
 
 /**
  * Confirmation dialog (shadcn AlertDialog shape) built on @radix-ui/react-dialog — the same
@@ -105,9 +114,10 @@ function AlertDialogDescription({
 }
 AlertDialogDescription.displayName = 'AlertDialogDescription';
 
-/** Confirming action. Consumer wires `onClick`; pass a `buttonVariants(...)` className for intent. */
+/** Confirming action. Consumer wires `onClick`; pass a className override (e.g. a destructive
+ * intent) — it merges on top of the default primary-intent classes below. */
 function AlertDialogAction({ className, ...props }: React.ComponentProps<'button'>) {
-  return <button type="button" className={cn(buttonVariants(), className)} {...props} />;
+  return <button type="button" className={cn(ALERT_DIALOG_ACTION_CLASSES, className)} {...props} />;
 }
 AlertDialogAction.displayName = 'AlertDialogAction';
 
@@ -117,10 +127,7 @@ function AlertDialogCancel({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Close>) {
   return (
-    <DialogPrimitive.Close
-      className={cn(buttonVariants({ variant: 'secondary' }), className)}
-      {...props}
-    />
+    <DialogPrimitive.Close className={cn(ALERT_DIALOG_CANCEL_CLASSES, className)} {...props} />
   );
 }
 AlertDialogCancel.displayName = 'AlertDialogCancel';

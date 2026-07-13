@@ -1,6 +1,5 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   DataTable,
   EmptyState,
   Input,
@@ -261,11 +260,7 @@ export function RequisitionsPage() {
       actions={<NewRequisitionDialog disabled={!canCreate} />}
     >
       <div className="page-container space-y-4 p-6">
-        {scopeNote && (
-          <Alert variant="info">
-            <AlertDescription>{scopeNote}</AlertDescription>
-          </Alert>
-        )}
+        {scopeNote && <Banner status="info" title={scopeNote} />}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {stat(
             'Open positions',
@@ -373,9 +368,7 @@ export function RequisitionsPage() {
           </div>
         </div>
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={(error as Error).message} />
         ) : view === 'list' ? (
           <DataTable
             columns={columns}

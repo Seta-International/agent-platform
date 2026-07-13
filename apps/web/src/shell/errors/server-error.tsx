@@ -1,4 +1,4 @@
-import { Alert, Button } from '@seta/shared-ui';
+import { Banner, Button } from '@seta/shared-ui';
 
 interface ServerErrorProps {
   error?: unknown;
@@ -10,22 +10,19 @@ export function ServerError({ error, onReset }: ServerErrorProps) {
   return (
     <div className="grid min-h-[60vh] place-items-center p-xl">
       <div className="max-w-md w-full space-y-md">
-        <Alert variant="destructive">
-          <div className="font-medium">Something went wrong on our end</div>
-          <div className="text-body-sm">{message}</div>
-        </Alert>
+        <Banner status="error" title="Something went wrong on our end" description={message} />
         <div className="flex gap-xs">
-          <Button onClick={() => (onReset ? onReset() : window.location.reload())}>
-            Try again
-          </Button>
+          <Button
+            label="Try again"
+            onClick={() => (onReset ? onReset() : window.location.reload())}
+          />
           <Button
             variant="secondary"
+            label="Take me home"
             onClick={() => {
               window.location.href = '/';
             }}
-          >
-            Take me home
-          </Button>
+          />
         </div>
       </div>
     </div>

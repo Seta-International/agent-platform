@@ -1,11 +1,9 @@
 import {
-  Alert,
-  AlertDescription,
   AsyncCombobox,
   Badge,
+  Banner,
   Button,
   Card,
-  CardContent,
   Combobox,
   type ComboboxOption,
   DataTable,
@@ -30,7 +28,7 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { AlertCircle, ArrowRightLeft, CalendarRange, Plus, Users, X } from 'lucide-react';
+import { ArrowRightLeft, CalendarRange, Plus, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchAccounts,
@@ -100,14 +98,12 @@ function Kpi({
           ? 'var(--color-danger)'
           : undefined;
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-[11px] uppercase tracking-wide text-ink-muted">{label}</div>
-        <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
-          {value}
-        </div>
-        {sub ? <div className="text-[11px] text-ink-muted">{sub}</div> : null}
-      </CardContent>
+    <Card padding={4}>
+      <div className="text-[11px] uppercase tracking-wide text-ink-muted">{label}</div>
+      <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
+        {value}
+      </div>
+      {sub ? <div className="text-[11px] text-ink-muted">{sub}</div> : null}
     </Card>
   );
 }
@@ -144,10 +140,12 @@ function SelectEmployeeDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5">
-          <Plus className="size-4" />
-          Add allocation
-        </Button>
+        <Button
+          size="sm"
+          className="gap-1.5"
+          label="Add allocation"
+          icon={<Plus className="size-4" />}
+        />
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -165,12 +163,8 @@ function SelectEmployeeDialog({
             />
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button disabled={!worker} onClick={handleNext}>
-              Next
-            </Button>
+            <Button variant="ghost" label="Cancel" onClick={() => setOpen(false)} />
+            <Button label="Next" isDisabled={!worker} onClick={handleNext} />
           </div>
         </div>
       </DialogContent>
@@ -239,12 +233,7 @@ function SplitAllocationDialog({
           <DialogTitle>End early & continue</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {mutation.isError ? (
-            <Alert variant="destructive">
-              <AlertCircle />
-              <AlertDescription>{mutation.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
+          {mutation.isError ? <Banner status="error" title={mutation.error.message} /> : null}
           <div className="space-y-1.5">
             <Label>New end date for this allocation</Label>
             <Input
@@ -300,12 +289,12 @@ function SplitAllocationDialog({
             />
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button disabled={!newEndDate || mutation.isPending} onClick={() => mutation.mutate()}>
-              Split
-            </Button>
+            <Button variant="ghost" label="Cancel" onClick={onClose} />
+            <Button
+              label="Split"
+              isDisabled={!newEndDate || mutation.isPending}
+              onClick={() => mutation.mutate()}
+            />
           </div>
         </div>
       </DialogContent>
@@ -508,14 +497,14 @@ export function RaMonitoringPage() {
                 <span className="italic text-ink-subtle">Unfilled (TBD)</span>
               )}
               {r.status !== 'committed' ? (
-                <Badge variant="outline" className="font-normal capitalize text-ink-subtle">
-                  {r.status}
-                </Badge>
+                <Badge
+                  variant="neutral"
+                  className="font-normal capitalize text-ink-subtle"
+                  label={r.status}
+                />
               ) : null}
               {r.worker_id && m.overWorkers.has(r.worker_id) ? (
-                <Badge variant="warning" className="font-normal">
-                  Over-allocated
-                </Badge>
+                <Badge variant="warning" className="font-normal" label="Over-allocated" />
               ) : null}
             </div>
           );
@@ -609,13 +598,13 @@ export function RaMonitoringPage() {
           return (
             <div className="flex justify-end gap-1">
               <Button
-                size="icon"
+                size="sm"
                 variant="secondary"
-                aria-label="Reassign"
+                isIconOnly
+                label="Reassign"
                 onClick={() => m.onReassignGroup(r)}
-              >
-                <ArrowRightLeft className="size-4" />
-              </Button>
+                icon={<ArrowRightLeft className="size-4" />}
+              />
             </div>
           );
         },
@@ -715,6 +704,8 @@ export function RaMonitoringPage() {
               variant="ghost"
               size="sm"
               className="ml-auto h-8 gap-1 text-ink-muted"
+              label="Clear"
+              icon={<X className="size-3.5" />}
               onClick={() => {
                 setSearchInput('');
                 update({
@@ -725,10 +716,7 @@ export function RaMonitoringPage() {
                   to: undefined,
                 });
               }}
-            >
-              <X className="size-3.5" />
-              Clear
-            </Button>
+            />
           ) : null}
         </div>
 

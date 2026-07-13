@@ -2,11 +2,12 @@ import {
   AsyncCombobox,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
   Input,
   Label,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   Select,
   SelectContent,
   SelectItem,
@@ -206,163 +207,177 @@ export function CharterStaffingEditor({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Staffing &amp; Access (R&amp;R)</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="overflow-hidden rounded-md border border-hairline">
-          <table className="w-full text-body-sm">
-            <thead>
-              <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-wide text-ink-muted">
-                <th className="px-3 py-2 font-medium">Member</th>
-                <th className="px-3 py-2 font-medium">Role</th>
-                <th className="px-3 py-2 text-center font-medium">RA %</th>
-                <th className="px-3 py-2 font-medium">Access</th>
-                {canManage && <th className="px-3 py-2" />}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((a) => {
-                const editing = editId === a.allocation_id;
-                const lvl = levelOf(a.worker_id);
-                return (
-                  <tr key={a.allocation_id} className="border-t border-hairline align-middle">
-                    <td className="px-3 py-2 font-medium text-ink">{nameOf(a.worker_id)}</td>
-                    <td className="px-3 py-2">
-                      {editing ? (
-                        <div className="w-36">
-                          <RoleSelect value={draftRole} onChange={setDraftRole} />
-                        </div>
-                      ) : (
-                        (a.role ?? '—')
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-center font-mono">
-                      {editing ? (
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={draftPct}
-                          onChange={(e) => setDraftPct(Number(e.target.value))}
-                          className="mx-auto h-8 w-20"
-                        />
-                      ) : (
-                        `${a.planned_pct ?? '—'}%`
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {editing ? (
-                        <div className="w-28">
-                          <LevelSelect value={draftLevel} onChange={setDraftLevel} />
-                        </div>
-                      ) : (
-                        <span
-                          className="font-medium capitalize"
-                          style={lvl ? { color: LEVEL_TONE[lvl] } : undefined}
-                        >
-                          {lvl ?? '—'}
-                        </span>
-                      )}
-                    </td>
-                    {canManage && (
-                      <td className="px-3 py-2">
-                        <div className="flex justify-end gap-1">
-                          {editing ? (
-                            <>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label="Save"
-                                disabled={save.isPending}
-                                onClick={() => save.mutate(a)}
+      <Layout
+        header={
+          <LayoutHeader hasDivider>
+            <CardTitle>Staffing &amp; Access (R&amp;R)</CardTitle>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent>
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-md border border-hairline">
+                <table className="w-full text-body-sm">
+                  <thead>
+                    <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-wide text-ink-muted">
+                      <th className="px-3 py-2 font-medium">Member</th>
+                      <th className="px-3 py-2 font-medium">Role</th>
+                      <th className="px-3 py-2 text-center font-medium">RA %</th>
+                      <th className="px-3 py-2 font-medium">Access</th>
+                      {canManage && <th className="px-3 py-2" />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((a) => {
+                      const editing = editId === a.allocation_id;
+                      const lvl = levelOf(a.worker_id);
+                      return (
+                        <tr key={a.allocation_id} className="border-t border-hairline align-middle">
+                          <td className="px-3 py-2 font-medium text-ink">{nameOf(a.worker_id)}</td>
+                          <td className="px-3 py-2">
+                            {editing ? (
+                              <div className="w-36">
+                                <RoleSelect value={draftRole} onChange={setDraftRole} />
+                              </div>
+                            ) : (
+                              (a.role ?? '—')
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-center font-mono">
+                            {editing ? (
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={draftPct}
+                                onChange={(e) => setDraftPct(Number(e.target.value))}
+                                className="mx-auto h-8 w-20"
+                              />
+                            ) : (
+                              `${a.planned_pct ?? '—'}%`
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {editing ? (
+                              <div className="w-28">
+                                <LevelSelect value={draftLevel} onChange={setDraftLevel} />
+                              </div>
+                            ) : (
+                              <span
+                                className="font-medium capitalize"
+                                style={lvl ? { color: LEVEL_TONE[lvl] } : undefined}
                               >
-                                <Check className="size-4 text-[var(--color-success)]" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label="Cancel"
-                                onClick={() => setEditId(null)}
-                              >
-                                <X className="size-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label="Edit member"
-                                disabled={busy}
-                                onClick={() => startEdit(a)}
-                              >
-                                <Pencil className="size-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label="Remove member"
-                                disabled={busy}
-                                onClick={() => remove.mutate(a)}
-                              >
-                                <Trash2 className="size-4 text-[var(--color-danger)]" />
-                              </Button>
-                            </>
+                                {lvl ?? '—'}
+                              </span>
+                            )}
+                          </td>
+                          {canManage && (
+                            <td className="px-3 py-2">
+                              <div className="flex justify-end gap-1">
+                                {editing ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      isIconOnly
+                                      label="Save"
+                                      isDisabled={save.isPending}
+                                      onClick={() => save.mutate(a)}
+                                      icon={
+                                        <Check className="size-4 text-[var(--color-success)]" />
+                                      }
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      isIconOnly
+                                      label="Cancel"
+                                      onClick={() => setEditId(null)}
+                                      icon={<X className="size-4" />}
+                                    />
+                                  </>
+                                ) : (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      isIconOnly
+                                      label="Edit member"
+                                      isDisabled={busy}
+                                      onClick={() => startEdit(a)}
+                                      icon={<Pencil className="size-4" />}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      isIconOnly
+                                      label="Remove member"
+                                      isDisabled={busy}
+                                      onClick={() => remove.mutate(a)}
+                                      icon={
+                                        <Trash2 className="size-4 text-[var(--color-danger)]" />
+                                      }
+                                    />
+                                  </>
+                                )}
+                              </div>
+                            </td>
                           )}
-                        </div>
-                      </td>
+                        </tr>
+                      );
+                    })}
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={cols} className="px-3 py-4 text-center text-ink-muted">
+                          No one staffed yet.
+                        </td>
+                      </tr>
                     )}
-                  </tr>
-                );
-              })}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={cols} className="px-3 py-4 text-center text-ink-muted">
-                    No one staffed yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                  </tbody>
+                </table>
+              </div>
 
-        {canManage && (
-          <div className="flex flex-wrap items-end gap-2 border-t border-hairline pt-4">
-            <div className="min-w-[200px] flex-1 space-y-1">
-              <Label>Add member</Label>
-              <AsyncCombobox
-                value={worker || null}
-                onChange={(v) => setWorker(v ?? '')}
-                search={workerPicker.search}
-                resolveByIds={workerPicker.resolveByIds}
-                placeholder="Search workers…"
-              />
+              {canManage && (
+                <div className="flex flex-wrap items-end gap-2 border-t border-hairline pt-4">
+                  <div className="min-w-[200px] flex-1 space-y-1">
+                    <Label>Add member</Label>
+                    <AsyncCombobox
+                      value={worker || null}
+                      onChange={(v) => setWorker(v ?? '')}
+                      search={workerPicker.search}
+                      resolveByIds={workerPicker.resolveByIds}
+                      placeholder="Search workers…"
+                    />
+                  </div>
+                  <div className="w-36 space-y-1">
+                    <Label>Role</Label>
+                    <RoleSelect value={role} onChange={setRole} />
+                  </div>
+                  <div className="w-24 space-y-1">
+                    <Label>RA %</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={pct}
+                      onChange={(e) => setPct(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="w-28 space-y-1">
+                    <Label>Access</Label>
+                    <LevelSelect value={level} onChange={setLevel} />
+                  </div>
+                  <Button
+                    label={add.isPending ? 'Adding…' : 'Add'}
+                    onClick={() => add.mutate()}
+                    isDisabled={!worker.trim() || add.isPending}
+                  />
+                </div>
+              )}
             </div>
-            <div className="w-36 space-y-1">
-              <Label>Role</Label>
-              <RoleSelect value={role} onChange={setRole} />
-            </div>
-            <div className="w-24 space-y-1">
-              <Label>RA %</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={pct}
-                onChange={(e) => setPct(Number(e.target.value))}
-              />
-            </div>
-            <div className="w-28 space-y-1">
-              <Label>Access</Label>
-              <LevelSelect value={level} onChange={setLevel} />
-            </div>
-            <Button onClick={() => add.mutate()} disabled={!worker.trim() || add.isPending}>
-              {add.isPending ? 'Adding…' : 'Add'}
-            </Button>
-          </div>
-        )}
-      </CardContent>
+          </LayoutContent>
+        }
+      />
     </Card>
   );
 }

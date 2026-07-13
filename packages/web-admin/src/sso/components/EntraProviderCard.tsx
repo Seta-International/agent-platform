@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Button } from '@seta/shared-ui';
+import { Banner, Button } from '@seta/shared-ui';
 import { CheckCircle2, Plug, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import type { SsoProviderRowDto } from '../api/sso-client.ts';
@@ -268,43 +268,54 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
             <div className="flex flex-wrap items-center gap-2">
               {status === 'consent_pending' && (
                 <>
-                  <Button onClick={handleConsent} disabled={busy} size="sm">
-                    Grant admin consent
-                  </Button>
-                  <Button variant="ghost" onClick={handleSyncConsent} disabled={busy} size="sm">
-                    Already granted in Microsoft? Check again
-                  </Button>
+                  <Button
+                    onClick={handleConsent}
+                    isDisabled={busy}
+                    size="sm"
+                    label="Grant admin consent"
+                  />
+                  <Button
+                    variant="ghost"
+                    onClick={handleSyncConsent}
+                    isDisabled={busy}
+                    size="sm"
+                    label="Already granted in Microsoft? Check again"
+                  />
                 </>
               )}
               {status === 'consent_granted' && (
-                <Button onClick={handleEnable} disabled={busy} size="sm">
-                  Turn on Microsoft sign-in
-                </Button>
+                <Button
+                  onClick={handleEnable}
+                  isDisabled={busy}
+                  size="sm"
+                  label="Turn on Microsoft sign-in"
+                />
               )}
               {status === 'active' && (
-                <Button variant="secondary" onClick={handleDisable} disabled={busy} size="sm">
-                  Turn off
-                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleDisable}
+                  isDisabled={busy}
+                  size="sm"
+                  label="Turn off"
+                />
               )}
             </div>
             <Button
               variant="ghost"
               onClick={handleDisconnect}
-              disabled={busy}
+              isDisabled={busy}
               size="sm"
               className="text-danger hover:bg-danger-tint hover:text-danger"
-            >
-              Disconnect
-            </Button>
+              label="Disconnect"
+            />
           </footer>
         </>
       )}
 
       {actionError && (
         <div className="border-t border-hairline-tertiary px-5 py-3">
-          <Alert variant="destructive">
-            <AlertDescription>{actionError}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={actionError} />
         </div>
       )}
     </section>

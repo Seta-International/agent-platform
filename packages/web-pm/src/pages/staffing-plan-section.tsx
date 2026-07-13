@@ -85,12 +85,11 @@ export function StaffingPlanSection({
             <Button
               size="sm"
               variant="ghost"
+              label="Remove"
               onClick={() =>
                 remove.mutate({ lineId: row.original.line_id, version: row.original.version })
               }
-            >
-              Remove
-            </Button>
+            />
           ) : null,
       },
     ];
@@ -128,9 +127,11 @@ export function StaffingPlanSection({
               onChange={(e) => setEffort(e.target.value)}
             />
           </div>
-          <Button onClick={() => add.mutate()} disabled={add.isPending || !role.trim()}>
-            Add
-          </Button>
+          <Button
+            label="Add"
+            onClick={() => add.mutate()}
+            isDisabled={add.isPending || !role.trim()}
+          />
         </div>
       )}
     </section>

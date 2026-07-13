@@ -49,12 +49,8 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
         <RichTextEditor value={draft} onChange={setDraft} onSave={save} onCancel={cancel} />
         <div className="mt-1 text-caption text-ink-subtle">⌘↵ to save · Esc to cancel</div>
         <div className="mt-2 flex justify-end gap-1.5">
-          <Button size="sm" variant="ghost" onClick={cancel}>
-            Cancel
-          </Button>
-          <Button size="sm" onClick={save} disabled={update.isPending}>
-            Save
-          </Button>
+          <Button size="sm" variant="ghost" label="Cancel" onClick={cancel} />
+          <Button size="sm" label="Save" onClick={save} isDisabled={update.isPending} />
         </div>
       </section>
     );

@@ -25,7 +25,7 @@ export function GroupsGrid({ groups, onRestore }: Props) {
           {/* Top row: tile on left, archived badge slot on right */}
           <div className="flex items-start justify-between">
             <GroupTile size={36} name={g.name} theme={g.theme} />
-            {g.deleted_at ? <Badge variant="secondary">Archived</Badge> : <div />}
+            {g.deleted_at ? <Badge variant="neutral" label="Archived" /> : <div />}
           </div>
 
           {/* Name */}
@@ -66,16 +66,15 @@ export function GroupsGrid({ groups, onRestore }: Props) {
                 <Button
                   size="sm"
                   variant="secondary"
+                  label="Restore"
                   className="w-full"
-                  disabled={!canUpdateGroup}
+                  isDisabled={!canUpdateGroup}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     onRestore(g.id);
                   }}
-                >
-                  Restore
-                </Button>
+                />
               </DisabledActionTooltip>
             </div>
           )}

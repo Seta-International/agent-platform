@@ -1,6 +1,5 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -84,19 +83,20 @@ export function ResolveConflictDialog({
         </div>
 
         {resolve.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              {resolve.error instanceof Error
-                ? resolve.error.message
-                : "Couldn't save your choice."}
-            </AlertDescription>
-          </Alert>
+          <Banner
+            status="error"
+            title={
+              resolve.error instanceof Error ? resolve.error.message : "Couldn't save your choice."
+            }
+          />
         )}
 
         <div className="flex justify-end pt-2 border-t border-hairline mt-2">
-          <Button onClick={handleResolve} disabled={!allDecided || resolve.isPending}>
-            Save choices
-          </Button>
+          <Button
+            label="Save choices"
+            onClick={handleResolve}
+            isDisabled={!allDecided || resolve.isPending}
+          />
         </div>
       </DialogContent>
     </Dialog>

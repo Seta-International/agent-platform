@@ -24,9 +24,9 @@ export function KnowledgePage() {
 
           {isPending ? (
             <div className="space-y-2">
-              <Skeleton className="h-14 w-full" />
-              <Skeleton className="h-14 w-full" />
-              <Skeleton className="h-14 w-full" />
+              <Skeleton height={56} />
+              <Skeleton height={56} />
+              <Skeleton height={56} />
             </div>
           ) : fileCount === 0 ? (
             <EmptyState

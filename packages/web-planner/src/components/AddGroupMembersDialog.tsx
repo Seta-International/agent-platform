@@ -1,9 +1,8 @@
 import type { GroupMemberRow } from '@seta/planner';
 import {
-  Alert,
-  AlertDescription,
   Avatar,
   AvatarFallback,
+  Banner,
   Button,
   Checkbox,
   Dialog,
@@ -187,25 +186,22 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
           })}
         </div>
 
-        {error && (
-          <Alert variant="destructive" role="alert">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        {error && <Banner status="error" role="alert" title={error} />}
 
         <div className="flex justify-end gap-2 pt-2 border-t border-hairline">
           <Button
             variant="secondary"
+            label="Cancel"
             onClick={() => {
               reset();
               onOpenChange(false);
             }}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleConfirm} disabled={selected.length === 0 || addMembers.isPending}>
-            {confirmLabel}
-          </Button>
+          />
+          <Button
+            label={confirmLabel}
+            onClick={handleConfirm}
+            isDisabled={selected.length === 0 || addMembers.isPending}
+          />
         </div>
       </DialogContent>
     </Dialog>

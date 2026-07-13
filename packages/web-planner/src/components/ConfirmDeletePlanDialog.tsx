@@ -71,13 +71,19 @@ export function ConfirmDeletePlanDialog({
         )}
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
+          <Button
+            variant="ghost"
+            label="Cancel"
+            onClick={() => handleOpenChange(false)}
+            isDisabled={pending}
+          />
           <DisabledActionTooltip disabled={!canDeletePlan} reason={PERMISSION_DENIED.plan.delete}>
-            <Button variant="destructive" onClick={onConfirm} disabled={deleteDisabled}>
-              Delete
-            </Button>
+            <Button
+              variant="destructive"
+              label="Delete"
+              onClick={onConfirm}
+              isDisabled={deleteDisabled}
+            />
           </DisabledActionTooltip>
         </DialogFooter>
       </DialogContent>

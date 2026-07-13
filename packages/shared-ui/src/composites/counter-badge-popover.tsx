@@ -3,7 +3,7 @@
 import type * as React from 'react';
 import { useRef, useState } from 'react';
 import { cn } from '../lib/cn';
-import { Badge } from '../primitives/badge';
+import { Badge, type BadgeProps } from '../primitives/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
 import { LabelChip } from './label-chip';
 
@@ -18,7 +18,7 @@ export interface CounterBadgePopoverProps {
   title: string;
   limit?: number;
   type?: 'badge' | 'label-chip';
-  badgeVariant?: 'default' | 'secondary' | 'outline' | 'destructive' | 'success' | 'warning';
+  badgeVariant?: BadgeProps['variant'];
   className?: string;
 }
 
@@ -27,7 +27,7 @@ export function CounterBadgePopover({
   title,
   limit = 2,
   type = 'badge',
-  badgeVariant = 'secondary',
+  badgeVariant = 'neutral',
   className,
 }: CounterBadgePopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -68,9 +68,8 @@ export function CounterBadgePopover({
           'text-[11px] px-1.5 py-0 whitespace-nowrap font-medium rounded-sm border-hairline',
           isPopoverList ? 'h-auto py-0.5' : 'h-5',
         )}
-      >
-        {item.name}
-      </Badge>
+        label={item.name}
+      />
     );
   };
 

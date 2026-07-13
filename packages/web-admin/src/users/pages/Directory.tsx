@@ -81,11 +81,11 @@ function FilterSelect({
 
 const ACCOUNT_STATUS_BADGE: Record<
   DirectoryRow['account_status'],
-  'outline' | 'success' | 'destructive'
+  'neutral' | 'success' | 'error'
 > = {
-  none: 'outline',
+  none: 'neutral',
   active: 'success',
-  suspended: 'destructive',
+  suspended: 'error',
 };
 
 const ACCOUNT_STATUS_LABEL: Record<DirectoryRow['account_status'], string> = {
@@ -94,9 +94,9 @@ const ACCOUNT_STATUS_LABEL: Record<DirectoryRow['account_status'], string> = {
   suspended: 'Suspended',
 };
 
-const EMPLOYMENT_BADGE: Record<DirectoryRow['employment_status'], 'success' | 'secondary'> = {
+const EMPLOYMENT_BADGE: Record<DirectoryRow['employment_status'], 'success' | 'neutral'> = {
   active: 'success',
-  terminated: 'secondary',
+  terminated: 'neutral',
 };
 
 const EMPLOYMENT_LABEL: Record<DirectoryRow['employment_status'], string> = {
@@ -112,9 +112,7 @@ function ChipList({ items }: { items: string[] }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       {items.slice(0, 2).map((label) => (
-        <Badge key={label} variant="secondary">
-          {label}
-        </Badge>
+        <Badge key={label} variant="neutral" label={label} />
       ))}
       {items.length > 2 && (
         <span className="text-caption text-ink-tertiary">+{items.length - 2}</span>
@@ -282,9 +280,10 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         header: 'Employment',
         enableSorting: false,
         cell: ({ row }) => (
-          <Badge variant={EMPLOYMENT_BADGE[row.original.employment_status]}>
-            {EMPLOYMENT_LABEL[row.original.employment_status]}
-          </Badge>
+          <Badge
+            variant={EMPLOYMENT_BADGE[row.original.employment_status]}
+            label={EMPLOYMENT_LABEL[row.original.employment_status]}
+          />
         ),
       },
       {
@@ -292,9 +291,10 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         header: 'Account status',
         enableSorting: false,
         cell: ({ row }) => (
-          <Badge variant={ACCOUNT_STATUS_BADGE[row.original.account_status]}>
-            {ACCOUNT_STATUS_LABEL[row.original.account_status]}
-          </Badge>
+          <Badge
+            variant={ACCOUNT_STATUS_BADGE[row.original.account_status]}
+            label={ACCOUNT_STATUS_LABEL[row.original.account_status]}
+          />
         ),
       },
       {
@@ -334,13 +334,13 @@ export function Directory({ search, onSearch }: DirectoryProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="tertiary"
-                  size="icon"
-                  aria-label={`Row actions for ${r.full_name}`}
+                  variant="ghost"
+                  size="sm"
+                  isIconOnly
+                  label={`Row actions for ${r.full_name}`}
                   onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="size-4" />
-                </Button>
+                  icon={<MoreHorizontal className="size-4" />}
+                />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {r.account_status === 'none' && (
@@ -425,10 +425,9 @@ export function Directory({ search, onSearch }: DirectoryProps) {
                     setQInput('');
                     onSearch(() => ({}));
                   }}
-                >
-                  <X className="size-3.5" aria-hidden />
-                  Clear
-                </Button>
+                  icon={<X className="size-3.5" aria-hidden />}
+                  label="Clear"
+                />
               )}
             </div>
           }
@@ -497,18 +496,16 @@ export function Directory({ search, onSearch }: DirectoryProps) {
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="secondary">Cancel</Button>
+              <Button variant="secondary" label="Cancel" />
             </DialogClose>
             <Button
-              variant="default"
-              className="bg-destructive text-on-primary hover:bg-destructive/90"
+              variant="destructive"
+              label="Suspend"
               onClick={() => {
                 if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
                 setSuspendTarget(null);
               }}
-            >
-              Suspend
-            </Button>
+            />
           </DialogFooter>
         </DialogContent>
       </Dialog>

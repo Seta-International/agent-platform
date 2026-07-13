@@ -163,13 +163,9 @@ export function fractionToPct(fraction: string): number {
 }
 
 export function bucketBadge(bucket: Bucket) {
-  const variant = bucket === 'billable' ? 'success' : bucket === 'bench' ? 'warning' : 'secondary';
+  const variant = bucket === 'billable' ? 'success' : bucket === 'bench' ? 'warning' : 'neutral';
   const label = bucket === 'billable' ? 'Billable' : bucket === 'bench' ? 'Bench' : 'Internal';
-  return (
-    <Badge variant={variant} className="font-normal capitalize">
-      {label}
-    </Badge>
-  );
+  return <Badge variant={variant} className="font-normal capitalize" label={label} />;
 }
 
 export function todayIso(): string {
