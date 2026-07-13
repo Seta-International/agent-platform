@@ -1,8 +1,7 @@
 import {
-  Alert,
-  AlertDescription,
   AsyncCombobox,
   Badge,
+  Banner,
   Button,
   Card,
   CardContent,
@@ -30,7 +29,7 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { AlertCircle, ArrowRightLeft, CalendarRange, Plus, Users, X } from 'lucide-react';
+import { ArrowRightLeft, CalendarRange, Plus, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchAccounts,
@@ -239,12 +238,7 @@ function SplitAllocationDialog({
           <DialogTitle>End early & continue</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {mutation.isError ? (
-            <Alert variant="destructive">
-              <AlertCircle />
-              <AlertDescription>{mutation.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
+          {mutation.isError ? <Banner status="error" title={mutation.error.message} /> : null}
           <div className="space-y-1.5">
             <Label>New end date for this allocation</Label>
             <Input

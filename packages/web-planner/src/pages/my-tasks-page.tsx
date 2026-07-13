@@ -1,6 +1,6 @@
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
 import type { MyTasksResult } from '@seta/planner';
-import { Alert, AlertDescription, Button, EmptyState, PageChrome, Skeleton } from '@seta/shared-ui';
+import { Banner, Button, EmptyState, PageChrome, Skeleton } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useNavigate } from '@tanstack/react-router';
 import { generateKeyBetween } from 'fractional-indexing';
@@ -221,14 +221,16 @@ function MyTasksSkeleton() {
 
 function MyTasksError({ onRetry }: { onRetry: () => void }) {
   return (
-    <Alert variant="destructive" data-testid="my-tasks-error">
-      <AlertDescription className="flex items-center justify-between gap-3">
-        <span>Couldn&apos;t load your tasks.</span>
+    <Banner
+      status="error"
+      data-testid="my-tasks-error"
+      title="Couldn&apos;t load your tasks."
+      endContent={
         <Button size="sm" variant="secondary" onClick={onRetry}>
           Try again
         </Button>
-      </AlertDescription>
-    </Alert>
+      }
+    />
   );
 }
 

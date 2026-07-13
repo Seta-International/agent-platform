@@ -1,6 +1,5 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -111,14 +110,15 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
     return (
       <PageChrome breadcrumb={['Planner']} title="Groups">
         <div className="p-6">
-          <Alert variant="destructive">
-            <AlertDescription className="flex items-center justify-between gap-3">
-              <span>Couldn't load groups.</span>
+          <Banner
+            status="error"
+            title="Couldn't load groups."
+            endContent={
               <Button size="sm" variant="secondary" onClick={() => q.refetch()}>
                 Retry
               </Button>
-            </AlertDescription>
-          </Alert>
+            }
+          />
         </div>
       </PageChrome>
     );

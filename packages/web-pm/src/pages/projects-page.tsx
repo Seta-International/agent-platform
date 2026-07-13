@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Badge, DataTable, EmptyState, PageChrome } from '@seta/shared-ui';
+import { Badge, Banner, DataTable, EmptyState, PageChrome } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { FolderKanban } from 'lucide-react';
@@ -61,9 +61,7 @@ export function ProjectsPage() {
     <PageChrome title="Projects">
       <div className="page-container space-y-4 p-6">
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={(error as Error).message} />
         ) : (
           <DataTable
             columns={columns}

@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Button, PageChrome, Skeleton } from '@seta/shared-ui';
+import { Banner, Button, PageChrome, Skeleton } from '@seta/shared-ui';
 import { useSession } from '@seta/web-identity';
 import { ExternalLink } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -74,24 +74,15 @@ export function AdminSso({ status, error }: AdminSsoProps) {
     >
       <div className="page-container space-y-4">
         {status === 'consent_granted' && (
-          <Alert>
-            <AlertDescription>
-              Admin consent granted. The provider is ready to enable.
-            </AlertDescription>
-          </Alert>
+          <Banner status="info" title="Admin consent granted. The provider is ready to enable." />
         )}
         {status === 'consent_failed' && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              Admin consent didn&apos;t go through{error ? `: ${error}` : '.'}
-            </AlertDescription>
-          </Alert>
+          <Banner
+            status="error"
+            title={<>Admin consent didn&apos;t go through{error ? `: ${error}` : '.'}</>}
+          />
         )}
-        {fetchError && (
-          <Alert variant="destructive">
-            <AlertDescription>{fetchError}</AlertDescription>
-          </Alert>
-        )}
+        {fetchError && <Banner status="error" title={fetchError} />}
 
         {providers === null && !fetchError ? (
           <div className="space-y-4">

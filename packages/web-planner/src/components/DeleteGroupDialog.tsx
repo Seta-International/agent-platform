@@ -1,13 +1,5 @@
 import type { GroupRow } from '@seta/planner';
-import {
-  Alert,
-  AlertDescription,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@seta/shared-ui';
+import { Banner, Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@seta/shared-ui';
 
 interface Props {
   group: GroupRow;
@@ -45,11 +37,7 @@ export function DeleteGroupDialog({
               </>
             )}
           </p>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={isPending}>
               Cancel

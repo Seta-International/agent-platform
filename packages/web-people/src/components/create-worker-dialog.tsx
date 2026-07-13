@@ -1,8 +1,7 @@
 import {
-  Alert,
-  AlertDescription,
   AsyncCombobox,
   Badge,
+  Banner,
   Button,
   Combobox,
   Dialog,
@@ -321,11 +320,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
             )}
           </Section>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel

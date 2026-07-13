@@ -1,6 +1,5 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -83,11 +82,7 @@ export function EditDomainsDialog({
             />
           </div>
           <DomainsField domains={domains} onChange={setDomains} idPrefix="edit-domains" />
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel

@@ -1,9 +1,8 @@
 import {
-  Alert,
-  AlertDescription,
   Avatar,
   AvatarFallback,
   Badge,
+  Banner,
   Button,
   Calendar as DayPickerCalendar,
   DisabledActionTooltip,
@@ -483,9 +482,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   if (error || !data) {
     return (
       <div className="flex flex-col overflow-hidden p-6">
-        <Alert variant="destructive">
-          <AlertDescription>{(error as Error)?.message ?? 'Not found'}</AlertDescription>
-        </Alert>
+        <Banner status="error" title={(error as Error)?.message ?? 'Not found'} />
       </div>
     );
   }

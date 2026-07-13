@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Button } from '@seta/shared-ui';
+import { Banner, Button } from '@seta/shared-ui';
 import { CheckCircle2, Plug, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import type { SsoProviderRowDto } from '../api/sso-client.ts';
@@ -302,9 +302,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
 
       {actionError && (
         <div className="border-t border-hairline-tertiary px-5 py-3">
-          <Alert variant="destructive">
-            <AlertDescription>{actionError}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={actionError} />
         </div>
       )}
     </section>

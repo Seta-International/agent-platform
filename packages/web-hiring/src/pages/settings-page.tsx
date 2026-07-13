@@ -1,7 +1,6 @@
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Card,
   CardContent,
@@ -157,11 +156,7 @@ function NewTemplateDialog() {
               />
             </div>
           ))}
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={close}>
               Cancel
@@ -228,11 +223,7 @@ function NewCloseReasonDialog() {
               placeholder="e.g. Position cancelled"
             />
           </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={close}>
               Cancel
@@ -325,11 +316,7 @@ function NewRejectionReasonDialog() {
               </SelectContent>
             </Select>
           </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={close}>
               Cancel
@@ -403,9 +390,7 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent>
             {templates.error ? (
-              <Alert variant="destructive">
-                <AlertDescription>{(templates.error as Error).message}</AlertDescription>
-              </Alert>
+              <Banner status="error" title={(templates.error as Error).message} />
             ) : templates.isLoading ? (
               <div className="text-ink-muted">Loading…</div>
             ) : (templates.data?.length ?? 0) === 0 ? (
@@ -436,9 +421,7 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent>
             {reasons.error ? (
-              <Alert variant="destructive">
-                <AlertDescription>{(reasons.error as Error).message}</AlertDescription>
-              </Alert>
+              <Banner status="error" title={(reasons.error as Error).message} />
             ) : reasons.isLoading ? (
               <div className="text-ink-muted">Loading…</div>
             ) : (reasons.data?.length ?? 0) === 0 ? (
@@ -473,9 +456,7 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent>
             {rejections.error ? (
-              <Alert variant="destructive">
-                <AlertDescription>{(rejections.error as Error).message}</AlertDescription>
-              </Alert>
+              <Banner status="error" title={(rejections.error as Error).message} />
             ) : rejections.isLoading ? (
               <div className="text-ink-muted">Loading…</div>
             ) : (rejections.data?.length ?? 0) === 0 ? (

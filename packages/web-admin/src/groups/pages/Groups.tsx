@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Badge, EmptyState, PageChrome, Skeleton } from '@seta/shared-ui';
+import { Badge, Banner, EmptyState, PageChrome, Skeleton } from '@seta/shared-ui';
 import { UsersRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { RailHeader, RailItem } from '../../components/access-console.tsx';
@@ -77,9 +77,7 @@ export function GroupsPage() {
     >
       {error ? (
         <div className="page-container pt-4">
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={(error as Error).message} />
         </div>
       ) : (
         <div className="flex h-full min-h-0">

@@ -1,9 +1,8 @@
 import {
-  Alert,
-  AlertDescription,
   Avatar,
   AvatarFallback,
   Badge,
+  Banner,
   CounterBadgePopover,
   DataTable,
   DropdownMenu,
@@ -276,9 +275,7 @@ export function PeoplePage() {
     <PageChrome title="People" actions={actions}>
       <div className="w-full space-y-4 p-6">
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={(error as Error).message} />
         ) : (
           <>
             {/* Control & Filter Layout */}

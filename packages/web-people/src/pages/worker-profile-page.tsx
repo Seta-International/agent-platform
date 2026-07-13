@@ -1,10 +1,9 @@
 import {
-  Alert,
-  AlertDescription,
   AsyncCombobox,
   Avatar,
   AvatarFallback,
   Badge,
+  Banner,
   Button,
   Card,
   CardContent,
@@ -276,9 +275,7 @@ export function WorkerProfilePage() {
     return (
       <PageChrome title="Profile" breadcrumb={[backLink]}>
         <div className="page-container p-6">
-          <Alert variant="destructive">
-            <AlertDescription>{msg}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={msg} />
         </div>
       </PageChrome>
     );
@@ -311,11 +308,7 @@ export function WorkerProfilePage() {
               </div>
             </CardHeader>
             <CardContent>
-              {editError && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertDescription>{editError}</AlertDescription>
-                </Alert>
-              )}
+              {editError && <Banner status="error" className="mb-4" title={editError} />}
 
               {editing ? (
                 <div className="space-y-4">

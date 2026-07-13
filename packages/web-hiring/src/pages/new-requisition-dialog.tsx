@@ -1,6 +1,5 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -363,11 +362,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                 </div>
               ))}
 
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
+              {error && <Banner status="error" title={error} />}
             </div>
           </div>
         </div>

@@ -1,7 +1,6 @@
 import type { GroupRow } from '@seta/planner';
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -167,11 +166,7 @@ function EditForm({ group, onDone }: EditFormProps) {
         />
       </div>
 
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      {error && <Banner status="error" title={error} />}
 
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="secondary" onClick={onDone}>

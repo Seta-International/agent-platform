@@ -1,9 +1,8 @@
 import {
-  Alert,
-  AlertDescription,
   Avatar,
   AvatarFallback,
   Badge,
+  Banner,
   Button,
   Card,
   CardContent,
@@ -45,9 +44,7 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
       {show && (
         <CardContent>
           {pool.error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{(pool.error as Error).message}</AlertDescription>
-            </Alert>
+            <Banner status="error" title={(pool.error as Error).message} />
           ) : pool.isLoading ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {[0, 1, 2].map((i) => (

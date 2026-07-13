@@ -1,7 +1,6 @@
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Card,
   CardContent,
@@ -186,9 +185,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
     return (
       <PageChrome title="Request" breadcrumb={[backLink]}>
         <div className="page-container p-6">
-          <Alert variant="destructive">
-            <AlertDescription>{msg}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={msg} />
         </div>
       </PageChrome>
     );
@@ -244,11 +241,15 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
         </Card>
 
         {c.status === 'rejected' && c.rejection_reason && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              Rejected at {c.rejected_stage === 'bod' ? 'BoD' : 'PMO'} review: {c.rejection_reason}
-            </AlertDescription>
-          </Alert>
+          <Banner
+            status="error"
+            title={
+              <>
+                Rejected at {c.rejected_stage === 'bod' ? 'BoD' : 'PMO'} review:{' '}
+                {c.rejection_reason}
+              </>
+            }
+          />
         )}
 
         <Card>

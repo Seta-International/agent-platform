@@ -1,6 +1,4 @@
 import {
-  Alert,
-  AlertDescription,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -9,6 +7,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  Banner,
   Button,
   buttonVariants,
   Combobox,
@@ -828,17 +827,9 @@ function ReviewStep({
   return (
     <div className="space-y-4">
       {previewMutation.isError ? (
-        <Alert variant="destructive">
-          <AlertCircle />
-          <AlertDescription>{previewMutation.error?.message}</AlertDescription>
-        </Alert>
+        <Banner status="error" title={previewMutation.error?.message} />
       ) : null}
-      {mutation.isError ? (
-        <Alert variant="destructive">
-          <AlertCircle />
-          <AlertDescription>{mutation.error?.message}</AlertDescription>
-        </Alert>
-      ) : null}
+      {mutation.isError ? <Banner status="error" title={mutation.error?.message} /> : null}
 
       {preview?.exceeds ? (
         // Over-allocation is a soft warning (you can still confirm), so it's amber, not red — and

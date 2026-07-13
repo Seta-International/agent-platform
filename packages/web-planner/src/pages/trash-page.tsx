@@ -1,9 +1,8 @@
 // biome-ignore-all lint/a11y/useSemanticElements: intentional div+role="table"/"row"/"cell" markup to escape native table layout constraints; a11y semantics preserved via explicit roles.
 // biome-ignore-all lint/a11y/useFocusableInteractive: row/cell roles are decorative grid wrappers, not interactive elements; focus targets live inside (buttons).
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -111,14 +110,16 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
     return (
       <PageChrome breadcrumb={['Planner']} title="Trash">
         <div className="p-6">
-          <Alert variant="destructive" role="alert">
-            <AlertDescription className="flex items-center justify-between gap-3">
-              <span>Couldn&apos;t load trash.</span>
+          <Banner
+            status="error"
+            role="alert"
+            title="Couldn&apos;t load trash."
+            endContent={
               <Button size="sm" variant="secondary" onClick={() => q.refetch()}>
                 Retry
               </Button>
-            </AlertDescription>
-          </Alert>
+            }
+          />
         </div>
       </PageChrome>
     );

@@ -1,7 +1,6 @@
 import {
-  Alert,
-  AlertDescription,
   AsyncCombobox,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -266,11 +265,7 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
             </div>
           </div>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Banner status="error" title={error} />}
 
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setOpen(false)}>

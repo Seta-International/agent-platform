@@ -1,7 +1,6 @@
 import {
-  Alert,
-  AlertDescription,
   AsyncCombobox,
+  Banner,
   Button,
   Card,
   CardContent,
@@ -210,9 +209,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
     return (
       <PageChrome title="Account" breadcrumb={[backLink]}>
         <div className="page-container p-6">
-          <Alert variant="destructive">
-            <AlertDescription>{msg}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={msg} />
         </div>
       </PageChrome>
     );
@@ -227,11 +224,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
             <CardTitle>{account.name}</CardTitle>
           </CardHeader>
           <CardContent>
-            {editError && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertDescription>{editError}</AlertDescription>
-              </Alert>
-            )}
+            {editError && <Banner status="error" className="mb-4" title={editError} />}
 
             {editing ? (
               <div className="space-y-4">
@@ -300,11 +293,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                   resolveByIds={workerPicker.resolveByIds}
                   placeholder="Search workers…"
                 />
-                {recruiterError && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{recruiterError}</AlertDescription>
-                  </Alert>
-                )}
+                {recruiterError && <Banner status="error" title={recruiterError} />}
                 <div className="flex justify-end gap-2">
                   <Button
                     size="sm"

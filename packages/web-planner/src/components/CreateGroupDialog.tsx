@@ -1,7 +1,6 @@
 import type { GroupRow } from '@seta/planner';
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   cn,
   Dialog,
@@ -283,11 +282,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
               )}
             </div>
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            {error && <Banner status="error" title={error} />}
 
             {/* Members chip-input is deferred — identity.searchUsers API is not yet exposed to the
               planner module. Members can be added from the group page after creation. */}

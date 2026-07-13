@@ -1,7 +1,6 @@
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Checkbox,
   DataTable,
@@ -161,12 +160,15 @@ export function ImportFromEntraDialog({
           <div className="mt-4 space-y-4">
             {result ? (
               <div className="space-y-3">
-                <Alert>
-                  <AlertDescription>
-                    Added <strong>{result.imported.length}</strong>{' '}
-                    {result.imported.length === 1 ? 'person' : 'people'} to your organization.
-                  </AlertDescription>
-                </Alert>
+                <Banner
+                  status="info"
+                  title={
+                    <>
+                      Added <strong>{result.imported.length}</strong>{' '}
+                      {result.imported.length === 1 ? 'person' : 'people'} to your organization.
+                    </>
+                  }
+                />
 
                 {result.skipped.length > 0 && (
                   <details className="text-sm">
@@ -204,11 +206,7 @@ export function ImportFromEntraDialog({
               </div>
             ) : (
               <>
-                {loadError && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{loadError}</AlertDescription>
-                  </Alert>
-                )}
+                {loadError && <Banner status="error" title={loadError} />}
 
                 {loading ? (
                   <div className="space-y-2">
@@ -229,11 +227,7 @@ export function ImportFromEntraDialog({
                   />
                 ) : null}
 
-                {submitError && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{submitError}</AlertDescription>
-                  </Alert>
-                )}
+                {submitError && <Banner status="error" title={submitError} />}
 
                 <div className="flex justify-end gap-2">
                   <Button variant="ghost" onClick={() => setOpen(false)}>

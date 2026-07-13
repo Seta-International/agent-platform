@@ -1,6 +1,5 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   cn,
   Dialog,
@@ -140,11 +139,10 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange, onSelect }: Prop
           )}
 
           {link.isError && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {link.error instanceof Error ? link.error.message : "Couldn't link the group."}
-              </AlertDescription>
-            </Alert>
+            <Banner
+              status="error"
+              title={link.error instanceof Error ? link.error.message : "Couldn't link the group."}
+            />
           )}
         </div>
 

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import * as Surface from '../../src/index';
 
 const REQUIRED = [
-  'Alert',
   'Avatar',
   'Badge',
+  'Banner',
   'Button',
   'Calendar',
   'Card',

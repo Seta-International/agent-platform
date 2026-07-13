@@ -1,7 +1,6 @@
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Card,
   CardContent,
@@ -487,9 +486,7 @@ export function RequestsPage() {
         </div>
 
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={(error as Error).message} />
         ) : rows.length === 0 ? (
           <EmptyState
             icon={<ClipboardList className="size-6" />}

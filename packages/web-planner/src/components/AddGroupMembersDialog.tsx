@@ -1,9 +1,8 @@
 import type { GroupMemberRow } from '@seta/planner';
 import {
-  Alert,
-  AlertDescription,
   Avatar,
   AvatarFallback,
+  Banner,
   Button,
   Checkbox,
   Dialog,
@@ -187,11 +186,7 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
           })}
         </div>
 
-        {error && (
-          <Alert variant="destructive" role="alert">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        {error && <Banner status="error" role="alert" title={error} />}
 
         <div className="flex justify-end gap-2 pt-2 border-t border-hairline">
           <Button

@@ -1,7 +1,6 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   DataTable,
   EmptyState,
@@ -359,9 +358,7 @@ export function CandidatesPage() {
         </div>
 
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={(error as Error).message} />
         ) : view === 'list' ? (
           <DataTable
             columns={columns}

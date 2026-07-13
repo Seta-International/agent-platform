@@ -1,8 +1,7 @@
 // biome-ignore-all lint/a11y/noAutofocus: inline rename inputs take focus when opened.
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   cn,
   EmptyState,
@@ -154,11 +153,12 @@ export function SkillsCatalog() {
     >
       <div className="page-container space-y-5">
         {categoriesQ.error && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              Couldn&apos;t load the skills catalog: {(categoriesQ.error as Error).message}
-            </AlertDescription>
-          </Alert>
+          <Banner
+            status="error"
+            title={
+              <>Couldn&apos;t load the skills catalog: {(categoriesQ.error as Error).message}</>
+            }
+          />
         )}
 
         {!canManage && !loading && (
@@ -294,11 +294,10 @@ export function SkillsCatalog() {
                 )}
 
                 {skillsQ.error ? (
-                  <Alert variant="destructive">
-                    <AlertDescription>
-                      Couldn&apos;t load skills: {(skillsQ.error as Error).message}
-                    </AlertDescription>
-                  </Alert>
+                  <Banner
+                    status="error"
+                    title={<>Couldn&apos;t load skills: {(skillsQ.error as Error).message}</>}
+                  />
                 ) : categories.length === 0 ? (
                   <EmptyState
                     icon={<Tags className="size-8" />}

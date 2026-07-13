@@ -1,8 +1,7 @@
 import { PRODUCTS, productForNamespace } from '@seta/shared-rbac';
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Checkbox,
   PageChrome,
@@ -54,11 +53,10 @@ export function RoleAccess() {
     >
       {error ? (
         <div className="page-container pt-4">
-          <Alert variant="destructive">
-            <AlertDescription>
-              Couldn&apos;t load the access matrix: {(error as Error).message}
-            </AlertDescription>
-          </Alert>
+          <Banner
+            status="error"
+            title={<>Couldn&apos;t load the access matrix: {(error as Error).message}</>}
+          />
         </div>
       ) : (
         <div className="flex h-full min-h-0">

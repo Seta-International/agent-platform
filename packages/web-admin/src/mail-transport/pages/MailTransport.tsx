@@ -1,6 +1,5 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Card,
   Input,
@@ -155,11 +154,7 @@ export function MailTransport() {
       }
     >
       <div className="page-container space-y-4">
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
-        )}
+        {error && <Banner status="error" title={(error as Error).message} />}
 
         <Card className="p-5 space-y-5">
           <div>
@@ -280,11 +275,7 @@ export function MailTransport() {
             </div>
           )}
 
-          {save.error && (
-            <Alert variant="destructive">
-              <AlertDescription>{(save.error as Error).message}</AlertDescription>
-            </Alert>
-          )}
+          {save.error && <Banner status="error" title={(save.error as Error).message} />}
 
           <div className="flex items-center justify-end gap-2">
             {enabled && (
@@ -332,24 +323,22 @@ export function MailTransport() {
             </Button>
           </div>
           {verify.data?.ok && (
-            <Alert>
-              <AlertDescription>
-                Sent. Message ID: {verify.data.transport_message_id ?? '—'}
-              </AlertDescription>
-            </Alert>
+            <Banner
+              status="info"
+              title={<>Sent. Message ID: {verify.data.transport_message_id ?? '—'}</>}
+            />
           )}
           {verify.data && !verify.data.ok && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {verify.data.error?.code}: {verify.data.error?.message}
-              </AlertDescription>
-            </Alert>
+            <Banner
+              status="error"
+              title={
+                <>
+                  {verify.data.error?.code}: {verify.data.error?.message}
+                </>
+              }
+            />
           )}
-          {verify.error && (
-            <Alert variant="destructive">
-              <AlertDescription>{(verify.error as Error).message}</AlertDescription>
-            </Alert>
-          )}
+          {verify.error && <Banner status="error" title={(verify.error as Error).message} />}
         </Card>
       </div>
     </PageChrome>

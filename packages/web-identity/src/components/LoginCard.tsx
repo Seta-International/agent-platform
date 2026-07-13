@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Button, Input, Label, SetaMark } from '@seta/shared-ui';
+import { Banner, Button, Input, Label, SetaMark } from '@seta/shared-ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 import { discoverProvider } from '../api/client.ts';
@@ -192,11 +192,7 @@ function EmailStep({
           />
         </Field>
 
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
+        {error ? <Banner status="error" title={error} /> : null}
 
         <Button type="submit" size="lg" className="w-full" disabled={submitting || !email}>
           {submitting ? 'Continue…' : 'Continue'}
@@ -265,11 +261,7 @@ function PasswordStep({
           />
         </Field>
 
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
+        {error ? <Banner status="error" title={error} /> : null}
 
         <Button
           type="submit"
@@ -329,11 +321,7 @@ function SsoStep({
       <div className="flex flex-col gap-sm rounded-lg border border-hairline bg-canvas p-lg duration-200 animate-in fade-in">
         <EmailChip email={email} onEdit={onEdit} />
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        {error && <Banner status="error" title={error} />}
 
         <Button
           size="lg"

@@ -1,7 +1,6 @@
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -349,11 +348,7 @@ export function NewCandidateDialog() {
             </div>
           )}
           {requiredError && <p className="text-body-sm text-danger-ink">{requiredError}</p>}
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={close}>
               Cancel

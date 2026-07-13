@@ -1,7 +1,6 @@
 import type { BucketRow, GroupRow, PlanRow } from '@seta/planner';
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Command,
   CommandEmpty,
@@ -167,11 +166,7 @@ export function MoveTaskDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {plansQ.isError && (
-            <Alert variant="destructive">
-              <AlertDescription>Couldn&rsquo;t load plans. Try again.</AlertDescription>
-            </Alert>
-          )}
+          {plansQ.isError && <Banner status="error" title="Couldn’t load plans. Try again." />}
 
           <div className="space-y-1.5">
             <label htmlFor="move-task-plan-trigger" className="text-caption text-ink-subtle">
