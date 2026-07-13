@@ -25,7 +25,7 @@ When `docs/platform/architecture.md` and the code disagree, the doc is the bug �
 - **Backend**: Hono, Mastra (`@mastra/core@^1.35`), graphile-worker.
 - **Database**: Postgres + pgvector, Drizzle ORM (`pgSchema` + `schemaFilter`). No other ORM, no raw migration tool.
 - **Event bus**: transactional outbox in `core.events` + `LISTEN/NOTIFY` + 2s fallback poll. No SQS, no Kafka.
-- **Frontend**: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), shadcn/ui, Tailwind 4, AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui v6-paired.
+- **Frontend**: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), Astryx (`@astryxdesign/core` + StyleX, custom `seta` theme in `packages/shared-ui/src/theme/`) for components — foundation landed via FUT-562 (theme + build tooling wired, Storybook-verified), primitive/composite migration not yet started, so `apps/web` still runs on the pre-Astryx shadcn/Radix layer today — Tailwind 4 (unchanged, not yet integrated with Astryx — see `DESIGN.md`'s `implementation_notice`), AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui v6-paired.
 - **Auth**: better-auth + Drizzle adapter, argon2id via `@node-rs/argon2`.
 - **Cloud**: AWS — ECS Fargate, RDS, Secrets Manager, S3.
 
