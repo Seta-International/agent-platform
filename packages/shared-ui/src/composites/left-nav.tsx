@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '../lib/cn';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../primitives/tooltip';
+import { DefaultShellLink, type ShellLinkComponent } from './shell-link';
 
 const DOT_CLASS: Record<NavBadgeTone, string> = {
   primary: 'bg-primary',
@@ -11,22 +12,6 @@ const DOT_CLASS: Record<NavBadgeTone, string> = {
   success: 'bg-semantic-success',
   muted: 'bg-ink-subtle',
 };
-
-export interface ShellLinkProps {
-  href: string;
-  className?: string;
-  style?: React.CSSProperties;
-  children: React.ReactNode;
-  title?: string;
-  'aria-current'?: 'page' | undefined;
-}
-export type ShellLinkComponent = React.ComponentType<ShellLinkProps>;
-
-const DefaultShellLink: ShellLinkComponent = ({ href, className, style, children, ...rest }) => (
-  <a href={href} className={className} style={style} {...rest}>
-    {children}
-  </a>
-);
 
 export interface LeftNavProps {
   app: AppManifest;

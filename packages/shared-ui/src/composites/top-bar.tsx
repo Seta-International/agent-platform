@@ -5,13 +5,7 @@ import { AppGrid } from '../icons/app-grid';
 import { SetaMark } from '../icons/seta-mark';
 import { cn } from '../lib/cn';
 import { KbdHint } from './kbd-hint';
-import type { ShellLinkComponent } from './left-nav';
-
-const DefaultShellLink: ShellLinkComponent = ({ href, className, style, children, ...rest }) => (
-  <a href={href} className={className} style={style} {...rest}>
-    {children}
-  </a>
-);
+import { DefaultShellLink, type ShellLinkComponent } from './shell-link';
 
 export interface TopBarProps {
   /** Active app — rendered as the breadcrumb tail next to the brand. */

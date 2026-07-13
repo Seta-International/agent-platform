@@ -49,6 +49,7 @@ export * from './composites/priority-icon';
 export * from './composites/progress-bar';
 export * from './composites/resolve-plan-conflicts-dialog';
 export * from './composites/segmented-control';
+export * from './composites/shell-link';
 export * from './composites/side-panel';
 export * from './composites/skill-level-rating';
 export * from './composites/status-pill';

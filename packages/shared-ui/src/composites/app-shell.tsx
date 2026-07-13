@@ -5,7 +5,8 @@ import { cn } from '../lib/cn';
 import { Sheet, SheetContent } from '../primitives/sheet';
 import { AgentPanel } from './agent-panel';
 import { AppLauncher } from './app-launcher';
-import { LeftNav, type ShellLinkComponent } from './left-nav';
+import { LeftNav } from './left-nav';
+import type { ShellLinkComponent } from './shell-link';
 import { TopBar } from './top-bar';
 
 export interface AppShellProps {
