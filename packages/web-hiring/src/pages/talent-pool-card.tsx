@@ -40,9 +40,12 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
         header={
           <LayoutHeader hasDivider={show} className="flex flex-row items-center justify-between">
             <CardTitle>Talent pool</CardTitle>
-            <Button size="sm" variant="ghost" onClick={() => setShow((v) => !v)}>
-              {show ? 'Hide' : 'Show'}
-            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              label={show ? 'Hide' : 'Show'}
+              onClick={() => setShow((v) => !v)}
+            />
           </LayoutHeader>
         }
         content={

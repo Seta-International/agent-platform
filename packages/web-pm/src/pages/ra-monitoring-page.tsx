@@ -140,10 +140,12 @@ function SelectEmployeeDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5">
-          <Plus className="size-4" />
-          Add allocation
-        </Button>
+        <Button
+          size="sm"
+          className="gap-1.5"
+          label="Add allocation"
+          icon={<Plus className="size-4" />}
+        />
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -161,12 +163,8 @@ function SelectEmployeeDialog({
             />
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button disabled={!worker} onClick={handleNext}>
-              Next
-            </Button>
+            <Button variant="ghost" label="Cancel" onClick={() => setOpen(false)} />
+            <Button label="Next" isDisabled={!worker} onClick={handleNext} />
           </div>
         </div>
       </DialogContent>
@@ -291,12 +289,12 @@ function SplitAllocationDialog({
             />
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button disabled={!newEndDate || mutation.isPending} onClick={() => mutation.mutate()}>
-              Split
-            </Button>
+            <Button variant="ghost" label="Cancel" onClick={onClose} />
+            <Button
+              label="Split"
+              isDisabled={!newEndDate || mutation.isPending}
+              onClick={() => mutation.mutate()}
+            />
           </div>
         </div>
       </DialogContent>
@@ -600,13 +598,13 @@ export function RaMonitoringPage() {
           return (
             <div className="flex justify-end gap-1">
               <Button
-                size="icon"
+                size="sm"
                 variant="secondary"
-                aria-label="Reassign"
+                isIconOnly
+                label="Reassign"
                 onClick={() => m.onReassignGroup(r)}
-              >
-                <ArrowRightLeft className="size-4" />
-              </Button>
+                icon={<ArrowRightLeft className="size-4" />}
+              />
             </div>
           );
         },
@@ -706,6 +704,8 @@ export function RaMonitoringPage() {
               variant="ghost"
               size="sm"
               className="ml-auto h-8 gap-1 text-ink-muted"
+              label="Clear"
+              icon={<X className="size-3.5" />}
               onClick={() => {
                 setSearchInput('');
                 update({
@@ -716,10 +716,7 @@ export function RaMonitoringPage() {
                   to: undefined,
                 });
               }}
-            >
-              <X className="size-3.5" />
-              Clear
-            </Button>
+            />
           ) : null}
         </div>
 

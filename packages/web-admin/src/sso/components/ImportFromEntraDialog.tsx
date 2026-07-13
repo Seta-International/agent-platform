@@ -134,11 +134,7 @@ export function ImportFromEntraDialog({
     }
   }
 
-  const trigger = (
-    <Button variant="secondary" disabled={!enabled}>
-      Import from Entra
-    </Button>
-  );
+  const trigger = <Button variant="secondary" isDisabled={!enabled} label="Import from Entra" />;
 
   return (
     <>
@@ -191,17 +187,14 @@ export function ImportFromEntraDialog({
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"
+                    label="Refresh"
                     onClick={() => {
                       setResult(null);
                       setUsers(null);
                       void loadUsers();
                     }}
-                  >
-                    Refresh
-                  </Button>
-                  <Button variant="ghost" onClick={() => setOpen(false)}>
-                    Close
-                  </Button>
+                  />
+                  <Button variant="ghost" label="Close" onClick={() => setOpen(false)} />
                 </div>
               </div>
             ) : (
@@ -230,19 +223,18 @@ export function ImportFromEntraDialog({
                 {submitError && <Banner status="error" title={submitError} />}
 
                 <div className="flex justify-end gap-2">
-                  <Button variant="ghost" onClick={() => setOpen(false)}>
-                    Cancel
-                  </Button>
+                  <Button variant="ghost" label="Cancel" onClick={() => setOpen(false)} />
                   <Button
+                    label={
+                      submitting
+                        ? 'Adding…'
+                        : selectedOids.length > 0
+                          ? `Add ${selectedOids.length} ${selectedOids.length === 1 ? 'person' : 'people'}`
+                          : 'Select people to add'
+                    }
                     onClick={() => void submit()}
-                    disabled={submitting || selectedOids.length === 0}
-                  >
-                    {submitting
-                      ? 'Adding…'
-                      : selectedOids.length > 0
-                        ? `Add ${selectedOids.length} ${selectedOids.length === 1 ? 'person' : 'people'}`
-                        : 'Select people to add'}
-                  </Button>
+                    isDisabled={submitting || selectedOids.length === 0}
+                  />
                 </div>
               </>
             )}

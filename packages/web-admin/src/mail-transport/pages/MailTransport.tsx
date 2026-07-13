@@ -282,19 +282,17 @@ export function MailTransport() {
               <Button
                 type="button"
                 variant="ghost"
+                label="Disable"
                 onClick={() => disable.mutate()}
-                disabled={disable.isPending}
-              >
-                Disable
-              </Button>
+                isDisabled={disable.isPending}
+              />
             )}
             <Button
               type="button"
+              label={enabled ? 'Save changes' : 'Enable'}
               onClick={() => save.mutate(toInput(form))}
-              disabled={save.isPending || isLoading}
-            >
-              {enabled ? 'Save changes' : 'Enable'}
-            </Button>
+              isDisabled={save.isPending || isLoading}
+            />
           </div>
         </Card>
 
@@ -316,11 +314,10 @@ export function MailTransport() {
             <Button
               type="button"
               variant="secondary"
+              label="Send test"
               onClick={() => verify.mutate(verifyEmail)}
-              disabled={verify.isPending || !verifyEmail || !enabled}
-            >
-              Send test
-            </Button>
+              isDisabled={verify.isPending || !verifyEmail || !enabled}
+            />
           </div>
           {verify.data?.ok && (
             <Banner

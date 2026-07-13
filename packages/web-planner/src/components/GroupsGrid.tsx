@@ -66,16 +66,15 @@ export function GroupsGrid({ groups, onRestore }: Props) {
                 <Button
                   size="sm"
                   variant="secondary"
+                  label="Restore"
                   className="w-full"
-                  disabled={!canUpdateGroup}
+                  isDisabled={!canUpdateGroup}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     onRestore(g.id);
                   }}
-                >
-                  Restore
-                </Button>
+                />
               </DisabledActionTooltip>
             </div>
           )}

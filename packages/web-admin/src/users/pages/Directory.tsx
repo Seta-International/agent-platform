@@ -334,13 +334,13 @@ export function Directory({ search, onSearch }: DirectoryProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="tertiary"
-                  size="icon"
-                  aria-label={`Row actions for ${r.full_name}`}
+                  variant="ghost"
+                  size="sm"
+                  isIconOnly
+                  label={`Row actions for ${r.full_name}`}
                   onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="size-4" />
-                </Button>
+                  icon={<MoreHorizontal className="size-4" />}
+                />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {r.account_status === 'none' && (
@@ -425,10 +425,9 @@ export function Directory({ search, onSearch }: DirectoryProps) {
                     setQInput('');
                     onSearch(() => ({}));
                   }}
-                >
-                  <X className="size-3.5" aria-hidden />
-                  Clear
-                </Button>
+                  icon={<X className="size-3.5" aria-hidden />}
+                  label="Clear"
+                />
               )}
             </div>
           }
@@ -497,18 +496,16 @@ export function Directory({ search, onSearch }: DirectoryProps) {
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="secondary">Cancel</Button>
+              <Button variant="secondary" label="Cancel" />
             </DialogClose>
             <Button
-              variant="default"
-              className="bg-destructive text-on-primary hover:bg-destructive/90"
+              variant="destructive"
+              label="Suspend"
               onClick={() => {
                 if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
                 setSuspendTarget(null);
               }}
-            >
-              Suspend
-            </Button>
+            />
           </DialogFooter>
         </DialogContent>
       </Dialog>

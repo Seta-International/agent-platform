@@ -159,8 +159,13 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
         >
           <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
             <PopoverTrigger asChild disabled={!canUpdate}>
-              <Button size="sm" variant="ghost" aria-label="Add label" disabled={!canUpdate}>
-                <Plus className="size-3" />
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<Plus className="size-3" />}
+                label="Add label"
+                isDisabled={!canUpdate}
+              >
                 Add
               </Button>
             </PopoverTrigger>
@@ -360,23 +365,25 @@ function LabelEditPanel({
         <Button
           variant="ghost"
           size="sm"
+          icon={<Trash2 className="size-3" />}
+          label="Delete"
           onClick={() => setConfirmOpen(true)}
-          disabled={update.isPending || del.isPending}
-        >
-          <Trash2 className="size-3" />
-          Delete
-        </Button>
+          isDisabled={update.isPending || del.isPending}
+        />
         <div className="flex gap-1.5">
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={del.isPending}>
-            Cancel
-          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            label="Cancel"
+            onClick={onClose}
+            isDisabled={del.isPending}
+          />
           <Button
             size="sm"
+            label="Save"
             onClick={handleSave}
-            disabled={!canSave || update.isPending || del.isPending}
-          >
-            Save
-          </Button>
+            isDisabled={!canSave || update.isPending || del.isPending}
+          />
         </div>
       </div>
 

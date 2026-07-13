@@ -59,9 +59,7 @@ export function SkillPicker({
     <div className="space-y-2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button type="button" variant="secondary" size="sm">
-            Add skill
-          </Button>
+          <Button type="button" variant="secondary" size="sm" label="Add skill" />
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0">
           <Command>

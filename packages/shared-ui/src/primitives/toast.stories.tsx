@@ -10,33 +10,30 @@ export const Default: Story = {
   render: () => (
     <div className="flex flex-wrap gap-2">
       <Toaster />
-      <Button variant="secondary" onClick={() => toast('Event has been created')}>
-        Default
-      </Button>
-      <Button variant="secondary" onClick={() => toast.success('Changes saved')}>
-        Success
-      </Button>
-      <Button variant="secondary" onClick={() => toast.error('Something went wrong')}>
-        Error
-      </Button>
+      <Button variant="secondary" label="Default" onClick={() => toast('Event has been created')} />
+      <Button variant="secondary" label="Success" onClick={() => toast.success('Changes saved')} />
       <Button
         variant="secondary"
+        label="Error"
+        onClick={() => toast.error('Something went wrong')}
+      />
+      <Button
+        variant="secondary"
+        label="With description"
         onClick={() => toast('Sync started', { description: 'Pulling tasks from Microsoft To Do' })}
-      >
-        With description
-      </Button>
+      />
       <Button
         variant="secondary"
+        label="With action"
         onClick={() =>
           toast('Task archived', {
             action: { label: 'Undo', onClick: () => toast('Restored') },
           })
         }
-      >
-        With action
-      </Button>
+      />
       <Button
         variant="secondary"
+        label="Promise"
         onClick={() =>
           toast.promise(new Promise((resolve) => setTimeout(resolve, 1500)), {
             loading: 'Saving…',
@@ -44,9 +41,7 @@ export const Default: Story = {
             error: 'Failed to save',
           })
         }
-      >
-        Promise
-      </Button>
+      />
     </div>
   ),
 };

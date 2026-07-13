@@ -163,19 +163,17 @@ export function PeopleCardGrid({
           <Button
             variant="secondary"
             size="sm"
-            disabled={page <= 1}
+            isDisabled={page <= 1}
             onClick={() => goToPage(page - 1)}
-          >
-            Prev
-          </Button>
+            label="Prev"
+          />
           <Button
             variant="secondary"
             size="sm"
-            disabled={page >= pageCount}
+            isDisabled={page >= pageCount}
             onClick={() => goToPage(page + 1)}
-          >
-            Next
-          </Button>
+            label="Next"
+          />
         </div>
       </div>
     </div>

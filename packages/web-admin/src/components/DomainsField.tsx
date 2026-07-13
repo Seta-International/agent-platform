@@ -39,9 +39,7 @@ export function DomainsField({ domains, onChange, idPrefix = 'domains' }: Domain
             }
           }}
         />
-        <Button type="button" variant="secondary" onClick={add}>
-          Add
-        </Button>
+        <Button type="button" variant="secondary" label="Add" onClick={add} />
       </div>
       {domains.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">

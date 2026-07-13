@@ -164,22 +164,22 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
 
   const headerActions =
     canManage && !editing && account ? (
-      <Button size="sm" onClick={startEdit}>
-        Edit
-      </Button>
+      <Button size="sm" label="Edit" onClick={startEdit} />
     ) : canManage && editing ? (
       <div className="flex items-center gap-2">
         <Button
           size="sm"
           variant="secondary"
+          label="Cancel"
           onClick={cancelEdit}
-          disabled={saveMutation.isPending}
-        >
-          Cancel
-        </Button>
-        <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? 'Saving…' : 'Save'}
-        </Button>
+          isDisabled={saveMutation.isPending}
+        />
+        <Button
+          size="sm"
+          label={saveMutation.isPending ? 'Saving…' : 'Save'}
+          onClick={() => saveMutation.mutate()}
+          isDisabled={saveMutation.isPending}
+        />
       </div>
     ) : undefined;
 
@@ -293,9 +293,12 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                     Recruiters
                   </CardTitle>
                   {canManage && !editingRecruiters && (
-                    <Button size="sm" variant="secondary" onClick={startEditRecruiters}>
-                      Edit
-                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      label="Edit"
+                      onClick={startEditRecruiters}
+                    />
                   )}
                 </div>
               </LayoutHeader>
@@ -317,18 +320,16 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                       <Button
                         size="sm"
                         variant="secondary"
+                        label="Cancel"
                         onClick={cancelEditRecruiters}
-                        disabled={saveRecruitersMutation.isPending}
-                      >
-                        Cancel
-                      </Button>
+                        isDisabled={saveRecruitersMutation.isPending}
+                      />
                       <Button
                         size="sm"
+                        label={saveRecruitersMutation.isPending ? 'Saving…' : 'Save'}
                         onClick={submitRecruiters}
-                        disabled={saveRecruitersMutation.isPending}
-                      >
-                        {saveRecruitersMutation.isPending ? 'Saving…' : 'Save'}
-                      </Button>
+                        isDisabled={saveRecruitersMutation.isPending}
+                      />
                     </div>
                   </div>
                 ) : account.recruiter_worker_ids.length === 0 ? (

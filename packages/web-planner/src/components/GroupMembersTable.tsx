@@ -187,14 +187,13 @@ export function GroupMembersTable({
                 <Button
                   variant="ghost"
                   size="sm"
+                  label="Remove"
                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemoveMember(row.original);
                   }}
-                >
-                  Remove
-                </Button>
+                />
               ),
             },
           ] as ColumnDef<GroupMemberRow>[])
@@ -214,16 +213,18 @@ export function GroupMembersTable({
             <Button
               variant="destructive"
               size="sm"
+              label="Remove selected"
               onClick={() => {
                 onRemoveMembers(selectedIds);
                 setRowSelection({});
               }}
-            >
-              Remove selected
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>
-              Clear selection
-            </Button>
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              label="Clear selection"
+              onClick={() => setRowSelection({})}
+            />
           </div>
         )}
         <div className="[&_>div]:space-y-0 [&_>div>div:first-child]:px-4 [&_>div>div:first-child]:pt-3 [&_>div>div:first-child]:pb-3 [&_>div>div:first-child]:border-b [&_>div>div:first-child]:border-hairline">

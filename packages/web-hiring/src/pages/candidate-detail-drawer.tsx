@@ -235,9 +235,13 @@ export function CandidateDetailDrawer({
                 {hasMoreActions && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="More actions">
-                        <MoreHorizontal className="size-4" />
-                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        isIconOnly
+                        icon={<MoreHorizontal className="size-4" />}
+                        label="More actions"
+                      />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {canTransfer && !terminal && (
@@ -256,9 +260,14 @@ export function CandidateDetailDrawer({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose}>
-                  <X className="size-4" />
-                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  isIconOnly
+                  icon={<X className="size-4" />}
+                  label="Close"
+                  onClick={onClose}
+                />
               </div>
             </div>
 
@@ -277,12 +286,11 @@ export function CandidateDetailDrawer({
                   <Button
                     variant="secondary"
                     size="sm"
-                    disabled={!canManage || terminal || move.isPending}
-                  >
-                    <RefreshCw className="size-3.5" aria-hidden />
-                    Move stage
-                    <ChevronDown className="size-3.5" aria-hidden />
-                  </Button>
+                    label="Move stage"
+                    icon={<RefreshCw className="size-3.5" aria-hidden />}
+                    endContent={<ChevronDown className="size-3.5" aria-hidden />}
+                    isDisabled={!canManage || terminal || move.isPending}
+                  />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
                   {STAGES.map((s) => (
@@ -490,14 +498,13 @@ function CandidateCvActions({
     <div className="flex items-center gap-3 text-body-sm">
       {hasCv ? (
         <Button
-          variant="link"
+          variant="ghost"
           size="sm"
+          label="Download CV"
           className="h-auto p-0"
-          disabled={download.isPending}
+          isDisabled={download.isPending}
           onClick={() => download.mutate()}
-        >
-          Download CV
-        </Button>
+        />
       ) : (
         <span className="text-ink-muted">No CV on file</span>
       )}

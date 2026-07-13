@@ -102,10 +102,13 @@ function RenameDialog({ group }: { group: Group }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        <Pencil className="size-3.5" aria-hidden />
-        Edit
-      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => setOpen(true)}
+        label="Edit"
+        icon={<Pencil className="size-3.5" aria-hidden />}
+      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit group</DialogTitle>
@@ -132,20 +135,17 @@ function RenameDialog({ group }: { group: Group }) {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="secondary" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
+          <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
           <Button
-            disabled={!name.trim() || update.isPending}
+            label="Save"
+            isDisabled={!name.trim() || update.isPending}
             onClick={() =>
               update.mutate(
                 { id: group.group_id, name: name.trim(), description: description.trim() },
                 { onSuccess: () => setOpen(false) },
               )
             }
-          >
-            Save
-          </Button>
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -206,10 +206,13 @@ function DeleteGroupButton({ group, onDeleted }: { group: Group; onDeleted: () =
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-ink-tertiary hover:text-destructive">
-          <Trash2 className="size-3.5" aria-hidden />
-          Delete
-        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-ink-tertiary hover:text-destructive"
+          label="Delete"
+          icon={<Trash2 className="size-3.5" aria-hidden />}
+        />
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

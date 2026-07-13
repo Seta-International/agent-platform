@@ -12,17 +12,17 @@ export function ServerError({ error, onReset }: ServerErrorProps) {
       <div className="max-w-md w-full space-y-md">
         <Banner status="error" title="Something went wrong on our end" description={message} />
         <div className="flex gap-xs">
-          <Button onClick={() => (onReset ? onReset() : window.location.reload())}>
-            Try again
-          </Button>
+          <Button
+            label="Try again"
+            onClick={() => (onReset ? onReset() : window.location.reload())}
+          />
           <Button
             variant="secondary"
+            label="Take me home"
             onClick={() => {
               window.location.href = '/';
             }}
-          >
-            Take me home
-          </Button>
+          />
         </div>
       </div>
     </div>

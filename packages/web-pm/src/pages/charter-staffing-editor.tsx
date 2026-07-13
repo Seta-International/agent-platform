@@ -277,43 +277,47 @@ export function CharterStaffingEditor({
                                 {editing ? (
                                   <>
                                     <Button
-                                      size="icon"
+                                      size="sm"
                                       variant="ghost"
-                                      aria-label="Save"
-                                      disabled={save.isPending}
+                                      isIconOnly
+                                      label="Save"
+                                      isDisabled={save.isPending}
                                       onClick={() => save.mutate(a)}
-                                    >
-                                      <Check className="size-4 text-[var(--color-success)]" />
-                                    </Button>
+                                      icon={
+                                        <Check className="size-4 text-[var(--color-success)]" />
+                                      }
+                                    />
                                     <Button
-                                      size="icon"
+                                      size="sm"
                                       variant="ghost"
-                                      aria-label="Cancel"
+                                      isIconOnly
+                                      label="Cancel"
                                       onClick={() => setEditId(null)}
-                                    >
-                                      <X className="size-4" />
-                                    </Button>
+                                      icon={<X className="size-4" />}
+                                    />
                                   </>
                                 ) : (
                                   <>
                                     <Button
-                                      size="icon"
+                                      size="sm"
                                       variant="ghost"
-                                      aria-label="Edit member"
-                                      disabled={busy}
+                                      isIconOnly
+                                      label="Edit member"
+                                      isDisabled={busy}
                                       onClick={() => startEdit(a)}
-                                    >
-                                      <Pencil className="size-4" />
-                                    </Button>
+                                      icon={<Pencil className="size-4" />}
+                                    />
                                     <Button
-                                      size="icon"
+                                      size="sm"
                                       variant="ghost"
-                                      aria-label="Remove member"
-                                      disabled={busy}
+                                      isIconOnly
+                                      label="Remove member"
+                                      isDisabled={busy}
                                       onClick={() => remove.mutate(a)}
-                                    >
-                                      <Trash2 className="size-4 text-[var(--color-danger)]" />
-                                    </Button>
+                                      icon={
+                                        <Trash2 className="size-4 text-[var(--color-danger)]" />
+                                      }
+                                    />
                                   </>
                                 )}
                               </div>
@@ -363,9 +367,11 @@ export function CharterStaffingEditor({
                     <Label>Access</Label>
                     <LevelSelect value={level} onChange={setLevel} />
                   </div>
-                  <Button onClick={() => add.mutate()} disabled={!worker.trim() || add.isPending}>
-                    {add.isPending ? 'Adding…' : 'Add'}
-                  </Button>
+                  <Button
+                    label={add.isPending ? 'Adding…' : 'Add'}
+                    onClick={() => add.mutate()}
+                    isDisabled={!worker.trim() || add.isPending}
+                  />
                 </div>
               )}
             </div>

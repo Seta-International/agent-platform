@@ -132,12 +132,18 @@ export function ResolvePlanConflictsDialog(p: ResolvePlanConflictsDialogProps) {
         </DialogHeader>
 
         <div className="flex gap-2 pt-1">
-          <Button variant="secondary" size="sm" onClick={() => bulkChoose('local')}>
-            Use Seta for all
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => bulkChoose('remote')}>
-            Use M365 for all
-          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            label="Use Seta for all"
+            onClick={() => bulkChoose('local')}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            label="Use M365 for all"
+            onClick={() => bulkChoose('remote')}
+          />
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-1">
@@ -180,12 +186,17 @@ export function ResolvePlanConflictsDialog(p: ResolvePlanConflictsDialogProps) {
           <span className="text-xs text-ink-subtle mr-auto">
             {unresolved} unresolved · {chosen} chosen
           </span>
-          <Button variant="secondary" onClick={() => handleOpenChange(false)} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleApply} disabled={chosen < totalFields || submitting}>
-            Apply
-          </Button>
+          <Button
+            variant="secondary"
+            label="Cancel"
+            onClick={() => handleOpenChange(false)}
+            isDisabled={submitting}
+          />
+          <Button
+            label="Apply"
+            onClick={handleApply}
+            isDisabled={chosen < totalFields || submitting}
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>

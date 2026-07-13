@@ -212,9 +212,11 @@ export function ProfileSkillsSection({
       )}
 
       <div className="flex justify-end pt-1">
-        <Button onClick={save} disabled={saving || !dirty}>
-          {saving ? 'Saving…' : 'Save changes'}
-        </Button>
+        <Button
+          onClick={save}
+          isDisabled={saving || !dirty}
+          label={saving ? 'Saving…' : 'Save changes'}
+        />
       </div>
     </Card>
   );

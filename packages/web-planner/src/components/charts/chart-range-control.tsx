@@ -20,11 +20,11 @@ export function ChartRangeControl({ from, to, onChange }: Props) {
           variant="secondary"
           size="sm"
           className={`h-7 gap-1.5 ${active ? 'border-primary text-ink' : ''}`}
-          aria-label="Date range filter"
+          label="Date range filter"
+          icon={<CalendarDays className="size-3.5 opacity-70" />}
+          endContent={<ChevronDown className="size-3 opacity-60" />}
         >
-          <CalendarDays className="size-3.5 opacity-70" />
           <span className="font-medium">{summary}</span>
-          <ChevronDown className="size-3 opacity-60" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-3">

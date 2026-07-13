@@ -266,18 +266,24 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                   <span className="flex-1 text-sm">
                     Will link to <b>{m365Selection.display_name}</b> on create
                   </span>
-                  <Button size="sm" variant="ghost" onClick={() => setM365Selection(null)}>
-                    Clear
-                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    label="Clear"
+                    onClick={() => setM365Selection(null)}
+                  />
                 </>
               ) : (
                 <>
                   <span className="flex-1 text-sm">
                     Link with a <b>Microsoft 365 group</b> to keep members in sync
                   </span>
-                  <Button size="sm" variant="ghost" onClick={() => setLinkPickerOpen(true)}>
-                    Link…
-                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    label="Link…"
+                    onClick={() => setLinkPickerOpen(true)}
+                  />
                 </>
               )}
             </div>
@@ -304,16 +310,17 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
               <span className="text-xs text-ink-tertiary">⌘ Return</span>
               <Button
                 variant="secondary"
+                label="Cancel"
                 onClick={() => {
                   reset();
                   onOpenChange(false);
                 }}
-              >
-                Cancel
-              </Button>
-              <Button onClick={() => submit()} disabled={!name.trim() || createGroup.isPending}>
-                Create group
-              </Button>
+              />
+              <Button
+                label="Create group"
+                onClick={() => submit()}
+                isDisabled={!name.trim() || createGroup.isPending}
+              />
             </div>
           </div>
         </DialogContent>

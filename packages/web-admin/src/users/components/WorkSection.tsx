@@ -130,12 +130,8 @@ function AddAllocationForm({
         />
       </Field>
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button size="sm" disabled={!projectId || pending} onClick={submit}>
-          Add
-        </Button>
+        <Button variant="ghost" size="sm" label="Cancel" onClick={onCancel} />
+        <Button size="sm" label="Add" isDisabled={!projectId || pending} onClick={submit} />
       </div>
     </div>
   );
@@ -237,10 +233,9 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
               size="sm"
               className="h-6 gap-1 px-1.5 text-ink-subtle"
               onClick={() => setAdding(true)}
-            >
-              <Plus className="size-3.5" aria-hidden />
-              Add project
-            </Button>
+              icon={<Plus className="size-3.5" aria-hidden />}
+              label="Add project"
+            />
           )}
         </div>
 
@@ -306,15 +301,15 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
                         )}
                         {allocationsEditable && (
                           <Button
-                            variant="tertiary"
-                            size="icon"
+                            variant="ghost"
+                            size="sm"
+                            isIconOnly
                             className="size-6 flex-none text-ink-subtle hover:text-destructive"
-                            aria-label={`Remove ${a.project_name}`}
-                            disabled={removeAllocation.isPending}
+                            label={`Remove ${a.project_name}`}
+                            isDisabled={removeAllocation.isPending}
                             onClick={() => removeAllocation.mutate(a.allocation_id)}
-                          >
-                            <X className="size-3.5" />
-                          </Button>
+                            icon={<X className="size-3.5" />}
+                          />
                         )}
                       </li>
                     ))}

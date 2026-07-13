@@ -194,10 +194,14 @@ function EmailStep({
 
         {error ? <Banner status="error" title={error} /> : null}
 
-        <Button type="submit" size="lg" className="w-full" disabled={submitting || !email}>
-          {submitting ? 'Continue…' : 'Continue'}
-          {!submitting ? <ArrowRightIcon /> : null}
-        </Button>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          isDisabled={submitting || !email}
+          label={submitting ? 'Continue…' : 'Continue'}
+          endContent={!submitting ? <ArrowRightIcon /> : undefined}
+        />
       </form>
 
       <p className="mt-md text-center text-caption text-ink-subtle">
@@ -267,10 +271,9 @@ function PasswordStep({
           type="submit"
           size="lg"
           className="w-full"
-          disabled={submitting || !password || rateLimited}
-        >
-          {submitting ? 'Signing in…' : 'Sign in'}
-        </Button>
+          isDisabled={submitting || !password || rateLimited}
+          label={submitting ? 'Signing in…' : 'Sign in'}
+        />
       </form>
 
       <p className="mt-md text-center text-caption text-ink-subtle">
@@ -328,11 +331,10 @@ function SsoStep({
           variant="secondary"
           className="w-full gap-2.5 font-medium"
           onClick={() => void handleSignIn()}
-          disabled={submitting}
-        >
-          <MicrosoftLogo />
-          {submitting ? 'Opening Microsoft…' : 'Continue with Microsoft'}
-        </Button>
+          isDisabled={submitting}
+          icon={<MicrosoftLogo />}
+          label={submitting ? 'Opening Microsoft…' : 'Continue with Microsoft'}
+        />
 
         <p className="text-center text-caption text-ink-subtle">
           You&apos;ll finish signing in on Microsoft.com.

@@ -109,7 +109,7 @@ function NewTemplateDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">New template</Button>
+        <Button size="sm" label="New template" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -159,12 +159,12 @@ function NewTemplateDialog() {
           ))}
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={close}>
-              Cancel
-            </Button>
-            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !name.trim()}>
-              {mutation.isPending ? 'Creating…' : 'Create template'}
-            </Button>
+            <Button variant="secondary" label="Cancel" onClick={close} />
+            <Button
+              label={mutation.isPending ? 'Creating…' : 'Create template'}
+              onClick={() => mutation.mutate()}
+              isDisabled={mutation.isPending || !name.trim()}
+            />
           </div>
         </div>
       </DialogContent>
@@ -209,7 +209,7 @@ function NewCloseReasonDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">New close reason</Button>
+        <Button size="sm" label="New close reason" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -226,15 +226,12 @@ function NewCloseReasonDialog() {
           </div>
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={close}>
-              Cancel
-            </Button>
+            <Button variant="secondary" label="Cancel" onClick={close} />
             <Button
+              label={mutation.isPending ? 'Creating…' : 'Create'}
               onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !label.trim()}
-            >
-              {mutation.isPending ? 'Creating…' : 'Create'}
-            </Button>
+              isDisabled={mutation.isPending || !label.trim()}
+            />
           </div>
         </div>
       </DialogContent>
@@ -287,7 +284,7 @@ function NewRejectionReasonDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">New rejection reason</Button>
+        <Button size="sm" label="New rejection reason" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -319,15 +316,12 @@ function NewRejectionReasonDialog() {
           </div>
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={close}>
-              Cancel
-            </Button>
+            <Button variant="secondary" label="Cancel" onClick={close} />
             <Button
+              label={mutation.isPending ? 'Creating…' : 'Create'}
               onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !label.trim()}
-            >
-              {mutation.isPending ? 'Creating…' : 'Create'}
-            </Button>
+              isDisabled={mutation.isPending || !label.trim()}
+            />
           </div>
         </div>
       </DialogContent>
@@ -411,10 +405,9 @@ export function SettingsPage() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            label="Delete"
                             onClick={() => del.mutate(t.template.id)}
-                          >
-                            Delete
-                          </Button>
+                          />
                         )}
                       </div>
                     ))}
@@ -452,10 +445,9 @@ export function SettingsPage() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            label="Archive"
                             onClick={() => archive.mutate({ id: r.id, version: r.version })}
-                          >
-                            Archive
-                          </Button>
+                          />
                         )}
                       </div>
                     ))}
@@ -494,12 +486,11 @@ export function SettingsPage() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            label="Archive"
                             onClick={() =>
                               archiveRejection.mutate({ id: r.id, version: r.version })
                             }
-                          >
-                            Archive
-                          </Button>
+                          />
                         )}
                       </div>
                     ))}

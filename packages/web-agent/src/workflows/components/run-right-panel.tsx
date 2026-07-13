@@ -41,17 +41,15 @@ function CopyButton({ text }: { text: string }) {
     }
   };
   return (
-    <Button size="sm" variant="ghost" onClick={onClick} aria-label="Copy to clipboard">
-      {copied ? (
-        <>
-          <Check className="size-3" aria-hidden /> Copied
-        </>
-      ) : (
-        <>
-          <Copy className="size-3" aria-hidden /> Copy
-        </>
-      )}
-    </Button>
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={onClick}
+      icon={
+        copied ? <Check className="size-3" aria-hidden /> : <Copy className="size-3" aria-hidden />
+      }
+      label={copied ? 'Copied' : 'Copy'}
+    />
   );
 }
 

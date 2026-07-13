@@ -9,7 +9,6 @@ import {
   AlertDialogTitle,
   Banner,
   Button,
-  buttonVariants,
   Combobox,
   type ComboboxOption,
   Dialog,
@@ -488,10 +487,12 @@ export function ReassignWizardDialog({
                         />
                         <div className="flex items-center gap-1">
                           <Button
-                            size="icon"
+                            size="sm"
                             variant="secondary"
-                            aria-label={`Save ${a.project_name}`}
-                            disabled={
+                            isIconOnly
+                            icon={<Check className="size-3.5 text-[var(--color-success)]" />}
+                            label={`Save ${a.project_name}`}
+                            isDisabled={
                               saveRowMutation.isPending ||
                               !draft.account_id ||
                               !draft.project_id ||
@@ -504,17 +505,15 @@ export function ReassignWizardDialog({
                                 expectedVersion: a.version,
                               })
                             }
-                          >
-                            <Check className="size-3.5 text-[var(--color-success)]" />
-                          </Button>
+                          />
                           <Button
-                            size="icon"
+                            size="sm"
                             variant="secondary"
-                            aria-label={`Delete ${a.project_name}`}
+                            isIconOnly
+                            icon={<Trash2 className="size-3.5 text-ink-subtle" />}
+                            label={`Delete ${a.project_name}`}
                             onClick={() => setConfirmTarget(a)}
-                          >
-                            <Trash2 className="size-3.5 text-ink-subtle" />
-                          </Button>
+                          />
                         </div>
                       </div>
                     );
@@ -541,11 +540,10 @@ export function ReassignWizardDialog({
                   variant="secondary"
                   size="sm"
                   className="w-fit gap-1.5 border-primary text-primary hover:bg-primary-tint"
+                  label="Add project"
+                  icon={<Plus className="size-4" />}
                   onClick={() => setTargetRows((rs) => [...rs, emptyReassignRow(todayIso())])}
-                >
-                  <Plus className="size-4" />
-                  Add project
-                </Button>
+                />
 
                 {targetRows.length > 0 ? (
                   <div className="overflow-hidden rounded-md border border-hairline">
@@ -598,13 +596,14 @@ export function ReassignWizardDialog({
 
             {step === 1 ? (
               <div className="flex justify-end gap-2 pt-3">
-                <Button variant="ghost" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button disabled={!canReview} className="gap-1.5" onClick={goToReview}>
-                  Review impact
-                  <ArrowRight className="size-4" />
-                </Button>
+                <Button variant="ghost" label="Cancel" onClick={onClose} />
+                <Button
+                  isDisabled={!canReview}
+                  className="gap-1.5"
+                  label="Review impact"
+                  endContent={<ArrowRight className="size-4" />}
+                  onClick={goToReview}
+                />
               </div>
             ) : null}
           </div>
@@ -631,7 +630,7 @@ export function ReassignWizardDialog({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className={buttonVariants({ variant: 'destructive' })}
+              className="bg-destructive text-on-destructive hover:bg-destructive/90"
               disabled={removeMutation.isPending}
               onClick={(e) => {
                 e.preventDefault();
@@ -766,14 +765,14 @@ function TargetRowFields({
           </SelectContent>
         </Select>
         <Button
-          size="icon"
+          size="sm"
           variant="ghost"
-          aria-label="Remove"
-          disabled={!canRemove}
+          isIconOnly
+          icon={<Trash2 className="size-4" />}
+          label="Remove"
+          isDisabled={!canRemove}
           onClick={onRemove}
-        >
-          <Trash2 className="size-4" />
-        </Button>
+        />
       </div>
       {error ? (
         <p role="alert" className="px-2 pb-2 text-caption font-medium text-danger-ink">
@@ -862,12 +861,12 @@ function ReviewStep({
       <AllocationTimeline rows={timelineRows} todayIso={todayIso()} />
 
       <div className="flex justify-end gap-2 pt-1">
-        <Button variant="ghost" onClick={onBack}>
-          Back
-        </Button>
-        <Button disabled={mutation.isPending} onClick={onConfirm}>
-          {mutation.isPending ? 'Confirming…' : 'Confirm'}
-        </Button>
+        <Button variant="ghost" label="Back" onClick={onBack} />
+        <Button
+          isDisabled={mutation.isPending}
+          label={mutation.isPending ? 'Confirming…' : 'Confirm'}
+          onClick={onConfirm}
+        />
       </div>
     </div>
   );

@@ -50,10 +50,12 @@ export function GroupDiscoverPage() {
             onChange={(e) => setQ(e.target.value)}
             className="flex-1"
           />
-          <Button type="submit" disabled={q.trim().length === 0}>
-            <Search className="size-4 mr-2" />
-            Search
-          </Button>
+          <Button
+            type="submit"
+            icon={<Search className="size-4" />}
+            label="Search"
+            isDisabled={q.trim().length === 0}
+          />
         </form>
 
         {searchQuery.isPending && submittedQ && (
@@ -95,12 +97,11 @@ export function GroupDiscoverPage() {
                   ) : (
                     <Button
                       size="sm"
-                      variant={isRequested ? 'secondary' : 'default'}
-                      disabled={isRequested || joinMutation.isPending}
+                      variant={isRequested ? 'secondary' : 'primary'}
+                      isDisabled={isRequested || joinMutation.isPending}
                       onClick={() => joinMutation.mutate(group.id)}
-                    >
-                      {isRequested ? 'Requested' : 'Request to Join'}
-                    </Button>
+                      label={isRequested ? 'Requested' : 'Request to Join'}
+                    />
                   )}
                 </li>
               );

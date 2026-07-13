@@ -92,9 +92,11 @@ export function ResolveConflictDialog({
         )}
 
         <div className="flex justify-end pt-2 border-t border-hairline mt-2">
-          <Button onClick={handleResolve} disabled={!allDecided || resolve.isPending}>
-            Save choices
-          </Button>
+          <Button
+            label="Save choices"
+            onClick={handleResolve}
+            isDisabled={!allDecided || resolve.isPending}
+          />
         </div>
       </DialogContent>
     </Dialog>

@@ -139,15 +139,14 @@ export function GroupsTable({ groups, onRestore }: Props) {
                   <Button
                     size="sm"
                     variant="secondary"
-                    disabled={!canUpdateGroup}
+                    label="Restore"
+                    isDisabled={!canUpdateGroup}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       onRestore(group.id);
                     }}
-                  >
-                    Restore
-                  </Button>
+                  />
                 </DisabledActionTooltip>
               ) : (
                 <ChevronRight className="size-3 text-ink-tertiary" aria-hidden="true" />

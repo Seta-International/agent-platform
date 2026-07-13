@@ -101,16 +101,13 @@ export function RejectDialog({
             <Textarea id="reject-note" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+            <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <Button
               variant="destructive"
+              label={mutation.isPending ? 'Rejecting…' : 'Reject'}
               onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !effectiveReason}
-            >
-              {mutation.isPending ? 'Rejecting…' : 'Reject'}
-            </Button>
+              isDisabled={mutation.isPending || !effectiveReason}
+            />
           </div>
         </div>
       </DialogContent>

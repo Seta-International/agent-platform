@@ -115,9 +115,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
             role="alert"
             title="Couldn&apos;t load trash."
             endContent={
-              <Button size="sm" variant="secondary" onClick={() => q.refetch()}>
-                Retry
-              </Button>
+              <Button size="sm" variant="secondary" label="Retry" onClick={() => q.refetch()} />
             }
           />
         </div>
@@ -249,11 +247,11 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                           <Button
                             variant="ghost"
                             size="sm"
+                            icon={<RotateCcw className="size-3" aria-hidden />}
+                            label="Restore"
                             onClick={() => onRestore(r)}
-                            disabled={!restoreGate[r.kind].allowed}
-                          >
-                            <RotateCcw className="size-3" aria-hidden /> Restore
-                          </Button>
+                            isDisabled={!restoreGate[r.kind].allowed}
+                          />
                         </DisabledActionTooltip>
                         <DisabledActionTooltip
                           disabled={!canPermanentlyDelete}
@@ -263,11 +261,11 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                             variant="ghost"
                             size="sm"
                             className="text-semantic-danger hover:text-semantic-danger"
+                            icon={<Trash2 className="size-3" aria-hidden />}
+                            label="Delete"
                             onClick={() => setConfirmingPurge(r)}
-                            disabled={!canPermanentlyDelete}
-                          >
-                            <Trash2 className="size-3" aria-hidden /> Delete
-                          </Button>
+                            isDisabled={!canPermanentlyDelete}
+                          />
                         </DisabledActionTooltip>
                       </div>
                     </div>
@@ -326,11 +324,11 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                         <Button
                           variant="ghost"
                           size="sm"
+                          icon={<RotateCcw className="size-3" aria-hidden />}
+                          label="Restore"
                           onClick={() => unarchivePlan.mutate({ plan_id: r.id })}
-                          disabled={!canUpdatePlan}
-                        >
-                          <RotateCcw className="size-3" aria-hidden /> Restore
-                        </Button>
+                          isDisabled={!canUpdatePlan}
+                        />
                       </DisabledActionTooltip>
                       <DisabledActionTooltip
                         disabled={!canDeletePlan}
@@ -340,16 +338,16 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                           variant="ghost"
                           size="sm"
                           className="text-semantic-danger hover:text-semantic-danger"
+                          icon={<Trash2 className="size-3" aria-hidden />}
+                          label="Delete"
                           onClick={() =>
                             deleteArchivedPlan.mutate({
                               plan_id: r.id,
                               expected_version: r.version,
                             })
                           }
-                          disabled={!canDeletePlan}
-                        >
-                          <Trash2 className="size-3" aria-hidden /> Delete
-                        </Button>
+                          isDisabled={!canDeletePlan}
+                        />
                       </DisabledActionTooltip>
                     </div>
                   </div>
@@ -374,19 +372,16 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
             <DialogDescription>You won&apos;t be able to get this back.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmingPurge(null)}>
-              Cancel
-            </Button>
+            <Button variant="ghost" label="Cancel" onClick={() => setConfirmingPurge(null)} />
             <Button
               variant="destructive"
+              label="Permanently delete"
               onClick={() => {
                 // The backend's hard-delete endpoint is policy-driven (RETENTION_DAYS sweep, not
                 // a manual API); this dialog confirms intent until that endpoint lands.
                 setConfirmingPurge(null);
               }}
-            >
-              Permanently delete
-            </Button>
+            />
           </DialogFooter>
         </DialogContent>
       </Dialog>

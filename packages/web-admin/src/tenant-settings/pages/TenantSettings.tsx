@@ -62,11 +62,10 @@ export function TenantSettings() {
                 )}
                 <div className="flex justify-end">
                   <Button
+                    label="Save"
                     onClick={() => saveDomainsM.mutate(domains)}
-                    disabled={saveDomainsM.isPending}
-                  >
-                    Save
-                  </Button>
+                    isDisabled={saveDomainsM.isPending}
+                  />
                 </div>
               </>
             )}

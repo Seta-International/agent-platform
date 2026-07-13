@@ -86,9 +86,7 @@ export function ProfileAvailabilitySection({
         </div>
       )}
       <div className="flex justify-end pt-1">
-        <Button onClick={save} disabled={saving || !dirty}>
-          Save changes
-        </Button>
+        <Button onClick={save} isDisabled={saving || !dirty} label="Save changes" />
       </div>
     </Card>
   );

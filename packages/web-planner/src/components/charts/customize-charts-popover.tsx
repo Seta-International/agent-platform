@@ -20,8 +20,13 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="secondary" size="sm" className="h-7 gap-1.5" aria-label="Customize charts">
-          <Settings2 className="size-3.5 opacity-70" />
+        <Button
+          variant="secondary"
+          size="sm"
+          className="h-7 gap-1.5"
+          label="Customize charts"
+          icon={<Settings2 className="size-3.5 opacity-70" />}
+        >
           <span className="font-medium">Customize</span>
           <span className="text-ink-subtle">
             {visible.length}/{enabledTotal}
@@ -81,9 +86,13 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
           >
             Reset to defaults
           </button>
-          <Button variant="secondary" size="sm" className="h-7" onClick={() => setOpen(false)}>
-            Done
-          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-7"
+            label="Done"
+            onClick={() => setOpen(false)}
+          />
         </div>
       </PopoverContent>
     </Popover>

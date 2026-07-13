@@ -82,16 +82,13 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
           </div>
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+            <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <DisabledActionTooltip disabled={!canCreatePlan} reason={PERMISSION_DENIED.plan.create}>
               <Button
+                label="Create plan"
                 onClick={submit}
-                disabled={!canCreatePlan || !name.trim() || createPlan.isPending}
-              >
-                Create plan
-              </Button>
+                isDisabled={!canCreatePlan || !name.trim() || createPlan.isPending}
+              />
             </DisabledActionTooltip>
           </div>
         </div>

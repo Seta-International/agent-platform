@@ -180,9 +180,10 @@ export function MoveTaskDialog({
                   variant="secondary"
                   role="combobox"
                   aria-expanded={planPickerOpen}
-                  aria-label="Select target plan"
+                  label="Select target plan"
                   className="w-full justify-between"
-                  disabled={plansQ.isPending}
+                  isDisabled={plansQ.isPending}
+                  endContent={<ChevronsUpDown className="ml-2 size-3.5 shrink-0 opacity-60" />}
                 >
                   <span className="truncate text-left">
                     {selectedPlan
@@ -191,7 +192,6 @@ export function MoveTaskDialog({
                         ? 'Loading plans…'
                         : 'Pick a plan…'}
                   </span>
-                  <ChevronsUpDown className="ml-2 size-3.5 shrink-0 opacity-60" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-0">
@@ -243,9 +243,10 @@ export function MoveTaskDialog({
                   variant="secondary"
                   role="combobox"
                   aria-expanded={bucketPickerOpen}
-                  aria-label="Select target bucket"
+                  label="Select target bucket"
                   className="w-full justify-between"
-                  disabled={!planId || bucketsQ.isPending}
+                  isDisabled={!planId || bucketsQ.isPending}
+                  endContent={<ChevronsUpDown className="ml-2 size-3.5 shrink-0 opacity-60" />}
                 >
                   <span className="truncate text-left">
                     {selectedBucket
@@ -258,7 +259,6 @@ export function MoveTaskDialog({
                             ? 'No buckets in this plan'
                             : 'Pick a bucket…'}
                   </span>
-                  <ChevronsUpDown className="ml-2 size-3.5 shrink-0 opacity-60" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-0">
@@ -295,12 +295,13 @@ export function MoveTaskDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={submitDisabled}>
-            Move
-          </Button>
+          <Button
+            variant="ghost"
+            label="Cancel"
+            onClick={() => handleOpenChange(false)}
+            isDisabled={pending}
+          />
+          <Button label="Move" onClick={handleSubmit} isDisabled={submitDisabled} />
         </DialogFooter>
       </DialogContent>
     </Dialog>

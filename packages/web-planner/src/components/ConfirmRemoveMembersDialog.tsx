@@ -43,12 +43,13 @@ export function ConfirmRemoveMembersDialog({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isPending}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
-            Remove
-          </Button>
+          <Button
+            variant="ghost"
+            label="Cancel"
+            onClick={() => onOpenChange(false)}
+            isDisabled={isPending}
+          />
+          <Button variant="destructive" label="Remove" onClick={onConfirm} isDisabled={isPending} />
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -169,18 +169,15 @@ function EditForm({ group, onDone }: EditFormProps) {
       {error && <Banner status="error" title={error} />}
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button variant="secondary" onClick={onDone}>
-          Cancel
-        </Button>
+        <Button variant="secondary" label="Cancel" onClick={onDone} />
         <DisabledActionTooltip disabled={!canUpdateGroup} reason={PERMISSION_DENIED.group.edit}>
           <Button
+            label="Save"
             onClick={submit}
-            disabled={
+            isDisabled={
               !canUpdateGroup || !hasChanges || updateGroup.isPending || (!isM365 && !trimmedName)
             }
-          >
-            Save
-          </Button>
+          />
         </DisabledActionTooltip>
       </div>
     </div>

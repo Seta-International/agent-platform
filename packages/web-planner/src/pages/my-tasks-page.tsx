@@ -225,11 +225,7 @@ function MyTasksError({ onRetry }: { onRetry: () => void }) {
       status="error"
       data-testid="my-tasks-error"
       title="Couldn&apos;t load your tasks."
-      endContent={
-        <Button size="sm" variant="secondary" onClick={onRetry}>
-          Try again
-        </Button>
-      }
+      endContent={<Button size="sm" variant="secondary" label="Try again" onClick={onRetry} />}
     />
   );
 }

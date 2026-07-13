@@ -191,16 +191,17 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
         <div className="flex justify-end gap-2 pt-2 border-t border-hairline">
           <Button
             variant="secondary"
+            label="Cancel"
             onClick={() => {
               reset();
               onOpenChange(false);
             }}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleConfirm} disabled={selected.length === 0 || addMembers.isPending}>
-            {confirmLabel}
-          </Button>
+          />
+          <Button
+            label={confirmLabel}
+            onClick={handleConfirm}
+            isDisabled={selected.length === 0 || addMembers.isPending}
+          />
         </div>
       </DialogContent>
     </Dialog>

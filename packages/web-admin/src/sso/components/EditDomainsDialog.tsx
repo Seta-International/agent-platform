@@ -62,9 +62,7 @@ export function EditDomainsDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="secondary" size="sm">
-          Edit domains
-        </Button>
+        <Button variant="secondary" size="sm" label="Edit domains" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -84,12 +82,8 @@ export function EditDomainsDialog({
           <DomainsField domains={domains} onChange={setDomains} idPrefix="edit-domains" />
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={submit} disabled={submitting}>
-              Save
-            </Button>
+            <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
+            <Button label="Save" onClick={submit} isDisabled={submitting} />
           </div>
         </div>
       </DialogContent>

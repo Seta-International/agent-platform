@@ -129,9 +129,8 @@ export function ProfileLocaleSection({
                           setWhStart('');
                           setWhEnd('');
                         }}
-                      >
-                        Clear
-                      </Button>
+                        label="Clear"
+                      />
                     )}
                   </div>
                   {whInvalid && (
@@ -149,9 +148,11 @@ export function ProfileLocaleSection({
                 )
               )}
               <div className="flex justify-end pt-1">
-                <Button onClick={save} disabled={saving || !dirty || Boolean(whInvalid)}>
-                  Save changes
-                </Button>
+                <Button
+                  onClick={save}
+                  isDisabled={saving || !dirty || Boolean(whInvalid)}
+                  label="Save changes"
+                />
               </div>
             </div>
           </LayoutContent>

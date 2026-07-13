@@ -114,16 +114,13 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
             <div className="flex justify-end gap-2">
               <Button
                 variant="ghost"
+                label="Cancel"
                 onClick={() => {
                   setDraft(comment.body);
                   setEditing(false);
                 }}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={update.isPending}>
-                Save
-              </Button>
+              />
+              <Button label="Save" onClick={handleSave} isDisabled={update.isPending} />
             </div>
           </div>
         ) : (

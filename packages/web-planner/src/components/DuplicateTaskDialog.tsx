@@ -108,12 +108,13 @@ export function DuplicateTaskDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
-          <Button onClick={() => onConfirm(options)} disabled={pending}>
-            Duplicate
-          </Button>
+          <Button
+            variant="ghost"
+            label="Cancel"
+            onClick={() => onOpenChange(false)}
+            isDisabled={pending}
+          />
+          <Button label="Duplicate" onClick={() => onConfirm(options)} isDisabled={pending} />
         </DialogFooter>
       </DialogContent>
     </Dialog>

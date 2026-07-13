@@ -252,11 +252,10 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
             <Button
               size="sm"
               variant="secondary"
+              label="Restore"
               onClick={doRestore}
-              disabled={!canUpdateGroup || restoreGroup.isPending}
-            >
-              Restore
-            </Button>
+              isDisabled={!canUpdateGroup || restoreGroup.isPending}
+            />
           </DisabledActionTooltip>
         </div>
       )}
@@ -393,17 +392,18 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               remains in Microsoft 365.
             </p>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setArchiveM365Open(false)}>
-                Cancel
-              </Button>
               <Button
+                variant="secondary"
+                label="Cancel"
+                onClick={() => setArchiveM365Open(false)}
+              />
+              <Button
+                label="Archive anyway"
                 onClick={() => {
                   setArchiveM365Open(false);
                   doArchive();
                 }}
-              >
-                Archive anyway
-              </Button>
+              />
             </div>
           </div>
         </DialogContent>
@@ -418,22 +418,23 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               This group has been archived. Would you like to restore it so it becomes active again?
             </p>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setRestorePromptOpen(false)}>
-                View anyway
-              </Button>
+              <Button
+                variant="secondary"
+                label="View anyway"
+                onClick={() => setRestorePromptOpen(false)}
+              />
               <DisabledActionTooltip
                 disabled={!canUpdateGroup}
                 reason={PERMISSION_DENIED.group.restore}
               >
                 <Button
+                  label="Restore group"
                   onClick={() => {
                     setRestorePromptOpen(false);
                     doRestore();
                   }}
-                  disabled={!canUpdateGroup || restoreGroup.isPending}
-                >
-                  Restore group
-                </Button>
+                  isDisabled={!canUpdateGroup || restoreGroup.isPending}
+                />
               </DisabledActionTooltip>
             </div>
           </div>

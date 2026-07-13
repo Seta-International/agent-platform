@@ -39,15 +39,23 @@ export function CalendarToolbar({ from, to, totalCount, onRangeChange }: Props) 
   return (
     <div className="flex items-center justify-between px-7 py-3" data-testid="calendar-toolbar">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" aria-label="Previous range" onClick={() => onShift(-1)}>
-          <ChevronLeft className="size-4" />
-        </Button>
-        <Button variant="ghost" size="icon" aria-label="Next range" onClick={() => onShift(1)}>
-          <ChevronRight className="size-4" />
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onToday}>
-          Today
-        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          icon={<ChevronLeft className="size-4" />}
+          label="Previous range"
+          onClick={() => onShift(-1)}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          icon={<ChevronRight className="size-4" />}
+          label="Next range"
+          onClick={() => onShift(1)}
+        />
+        <Button variant="ghost" size="sm" label="Today" onClick={onToday} />
         <h2 className="ml-2 text-card-title text-ink">{rangeLabel(from, to)}</h2>
         <span className="text-caption text-ink-muted" data-testid="calendar-total-count">
           {totalCount} task{totalCount === 1 ? '' : 's'}

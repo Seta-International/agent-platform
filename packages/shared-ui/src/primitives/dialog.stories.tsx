@@ -19,7 +19,7 @@ export const Default: Story = {
   render: () => (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="secondary">Open dialog</Button>
+        <Button variant="secondary" label="Open dialog" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -35,9 +35,9 @@ export const Default: Story = {
         </p>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="secondary">Cancel</Button>
+            <Button variant="secondary" label="Cancel" />
           </DialogClose>
-          <Button variant="destructive">Archive</Button>
+          <Button variant="destructive" label="Archive" />
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -48,7 +48,7 @@ export const NoCloseButton: Story = {
   render: () => (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="secondary">Open (no X)</Button>
+        <Button variant="secondary" label="Open (no X)" />
       </DialogTrigger>
       <DialogContent hideClose>
         <DialogHeader>
@@ -57,9 +57,9 @@ export const NoCloseButton: Story = {
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="secondary">Cancel</Button>
+            <Button variant="secondary" label="Cancel" />
           </DialogClose>
-          <Button>Confirm</Button>
+          <Button label="Confirm" />
         </DialogFooter>
       </DialogContent>
     </Dialog>

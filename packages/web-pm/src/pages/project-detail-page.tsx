@@ -185,20 +185,24 @@ export function ProjectDetailPage() {
 
   const actions = canManage ? (
     isClosed ? (
-      <Button onClick={() => reopen.mutate()} disabled={reopen.isPending}>
-        {reopen.isPending ? 'Reopening…' : 'Reopen project'}
-      </Button>
+      <Button
+        label={reopen.isPending ? 'Reopening…' : 'Reopen project'}
+        onClick={() => reopen.mutate()}
+        isDisabled={reopen.isPending}
+      />
     ) : (
       <div className="flex gap-2">
-        <Button variant="secondary" onClick={() => close.mutate()} disabled={close.isPending}>
-          {close.isPending ? 'Closing…' : 'Close project'}
-        </Button>
         <Button
+          variant="secondary"
+          label={close.isPending ? 'Closing…' : 'Close project'}
+          onClick={() => close.mutate()}
+          isDisabled={close.isPending}
+        />
+        <Button
+          label={save.isPending ? 'Saving…' : 'Save'}
           onClick={() => save.mutate()}
-          disabled={save.isPending || Object.keys(patch).length === 0}
-        >
-          {save.isPending ? 'Saving…' : 'Save'}
-        </Button>
+          isDisabled={save.isPending || Object.keys(patch).length === 0}
+        />
       </div>
     )
   ) : undefined;
@@ -347,18 +351,16 @@ export function ProjectDetailPage() {
                     </div>
                     <Button
                       variant="secondary"
+                      label="Link"
                       onClick={() => link.mutate()}
-                      disabled={link.isPending || !selectedGroupId}
-                    >
-                      Link
-                    </Button>
+                      isDisabled={link.isPending || !selectedGroupId}
+                    />
                     <Button
                       variant="secondary"
+                      label={createBoard.isPending ? 'Creating…' : 'Create board'}
                       onClick={() => createBoard.mutate()}
-                      disabled={createBoard.isPending}
-                    >
-                      {createBoard.isPending ? 'Creating…' : 'Create board'}
-                    </Button>
+                      isDisabled={createBoard.isPending}
+                    />
                   </div>
                   {p.planner_group_id && (
                     <p className="mt-2 text-body-sm text-ink-muted">

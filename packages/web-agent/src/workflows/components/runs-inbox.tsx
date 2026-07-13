@@ -82,10 +82,9 @@ export function RunsInbox({ definitionId = null }: RunsInboxProps) {
               size="sm"
               variant="secondary"
               onClick={() => void fetchNextPage()}
-              disabled={isFetchingNextPage}
-            >
-              {isFetchingNextPage ? 'Loading…' : 'Load more'}
-            </Button>
+              isDisabled={isFetchingNextPage}
+              label={isFetchingNextPage ? 'Loading…' : 'Load more'}
+            />
           ) : (
             <span className="text-ink-subtle">No more runs</span>
           )}

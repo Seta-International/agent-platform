@@ -463,12 +463,14 @@ export function RequestsPage() {
             </Select>
             <Button
               variant="secondary"
-              size="icon"
-              aria-label={dir === 'asc' ? 'Ascending' : 'Descending'}
+              size="sm"
+              isIconOnly
+              label={dir === 'asc' ? 'Ascending' : 'Descending'}
               onClick={() => update({ dir: dir === 'asc' ? 'desc' : 'asc' })}
-            >
-              {dir === 'asc' ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />}
-            </Button>
+              icon={
+                dir === 'asc' ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />
+              }
+            />
             <SegmentedControl
               value={view}
               onValueChange={(v) => update({ view: v as 'cards' | 'table' }, false)}
@@ -529,22 +531,22 @@ export function RequestsPage() {
             </span>
             <Button
               variant="secondary"
-              size="icon"
-              aria-label="Previous page"
-              disabled={page <= 1}
+              size="sm"
+              isIconOnly
+              label="Previous page"
+              isDisabled={page <= 1}
               onClick={() => update({ page: page - 1 }, false)}
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
+              icon={<ChevronLeft className="size-4" />}
+            />
             <Button
               variant="secondary"
-              size="icon"
-              aria-label="Next page"
-              disabled={page >= pageCount}
+              size="sm"
+              isIconOnly
+              label="Next page"
+              isDisabled={page >= pageCount}
               onClick={() => update({ page: page + 1 }, false)}
-            >
-              <ChevronRight className="size-4" />
-            </Button>
+              icon={<ChevronRight className="size-4" />}
+            />
           </div>
         )}
       </div>

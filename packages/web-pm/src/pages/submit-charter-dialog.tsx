@@ -123,7 +123,7 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">New request</Button>
+        <Button size="sm" label="New request" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -268,12 +268,12 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
           {error && <Banner status="error" title={error} />}
 
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => mutation.mutate()} disabled={!canSubmit}>
-              {mutation.isPending ? 'Submitting…' : 'Submit'}
-            </Button>
+            <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
+            <Button
+              label={mutation.isPending ? 'Submitting…' : 'Submit'}
+              onClick={() => mutation.mutate()}
+              isDisabled={!canSubmit}
+            />
           </div>
         </div>
       </DialogContent>

@@ -534,14 +534,16 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               <Button
                 size="sm"
                 variant="secondary"
+                label="Cancel"
                 onClick={cancelEditing}
-                disabled={save.isPending}
-              >
-                Cancel
-              </Button>
-              <Button size="sm" onClick={submitEdit} disabled={save.isPending}>
-                {save.isPending ? 'Updating…' : 'Update'}
-              </Button>
+                isDisabled={save.isPending}
+              />
+              <Button
+                size="sm"
+                label={save.isPending ? 'Updating…' : 'Update'}
+                onClick={submitEdit}
+                isDisabled={save.isPending}
+              />
             </div>
             {requiredError && <p className="text-caption text-danger-ink">{requiredError}</p>}
           </div>
@@ -733,10 +735,13 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="sm" disabled={!canManage && !canClose}>
-                    <MoreHorizontal className="mr-1.5 size-4" />
-                    More actions
-                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    label="More actions"
+                    icon={<MoreHorizontal className="size-4" />}
+                    isDisabled={!canManage && !canClose}
+                  />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {req.status === 'open' && (

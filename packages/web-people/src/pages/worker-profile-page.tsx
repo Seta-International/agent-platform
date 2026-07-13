@@ -224,22 +224,22 @@ export function WorkerProfilePage() {
 
   const headerActions =
     canEdit && !editing && worker ? (
-      <Button size="sm" onClick={startEdit}>
-        Edit
-      </Button>
+      <Button size="sm" onClick={startEdit} label="Edit" />
     ) : canEdit && editing ? (
       <div className="flex items-center gap-2">
         <Button
           size="sm"
           variant="secondary"
           onClick={cancelEdit}
-          disabled={saveMutation.isPending}
-        >
-          Cancel
-        </Button>
-        <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? 'Saving…' : 'Save'}
-        </Button>
+          isDisabled={saveMutation.isPending}
+          label="Cancel"
+        />
+        <Button
+          size="sm"
+          onClick={() => saveMutation.mutate()}
+          isDisabled={saveMutation.isPending}
+          label={saveMutation.isPending ? 'Saving…' : 'Save'}
+        />
       </div>
     ) : undefined;
 
@@ -644,14 +644,13 @@ function WorkerCvActions({ worker, canEdit }: { worker: WorkerDetail; canEdit: b
     <span className="flex items-center gap-2">
       {worker.cv_storage_key ? (
         <Button
-          variant="link"
+          variant="ghost"
           size="sm"
-          className="h-auto p-0"
-          disabled={download.isPending}
+          label="Download"
+          isDisabled={download.isPending}
           onClick={() => download.mutate()}
-        >
-          Download
-        </Button>
+          className="h-auto p-0"
+        />
       ) : (
         <span className="text-ink-muted">—</span>
       )}

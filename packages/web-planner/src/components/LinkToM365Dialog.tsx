@@ -147,12 +147,12 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange, onSelect }: Prop
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-hairline mt-2">
-          <Button variant="secondary" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleLink} disabled={!selectedId || link.isPending}>
-            {link.isPending ? 'Linking…' : 'Link'}
-          </Button>
+          <Button variant="secondary" label="Cancel" onClick={handleClose} />
+          <Button
+            label={link.isPending ? 'Linking…' : 'Link'}
+            onClick={handleLink}
+            isDisabled={!selectedId || link.isPending}
+          />
         </div>
       </DialogContent>
     </Dialog>

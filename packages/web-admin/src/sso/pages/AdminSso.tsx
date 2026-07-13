@@ -59,17 +59,15 @@ export function AdminSso({ status, error }: AdminSsoProps) {
       title="Sign-in & SSO"
       subtitle={summarize(providers)}
       actions={
-        <Button variant="ghost" size="sm" asChild>
-          <a
-            href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5"
-          >
-            <ExternalLink aria-hidden className="size-3.5" />
-            Entra docs
-          </a>
-        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          label="Entra docs"
+          icon={<ExternalLink aria-hidden className="size-3.5" />}
+          href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        />
       }
     >
       <div className="page-container space-y-4">

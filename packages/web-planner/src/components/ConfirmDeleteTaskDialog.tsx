@@ -39,12 +39,18 @@ export function ConfirmDeleteTaskDialog({
         </DialogHeader>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={pending}>
-            Delete task
-          </Button>
+          <Button
+            variant="ghost"
+            label="Cancel"
+            onClick={() => onOpenChange(false)}
+            isDisabled={pending}
+          />
+          <Button
+            variant="destructive"
+            label="Delete task"
+            onClick={onConfirm}
+            isDisabled={pending}
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>

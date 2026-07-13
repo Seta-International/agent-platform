@@ -263,12 +263,11 @@ export function CandidatesPage() {
           <Button
             variant="secondary"
             size="sm"
-            disabled={rows.length === 0}
+            label="Export"
+            icon={<Download className="size-4" />}
+            isDisabled={rows.length === 0}
             onClick={() => exportCandidatesCsv(rows)}
-          >
-            <Download className="size-4" />
-            Export
-          </Button>
+          />
           {canCreate ? <NewCandidateDialog /> : undefined}
         </>
       }

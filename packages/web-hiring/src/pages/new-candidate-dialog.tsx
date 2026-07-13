@@ -203,7 +203,7 @@ export function NewCandidateDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">New candidate</Button>
+        <Button size="sm" label="New candidate" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -217,16 +217,16 @@ export function NewCandidateDialog() {
               {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
+                isIconOnly
+                icon={<X className="size-3.5" />}
+                label="Remove CV"
                 className="size-6"
-                aria-label="Remove CV"
                 onClick={() => {
                   setCvFile(null);
                   setSuggestions([]);
                 }}
-              >
-                <X className="size-3.5" />
-              </Button>
+              />
             </div>
           ) : (
             <Dropzone
@@ -350,12 +350,12 @@ export function NewCandidateDialog() {
           {requiredError && <p className="text-body-sm text-danger-ink">{requiredError}</p>}
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={close}>
-              Cancel
-            </Button>
-            <Button onClick={submit} disabled={mutation.isPending || parse.isPending}>
-              {mutation.isPending ? 'Saving…' : 'Save candidate'}
-            </Button>
+            <Button variant="secondary" label="Cancel" onClick={close} />
+            <Button
+              label={mutation.isPending ? 'Saving…' : 'Save candidate'}
+              onClick={submit}
+              isDisabled={mutation.isPending || parse.isPending}
+            />
           </div>
         </div>
       </DialogContent>

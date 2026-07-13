@@ -68,11 +68,10 @@ export function OpeningsTab({
           <Button
             size="sm"
             variant="secondary"
+            label="Add opening"
             onClick={() => add.mutate()}
-            disabled={add.isPending}
-          >
-            Add opening
-          </Button>
+            isDisabled={add.isPending}
+          />
         )}
       </div>
       <div className="divide-y divide-hairline">
@@ -108,21 +107,19 @@ export function OpeningsTab({
                   <Button
                     size="sm"
                     variant="secondary"
+                    label="Close"
                     onClick={() =>
                       close.mutate({ openingId: o.id, version: o.version, status: 'closed' })
                     }
-                  >
-                    Close
-                  </Button>
+                  />
                   <Button
                     size="sm"
                     variant="destructive"
+                    label="Cancel"
                     onClick={() =>
                       close.mutate({ openingId: o.id, version: o.version, status: 'cancelled' })
                     }
-                  >
-                    Cancel
-                  </Button>
+                  />
                 </>
               )}
             </div>

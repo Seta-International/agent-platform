@@ -53,14 +53,14 @@ export function FileRow({ file }: FileRowProps) {
 
       <Button
         variant="ghost"
-        size="icon"
-        aria-label={`Delete ${file.filename}`}
-        disabled={deleteMutation.isPending}
+        size="sm"
+        isIconOnly
+        icon={<Trash2 className="size-4" aria-hidden />}
+        label={`Delete ${file.filename}`}
+        isDisabled={deleteMutation.isPending}
         onClick={() => deleteMutation.mutate(file.file_id)}
         className="shrink-0 text-ink-subtle hover:text-destructive"
-      >
-        <Trash2 className="size-4" aria-hidden />
-      </Button>
+      />
     </li>
   );
 }

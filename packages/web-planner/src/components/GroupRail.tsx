@@ -127,11 +127,12 @@ export function GroupRail({
               size="sm"
               variant="ghost"
               onClick={onAddMember}
-              aria-label="Add member"
+              label="Add member"
+              icon={<Plus className="size-3" />}
               className="h-6 px-1.5"
-              disabled={!canManage}
+              isDisabled={!canManage}
             >
-              <Plus className="size-3" /> Add
+              Add
             </Button>
           </DisabledActionTooltip>
         </div>
@@ -170,11 +171,11 @@ export function GroupRail({
           <Button
             size="sm"
             variant="ghost"
+            label={`See all ${memberCount} members`}
+            endContent={<ChevronRight className="size-3" />}
             className="mt-1 h-6 px-1.5 text-ink-subtle"
             onClick={onSeeAllMembers}
-          >
-            See all {memberCount} members <ChevronRight className="size-3" />
-          </Button>
+          />
         ) : null}
         {canManage && pendingRequests && pendingRequests.length > 0 && (
           <div className="mt-3 border-t pt-3">
@@ -194,23 +195,23 @@ export function GroupRail({
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <Button
-                      size="icon"
+                      size="sm"
                       variant="ghost"
+                      isIconOnly
+                      icon={<Check className="size-3 text-green-600" />}
+                      label="Approve"
                       className="size-6"
                       onClick={() => onApproveRequest?.(req.user_id)}
-                      title="Approve"
-                    >
-                      <Check className="size-3 text-green-600" />
-                    </Button>
+                    />
                     <Button
-                      size="icon"
+                      size="sm"
                       variant="ghost"
+                      isIconOnly
+                      icon={<X className="size-3 text-red-500" />}
+                      label="Reject"
                       className="size-6"
                       onClick={() => onRejectRequest?.(req.user_id)}
-                      title="Reject"
-                    >
-                      <X className="size-3 text-red-500" />
-                    </Button>
+                    />
                   </div>
                 </li>
               ))}

@@ -166,9 +166,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     >
       <DisabledActionTooltip disabled={disabled} reason={PERMISSION_DENIED.requisition.create}>
         <DialogTrigger asChild>
-          <Button size="sm" disabled={disabled}>
-            New requisition
-          </Button>
+          <Button size="sm" label="New requisition" isDisabled={disabled} />
         </DialogTrigger>
       </DisabledActionTooltip>
       <DialogContent
@@ -187,12 +185,19 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="secondary" onClick={close} disabled={mutation.isPending}>
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={submit} disabled={mutation.isPending}>
-                  {mutation.isPending ? 'Creating…' : 'Create'}
-                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  label="Cancel"
+                  onClick={close}
+                  isDisabled={mutation.isPending}
+                />
+                <Button
+                  size="sm"
+                  label={mutation.isPending ? 'Creating…' : 'Create'}
+                  onClick={submit}
+                  isDisabled={mutation.isPending}
+                />
               </div>
               {requiredError && <p className="text-caption text-danger-ink">{requiredError}</p>}
             </div>

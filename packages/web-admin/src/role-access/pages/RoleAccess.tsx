@@ -185,14 +185,14 @@ function RoleColumnHeader({ role, canWrite }: { role: MatrixRole; canWrite: bool
         {canWrite && (
           <Button
             variant="ghost"
-            size="icon"
-            aria-label={`Reset ${role.slug} to defaults`}
+            size="sm"
+            isIconOnly
+            icon={<RotateCcw className="size-3" aria-hidden />}
+            label={`Reset ${role.slug} to defaults`}
             className="size-5 text-ink-tertiary transition-opacity disabled:pointer-events-none disabled:opacity-0"
-            disabled={modified === 0 || reset.isPending}
+            isDisabled={modified === 0 || reset.isPending}
             onClick={() => reset.mutate(role.slug)}
-          >
-            <RotateCcw className="size-3" aria-hidden />
-          </Button>
+          />
         )}
       </div>
       <div className="flex items-center gap-1">

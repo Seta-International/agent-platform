@@ -422,9 +422,13 @@ function AddRow({
           className="h-8 pl-8"
         />
       </div>
-      <Button variant="secondary" size="sm" disabled={!value.trim() || pending} onClick={submit}>
-        Add
-      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        label="Add"
+        isDisabled={!value.trim() || pending}
+        onClick={submit}
+      />
     </div>
   );
 }
@@ -492,21 +496,22 @@ function CategoryRow({
             variant="ghost"
             size="sm"
             className="h-6 px-1.5 text-destructive"
+            icon={<Check className="size-3.5" aria-hidden />}
+            label="Archive"
             onClick={() => {
               setConfirming(false);
               onArchive();
             }}
-          >
-            <Check className="size-3.5" aria-hidden /> Archive
-          </Button>
+          />
           <Button
             variant="ghost"
             size="sm"
+            isIconOnly
             className="h-6 px-1.5 text-ink-tertiary"
+            icon={<X className="size-3.5" aria-hidden />}
+            label="Cancel archive"
             onClick={() => setConfirming(false)}
-          >
-            <X className="size-3.5" aria-hidden />
-          </Button>
+          />
         </span>
       ) : (
         <>
@@ -591,21 +596,22 @@ function SkillCard({
               variant="ghost"
               size="sm"
               className="h-6 px-1.5 text-destructive"
+              icon={<Check className="size-3.5" aria-hidden />}
+              label="Archive"
               onClick={() => {
                 setConfirming(false);
                 onArchive();
               }}
-            >
-              <Check className="size-3.5" aria-hidden /> Archive
-            </Button>
+            />
             <Button
               variant="ghost"
               size="sm"
+              isIconOnly
               className="h-6 px-1.5 text-ink-tertiary"
+              icon={<X className="size-3.5" aria-hidden />}
+              label="Cancel archive"
               onClick={() => setConfirming(false)}
-            >
-              <X className="size-3.5" aria-hidden />
-            </Button>
+            />
           </span>
         ) : (
           <span className="flex flex-none items-center opacity-0 transition-opacity group-hover:opacity-100">
@@ -665,12 +671,12 @@ function IconBtn({
   return (
     <Button
       variant="ghost"
-      size="icon"
-      aria-label={label}
+      size="sm"
+      isIconOnly
+      icon={children}
+      label={label}
       className="size-6 text-ink-tertiary hover:text-ink"
       onClick={onClick}
-    >
-      {children}
-    </Button>
+    />
   );
 }

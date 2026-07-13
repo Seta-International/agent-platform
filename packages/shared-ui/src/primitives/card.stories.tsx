@@ -24,7 +24,7 @@ export const Default: Story = {
         }
         footer={
           <LayoutFooter hasDivider>
-            <Button size="sm">Action</Button>
+            <Button size="sm" label="Action" />
           </LayoutFooter>
         }
       />

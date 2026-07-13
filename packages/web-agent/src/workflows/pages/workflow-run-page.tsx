@@ -158,11 +158,10 @@ export function WorkflowRunPage({ runId }: WorkflowRunPageProps) {
           <Button
             size="sm"
             variant="secondary"
-            disabled={rerunMutation.isPending}
+            isDisabled={rerunMutation.isPending}
             onClick={() => rerunMutation.mutate()}
-          >
-            {rerunMutation.isPending ? 'Replaying…' : 'Replay from start'}
-          </Button>
+            label={rerunMutation.isPending ? 'Replaying…' : 'Replay from start'}
+          />
         ) : undefined
       }
     >

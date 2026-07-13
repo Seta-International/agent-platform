@@ -183,7 +183,7 @@ export function PlanCalendarPage({
           <div className="flex items-center gap-3">
             <DisabledActionTooltip disabled={!canCreateTask} reason={PERMISSION_DENIED.task.create}>
               <Button
-                disabled={!canCreateTask}
+                isDisabled={!canCreateTask}
                 onClick={(e) =>
                   setQuickCreate({
                     date: emptyStateDate,
@@ -191,13 +191,10 @@ export function PlanCalendarPage({
                     y: e.clientY,
                   })
                 }
-              >
-                Create task
-              </Button>
+                label="Create task"
+              />
             </DisabledActionTooltip>
-            <Button variant="ghost" onClick={onSwitchToBoard}>
-              Switch to Board
-            </Button>
+            <Button variant="ghost" label="Switch to Board" onClick={onSwitchToBoard} />
           </div>
           {quickCreate && (
             <div className="absolute left-1/2 top-2/3 z-20 -translate-x-1/2">

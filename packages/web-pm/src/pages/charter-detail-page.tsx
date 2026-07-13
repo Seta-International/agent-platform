@@ -214,26 +214,29 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
           <Button
             size="sm"
             variant="secondary"
+            label={withdrawMutation.isPending ? 'Withdrawing…' : 'Withdraw'}
             onClick={() => withdrawMutation.mutate()}
-            disabled={withdrawMutation.isPending}
-          >
-            {withdrawMutation.isPending ? 'Withdrawing…' : 'Withdraw'}
-          </Button>
+            isDisabled={withdrawMutation.isPending}
+          />
         )}
         {showReject && (
-          <Button size="sm" variant="secondary" onClick={() => setRejecting(true)}>
-            Reject
-          </Button>
+          <Button size="sm" variant="secondary" label="Reject" onClick={() => setRejecting(true)} />
         )}
         {showPmo && (
-          <Button size="sm" onClick={() => pmoMutation.mutate()} disabled={pmoMutation.isPending}>
-            {pmoMutation.isPending ? 'Signing off…' : 'PMO sign-off'}
-          </Button>
+          <Button
+            size="sm"
+            label={pmoMutation.isPending ? 'Signing off…' : 'PMO sign-off'}
+            onClick={() => pmoMutation.mutate()}
+            isDisabled={pmoMutation.isPending}
+          />
         )}
         {showBod && (
-          <Button size="sm" onClick={() => bodMutation.mutate()} disabled={bodMutation.isPending}>
-            {bodMutation.isPending ? 'Approving…' : 'BoD approve · create project'}
-          </Button>
+          <Button
+            size="sm"
+            label={bodMutation.isPending ? 'Approving…' : 'BoD approve · create project'}
+            onClick={() => bodMutation.mutate()}
+            isDisabled={bodMutation.isPending}
+          />
         )}
       </div>
     ) : undefined;
@@ -353,21 +356,19 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
             <div className="flex justify-end gap-2">
               <Button
                 variant="secondary"
+                label="Cancel"
                 onClick={() => {
                   setRejecting(false);
                   setReason('');
                 }}
-                disabled={rejectMutation.isPending}
-              >
-                Cancel
-              </Button>
+                isDisabled={rejectMutation.isPending}
+              />
               <Button
                 variant="destructive"
+                label={rejectMutation.isPending ? 'Rejecting…' : 'Reject'}
                 onClick={() => rejectMutation.mutate()}
-                disabled={rejectMutation.isPending || !reason.trim()}
-              >
-                {rejectMutation.isPending ? 'Rejecting…' : 'Reject'}
-              </Button>
+                isDisabled={rejectMutation.isPending || !reason.trim()}
+              />
             </div>
           </div>
         </DialogContent>

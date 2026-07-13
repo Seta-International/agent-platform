@@ -77,16 +77,13 @@ export function CommentComposer({ taskId }: Props) {
       <div className="flex justify-end gap-2">
         <Button
           variant="ghost"
+          label="Cancel"
           onClick={() => {
             setBody('');
             setExpanded(false);
           }}
-        >
-          Cancel
-        </Button>
-        <Button onClick={handlePost} disabled={!canPost}>
-          Post
-        </Button>
+        />
+        <Button label="Post" onClick={handlePost} isDisabled={!canPost} />
       </div>
     </div>
   );

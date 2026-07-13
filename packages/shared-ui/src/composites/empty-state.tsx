@@ -16,11 +16,7 @@ export function EmptyState({ icon, title, description, action, className }: Empt
       {icon && <div className="mb-md text-ink-subtle">{icon}</div>}
       <h3 className="text-card-title text-ink">{title}</h3>
       {description && <p className="mt-xs text-body-sm text-ink-subtle">{description}</p>}
-      {action && (
-        <Button className="mt-md" onClick={action.onClick}>
-          {action.label}
-        </Button>
-      )}
+      {action && <Button className="mt-md" label={action.label} onClick={action.onClick} />}
     </div>
   );
 }

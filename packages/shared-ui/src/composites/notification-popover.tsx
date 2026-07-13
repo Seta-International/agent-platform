@@ -61,6 +61,7 @@ export function NotificationPopover({
                 type="button"
                 size="sm"
                 variant={filter === f ? 'secondary' : 'ghost'}
+                label={f === 'all' ? 'All' : `Unread${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
                 onClick={() => onFilterChange?.(f)}
               >
                 {f === 'all' ? 'All' : 'Unread'}
@@ -76,12 +77,11 @@ export function NotificationPopover({
             type="button"
             size="sm"
             variant="ghost"
-            disabled={unreadCount === 0}
+            isDisabled={unreadCount === 0}
+            label="Mark all read"
             onClick={onMarkAll}
             className="ml-auto text-ink-muted"
-          >
-            Mark all read
-          </Button>
+          />
         </div>
         <div
           className="min-h-[160px] overflow-y-auto overscroll-contain"

@@ -47,10 +47,9 @@ function TimezonePicker({ value, onChange }: { value: string; onChange: (next: s
           variant="secondary"
           aria-expanded={open}
           className="w-full justify-between font-normal h-9"
-        >
-          <span className="truncate">{value || 'Select timezone'}</span>
-          <ChevronsUpDown className="ml-2 size-4 opacity-50 flex-none" />
-        </Button>
+          label={value || 'Select timezone'}
+          endContent={<ChevronsUpDown className="ml-2 size-4 opacity-50 flex-none" />}
+        />
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
         <Command>
@@ -214,9 +213,8 @@ export function ProfileIdentityCard({
                     setWhEnd(wh?.end ?? '');
                     setEditingHours(false);
                   }}
-                >
-                  Cancel
-                </Button>
+                  label="Cancel"
+                />
               </div>
             ) : (
               <div className="flex items-center gap-2.5 rounded-md border border-hairline-strong px-3 py-1.5 text-sm">
@@ -229,9 +227,8 @@ export function ProfileIdentityCard({
                     size="sm"
                     className="h-5 px-2 text-xs"
                     onClick={() => setEditingHours(true)}
-                  >
-                    Edit
-                  </Button>
+                    label="Edit"
+                  />
                 ) : (
                   <span className="text-xs text-ink-subtle">Set by your admin</span>
                 )}
@@ -243,9 +240,11 @@ export function ProfileIdentityCard({
           </div>
 
           <div className="flex justify-end pt-1">
-            <Button onClick={save} disabled={saving || !dirty || Boolean(whInvalid)}>
-              Save changes
-            </Button>
+            <Button
+              onClick={save}
+              isDisabled={saving || !dirty || Boolean(whInvalid)}
+              label="Save changes"
+            />
           </div>
         </div>
       </div>

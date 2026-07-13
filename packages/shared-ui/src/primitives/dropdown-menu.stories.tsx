@@ -25,7 +25,7 @@ export const Default: Story = {
   render: () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary">Actions</Button>
+        <Button variant="secondary" label="Actions" />
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuLabel>Project</DropdownMenuLabel>
@@ -65,7 +65,7 @@ export const WithCheckboxItems: Story = {
   render: () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary">View options</Button>
+        <Button variant="secondary" label="View options" />
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuLabel>Columns</DropdownMenuLabel>
@@ -82,7 +82,7 @@ export const WithRadioItems: Story = {
   render: () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary">Sort by</Button>
+        <Button variant="secondary" label="Sort by" />
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuLabel>Sort</DropdownMenuLabel>

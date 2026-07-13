@@ -60,9 +60,11 @@ export function ProfileAccountSection({
               )}
               {passwordHint && <p className="text-sm text-ink-muted">{passwordHint}</p>}
               <div className="flex justify-end pt-1">
-                <Button onClick={save} disabled={saving || name === profile.display_name}>
-                  Save changes
-                </Button>
+                <Button
+                  onClick={save}
+                  isDisabled={saving || name === profile.display_name}
+                  label="Save changes"
+                />
               </div>
             </div>
           </LayoutContent>
