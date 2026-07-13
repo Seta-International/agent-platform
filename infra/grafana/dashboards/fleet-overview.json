@@ -70,10 +70,6 @@
               },
               {
                 "value": 1,
-                "color": "yellow"
-              },
-              {
-                "value": 1,
                 "color": "green"
               }
             ]
@@ -168,10 +164,6 @@
               },
               {
                 "value": 1,
-                "color": "yellow"
-              },
-              {
-                "value": 1,
                 "color": "green"
               }
             ]
@@ -263,10 +255,6 @@
               {
                 "value": null,
                 "color": "red"
-              },
-              {
-                "value": 1,
-                "color": "yellow"
               },
               {
                 "value": 1,
@@ -590,7 +578,7 @@
         "orientation": "auto"
       },
       "title": "Min disk free",
-      "description": "Tightest mount per env. Red < 10%.",
+      "description": "Tightest mount per env. Red < 5% (DiskCritical), amber < 30% (DiskWillFillSoon).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -606,11 +594,11 @@
                 "color": "red"
               },
               {
-                "value": 10,
+                "value": 5,
                 "color": "yellow"
               },
               {
-                "value": 20,
+                "value": 30,
                 "color": "green"
               }
             ]
@@ -671,7 +659,7 @@
         "orientation": "auto"
       },
       "title": "DB connections used",
-      "description": "Active connections as % of max_connections. Amber > 70%, red > 85%.",
+      "description": "Active connections as % of max_connections. Amber > 70%, red > 80% (matches PostgresTooManyConns).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -691,7 +679,7 @@
                 "color": "yellow"
               },
               {
-                "value": 85,
+                "value": 80,
                 "color": "red"
               }
             ]

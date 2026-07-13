@@ -205,7 +205,7 @@
         "orientation": "auto"
       },
       "title": "Disk free (min mount)",
-      "description": "Tightest mount. Red < 10%.",
+      "description": "Tightest mount. Red < 5% (matches DiskCritical); yellow < 30% (matches DiskWillFillSoon's predictive window).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -223,11 +223,11 @@
                 "color": "red"
               },
               {
-                "value": 10,
+                "value": 5,
                 "color": "yellow"
               },
               {
-                "value": 20,
+                "value": 30,
                 "color": "green"
               }
             ]
@@ -396,7 +396,11 @@
                 "color": "transparent"
               },
               {
-                "value": 20,
+                "value": 30,
+                "color": "yellow"
+              },
+              {
+                "value": 5,
                 "color": "red"
               }
             ]
@@ -405,7 +409,7 @@
         "overrides": []
       },
       "title": "Disk free % per mount",
-      "description": "SLO lines at 20%/10%.",
+      "description": "Lines at 30% (DiskWillFillSoon) / 5% (DiskCritical).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
