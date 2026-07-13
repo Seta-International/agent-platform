@@ -17,6 +17,6 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
-    "@mastra/rag": "^2.2.1"
+    "@mastra/rag": "^2.4.0"
   }
 }
