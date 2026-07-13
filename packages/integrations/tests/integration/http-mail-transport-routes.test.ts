@@ -77,7 +77,11 @@ describe('mail transport routes — error mapping (FUT-4)', () => {
           '/api/integrations/v1/mail-transport',
         );
         expect(viewerRes.status).toBe(403);
-        expect(await viewerRes.json()).toMatchObject({ error: 'FORBIDDEN' });
+        expect(await viewerRes.json()).toMatchObject({
+          error: 'FORBIDDEN',
+          message:
+            "You don't have permission to configure mail settings. Ask your workspace admin for access.",
+        });
 
         const { user_id: adminId } = await createUser(
           {

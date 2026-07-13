@@ -11,7 +11,7 @@ import * as schema from './backend/db/schema/index.ts';
 import { registerMailTransportRoutes } from './backend/http/index.ts';
 import { buildM365Boot } from './backend/m365/boot.ts';
 import { buildM365Subscribers } from './backend/m365/subscribers.ts';
-import { IntegrationsError } from './backend/rbac.ts';
+import { INTEGRATIONS_PERMISSIONS, IntegrationsError } from './backend/rbac.ts';
 import { integrationsRbac } from './rbac.ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -23,6 +23,13 @@ export interface IntegrationsRegisterDeps {
   getWorkers?: () => WorkerHandle;
 }
 
+// requirePermission's raw `missing permission <slug>` message leaks the permission slug
+// straight to the UI (FUT-4) — swap known ones for user-facing copy before it reaches the client.
+const FRIENDLY_FORBIDDEN_MESSAGES: Partial<Record<string, string>> = {
+  [`missing permission ${INTEGRATIONS_PERMISSIONS.mailConfigure}`]:
+    "You don't have permission to configure mail settings. Ask your workspace admin for access.",
+};
+
 // Domain errors from the mail-transport routes (RBAC checks, tenant mismatch, bad
 // input, failed test-send) were thrown uncaught — with no mapper claiming
 // `IntegrationsError`, they fell through to the generic handler as a bare 500
@@ -31,7 +38,8 @@ export const integrationsErrorMapper: ErrorMapper = (err) => {
   if (!(err instanceof IntegrationsError)) return null;
   const status: ContentfulStatusCode =
     err.code === 'FORBIDDEN' ? 403 : err.code === 'NOT_FOUND' ? 404 : 400; // INVALID_INPUT, TRANSPORT_VERIFY_FAILED
-  return { status, body: { error: err.code, message: err.message } };
+  const message = FRIENDLY_FORBIDDEN_MESSAGES[err.message] ?? err.message;
+  return { status, body: { error: err.code, message } };
 };
 
 export function registerIntegrationsContributions(
