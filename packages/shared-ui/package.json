@@ -16,7 +16,8 @@
     "test": "NODE_OPTIONS='--no-experimental-webstorage' vitest run",
     "test:watch": "NODE_OPTIONS='--no-experimental-webstorage' vitest",
     "storybook": "storybook dev -p 6006",
-    "storybook:build": "storybook build"
+    "storybook:build": "storybook build",
+    "theme:build": "node ../../node_modules/@astryxdesign/cli/bin/astryx.mjs theme build src/theme/astryx-seta.theme.ts -o src/styles/astryx-seta-theme.css"
   },
   "peerDependencies": {
     "react": "^19.0.0",
