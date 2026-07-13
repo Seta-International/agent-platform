@@ -4,7 +4,6 @@ import {
   AvatarFallback,
   Button,
   Card,
-  CardContent,
   cn,
   DisabledActionTooltip,
   formatRelative,
@@ -118,163 +117,154 @@ export function GroupRail({
   return (
     <aside className="flex flex-col gap-3 w-80">
       {/* Members card */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="mb-2 flex items-baseline justify-between">
-            <h3 className="text-eyebrow uppercase tracking-wide text-ink-subtle">
-              Members{' '}
-              <span className="ml-1 text-xs normal-case text-ink-subtle">{memberCount}</span>
-            </h3>
-            <DisabledActionTooltip disabled={!canManage} reason={PERMISSION_DENIED.group.addMember}>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={onAddMember}
-                aria-label="Add member"
-                className="h-6 px-1.5"
-                disabled={!canManage}
-              >
-                <Plus className="size-3" /> Add
-              </Button>
-            </DisabledActionTooltip>
-          </div>
-          <div className="flex flex-col">
-            {visibleMembers.map((m, i, arr) => (
-              <div
-                key={m.user_id}
-                className={cn(
-                  'flex items-center gap-2 py-1.5',
-                  i < arr.length - 1 && 'border-b border-hairline-tertiary',
-                )}
-              >
-                <Avatar className="size-7 shrink-0">
-                  <AvatarFallback className="text-[10px] font-semibold">
-                    {initials(m.display_name)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{m.display_name}</div>
-                  {m.email ? (
-                    <div className="truncate text-xs text-ink-subtle">{m.email}</div>
-                  ) : null}
-                </div>
-                <span
-                  className={cn(
-                    'inline-flex h-5 items-center rounded-full px-2 text-xs',
-                    m.role === 'owner'
-                      ? 'bg-primary-tint text-primary-ink'
-                      : 'bg-surface-2 text-ink-muted',
-                  )}
-                >
-                  {m.role === 'owner' ? 'Owner' : 'Member'}
-                </span>
-              </div>
-            ))}
-          </div>
-          {hasMore ? (
+      <Card padding={4}>
+        <div className="mb-2 flex items-baseline justify-between">
+          <h3 className="text-eyebrow uppercase tracking-wide text-ink-subtle">
+            Members <span className="ml-1 text-xs normal-case text-ink-subtle">{memberCount}</span>
+          </h3>
+          <DisabledActionTooltip disabled={!canManage} reason={PERMISSION_DENIED.group.addMember}>
             <Button
               size="sm"
               variant="ghost"
-              className="mt-1 h-6 px-1.5 text-ink-subtle"
-              onClick={onSeeAllMembers}
+              onClick={onAddMember}
+              aria-label="Add member"
+              className="h-6 px-1.5"
+              disabled={!canManage}
             >
-              See all {memberCount} members <ChevronRight className="size-3" />
+              <Plus className="size-3" /> Add
             </Button>
-          ) : null}
-          {canManage && pendingRequests && pendingRequests.length > 0 && (
-            <div className="mt-3 border-t pt-3">
-              <p className="text-xs font-semibold text-ink-muted mb-2">Pending requests</p>
-              <ul className="flex flex-col gap-2">
-                {pendingRequests.map((req) => (
-                  <li key={req.user_id} className="flex items-center gap-2 text-sm">
-                    <Avatar className="size-6 shrink-0">
-                      <AvatarFallback className="text-[10px] font-semibold">
-                        {initials(req.display_name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{req.display_name}</p>
-                      <p className="truncate text-xs text-ink-subtle">{req.email}</p>
-                      <p className="text-xs text-ink-subtle">{shortDate(req.requested_at)}</p>
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-6"
-                        onClick={() => onApproveRequest?.(req.user_id)}
-                        title="Approve"
-                      >
-                        <Check className="size-3 text-green-600" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-6"
-                        onClick={() => onRejectRequest?.(req.user_id)}
-                        title="Reject"
-                      >
-                        <X className="size-3 text-red-500" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+          </DisabledActionTooltip>
+        </div>
+        <div className="flex flex-col">
+          {visibleMembers.map((m, i, arr) => (
+            <div
+              key={m.user_id}
+              className={cn(
+                'flex items-center gap-2 py-1.5',
+                i < arr.length - 1 && 'border-b border-hairline-tertiary',
+              )}
+            >
+              <Avatar className="size-7 shrink-0">
+                <AvatarFallback className="text-[10px] font-semibold">
+                  {initials(m.display_name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{m.display_name}</div>
+                {m.email ? <div className="truncate text-xs text-ink-subtle">{m.email}</div> : null}
+              </div>
+              <span
+                className={cn(
+                  'inline-flex h-5 items-center rounded-full px-2 text-xs',
+                  m.role === 'owner'
+                    ? 'bg-primary-tint text-primary-ink'
+                    : 'bg-surface-2 text-ink-muted',
+                )}
+              >
+                {m.role === 'owner' ? 'Owner' : 'Member'}
+              </span>
             </div>
-          )}
-          {canManage && pendingRequests && pendingRequests.length === 0 && (
-            <p className="mt-2 text-xs text-ink-subtle">No pending requests.</p>
-          )}
-        </CardContent>
+          ))}
+        </div>
+        {hasMore ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="mt-1 h-6 px-1.5 text-ink-subtle"
+            onClick={onSeeAllMembers}
+          >
+            See all {memberCount} members <ChevronRight className="size-3" />
+          </Button>
+        ) : null}
+        {canManage && pendingRequests && pendingRequests.length > 0 && (
+          <div className="mt-3 border-t pt-3">
+            <p className="text-xs font-semibold text-ink-muted mb-2">Pending requests</p>
+            <ul className="flex flex-col gap-2">
+              {pendingRequests.map((req) => (
+                <li key={req.user_id} className="flex items-center gap-2 text-sm">
+                  <Avatar className="size-6 shrink-0">
+                    <AvatarFallback className="text-[10px] font-semibold">
+                      {initials(req.display_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{req.display_name}</p>
+                    <p className="truncate text-xs text-ink-subtle">{req.email}</p>
+                    <p className="text-xs text-ink-subtle">{shortDate(req.requested_at)}</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-6"
+                      onClick={() => onApproveRequest?.(req.user_id)}
+                      title="Approve"
+                    >
+                      <Check className="size-3 text-green-600" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-6"
+                      onClick={() => onRejectRequest?.(req.user_id)}
+                      title="Reject"
+                    >
+                      <X className="size-3 text-red-500" />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {canManage && pendingRequests && pendingRequests.length === 0 && (
+          <p className="mt-2 text-xs text-ink-subtle">No pending requests.</p>
+        )}
       </Card>
 
       {/* Recent activity */}
-      <Card>
-        <CardContent className="p-4">
-          <h3 className="mb-2 text-eyebrow uppercase tracking-wide text-ink-subtle">
-            Recent activity
-          </h3>
-          <ActivityList items={activityItems} />
-        </CardContent>
+      <Card padding={4}>
+        <h3 className="mb-2 text-eyebrow uppercase tracking-wide text-ink-subtle">
+          Recent activity
+        </h3>
+        <ActivityList items={activityItems} />
       </Card>
 
       {/* Properties */}
-      <Card>
-        <CardContent className="p-4">
-          <h3 className="mb-2 text-eyebrow uppercase tracking-wide text-ink-subtle">Properties</h3>
-          <div className="flex flex-col">
-            <PropertyRow
-              label="Visibility"
-              value={
-                <span className="inline-flex items-center gap-1.5">
-                  {group.visibility === 'private' ? (
-                    <Shield className="size-3 text-ink-muted" />
-                  ) : (
-                    <Users className="size-3 text-ink-muted" />
-                  )}
-                  {group.visibility === 'private' ? 'Private' : 'Workspace'}
-                </span>
-              }
-            />
-            <PropertyRow
-              label="Source"
-              value={
-                group.external_source === 'native'
-                  ? 'Native'
-                  : `M365${group.external_id ? ` · ${group.external_id}` : ''}`
-              }
-            />
-            <PropertyRow
-              label="Default role"
-              value={
-                <span className="inline-flex h-5 items-center rounded-full bg-surface-2 px-2 text-xs">
-                  {group.default_role === 'owner' ? 'Owner' : 'Member'}
-                </span>
-              }
-            />
-            <PropertyRow label="Created" value={shortDate(group.created_at)} />
-          </div>
-        </CardContent>
+      <Card padding={4}>
+        <h3 className="mb-2 text-eyebrow uppercase tracking-wide text-ink-subtle">Properties</h3>
+        <div className="flex flex-col">
+          <PropertyRow
+            label="Visibility"
+            value={
+              <span className="inline-flex items-center gap-1.5">
+                {group.visibility === 'private' ? (
+                  <Shield className="size-3 text-ink-muted" />
+                ) : (
+                  <Users className="size-3 text-ink-muted" />
+                )}
+                {group.visibility === 'private' ? 'Private' : 'Workspace'}
+              </span>
+            }
+          />
+          <PropertyRow
+            label="Source"
+            value={
+              group.external_source === 'native'
+                ? 'Native'
+                : `M365${group.external_id ? ` · ${group.external_id}` : ''}`
+            }
+          />
+          <PropertyRow
+            label="Default role"
+            value={
+              <span className="inline-flex h-5 items-center rounded-full bg-surface-2 px-2 text-xs">
+                {group.default_role === 'owner' ? 'Owner' : 'Member'}
+              </span>
+            }
+          />
+          <PropertyRow label="Created" value={shortDate(group.created_at)} />
+        </div>
       </Card>
     </aside>
   );

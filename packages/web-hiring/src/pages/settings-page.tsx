@@ -3,8 +3,6 @@ import {
   Banner,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
   Dialog,
   DialogContent,
@@ -13,6 +11,9 @@ import {
   DialogTrigger,
   Input,
   Label,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   PageChrome,
   SegmentedControl,
   Select,
@@ -384,105 +385,129 @@ export function SettingsPage() {
     >
       <div className="page-container grid grid-cols-1 gap-6 p-6 xl:grid-cols-2">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>JD templates</CardTitle>
-            {canManage && <NewTemplateDialog />}
-          </CardHeader>
-          <CardContent>
-            {templates.error ? (
-              <Banner status="error" title={(templates.error as Error).message} />
-            ) : templates.isLoading ? (
-              <div className="text-ink-muted">Loading…</div>
-            ) : (templates.data?.length ?? 0) === 0 ? (
-              <div className="text-ink-muted">No templates yet.</div>
-            ) : (
-              <div className="divide-y divide-hairline">
-                {templates.data?.map((t) => (
-                  <div key={t.template.id} className="flex items-center justify-between py-2">
-                    <span className="text-ink">
-                      {t.template.name} <Badge variant="neutral" label={t.template.kind} />
-                    </span>
-                    {canManage && (
-                      <Button size="sm" variant="ghost" onClick={() => del.mutate(t.template.id)}>
-                        Delete
-                      </Button>
-                    )}
+          <Layout
+            header={
+              <LayoutHeader hasDivider className="flex flex-row items-center justify-between">
+                <CardTitle>JD templates</CardTitle>
+                {canManage && <NewTemplateDialog />}
+              </LayoutHeader>
+            }
+            content={
+              <LayoutContent>
+                {templates.error ? (
+                  <Banner status="error" title={(templates.error as Error).message} />
+                ) : templates.isLoading ? (
+                  <div className="text-ink-muted">Loading…</div>
+                ) : (templates.data?.length ?? 0) === 0 ? (
+                  <div className="text-ink-muted">No templates yet.</div>
+                ) : (
+                  <div className="divide-y divide-hairline">
+                    {templates.data?.map((t) => (
+                      <div key={t.template.id} className="flex items-center justify-between py-2">
+                        <span className="text-ink">
+                          {t.template.name} <Badge variant="neutral" label={t.template.kind} />
+                        </span>
+                        {canManage && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => del.mutate(t.template.id)}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
+                )}
+              </LayoutContent>
+            }
+          />
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Close reasons</CardTitle>
-            {canManage && <NewCloseReasonDialog />}
-          </CardHeader>
-          <CardContent>
-            {reasons.error ? (
-              <Banner status="error" title={(reasons.error as Error).message} />
-            ) : reasons.isLoading ? (
-              <div className="text-ink-muted">Loading…</div>
-            ) : (reasons.data?.length ?? 0) === 0 ? (
-              <div className="text-ink-muted">No close reasons yet.</div>
-            ) : (
-              <div className="divide-y divide-hairline">
-                {reasons.data?.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between py-2">
-                    <span className="text-ink">
-                      {r.label} {!r.active && <Badge variant="neutral" label="archived" />}
-                    </span>
-                    {canManage && r.active && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => archive.mutate({ id: r.id, version: r.version })}
-                      >
-                        Archive
-                      </Button>
-                    )}
+          <Layout
+            header={
+              <LayoutHeader hasDivider className="flex flex-row items-center justify-between">
+                <CardTitle>Close reasons</CardTitle>
+                {canManage && <NewCloseReasonDialog />}
+              </LayoutHeader>
+            }
+            content={
+              <LayoutContent>
+                {reasons.error ? (
+                  <Banner status="error" title={(reasons.error as Error).message} />
+                ) : reasons.isLoading ? (
+                  <div className="text-ink-muted">Loading…</div>
+                ) : (reasons.data?.length ?? 0) === 0 ? (
+                  <div className="text-ink-muted">No close reasons yet.</div>
+                ) : (
+                  <div className="divide-y divide-hairline">
+                    {reasons.data?.map((r) => (
+                      <div key={r.id} className="flex items-center justify-between py-2">
+                        <span className="text-ink">
+                          {r.label} {!r.active && <Badge variant="neutral" label="archived" />}
+                        </span>
+                        {canManage && r.active && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => archive.mutate({ id: r.id, version: r.version })}
+                          >
+                            Archive
+                          </Button>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
+                )}
+              </LayoutContent>
+            }
+          />
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Candidate rejection-reasons</CardTitle>
-            {canManageRejections && <NewRejectionReasonDialog />}
-          </CardHeader>
-          <CardContent>
-            {rejections.error ? (
-              <Banner status="error" title={(rejections.error as Error).message} />
-            ) : rejections.isLoading ? (
-              <div className="text-ink-muted">Loading…</div>
-            ) : (rejections.data?.length ?? 0) === 0 ? (
-              <div className="text-ink-muted">No rejection reasons yet.</div>
-            ) : (
-              <div className="divide-y divide-hairline">
-                {rejections.data?.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between py-2">
-                    <span className="text-ink">
-                      {r.label} <Badge variant="neutral" label={r.category} />
-                      {!r.active && <Badge variant="neutral" label="archived" />}
-                    </span>
-                    {canManageRejections && r.active && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => archiveRejection.mutate({ id: r.id, version: r.version })}
-                      >
-                        Archive
-                      </Button>
-                    )}
+          <Layout
+            header={
+              <LayoutHeader hasDivider className="flex flex-row items-center justify-between">
+                <CardTitle>Candidate rejection-reasons</CardTitle>
+                {canManageRejections && <NewRejectionReasonDialog />}
+              </LayoutHeader>
+            }
+            content={
+              <LayoutContent>
+                {rejections.error ? (
+                  <Banner status="error" title={(rejections.error as Error).message} />
+                ) : rejections.isLoading ? (
+                  <div className="text-ink-muted">Loading…</div>
+                ) : (rejections.data?.length ?? 0) === 0 ? (
+                  <div className="text-ink-muted">No rejection reasons yet.</div>
+                ) : (
+                  <div className="divide-y divide-hairline">
+                    {rejections.data?.map((r) => (
+                      <div key={r.id} className="flex items-center justify-between py-2">
+                        <span className="text-ink">
+                          {r.label} <Badge variant="neutral" label={r.category} />
+                          {!r.active && <Badge variant="neutral" label="archived" />}
+                        </span>
+                        {canManageRejections && r.active && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              archiveRejection.mutate({ id: r.id, version: r.version })
+                            }
+                          >
+                            Archive
+                          </Button>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
+                )}
+              </LayoutContent>
+            }
+          />
         </Card>
       </div>
     </PageChrome>

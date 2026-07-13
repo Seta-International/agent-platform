@@ -95,6 +95,7 @@ export * from './primitives/dropdown-menu';
 export * from './primitives/form';
 export * from './primitives/input';
 export * from './primitives/label';
+export * from './primitives/layout';
 export * from './primitives/popover';
 export * from './primitives/radio-group';
 export * from './primitives/scroll-area';

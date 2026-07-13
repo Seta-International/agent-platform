@@ -4,10 +4,11 @@ import {
   Banner,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
   Label,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   PageChrome,
   Select,
   SelectContent,
@@ -141,17 +142,23 @@ export function ProjectDetailPage() {
       <PageChrome title="Project" breadcrumb={[backLink]}>
         <div className="page-container p-6 space-y-4">
           <Card>
-            <CardHeader>
-              <Skeleton height={20} width={192} />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                  <Skeleton key={i} height={16} />
-                ))}
-              </div>
-            </CardContent>
+            <Layout
+              header={
+                <LayoutHeader hasDivider>
+                  <Skeleton height={20} width={192} />
+                </LayoutHeader>
+              }
+              content={
+                <LayoutContent>
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
+                      <Skeleton key={i} height={16} />
+                    ))}
+                  </div>
+                </LayoutContent>
+              }
+            />
           </Card>
         </div>
       </PageChrome>
@@ -205,160 +212,172 @@ export function ProjectDetailPage() {
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>Phase</Label>
-                <Select
-                  value={patchVal('phase', p.phase) ?? ''}
-                  onValueChange={(v) => setPatch((s) => ({ ...s, phase: v }))}
-                  disabled={inputsDisabled}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PHASES.map((ph) => (
-                      <SelectItem key={ph} value={ph}>
-                        {ph}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Status</Label>
-                <Select
-                  value={patchVal('status', p.status) ?? ''}
-                  onValueChange={(v) =>
-                    setPatch((s) => ({ ...s, status: v as ProjectPatch['status'] }))
-                  }
-                  disabled={inputsDisabled}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUSES.map((st) => (
-                      <SelectItem key={st} value={st}>
-                        {st}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+          <Layout
+            header={
+              <LayoutHeader hasDivider>
+                <CardTitle>Details</CardTitle>
+              </LayoutHeader>
+            }
+            content={
+              <LayoutContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label>Phase</Label>
+                      <Select
+                        value={patchVal('phase', p.phase) ?? ''}
+                        onValueChange={(v) => setPatch((s) => ({ ...s, phase: v }))}
+                        disabled={inputsDisabled}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PHASES.map((ph) => (
+                            <SelectItem key={ph} value={ph}>
+                              {ph}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Status</Label>
+                      <Select
+                        value={patchVal('status', p.status) ?? ''}
+                        onValueChange={(v) =>
+                          setPatch((s) => ({ ...s, status: v as ProjectPatch['status'] }))
+                        }
+                        disabled={inputsDisabled}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STATUSES.map((st) => (
+                            <SelectItem key={st} value={st}>
+                              {st}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
-            <div className="space-y-1">
-              <Label>Objective</Label>
-              <Textarea
-                value={(patchVal('objective', p.objective) ?? '') as string}
-                onChange={(e) => setPatch((s) => ({ ...s, objective: e.target.value }))}
-                disabled={inputsDisabled}
-              />
-            </div>
+                  <div className="space-y-1">
+                    <Label>Objective</Label>
+                    <Textarea
+                      value={(patchVal('objective', p.objective) ?? '') as string}
+                      onChange={(e) => setPatch((s) => ({ ...s, objective: e.target.value }))}
+                      disabled={inputsDisabled}
+                    />
+                  </div>
 
-            <div className="space-y-1">
-              <Label>Org unit</Label>
-              <AsyncCombobox
-                value={patch.org_unit_id !== undefined ? patch.org_unit_id : p.org_unit_id}
-                onChange={(v) => setPatch((s) => ({ ...s, org_unit_id: v }))}
-                search={orgUnitSearch.search}
-                resolveByIds={orgUnitSearch.resolveByIds}
-                placeholder="Search org units…"
-                disabled={inputsDisabled}
-              />
-            </div>
+                  <div className="space-y-1">
+                    <Label>Org unit</Label>
+                    <AsyncCombobox
+                      value={patch.org_unit_id !== undefined ? patch.org_unit_id : p.org_unit_id}
+                      onChange={(v) => setPatch((s) => ({ ...s, org_unit_id: v }))}
+                      search={orgUnitSearch.search}
+                      resolveByIds={orgUnitSearch.resolveByIds}
+                      placeholder="Search org units…"
+                      disabled={inputsDisabled}
+                    />
+                  </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>Scope (in)</Label>
-                <Textarea
-                  value={patch.scope?.in ?? p.scope?.in ?? ''}
-                  onChange={(e) =>
-                    setPatch((s) => ({
-                      ...s,
-                      scope: { in: e.target.value, out: s.scope?.out ?? p.scope?.out ?? '' },
-                    }))
-                  }
-                  disabled={inputsDisabled}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Scope (out)</Label>
-                <Textarea
-                  value={patch.scope?.out ?? p.scope?.out ?? ''}
-                  onChange={(e) =>
-                    setPatch((s) => ({
-                      ...s,
-                      scope: { in: s.scope?.in ?? p.scope?.in ?? '', out: e.target.value },
-                    }))
-                  }
-                  disabled={inputsDisabled}
-                />
-              </div>
-            </div>
-          </CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label>Scope (in)</Label>
+                      <Textarea
+                        value={patch.scope?.in ?? p.scope?.in ?? ''}
+                        onChange={(e) =>
+                          setPatch((s) => ({
+                            ...s,
+                            scope: { in: e.target.value, out: s.scope?.out ?? p.scope?.out ?? '' },
+                          }))
+                        }
+                        disabled={inputsDisabled}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Scope (out)</Label>
+                      <Textarea
+                        value={patch.scope?.out ?? p.scope?.out ?? ''}
+                        onChange={(e) =>
+                          setPatch((s) => ({
+                            ...s,
+                            scope: { in: s.scope?.in ?? p.scope?.in ?? '', out: e.target.value },
+                          }))
+                        }
+                        disabled={inputsDisabled}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </LayoutContent>
+            }
+          />
         </Card>
 
         {canManage && (
           <Card>
-            <CardHeader>
-              <CardTitle>Planner board</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end gap-2">
-                <div className="space-y-1 flex-1">
-                  <Label>Board</Label>
-                  <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a board" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(groups ?? []).map((g) => (
-                        <SelectItem key={g.id} value={g.id}>
-                          {g.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  variant="secondary"
-                  onClick={() => link.mutate()}
-                  disabled={link.isPending || !selectedGroupId}
-                >
-                  Link
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => createBoard.mutate()}
-                  disabled={createBoard.isPending}
-                >
-                  {createBoard.isPending ? 'Creating…' : 'Create board'}
-                </Button>
-              </div>
-              {p.planner_group_id && (
-                <p className="mt-2 text-body-sm text-ink-muted">
-                  Linked:{' '}
-                  <span className="font-mono text-caption text-ink">{p.planner_group_id}</span>
-                  {groups?.find((g) => g.id === p.planner_group_id) && (
-                    <> — {groups.find((g) => g.id === p.planner_group_id)?.name}</>
+            <Layout
+              header={
+                <LayoutHeader hasDivider>
+                  <CardTitle>Planner board</CardTitle>
+                </LayoutHeader>
+              }
+              content={
+                <LayoutContent>
+                  <div className="flex items-end gap-2">
+                    <div className="space-y-1 flex-1">
+                      <Label>Board</Label>
+                      <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a board" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(groups ?? []).map((g) => (
+                            <SelectItem key={g.id} value={g.id}>
+                              {g.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      onClick={() => link.mutate()}
+                      disabled={link.isPending || !selectedGroupId}
+                    >
+                      Link
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => createBoard.mutate()}
+                      disabled={createBoard.isPending}
+                    >
+                      {createBoard.isPending ? 'Creating…' : 'Create board'}
+                    </Button>
+                  </div>
+                  {p.planner_group_id && (
+                    <p className="mt-2 text-body-sm text-ink-muted">
+                      Linked:{' '}
+                      <span className="font-mono text-caption text-ink">{p.planner_group_id}</span>
+                      {groups?.find((g) => g.id === p.planner_group_id) && (
+                        <> — {groups.find((g) => g.id === p.planner_group_id)?.name}</>
+                      )}
+                    </p>
                   )}
-                </p>
-              )}
-            </CardContent>
+                </LayoutContent>
+              }
+            />
           </Card>
         )}
 
-        <Card>
-          <CardContent className="space-y-6 pt-6">
-            <StaffingPlanSection projectId={projectId} canManage={canManage} />
-            <ProjectAccessSection projectId={projectId} canManage={canManage} />
-          </CardContent>
+        <Card className="space-y-6 pt-6">
+          <StaffingPlanSection projectId={projectId} canManage={canManage} />
+          <ProjectAccessSection projectId={projectId} canManage={canManage} />
         </Card>
       </div>
     </PageChrome>

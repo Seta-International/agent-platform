@@ -3,7 +3,6 @@ import {
   Banner,
   Button,
   Card,
-  CardContent,
   DataTable,
   EmptyState,
   Input,
@@ -117,34 +116,32 @@ function Kpi({
     >
       <Card
         className={[
-          'h-full transition-shadow',
+          'h-full transition-shadow flex items-center justify-between gap-3 p-3.5',
           active ? 'border-blue ring-1 ring-blue/30' : '',
           onClick ? 'enabled:hover:shadow-sm hover:border-blue/40' : '',
         ].join(' ')}
       >
-        <CardContent className="flex items-center justify-between gap-3 p-3.5">
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-medium uppercase tracking-wide text-ink-muted">
-              {label}
-            </div>
-            <div
-              className="mt-1 text-[26px] font-semibold leading-none tabular-nums"
-              style={{ color }}
-            >
-              {value}
-            </div>
-            {sub && <div className="mt-1.5 text-[11px] text-ink-muted">{sub}</div>}
+        <div className="min-w-0">
+          <div className="text-[10.5px] font-medium uppercase tracking-wide text-ink-muted">
+            {label}
           </div>
-          <span
-            className="grid size-9 flex-shrink-0 place-items-center rounded-[10px]"
-            style={{
-              background: `color-mix(in srgb, ${color} 12%, transparent)`,
-              color,
-            }}
+          <div
+            className="mt-1 text-[26px] font-semibold leading-none tabular-nums"
+            style={{ color }}
           >
-            <Icon className="size-[18px]" />
-          </span>
-        </CardContent>
+            {value}
+          </div>
+          {sub && <div className="mt-1.5 text-[11px] text-ink-muted">{sub}</div>}
+        </div>
+        <span
+          className="grid size-9 flex-shrink-0 place-items-center rounded-[10px]"
+          style={{
+            background: `color-mix(in srgb, ${color} 12%, transparent)`,
+            color,
+          }}
+        >
+          <Icon className="size-[18px]" />
+        </span>
       </Card>
     </button>
   );
@@ -182,42 +179,40 @@ function RequestCard({
   return (
     <button type="button" onClick={onOpen} className="group block w-full text-left">
       <Card
-        className="overflow-hidden border-l-[3px] transition-shadow hover:border-blue/40 hover:shadow-sm"
+        className="overflow-hidden border-l-[3px] transition-shadow hover:border-blue/40 hover:shadow-sm space-y-3 p-4"
         style={{ borderLeftColor: STATUS_ACCENT[row.status] }}
       >
-        <CardContent className="space-y-3 p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[10.5px] text-ink-muted">
-                  #{row.charter_id.slice(0, 8)}
-                </span>
-                <Badge variant={status.variant} label={status.label} />
-                <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">
-                  {accountName}
-                </span>
-              </div>
-              <div className="mt-1.5 truncate text-[15px] font-semibold text-ink">{row.name}</div>
-              <div className="mt-0.5 truncate text-body-sm text-ink-muted">{meta}</div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10.5px] text-ink-muted">
+                #{row.charter_id.slice(0, 8)}
+              </span>
+              <Badge variant={status.variant} label={status.label} />
+              <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">
+                {accountName}
+              </span>
             </div>
-            <div className="flex flex-shrink-0 items-start gap-2">
-              <div className="text-right">
-                <div className="text-[10px] uppercase tracking-wide text-ink-muted">Submitted</div>
-                <div className="font-mono text-[13px] font-semibold text-ink">
-                  {row.created_at.slice(0, 10)}
-                </div>
+            <div className="mt-1.5 truncate text-[15px] font-semibold text-ink">{row.name}</div>
+            <div className="mt-0.5 truncate text-body-sm text-ink-muted">{meta}</div>
+          </div>
+          <div className="flex flex-shrink-0 items-start gap-2">
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-wide text-ink-muted">Submitted</div>
+              <div className="font-mono text-[13px] font-semibold text-ink">
+                {row.created_at.slice(0, 10)}
               </div>
-              <ChevronRight className="mt-0.5 size-4 text-ink-muted opacity-0 transition-opacity group-hover:opacity-100" />
             </div>
+            <ChevronRight className="mt-0.5 size-4 text-ink-muted opacity-0 transition-opacity group-hover:opacity-100" />
           </div>
-          <div className="border-t border-hairline pt-3">
-            <CharterStepper
-              status={row.status}
-              rejectedStage={row.rejected_stage}
-              variant="compact"
-            />
-          </div>
-        </CardContent>
+        </div>
+        <div className="border-t border-hairline pt-3">
+          <CharterStepper
+            status={row.status}
+            rejectedStage={row.rejected_stage}
+            variant="compact"
+          />
+        </div>
       </Card>
     </button>
   );

@@ -143,7 +143,7 @@ export function ProfileIdentityCard({
   }
 
   return (
-    <Card className="p-5">
+    <Card padding={5}>
       <div className="flex items-start gap-5">
         <div className="flex flex-col items-center gap-2 flex-none">
           <Avatar className="size-16">

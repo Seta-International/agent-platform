@@ -1,13 +1,4 @@
-import {
-  Avatar,
-  AvatarFallback,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  EmptyState,
-  Skeleton,
-} from '@seta/shared-ui';
+import { Avatar, AvatarFallback, Badge, Button, Card, EmptyState, Skeleton } from '@seta/shared-ui';
 import { Users } from 'lucide-react';
 import type { WorkerListRow, WorkersQuery } from '../api/people-client.ts';
 
@@ -65,18 +56,16 @@ export function PeopleCardGrid({
     return (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }, (_, i) => `skeleton-${i}`).map((k) => (
-          <Card key={k}>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <Skeleton className="shrink-0" height={36} width={36} radius="rounded" />
-                <div className="space-y-1.5 flex-1 min-w-0">
-                  <Skeleton height={14} width="66.6667%" />
-                  <Skeleton height={12} width="50%" />
-                </div>
+          <Card key={k} className="p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <Skeleton className="shrink-0" height={36} width={36} radius="rounded" />
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <Skeleton height={14} width="66.6667%" />
+                <Skeleton height={12} width="50%" />
               </div>
-              <Skeleton height={12} />
-              <Skeleton height={12} width="75%" />
-            </CardContent>
+            </div>
+            <Skeleton height={12} />
+            <Skeleton height={12} width="75%" />
           </Card>
         ))}
       </div>
@@ -108,61 +97,59 @@ export function PeopleCardGrid({
         {rows.map((row) => (
           <Card
             key={row.worker_id}
-            className="cursor-pointer hover:border-brand/50 transition-colors"
+            className="cursor-pointer hover:border-brand/50 transition-colors p-4 space-y-3"
             onClick={() => onRowClick(row)}
           >
-            <CardContent className="p-4 space-y-3">
-              {/* Header: avatar + name + title */}
-              <div className="flex items-start gap-3 min-w-0">
-                <Avatar className="size-9 shrink-0 mt-0.5">
-                  <AvatarFallback>{initials(row.full_name)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-sm truncate">{row.full_name}</div>
-                  {row.job_title && (
-                    <div className="text-[11px] text-ink-muted truncate leading-tight">
-                      {row.job_title}
-                    </div>
-                  )}
-                </div>
-                <LifecycleBadge stage={row.lifecycle_stage} />
+            {/* Header: avatar + name + title */}
+            <div className="flex items-start gap-3 min-w-0">
+              <Avatar className="size-9 shrink-0 mt-0.5">
+                <AvatarFallback>{initials(row.full_name)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-sm truncate">{row.full_name}</div>
+                {row.job_title && (
+                  <div className="text-[11px] text-ink-muted truncate leading-tight">
+                    {row.job_title}
+                  </div>
+                )}
               </div>
+              <LifecycleBadge stage={row.lifecycle_stage} />
+            </div>
 
-              {/* Work email */}
-              {row.work_email && (
-                <div className="font-mono text-[11.5px] text-ink-muted truncate">
-                  {row.work_email}
-                </div>
-              )}
+            {/* Work email */}
+            {row.work_email && (
+              <div className="font-mono text-[11.5px] text-ink-muted truncate">
+                {row.work_email}
+              </div>
+            )}
 
-              {/* Accounts */}
-              {row.accounts.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {row.accounts.map((a) => (
-                    <Badge
-                      key={a.id}
-                      variant="neutral"
-                      className="text-[11px] px-1.5 py-0"
-                      label={a.name}
-                    />
-                  ))}
-                </div>
-              )}
+            {/* Accounts */}
+            {row.accounts.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {row.accounts.map((a) => (
+                  <Badge
+                    key={a.id}
+                    variant="neutral"
+                    className="text-[11px] px-1.5 py-0"
+                    label={a.name}
+                  />
+                ))}
+              </div>
+            )}
 
-              {/* Skills / Techstack */}
-              {row.skills.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {row.skills.map((s) => (
-                    <Badge
-                      key={s.id}
-                      variant="neutral"
-                      className="text-[11px] px-1.5 py-0"
-                      label={s.name}
-                    />
-                  ))}
-                </div>
-              )}
-            </CardContent>
+            {/* Skills / Techstack */}
+            {row.skills.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {row.skills.map((s) => (
+                  <Badge
+                    key={s.id}
+                    variant="neutral"
+                    className="text-[11px] px-1.5 py-0"
+                    label={s.name}
+                  />
+                ))}
+              </div>
+            )}
           </Card>
         ))}
       </div>

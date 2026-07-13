@@ -2,7 +2,7 @@ import { Card } from '@seta/shared-ui';
 
 export function ProfileRolesCard({ roles }: { roles: string[] }) {
   return (
-    <Card className="p-5">
+    <Card padding={5}>
       <div className="flex items-baseline justify-between gap-4 mb-3.5">
         <p className="text-sm text-ink-muted m-0">
           What you can see and change in this app. Need a different role?{' '}

@@ -1,55 +1,25 @@
-import type * as React from 'react';
-
+import { Card as AstryxCard } from '@astryxdesign/core/Card';
+import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/cn';
-import { cva, type VariantProps } from '../lib/cva';
 
-const cardVariants = cva('bg-surface-1 border border-hairline text-ink shadow-none', {
-  variants: {
-    variant: {
-      default: 'rounded-md p-lg',
-      product: 'rounded-lg p-lg',
-      testimonial: 'rounded-md p-xl text-body-lg',
-    },
-  },
-  defaultVariants: { variant: 'default' },
-});
+export type CardProps = ComponentProps<typeof AstryxCard>;
 
-export interface CardProps extends React.ComponentProps<'div'>, VariantProps<typeof cardVariants> {}
-
-function Card({ className, variant, ref, ...props }: CardProps) {
-  return <div ref={ref} className={cn(cardVariants({ variant }), className)} {...props} />;
+export function Card(props: CardProps) {
+  return <AstryxCard {...props} />;
 }
-Card.displayName = 'Card';
 
-function CardHeader({ className, ref, ...props }: React.ComponentProps<'div'>) {
-  return <div ref={ref} className={cn('flex flex-col space-y-1.5', className)} {...props} />;
-}
-CardHeader.displayName = 'CardHeader';
-
-function CardTitle({ className, ref, ...props }: React.ComponentProps<'div'>) {
+export function CardTitle({ children, className }: { children?: ReactNode; className?: string }) {
   return (
-    <div
-      ref={ref}
-      className={cn('text-card-title leading-none tracking-tight', className)}
-      {...props}
-    />
+    <div className={cn('text-card-title leading-none tracking-tight', className)}>{children}</div>
   );
 }
-CardTitle.displayName = 'CardTitle';
 
-function CardDescription({ className, ref, ...props }: React.ComponentProps<'div'>) {
-  return <div ref={ref} className={cn('text-body-sm text-ink-subtle', className)} {...props} />;
+export function CardDescription({
+  children,
+  className,
+}: {
+  children?: ReactNode;
+  className?: string;
+}) {
+  return <div className={cn('text-body-sm text-ink-subtle', className)}>{children}</div>;
 }
-CardDescription.displayName = 'CardDescription';
-
-function CardContent({ className, ref, ...props }: React.ComponentProps<'div'>) {
-  return <div ref={ref} className={cn('pt-md', className)} {...props} />;
-}
-CardContent.displayName = 'CardContent';
-
-function CardFooter({ className, ref, ...props }: React.ComponentProps<'div'>) {
-  return <div ref={ref} className={cn('flex items-center pt-md', className)} {...props} />;
-}
-CardFooter.displayName = 'CardFooter';
-
-export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, cardVariants };

@@ -39,7 +39,7 @@ export function TenantSettings() {
     <PageChrome breadcrumb={['Admin']} title="General">
       <div className="page-container space-y-4">
         {error && <Banner status="error" title={(error as Error).message} />}
-        <Card className="p-5">
+        <Card padding={5}>
           <div className="space-y-3">
             <div>
               <div className="font-medium text-ink">Email domains</div>

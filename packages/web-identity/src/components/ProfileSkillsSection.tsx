@@ -1,7 +1,6 @@
 import {
   Button,
   Card,
-  CardContent,
   Command,
   CommandItem,
   CommandList,
@@ -143,82 +142,80 @@ export function ProfileSkillsSection({
   const showSuggestions = prefix.trim().length > 0 && suggestions.length > 0;
 
   return (
-    <Card>
-      <CardContent className="space-y-4 pt-6">
-        <div className="relative">
-          <div className="flex items-center gap-2">
-            <Search className="size-4 shrink-0 text-ink-subtle" />
-            <Input
-              placeholder="Search to add a skill…"
-              value={prefix}
-              disabled={saving}
-              className="flex-1"
-              onChange={(e) => setPrefix(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  commitTypedSkill();
-                } else if (e.key === 'Escape') {
-                  setPrefix('');
-                }
-              }}
-            />
-          </div>
-          {showSuggestions && (
-            <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-hairline bg-canvas shadow-md">
-              <Command shouldFilter={false}>
-                <CommandList className="max-h-56">
-                  {suggestions.slice(0, 8).map((s) => (
-                    <CommandItem key={s} value={s} onSelect={() => addSkill(s)}>
-                      {s}
-                    </CommandItem>
-                  ))}
-                </CommandList>
-              </Command>
-            </div>
-          )}
+    <Card className="space-y-4 pt-6">
+      <div className="relative">
+        <div className="flex items-center gap-2">
+          <Search className="size-4 shrink-0 text-ink-subtle" />
+          <Input
+            placeholder="Search to add a skill…"
+            value={prefix}
+            disabled={saving}
+            className="flex-1"
+            onChange={(e) => setPrefix(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitTypedSkill();
+              } else if (e.key === 'Escape') {
+                setPrefix('');
+              }
+            }}
+          />
         </div>
+        {showSuggestions && (
+          <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-hairline bg-canvas shadow-md">
+            <Command shouldFilter={false}>
+              <CommandList className="max-h-56">
+                {suggestions.slice(0, 8).map((s) => (
+                  <CommandItem key={s} value={s} onSelect={() => addSkill(s)}>
+                    {s}
+                  </CommandItem>
+                ))}
+              </CommandList>
+            </Command>
+          </div>
+        )}
+      </div>
 
-        {shown.length === 0 ? (
-          <p className="text-body-sm text-ink-muted">No skills yet — search above to add one.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {shown.map((s) => (
-              <div
-                key={s.name}
-                className="group flex flex-col gap-2 rounded-md border border-hairline bg-surface-2 px-3 py-2.5 transition-colors hover:bg-surface-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-body-sm font-medium text-ink truncate">{s.name}</span>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${s.name}`}
-                    disabled={saving}
-                    className="shrink-0 rounded text-ink-subtle opacity-0 transition-opacity hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
-                    onClick={() => removeSkill(s.name)}
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </div>
-                <SkillLevelRating level={s.level} onChange={(level) => rate(s.name, level)} />
+      {shown.length === 0 ? (
+        <p className="text-body-sm text-ink-muted">No skills yet — search above to add one.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {shown.map((s) => (
+            <div
+              key={s.name}
+              className="group flex flex-col gap-2 rounded-md border border-hairline bg-surface-2 px-3 py-2.5 transition-colors hover:bg-surface-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-body-sm font-medium text-ink truncate">{s.name}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${s.name}`}
+                  disabled={saving}
+                  className="shrink-0 rounded text-ink-subtle opacity-0 transition-opacity hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
+                  onClick={() => removeSkill(s.name)}
+                >
+                  <X className="size-3.5" />
+                </button>
               </div>
-            ))}
-          </div>
-        )}
-
-        {shown.length > 0 && (
-          <p className="text-caption text-ink-subtle">
-            Click a segment to rate proficiency · 1 = novice, 5 = expert · click the active level to
-            clear
-          </p>
-        )}
-
-        <div className="flex justify-end pt-1">
-          <Button onClick={save} disabled={saving || !dirty}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </Button>
+              <SkillLevelRating level={s.level} onChange={(level) => rate(s.name, level)} />
+            </div>
+          ))}
         </div>
-      </CardContent>
+      )}
+
+      {shown.length > 0 && (
+        <p className="text-caption text-ink-subtle">
+          Click a segment to rate proficiency · 1 = novice, 5 = expert · click the active level to
+          clear
+        </p>
+      )}
+
+      <div className="flex justify-end pt-1">
+        <Button onClick={save} disabled={saving || !dirty}>
+          {saving ? 'Saving…' : 'Save changes'}
+        </Button>
+      </div>
     </Card>
   );
 }

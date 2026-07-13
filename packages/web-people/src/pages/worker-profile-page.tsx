@@ -6,13 +6,14 @@ import {
   Banner,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
   EmptyState,
   formatRelative,
   Input,
   Label,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   PageChrome,
   Select,
   SelectContent,
@@ -247,23 +248,29 @@ export function WorkerProfilePage() {
       <PageChrome title="Profile" breadcrumb={[backLink]}>
         <div className="page-container p-6 space-y-4">
           <Card>
-            <CardHeader>
-              <div className="flex items-center gap-4">
-                <Skeleton height={56} width={56} radius="rounded" />
-                <div className="space-y-2">
-                  <Skeleton height={20} width={160} />
-                  <Skeleton height={16} width={96} />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                  <Skeleton key={i} height={16} />
-                ))}
-              </div>
-            </CardContent>
+            <Layout
+              header={
+                <LayoutHeader hasDivider>
+                  <div className="flex items-center gap-4">
+                    <Skeleton height={56} width={56} radius="rounded" />
+                    <div className="space-y-2">
+                      <Skeleton height={20} width={160} />
+                      <Skeleton height={16} width={96} />
+                    </div>
+                  </div>
+                </LayoutHeader>
+              }
+              content={
+                <LayoutContent>
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
+                      <Skeleton key={i} height={16} />
+                    ))}
+                  </div>
+                </LayoutContent>
+              }
+            />
           </Card>
         </div>
       </PageChrome>
@@ -291,279 +298,312 @@ export function WorkerProfilePage() {
         <div className="space-y-6">
           {/* Profile card */}
           <Card>
-            <CardHeader>
-              <div className="flex items-center gap-4">
-                <Avatar className="size-14">
-                  <AvatarFallback className="text-lg">{initials(worker.full_name)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-card-title font-semibold truncate">
-                      {worker.full_name}
-                    </span>
-                    <LifecycleBadge stage={worker.lifecycle_stage} />
+            <Layout
+              header={
+                <LayoutHeader hasDivider>
+                  <div className="flex items-center gap-4">
+                    <Avatar className="size-14">
+                      <AvatarFallback className="text-lg">
+                        {initials(worker.full_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-card-title font-semibold truncate">
+                          {worker.full_name}
+                        </span>
+                        <LifecycleBadge stage={worker.lifecycle_stage} />
+                      </div>
+                      <p className="text-body-sm text-ink-muted truncate">
+                        {worker.work_email || '—'}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-body-sm text-ink-muted truncate">{worker.work_email || '—'}</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {editError && <Banner status="error" className="mb-4" title={editError} />}
+                </LayoutHeader>
+              }
+              content={
+                <LayoutContent>
+                  {editError && <Banner status="error" className="mb-4" title={editError} />}
 
-              {editing ? (
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <Label>Full name</Label>
-                    <Input
-                      value={draft.full_name ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Job title</Label>
-                    <Input
-                      value={draft.job_title ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, job_title: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Org unit</Label>
-                    <AsyncCombobox
-                      search={searchOrgUnits.search}
-                      resolveByIds={searchOrgUnits.resolveByIds}
-                      value={draft.org_unit_id ?? null}
-                      onChange={(v) => {
-                        setDraft((d) => ({ ...d, org_unit_id: v }));
-                      }}
-                      placeholder="Search org units…"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Manager</Label>
-                    <p className="text-body-sm text-ink py-2">{worker.manager_name ?? '—'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Work email</Label>
-                    <Input
-                      type="email"
-                      value={draft.work_email ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, work_email: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Phone</Label>
-                    <Input
-                      value={draft.phone ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Date of birth</Label>
-                    <Input
-                      type="date"
-                      value={draft.dob ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, dob: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Gender</Label>
-                    <Select
-                      value={draft.gender ?? ''}
-                      onValueChange={(v) => setDraft((d) => ({ ...d, gender: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {GENDER_OPTIONS.map((g) => (
-                          <SelectItem key={g.value} value={g.value}>
-                            {g.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Emergency contact</Label>
-                    <Input
-                      value={draft.emergency_contact ?? ''}
-                      onChange={(e) =>
-                        setDraft((d) => ({ ...d, emergency_contact: e.target.value }))
-                      }
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <FieldRow label="Full name" value={worker.full_name} />
-                  <FieldRow label="Job title" value={worker.job_title} />
-                  <FieldRow label="Manager" value={worker.manager_name} />
-                  <FieldRow label="Org unit" value={worker.org_unit_name} />
-                  <FieldRow label="Work email" value={worker.work_email} />
-                  <FieldRow label="Personal email" value={worker.personal_email} />
-                  <FieldRow label="Phone" value={worker.phone} />
-                  <FieldRow label="Date of birth" value={worker.dob} />
-                  <FieldRow label="Gender" value={genderLabel(worker.gender)} />
-                  <FieldRow label="Emergency contact" value={worker.emergency_contact} />
-                  <FieldRow
-                    label="Lifecycle stage"
-                    value={<LifecycleBadge stage={worker.lifecycle_stage} />}
-                  />
-                  <FieldRow
-                    label="CV"
-                    value={<WorkerCvActions worker={worker} canEdit={canEdit} />}
-                  />
-                </div>
-              )}
-            </CardContent>
+                  {editing ? (
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <Label>Full name</Label>
+                        <Input
+                          value={draft.full_name ?? ''}
+                          onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Job title</Label>
+                        <Input
+                          value={draft.job_title ?? ''}
+                          onChange={(e) => setDraft((d) => ({ ...d, job_title: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Org unit</Label>
+                        <AsyncCombobox
+                          search={searchOrgUnits.search}
+                          resolveByIds={searchOrgUnits.resolveByIds}
+                          value={draft.org_unit_id ?? null}
+                          onChange={(v) => {
+                            setDraft((d) => ({ ...d, org_unit_id: v }));
+                          }}
+                          placeholder="Search org units…"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Manager</Label>
+                        <p className="text-body-sm text-ink py-2">{worker.manager_name ?? '—'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Work email</Label>
+                        <Input
+                          type="email"
+                          value={draft.work_email ?? ''}
+                          onChange={(e) => setDraft((d) => ({ ...d, work_email: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Phone</Label>
+                        <Input
+                          value={draft.phone ?? ''}
+                          onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Date of birth</Label>
+                        <Input
+                          type="date"
+                          value={draft.dob ?? ''}
+                          onChange={(e) => setDraft((d) => ({ ...d, dob: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Gender</Label>
+                        <Select
+                          value={draft.gender ?? ''}
+                          onValueChange={(v) => setDraft((d) => ({ ...d, gender: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {GENDER_OPTIONS.map((g) => (
+                              <SelectItem key={g.value} value={g.value}>
+                                {g.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Emergency contact</Label>
+                        <Input
+                          value={draft.emergency_contact ?? ''}
+                          onChange={(e) =>
+                            setDraft((d) => ({ ...d, emergency_contact: e.target.value }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <FieldRow label="Full name" value={worker.full_name} />
+                      <FieldRow label="Job title" value={worker.job_title} />
+                      <FieldRow label="Manager" value={worker.manager_name} />
+                      <FieldRow label="Org unit" value={worker.org_unit_name} />
+                      <FieldRow label="Work email" value={worker.work_email} />
+                      <FieldRow label="Personal email" value={worker.personal_email} />
+                      <FieldRow label="Phone" value={worker.phone} />
+                      <FieldRow label="Date of birth" value={worker.dob} />
+                      <FieldRow label="Gender" value={genderLabel(worker.gender)} />
+                      <FieldRow label="Emergency contact" value={worker.emergency_contact} />
+                      <FieldRow
+                        label="Lifecycle stage"
+                        value={<LifecycleBadge stage={worker.lifecycle_stage} />}
+                      />
+                      <FieldRow
+                        label="CV"
+                        value={<WorkerCvActions worker={worker} canEdit={canEdit} />}
+                      />
+                    </div>
+                  )}
+                </LayoutContent>
+              }
+            />
           </Card>
 
           {/* Techstack card */}
           <Card>
-            <CardHeader>
-              <CardTitle>Techstack</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {worker.skills.length === 0 && !editing ? (
-                <span className="text-body-sm text-ink-muted">—</span>
-              ) : (
-                <div className="space-y-4">
-                  {editing && (
-                    <div className="flex items-center gap-2">
-                      <Search className="size-4 shrink-0 text-ink-subtle" />
-                      <AsyncCombobox
-                        search={searchSkills.search}
-                        resolveByIds={searchSkills.resolveByIds}
-                        value={null}
-                        onChange={(id) => {
-                          if (id && !currentSkillIds.includes(id)) void addSkillToDraft(id);
-                        }}
-                        placeholder="Search to add a skill…"
-                        className="flex-1"
-                      />
-                    </div>
-                  )}
-                  {displaySkills.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                      {displaySkills.map((s) => (
-                        <div
-                          key={s.id}
-                          className="group flex flex-col gap-2 rounded-md border border-hairline bg-surface-2 px-3 py-2.5 transition-colors hover:bg-surface-3"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-body-sm font-medium text-ink truncate">
-                              {s.name}
-                            </span>
-                            {editing ? (
-                              <button
-                                type="button"
-                                aria-label={`Remove ${s.name}`}
-                                className="shrink-0 rounded text-ink-subtle opacity-0 transition-opacity hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
-                                onClick={() => removeSkillFromDraft(s.id)}
-                              >
-                                <X className="size-3.5" />
-                              </button>
-                            ) : (
-                              <span className="shrink-0 text-caption tabular-nums text-ink-subtle">
-                                {s.level ? `${s.level}/5` : '—'}
-                              </span>
-                            )}
-                          </div>
-                          <SkillLevelRating
-                            level={s.level}
-                            onChange={
-                              editing ? (level) => rateSkillInDraft(s.id, level) : undefined
-                            }
+            <Layout
+              header={
+                <LayoutHeader hasDivider>
+                  <CardTitle>Techstack</CardTitle>
+                </LayoutHeader>
+              }
+              content={
+                <LayoutContent>
+                  {worker.skills.length === 0 && !editing ? (
+                    <span className="text-body-sm text-ink-muted">—</span>
+                  ) : (
+                    <div className="space-y-4">
+                      {editing && (
+                        <div className="flex items-center gap-2">
+                          <Search className="size-4 shrink-0 text-ink-subtle" />
+                          <AsyncCombobox
+                            search={searchSkills.search}
+                            resolveByIds={searchSkills.resolveByIds}
+                            value={null}
+                            onChange={(id) => {
+                              if (id && !currentSkillIds.includes(id)) void addSkillToDraft(id);
+                            }}
+                            placeholder="Search to add a skill…"
+                            className="flex-1"
                           />
                         </div>
-                      ))}
+                      )}
+                      {displaySkills.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                          {displaySkills.map((s) => (
+                            <div
+                              key={s.id}
+                              className="group flex flex-col gap-2 rounded-md border border-hairline bg-surface-2 px-3 py-2.5 transition-colors hover:bg-surface-3"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-body-sm font-medium text-ink truncate">
+                                  {s.name}
+                                </span>
+                                {editing ? (
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove ${s.name}`}
+                                    className="shrink-0 rounded text-ink-subtle opacity-0 transition-opacity hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
+                                    onClick={() => removeSkillFromDraft(s.id)}
+                                  >
+                                    <X className="size-3.5" />
+                                  </button>
+                                ) : (
+                                  <span className="shrink-0 text-caption tabular-nums text-ink-subtle">
+                                    {s.level ? `${s.level}/5` : '—'}
+                                  </span>
+                                )}
+                              </div>
+                              <SkillLevelRating
+                                level={s.level}
+                                onChange={
+                                  editing ? (level) => rateSkillInDraft(s.id, level) : undefined
+                                }
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        editing && (
+                          <p className="text-body-sm text-ink-muted">
+                            No skills yet — search above to add one.
+                          </p>
+                        )
+                      )}
+                      {editing && displaySkills.length > 0 && (
+                        <p className="text-caption text-ink-subtle">
+                          Click a segment to rate proficiency · 1 = novice, 5 = expert · click the
+                          active level to clear
+                        </p>
+                      )}
                     </div>
-                  ) : (
-                    editing && (
-                      <p className="text-body-sm text-ink-muted">
-                        No skills yet — search above to add one.
-                      </p>
-                    )
                   )}
-                  {editing && displaySkills.length > 0 && (
-                    <p className="text-caption text-ink-subtle">
-                      Click a segment to rate proficiency · 1 = novice, 5 = expert · click the
-                      active level to clear
-                    </p>
-                  )}
-                </div>
-              )}
-            </CardContent>
+                </LayoutContent>
+              }
+            />
           </Card>
 
           {/* Engagements card */}
           <Card>
-            <CardHeader>
-              <CardTitle>Engagements</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {worker.accounts.length === 0 ? (
-                <span className="text-body-sm text-ink-muted">—</span>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {worker.accounts.map((a) => (
-                    <Badge key={a.id} variant="neutral" label={a.name} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
+            <Layout
+              header={
+                <LayoutHeader hasDivider>
+                  <CardTitle>Engagements</CardTitle>
+                </LayoutHeader>
+              }
+              content={
+                <LayoutContent>
+                  {worker.accounts.length === 0 ? (
+                    <span className="text-body-sm text-ink-muted">—</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {worker.accounts.map((a) => (
+                        <Badge key={a.id} variant="neutral" label={a.name} />
+                      ))}
+                    </div>
+                  )}
+                </LayoutContent>
+              }
+            />
           </Card>
         </div>
 
         {/* Change history card */}
         <div>
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="size-4 text-ink-muted" />
-                Change history
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {historyLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                    <Skeleton key={i} height={40} />
-                  ))}
-                </div>
-              ) : !history || history.length === 0 ? (
-                <EmptyState title="No changes yet" description="Edits will appear here." />
-              ) : (
-                <ul className="space-y-3">
-                  {history.map((entry, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: history entries have no stable client-side key
-                    <li key={i} className="border-b border-hairline pb-3 last:border-0 last:pb-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-body-sm font-medium text-ink capitalize">
-                            {entry.action}
-                          </p>
-                          <p className="text-body-sm text-ink-muted truncate">
-                            <span className="font-mono">{entry.field}</span>
-                            {': '}
-                            <span className="line-through opacity-60">{entry.from_val ?? '—'}</span>
-                            {' → '}
-                            <span>{entry.to_val ?? '—'}</span>
-                          </p>
-                          <p className="text-[11px] text-ink-tertiary mt-0.5">
-                            by {entry.by_user_id}
-                          </p>
-                        </div>
-                        <span className="flex-none text-[11px] text-ink-tertiary whitespace-nowrap">
-                          {formatRelative(entry.at)}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
+            <Layout
+              header={
+                <LayoutHeader hasDivider>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="size-4 text-ink-muted" />
+                    Change history
+                  </CardTitle>
+                </LayoutHeader>
+              }
+              content={
+                <LayoutContent>
+                  {historyLoading ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
+                        <Skeleton key={i} height={40} />
+                      ))}
+                    </div>
+                  ) : !history || history.length === 0 ? (
+                    <EmptyState title="No changes yet" description="Edits will appear here." />
+                  ) : (
+                    <ul className="space-y-3">
+                      {history.map((entry, i) => (
+                        <li
+                          // biome-ignore lint/suspicious/noArrayIndexKey: history entries have no stable client-side key
+                          key={i}
+                          className="border-b border-hairline pb-3 last:border-0 last:pb-0"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-body-sm font-medium text-ink capitalize">
+                                {entry.action}
+                              </p>
+                              <p className="text-body-sm text-ink-muted truncate">
+                                <span className="font-mono">{entry.field}</span>
+                                {': '}
+                                <span className="line-through opacity-60">
+                                  {entry.from_val ?? '—'}
+                                </span>
+                                {' → '}
+                                <span>{entry.to_val ?? '—'}</span>
+                              </p>
+                              <p className="text-[11px] text-ink-tertiary mt-0.5">
+                                by {entry.by_user_id}
+                              </p>
+                            </div>
+                            <span className="flex-none text-[11px] text-ink-tertiary whitespace-nowrap">
+                              {formatRelative(entry.at)}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </LayoutContent>
+              }
+            />
           </Card>
         </div>
       </div>
