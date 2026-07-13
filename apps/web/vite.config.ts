@@ -15,7 +15,17 @@ export default defineConfig({
       virtualRouteConfig: './src/routes.virtual.ts',
     }),
     stylex.vite({
-      useCSSLayers: true,
+      useCSSLayers: {
+        before: [
+          'reset',
+          'theme',
+          'base',
+          'astryx-base',
+          'astryx-theme',
+          'components',
+          'utilities',
+        ],
+      },
       dev: process.env.NODE_ENV !== 'production',
       runtimeInjection: false,
     }),

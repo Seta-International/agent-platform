@@ -9,7 +9,21 @@ const config: StorybookConfig = {
   typescript: { reactDocgen: false },
   async viteFinal(viteConfig) {
     viteConfig.plugins = [
-      stylex.vite({ useCSSLayers: true, dev: true, runtimeInjection: false }),
+      stylex.vite({
+        useCSSLayers: {
+          before: [
+            'reset',
+            'theme',
+            'base',
+            'astryx-base',
+            'astryx-theme',
+            'components',
+            'utilities',
+          ],
+        },
+        dev: true,
+        runtimeInjection: false,
+      }),
       ...(viteConfig.plugins ?? []),
       tailwindcss(),
     ];
