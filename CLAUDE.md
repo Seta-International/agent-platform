@@ -77,6 +77,15 @@ Declared via `"setaTier"` in `package.json` (informational, not a separate enfor
 - **Subscribers must be idempotent**, keyed on `event_id`. At-least-once delivery; per-aggregate ordering only.
 - **Production-grade only, never quick hacks.** Diagnose the root cause and ship the optimized solution; "small patch now, real fix later" is rejected on review.
 
+**Repo-specific override of the block below** (as of FUT-562's foundation change): the StyleX
+compiler IS wired here (`@stylexjs/unplugin` in `apps/web/vite.config.ts` and
+`packages/shared-ui/.storybook/main.ts`) — `xstyle` is the supported override mechanism, contrary
+to the block's claim. Do NOT import `@astryxdesign/core/astryx.css` (or `reset.css`) into any real
+app entry point yet — it's wired into Storybook only
+(`packages/shared-ui/.storybook/preview.css`), deliberately isolated because the vendor
+stylesheet's unscoped `:root` token defaults collide with Seta's own tokens. See
+`DESIGN.md`'s `implementation_notice` for why.
+
 <!-- ASTRYX:START -->
 Astryx v0.0.1 · 90+ components
 CLI: run every command as `pnpm exec astryx <cmd>` (shown below as `astryx ...`).
