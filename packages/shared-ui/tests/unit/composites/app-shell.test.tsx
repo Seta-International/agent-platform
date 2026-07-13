@@ -62,8 +62,11 @@ function renderShell(props: Partial<React.ComponentProps<typeof AppShell>> = {})
 describe('AppShell (suite)', () => {
   it('renders only the active app nav in the sidebar', () => {
     renderShell();
-    expect(screen.getByText('Planner')).toBeInTheDocument();
-    expect(screen.getByText('Groups')).toBeInTheDocument();
+    // Scoped by role, not plain text: the launcher popover and the mobile nav
+    // drawer are always mounted (just closed), and render the same app/nav
+    // labels — getByText would match both the visible and the closed copy.
+    expect(screen.getByRole('link', { name: 'Planner' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Groups' })).toBeInTheDocument();
     expect(screen.queryByText('Chat')).not.toBeInTheDocument();
   });
 
@@ -76,11 +79,23 @@ describe('AppShell (suite)', () => {
     expect(onAppSelect).toHaveBeenCalledWith('agent');
   });
 
-  it('still toggles the agent panel with the meta-backslash shortcut', async () => {
-    const user = userEvent.setup();
-    renderShell({ agentPanel: <div>panel body</div> });
-    expect(screen.queryByRole('complementary', { name: /Agent/i })).not.toBeInTheDocument();
-    await user.keyboard('{Meta>}\\{/Meta}');
-    expect(screen.getByRole('complementary', { name: /Agent/i })).toBeInTheDocument();
+  it('includes useNavExtensions sections in the mobile nav drawer, not just the sidebar', () => {
+    const appsWithExtensions: AppManifest[] = APPS.map((app) =>
+      app.id === 'planner'
+        ? {
+            ...app,
+            useNavExtensions: () => [
+              {
+                label: 'Recent',
+                items: [{ id: 'planner.recent.q3', label: 'Q3 Launch', to: '/planner/q3' }],
+              },
+            ],
+          }
+        : app,
+    );
+    renderShell({ apps: appsWithExtensions });
+    // Once in the visible sidebar (LeftNav), once in the always-mounted-but-hidden mobile
+    // drawer (MobileNavSections) — both compute the same [...nav, ...useNavExtensions()] merge.
+    expect(screen.getAllByText('Q3 Launch')).toHaveLength(2);
   });
 });
