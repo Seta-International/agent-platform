@@ -128,7 +128,7 @@ describe('RequisitionCard', () => {
     );
   });
 
-  it('shows a funnel count under each stage, pinning Sourcing to applicants_count', () => {
+  it('shows a per-stage bucket count under each stage, summing to applicants_count (FUT-558)', () => {
     render(
       <RequisitionCard
         r={row({
@@ -156,9 +156,56 @@ describe('RequisitionCard', () => {
       />,
       { wrapper: wrap(newClient()) },
     );
-    // Sourcing=3 (pinned to applicants_count), Screening=2 (B, C reached it), Interview=1 (C).
+    // One candidate currently at each of Sourcing/Screening/Interview, none at Offer yet.
     const counts = screen.getAllByText(/^[0-9]+$/).map((el) => el.textContent);
-    expect(counts).toEqual(['3', '2', '1', '0']);
+    expect(counts).toEqual(['1', '1', '1', '0']);
+  });
+
+  it('moves the count from Sourcing to Screening as a candidate advances (FUT-558)', () => {
+    const { rerender } = render(
+      <RequisitionCard
+        r={row({
+          applicants_count: 1,
+          applicants: [
+            { name: 'A', role: null, applied_date: '2026-07-01', stage: 'new', kind: 'external' },
+          ],
+        })}
+        canManage
+        canClose
+      />,
+      { wrapper: wrap(newClient()) },
+    );
+    expect(screen.getAllByText(/^[0-9]+$/).map((el) => el.textContent)).toEqual([
+      '1',
+      '0',
+      '0',
+      '0',
+    ]);
+
+    rerender(
+      <RequisitionCard
+        r={row({
+          applicants_count: 1,
+          applicants: [
+            {
+              name: 'A',
+              role: null,
+              applied_date: '2026-07-01',
+              stage: 'screening',
+              kind: 'external',
+            },
+          ],
+        })}
+        canManage
+        canClose
+      />,
+    );
+    expect(screen.getAllByText(/^[0-9]+$/).map((el) => el.textContent)).toEqual([
+      '0',
+      '1',
+      '0',
+      '0',
+    ]);
   });
 
   // "Mark filled" / "Cancel" opening their confirm dialogs is a one-line onSelect → setState

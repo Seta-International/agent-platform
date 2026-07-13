@@ -30,18 +30,31 @@ const APPLICANT_STAGE_INDEX: Record<string, number> = {
   offer: 3,
 };
 
-// Cumulative "reached at least this stage" counts (a funnel, not a per-stage bucket —
-// applications only move forward, so an applicant currently in Interview also counts
-// toward Sourcing and Screening). Sourcing is pinned to the real applicants_count
-// aggregate so it always matches the header/footer total.
-export function funnelCounts(
+// Per-stage bucket counts (FUT-558): each applicant is counted once, at their current
+// stage only — moving a candidate from Sourcing to Screening decrements Sourcing and
+// increments Screening. The four buckets always sum to applicantsCount. Sourcing is
+// derived as the remainder (applicantsCount minus everyone who has moved past it) rather
+// than counted from `applicants` directly, so the total still holds even if `applicants`
+// is missing a row (e.g. an application whose candidate record didn't resolve).
+export function stageCounts(
   applicantsCount: number,
   applicants: { stage: string | null }[],
 ): number[] {
-  return STAGES.map((_, i) => {
-    if (i === 0) return applicantsCount;
-    return applicants.filter((a) => (APPLICANT_STAGE_INDEX[a.stage ?? ''] ?? 0) >= i).length;
-  });
+  const counts = STAGES.map(() => 0);
+  for (const a of applicants) {
+    const idx = APPLICANT_STAGE_INDEX[a.stage ?? ''] ?? 0;
+    if (idx > 0) counts[idx] = (counts[idx] ?? 0) + 1;
+  }
+  counts[0] = applicantsCount - counts.slice(1).reduce((sum, c) => sum + c, 0);
+  return counts;
+}
+
+// Furthest stage any candidate has reached — drives the progress line and the checkmark
+// dots (a step lights up once anyone has passed it), independent of the per-stage bucket
+// counts above. -1 means no applicants at all.
+export function furthestReachedIndex(applicants: { stage: string | null }[]): number {
+  if (applicants.length === 0) return -1;
+  return applicants.reduce((max, a) => Math.max(max, APPLICANT_STAGE_INDEX[a.stage ?? ''] ?? 0), 0);
 }
 
 export function formatDate(value: string): string {
