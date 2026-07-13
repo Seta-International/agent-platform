@@ -12,7 +12,6 @@ export interface NavItem {
   icon?: NavIcon;
   requires?: PermissionKey[];
   children?: NavItem[];
-  indent?: number;
   disabled?: boolean;
   disabledHint?: string;
   badge?: string | number;

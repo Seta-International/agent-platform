@@ -59,6 +59,14 @@ describe('AppLauncher', () => {
     await userEvent.click(screen.getByRole('button', { name: /Agent Studio/ }));
     expect(onSelect).toHaveBeenCalledWith('agent');
   });
+  it('calls onClose after a selection, to close an enclosing popover', async () => {
+    const onClose = vi.fn();
+    render(
+      <AppLauncher apps={APPS} currentAppId="planner" onSelect={() => {}} onClose={onClose} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Agent Studio/ }));
+    expect(onClose).toHaveBeenCalled();
+  });
   it('omits apps flagged hideInLauncher', () => {
     const withSystem: AppManifest[] = [
       ...APPS,

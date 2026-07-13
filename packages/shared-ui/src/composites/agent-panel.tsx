@@ -1,8 +1,8 @@
-import * as React from 'react';
+import { ResizeHandle, useResizable } from '@astryxdesign/core/Resizable';
+import type * as React from 'react';
 import { cn } from '../lib/cn';
 
 export interface AgentPanelProps {
-  onClose?: () => void;
   defaultWidth?: number;
   minWidth?: number;
   maxWidth?: number;
@@ -14,14 +14,8 @@ export interface AgentPanelProps {
 const DEFAULT_WIDTH = 380;
 const DEFAULT_MIN = 320;
 const DEFAULT_MAX = 720;
-
-function readStoredWidth(key: string | null | undefined, fallback: number): number {
-  if (!key || typeof window === 'undefined') return fallback;
-  const raw = window.localStorage.getItem(key);
-  if (!raw) return fallback;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
+const RESIZE_STEP = 8;
+const RESIZE_STEP_LARGE = 32;
 
 /**
  * Resizable docked container for the agent side panel.
@@ -37,100 +31,47 @@ export function AgentPanel({
   className,
   children,
 }: AgentPanelProps) {
-  const [width, setWidth] = React.useState<number>(() =>
-    clamp(readStoredWidth(storageKey, defaultWidth), minWidth, maxWidth),
-  );
-  const dragStartRef = React.useRef<{ startX: number; startWidth: number } | null>(null);
+  const panel = useResizable({
+    defaultSize: defaultWidth,
+    minSizePx: minWidth,
+    maxSizePx: maxWidth,
+    autoSaveId: storageKey ?? undefined,
+  });
 
-  const persistWidth = React.useCallback(
-    (next: number) => {
-      if (storageKey && typeof window !== 'undefined') {
-        window.localStorage.setItem(storageKey, String(next));
-      }
-    },
-    [storageKey],
-  );
-
-  React.useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      const start = dragStartRef.current;
-      if (!start) return;
-      const delta = start.startX - e.clientX;
-      setWidth(clamp(start.startWidth + delta, minWidth, maxWidth));
-    };
-    const onUp = () => {
-      if (!dragStartRef.current) return;
-      dragStartRef.current = null;
-      Object.assign(document.body.style, { cursor: '', userSelect: '' });
-      setWidth((w) => {
-        persistWidth(w);
-        return w;
-      });
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-  }, [minWidth, maxWidth, persistWidth]);
-
-  const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    dragStartRef.current = { startX: e.clientX, startWidth: width };
-    Object.assign(document.body.style, { cursor: 'col-resize', userSelect: 'none' });
-  };
-
-  const onResizeKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const step = e.shiftKey ? 32 : 8;
+  // Astryx's ResizeHandle wires its own keyboard handler to a non-focusable
+  // inner hit-area div, not the focusable role="separator" element that
+  // receives keyboard focus — arrow keys never reach it. Wired here directly
+  // via useResizable's own resize() API as a workaround (confirmed against
+  // @astryxdesign/core@0.1.4's compiled source).
+  function handleResizeKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const step = e.shiftKey ? RESIZE_STEP_LARGE : RESIZE_STEP;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      setWidth((w) => {
-        const next = clamp(w + step, minWidth, maxWidth);
-        persistWidth(next);
-        return next;
-      });
+      panel.resize(panel.size + step);
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
-      setWidth((w) => {
-        const next = clamp(w - step, minWidth, maxWidth);
-        persistWidth(next);
-        return next;
-      });
+      panel.resize(panel.size - step);
     }
-  };
+  }
 
   return (
     <aside
       aria-label="Agent"
-      style={{ width }}
+      style={{ width: panel.size }}
       className={cn(
         'relative flex h-full flex-none flex-col border-l border-hairline bg-canvas',
         className,
       )}
     >
-      <div
-        role="slider"
-        aria-orientation="vertical"
-        aria-label="Resize agent panel"
-        aria-valuemin={minWidth}
-        aria-valuemax={maxWidth}
-        aria-valuenow={width}
-        tabIndex={0}
-        onPointerDown={startResize}
-        onKeyDown={onResizeKey}
-        className="group absolute -left-0.5 top-0 z-10 flex h-full w-1 cursor-col-resize items-center justify-center select-none focus-visible:outline-none"
-      >
-        <span
-          aria-hidden
-          className="block h-10 w-0.5 rounded-full bg-transparent transition-colors group-hover:bg-primary-border group-focus-visible:bg-primary"
-        />
-      </div>
+      <ResizeHandle
+        resizable={panel.props}
+        direction="horizontal"
+        isReversed
+        position="overlay"
+        label="Resize agent panel"
+        onKeyDown={handleResizeKeyDown}
+      />
       {children}
     </aside>
   );
-}
-
-function clamp(value: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, value));
 }
