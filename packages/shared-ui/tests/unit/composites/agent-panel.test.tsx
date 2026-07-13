@@ -31,7 +31,6 @@ describe('AgentPanel', () => {
     act(() => {
       fireEvent.keyDown(handle, { key: 'ArrowLeft' });
     });
-    // ResizeHandle updates aria-valuenow on resize; keyboard events are handled by Astryx
-    expect(handle).toHaveAttribute('aria-valuenow');
+    expect(handle.getAttribute('aria-valuenow')).not.toBe('400');
   });
 });
