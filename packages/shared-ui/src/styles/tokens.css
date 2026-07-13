@@ -1,4 +1,11 @@
-@import 'tailwindcss';
+@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "@astryxdesign/core/reset.css";
+@import "@astryxdesign/core/astryx.css";
+@import "./astryx-seta-theme.css";
+@import "tailwindcss/utilities.css" layer(utilities);
 
 @source '../**/*.{ts,tsx}';
 /* Suite apps live in sibling @seta/web-* packages, outside this Tailwind root's
