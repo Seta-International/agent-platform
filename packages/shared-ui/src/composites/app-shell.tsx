@@ -88,7 +88,7 @@ export function AppShell({
   ) : undefined;
 
   return (
-    <div className={cn('relative flex h-screen w-screen', className)}>
+    <div className={cn('relative h-screen w-screen', className)}>
       <AstryxAppShell
         height="fill"
         topNav={
