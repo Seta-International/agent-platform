@@ -168,7 +168,9 @@ export function RequisitionsPage() {
         accessorKey: 'account_name',
         header: 'Account',
         cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.account_name ?? '—'}</span>
+          <span className="whitespace-nowrap text-ink-muted">
+            {row.original.account_name ?? '—'}
+          </span>
         ),
       },
       {
@@ -176,7 +178,9 @@ export function RequisitionsPage() {
         accessorKey: 'project_name',
         header: 'Project',
         cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.project_name ?? '—'}</span>
+          <span className="whitespace-nowrap text-ink-muted">
+            {row.original.project_name ?? '—'}
+          </span>
         ),
       },
       {

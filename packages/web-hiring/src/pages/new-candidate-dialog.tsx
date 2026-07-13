@@ -5,7 +5,6 @@ import {
   Button,
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
   Dropzone,
@@ -206,164 +205,185 @@ export function NewCandidateDialog() {
       <DialogTrigger asChild>
         <Button size="sm">New candidate</Button>
       </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New candidate</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-          {cvFile ? (
-            <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-1 px-3 py-2 text-body-sm">
-              <FileText className="size-4 flex-none text-ink-subtle" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
-              {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6"
-                aria-label="Remove CV"
-                onClick={() => {
-                  setCvFile(null);
-                  setSuggestions([]);
-                }}
-              >
-                <X className="size-3.5" />
-              </Button>
-            </div>
-          ) : (
-            <Dropzone
-              accept=".pdf,.docx"
-              maxBytes={10 * 1024 * 1024}
-              label="Upload CV to auto-fill"
-              hint="PDF or DOCX, up to 10MB — parsed fields stay editable"
-              pendingLabel="Parsing CV…"
-              isPending={parse.isPending}
-              onFile={(f) => {
-                setCvFile(f);
-                parse.mutate(f);
-              }}
-            />
-          )}
-          <div className="space-y-1">
-            <Label htmlFor="cand-name">Full name *</Label>
-            <Input id="cand-name" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="cand-email">Email</Label>
-              <Input id="cand-email" value={email} onChange={(e) => setEmail(e.target.value)} />
-              {emailError && <p className="text-caption text-danger-ink">{emailError}</p>}
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="cand-phone">Phone</Label>
-              <Input id="cand-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-              {phoneError && <p className="text-caption text-danger-ink">{phoneError}</p>}
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="cand-dob">Date of birth</Label>
-              <Input
-                id="cand-dob"
-                type="date"
-                value={dob}
-                onChange={(e) => setDob(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="cand-gender">Gender</Label>
-              <Select value={gender || NONE} onValueChange={(v) => setGender(v === NONE ? '' : v)}>
-                <SelectTrigger id="cand-gender" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>—</SelectItem>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="cand-seniority">Seniority</Label>
-              <Select
-                value={seniority || NONE}
-                onValueChange={(v) => setSeniority(v === NONE ? '' : v)}
-              >
-                <SelectTrigger id="cand-seniority" className="w-full">
-                  <SelectValue placeholder="Select seniority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>—</SelectItem>
-                  {seniorityOptions.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
+      <DialogContent
+        unstyled
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="w-full max-w-lg"
+      >
+        <DialogTitle className="sr-only">New candidate</DialogTitle>
+        <div className="flex max-h-[85vh] flex-col overflow-hidden rounded-lg">
+          <header className="border-b border-hairline bg-canvas px-6 py-4">
+            <h1 className="text-card-title font-semibold leading-none tracking-tight text-ink">
+              New candidate
+            </h1>
+          </header>
+          <div className="min-h-0 flex-1 overflow-auto">
+            <div className="space-y-3 px-6 py-4">
+              {cvFile ? (
+                <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-1 px-3 py-2 text-body-sm">
+                  <FileText className="size-4 flex-none text-ink-subtle" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
+                  {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6"
+                    aria-label="Remove CV"
+                    onClick={() => {
+                      setCvFile(null);
+                      setSuggestions([]);
+                    }}
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <Dropzone
+                  accept=".pdf,.docx"
+                  maxBytes={10 * 1024 * 1024}
+                  label="Upload CV to auto-fill"
+                  hint="PDF or DOCX, up to 10MB — parsed fields stay editable"
+                  pendingLabel="Parsing CV…"
+                  isPending={parse.isPending}
+                  onFile={(f) => {
+                    setCvFile(f);
+                    parse.mutate(f);
+                  }}
+                />
+              )}
+              <div className="space-y-1">
+                <Label htmlFor="cand-name">Full name *</Label>
+                <Input id="cand-name" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="cand-email">Email</Label>
+                  <Input id="cand-email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  {emailError && <p className="text-caption text-danger-ink">{emailError}</p>}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cand-phone">Phone</Label>
+                  <Input id="cand-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  {phoneError && <p className="text-caption text-danger-ink">{phoneError}</p>}
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cand-dob">Date of birth</Label>
+                  <Input
+                    id="cand-dob"
+                    type="date"
+                    value={dob}
+                    onChange={(e) => setDob(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cand-gender">Gender</Label>
+                  <Select
+                    value={gender || NONE}
+                    onValueChange={(v) => setGender(v === NONE ? '' : v)}
+                  >
+                    <SelectTrigger id="cand-gender" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>—</SelectItem>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cand-seniority">Seniority</Label>
+                  <Select
+                    value={seniority || NONE}
+                    onValueChange={(v) => setSeniority(v === NONE ? '' : v)}
+                  >
+                    <SelectTrigger id="cand-seniority" className="w-full">
+                      <SelectValue placeholder="Select seniority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>—</SelectItem>
+                      {seniorityOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cand-source">Source</Label>
+                  <Select
+                    value={source || NONE}
+                    onValueChange={(v) => setSource(v === NONE ? '' : v)}
+                  >
+                    <SelectTrigger id="cand-source" className="w-full">
+                      <SelectValue placeholder="Select source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>—</SelectItem>
+                      {sourceOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cand-req">Position applied *</Label>
+                <Select value={effectiveReq} onValueChange={(v) => setReqId(v)}>
+                  <SelectTrigger id="cand-req" className="w-full">
+                    <SelectValue placeholder="Select a position" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {openReqs.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Skills</Label>
+                <SkillPicker value={skills} onChange={setSkills} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cand-note">Notes</Label>
+                <Textarea id="cand-note" value={note} onChange={(e) => setNote(e.target.value)} />
+              </div>
+              {suggestions.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
+                  {suggestions.map((sg) => (
+                    <Badge key={sg} variant="outline" className="border-dashed">
+                      {sg}
+                    </Badge>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="cand-source">Source</Label>
-              <Select value={source || NONE} onValueChange={(v) => setSource(v === NONE ? '' : v)}>
-                <SelectTrigger id="cand-source" className="w-full">
-                  <SelectValue placeholder="Select source" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>—</SelectItem>
-                  {sourceOptions.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="cand-req">Position applied *</Label>
-            <Select value={effectiveReq} onValueChange={(v) => setReqId(v)}>
-              <SelectTrigger id="cand-req" className="w-full">
-                <SelectValue placeholder="Select a position" />
-              </SelectTrigger>
-              <SelectContent>
-                {openReqs.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Skills</Label>
-            <SkillPicker value={skills} onChange={setSkills} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="cand-note">Notes</Label>
-            <Textarea id="cand-note" value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-          {suggestions.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
-              {suggestions.map((sg) => (
-                <Badge key={sg} variant="outline" className="border-dashed">
-                  {sg}
-                </Badge>
-              ))}
+          <footer className="space-y-2 border-t border-hairline bg-canvas px-6 py-3">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-body-sm text-danger-ink">{requiredError}</p>
+              <div className="flex shrink-0 gap-2">
+                <Button variant="secondary" onClick={close}>
+                  Cancel
+                </Button>
+                <Button onClick={submit} disabled={mutation.isPending || parse.isPending}>
+                  {mutation.isPending ? 'Saving…' : 'Save candidate'}
+                </Button>
+              </div>
             </div>
-          )}
-          {requiredError && <p className="text-body-sm text-danger-ink">{requiredError}</p>}
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={close}>
-              Cancel
-            </Button>
-            <Button onClick={submit} disabled={mutation.isPending || parse.isPending}>
-              {mutation.isPending ? 'Saving…' : 'Save candidate'}
-            </Button>
-          </div>
+          </footer>
         </div>
       </DialogContent>
     </Dialog>

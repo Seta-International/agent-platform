@@ -173,33 +173,17 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
         </DialogTrigger>
       </DisabledActionTooltip>
       <DialogContent
-        hideClose
         unstyled
         onOpenAutoFocus={(e) => e.preventDefault()}
-        className="w-[min(1100px,94vw)]"
+        className="w-[min(760px,94vw)]"
       >
         <DialogTitle className="sr-only">New requisition</DialogTitle>
         <div className="flex max-h-[88vh] flex-col overflow-hidden rounded-xl">
-          <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
-            <div className="min-w-0">
-              <h1 className="truncate text-section-title font-semibold text-ink">
-                {title.trim() || 'New requisition'}
-              </h1>
-            </div>
-            <div className="flex shrink-0 flex-col items-end gap-1.5">
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="secondary" onClick={close} disabled={mutation.isPending}>
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={submit} disabled={mutation.isPending}>
-                  {mutation.isPending ? 'Creating…' : 'Create'}
-                </Button>
-              </div>
-              {requiredError && <p className="text-caption text-danger-ink">{requiredError}</p>}
-            </div>
+          <header className="border-b border-hairline bg-canvas px-6 py-3">
+            <h1 className="text-section-title font-semibold text-ink">New requisition</h1>
           </header>
           <div className="min-h-0 flex-1 overflow-auto">
-            <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
+            <div className="space-y-5 px-6 pb-5 pt-3">
               <div className="space-y-1">
                 <Label htmlFor="new-req-title">Job title *</Label>
                 <Input
@@ -362,14 +346,26 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                   />
                 </div>
               ))}
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
             </div>
           </div>
+          <footer className="space-y-2 border-t border-hairline bg-canvas px-6 py-3">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-body-sm text-danger-ink">{requiredError}</p>
+              <div className="flex shrink-0 gap-2">
+                <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
+                  Cancel
+                </Button>
+                <Button onClick={submit} disabled={mutation.isPending}>
+                  {mutation.isPending ? 'Creating…' : 'Create'}
+                </Button>
+              </div>
+            </div>
+          </footer>
         </div>
       </DialogContent>
     </Dialog>

@@ -20,11 +20,12 @@ import { hiringKeys } from '../state/query-keys.ts';
 import {
   daysLeft,
   formatDate,
-  funnelCounts,
+  furthestReachedIndex,
   STAGE_LABEL,
   STAGES,
   STATUS_BADGE_CLASS,
   STATUS_LABEL,
+  stageCounts,
 } from './requisition-format.ts';
 import { on409 } from './utils.ts';
 
@@ -77,11 +78,12 @@ export function RequisitionCard({
   });
 
   const isTerminal = r.status === 'filled' || r.status === 'cancelled';
-  // Per-stage applicant counts (cumulative — see funnelCounts), not the requisition's own
-  // `stage` field: this is a read-only funnel of where candidates actually are, not an
-  // editable "current stage" pointer, so a step lights up once anyone has reached it.
-  const counts = funnelCounts(r.applicants_count, r.applicants);
-  const lastReachedIdx = counts.reduce((acc, c, i) => (c > 0 ? i : acc), -1);
+  // Per-stage applicant counts (FUT-558: a bucket per stage, not the requisition's own
+  // `stage` field) — each candidate counted once, at their current stage, so the four
+  // numbers always sum to r.applicants_count. The checkmark dots/line below track a
+  // separate, still-cumulative concept: the furthest stage anyone has reached.
+  const counts = stageCounts(r.applicants_count, r.applicants);
+  const lastReachedIdx = furthestReachedIndex(r.applicants);
 
   // Account/project names come from local pm projections (null until pm emits / the
   // requisition links a project); grade is always local. Falls back gracefully.
@@ -195,8 +197,9 @@ export function RequisitionCard({
         </div>
       )}
 
-      {/* Stage funnel + timing — read-only: each step lights up once at least one candidate has
-          reached it (cumulative applicant counts), independent of the requisition's own status. */}
+      {/* Stage progress + timing — read-only: each step lights up once at least one candidate has
+          reached it (furthest-reached index), independent of the requisition's own status. The
+          number under each step is a per-stage bucket count (FUT-558), not cumulative. */}
       <div className="mt-5 flex items-start gap-4 pb-4">
         <div className="relative flex-[3] pt-2.5">
           <div className="absolute inset-x-[12.5%] top-[19px] h-px bg-hairline-strong" />
@@ -210,7 +213,7 @@ export function RequisitionCard({
           />
           <div className="relative flex justify-between">
             {STAGES.map((s, i) => {
-              const reached = (counts[i] ?? 0) > 0;
+              const reached = i <= lastReachedIdx;
               return (
                 <div key={s} className="flex flex-col items-center gap-1.5">
                   <span
