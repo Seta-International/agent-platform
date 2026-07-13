@@ -9,6 +9,9 @@ export const setaTheme = defineTheme({
   name: 'seta',
   extends: neutralTheme,
   color: {
+    // Seed only — `color.accent` drives a derived, contrast-adjusted scale
+    // (confirmed: seeding '#0047FF' here compiles to '#0045FD', not the
+    // literal hex). The `tokens` block below pins the exact verified value.
     accent: '#0047FF',
     neutralStyle: 'warm',
   },
@@ -20,5 +23,12 @@ export const setaTheme = defineTheme({
   radius: {
     base: 4,
     multiplier: 1,
+  },
+  tokens: {
+    // Explicit overrides always win over the scale-generated value (per
+    // `astryx docs theme`) — pins the literal, verified brand hex instead of
+    // the derived '#0045FD'. Mode-invariant: same hex in light and dark,
+    // matching tokens.css's current --color-primary today.
+    '--color-accent': ['#0047FF', '#0047FF'],
   },
 });
