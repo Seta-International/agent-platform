@@ -11,6 +11,7 @@ import {
   type AgentRouteDeps,
   type AgentRouteEnv,
   handleDomainError,
+  logError,
   NO_BUFFER_HEADERS,
 } from './_shared.ts';
 
@@ -154,7 +155,8 @@ export function mountChatResumeRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteD
           sendStart: true,
           sendFinish: true,
           onError: (e: unknown) => {
-            (deps.log?.error ?? console.error)(
+            logError(
+              deps,
               { subsystem: 'agent.chat', event: 'resume.stream.error', threadId, err: e },
               'agent chat resume stream error',
             );
