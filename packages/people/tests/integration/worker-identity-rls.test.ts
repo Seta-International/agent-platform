@@ -11,10 +11,10 @@ const ctx = {
 
 describe('getWorkerIdForUser under RLS', () => {
   // FUT-327 regression: the session middleware resolves the worker id BEFORE the
-  // request's tenant GUC is bound (apps/server wires resolveWorkerId ahead of
+  // request's tenant GUC is bound (apps/server wires resolvePersonId ahead of
   // runRequestTenant). In production the web pool is seta_app (NOBYPASSRLS), so the
   // forced tenant_isolation policy on people.person/people.worker hid every row and
-  // session.worker_id was always null — silently disabling AM/EM/TL/PM row scoping.
+  // session.person_id was always null — silently disabling AM/EM/TL/PM row scoping.
   // Dev and the default test harness masked it by connecting as a BYPASSRLS superuser,
   // so this test runs the lookup through a web pool that mirrors prod's seta_app.
   it('resolves the worker id via a NOBYPASSRLS web pool with no ambient tenant GUC', () =>
@@ -32,14 +32,14 @@ describe('getWorkerIdForUser under RLS', () => {
         `RLS Probe ${tenantId.slice(0, 8)}`,
         `rls-${tenantId.slice(0, 8)}`,
       ]);
-      await pool.query(`INSERT INTO people.person (id, tenant_id, user_id) VALUES ($1, $2, $3)`, [
+      await pool.query(`INSERT INTO people.person (id, tenant_id, full_name) VALUES ($1, $2, $3)`, [
         personId,
         tenantId,
-        userId,
+        'RLS Probe Worker',
       ]);
       await pool.query(
-        `INSERT INTO people.worker (tenant_id, person_id, full_name) VALUES ($1, $2, $3)`,
-        [tenantId, personId, 'RLS Probe Worker'],
+        `INSERT INTO people.user_projection (user_id, tenant_id, person_id) VALUES ($1, $2, $3)`,
+        [userId, tenantId, personId],
       );
 
       const appUrl = new URL(databaseUrl);

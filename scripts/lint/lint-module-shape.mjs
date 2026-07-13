@@ -82,6 +82,7 @@ const BACKEND_DIR_ALLOWLIST = new Set([
   'm365', // integrations-owned external connector
   'scan', // knowledge-owned upload AV scanner
   'skills', // core-owned skill catalog (categories + skills admin)
+  'projections', // core-owned read-model projection subscriber factory
 ]);
 
 const errors = [];

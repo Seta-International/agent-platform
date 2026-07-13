@@ -6,7 +6,12 @@ import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { personSkill, worker, workerAllocationProjection } from '../../src/backend/db/schema.ts';
+import {
+  accountProjection,
+  person,
+  personSkill,
+  workerAllocationProjection,
+} from '../../src/backend/db/schema.ts';
 import { registerPeopleWorkersRoutes } from '../../src/backend/http/workers.ts';
 import { createWorker, getWorker } from '../../src/index.ts';
 import { peopleErrorMapper } from '../../src/register.ts';
@@ -69,7 +74,7 @@ describe('getWorker enriched fields', () => {
         kind: 'delivery',
         head_worker_id: head,
       });
-      await peopleDb().update(worker).set({ org_unit_id: unit }).where(eq(worker.person_id, head));
+      await peopleDb().update(person).set({ org_unit_id: unit }).where(eq(person.id, head));
 
       const { worker_id } = await createWorker({
         full_name: 'Rich Worker',
@@ -79,14 +84,18 @@ describe('getWorker enriched fields', () => {
       } as never);
 
       const accountId = crypto.randomUUID();
+      await peopleDb().insert(accountProjection).values({
+        account_id: accountId,
+        tenant_id: t.tenant_id,
+        name: 'Test Account',
+      });
       await peopleDb().insert(workerAllocationProjection).values({
         allocation_id: crypto.randomUUID(),
         tenant_id: t.tenant_id,
-        worker_id,
+        person_id: worker_id,
         project_id: crypto.randomUUID(),
         account_id: accountId,
-        account_name: 'Test Account',
-        lead_worker_id: null,
+        lead_person_id: null,
         active: true,
       });
 
@@ -159,9 +168,9 @@ describe('getWorker enriched fields', () => {
         head_worker_id: topHead,
       });
       await peopleDb()
-        .update(worker)
+        .update(person)
         .set({ org_unit_id: parentUnit })
-        .where(eq(worker.person_id, topHead));
+        .where(eq(person.id, topHead));
 
       const { worker_id: r1 } = await createWorker({
         full_name: 'Report Lead R1',
@@ -174,10 +183,7 @@ describe('getWorker enriched fields', () => {
         parent_id: parentUnit,
         head_worker_id: r1,
       });
-      await peopleDb()
-        .update(worker)
-        .set({ org_unit_id: childUnit })
-        .where(eq(worker.person_id, r1));
+      await peopleDb().update(person).set({ org_unit_id: childUnit }).where(eq(person.id, r1));
 
       const w1 = await getWorker({ worker_id: r1, session: t.adminSession });
       expect(w1.manager_name).toBe('Top Manager M');

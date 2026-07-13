@@ -50,11 +50,11 @@ async function buildGraph(pool: Pool): Promise<Graph> {
 
   const [a1] = await pmDb()
     .insert(account)
-    .values({ tenant_id: t.tenant_id, name: 'A1 (AM-managed)', am_worker_id: W_am })
+    .values({ tenant_id: t.tenant_id, name: 'A1 (AM-managed)', am_person_id: W_am })
     .returning({ id: account.id });
   const [a2] = await pmDb()
     .insert(account)
-    .values({ tenant_id: t.tenant_id, name: 'A2 (unmanaged)', am_worker_id: null })
+    .values({ tenant_id: t.tenant_id, name: 'A2 (unmanaged)', am_person_id: null })
     .returning({ id: account.id });
   const A1 = a1!.id;
   const A2 = a2!.id;
@@ -66,7 +66,7 @@ async function buildGraph(pool: Pool): Promise<Graph> {
       account_id: A2,
       name: 'P1',
       org_unit_id: u1,
-      pm_worker_id: W_lead,
+      pm_person_id: W_lead,
     })
     .returning({ id: project.id });
   const [p2] = await pmDb()
@@ -87,7 +87,7 @@ async function buildGraph(pool: Pool): Promise<Graph> {
       .values({
         tenant_id: t.tenant_id,
         project_id,
-        worker_id: crypto.randomUUID(),
+        person_id: crypto.randomUUID(),
         date_from: '2026-01-01',
         status: 'committed',
       })
@@ -310,14 +310,14 @@ describe('pm scope builders (D-1)', () => {
         // Tenant B: lookalike rows reusing tenant A's org_unit id and W_lead worker id.
         const [a2b] = await pmDb()
           .insert(account)
-          .values({ tenant_id: t2.tenant_id, name: 'B-Acct', am_worker_id: g.W_am })
+          .values({ tenant_id: t2.tenant_id, name: 'B-Acct', am_person_id: g.W_am })
           .returning({ id: account.id });
         await pmDb().insert(project).values({
           tenant_id: t2.tenant_id,
           account_id: a2b!.id,
           name: 'B-Project',
           org_unit_id: g.u1,
-          pm_worker_id: g.W_lead,
+          pm_person_id: g.W_lead,
         });
 
         const orgSession = orgManager(g.t, g.u1);
@@ -352,7 +352,7 @@ describe('project_access owners (FUT-353)', () => {
         await pmDb().insert(projectAccess).values({
           tenant_id: g.t.tenant_id,
           project_id: g.P2,
-          worker_id: W_owner,
+          person_id: W_owner,
           level: 'owner',
         });
 
@@ -388,8 +388,8 @@ describe('project_access owners (FUT-353)', () => {
         await pmDb()
           .insert(projectAccess)
           .values([
-            { tenant_id: g.t.tenant_id, project_id: g.P2, worker_id: W_editor, level: 'edit' },
-            { tenant_id: g.t.tenant_id, project_id: g.P3, worker_id: W_editor, level: 'view' },
+            { tenant_id: g.t.tenant_id, project_id: g.P2, person_id: W_editor, level: 'edit' },
+            { tenant_id: g.t.tenant_id, project_id: g.P3, person_id: W_editor, level: 'view' },
           ]);
 
         const session = relationshipViewer(g.t, W_editor);

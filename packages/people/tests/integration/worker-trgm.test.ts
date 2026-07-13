@@ -19,19 +19,23 @@ describe('worker pg_trgm GIN indexes', () => {
     });
   });
 
-  it('all three trigram indexes exist', async () => {
+  it('all three trigram indexes exist on their post-fold home tables', async () => {
     await withTestDb(ctx, async ({ pool }) => {
       const r = await pool.query(
-        `SELECT indexname FROM pg_indexes
+        `SELECT tablename, indexname FROM pg_indexes
          WHERE schemaname='people'
-           AND indexname IN ('worker_full_name_trgm','worker_work_email_trgm','worker_job_title_trgm')
+           AND indexname IN ('person_full_name_trgm','person_work_email_trgm','employment_period_job_title_trgm')
          ORDER BY indexname`,
       );
       expect(r.rowCount).toBe(3);
-      expect(r.rows.map((x: { indexname: string }) => x.indexname)).toEqual([
-        'worker_full_name_trgm',
-        'worker_job_title_trgm',
-        'worker_work_email_trgm',
+      expect(
+        r.rows.map(
+          (x: { tablename: string; indexname: string }) => `${x.tablename}.${x.indexname}`,
+        ),
+      ).toEqual([
+        'employment_period.employment_period_job_title_trgm',
+        'person.person_full_name_trgm',
+        'person.person_work_email_trgm',
       ]);
     });
   });
@@ -50,7 +54,7 @@ describe('worker pg_trgm GIN indexes', () => {
           session: t.adminSession,
         });
         const r = await pool.query(
-          `SELECT full_name FROM people.worker WHERE full_name ILIKE '%trigram%'`,
+          `SELECT full_name FROM people.person WHERE full_name ILIKE '%trigram%'`,
         );
         expect(r.rowCount).toBeGreaterThanOrEqual(1);
         expect(r.rows[0].full_name).toBe('Trigram Testworker');

@@ -9,25 +9,25 @@ const SCHEMA = 'pm';
 const TOUCH_TABLES = [
   'account',
   'project',
+  'project_approval',
   'account_recruiter',
   'allocation',
-  'charter',
   'project_access',
-  'worker_projection',
+  'person_projection',
   'staffing_plan_line',
   'staffing_plan_line_skill',
 ];
 
 // Every pm table is tenant-scoped and gets the RLS backstop policy (constitution: none
-// allowlisted). Includes the worker_projection cross-module read model.
+// allowlisted). Includes the person_projection cross-module read model.
 const RLS_TABLES = [
   'account',
   'project',
+  'project_approval',
   'account_recruiter',
   'allocation',
-  'charter',
   'project_access',
-  'worker_projection',
+  'person_projection',
   'staffing_plan_line',
   'staffing_plan_line_skill',
 ];

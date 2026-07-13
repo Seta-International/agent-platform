@@ -23,7 +23,7 @@ async function seedProject(
   bounds?: { date_from?: string; date_to?: string },
 ): Promise<string> {
   const { account_id } = await createAccount({ name: 'A', session });
-  const { charter_id } = await submitCharter({
+  const { project_id: charterId } = await submitCharter({
     account_id,
     name: 'P',
     pm_worker_id: session.user_id,
@@ -34,7 +34,7 @@ async function seedProject(
     date_to: bounds?.date_to,
     session,
   });
-  const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
+  const { project_id } = await approveCharterTwoStage(charterId, session.tenant_id);
   return project_id;
 }
 
@@ -82,7 +82,7 @@ describe('splitAllocation', () => {
           .from(allocation)
           .where(eq(allocation.id, result.continuation_id));
         expect(continuation?.project_id).toBe(project);
-        expect(continuation?.worker_id).toBe(worker);
+        expect(continuation?.person_id).toBe(worker);
         expect(continuation?.date_from).toBe('2026-03-01');
         expect(continuation?.date_to).toBe('2026-10-31');
         expect(continuation?.planned_pct).toBe('50.0000');

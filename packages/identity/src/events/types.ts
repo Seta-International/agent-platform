@@ -66,6 +66,18 @@ export interface IdentityUserDeactivated {
   };
 }
 
+export interface IdentityUserReactivated {
+  event_type: 'identity.user.reactivated';
+  event_version: 1;
+  aggregate_type: 'identity.user';
+  aggregate_id: Uuid;
+  payload: {
+    actor: IdentityEventActor;
+    user_id: Uuid;
+    tenant_id: Uuid;
+  };
+}
+
 export interface IdentityRoleGrantChanged {
   event_type: 'identity.role_grant.changed';
   event_version: 1;
@@ -222,6 +234,7 @@ export type IdentityEvent =
   | IdentityUserCreated
   | IdentityUserProfileUpdated
   | IdentityUserDeactivated
+  | IdentityUserReactivated
   | IdentityRoleGrantChanged
   | IdentityRolePermissionsChanged
   | IdentitySsoProviderRegistered

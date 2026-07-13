@@ -25,10 +25,14 @@ export async function editAccount(
     throw new PmError('CONFLICT', 'version mismatch');
   }
 
+  // patch's am_worker_id is the input contract's field name (domain vocabulary); the DB column is am_person_id.
+  const PATCH_FIELD_TO_COLUMN: Record<string, string> = { am_worker_id: 'am_person_id' };
+
   const entries = Object.entries(patch).filter(([, v]) => v !== undefined) as [string, unknown][];
-  const changes = entries.filter(
-    ([f, v]) => JSON.stringify((current as Record<string, unknown>)[f]) !== JSON.stringify(v),
-  );
+  const changes = entries.filter(([f, v]) => {
+    const column = PATCH_FIELD_TO_COLUMN[f] ?? f;
+    return JSON.stringify((current as Record<string, unknown>)[column]) !== JSON.stringify(v);
+  });
   if (changes.length === 0) return { version: current.version };
 
   const nextVersion = current.version + 1;
@@ -36,13 +40,13 @@ export async function editAccount(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
       const set: Record<string, unknown> = { version: nextVersion, updated_at: new Date() };
-      for (const [f, v] of changes) set[f] = v;
+      for (const [f, v] of changes) set[PATCH_FIELD_TO_COLUMN[f] ?? f] = v;
       // Guards the read→update window: 0 rows means a concurrent write committed between our SELECT and this UPDATE.
       const updated = await tx
         .update(account)
         .set(set)
         .where(and(eq(account.id, account_id), eq(account.version, current.version)))
-        .returning({ id: account.id, name: account.name, am_worker_id: account.am_worker_id });
+        .returning({ id: account.id, name: account.name, am_person_id: account.am_person_id });
       if (updated.length === 0) {
         throw new PmError('CONFLICT', 'account was modified concurrently');
       }
@@ -58,7 +62,7 @@ export async function editAccount(
           account_id,
           tenant_id: session.tenant_id,
           name: updatedRow.name,
-          am_worker_id: updatedRow.am_worker_id ?? null,
+          am_worker_id: updatedRow.am_person_id ?? null,
           fields: changes.map(([f]) => f),
         },
       });

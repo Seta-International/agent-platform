@@ -5,7 +5,12 @@ import { and, eq, inArray } from 'drizzle-orm';
 import type { StaffingPlanLineInput, StaffingPlanLineSkillInput } from '../../contracts.ts';
 import { PM_PROJECT_STAFFING_PLAN_CHANGED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { project, staffingPlanLine, staffingPlanLineSkill } from '../db/schema.ts';
+import {
+  LIVE_PROJECT_STATUSES,
+  project,
+  staffingPlanLine,
+  staffingPlanLineSkill,
+} from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 export interface StaffingPlanLineSkillRow {
@@ -56,7 +61,13 @@ async function assertProject(project_id: string, session: SessionScope) {
   const [p] = await pmDb()
     .select({ id: project.id })
     .from(project)
-    .where(and(eq(project.id, project_id), tenantScoped(project.tenant_id, session)))
+    .where(
+      and(
+        eq(project.id, project_id),
+        tenantScoped(project.tenant_id, session),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .limit(1);
   if (!p) throw new PmError('NOT_FOUND', 'project not found');
 }

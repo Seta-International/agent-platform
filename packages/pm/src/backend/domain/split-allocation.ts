@@ -1,11 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { SplitAllocationInput } from '../../contracts.ts';
 import { PM_ALLOCATION_CREATED, PM_ALLOCATION_UPDATED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { account, allocation, project } from '../db/schema.ts';
+import { account, allocation, LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 import { assertWithinProjectRange } from './assert-within-project-range.ts';
@@ -47,7 +47,7 @@ export async function splitAllocation(
     )
     .limit(1);
   if (!current) throw new PmError('NOT_FOUND', 'allocation not found');
-  if (!current.worker_id)
+  if (!current.person_id)
     throw new PmError('VALIDATION', 'cannot split an allocation with no worker');
   if (expected_version !== undefined && expected_version !== current.version) {
     throw new PmError('CONFLICT', 'version mismatch');
@@ -62,12 +62,18 @@ export async function splitAllocation(
   const [proj] = await pmDb()
     .select({
       account_id: project.account_id,
-      pm_worker_id: project.pm_worker_id,
+      pm_worker_id: project.pm_person_id,
       date_from: project.date_from,
       date_to: project.date_to,
     })
     .from(project)
-    .where(and(eq(project.id, current.project_id), tenantScoped(project.tenant_id, session)))
+    .where(
+      and(
+        eq(project.id, current.project_id),
+        tenantScoped(project.tenant_id, session),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .limit(1);
   if (!proj) throw new PmError('NOT_FOUND', `project ${current.project_id} not found`);
 
@@ -96,7 +102,7 @@ export async function splitAllocation(
     continuationTo && continuationPct !== null
       ? await (async () => {
           const check = await checkAllocationEffort({
-            worker_id: current.worker_id as string,
+            worker_id: current.person_id as string,
             date_from: continuationFrom,
             date_to: continuationTo,
             planned_pct: continuationPct,
@@ -114,7 +120,7 @@ export async function splitAllocation(
     async (tx) => {
       await assertNoProjectOverlap(tx, {
         tenant_id: session.tenant_id,
-        worker_id: current.worker_id as string,
+        worker_id: current.person_id as string,
         project_id: current.project_id,
         date_from: continuationFrom,
         date_to: continuationTo,
@@ -145,7 +151,7 @@ export async function splitAllocation(
         payload: {
           allocation_id,
           project_id: current.project_id,
-          worker_id: current.worker_id,
+          worker_id: current.person_id,
           account_id: proj.account_id,
           tenant_id: session.tenant_id,
           planned_pct: Number(current.planned_pct),
@@ -158,7 +164,7 @@ export async function splitAllocation(
         .values({
           tenant_id: session.tenant_id,
           project_id: current.project_id,
-          worker_id: current.worker_id,
+          person_id: current.person_id,
           role: current.role,
           date_from: continuationFrom,
           date_to: continuationTo,
@@ -181,7 +187,7 @@ export async function splitAllocation(
         payload: {
           allocation_id: row.id,
           project_id: current.project_id,
-          worker_id: current.worker_id,
+          worker_id: current.person_id,
           tenant_id: session.tenant_id,
           account_id: proj.account_id,
           account_name: acc.name,

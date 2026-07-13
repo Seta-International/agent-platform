@@ -6,17 +6,23 @@ import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
+  accountProjection,
   employmentPeriod,
   type LIFECYCLE_STAGES,
   person,
   personSkill,
   projectProjection,
-  worker,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { listWorkers } from '../../src/backend/domain/read-workers.ts';
-import { buildSession, type SeededTenant, seedOrgUnit, seedTenant } from '../helpers.ts';
+import {
+  buildSession,
+  linkUserToPerson,
+  type SeededTenant,
+  seedOrgUnit,
+  seedTenant,
+} from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -57,15 +63,20 @@ async function makeWorker(
     work_email: opts.email,
     org_unit_id: opts.orgUnitId ?? null,
   } as never);
-  const patch: Record<string, unknown> = {};
-  if (opts.job_title !== undefined) patch.job_title = opts.job_title;
-  if (opts.gender !== undefined) patch.gender = opts.gender;
-  if (opts.phone !== undefined) patch.phone = opts.phone;
-  if (Object.keys(patch).length > 0) {
-    await peopleDb().update(worker).set(patch).where(eq(worker.person_id, worker_id));
+  const personPatch: Record<string, unknown> = {};
+  if (opts.gender !== undefined) personPatch.gender = opts.gender;
+  if (opts.phone !== undefined) personPatch.phone = opts.phone;
+  if (Object.keys(personPatch).length > 0) {
+    await peopleDb().update(person).set(personPatch).where(eq(person.id, worker_id));
+  }
+  if (opts.job_title !== undefined) {
+    await peopleDb()
+      .update(employmentPeriod)
+      .set({ job_title: opts.job_title })
+      .where(and(eq(employmentPeriod.person_id, worker_id), isNull(employmentPeriod.end_date)));
   }
   if (opts.userId) {
-    await peopleDb().update(person).set({ user_id: opts.userId }).where(eq(person.id, worker_id));
+    await linkUserToPerson(t.tenant_id, worker_id, opts.userId);
   }
   return worker_id;
 }
@@ -94,16 +105,24 @@ async function addAllocation(
     active?: boolean;
   },
 ): Promise<void> {
+  // Account name now lives in account_projection; read-workers joins it in. Seed it so the
+  // allocation's account resolves to a name.
+  await peopleDb()
+    .insert(accountProjection)
+    .values({ account_id: opts.accountId, tenant_id: t.tenant_id, name: opts.accountName })
+    .onConflictDoUpdate({
+      target: accountProjection.account_id,
+      set: { name: opts.accountName },
+    });
   await peopleDb()
     .insert(workerAllocationProjection)
     .values({
       allocation_id: crypto.randomUUID(),
       tenant_id: t.tenant_id,
-      worker_id: opts.workerId,
+      person_id: opts.workerId,
       project_id: opts.projectId ?? crypto.randomUUID(),
       account_id: opts.accountId,
-      account_name: opts.accountName,
-      lead_worker_id: opts.leadId ?? null,
+      lead_person_id: opts.leadId ?? null,
       active: opts.active ?? true,
     });
 }
@@ -352,10 +371,7 @@ describe('listWorkers (SQL filter/sort/paginate)', () => {
       await makeWorker(t, { name: 'Orphaned Worker', orgUnitId: unit });
 
       // Soft-delete the manager
-      await peopleDb()
-        .update(worker)
-        .set({ deleted_at: new Date() })
-        .where(eq(worker.person_id, mgr));
+      await peopleDb().update(person).set({ deleted_at: new Date() }).where(eq(person.id, mgr));
 
       const { rows } = await listWorkers(admin(t), { search: 'Orphaned Worker' });
       expect(rows).toHaveLength(1);

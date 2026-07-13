@@ -170,7 +170,7 @@ export async function seedPm(
 
       const teamSize = membersByCode.get(p.code)?.length ?? 0;
 
-      const { charter_id } = await submitCharter({
+      const { project_id } = await submitCharter({
         account_id: aid,
         name: p.project_name,
         pm_worker_id: pmPerson.workerId,
@@ -184,9 +184,9 @@ export async function seedPm(
         session,
       });
 
-      await pmoSignOffCharter({ charter_id, session: governanceSession });
-      const approved = await bodApproveCharter({ charter_id, session: governanceSession });
-      pid = approved.project_id;
+      await pmoSignOffCharter({ charter_id: project_id, session: governanceSession });
+      await bodApproveCharter({ charter_id: project_id, session: governanceSession });
+      pid = project_id;
       log.info({ project: p.project_name, project_id: pid }, 'created project via charter');
 
       // Record PM for Task 6

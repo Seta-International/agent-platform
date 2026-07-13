@@ -5,7 +5,13 @@ import { and, eq, gte, inArray, isNull, lte, notInArray, or, type SQL } from 'dr
 import type { ReassignAllocationInput, ReassignWorkerAllocationsInput } from '../../contracts.ts';
 import { PM_ALLOCATION_CREATED, PM_ALLOCATION_UPDATED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { account, allocation, project, workerProjection } from '../db/schema.ts';
+import {
+  account,
+  allocation,
+  LIVE_PROJECT_STATUSES,
+  personProjection,
+  project,
+} from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 import { assertWithinProjectRange } from './assert-within-project-range.ts';
@@ -67,12 +73,18 @@ async function loadProject(
     .select({
       name: project.name,
       account_id: project.account_id,
-      pm_worker_id: project.pm_worker_id,
+      pm_worker_id: project.pm_person_id,
       date_from: project.date_from,
       date_to: project.date_to,
     })
     .from(project)
-    .where(and(eq(project.id, projectId), tenantScoped(project.tenant_id, session)))
+    .where(
+      and(
+        eq(project.id, projectId),
+        tenantScoped(project.tenant_id, session),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .limit(1);
   if (!proj) throw new PmError('NOT_FOUND', `project ${projectId} not found`);
 
@@ -88,12 +100,12 @@ async function loadProject(
 
 async function loadWorkerName(workerId: string, session: SessionScope): Promise<string | null> {
   const [row] = await pmDb()
-    .select({ full_name: workerProjection.full_name })
-    .from(workerProjection)
+    .select({ full_name: personProjection.full_name })
+    .from(personProjection)
     .where(
       and(
-        eq(workerProjection.worker_id, workerId),
-        tenantScoped(workerProjection.tenant_id, session),
+        eq(personProjection.person_id, workerId),
+        tenantScoped(personProjection.tenant_id, session),
       ),
     )
     .limit(1);
@@ -169,7 +181,7 @@ async function computeCombinedPeak(args: {
 
   const conds: (SQL | undefined)[] = [
     tenantScoped(allocation.tenant_id, session),
-    eq(allocation.worker_id, worker_id),
+    eq(allocation.person_id, worker_id),
     isNull(allocation.deleted_at),
     notInArray(allocation.id, exclude_allocation_ids),
     or(eq(allocation.status, 'tentative'), eq(allocation.status, 'committed')),
@@ -283,7 +295,7 @@ async function resolveReassignment(
     )
     .limit(1);
   if (!current) throw new PmError('NOT_FOUND', 'allocation not found');
-  if (!current.worker_id)
+  if (!current.person_id)
     throw new PmError('VALIDATION', 'cannot reassign an allocation with no worker');
   if (expected_version !== undefined && expected_version !== current.version) {
     throw new PmError('CONFLICT', 'version mismatch');
@@ -296,7 +308,7 @@ async function resolveReassignment(
   }
 
   const sourceProj = await loadProject(current.project_id, session);
-  const workerId = current.worker_id;
+  const workerId = current.person_id;
 
   try {
     assertWithinProjectRange({
@@ -422,7 +434,7 @@ export async function reassignAllocation(
           .values({
             tenant_id: session.tenant_id,
             project_id: t.input.project_id,
-            worker_id: workerId,
+            person_id: workerId,
             role: current.role,
             date_from: t.input.date_from,
             date_to: t.input.date_to ?? null,
@@ -554,7 +566,7 @@ async function resolveGroupReassignment(
     .where(
       and(
         inArray(allocation.id, allocation_ids),
-        eq(allocation.worker_id, worker_id),
+        eq(allocation.person_id, worker_id),
         tenantScoped(allocation.tenant_id, session),
         isNull(allocation.deleted_at),
       ),
@@ -721,7 +733,7 @@ export async function reassignWorkerAllocations(
           .values({
             tenant_id: session.tenant_id,
             project_id: t.input.project_id,
-            worker_id,
+            person_id: worker_id,
             role: template.role,
             date_from: t.input.date_from,
             date_to: t.input.date_to ?? null,

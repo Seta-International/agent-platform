@@ -4,7 +4,7 @@ import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq } from 'drizzle-orm';
 import { PM_CHARTER_WITHDRAWN } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { charter } from '../db/schema.ts';
+import { project, projectApproval } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 export async function withdrawCharter(input: {
@@ -16,9 +16,20 @@ export async function withdrawCharter(input: {
   requirePermission(session, 'pm.charter.submit');
 
   const [c] = await pmDb()
-    .select()
-    .from(charter)
-    .where(and(eq(charter.id, charter_id), tenantScoped(charter.tenant_id, session)))
+    .select({
+      status: project.status,
+      version: project.version,
+      submitted_by_user_id: projectApproval.submitted_by_user_id,
+    })
+    .from(project)
+    .leftJoin(
+      projectApproval,
+      and(
+        eq(projectApproval.project_id, project.id),
+        tenantScoped(projectApproval.tenant_id, session),
+      ),
+    )
+    .where(and(eq(project.id, charter_id), tenantScoped(project.tenant_id, session)))
     .limit(1);
   if (!c) throw new PmError('NOT_FOUND', 'charter not found');
   if (c.status !== 'submitted' && c.status !== 'pmo_approved') {
@@ -36,16 +47,16 @@ export async function withdrawCharter(input: {
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
       const updated = await tx
-        .update(charter)
+        .update(project)
         .set({ status: 'withdrawn', version: nextVersion, updated_at: new Date() })
         .where(
           and(
-            eq(charter.id, charter_id),
-            eq(charter.version, c.version),
-            eq(charter.status, c.status),
+            eq(project.id, charter_id),
+            eq(project.version, c.version),
+            eq(project.status, c.status),
           ),
         )
-        .returning({ id: charter.id });
+        .returning({ id: project.id });
       if (updated.length === 0) throw new PmError('CONFLICT', 'charter was modified concurrently');
       await emit({
         tenantId: session.tenant_id,

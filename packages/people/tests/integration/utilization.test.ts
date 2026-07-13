@@ -4,12 +4,12 @@ import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
+  person,
   projectProjection,
-  worker,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { getUtilizationByPerson } from '../../src/backend/domain/utilization.ts';
-import { buildSession, seedPersons, seedTenant } from '../helpers.ts';
+import { buildSession, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -29,10 +29,9 @@ describe('getUtilizationByPerson', () => {
         const projA = crypto.randomUUID();
         const projB = crypto.randomUUID();
 
-        await seedPersons(t.tenant_id, personId);
-        await peopleDb().insert(worker).values({
+        await peopleDb().insert(person).values({
+          id: personId,
           tenant_id: t.tenant_id,
-          person_id: personId,
           full_name: 'Pat Lin',
         });
         await peopleDb()
@@ -47,10 +46,9 @@ describe('getUtilizationByPerson', () => {
             {
               allocation_id: crypto.randomUUID(),
               tenant_id: t.tenant_id,
-              worker_id: personId,
+              person_id: personId,
               project_id: projA,
               account_id: accountId,
-              account_name: 'Acme',
               date_from: '2026-01-01',
               date_to: '2026-12-31',
               planned_pct: '80',
@@ -60,10 +58,9 @@ describe('getUtilizationByPerson', () => {
             {
               allocation_id: crypto.randomUUID(),
               tenant_id: t.tenant_id,
-              worker_id: personId,
+              person_id: personId,
               project_id: projB,
               account_id: accountId,
-              account_name: 'Acme',
               date_from: '2026-01-01',
               date_to: '2026-12-31',
               planned_pct: '40',
@@ -74,10 +71,9 @@ describe('getUtilizationByPerson', () => {
             {
               allocation_id: crypto.randomUUID(),
               tenant_id: t.tenant_id,
-              worker_id: personId,
+              person_id: personId,
               project_id: crypto.randomUUID(),
               account_id: accountId,
-              account_name: 'Acme',
               date_from: '2025-01-01',
               date_to: '2025-12-31',
               planned_pct: '50',
@@ -108,19 +104,17 @@ describe('getUtilizationByPerson', () => {
       try {
         const t = await seedTenant(pool);
         const stranger = crypto.randomUUID();
-        await seedPersons(t.tenant_id, stranger);
-        await peopleDb().insert(worker).values({
+        await peopleDb().insert(person).values({
+          id: stranger,
           tenant_id: t.tenant_id,
-          person_id: stranger,
           full_name: 'Out Of Scope',
         });
         await peopleDb().insert(workerAllocationProjection).values({
           allocation_id: crypto.randomUUID(),
           tenant_id: t.tenant_id,
-          worker_id: stranger,
+          person_id: stranger,
           project_id: crypto.randomUUID(),
           account_id: crypto.randomUUID(),
-          account_name: 'Acme',
           date_from: '2026-01-01',
           date_to: '2026-12-31',
           planned_pct: '100',

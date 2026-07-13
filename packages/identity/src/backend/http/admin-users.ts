@@ -20,8 +20,6 @@ import {
   revokeUserSession,
   updateUserProfile,
 } from '../../index.ts';
-import { listDirectory } from '../domain/list-directory.ts';
-import { provisionAccount } from '../domain/provision-account.ts';
 
 const scopeRefine = (v: { scope_kind: string; scope_id?: string | null }) =>
   v.scope_kind !== 'org_unit' || Boolean(v.scope_id);
@@ -53,7 +51,8 @@ const adminProfilePatchSchema = z.object({
 // Admin gate for user *management* (grant roles, deactivate, reset passwords, etc.).
 // Do NOT reuse this endpoint's `/users` list for assignee/mention pickers — that needs a
 // read permission every member has, not an admin role. Use `/api/identity/v1/directory`
-// instead (see directory.ts / FUT-54).
+// instead (see directory.ts / FUT-54). The admin *People Directory* screen (roles/groups/
+// employment status) is served by People's `/api/people/v1/directory` (FUT-000).
 function requireAdmin(c: Context<SessionEnv>): void {
   const scope = c.get('user');
   const isAdmin =
@@ -63,26 +62,6 @@ function requireAdmin(c: Context<SessionEnv>): void {
 }
 
 export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
-  app.get('/api/identity/v1/directory', async (c) => {
-    const session = c.get('user');
-    const page = Number(c.req.query('page') ?? '0');
-    const pageSizeRaw = c.req.query('pageSize');
-    const pageSize = pageSizeRaw ? Number(pageSizeRaw) : undefined;
-    const status = c.req.query('status') as 'none' | 'active' | 'suspended' | undefined;
-    const employment = c.req.query('employment') as 'active' | 'terminated' | undefined;
-    const group_id = c.req.query('group_id') || undefined;
-    return c.json(
-      await listDirectory(session, {
-        search: c.req.query('search'),
-        status,
-        employment,
-        group_id,
-        page,
-        pageSize,
-      }),
-    );
-  });
-
   app.get('/api/identity/v1/users', async (c) => {
     requireAdmin(c);
     const scope = c.get('user');
@@ -208,11 +187,6 @@ export function registerAdminUsersRoutes(app: Hono<SessionEnv>): void {
     const scope = c.get('user');
     await reactivateUser(c.req.param('id'), { type: 'user', user_id: scope.user_id });
     return c.json({ ok: true });
-  });
-
-  app.post('/api/identity/v1/directory/:personId/provision', async (c) => {
-    const scope = c.get('user');
-    return c.json(await provisionAccount(scope, { person_id: c.req.param('personId') }));
   });
 
   app.get('/api/identity/v1/users/:id/sessions', async (c) => {

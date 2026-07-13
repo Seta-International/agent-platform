@@ -8,6 +8,7 @@ export const ACTIVITY_SUBJECT_PATHS: Record<EventType, string | null> = {
   'identity.user.created': "payload->'after'->>'user_id'",
   'identity.user.profile.updated': "payload->>'user_id'",
   'identity.user.deactivated': "payload->>'user_id'",
+  'identity.user.reactivated': "payload->>'user_id'",
   'identity.role_grant.changed': "payload->>'user_id'",
   'identity.role_permissions.changed': null,
   'identity.sso_provider.registered': null,

@@ -1,18 +1,24 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { SetProjectAccessInput } from '../../contracts.ts';
 import { PM_PROJECT_ACCESS_CHANGED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { project, projectAccess } from '../db/schema.ts';
+import { LIVE_PROJECT_STATUSES, project, projectAccess } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 async function assertProject(project_id: string, session: SessionScope) {
   const [p] = await pmDb()
     .select({ id: project.id })
     .from(project)
-    .where(and(eq(project.id, project_id), tenantScoped(project.tenant_id, session)))
+    .where(
+      and(
+        eq(project.id, project_id),
+        tenantScoped(project.tenant_id, session),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .limit(1);
   if (!p) throw new PmError('NOT_FOUND', 'project not found');
 }
@@ -21,7 +27,7 @@ export async function listProjectAccess(input: { project_id: string; session: Se
   const { project_id, session } = input;
   requirePermission(session, 'pm.project.read');
   return pmDb()
-    .select({ worker_id: projectAccess.worker_id, level: projectAccess.level })
+    .select({ worker_id: projectAccess.person_id, level: projectAccess.level })
     .from(projectAccess)
     .where(
       and(eq(projectAccess.project_id, project_id), tenantScoped(projectAccess.tenant_id, session)),
@@ -44,7 +50,7 @@ export async function setProjectAccess(
   }
 
   const existing = await pmDb()
-    .select({ worker_id: projectAccess.worker_id, level: projectAccess.level })
+    .select({ worker_id: projectAccess.person_id, level: projectAccess.level })
     .from(projectAccess)
     .where(
       and(eq(projectAccess.project_id, project_id), tenantScoped(projectAccess.tenant_id, session)),
@@ -67,11 +73,11 @@ export async function setProjectAccess(
           .values({
             tenant_id: session.tenant_id,
             project_id,
-            worker_id: g.worker_id,
+            person_id: g.worker_id,
             level: g.level,
           })
           .onConflictDoUpdate({
-            target: [projectAccess.tenant_id, projectAccess.project_id, projectAccess.worker_id],
+            target: [projectAccess.tenant_id, projectAccess.project_id, projectAccess.person_id],
             set: { level: g.level, updated_at: new Date() },
           });
         if (prior === undefined) added += 1;
@@ -84,7 +90,7 @@ export async function setProjectAccess(
           .where(
             and(
               eq(projectAccess.project_id, project_id),
-              eq(projectAccess.worker_id, e.worker_id),
+              eq(projectAccess.person_id, e.worker_id),
               eq(projectAccess.tenant_id, session.tenant_id),
             ),
           );

@@ -3,7 +3,7 @@ import { withEmit } from '@seta/core/events';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { CreateWorkerInput } from '../../contracts.ts';
 import { peopleDb } from '../db/client.ts';
-import { worker } from '../db/schema.ts';
+import { person } from '../db/schema.ts';
 import { PeopleError, requirePermission } from '../rbac.ts';
 import { insertWorkerAggregate } from './insert-worker-aggregate.ts';
 import { generateWorkEmail } from './work-email.ts';
@@ -18,13 +18,13 @@ export async function createWorker(
   const domains = await getTenantEmailDomains(session.tenant_id);
   const isTaken = async (email: string): Promise<boolean> => {
     const [row] = await peopleDb()
-      .select({ id: worker.id })
-      .from(worker)
+      .select({ id: person.id })
+      .from(person)
       .where(
         and(
-          eq(worker.tenant_id, session.tenant_id),
-          eq(worker.work_email, email),
-          isNull(worker.deleted_at),
+          eq(person.tenant_id, session.tenant_id),
+          eq(person.work_email, email),
+          isNull(person.deleted_at),
         ),
       )
       .limit(1);
@@ -77,7 +77,7 @@ export async function createWorker(
       'code' in err &&
       (err as NodeJS.ErrnoException).code === '23505' &&
       'constraint' in err &&
-      (err as unknown as Record<string, unknown>).constraint === 'worker_uniq_email_per_tenant'
+      (err as unknown as Record<string, unknown>).constraint === 'person_uniq_email_per_tenant'
     ) {
       throw new PeopleError('CONFLICT', 'work_email already in use');
     }

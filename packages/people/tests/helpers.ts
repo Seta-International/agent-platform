@@ -9,7 +9,7 @@ import {
 } from '@seta/shared-rbac';
 import type { Pool } from 'pg';
 import { peopleDb } from '../src/backend/db/client.ts';
-import { type ORG_UNIT_KINDS, orgUnit, person } from '../src/backend/db/schema.ts';
+import { type ORG_UNIT_KINDS, orgUnit, person, userProjection } from '../src/backend/db/schema.ts';
 
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 function permsFor(roles: string[]): ReadonlySet<string> {
@@ -70,6 +70,7 @@ export function buildSession(opts: {
   display_name?: string;
   roles?: string[];
   assignments?: SessionAssignmentInput[];
+  person_id?: string | null;
 }): SessionScope {
   const roles = opts.roles ?? [];
   // Default: each role carries a self-scoped assignment, matching pre-scope-kit behavior
@@ -98,7 +99,7 @@ export function buildSession(opts: {
     assignments,
     group_ids: [],
     product_access: new Set<string>(),
-    worker_id: null,
+    person_id: opts.person_id ?? null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
@@ -106,14 +107,23 @@ export function buildSession(opts: {
 }
 
 /**
- * Insert the parent `person` rows for the given person_ids. worker.person_id FKs person.id,
- * so any fixture that inserts a `worker` directly (rather than via createWorker) must seed the
- * person first. Tests key workers on person_id (the domain's canonical handle), so id === person_id.
+ * Insert bare `person` rows (id + tenant only) for the given person_ids. Biographical display
+ * fields now live on `person` directly, so a fixture needing a name/email seeds them on the
+ * person row. Tests key workers on person_id (the domain's canonical handle), so id === person_id.
  */
 export async function seedPersons(tenant_id: string, ...person_ids: string[]): Promise<void> {
   await peopleDb()
     .insert(person)
     .values(person_ids.map((id) => ({ id, tenant_id })));
+}
+
+/** Fixture-only: bind a person to a user_id via user_projection (the canonical link). */
+export async function linkUserToPerson(
+  tenant_id: string,
+  person_id: string,
+  user_id: string,
+): Promise<void> {
+  await peopleDb().insert(userProjection).values({ tenant_id, person_id, user_id });
 }
 
 export async function seedOrgUnit(opts: {

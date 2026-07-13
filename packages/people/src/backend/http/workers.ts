@@ -8,7 +8,9 @@ import {
   editWorker,
   getWorker,
   getWorkerHistory,
+  listDirectory,
   listWorkers,
+  provisionAccount,
   reinstateWorker,
   removePersonSkill,
   setPersonSkillLevel,
@@ -127,4 +129,26 @@ export function registerPeopleWorkersRoutes(app: Hono<SessionEnv>): void {
   app.post('/api/people/v1/workers/:id/reinstate', async (c) =>
     c.json(await reinstateWorker({ worker_id: c.req.param('id'), session: c.get('user') })),
   );
+  app.post('/api/people/v1/directory/:personId/provision', async (c) =>
+    c.json(await provisionAccount(c.get('user'), { person_id: c.req.param('personId') })),
+  );
+  app.get('/api/people/v1/directory', async (c) => {
+    const session = c.get('user');
+    const page = Number(c.req.query('page') ?? '0');
+    const pageSizeRaw = c.req.query('pageSize');
+    const pageSize = pageSizeRaw ? Number(pageSizeRaw) : undefined;
+    const status = c.req.query('status') as 'none' | 'active' | 'suspended' | undefined;
+    const employment = c.req.query('employment') as 'active' | 'terminated' | undefined;
+    const group_id = c.req.query('group_id') || undefined;
+    return c.json(
+      await listDirectory(session, {
+        search: c.req.query('search'),
+        status,
+        employment,
+        group_id,
+        page,
+        pageSize,
+      }),
+    );
+  });
 }

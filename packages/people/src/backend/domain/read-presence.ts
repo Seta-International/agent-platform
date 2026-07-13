@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { and, eq } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { person, worker } from '../db/schema.ts';
+import { person, userProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 
 export interface PresenceResult {
@@ -31,15 +31,15 @@ export async function fetchPresenceByUserId(
 ): Promise<PresenceResult> {
   const [row] = await peopleDb()
     .select({
-      availability_status: worker.availability_status,
-      ooo_until: worker.ooo_until,
-      work_start: worker.work_start,
-      work_end: worker.work_end,
-      timezone: worker.timezone,
+      availability_status: person.availability_status,
+      ooo_until: person.ooo_until,
+      work_start: person.work_start,
+      work_end: person.work_end,
+      timezone: person.timezone,
     })
-    .from(worker)
-    .innerJoin(person, eq(person.id, worker.person_id))
-    .where(and(eq(worker.tenant_id, tenantId), eq(person.user_id, userId)))
+    .from(person)
+    .innerJoin(userProjection, eq(userProjection.person_id, person.id))
+    .where(and(eq(person.tenant_id, tenantId), eq(userProjection.user_id, userId)))
     .limit(1);
 
   if (!row) return PRESENCE_DEFAULTS;

@@ -7,12 +7,12 @@ import { and, eq } from 'drizzle-orm';
 import type { SubmitCharterInput } from '../../contracts.ts';
 import { PM_CHARTER_SUBMITTED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { account, charter } from '../db/schema.ts';
+import { account, project, projectApproval } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 export async function submitCharter(
   input: SubmitCharterInput & { session: SessionScope },
-): Promise<{ charter_id: string }> {
+): Promise<{ project_id: string }> {
   const { session } = input;
   requirePermission(session, 'pm.charter.submit');
 
@@ -24,32 +24,38 @@ export async function submitCharter(
     .limit(1);
   if (!acc) throw new PmError('NOT_FOUND', 'account not found');
 
-  let result!: { charter_id: string };
+  let result!: { project_id: string };
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
       const [row] = await tx
-        .insert(charter)
+        .insert(project)
         .values({
           tenant_id: session.tenant_id,
           account_id: input.account_id,
           name: input.name,
-          pm_worker_id: input.pm_worker_id,
-          pmo_worker_id: input.pmo_worker_id,
-          submitted_by_user_id: session.user_id,
+          objective: input.objective,
+          scope: input.scope,
           budget_bmm: input.budget_bmm?.toString(),
+          pm_person_id: input.pm_worker_id,
+          pmo_person_id: input.pmo_worker_id,
           team_size: input.team_size,
           methodology: input.methodology,
           pricing_model: input.pricing_model,
           date_from: input.date_from,
           date_to: input.date_to,
-          objective: input.objective,
-          scope: input.scope,
           status: 'submitted',
+          phase: 'initiation',
         })
-        .returning();
-      if (!row) throw new Error('charter insert returned no row');
-      result = { charter_id: row.id };
+        .returning({ id: project.id });
+      if (!row) throw new Error('project insert returned no row');
+      result = { project_id: row.id };
+
+      await tx.insert(projectApproval).values({
+        project_id: row.id,
+        tenant_id: session.tenant_id,
+        submitted_by_user_id: session.user_id,
+      });
 
       const { eventId } = await emit({
         tenantId: session.tenant_id,

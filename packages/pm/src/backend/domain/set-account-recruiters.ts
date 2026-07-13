@@ -22,7 +22,7 @@ export async function setAccountRecruiters(
   if (!a) throw new PmError('NOT_FOUND', 'account not found');
 
   const existing = await pmDb()
-    .select({ id: accountRecruiter.recruiter_worker_id })
+    .select({ id: accountRecruiter.recruiter_person_id })
     .from(accountRecruiter)
     .where(
       and(
@@ -45,7 +45,7 @@ export async function setAccountRecruiters(
         // onConflictDoNothing: concurrent set-edits must not crash on the unique index; events track actual effect.
         const inserted = await tx
           .insert(accountRecruiter)
-          .values({ tenant_id: session.tenant_id, account_id, recruiter_worker_id: rid })
+          .values({ tenant_id: session.tenant_id, account_id, recruiter_person_id: rid })
           .onConflictDoNothing()
           .returning({ id: accountRecruiter.id });
         if (inserted.length > 0) {
@@ -66,7 +66,7 @@ export async function setAccountRecruiters(
           .where(
             and(
               eq(accountRecruiter.account_id, account_id),
-              eq(accountRecruiter.recruiter_worker_id, rid),
+              eq(accountRecruiter.recruiter_person_id, rid),
               eq(accountRecruiter.tenant_id, session.tenant_id),
             ),
           )

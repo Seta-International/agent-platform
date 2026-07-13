@@ -193,14 +193,14 @@ export async function fetchCharter(id: string): Promise<CharterDetail> {
   return handleResponse<CharterDetail>(res);
 }
 
-export async function submitCharter(input: SubmitCharterBody): Promise<{ charter_id: string }> {
+export async function submitCharter(input: SubmitCharterBody): Promise<{ project_id: string }> {
   const res = await fetch('/api/pm/v1/charters', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
-  return handleResponse<{ charter_id: string }>(res);
+  return handleResponse<{ project_id: string }>(res);
 }
 
 export async function pmoSignOffCharter(

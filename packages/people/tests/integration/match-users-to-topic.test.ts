@@ -12,13 +12,14 @@ import { closePools, initPools } from '@seta/shared-db';
 import { FakeEmbeddingProvider, withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { person, personSkill, worker } from '../../src/backend/db/schema.ts';
+import { person, personSkill } from '../../src/backend/db/schema.ts';
 import { matchUsersToTopic } from '../../src/backend/domain/match-users-to-topic.ts';
 import { embedPersonProfile } from '../../src/backend/embeddings/embed-profile.ts';
 import {
   PEOPLE_VECTOR_NAMESPACE,
   resetPeopleVectorStore,
 } from '../../src/backend/embeddings/vector-store.ts';
+import { linkUserToPerson } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -79,15 +80,14 @@ async function seedWorkerAndEmbed(
   const user_id = opts.user_id === undefined ? crypto.randomUUID() : opts.user_id;
   const [p] = await peopleDb()
     .insert(person)
-    .values({ tenant_id: opts.tenant_id, user_id })
+    .values({
+      tenant_id: opts.tenant_id,
+      full_name: opts.full_name,
+      work_email: opts.work_email,
+    })
     .returning();
   const person_id = p!.id;
-  await peopleDb().insert(worker).values({
-    tenant_id: opts.tenant_id,
-    person_id,
-    full_name: opts.full_name,
-    work_email: opts.work_email,
-  });
+  if (user_id !== null) await linkUserToPerson(opts.tenant_id, person_id, user_id);
   for (const skill of opts.skills) {
     await peopleDb().insert(personSkill).values({
       tenant_id: opts.tenant_id,

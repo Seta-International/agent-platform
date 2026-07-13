@@ -17,11 +17,11 @@ describe('people schema migration', () => {
         'employment_period',
         'org_unit',
         'person',
+        'person_history',
         'person_skill',
         'project_projection',
-        'worker',
+        'user_projection',
         'worker_allocation_projection',
-        'worker_history',
       ]);
     });
   });

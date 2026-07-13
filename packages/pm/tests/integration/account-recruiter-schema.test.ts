@@ -24,7 +24,7 @@ describe('pm.account_recruiter schema', () => {
           t.tenant_id,
         ]);
         const recruiterId = crypto.randomUUID();
-        const ins = `INSERT INTO pm.account_recruiter (tenant_id, account_id, recruiter_worker_id) VALUES ($1,$2,$3)`;
+        const ins = `INSERT INTO pm.account_recruiter (tenant_id, account_id, recruiter_person_id) VALUES ($1,$2,$3)`;
         await pool.query(ins, [t.tenant_id, accountId, recruiterId]);
         await expect(pool.query(ins, [t.tenant_id, accountId, recruiterId])).rejects.toThrow();
       } finally {

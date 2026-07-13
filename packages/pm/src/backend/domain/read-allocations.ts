@@ -1,8 +1,14 @@
 import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, ilike, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
-import { account, allocation, project, workerProjection } from '../db/schema.ts';
+import {
+  account,
+  allocation,
+  LIVE_PROJECT_STATUSES,
+  personProjection,
+  project,
+} from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { buildAllocationJoinScope, buildProjectManageFlag, buildProjectScope } from './scope.ts';
 
@@ -28,6 +34,7 @@ export async function listProjectAllocations(input: {
     eq(project.id, project_id),
     tenantScoped(project.tenant_id, session),
     isNull(project.deleted_at),
+    inArray(project.status, LIVE_PROJECT_STATUSES),
   ];
   const projectScope = buildProjectScope(session);
   if (projectScope) visibilityConds.push(projectScope);
@@ -41,7 +48,7 @@ export async function listProjectAllocations(input: {
   const rows = await pmDb()
     .select({
       allocation_id: allocation.id,
-      worker_id: allocation.worker_id,
+      worker_id: allocation.person_id,
       role: allocation.role,
       planned_pct: allocation.planned_pct,
       bucket: allocation.bucket,
@@ -99,10 +106,14 @@ export async function listAllocations(input: {
   const { session } = input;
   requirePermission(session, 'pm.project.read');
 
-  const conds = [tenantScoped(allocation.tenant_id, session), isNull(allocation.deleted_at)];
+  const conds = [
+    tenantScoped(allocation.tenant_id, session),
+    isNull(allocation.deleted_at),
+    inArray(project.status, LIVE_PROJECT_STATUSES),
+  ];
   if (input.project_id) conds.push(eq(allocation.project_id, input.project_id));
   if (input.account_id) conds.push(eq(project.account_id, input.account_id));
-  if (input.worker_id) conds.push(eq(allocation.worker_id, input.worker_id));
+  if (input.worker_id) conds.push(eq(allocation.person_id, input.worker_id));
   const joinScope = buildAllocationJoinScope(session);
   if (joinScope) conds.push(joinScope);
   if (input.active_from) {
@@ -118,7 +129,7 @@ export async function listAllocations(input: {
   if (input.q) {
     const like = `%${input.q}%`;
     const searchCond = or(
-      ilike(workerProjection.full_name, like),
+      ilike(personProjection.full_name, like),
       ilike(project.name, like),
       ilike(account.name, like),
       ilike(allocation.note, like),
@@ -130,9 +141,9 @@ export async function listAllocations(input: {
   const rows = await pmDb()
     .select({
       allocation_id: allocation.id,
-      worker_id: allocation.worker_id,
-      worker_name: workerProjection.full_name,
-      worker_title: workerProjection.job_title,
+      worker_id: allocation.person_id,
+      worker_name: personProjection.full_name,
+      worker_title: personProjection.job_title,
       role: allocation.role,
       planned_pct: allocation.planned_pct,
       bucket: allocation.bucket,
@@ -151,14 +162,14 @@ export async function listAllocations(input: {
     .innerJoin(project, eq(project.id, allocation.project_id))
     .innerJoin(account, eq(account.id, project.account_id))
     .leftJoin(
-      workerProjection,
+      personProjection,
       and(
-        eq(workerProjection.worker_id, allocation.worker_id),
-        eq(workerProjection.tenant_id, allocation.tenant_id),
+        eq(personProjection.person_id, allocation.person_id),
+        eq(personProjection.tenant_id, allocation.tenant_id),
       ),
     )
     .where(and(...conds))
-    .orderBy(account.name, project.name, workerProjection.full_name);
+    .orderBy(account.name, project.name, personProjection.full_name);
 
   return rows.map((r) => ({
     allocation_id: r.allocation_id,

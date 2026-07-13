@@ -1,0 +1,1 @@
+ALTER TABLE "people"."account_projection" DROP COLUMN "am_worker_id";

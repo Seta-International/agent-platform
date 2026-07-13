@@ -25,7 +25,7 @@ async function seedProject(
   bounds?: { date_from?: string; date_to?: string },
 ): Promise<string> {
   const { account_id } = await createAccount({ name: `A-${name}`, session });
-  const { charter_id } = await submitCharter({
+  const { project_id: charterId } = await submitCharter({
     account_id,
     name,
     pm_worker_id: session.user_id,
@@ -36,7 +36,7 @@ async function seedProject(
     date_to: bounds?.date_to,
     session,
   });
-  const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
+  const { project_id } = await approveCharterTwoStage(charterId, session.tenant_id);
   return project_id;
 }
 
@@ -94,7 +94,7 @@ describe('reassignWorkerAllocations', () => {
         expect(result.target_ids).toHaveLength(1);
         expect(result.warnings).toEqual([]);
 
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
         expect(rows).toHaveLength(3);
         const w1 = rows.find((r) => r.id === a1.allocation_id);
         const w2 = rows.find((r) => r.id === a2.allocation_id);
@@ -280,7 +280,7 @@ describe('reassignWorkerAllocations', () => {
         expect(result.updated).toEqual([]);
         expect(result.target_ids).toHaveLength(1);
 
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
         expect(rows).toHaveLength(2);
         const keptRow = rows.find((r) => r.id === kept.allocation_id);
         expect(keptRow?.date_to).toBe('2026-12-31'); // untouched, still version 1

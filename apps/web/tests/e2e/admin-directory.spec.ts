@@ -3,17 +3,11 @@ import { expect, request, test } from '@playwright/test';
 // Runs as org.admin (wildcard) from global-setup storage state.
 // Admin holds identity.user.list + identity.user.update (role identity.admin).
 //
-// Pre-conditions (feature branch CI only):
-//   The feature branch server registers identity.directory-projection.ts, which
-//   listens for people.worker.created events and populates identity.person_projection.
-//   beforeAll creates 4 fresh workers via the people API, then polls the admin
-//   directory until they appear (event propagation via graphile-worker, ~1–3s).
-//
-//   In local dev against the main-branch server this test cannot pass because:
-//     • /api/people/v1/workers returns 500 (main branch expects a portal_access
-//       column not yet in the DB)
-//     • identity.person_projection is empty (subscriber not registered in main)
-//   See task-A2.6-report.md for details.
+// The admin directory (GET/POST /api/people/v1/directory*) is served by people,
+// reading person + worker directly (joined with people.user_projection for
+// account status); there is no identity-side projection anymore.
+// beforeAll creates 4 fresh workers via the people API, then polls the directory
+// until they appear (retry loop kept for CI resilience, not for event lag).
 
 test.describe('admin directory', () => {
   test.describe.configure({ mode: 'serial' });
@@ -40,8 +34,6 @@ test.describe('admin directory', () => {
     });
 
     // 1. Create 4 fresh workers (unique by STAMP → no state collision across runs).
-    //    The feature-branch people API emits people.worker.created events which the
-    //    identity directory-projection subscriber uses to populate identity.person_projection.
     const fixtures = [
       { name: `E2E Provision ${STAMP}`, email: `e2e-prov-${STAMP}@sandbox.test` },
       { name: `E2E Suspend ${STAMP}`, email: `e2e-susp-${STAMP}@sandbox.test` },
@@ -63,7 +55,7 @@ test.describe('admin directory', () => {
     const deadline = Date.now() + 30_000;
     while (Date.now() < deadline) {
       const res = await ctx.get(
-        `/api/identity/v1/directory?search=${encodeURIComponent(String(STAMP))}`,
+        `/api/people/v1/directory?search=${encodeURIComponent(String(STAMP))}`,
       );
       if (res.ok()) {
         const body = (await res.json()) as { rows: DirectoryRow[] };
@@ -96,7 +88,7 @@ test.describe('admin directory', () => {
 
     // 4. Pre-provision suspend + bulk targets so they arrive in `active` state.
     for (const target of [suspendTarget, bulk1Target, bulk2Target]) {
-      const res = await ctx.post(`/api/identity/v1/directory/${target.person_id}/provision`);
+      const res = await ctx.post(`/api/people/v1/directory/${target.person_id}/provision`);
       // 409 = already provisioned from a prior run — treat as success.
       if (!res.ok() && res.status() !== 409) {
         throw new Error(`provision "${target.full_name}": ${res.status()} ${await res.text()}`);

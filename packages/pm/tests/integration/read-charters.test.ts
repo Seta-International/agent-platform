@@ -30,7 +30,7 @@ describe('read charters', () => {
           `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
           [t.tenant_id],
         );
-        const { charter_id } = await submitCharter({
+        const { project_id } = await submitCharter({
           account_id: acc.rows[0].id,
           name: 'C1',
           pm_worker_id: crypto.randomUUID(),
@@ -38,8 +38,8 @@ describe('read charters', () => {
         });
         const list = await listCharters(t.adminSession);
         expect(list.total).toBe(1);
-        expect(list.charters.map((c) => c.charter_id)).toContain(charter_id);
-        const detail = await getCharter({ charter_id, session: t.adminSession });
+        expect(list.charters.map((c) => c.charter_id)).toContain(project_id);
+        const detail = await getCharter({ charter_id: project_id, session: t.adminSession });
         expect(detail.name).toBe('C1');
         expect(detail.status).toBe('submitted');
       } finally {
@@ -78,7 +78,7 @@ describe('read charters', () => {
           `INSERT INTO pm.account (tenant_id, name) VALUES ($1,'A') RETURNING id`,
           [t.tenant_id],
         );
-        const { charter_id } = await submitCharter({
+        const { project_id } = await submitCharter({
           account_id: acc.rows[0].id,
           name: 'P',
           pm_worker_id: t.adminSession.user_id,
@@ -87,8 +87,8 @@ describe('read charters', () => {
           budget_bmm: 10,
           session: t.adminSession,
         });
-        await pmoSignOffCharter({ charter_id, session: pmo });
-        const detail = await getCharter({ charter_id, session: t.adminSession });
+        await pmoSignOffCharter({ charter_id: project_id, session: pmo });
+        const detail = await getCharter({ charter_id: project_id, session: t.adminSession });
         expect(detail.status).toBe('pmo_approved');
         expect(detail.rejected_stage).toBeNull();
         expect(detail.pmo_signed_off_at).not.toBeNull();
@@ -127,7 +127,7 @@ describe('read charters', () => {
         await mk(a1.rows[0].id, 'Beta Portal');
         await mk(a2.rows[0].id, 'Gamma Engine');
         // Move Alpha to pmo_approved so we can filter by status.
-        await pmoSignOffCharter({ charter_id: alpha.charter_id, session: pmo });
+        await pmoSignOffCharter({ charter_id: alpha.project_id, session: pmo });
 
         // status filter
         const pmoApproved = await listCharters(t.adminSession, { status: 'pmo_approved' });
@@ -186,13 +186,19 @@ describe('read charters', () => {
           });
         const c1 = await mk('S1');
         await mk('S2');
-        await approveCharterTwoStage(c1.charter_id, t.tenant_id);
+        await approveCharterTwoStage(c1.project_id, t.tenant_id);
 
         const summary = await getCharterSummary(t.adminSession);
         expect(summary.total).toBe(2);
         expect(summary.submitted).toBe(1);
         expect(summary.approved).toBe(1);
         expect(summary.pmo_approved).toBe(0);
+
+        // The now-active project surfaces under the charter vocabulary as 'approved'.
+        const approvedList = await listCharters(t.adminSession, { status: 'approved' });
+        expect(approvedList.total).toBe(1);
+        expect(approvedList.charters[0]!.charter_id).toBe(c1.project_id);
+        expect(approvedList.charters[0]!.status).toBe('approved');
       } finally {
         resetPmDb();
         resetCoreDb();

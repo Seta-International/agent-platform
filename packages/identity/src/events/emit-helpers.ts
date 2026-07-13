@@ -6,6 +6,7 @@ import type {
   IdentityUserDeactivated,
   IdentityUserEmailChanged,
   IdentityUserProfileUpdated,
+  IdentityUserReactivated,
   IdentityUserSsoRevoked,
 } from './types.ts';
 
@@ -64,6 +65,25 @@ export async function emitIdentityUserDeactivated(args: {
       user_id: args.user_id,
       tenant_id: args.tenant_id,
       deactivated_at: args.deactivated_at.toISOString(),
+    },
+  });
+}
+
+export async function emitIdentityUserReactivated(args: {
+  actor: IdentityUserReactivated['payload']['actor'];
+  user_id: string;
+  tenant_id: string;
+}): Promise<void> {
+  await emit({
+    tenantId: args.tenant_id,
+    aggregateType: 'identity.user',
+    aggregateId: args.user_id,
+    eventType: 'identity.user.reactivated',
+    eventVersion: 1,
+    payload: {
+      actor: args.actor,
+      user_id: args.user_id,
+      tenant_id: args.tenant_id,
     },
   });
 }

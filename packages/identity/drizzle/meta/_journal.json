@@ -15,6 +15,20 @@
       "when": 1783055905123,
       "tag": "0002_entra_tenant_id",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783691247857,
+      "tag": "0003_clammy_yellowjacket",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783704836804,
+      "tag": "0005_acoustic_magma",
+      "breakpoints": true
     }
   ]
 }

@@ -10,7 +10,7 @@ import {
   HIRING_APPLICATION_TRANSFERRED,
 } from '../../events.ts';
 import { hiringDb } from '../db/client.ts';
-import { application, rejectionReason, requisition } from '../db/schema.ts';
+import { application, reason, requisition } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
 import { recordCandidateEvent } from './candidates.ts';
 
@@ -105,17 +105,18 @@ export async function rejectApplication(input: {
       'CONFLICT',
       `cannot reject a ${cur.status} application — only active applications may be rejected`,
     );
-  const [reason] = await hiringDb()
-    .select({ category: rejectionReason.category })
-    .from(rejectionReason)
+  const [reasonRow] = await hiringDb()
+    .select({ category: reason.category })
+    .from(reason)
     .where(
       and(
-        eq(rejectionReason.id, input.input.reason_id),
-        tenantScoped(rejectionReason.tenant_id, session),
+        eq(reason.id, input.input.reason_id),
+        eq(reason.kind, 'rejection'),
+        tenantScoped(reason.tenant_id, session),
       ),
     )
     .limit(1);
-  if (!reason) throw new HiringError('VALIDATION', 'unknown rejection reason');
+  if (!reasonRow) throw new HiringError('VALIDATION', 'unknown rejection reason');
   const next = cur.version + 1;
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
@@ -147,7 +148,7 @@ export async function rejectApplication(input: {
           candidate_id: cur.candidate_id,
           application_id,
           kind: 'rejected',
-          summary: `Rejected — ${reason.category}`,
+          summary: `Rejected — ${reasonRow.category}`,
           detail: { reason_id: input.input.reason_id, tags: input.input.tags },
         });
       }
@@ -161,7 +162,7 @@ export async function rejectApplication(input: {
           application_id,
           tenant_id: session.tenant_id,
           reason_id: input.input.reason_id,
-          category: reason.category as 'rejected_by_us' | 'withdrew' | 'other',
+          category: reasonRow.category as 'rejected_by_us' | 'withdrew' | 'other',
         },
       });
     },

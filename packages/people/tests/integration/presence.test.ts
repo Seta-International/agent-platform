@@ -1,14 +1,12 @@
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleGetAvailabilitySpec } from '../../src/backend/agent-tools/get-availability-for-user.ts';
 import { peopleGetTimezoneSpec } from '../../src/backend/agent-tools/get-timezone-for-user.ts';
-import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { person } from '../../src/backend/db/schema.ts';
+import { resetPeopleDb } from '../../src/backend/db/client.ts';
 import { provisionWorker, readPresence, setPresence } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { linkUserToPerson, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -32,10 +30,7 @@ describe('setPresence / readPresence / agent-tools', () => {
         });
 
         // Link person to the admin user so setPresence (self-service) can find the worker
-        await peopleDb()
-          .update(person)
-          .set({ user_id: t.admin_user_id })
-          .where(eq(person.id, worker_id));
+        await linkUserToPerson(t.tenant_id, worker_id, t.admin_user_id);
 
         const ooo = new Date(Date.now() + 86_400_000);
 
@@ -75,10 +70,7 @@ describe('setPresence / readPresence / agent-tools', () => {
           session: t.adminSession,
         });
 
-        await peopleDb()
-          .update(person)
-          .set({ user_id: t.admin_user_id })
-          .where(eq(person.id, worker_id));
+        await linkUserToPerson(t.tenant_id, worker_id, t.admin_user_id);
 
         await setPresence(t.adminSession, {
           availability_status: 'busy',
@@ -121,10 +113,7 @@ describe('setPresence / readPresence / agent-tools', () => {
           session: t.adminSession,
         });
 
-        await peopleDb()
-          .update(person)
-          .set({ user_id: t.admin_user_id })
-          .where(eq(person.id, worker_id));
+        await linkUserToPerson(t.tenant_id, worker_id, t.admin_user_id);
 
         await setPresence(t.adminSession, { timezone: 'America/New_York' });
 

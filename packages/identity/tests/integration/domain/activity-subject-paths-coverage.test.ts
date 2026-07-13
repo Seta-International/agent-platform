@@ -9,6 +9,7 @@ const ALL_TYPES: ReadonlyArray<Identity> = [
   'identity.user.created',
   'identity.user.profile.updated',
   'identity.user.deactivated',
+  'identity.user.reactivated',
   'identity.role_grant.changed',
   'identity.role_permissions.changed',
   'identity.sso_provider.registered',

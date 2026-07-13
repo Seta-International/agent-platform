@@ -6,9 +6,10 @@ import {
   inventoryToManifests,
   resolvePermissions,
 } from '@seta/shared-rbac';
+import { eq } from 'drizzle-orm';
 import type { Pool } from 'pg';
 import { identityDb } from '../../src/backend/db/index.ts';
-import { personProjection, roleAssignments } from '../../src/backend/db/schema.ts';
+import { roleAssignments, user } from '../../src/backend/db/schema.ts';
 import { createUser } from '../../src/backend/domain/create-user.ts';
 import { deactivateUser } from '../../src/backend/domain/deactivate-user.ts';
 
@@ -20,15 +21,10 @@ export interface SeededDirectoryAccount {
   tenant_id: string;
 }
 
-export interface SeededDirectoryPerson {
-  person_id: string;
-  tenant_id: string;
-}
-
 /**
- * Seed a person_projection row paired with a matching user account.
- * Creates a fresh tenant unless `tenant_id` is supplied.
- * Used by A1.5, A1.6, A1.7 integration tests.
+ * Seed a synthetic person_id (people owns the real person/worker rows; identity only cares
+ * about the correlation id) paired with a matching user account. Creates a fresh tenant
+ * unless `tenant_id` is supplied.
  */
 export async function seedDirectoryAccount(
   pool: Pool,
@@ -53,13 +49,6 @@ export async function seedDirectoryAccount(
 
   const displayName = opts.name ?? 'Test Person';
   const person_id = crypto.randomUUID();
-  await identityDb().insert(personProjection).values({
-    person_id,
-    tenant_id,
-    full_name: displayName,
-    work_email: opts.email,
-    employment_status: 'active',
-  });
 
   const initial_role = opts.admin
     ? ({ role_slug: 'org.admin', scope_type: 'tenant' as const, scope_id: null } as const)
@@ -75,6 +64,10 @@ export async function seedDirectoryAccount(
     },
     { type: 'cli', user_id: null },
   );
+
+  // Mirrors the link-person subscriber (Task 4), which stamps person_id onto
+  // the user once a person and account are linked in production.
+  await identityDb().update(user).set({ person_id }).where(eq(user.id, user_id));
 
   if (opts.roles && opts.roles.length > 0) {
     for (const role_slug of opts.roles) {
@@ -114,43 +107,6 @@ export async function seedDirectoryAccount(
 }
 
 /**
- * Seed a person_projection row with NO linked user account.
- * Used by A1.6 and A1.7 tests that need a person whose account
- * will be provisioned or suspended as part of the test action.
- */
-export async function seedDirectoryPersonOnly(
-  pool: Pool,
-  opts: {
-    email?: string;
-    tenant_id?: string;
-    name?: string;
-  } = {},
-): Promise<SeededDirectoryPerson> {
-  const tenant_id = opts.tenant_id ?? crypto.randomUUID();
-  if (!opts.tenant_id) {
-    const tag = tenant_id.slice(0, 8);
-    await pool.query(`INSERT INTO core.tenants (id, name, slug) VALUES ($1, $2, $3)`, [
-      tenant_id,
-      `Seed Tenant ${tag}`,
-      `seed-${tag}`,
-    ]);
-  }
-
-  const person_id = crypto.randomUUID();
-  await identityDb()
-    .insert(personProjection)
-    .values({
-      person_id,
-      tenant_id,
-      full_name: opts.name ?? 'Test Person',
-      work_email: opts.email ?? null,
-      employment_status: 'active',
-    });
-
-  return { person_id, tenant_id };
-}
-
-/**
  * Create a synthetic SessionScope for unit/integration tests.
  * Computes the permissions set from the RBAC registry given a role list,
  * OR accepts a raw permission list via `perms` to bypass role lookup.
@@ -184,7 +140,7 @@ export function testSession(opts: {
     assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
-    worker_id: null,
+    person_id: null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

@@ -1,12 +1,14 @@
 import type { SessionScope } from '@seta/core';
+import { listAccountManagers } from '@seta/pm';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
 import {
   accountProjection,
+  employmentPeriod,
   orgUnit,
+  person,
   projectProjection,
-  worker,
   workerAllocationProjection,
 } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
@@ -32,13 +34,17 @@ export async function getOrgStructure(session: SessionScope): Promise<{ units: O
 
   const rows = await peopleDb()
     .select({
-      person_id: worker.person_id,
-      full_name: worker.full_name,
-      job_title: worker.job_title,
-      org_unit_id: worker.org_unit_id,
+      person_id: person.id,
+      full_name: sql<string>`coalesce(${person.full_name}, '')`,
+      job_title: employmentPeriod.job_title,
+      org_unit_id: person.org_unit_id,
     })
-    .from(worker)
-    .where(and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)));
+    .from(person)
+    .leftJoin(
+      employmentPeriod,
+      and(eq(employmentPeriod.person_id, person.id), isNull(employmentPeriod.end_date)),
+    )
+    .where(and(tenantScoped(person.tenant_id, session), isNull(person.deleted_at)));
 
   const nameByPerson = new Map(rows.map((r) => [r.person_id, r.full_name]));
   const membersByUnit = new Map<
@@ -86,15 +92,17 @@ export async function getOrgDelivery(
   const tenantId = session.tenant_id;
 
   const workers = await peopleDb()
-    .select({ person_id: worker.person_id, full_name: worker.full_name })
-    .from(worker)
-    .where(and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)));
+    .select({ person_id: person.id, full_name: person.full_name })
+    .from(person)
+    .where(and(tenantScoped(person.tenant_id, session), isNull(person.deleted_at)));
   const nameByPerson = new Map(workers.map((w) => [w.person_id, w.full_name]));
 
   const accounts = await peopleDb()
-    .select()
+    .select({ account_id: accountProjection.account_id, name: accountProjection.name })
     .from(accountProjection)
     .where(eq(accountProjection.tenant_id, tenantId));
+  const amRows = await listAccountManagers(tenantId);
+  const amByAccount = new Map(amRows.map((a) => [a.account_id, a.am_person_id]));
   const projects = await peopleDb()
     .select()
     .from(projectProjection)
@@ -128,19 +136,18 @@ export async function getOrgDelivery(
       project_id: p.project_id,
       name: p.name,
       members: (allocByProject.get(p.project_id) ?? [])
-        .filter((a) => a.worker_id)
+        .filter((a) => a.person_id)
         .map((a) => ({
-          person_id: a.worker_id ?? '',
-          full_name: nameByPerson.get(a.worker_id ?? '') ?? '',
-          is_lead: a.lead_worker_id === a.worker_id,
+          person_id: a.person_id ?? '',
+          full_name: nameByPerson.get(a.person_id ?? '') ?? '',
+          is_lead: a.lead_person_id === a.person_id,
         })),
     }));
+    const amId = amByAccount.get(acc.account_id);
     out.push({
       account_id: acc.account_id,
       name: acc.name,
-      am: acc.am_worker_id
-        ? { person_id: acc.am_worker_id, full_name: nameByPerson.get(acc.am_worker_id) ?? '' }
-        : null,
+      am: amId ? { person_id: amId, full_name: nameByPerson.get(amId) ?? '' } : null,
       projects: accProjects,
     });
   }
@@ -190,9 +197,9 @@ export async function getOrgCompany(session: SessionScope): Promise<{ nodes: Com
     .orderBy(asc(orgUnit.sort), asc(orgUnit.name));
 
   const memberRows = await peopleDb()
-    .select({ org_unit_id: worker.org_unit_id })
-    .from(worker)
-    .where(and(tenantScoped(worker.tenant_id, session), isNull(worker.deleted_at)));
+    .select({ org_unit_id: person.org_unit_id })
+    .from(person)
+    .where(and(tenantScoped(person.tenant_id, session), isNull(person.deleted_at)));
   const countByUnit = new Map<string, number>();
   for (const r of memberRows) {
     if (r.org_unit_id) countByUnit.set(r.org_unit_id, (countByUnit.get(r.org_unit_id) ?? 0) + 1);

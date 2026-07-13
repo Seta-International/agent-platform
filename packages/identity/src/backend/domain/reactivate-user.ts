@@ -1,5 +1,6 @@
 import { withEmit } from '@seta/core/events';
 import { eq } from 'drizzle-orm';
+import { emitIdentityUserReactivated } from '../../events/index.ts';
 import { user } from '../db/schema.ts';
 import { IdentityError, requirePermission } from '../rbac.ts';
 import type { Actor } from './create-user.ts';
@@ -28,6 +29,16 @@ export async function reactivateUser(userId: string, actor: Actor): Promise<void
         .update(user)
         .set({ deactivated_at: null, updated_at: new Date() })
         .where(eq(user.id, userId));
+      await emitIdentityUserReactivated({
+        actor: {
+          type: actor.type,
+          user_id: actor.user_id,
+          ip: actor.ip,
+          user_agent: actor.user_agent,
+        },
+        user_id: userId,
+        tenant_id: target.tenant_id,
+      });
     },
   );
 }

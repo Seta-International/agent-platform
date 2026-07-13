@@ -1,11 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { type UpdateAllocationInput, updateAllocationInput } from '../../contracts.ts';
 import { PM_ALLOCATION_UPDATED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { allocation, project } from '../db/schema.ts';
+import { allocation, LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { assertNoProjectOverlap } from './assert-no-overlap.ts';
 import { assertProjectManageable } from './assert-project-manageable.ts';
@@ -47,7 +47,13 @@ export async function updateAllocation(
       date_to: project.date_to,
     })
     .from(project)
-    .where(and(eq(project.id, targetProjectId), tenantScoped(project.tenant_id, session)))
+    .where(
+      and(
+        eq(project.id, targetProjectId),
+        tenantScoped(project.tenant_id, session),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .limit(1);
   if (!proj) throw new PmError('NOT_FOUND', `project ${targetProjectId} not found`);
 
@@ -79,10 +85,10 @@ export async function updateAllocation(
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
     async (tx) => {
-      if (current.worker_id && (datesChanged || projectChanged)) {
+      if (current.person_id && (datesChanged || projectChanged)) {
         await assertNoProjectOverlap(tx, {
           tenant_id: session.tenant_id,
-          worker_id: current.worker_id,
+          worker_id: current.person_id,
           project_id: targetProjectId,
           date_from: patch.date_from !== undefined ? patch.date_from : current.date_from,
           date_to: patch.date_to !== undefined ? patch.date_to : current.date_to,
@@ -114,7 +120,7 @@ export async function updateAllocation(
         payload: {
           allocation_id,
           project_id: targetProjectId,
-          worker_id: current.worker_id ?? null,
+          worker_id: current.person_id ?? null,
           account_id: proj.account_id,
           tenant_id: session.tenant_id,
           planned_pct: patch.planned_pct ?? null,

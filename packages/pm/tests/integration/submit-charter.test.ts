@@ -5,7 +5,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
-import { charter } from '../../src/backend/db/schema.ts';
+import { project, projectApproval } from '../../src/backend/db/schema.ts';
 import { editCharter, pmoSignOffCharter, submitCharter, withdrawCharter } from '../../src/index.ts';
 import { buildSession, readEvents, seedTenant } from '../helpers.ts';
 
@@ -31,15 +31,21 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
       try {
         const t = await seedTenant(pool);
         const accountId = await seedAccount(pool, t.tenant_id);
-        const { charter_id } = await submitCharter({
+        const { project_id } = await submitCharter({
           account_id: accountId,
           name: 'New Proj',
           methodology: 'scrum',
           pm_worker_id: crypto.randomUUID(),
           session: t.adminSession,
         });
-        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
-        expect(c?.status).toBe('submitted');
+        const [p] = await pmDb().select().from(project).where(eq(project.id, project_id));
+        expect(p?.status).toBe('submitted');
+        const [a] = await pmDb()
+          .select()
+          .from(projectApproval)
+          .where(eq(projectApproval.project_id, project_id));
+        expect(a?.submitted_by_user_id).toBe(t.admin_user_id);
+        expect(await readEvents(pool, t.tenant_id, 'pm.project.created')).toHaveLength(0);
         expect(await readEvents(pool, t.tenant_id, 'pm.charter.submitted')).toHaveLength(1);
       } finally {
         resetPmDb();
@@ -57,18 +63,20 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
       try {
         const t = await seedTenant(pool);
         const accountId = await seedAccount(pool, t.tenant_id);
-        const { charter_id } = await submitCharter({
+        const { project_id } = await submitCharter({
           account_id: accountId,
           name: 'P',
           pm_worker_id: crypto.randomUUID(),
           session: t.adminSession,
         });
         const { version } = await editCharter({
-          charter_id,
+          charter_id: project_id,
           patch: { name: 'P2' },
           session: t.adminSession,
         });
         expect(version).toBe(2);
+        const [p] = await pmDb().select().from(project).where(eq(project.id, project_id));
+        expect(p?.name).toBe('P2');
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -130,7 +138,7 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
     });
   });
 
-  it('stores submitted_by_user_id on the charter row', async () => {
+  it('stores submitted_by_user_id on the project_approval row', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -138,14 +146,17 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
       try {
         const t = await seedTenant(pool);
         const accountId = await seedAccount(pool, t.tenant_id);
-        const { charter_id } = await submitCharter({
+        const { project_id } = await submitCharter({
           account_id: accountId,
           name: 'SubBy',
           pm_worker_id: crypto.randomUUID(),
           session: t.adminSession,
         });
-        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
-        expect(c?.submitted_by_user_id).toBe(t.admin_user_id);
+        const [a] = await pmDb()
+          .select()
+          .from(projectApproval)
+          .where(eq(projectApproval.project_id, project_id));
+        expect(a?.submitted_by_user_id).toBe(t.admin_user_id);
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -201,17 +212,21 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
       try {
         const t = await seedTenant(pool);
         const accountId = await seedAccount(pool, t.tenant_id);
-        const { charter_id } = await submitCharter({
+        const { project_id } = await submitCharter({
           account_id: accountId,
           name: 'ToWithdraw',
           pm_worker_id: crypto.randomUUID(),
           session: t.adminSession,
         });
-        const { version } = await withdrawCharter({ charter_id, session: t.adminSession });
+        const { version } = await withdrawCharter({
+          charter_id: project_id,
+          session: t.adminSession,
+        });
         expect(version).toBe(2);
-        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
-        expect(c?.status).toBe('withdrawn');
+        const [p] = await pmDb().select().from(project).where(eq(project.id, project_id));
+        expect(p?.status).toBe('withdrawn');
         expect(await readEvents(pool, t.tenant_id, 'pm.charter.withdrawn')).toHaveLength(1);
+        expect(await readEvents(pool, t.tenant_id, 'pm.project.created')).toHaveLength(0);
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -245,16 +260,16 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
           roles: ['pm.pmo'],
         });
         const accountId = await seedAccount(pool, t.tenant_id);
-        const { charter_id } = await submitCharter({
+        const { project_id } = await submitCharter({
           account_id: accountId,
           name: 'WithdrawAfterPmo',
           pm_worker_id: crypto.randomUUID(),
           session: t.adminSession,
         });
-        await pmoSignOffCharter({ charter_id, session: pmo });
-        await withdrawCharter({ charter_id, session: t.adminSession });
-        const [c] = await pmDb().select().from(charter).where(eq(charter.id, charter_id));
-        expect(c?.status).toBe('withdrawn');
+        await pmoSignOffCharter({ charter_id: project_id, session: pmo });
+        await withdrawCharter({ charter_id: project_id, session: t.adminSession });
+        const [p] = await pmDb().select().from(project).where(eq(project.id, project_id));
+        expect(p?.status).toBe('withdrawn');
       } finally {
         resetPmDb();
         resetCoreDb();
@@ -271,7 +286,7 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
       try {
         const t = await seedTenant(pool);
         const accountId = await seedAccount(pool, t.tenant_id);
-        const { charter_id } = await submitCharter({
+        const { project_id } = await submitCharter({
           account_id: accountId,
           name: 'NoWithdraw',
           pm_worker_id: crypto.randomUUID(),
@@ -297,7 +312,9 @@ describe('submitCharter / editCharter / withdrawCharter', () => {
           roles: ['pm.manager'],
         });
 
-        await expect(withdrawCharter({ charter_id, session: otherSession })).rejects.toMatchObject({
+        await expect(
+          withdrawCharter({ charter_id: project_id, session: otherSession }),
+        ).rejects.toMatchObject({
           code: 'FORBIDDEN',
         });
       } finally {

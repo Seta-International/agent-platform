@@ -21,6 +21,8 @@ export default async function (): Promise<() => Promise<void>> {
         { name: 'core', dir: resolve(__dirname, '../../core/drizzle/migrations') },
         { name: 'identity', dir: resolve(__dirname, '../../identity/drizzle') },
         { name: 'people', dir: resolve(__dirname, '../drizzle/migrations') },
+        // people's AM row-scope + org/allocation surfaces read pm.account (see backend/domain).
+        { name: 'pm', dir: resolve(__dirname, '../../pm/drizzle/migrations') },
       ],
     });
   } finally {

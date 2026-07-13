@@ -25,7 +25,7 @@ async function seedProject(
   bounds?: { date_from?: string; date_to?: string },
 ): Promise<string> {
   const { account_id } = await createAccount({ name: `A-${name}`, session });
-  const { charter_id } = await submitCharter({
+  const { project_id: charterId } = await submitCharter({
     account_id,
     name,
     pm_worker_id: session.user_id,
@@ -36,7 +36,7 @@ async function seedProject(
     date_to: bounds?.date_to,
     session,
   });
-  const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
+  const { project_id } = await approveCharterTwoStage(charterId, session.tenant_id);
   return project_id;
 }
 
@@ -96,7 +96,7 @@ describe('reassignAllocation', () => {
         expect(source?.date_to).toBe('2026-06-30');
         expect(source?.planned_pct).toBe('100.0000'); // history preserved, untouched
 
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
         expect(rows).toHaveLength(3);
 
         const targetXxx = rows.find((r) => r.project_id === xxx);
@@ -208,7 +208,7 @@ describe('reassignAllocation', () => {
         });
 
         expect(result.target_ids).toHaveLength(1);
-        const rows = await pmDb().select().from(allocation).where(eq(allocation.worker_id, worker));
+        const rows = await pmDb().select().from(allocation).where(eq(allocation.person_id, worker));
         expect(rows).toHaveLength(2);
         const continuation = rows.find((r) => r.id === result.target_ids[0]);
         expect(continuation?.project_id).toBe(automate);
@@ -498,7 +498,7 @@ describe('previewReassignAllocation', () => {
           session: t.adminSession,
         });
 
-        expect(preview.worker_name).toBeNull(); // no worker_projection row synced for this random worker id
+        expect(preview.worker_name).toBeNull(); // no person_projection row synced for this random worker id
         expect(preview.source).toMatchObject({
           project_name: 'Automotive',
           account_name: 'A-Automotive',

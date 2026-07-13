@@ -78,10 +78,10 @@ export const requisition = hiringSchema.table(
     start_date: date('start_date'),
     note: text('note'),
     default_interview_mode: textEnum('default_interview_mode', INTERVIEW_MODES),
-    // Lazy column-level reference: opening_close_reason is declared after requisition below —
-    // a table-level foreignKey() would evaluate `openingCloseReason` eagerly and hit the TDZ.
+    // Lazy column-level reference: reason is declared after requisition below —
+    // a table-level foreignKey() would evaluate `reason` eagerly and hit the TDZ.
     // Only meaningful when status = 'cancelled' (see closeRequisition in requisition-lifecycle.ts).
-    close_reason_id: uuid('close_reason_id').references((): AnyPgColumn => openingCloseReason.id),
+    close_reason_id: uuid('close_reason_id').references((): AnyPgColumn => reason.id),
     closed_at: timestamp('closed_at', { withTimezone: true }),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -108,10 +108,10 @@ export const opening = hiringSchema.table(
       .references(() => requisition.id),
     seq: integer('seq').notNull(),
     status: textEnum('status', OPENING_STATUS).notNull().default('open'),
-    // Lazy column-level reference (not table-level foreignKey()): opening_close_reason
+    // Lazy column-level reference (not table-level foreignKey()): reason
     // is declared after opening below — a table-level foreignKey() would evaluate
-    // `openingCloseReason` eagerly and hit the TDZ.
-    close_reason_id: uuid('close_reason_id').references((): AnyPgColumn => openingCloseReason.id),
+    // `reason` eagerly and hit the TDZ.
+    close_reason_id: uuid('close_reason_id').references((): AnyPgColumn => reason.id),
     closed_at: timestamp('closed_at', { withTimezone: true }),
     // Lazy column-level reference: application is declared after opening below —
     // a table-level foreignKey() would evaluate `application` eagerly and hit the TDZ.
@@ -175,18 +175,31 @@ export const requisitionSkill = hiringSchema.table(
   ],
 );
 
-export const openingCloseReason = hiringSchema.table(
-  'opening_close_reason',
+export const REASON_KINDS = ['opening_close', 'rejection'] as const;
+
+export const reason = hiringSchema.table(
+  'reason',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tenant_id: uuid('tenant_id').notNull(),
+    kind: textEnum('kind', REASON_KINDS).notNull(),
     label: text('label').notNull(),
+    category: textEnum('category', REJECTION_CATEGORIES),
     active: boolean('active').notNull().default(true),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex('close_reason_uniq_label').on(t.tenant_id, t.label)],
+  (t) => [
+    index('reason_by_tenant_kind').on(t.tenant_id, t.kind),
+    uniqueIndex('reason_uniq_label').on(t.tenant_id, t.kind, t.label),
+    textEnumCheck('reason', 'kind', REASON_KINDS),
+    textEnumCheck('reason', 'category', REJECTION_CATEGORIES),
+    check(
+      'reason_category_required_for_rejection',
+      sql`kind <> 'rejection' OR category IS NOT NULL`,
+    ),
+  ],
 );
 
 export const jdTemplate = hiringSchema.table(
@@ -271,24 +284,6 @@ export const candidateSkill = hiringSchema.table(
   ],
 );
 
-export const rejectionReason = hiringSchema.table(
-  'rejection_reason',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    tenant_id: uuid('tenant_id').notNull(),
-    label: text('label').notNull(),
-    category: textEnum('category', REJECTION_CATEGORIES).notNull(),
-    active: boolean('active').notNull().default(true),
-    version: integer('version').default(1).notNull(),
-    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    uniqueIndex('rejection_reason_uniq_label').on(t.tenant_id, t.label),
-    textEnumCheck('rejection_reason', 'category', REJECTION_CATEGORIES),
-  ],
-);
-
 export const candidateEvent = hiringSchema.table(
   'candidate_event',
   {
@@ -325,11 +320,11 @@ export const application = hiringSchema.table(
       .references(() => requisition.id),
     kind: textEnum('kind', APPLICATION_KINDS).notNull(),
     candidate_id: uuid('candidate_id').references(() => candidate.id),
-    worker_id: uuid('worker_id'), // people.worker (no cross-schema FK)
+    person_id: uuid('person_id'), // people.person (no cross-schema FK)
     stage: textEnum('stage', APPLICATION_STAGES).notNull().default('new'),
     status: textEnum('status', APPLICATION_STATUS).notNull().default('active'),
     rating: integer('rating'),
-    rejection_reason_id: uuid('rejection_reason_id').references(() => rejectionReason.id),
+    rejection_reason_id: uuid('rejection_reason_id').references(() => reason.id),
     tags: jsonb('tags').notNull().default(sql`'[]'::jsonb`),
     note: text('note'),
     closed_at: timestamp('closed_at', { withTimezone: true }),
@@ -343,11 +338,11 @@ export const application = hiringSchema.table(
       .on(t.tenant_id, t.requisition_id, t.candidate_id)
       .where(sql`candidate_id IS NOT NULL AND status = 'active'`),
     uniqueIndex('application_uniq_worker')
-      .on(t.tenant_id, t.requisition_id, t.worker_id)
-      .where(sql`worker_id IS NOT NULL AND status = 'active'`),
+      .on(t.tenant_id, t.requisition_id, t.person_id)
+      .where(sql`person_id IS NOT NULL AND status = 'active'`),
     index('application_by_requisition').on(t.tenant_id, t.requisition_id),
     index('application_by_candidate').on(t.tenant_id, t.candidate_id),
-    index('application_by_worker').on(t.tenant_id, t.worker_id),
+    index('application_by_worker').on(t.tenant_id, t.person_id),
     // Self-FK via the table's own column proxy (t) — not the lazily-bound `application`
     // export — since both endpoints belong to this table, no TDZ issue like the
     // cross-table forward refs above.
@@ -362,7 +357,7 @@ export const application = hiringSchema.table(
     check('application_rating_check', sql`rating IS NULL OR rating BETWEEN 0 AND 5`),
     check(
       'application_one_subject_check',
-      sql`(candidate_id IS NOT NULL) <> (worker_id IS NOT NULL)`,
+      sql`(candidate_id IS NOT NULL) <> (person_id IS NOT NULL)`,
     ),
   ],
 );
@@ -370,17 +365,11 @@ export const application = hiringSchema.table(
 // Local read-model projections of pm.account / pm.project names, fed by pm domain events
 // (see backend/subscribers). Hiring stores only account_id/project_id on a requisition;
 // these tables resolve the display names without a cross-module join.
-export const accountProjection = hiringSchema.table(
-  'account_projection',
-  {
-    account_id: uuid('account_id').primaryKey(),
-    tenant_id: uuid('tenant_id').notNull(),
-    name: text('name').notNull(),
-    // AM ownership, projected from pm.account.am_worker_id for FUT-327 row scoping.
-    am_worker_id: uuid('am_worker_id'),
-  },
-  (t) => [index('account_projection_by_am').on(t.tenant_id, t.am_worker_id)],
-);
+export const accountProjection = hiringSchema.table('account_projection', {
+  account_id: uuid('account_id').primaryKey(),
+  tenant_id: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
+});
 
 export const projectProjection = hiringSchema.table(
   'project_projection',
@@ -391,34 +380,4 @@ export const projectProjection = hiringSchema.table(
     name: text('name').notNull(),
   },
   (t) => [index('project_projection_by_account').on(t.tenant_id, t.account_id)],
-);
-
-// Local {project_id <-> owner worker_id} read-model, fed by pm.project.access.changed (which
-// carries the full current owner set), so hiring can resolve "which projects does this worker
-// manage" for EM/TL/PM row scoping (FUT-328) without a cross-module join. A project can have
-// several owners (PM + EM/TL); a worker can own several projects.
-export const projectOwnerProjection = hiringSchema.table(
-  'project_owner_projection',
-  {
-    project_id: uuid('project_id').notNull(),
-    tenant_id: uuid('tenant_id').notNull(),
-    worker_id: uuid('worker_id').notNull(),
-    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    primaryKey({ columns: [t.project_id, t.worker_id] }),
-    index('project_owner_projection_by_worker').on(t.tenant_id, t.worker_id),
-  ],
-);
-
-// Local projection of "which user is this worker", fed by people.worker.user_linked, so
-// hiring can resolve session.user_id -> worker_id without a cross-module join (FUT-327).
-export const workerUserProjection = hiringSchema.table(
-  'worker_user_projection',
-  {
-    worker_id: uuid('worker_id').primaryKey(),
-    tenant_id: uuid('tenant_id').notNull(),
-    user_id: uuid('user_id').notNull(),
-  },
-  (t) => [index('worker_user_projection_by_user').on(t.tenant_id, t.user_id)],
 );

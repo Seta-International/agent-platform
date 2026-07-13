@@ -1,7 +1,7 @@
 import type { SessionScope } from '@seta/core';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { peopleDb } from '../db/client.ts';
-import { projectProjection, worker, workerAllocationProjection } from '../db/schema.ts';
+import { person, projectProjection, workerAllocationProjection } from '../db/schema.ts';
 import { requirePermission } from '../rbac.ts';
 import { buildWorkerScope } from './worker-scope.ts';
 
@@ -42,12 +42,12 @@ export async function getUtilizationByPerson(
   requirePermission(session, 'people.worker.read');
 
   const asOf = query.asOf ?? new Date().toISOString().slice(0, 10);
-  const scope = buildWorkerScope(session);
+  const scope = await buildWorkerScope(session);
 
   const where = [
     eq(workerAllocationProjection.tenant_id, session.tenant_id),
     eq(workerAllocationProjection.active, true),
-    isNotNull(workerAllocationProjection.worker_id),
+    isNotNull(workerAllocationProjection.person_id),
     isNotNull(workerAllocationProjection.planned_pct),
     sql`(${workerAllocationProjection.date_from} IS NULL OR ${workerAllocationProjection.date_from} <= ${asOf})`,
     sql`(${workerAllocationProjection.date_to} IS NULL OR ${workerAllocationProjection.date_to} >= ${asOf})`,
@@ -56,8 +56,8 @@ export async function getUtilizationByPerson(
 
   const raw = (await peopleDb()
     .select({
-      worker_id: workerAllocationProjection.worker_id,
-      full_name: worker.full_name,
+      worker_id: workerAllocationProjection.person_id,
+      full_name: person.full_name,
       project_id: workerAllocationProjection.project_id,
       project_name: projectProjection.name,
       bucket: workerAllocationProjection.bucket,
@@ -65,11 +65,11 @@ export async function getUtilizationByPerson(
     })
     .from(workerAllocationProjection)
     .innerJoin(
-      worker,
+      person,
       and(
-        eq(worker.person_id, workerAllocationProjection.worker_id),
-        eq(worker.tenant_id, workerAllocationProjection.tenant_id),
-        sql`${worker.deleted_at} IS NULL`,
+        eq(person.id, workerAllocationProjection.person_id),
+        eq(person.tenant_id, workerAllocationProjection.tenant_id),
+        sql`${person.deleted_at} IS NULL`,
       ),
     )
     .leftJoin(

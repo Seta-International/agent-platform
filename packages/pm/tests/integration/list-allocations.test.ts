@@ -4,7 +4,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { pmDb, resetPmDb } from '../../src/backend/db/client.ts';
-import { workerProjection } from '../../src/backend/db/schema.ts';
+import { personProjection } from '../../src/backend/db/schema.ts';
 import {
   createAccount,
   createAllocation,
@@ -23,7 +23,7 @@ async function seedProject(
   accName: string,
 ): Promise<{ projectId: string; accountId: string }> {
   const { account_id } = await createAccount({ name: accName, session });
-  const { charter_id } = await submitCharter({
+  const { project_id: charterId } = await submitCharter({
     account_id,
     name: `P-${accName}`,
     pm_worker_id: session.user_id,
@@ -32,7 +32,7 @@ async function seedProject(
     budget_bmm: 100,
     session,
   });
-  const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
+  const { project_id } = await approveCharterTwoStage(charterId, session.tenant_id);
   return { projectId: project_id, accountId: account_id };
 }
 
@@ -140,16 +140,16 @@ describe('listAllocations', () => {
 
         // seed worker projections
         await pmDb()
-          .insert(workerProjection)
+          .insert(personProjection)
           .values([
             {
-              worker_id: workerIdAlice,
+              person_id: workerIdAlice,
               tenant_id: t.tenant_id,
               full_name: 'Alice Finder',
               job_title: 'Engineer',
             },
             {
-              worker_id: workerIdBob,
+              person_id: workerIdBob,
               tenant_id: t.tenant_id,
               full_name: 'Bob Other',
               job_title: null,

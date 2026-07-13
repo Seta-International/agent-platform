@@ -7,7 +7,7 @@ import { buildSearchUsersBySkillExactSpec } from '../../src/backend/agent-tools/
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import { person } from '../../src/backend/db/schema.ts';
 import { addPersonSkill } from '../../src/index.ts';
-import { seedTenant } from '../helpers.ts';
+import { linkUserToPerson, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -59,11 +59,9 @@ describe('people_searchUsersBySkillExact', () => {
         const javaId = await seedCatalogSkill(pool, t.tenant_id, 'Java');
 
         // Person linked to a user account, catalog casing "Python" / "Java".
-        const [p] = await peopleDb()
-          .insert(person)
-          .values({ tenant_id: t.tenant_id, user_id: userId })
-          .returning();
+        const [p] = await peopleDb().insert(person).values({ tenant_id: t.tenant_id }).returning();
         const personId = p!.id;
+        await linkUserToPerson(t.tenant_id, personId, userId);
         await addPersonSkill({ person_id: personId, skill_id: pythonId, session: t.adminSession });
         await addPersonSkill({ person_id: personId, skill_id: javaId, session: t.adminSession });
 
@@ -105,10 +103,8 @@ describe('people_searchUsersBySkillExact', () => {
         const nodeId = await seedCatalogSkill(pool, t.tenant_id, 'Node.js');
         await seedSkillAlias(pool, t.tenant_id, reactId, 'reactjs');
 
-        const [p] = await peopleDb()
-          .insert(person)
-          .values({ tenant_id: t.tenant_id, user_id: userId })
-          .returning();
+        const [p] = await peopleDb().insert(person).values({ tenant_id: t.tenant_id }).returning();
+        await linkUserToPerson(t.tenant_id, p!.id, userId);
         // This person has React but NOT Node.js.
         await addPersonSkill({ person_id: p!.id, skill_id: reactId, session: t.adminSession });
 

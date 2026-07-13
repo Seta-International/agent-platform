@@ -1,32 +1,42 @@
 import { resetCoreDb } from '@seta/core/testing';
+import { createAccount } from '@seta/pm';
+import { resetPmDb } from '@seta/pm/testing';
 import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
-import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
 import {
   accountProjection,
-  person,
   projectProjection,
   workerAllocationProjection,
 } from '../../src/backend/db/schema.ts';
 import { createWorker } from '../../src/backend/domain/create-worker.ts';
 import { getOrgDelivery } from '../../src/backend/domain/org-structure.ts';
-import { buildSession, type SeededTenant, seedTenant } from '../helpers.ts';
+import { buildSession, linkUserToPerson, type SeededTenant, seedTenant } from '../helpers.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
   baseUrl: process.env.PLATFORM_TEST_PG_BASE as string,
 };
 
-async function personaUserId(personId: string): Promise<string> {
+async function personaUserId(tenantId: string, personId: string): Promise<string> {
   const userId = crypto.randomUUID();
-  await peopleDb().update(person).set({ user_id: userId }).where(eq(person.id, personId));
+  await linkUserToPerson(tenantId, personId, userId);
   return userId;
 }
 
 function viewer(t: SeededTenant, userId: string) {
   return buildSession({ tenant_id: t.tenant_id, user_id: userId, roles: ['people.viewer'] });
+}
+
+/** A pm-capable session for seeding accounts (am ownership) through pm's public surface. */
+function pmManagerSession(t: SeededTenant) {
+  return buildSession({
+    tenant_id: t.tenant_id,
+    user_id: crypto.randomUUID(),
+    roles: ['pm.manager'],
+    assignments: [{ role_slug: 'pm.manager', scope_kind: 'tenant', scope_id: null }],
+  });
 }
 
 interface DeliveryGraph {
@@ -53,13 +63,18 @@ async function buildDelivery(pool: import('pg').Pool): Promise<DeliveryGraph> {
     session: t.adminSession,
     full_name: 'Member Name',
   } as never);
-  const amUser = await personaUserId(am);
+  const amUser = await personaUserId(t.tenant_id, am);
 
-  const accountA = crypto.randomUUID();
   const projectId = crypto.randomUUID();
+  // AM ownership lives in pm.account (am_person_id); the people projection carries only id + name.
+  const { account_id: accountA } = await createAccount({
+    name: 'Account A',
+    am_worker_id: am,
+    session: pmManagerSession(t),
+  });
   await peopleDb()
     .insert(accountProjection)
-    .values({ account_id: accountA, tenant_id: t.tenant_id, name: 'Account A', am_worker_id: am });
+    .values({ account_id: accountA, tenant_id: t.tenant_id, name: 'Account A' });
   await peopleDb().insert(projectProjection).values({
     project_id: projectId,
     tenant_id: t.tenant_id,
@@ -69,21 +84,19 @@ async function buildDelivery(pool: import('pg').Pool): Promise<DeliveryGraph> {
   await peopleDb().insert(workerAllocationProjection).values({
     allocation_id: crypto.randomUUID(),
     tenant_id: t.tenant_id,
-    worker_id: lead,
+    person_id: lead,
     project_id: projectId,
     account_id: accountA,
-    account_name: 'Account A',
-    lead_worker_id: lead,
+    lead_person_id: lead,
     active: true,
   });
   await peopleDb().insert(workerAllocationProjection).values({
     allocation_id: crypto.randomUUID(),
     tenant_id: t.tenant_id,
-    worker_id: member,
+    person_id: member,
     project_id: projectId,
     account_id: accountA,
-    account_name: 'Account A',
-    lead_worker_id: lead,
+    lead_person_id: lead,
     active: true,
   });
 
@@ -95,6 +108,7 @@ describe('getOrgDelivery', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const g = await buildDelivery(pool);
@@ -106,6 +120,7 @@ describe('getOrgDelivery', () => {
         expect(proj.members.map((m) => m.person_id).sort()).toEqual([g.lead, g.member].sort());
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -116,6 +131,7 @@ describe('getOrgDelivery', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const g = await buildDelivery(pool);
@@ -123,12 +139,13 @@ describe('getOrgDelivery', () => {
           session: g.t.adminSession,
           full_name: 'Stranger',
         } as never);
-        const strangerUser = await personaUserId(stranger);
+        const strangerUser = await personaUserId(g.t.tenant_id, stranger);
 
         const { accounts } = await getOrgDelivery(viewer(g.t, strangerUser));
         expect(accounts.find((a) => a.account_id === g.accountA)).toBeDefined();
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }
@@ -139,6 +156,7 @@ describe('getOrgDelivery', () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
+      resetPmDb();
       initPools({ databaseUrl });
       try {
         const g = await buildDelivery(pool);
@@ -148,6 +166,7 @@ describe('getOrgDelivery', () => {
         expect(acct!.am?.full_name).toBe('AM Name');
       } finally {
         resetPeopleDb();
+        resetPmDb();
         resetCoreDb();
         await closePools();
       }

@@ -1,6 +1,13 @@
 import { hashRoleSummary, type SessionAssignment, type SessionScope } from '@seta/core';
 import { createUser } from '@seta/identity';
 import {
+  bodApproveCharter,
+  createAccount,
+  pmoSignOffCharter,
+  setProjectAccess,
+  submitCharter,
+} from '@seta/pm';
+import {
   buildRegistry,
   IMPLICIT_PERMISSIONS,
   INVENTORY,
@@ -82,11 +89,56 @@ export function buildSession(opts: {
     assignments,
     group_ids: [],
     product_access: new Set<string>(),
-    worker_id: opts.worker_id ?? null,
+    person_id: opts.worker_id ?? null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,
   };
+}
+
+/**
+ * Seeds a pm project owned (owner-level project access) by `ownerWorkerId`, going through the
+ * real pm charter → PMO → BoD → grant path so hiring's row scope resolves it via @seta/pm
+ * (`listProjectIdsOwnedBy`) rather than a hiring-local projection. Returns the pm-generated
+ * project_id plus the account the charter hangs off. `session` must carry pm.manager.
+ */
+export async function seedOwnedProject(opts: {
+  tenant_id: string;
+  session: SessionScope;
+  ownerWorkerId: string;
+  projectName?: string;
+}): Promise<{ project_id: string; account_id: string }> {
+  const { account_id } = await createAccount({
+    name: `Acct ${crypto.randomUUID().slice(0, 8)}`,
+    session: opts.session,
+  });
+  const { project_id } = await submitCharter({
+    account_id,
+    name: opts.projectName ?? 'Seeded Project',
+    pm_worker_id: opts.session.user_id,
+    methodology: 'scrum',
+    pricing_model: 'fixed_price',
+    budget_bmm: 100,
+    session: opts.session,
+  });
+  const pmo = buildSession({
+    tenant_id: opts.tenant_id,
+    user_id: crypto.randomUUID(),
+    roles: ['pm.pmo'],
+  });
+  const bod = buildSession({
+    tenant_id: opts.tenant_id,
+    user_id: crypto.randomUUID(),
+    roles: ['pm.bod'],
+  });
+  await pmoSignOffCharter({ charter_id: project_id, session: pmo });
+  await bodApproveCharter({ charter_id: project_id, session: bod });
+  await setProjectAccess({
+    project_id,
+    grants: [{ worker_id: opts.ownerWorkerId, level: 'owner' }],
+    session: opts.session,
+  });
+  return { project_id, account_id };
 }
 
 export async function readEvents(

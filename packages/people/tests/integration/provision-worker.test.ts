@@ -4,7 +4,7 @@ import { withTestDb } from '@seta/shared-testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { peopleDb, resetPeopleDb } from '../../src/backend/db/client.ts';
-import { employmentPeriod, person, worker, workerHistory } from '../../src/backend/db/schema.ts';
+import { employmentPeriod, person, personHistory } from '../../src/backend/db/schema.ts';
 import { provisionWorker } from '../../src/index.ts';
 import { countEvents, readEvents, seedTenant } from '../helpers.ts';
 
@@ -14,7 +14,7 @@ const ctx = {
 };
 
 describe('provisionWorker', () => {
-  it('creates person + open period + worker + history and emits worker.created in one tx', async () => {
+  it('creates person + open period + history and emits worker.created in one tx', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPeopleDb();
@@ -31,6 +31,7 @@ describe('provisionWorker', () => {
 
         const [p] = await peopleDb().select().from(person).where(eq(person.id, worker_id));
         expect(p?.tenant_id).toBe(t.tenant_id);
+        expect(p?.full_name).toBe('Alice Example');
 
         const periods = await peopleDb()
           .select()
@@ -41,13 +42,10 @@ describe('provisionWorker', () => {
         expect(periods[0]?.lifecycle_stage).toBe('preboarding');
         expect(periods[0]?.end_date).toBeNull();
 
-        const [w] = await peopleDb().select().from(worker).where(eq(worker.person_id, worker_id));
-        expect(w?.full_name).toBe('Alice Example');
-
         const history = await peopleDb()
           .select()
-          .from(workerHistory)
-          .where(eq(workerHistory.person_id, worker_id));
+          .from(personHistory)
+          .where(eq(personHistory.person_id, worker_id));
         expect(history.map((h) => h.action)).toContain('provisioned');
 
         const events = await readEvents(pool, t.tenant_id, 'people.worker.created');

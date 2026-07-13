@@ -1,34 +1,15 @@
+import { makeProjectionUpsertSubscribers } from '@seta/core';
 import type { AccountCreatedPayload, AccountUpdatedPayload } from '@seta/pm/events';
 import { PM_ACCOUNT_CREATED, PM_ACCOUNT_UPDATED } from '@seta/pm/events';
-import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import { accountProjection } from '../db/schema.ts';
 
-// Keep a local {account_id -> name} read-model so requisitions can show the account name
-// without a cross-module join. Idempotent upsert (at-least-once delivery).
-async function upsert(
-  event: DomainEvent<AccountCreatedPayload | AccountUpdatedPayload>,
-  ctx: { tx: Parameters<SubscriberDef['handler']>[1]['tx'] },
-): Promise<void> {
-  const { account_id, tenant_id, name, am_worker_id } = event.payload;
-  await ctx.tx
-    .insert(accountProjection)
-    .values({ account_id, tenant_id, name, am_worker_id })
-    .onConflictDoUpdate({
-      target: accountProjection.account_id,
-      set: { tenant_id, name, am_worker_id },
-    });
-}
-
-export const accountProjectionCreated: SubscriberDef = {
-  subscription: 'hiring.account-projection.created',
-  event: PM_ACCOUNT_CREATED,
-  eventVersion: 1,
-  handler: (event, ctx) => upsert(event as DomainEvent<AccountCreatedPayload>, ctx),
-};
-
-export const accountProjectionUpdated: SubscriberDef = {
-  subscription: 'hiring.account-projection.updated',
-  event: PM_ACCOUNT_UPDATED,
-  eventVersion: 1,
-  handler: (event, ctx) => upsert(event as DomainEvent<AccountUpdatedPayload>, ctx),
-};
+export const [accountProjectionCreated, accountProjectionUpdated] = makeProjectionUpsertSubscribers<
+  AccountCreatedPayload | AccountUpdatedPayload
+>({
+  subscriptionPrefix: 'hiring.account-projection',
+  createEvent: PM_ACCOUNT_CREATED,
+  updateEvent: PM_ACCOUNT_UPDATED,
+  table: accountProjection,
+  conflictTarget: accountProjection.account_id,
+  toRow: (p) => ({ account_id: p.account_id, tenant_id: p.tenant_id, name: p.name }),
+});

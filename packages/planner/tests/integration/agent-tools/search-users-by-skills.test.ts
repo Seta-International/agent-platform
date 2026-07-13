@@ -19,7 +19,7 @@ import { makeToolContext, withAgentTestDb } from '../agent-tools-helpers.ts';
 const _registry = buildRegistry(inventoryToManifests(INVENTORY));
 
 // The tool now reads live skills from People (getPersonSkills joins person_skill →
-// person on person.user_id). Seed a People person linked to the user with skills.
+// user_projection on the user↔person link). Seed a People person linked to the user with skills.
 async function seedPeopleSkills(
   pool: Pool,
   tenantId: string,
@@ -27,11 +27,14 @@ async function seedPeopleSkills(
   skillNames: string[],
 ): Promise<void> {
   const personId = crypto.randomUUID();
-  await pool.query(`INSERT INTO people.person (id, tenant_id, user_id) VALUES ($1, $2, $3)`, [
+  await pool.query(`INSERT INTO people.person (id, tenant_id) VALUES ($1, $2)`, [
     personId,
     tenantId,
-    userId,
   ]);
+  await pool.query(
+    `INSERT INTO people.user_projection (user_id, tenant_id, person_id) VALUES ($1, $2, $3)`,
+    [userId, tenantId, personId],
+  );
   for (const name of skillNames) {
     await pool.query(
       `INSERT INTO people.person_skill (id, tenant_id, person_id, skill_id, skill_name)
@@ -59,7 +62,7 @@ function buildAdminSession(opts: {
     assignments: [],
     group_ids: [],
     product_access: new Set<string>(),
-    worker_id: null,
+    person_id: null,
     cross_tenant_read: false,
     built_at: new Date(),
     invalidated_at: null,

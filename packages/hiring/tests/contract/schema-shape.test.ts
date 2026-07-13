@@ -3,7 +3,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { resetHiringDb } from '../../src/backend/db/client.ts';
-import { candidateEvent, candidateSkill, rejectionReason } from '../../src/backend/db/schema.ts';
+import { candidateEvent, candidateSkill, reason } from '../../src/backend/db/schema.ts';
 
 const ctx = {
   templateDbName: process.env.PLATFORM_TEST_PG_TEMPLATE as string,
@@ -21,7 +21,7 @@ async function tableCols(pool: import('pg').Pool, table: string): Promise<Set<st
 describe('hir6/7 schema shape', () => {
   it('exposes the new candidate tables', () => {
     expect(candidateSkill).toBeDefined();
-    expect(rejectionReason).toBeDefined();
+    expect(reason).toBeDefined();
     expect(candidateEvent).toBeDefined();
   });
 });
@@ -45,7 +45,7 @@ describe('hiring schema shape (HIR-2)', () => {
           'opening',
           'requisition_jd_section',
           'requisition_skill',
-          'opening_close_reason',
+          'reason',
           'jd_template',
           'jd_template_section',
         ]) {

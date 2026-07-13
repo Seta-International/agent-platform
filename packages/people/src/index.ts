@@ -12,6 +12,8 @@ export {
 export { createOrgUnit } from './backend/domain/create-org-unit.ts';
 export { createWorker } from './backend/domain/create-worker.ts';
 export { editWorker } from './backend/domain/edit-worker.ts';
+export type { DirectoryRow } from './backend/domain/list-directory.ts';
+export { listDirectory } from './backend/domain/list-directory.ts';
 export {
   type MatchUsersToTopicDeps,
   type MatchUsersToTopicInput,
@@ -34,6 +36,7 @@ export {
   setMySkills,
   setPersonSkillLevel,
 } from './backend/domain/person-skills.ts';
+export { provisionAccount } from './backend/domain/provision-account.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
 export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';
 export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';

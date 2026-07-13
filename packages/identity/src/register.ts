@@ -9,8 +9,8 @@ import { buildIdentityRoutes } from './backend/http/index.ts';
 import { IdentityError } from './backend/rbac.ts';
 import { autoProvisionSubscribers } from './backend/subscribers/auto-provision.ts';
 import { autoSuspendSubscribers } from './backend/subscribers/auto-suspend.ts';
-import { directoryProjectionSubscribers } from './backend/subscribers/directory-projection.ts';
 import { entraLinkageSubscribers } from './backend/subscribers/entra-linkage.ts';
+import { linkPersonSubscribers } from './backend/subscribers/link-person.ts';
 import { orgUnitProjectionSubscribers } from './backend/subscribers/org-unit-projection.ts';
 import { identityRbac } from './rbac.ts';
 
@@ -37,7 +37,6 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
       { table: 'identity.role_assignments', policy: { kind: 'permanent' } },
       { table: 'identity.role_permission_overlays', policy: { kind: 'permanent' } },
       { table: 'identity.tenant_sso_providers', policy: { kind: 'permanent' } },
-      { table: 'identity.person_projection', policy: { kind: 'permanent' } },
       { table: 'identity.access_group', policy: { kind: 'permanent' } },
       { table: 'identity.access_group_membership', policy: { kind: 'permanent' } },
       { table: 'identity.access_group_role', policy: { kind: 'permanent' } },
@@ -63,8 +62,8 @@ export function registerIdentityContributions(reg: ContributionRegistry): void {
     subscribers: [
       ...autoProvisionSubscribers,
       ...autoSuspendSubscribers,
-      ...directoryProjectionSubscribers,
       ...entraLinkageSubscribers,
+      ...linkPersonSubscribers,
       ...orgUnitProjectionSubscribers,
     ],
     routes: { mountAt: '/', build: buildIdentityRoutes },

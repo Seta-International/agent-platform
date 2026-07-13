@@ -6,8 +6,8 @@ import {
   type ListRoleAssignments,
   type ResolveGroupIds,
   type ResolvePermissions,
+  type ResolvePersonId,
   type ResolveProductAccess,
-  type ResolveWorkerId,
   type SessionScope,
 } from '../session/scope.ts';
 
@@ -29,7 +29,7 @@ export interface SessionMiddlewareDeps {
   resolvePermissions: ResolvePermissions;
   resolveGroupIds?: ResolveGroupIds;
   resolveProductAccess?: ResolveProductAccess;
-  resolveWorkerId?: ResolveWorkerId;
+  resolvePersonId?: ResolvePersonId;
   expandOrgUnits?: ExpandOrgUnits;
 }
 
@@ -61,7 +61,7 @@ export function createSessionMiddleware(deps: SessionMiddlewareDeps) {
         resolvePermissions: deps.resolvePermissions,
         resolveGroupIds: deps.resolveGroupIds,
         resolveProductAccess: deps.resolveProductAccess,
-        resolveWorkerId: deps.resolveWorkerId,
+        resolvePersonId: deps.resolvePersonId,
         expandOrgUnits: deps.expandOrgUnits,
       },
       session.session.id,

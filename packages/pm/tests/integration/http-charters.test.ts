@@ -83,17 +83,17 @@ describe('pm charters + projects HTTP', () => {
           }),
         );
         expect(submitRes.status).toBe(201);
-        const { charter_id } = (await submitRes.json()) as { charter_id: string };
+        const { project_id: submittedId } = (await submitRes.json()) as { project_id: string };
 
         const listRes = await app.request('/api/pm/v1/charters');
         expect(listRes.status).toBe(200);
         const listBody = (await listRes.json()) as { charters: Array<{ charter_id: string }> };
-        expect(listBody.charters.some((c) => c.charter_id === charter_id)).toBe(true);
+        expect(listBody.charters.some((c) => c.charter_id === submittedId)).toBe(true);
 
-        const detailRes = await app.request(`/api/pm/v1/charters/${charter_id}`);
+        const detailRes = await app.request(`/api/pm/v1/charters/${submittedId}`);
         expect(detailRes.status).toBe(200);
 
-        const patchRes = await app.request(`/api/pm/v1/charters/${charter_id}`, {
+        const patchRes = await app.request(`/api/pm/v1/charters/${submittedId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ patch: { name: 'HTTP Proj Updated' } }),
@@ -102,19 +102,19 @@ describe('pm charters + projects HTTP', () => {
 
         // legacy /approve route is gone
         const goneRes = await app.request(
-          `/api/pm/v1/charters/${charter_id}/approve`,
+          `/api/pm/v1/charters/${submittedId}/approve`,
           POST_JSON({}),
         );
         expect(goneRes.status).toBe(404);
 
         // PMO sign-off (200), then BoD approve (200, returns project_id)
         const pmoRes = await pmoApp.request(
-          `/api/pm/v1/charters/${charter_id}/pmo-signoff`,
+          `/api/pm/v1/charters/${submittedId}/pmo-signoff`,
           POST_JSON({}),
         );
         expect(pmoRes.status).toBe(200);
         const approveRes = await bodApp.request(
-          `/api/pm/v1/charters/${charter_id}/bod-approve`,
+          `/api/pm/v1/charters/${submittedId}/bod-approve`,
           POST_JSON({}),
         );
         expect(approveRes.status).toBe(200);
@@ -177,11 +177,11 @@ describe('pm charters + projects HTTP', () => {
           '/api/pm/v1/charters',
           POST_JSON({ account_id, name: 'Error Proj', pm_worker_id: t.admin_user_id }),
         );
-        const { charter_id } = (await submitRes.json()) as { charter_id: string };
+        const { project_id } = (await submitRes.json()) as { project_id: string };
 
         // 409 — stale version on pmo-signoff
         const staleRes = await pmoApp.request(
-          `/api/pm/v1/charters/${charter_id}/pmo-signoff`,
+          `/api/pm/v1/charters/${project_id}/pmo-signoff`,
           POST_JSON({ expected_version: 99 }),
         );
         expect(staleRes.status).toBe(409);
@@ -191,7 +191,7 @@ describe('pm charters + projects HTTP', () => {
           buildSession({ tenant_id: t.tenant_id, user_id: t.admin_user_id, roles: ['pm.viewer'] }),
         );
         const forbidRes = await viewerApp.request(
-          `/api/pm/v1/charters/${charter_id}/pmo-signoff`,
+          `/api/pm/v1/charters/${project_id}/pmo-signoff`,
           POST_JSON({}),
         );
         expect(forbidRes.status).toBe(403);
@@ -234,7 +234,7 @@ describe('pm charters + projects HTTP', () => {
           '/api/pm/v1/charters',
           POST_JSON({ account_id, name: 'Withdraw Proj', pm_worker_id: t.admin_user_id }),
         );
-        const { charter_id: cw } = (await s1.json()) as { charter_id: string };
+        const { project_id: cw } = (await s1.json()) as { project_id: string };
         const withdrawRes = await app.request(`/api/pm/v1/charters/${cw}/withdraw`, POST_JSON({}));
         expect(withdrawRes.status).toBe(200);
 
@@ -242,7 +242,7 @@ describe('pm charters + projects HTTP', () => {
           '/api/pm/v1/charters',
           POST_JSON({ account_id, name: 'Reject Proj', pm_worker_id: t.admin_user_id }),
         );
-        const { charter_id: cr } = (await s2.json()) as { charter_id: string };
+        const { project_id: cr } = (await s2.json()) as { project_id: string };
         const rejectRes = await pmoApp.request(
           `/api/pm/v1/charters/${cr}/reject`,
           POST_JSON({ reason: 'Budget not approved' }),
@@ -283,10 +283,10 @@ describe('pm charters + projects HTTP', () => {
             budget_bmm: 10,
           }),
         );
-        const { charter_id } = (await submitRes.json()) as { charter_id: string };
-        await pmoApp.request(`/api/pm/v1/charters/${charter_id}/pmo-signoff`, POST_JSON({}));
+        const { project_id: charterProjectId } = (await submitRes.json()) as { project_id: string };
+        await pmoApp.request(`/api/pm/v1/charters/${charterProjectId}/pmo-signoff`, POST_JSON({}));
         const approveRes = await bodApp.request(
-          `/api/pm/v1/charters/${charter_id}/bod-approve`,
+          `/api/pm/v1/charters/${charterProjectId}/bod-approve`,
           POST_JSON({}),
         );
         const { project_id } = (await approveRes.json()) as { project_id: string };

@@ -5,6 +5,7 @@ export {
   type AuditSortDir,
   queryAudit,
 } from './backend/audit.ts';
+export { makeProjectionUpsertSubscribers } from './backend/projections/upsert-subscriber.ts';
 export {
   type CanonicalSkill,
   canonicalizeSkill,
@@ -32,6 +33,7 @@ export {
   CORE_SKILL_UPDATED,
   type SkillRenamedEventPayload,
 } from './backend/skills/events.ts';
+export { makeSkillRenamedSubscriber } from './backend/skills/skill-renamed-subscriber.ts';
 export {
   archiveSkill,
   createSkill,

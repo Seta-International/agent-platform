@@ -44,15 +44,47 @@ export const person = peopleSchema.table(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tenant_id: uuid('tenant_id').notNull(),
-    user_id: uuid('user_id'),
     bio: text('bio'),
     original_hire_date: date('original_hire_date'),
     seniority_date: date('seniority_date'),
+    employee_no: text('employee_no'),
+    full_name: text('full_name'),
+    work_email: text('work_email'),
+    personal_email: text('personal_email'),
+    dob: date('dob'),
+    gender: textEnum('gender', GENDERS),
+    phone: text('phone'),
+    emergency_contact: jsonb('emergency_contact'),
+    profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
+    cv_storage_key: text('cv_storage_key'),
+    // Lazy column-level reference (not table-level foreignKey()): org_unit is
+    // declared after person below, so a table-level foreignKey() would evaluate
+    // `orgUnit` eagerly and hit the TDZ.
+    org_unit_id: uuid('org_unit_id').references((): AnyPgColumn => orgUnit.id),
+    availability_status: textEnum('availability_status', AVAILABILITY_STATUS)
+      .default('available')
+      .notNull(),
+    ooo_until: timestamp('ooo_until', { withTimezone: true }),
+    work_start: time('work_start'),
+    work_end: time('work_end'),
+    timezone: text('timezone').default('UTC').notNull(),
+    deleted_at: timestamp('deleted_at', { withTimezone: true }),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index('person_by_tenant_user').on(t.tenant_id, t.user_id)],
+  (t) => [
+    uniqueIndex('person_uniq_employee_no_per_tenant')
+      .on(t.tenant_id, t.employee_no)
+      .where(sql`employee_no IS NOT NULL AND deleted_at IS NULL`),
+    uniqueIndex('person_uniq_email_per_tenant')
+      .on(t.tenant_id, t.work_email)
+      .where(sql`work_email IS NOT NULL AND deleted_at IS NULL`),
+    index('person_by_tenant_live').on(t.tenant_id).where(sql`deleted_at IS NULL`),
+    index('person_by_org_unit').on(t.tenant_id, t.org_unit_id),
+    textEnumCheck('person', 'gender', GENDERS),
+    textEnumCheck('person', 'availability_status', AVAILABILITY_STATUS),
+  ],
 );
 
 export const employmentPeriod = peopleSchema.table(
@@ -66,6 +98,7 @@ export const employmentPeriod = peopleSchema.table(
     end_date: date('end_date'),
     lifecycle_stage: textEnum('lifecycle_stage', LIFECYCLE_STAGES).notNull().default('preboarding'),
     employment_type: text('employment_type'),
+    job_title: text('job_title'),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -80,59 +113,6 @@ export const employmentPeriod = peopleSchema.table(
       name: 'employment_period_person_fk',
     }),
     textEnumCheck('employment_period', 'lifecycle_stage', LIFECYCLE_STAGES),
-  ],
-);
-
-export const worker = peopleSchema.table(
-  'worker',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    tenant_id: uuid('tenant_id').notNull(),
-    person_id: uuid('person_id').notNull(),
-    employee_no: text('employee_no'),
-    full_name: text('full_name').notNull(),
-    work_email: text('work_email'),
-    personal_email: text('personal_email'),
-    dob: date('dob'),
-    gender: textEnum('gender', GENDERS),
-    phone: text('phone'),
-    emergency_contact: jsonb('emergency_contact'),
-    profile_completed_at: timestamp('profile_completed_at', { withTimezone: true }),
-    job_title: text('job_title'),
-    cv_storage_key: text('cv_storage_key'),
-    // Lazy column-level reference (not table-level foreignKey()): org_unit and worker
-    // FK each other (head_worker_id), and org_unit is declared after worker below —
-    // a table-level foreignKey() would evaluate `orgUnit` eagerly and hit the TDZ.
-    org_unit_id: uuid('org_unit_id').references((): AnyPgColumn => orgUnit.id),
-    availability_status: textEnum('availability_status', AVAILABILITY_STATUS)
-      .default('available')
-      .notNull(),
-    ooo_until: timestamp('ooo_until', { withTimezone: true }),
-    work_start: time('work_start'),
-    work_end: time('work_end'),
-    timezone: text('timezone').default('UTC').notNull(),
-    version: integer('version').default(1).notNull(),
-    deleted_at: timestamp('deleted_at', { withTimezone: true }),
-    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    uniqueIndex('worker_uniq_person').on(t.person_id),
-    uniqueIndex('worker_uniq_employee_no_per_tenant')
-      .on(t.tenant_id, t.employee_no)
-      .where(sql`employee_no IS NOT NULL AND deleted_at IS NULL`),
-    uniqueIndex('worker_uniq_email_per_tenant')
-      .on(t.tenant_id, t.work_email)
-      .where(sql`work_email IS NOT NULL AND deleted_at IS NULL`),
-    index('worker_by_tenant_live').on(t.tenant_id).where(sql`deleted_at IS NULL`),
-    index('worker_by_org_unit').on(t.tenant_id, t.org_unit_id),
-    foreignKey({
-      columns: [t.person_id],
-      foreignColumns: [person.id],
-      name: 'worker_person_fk',
-    }),
-    textEnumCheck('worker', 'gender', GENDERS),
-    textEnumCheck('worker', 'availability_status', AVAILABILITY_STATUS),
   ],
 );
 
@@ -195,8 +175,8 @@ export const personSkill = peopleSchema.table(
   ],
 );
 
-export const workerHistory = peopleSchema.table(
-  'worker_history',
+export const personHistory = peopleSchema.table(
+  'person_history',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tenant_id: uuid('tenant_id').notNull(),
@@ -209,11 +189,11 @@ export const workerHistory = peopleSchema.table(
     by_user_id: uuid('by_user_id'),
   },
   (t) => [
-    index('worker_history_by_person').on(t.tenant_id, t.person_id, t.at),
+    index('person_history_by_person').on(t.tenant_id, t.person_id, t.at),
     foreignKey({
       columns: [t.person_id],
       foreignColumns: [person.id],
-      name: 'worker_history_person_fk',
+      name: 'person_history_person_fk',
     }).onDelete('cascade'),
   ],
 );
@@ -223,11 +203,10 @@ export const workerAllocationProjection = peopleSchema.table(
   {
     allocation_id: uuid('allocation_id').primaryKey(),
     tenant_id: uuid('tenant_id').notNull(),
-    worker_id: uuid('worker_id'),
+    person_id: uuid('person_id'),
     project_id: uuid('project_id').notNull(),
     account_id: uuid('account_id').notNull(),
-    account_name: text('account_name').notNull(),
-    lead_worker_id: uuid('lead_worker_id'),
+    lead_person_id: uuid('lead_person_id'),
     date_from: date('date_from'),
     date_to: date('date_to'),
     planned_pct: numeric('planned_pct', { precision: 10, scale: 4 }),
@@ -236,7 +215,7 @@ export const workerAllocationProjection = peopleSchema.table(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    index('worker_alloc_by_worker').on(t.tenant_id, t.worker_id),
+    index('worker_alloc_by_person').on(t.tenant_id, t.person_id),
     index('worker_alloc_by_account').on(t.tenant_id, t.account_id),
     index('worker_alloc_by_project').on(t.tenant_id, t.project_id),
     check(
@@ -250,7 +229,6 @@ export const accountProjection = peopleSchema.table('account_projection', {
   account_id: uuid('account_id').primaryKey(),
   tenant_id: uuid('tenant_id').notNull(),
   name: text('name').notNull(),
-  am_worker_id: uuid('am_worker_id'),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -264,4 +242,17 @@ export const projectProjection = peopleSchema.table(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index('project_proj_by_account').on(t.tenant_id, t.account_id)],
+);
+
+export const userProjection = peopleSchema.table(
+  'user_projection',
+  {
+    user_id: uuid('user_id').primaryKey(),
+    tenant_id: uuid('tenant_id').notNull(),
+    person_id: uuid('person_id').notNull(),
+    deactivated_at: timestamp('deactivated_at', { withTimezone: true }),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('user_projection_uniq_person').on(t.tenant_id, t.person_id)],
 );

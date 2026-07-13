@@ -84,11 +84,10 @@ describe('allocationProjectionCreated', () => {
         expect(rows[0]).toMatchObject({
           allocation_id: allocationId,
           tenant_id: t.tenant_id,
-          worker_id: workerId,
+          person_id: workerId,
           project_id: projectId,
           account_id: accountId,
-          account_name: 'Acme Corp',
-          lead_worker_id: leadWorkerId,
+          lead_person_id: leadWorkerId,
           active: true,
           date_from: '2026-03-01',
           date_to: '2026-09-30',
@@ -129,7 +128,7 @@ describe('allocationProjectionCreated', () => {
         };
         const second: AllocationCreatedPayload = {
           ...first,
-          account_name: 'Updated Name',
+          bucket: 'internal',
         };
 
         await peopleDb().transaction(async (tx) => {
@@ -145,7 +144,7 @@ describe('allocationProjectionCreated', () => {
           .where(eq(workerAllocationProjection.allocation_id, allocationId));
 
         expect(rows).toHaveLength(1);
-        expect(rows[0]!.account_name).toBe('Updated Name');
+        expect(rows[0]!.bucket).toBe('internal');
       } finally {
         resetPeopleDb();
         resetCoreDb();

@@ -40,6 +40,7 @@ function summaryCase(): SQL {
       COALESCE(e.payload->'grant'->>'role_slug', 'role')
         || ' ' || COALESCE(e.payload->>'change', 'changed')
     WHEN e.event_type = 'identity.user.deactivated' THEN 'Deactivated'
+    WHEN e.event_type = 'identity.user.reactivated' THEN 'Reactivated'
     WHEN e.event_type = 'identity.user.email.changed' THEN
       'Email changed (' || COALESCE(e.payload->>'old_email', '?') || ' → ' || COALESCE(e.payload->>'new_email', '?') || ')'
     WHEN e.event_type = 'identity.user.password_reset.by_admin' THEN 'Password reset by admin'

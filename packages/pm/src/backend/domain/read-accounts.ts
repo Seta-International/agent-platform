@@ -1,8 +1,8 @@
 import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
-import { account, accountRecruiter, project } from '../db/schema.ts';
+import { account, accountRecruiter, LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 import { buildAccountScope } from './scope.ts';
 
@@ -26,7 +26,7 @@ export async function listAccounts(session: SessionScope): Promise<AccountListRo
       account_id: account.id,
       name: account.name,
       industry: account.industry,
-      am_worker_id: account.am_worker_id,
+      am_worker_id: account.am_person_id,
     })
     .from(account)
     .where(and(...conds))
@@ -40,7 +40,13 @@ export async function listAccounts(session: SessionScope): Promise<AccountListRo
   const projectCounts = await pmDb()
     .select({ account_id: project.account_id, n: sql<number>`count(*)::int` })
     .from(project)
-    .where(and(tenantScoped(project.tenant_id, session), isNull(project.deleted_at)))
+    .where(
+      and(
+        tenantScoped(project.tenant_id, session),
+        isNull(project.deleted_at),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .groupBy(project.account_id);
 
   const recMap = new Map(recruiterCounts.map((r) => [r.account_id, r.n]));
@@ -75,7 +81,7 @@ export async function getAccount(input: { account_id: string; session: SessionSc
   if (!a) throw new PmError('NOT_FOUND', 'account not found');
 
   const recs = await pmDb()
-    .select({ id: accountRecruiter.recruiter_worker_id })
+    .select({ id: accountRecruiter.recruiter_person_id })
     .from(accountRecruiter)
     .where(
       and(
@@ -88,7 +94,7 @@ export async function getAccount(input: { account_id: string; session: SessionSc
     account_id: a.id,
     name: a.name,
     industry: a.industry,
-    am_worker_id: a.am_worker_id,
+    am_worker_id: a.am_person_id,
     version: a.version,
     recruiter_worker_ids: recs.map((r) => r.id),
   };

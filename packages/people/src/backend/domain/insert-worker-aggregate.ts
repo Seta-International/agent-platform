@@ -1,7 +1,7 @@
 import { emit } from '@seta/core/events';
 import type { NodeTx } from '@seta/shared-db';
 import type { GenderValue } from '../../contracts.ts';
-import { employmentPeriod, person, worker, workerHistory } from '../db/schema.ts';
+import { employmentPeriod, person, personHistory } from '../db/schema.ts';
 
 export interface InsertWorkerArgs {
   tenant_id: string;
@@ -31,6 +31,15 @@ export async function insertWorkerAggregate(
       tenant_id: args.tenant_id,
       original_hire_date: args.start_date ?? null,
       seniority_date: args.start_date ?? null,
+      employee_no: args.employee_no ?? null,
+      full_name: args.full_name,
+      work_email: args.work_email ?? null,
+      personal_email: args.personal_email ?? null,
+      dob: args.dob ?? null,
+      gender: args.gender ?? null,
+      phone: args.phone ?? null,
+      emergency_contact: args.emergency_contact ?? null,
+      org_unit_id: args.org_unit_id ?? null,
     })
     .returning();
   if (!p) throw new Error('person insert returned no row');
@@ -43,24 +52,10 @@ export async function insertWorkerAggregate(
     end_date: null,
     lifecycle_stage: 'preboarding',
     employment_type: args.employment_type ?? null,
-  });
-
-  await tx.insert(worker).values({
-    tenant_id: args.tenant_id,
-    person_id: p.id,
-    employee_no: args.employee_no ?? null,
-    full_name: args.full_name,
-    work_email: args.work_email ?? null,
-    personal_email: args.personal_email ?? null,
-    dob: args.dob ?? null,
-    gender: args.gender ?? null,
-    phone: args.phone ?? null,
-    emergency_contact: args.emergency_contact ?? null,
     job_title: args.job_title ?? null,
-    org_unit_id: args.org_unit_id ?? null,
   });
 
-  await tx.insert(workerHistory).values({
+  await tx.insert(personHistory).values({
     tenant_id: args.tenant_id,
     person_id: p.id,
     action: args.history_action,

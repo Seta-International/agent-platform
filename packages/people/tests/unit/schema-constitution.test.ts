@@ -1,6 +1,6 @@
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
-import { employmentPeriod, person, personSkill, worker } from '../../src/backend/db/schema.ts';
+import { employmentPeriod, person, personSkill } from '../../src/backend/db/schema.ts';
 
 describe('people schema constitution', () => {
   it('employment_period has a single state machine (no status column)', () => {
@@ -9,8 +9,8 @@ describe('people schema constitution', () => {
     expect(cols).toContain('lifecycle_stage');
   });
 
-  it('worker stores working hours as time columns, not jsonb', () => {
-    const cols = getTableConfig(worker).columns.map((c) => c.name);
+  it('person stores working hours as time columns, not jsonb', () => {
+    const cols = getTableConfig(person).columns.map((c) => c.name);
     expect(cols).toEqual(expect.arrayContaining(['work_start', 'work_end']));
     expect(cols).not.toContain('working_hours');
   });
@@ -21,8 +21,8 @@ describe('people schema constitution', () => {
     }
   });
 
-  it('worker.person_id is a real FK', () => {
-    expect(getTableConfig(worker).foreignKeys.length).toBeGreaterThan(0);
+  it('employment_period.person_id is a real FK', () => {
+    expect(getTableConfig(employmentPeriod).foreignKeys.length).toBeGreaterThan(0);
   });
 
   it('person_skill.level is CHECK-bounded and availability has a CHECK', () => {
@@ -30,7 +30,7 @@ describe('people schema constitution', () => {
       getTableConfig(personSkill).checks.some((c) => c.name === 'person_skill_level_check'),
     ).toBe(true);
     expect(
-      getTableConfig(worker).checks.some((c) => c.name === 'worker_availability_status_check'),
+      getTableConfig(person).checks.some((c) => c.name === 'person_availability_status_check'),
     ).toBe(true);
   });
 });

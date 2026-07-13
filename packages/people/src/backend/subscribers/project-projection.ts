@@ -1,40 +1,20 @@
+import { makeProjectionUpsertSubscribers } from '@seta/core';
 import type { ProjectCreatedPayload, ProjectUpdatedPayload } from '@seta/pm/events';
 import { PM_PROJECT_CREATED, PM_PROJECT_UPDATED } from '@seta/pm/events';
-import type { DomainEvent, SubscriberDef } from '@seta/shared-types';
 import { projectProjection } from '../db/schema.ts';
 
-export const projectProjectionCreated: SubscriberDef = {
-  subscription: 'people.project-projection.created',
-  event: PM_PROJECT_CREATED,
-  eventVersion: 1,
-  handler: async (event, ctx) => {
-    const e = event as DomainEvent<ProjectCreatedPayload>;
-    const { project_id, tenant_id, account_id, name } = e.payload;
-
-    await ctx.tx
-      .insert(projectProjection)
-      .values({ project_id, tenant_id, account_id, name })
-      .onConflictDoUpdate({
-        target: projectProjection.project_id,
-        set: { account_id, name, updated_at: new Date() },
-      });
-  },
-};
-
-export const projectProjectionUpdated: SubscriberDef = {
-  subscription: 'people.project-projection.updated',
-  event: PM_PROJECT_UPDATED,
-  eventVersion: 1,
-  handler: async (event, ctx) => {
-    const e = event as DomainEvent<ProjectUpdatedPayload>;
-    const { project_id, tenant_id, account_id, name } = e.payload;
-
-    await ctx.tx
-      .insert(projectProjection)
-      .values({ project_id, tenant_id, account_id, name })
-      .onConflictDoUpdate({
-        target: projectProjection.project_id,
-        set: { account_id, name, updated_at: new Date() },
-      });
-  },
-};
+export const [projectProjectionCreated, projectProjectionUpdated] = makeProjectionUpsertSubscribers<
+  ProjectCreatedPayload | ProjectUpdatedPayload
+>({
+  subscriptionPrefix: 'people.project-projection',
+  createEvent: PM_PROJECT_CREATED,
+  updateEvent: PM_PROJECT_UPDATED,
+  table: projectProjection,
+  conflictTarget: projectProjection.project_id,
+  toRow: (p) => ({
+    project_id: p.project_id,
+    tenant_id: p.tenant_id,
+    account_id: p.account_id,
+    name: p.name,
+  }),
+});

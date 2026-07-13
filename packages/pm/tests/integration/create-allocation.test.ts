@@ -15,7 +15,7 @@ const ctx = {
 
 async function seedProject(session: import('@seta/core').SessionScope): Promise<string> {
   const { account_id } = await createAccount({ name: 'A', session });
-  const { charter_id } = await submitCharter({
+  const { project_id: charterId } = await submitCharter({
     account_id,
     name: 'P',
     pm_worker_id: session.user_id,
@@ -24,7 +24,7 @@ async function seedProject(session: import('@seta/core').SessionScope): Promise<
     budget_bmm: 100,
     session,
   });
-  const { project_id } = await approveCharterTwoStage(charter_id, session.tenant_id);
+  const { project_id } = await approveCharterTwoStage(charterId, session.tenant_id);
   return project_id;
 }
 
@@ -59,7 +59,7 @@ describe('createAllocation', () => {
           .from(allocation)
           .where(eq(allocation.id, allocation_id));
         expect(row?.project_id).toBe(projectId);
-        expect(row?.worker_id).toBe(workerId);
+        expect(row?.person_id).toBe(workerId);
         expect(row?.status).toBe('committed');
 
         const events = await readEvents(pool, t.tenant_id, 'pm.allocation.created');

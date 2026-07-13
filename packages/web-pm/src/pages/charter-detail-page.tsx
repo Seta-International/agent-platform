@@ -292,7 +292,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
               <ScopeBox label="Out of scope" text={c.scope?.out} />
             </div>
 
-            {c.project_id && (
+            {c.status === 'approved' && c.project_id && (
               <Link
                 to="/pm/projects/$projectId"
                 params={{ projectId: c.project_id }}

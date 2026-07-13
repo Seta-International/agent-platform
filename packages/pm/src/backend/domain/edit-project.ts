@@ -1,11 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { emit, withEmit } from '@seta/core/events';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { EditProjectInput } from '../../contracts.ts';
 import { PM_PROJECT_UPDATED } from '../../events.ts';
 import { pmDb } from '../db/client.ts';
-import { project } from '../db/schema.ts';
+import { LIVE_PROJECT_STATUSES, project } from '../db/schema.ts';
 import { PmError, requirePermission } from '../rbac.ts';
 
 async function applyProjectUpdate(
@@ -19,7 +19,13 @@ async function applyProjectUpdate(
   const [current] = await pmDb()
     .select()
     .from(project)
-    .where(and(eq(project.id, project_id), tenantScoped(project.tenant_id, session)))
+    .where(
+      and(
+        eq(project.id, project_id),
+        tenantScoped(project.tenant_id, session),
+        inArray(project.status, LIVE_PROJECT_STATUSES),
+      ),
+    )
     .limit(1);
   if (!current) throw new PmError('NOT_FOUND', 'project not found');
   if (opts?.requireClosed && current.status !== 'closed') {

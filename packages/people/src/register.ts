@@ -33,10 +33,9 @@ export function registerPeopleContributions(reg: ContributionRegistry): void {
     registerLifecycle([
       { table: 'people.person', policy: { kind: 'permanent' } },
       { table: 'people.employment_period', policy: { kind: 'permanent' } },
-      { table: 'people.worker', policy: { kind: 'permanent' } },
       { table: 'people.org_unit', policy: { kind: 'permanent' } },
       { table: 'people.person_skill', policy: { kind: 'permanent' } },
-      { table: 'people.worker_history', policy: { kind: 'permanent' } },
+      { table: 'people.person_history', policy: { kind: 'permanent' } },
       { table: 'people.worker_allocation_projection', policy: { kind: 'permanent' } },
       { table: 'people.account_projection', policy: { kind: 'permanent' } },
       { table: 'people.project_projection', policy: { kind: 'permanent' } },

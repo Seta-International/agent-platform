@@ -22,6 +22,9 @@ export const user = identity.table(
     email_verified: boolean('email_verified').default(false).notNull(),
     // No FK to core.tenants — cross-schema FKs are disallowed; tenant consistency is event-driven.
     tenant_id: uuid('tenant_id').notNull(),
+    // SCIM externalId: the HR system's stable key for this human. Bare uuid — cross-schema
+    // FKs are disallowed. Nullable: service accounts and tenant admins have no person record.
+    person_id: uuid('person_id'),
     deactivated_at: timestamp('deactivated_at', { withTimezone: true }),
     image: text('image'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -32,6 +35,9 @@ export const user = identity.table(
     uniqueIndex('user_tenant_email_uniq')
       .on(t.tenant_id, sql`lower(${t.email})`)
       .where(sql`${t.deactivated_at} IS NULL`),
+    uniqueIndex('user_tenant_person_uniq')
+      .on(t.tenant_id, t.person_id)
+      .where(sql`${t.person_id} IS NOT NULL`),
   ],
 );
 
