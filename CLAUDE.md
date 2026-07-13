@@ -10,7 +10,7 @@ Contract for coding agents (Claude Code, Codex, any `AGENTS.md`-aware tool) in t
 
 ## Fixed foundations (do not propose alternatives)
 
-Node 24 LTS, Turborepo + pnpm workspaces, Vite. Postgres + pgvector with Drizzle ORM only — **no other ORM, no raw migration tool.** Event bus is a transactional outbox in `core.events` + `LISTEN/NOTIFY` + 2s fallback poll — **no SQS, no Kafka.** Backend: Hono, Mastra, graphile-worker. Frontend: React 19, TanStack Router, shadcn/ui, Tailwind 4, AI SDK v6, assistant-ui. Auth: better-auth + argon2id. Cloud: AWS (ECS Fargate, RDS, Secrets Manager, S3).
+Node 24 LTS, Turborepo + pnpm workspaces, Vite. Postgres + pgvector with Drizzle ORM only — **no other ORM, no raw migration tool.** Event bus is a transactional outbox in `core.events` + `LISTEN/NOTIFY` + 2s fallback poll — **no SQS, no Kafka.** Backend: Hono, Mastra, graphile-worker. Frontend: React 19, TanStack Router, Astryx design system (`@astryxdesign/core` + StyleX, custom `seta` theme; foundation landed via FUT-562, migration in progress — `apps/web` still on the shadcn/Radix layer today), Tailwind 4, AI SDK v6, assistant-ui. Auth: better-auth + argon2id. Cloud: AWS (ECS Fargate, RDS, Secrets Manager, S3).
 
 ## Module boundaries (CI-gated; full rule set in `.dependency-cruiser.cjs`)
 
@@ -33,3 +33,44 @@ Node 24 LTS, Turborepo + pnpm workspaces, Vite. Postgres + pgvector with Drizzle
 ## Always
 
 **Production-grade only, never quick hacks.** Diagnose the root cause and ship the optimized solution; "small patch now, real fix later" is rejected on review.
+
+## Astryx design system
+
+**Repo-specific override of the block below** (as of FUT-562's foundation change): the StyleX
+compiler IS wired here (`@stylexjs/unplugin` in `apps/web/vite.config.ts` and
+`packages/shared-ui/.storybook/main.ts`) — `xstyle` is the supported override mechanism, contrary
+to the block's claim. Do NOT import `@astryxdesign/core/astryx.css` (or `reset.css`) into any real
+app entry point yet — it's wired into Storybook only
+(`packages/shared-ui/.storybook/preview.css`), deliberately isolated because the vendor
+stylesheet's unscoped `:root` token defaults collide with Seta's own tokens. See
+`DESIGN.md`'s `implementation_notice` for why.
+
+<!-- ASTRYX:START -->
+Astryx v0.0.1 · 90+ components
+CLI: run every command as `pnpm exec astryx <cmd>` (shown below as `astryx ...`).
+
+SETUP (once, in your app entry e.g. main.tsx) — without these, components render unstyled:
+  import "@astryxdesign/core/reset.css";
+  import "@astryxdesign/core/astryx.css";
+
+WORKFLOW — discover, don't guess. Before writing UI:
+1. `astryx build "<idea>"` — START HERE: returns a kit (closest [page] + [block]s + [component]s). No args = full playbook.
+2. `astryx template <name> [--skeleton]` — scaffold the [page]/[block]s it named, or study their layout. Templates are reference code.
+3. `astryx component <Name>` — props + examples for every component you use.
+
+RULES:
+- No <div> — components do all layout/spacing. Full page → AppShell; sidebar nav → SideNav.
+- Frame first: pick the shell (AppShell / Layout+LayoutPanel) and budget regions in px BEFORE writing content (`astryx docs layout`).
+- Dense data = rows (Table, List/Item) edge-to-edge — never Card-wrapped list items. Card = dashboard widgets, galleries, settings groups only.
+- Status → StatusDot/Token; Badge only for counts and enumerated states, never decoration.
+- Custom styling: component props first; else style/className with tokens — var(--color-*|--spacing-*|--radius-*). No raw hex/px. (No StyleX/Tailwind compiler here — don't use xstyle/utility classes.)
+- Tokens for every value (`astryx docs tokens`). Brand/accent via `astryx theme` — never override --color-* in :root.
+
+MORE CLI:
+  search "<query>"   find any component / hook / doc / template / block
+  component --list   90+ components by category
+  template --list    page + block recipes
+  docs <topic>       color, elevation, icons, illustrations, layout, migration, motion, principles, shape, spacing, styling, theme, tokens, typography
+  swizzle <Name>     eject component source for deep customization
+  upgrade --apply    run after any @astryxdesign/core bump
+<!-- ASTRYX:END -->

@@ -1,4 +1,5 @@
 import type { StorybookConfig } from '@storybook/react-vite';
+import stylex from '@stylexjs/unplugin';
 import tailwindcss from '@tailwindcss/vite';
 
 const config: StorybookConfig = {
@@ -7,7 +8,25 @@ const config: StorybookConfig = {
   framework: { name: '@storybook/react-vite', options: {} },
   typescript: { reactDocgen: false },
   async viteFinal(viteConfig) {
-    viteConfig.plugins = [...(viteConfig.plugins ?? []), tailwindcss()];
+    viteConfig.plugins = [
+      stylex.vite({
+        useCSSLayers: {
+          before: [
+            'reset',
+            'theme',
+            'base',
+            'astryx-base',
+            'astryx-theme',
+            'components',
+            'utilities',
+          ],
+        },
+        dev: true,
+        runtimeInjection: false,
+      }),
+      ...(viteConfig.plugins ?? []),
+      tailwindcss(),
+    ];
     return viteConfig;
   },
 };
