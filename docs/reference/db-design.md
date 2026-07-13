@@ -38,9 +38,9 @@ Mastra owns its own tables (`mastra_threads`, `mastra_messages`, spans, snapshot
 
 One enum style: the `shared-db` helper `textEnum(column, values)` emits both the Drizzle `{ enum }` type and a `CHECK` constraint from a single definition. There are no bare-text status columns and no integer-coded enums; `tasks.priority` and `tasks.progress` are `textEnum` columns, not numbers.
 
-Polymorphic columns carry implication `CHECK`s: `role_assignments` ties `scope_kind` to `scope_id` (org_unit ⇔ non-null), `knowledge.files` ties `origin = 'chat'` to a non-null `thread_id`, `hiring.application` requires exactly one of `candidate_id` / `worker_id`.
+Polymorphic columns carry implication `CHECK`s: `role_assignments` ties `scope_kind` to `scope_id` (org_unit ⇔ non-null), `knowledge.files` ties `origin = 'chat'` to a non-null `thread_id`, `hiring.application` requires exactly one of `candidate_id` / `person_id`.
 
-Every mutable table has `created_at` / `updated_at timestamptz NOT NULL DEFAULT now()`, with `updated_at` maintained by a shared trigger installed in each baseline, and a `version integer NOT NULL DEFAULT 1` optimistic-concurrency column; the guarded-UPDATE recipe (`… WHERE id = $1 AND version = $2`) is the app-side write contract. Append-only tables (`worker_history`, `candidate_event`, `core.events`) carry `created_at` only. `deleted_at timestamptz` is the single soft-delete idiom; domain lifecycle timestamps (`revoked_at`, `unlinked_at`, `closed_at`, `suspended_at`) remain as explicit state modeling, documented as lifecycle, not deletion.
+Every mutable table has `created_at` / `updated_at timestamptz NOT NULL DEFAULT now()`, with `updated_at` maintained by a shared trigger installed in each baseline, and a `version integer NOT NULL DEFAULT 1` optimistic-concurrency column; the guarded-UPDATE recipe (`… WHERE id = $1 AND version = $2`) is the app-side write contract. Append-only tables (`person_history`, `candidate_event`, `core.events`) carry `created_at` only. `deleted_at timestamptz` is the single soft-delete idiom; domain lifecycle timestamps (`revoked_at`, `unlinked_at`, `closed_at`, `suspended_at`) remain as explicit state modeling, documented as lifecycle, not deletion.
 
 Money and effort columns are explicit `numeric(p,s)` with range `CHECK`s (`budget_bmm`/`effort_mm`/`source_cost numeric(15,4)`, `planned_pct` bounded 0–100, `weekday_mask` 0–127, `confidence_score` 0–1). Actor ids are `uuid` everywhere.
 
@@ -87,7 +87,7 @@ Authentication and access control. Better-auth owns `user`, `session`, `account`
 
 | Table | Purpose | Notes |
 |---|---|---|
-| `user` | Better-auth principal: `email`, `name`, `tenant_id`, `deactivated_at`. | Per-tenant email uniqueness on live rows. |
+| `user` | Better-auth principal: `email`, `name`, `tenant_id`, `deactivated_at`, `person_id` (bare correlation id into `people.person`, nullable — a tenant admin or service account may have none). | Per-tenant email uniqueness on live rows; `person_id` unique per tenant where not null. |
 | `session` / `account` / `verification` / `rate_limit` | Better-auth session, credential, verification-token, and rate-limit tables. | Global (allowlisted); keys tenant-prefixed at the call site. |
 | `role_assignments` | A user's role at a scope: `role_slug`, `scope_kind` (`tenant`/`org_unit`/`self`), `scope_id uuid`. | `CHECK` ties org_unit ⇔ non-null `scope_id`; partial unique on live (`revoked_at IS NULL`) assignments. |
 | `role_permission_overlays` | Per-tenant grant/revoke deltas on a role's permission set. | PK `(tenant_id, role_slug, permission_key)`. |
@@ -95,54 +95,55 @@ Authentication and access control. Better-auth owns `user`, `session`, `account`
 | `product_grant` | Grants a product to a tenant, group, or user (`subject_type`/`subject_id`, `effect`). | Unique `(tenant_id, subject_type, subject_id, product_id)`. |
 | `tenant_sso_providers` | Per-tenant SSO enablement/consent. `entra_tenant_id` is projected in from integrations. | PK `(tenant_id, provider_id)`. |
 | `failed_login_attempts` / `failed_login_alerts_sent` | Login-throttle and alert de-dup. | Global; 90-day TTL. |
-| `person_projection` | Read-model of the person (name, work email, job title, employment status) for RBAC and admin screens. | Source: `people` worker events. |
 | `org_unit_projection` | Read-model of the org tree (`parent_id`, `name`). | Source: `people` org_unit events. |
+
+`identity` no longer caches HR attributes: the admin directory (`listDirectory`) reads `people` directly, `identity.user` carries only the bare `person_id` correlation id, and `auto-suspend` resolves by `person_id` rather than a `lower(email)` join.
 
 ### `people` — the system of record for the human
 
-`people` owns the worker as a domain entity; identity holds only the auth account. `person` is the durable human, `worker` the employment-facing profile, `employment_period` the lifecycle state machine.
+`people` is the single system of record for the human. **Worker is not a durable entity — it is a role a person plays**, realized as `(person, open employment_period)`; `identity` links to it only through the bare `user.person_id` correlation id (§DB-2). `person` is the durable human (identity/biographical/presence fields, org placement), `employment_period` the lifecycle state machine (one row per stint, `job_title` lives here so it doesn't get overwritten on rehire).
 
 | Table | Purpose | Notes |
 |---|---|---|
-| `person` | The durable person; optional `user_id` links to an auth account. | `version`; index on `(tenant_id, user_id)`. |
-| `employment_period` | One row per employment stint; `lifecycle_stage` is the single state machine (`preboarding` → `active` → `alumni`, etc.). | Unique `(tenant_id, person_id, seq)`; partial unique "one open period" per person. FK → `person`. |
-| `worker` | Employment profile: `full_name`, `employee_no`, `work_email`, `job_title`, `availability_status`, `work_start`/`work_end`, `timezone`, `org_unit_id`. | FK → `person`; FK → `org_unit`. Live-row uniques on email and employee_no; `deleted_at` soft-delete. |
-| `org_unit` | The org tree: `parent_id` (self-FK), `kind`, `head_worker_id` (FK → `person`). | Acyclicity is a domain recursive-CTE check, not a trigger. |
+| `person` | The durable person: `full_name`, `employee_no`, `work_email`, `personal_email`, `dob`, `gender`, `phone`, `emergency_contact`, `cv_storage_key`, `org_unit_id`, presence (`availability_status`, `ooo_until`, `work_start`/`work_end`, `timezone`). No `worker` table exists — these columns absorbed it. | FK → `org_unit`. Live-row uniques on email and employee_no; `deleted_at` soft-delete. |
+| `employment_period` | One row per employment stint; `job_title` (tier-3, moves with rehire — see PRD); `lifecycle_stage` is the single state machine (`preboarding` → `active` → `alumni`, etc.). | Unique `(tenant_id, person_id, seq)`; partial unique "one open period" per person. FK → `person`. |
+| `org_unit` | The org tree: `parent_id` (self-FK), `kind`, `head_worker_id` (FK → `person.id` — named `head_worker_id` for historical reasons, not renamed by §DB-2). | Acyclicity is a domain recursive-CTE check, not a trigger. |
 | `person_skill` | A person's skills with `level` (0–5). `skill_id` → `core.skill`; `skill_name` is a refreshed cache. | Unique `(tenant_id, person_id, skill_id)`; FK → `person`. |
-| `worker_history` | Append-only field-change audit (`action`, `field`, `from_val`, `to_val`, `by_user_id`). | FK → `person` CASCADE; `created_at`-class only. |
-| `worker_allocation_projection` | Read-model of a worker's allocations for utilization screens. | Source: `pm` allocation events. Keyed by `allocation_id`. |
+| `person_history` | Append-only field-change audit (`action`, `field`, `from_val`, `to_val`, `by_user_id`). Formerly `worker_history` — renamed with the worker→person fold. | FK → `person` CASCADE; `created_at`-class only. |
+| `user_projection` | `people`'s own cache of the person↔user link (`person_id`, `deactivated_at`), fed by `identity.user.{created,deactivated,reactivated}`. Replaces the old `person.user_id` column and the `identity.person_projection` table it required — the link now lives in a projection so replay never rewrites the `person` aggregate. | PK `user_id`; unique `(tenant_id, person_id)`. |
+| `worker_allocation_projection` | Read-model of a person's allocations for utilization screens. | Source: `pm` allocation events. Keyed by `allocation_id`. |
 | `account_projection` / `project_projection` | Read-models of pm accounts and projects for people-side joins. | Source: `pm` account/project events. |
 
 ### `hiring` — requisitions, candidates, pipeline
 
-Requisitions carry first-class openings; candidates flow through applications. Job-description text and close/rejection reasons are normalized into their own tables.
+Requisitions carry first-class openings; candidates flow through applications. Job-description text is normalized into its own tables; the opening-close and application-rejection reason taxonomies were merged into one table (§DB-2 §4.5) since they were column-identical apart from `category`.
 
 | Table | Purpose | Notes |
 |---|---|---|
-| `requisition` | A hiring request: `title`, `account_id`, `kind`, `approval_status`, `status`, `stage`, `owner_user_id`. | Indexed by `(status, stage)` and account. |
-| `opening` | One fillable seat under a requisition (`seq`, `status`), linking its close reason and hired application. | FKs → `requisition`, `opening_close_reason`, `application` (hired). Unique `(tenant_id, requisition_id, seq)`. |
-| `opening_close_reason` / `rejection_reason` | Tenant-editable reason taxonomies (`label`, `active`, `category`). | Unique `(tenant_id, label)`. |
+| `requisition` | A hiring request: `title`, `account_id`, `kind`, `approval_status`, `status`, `stage`, `owner_user_id`, `close_reason_id`. | Indexed by `(status, stage)` and account. FK → `reason`. |
+| `opening` | One fillable seat under a requisition (`seq`, `status`), linking its close reason and hired application. | FKs → `requisition`, `reason` (close), `application` (hired). Unique `(tenant_id, requisition_id, seq)`. |
+| `reason` | Merged tenant-editable reason taxonomy (`kind` ∈ `{opening_close, rejection}`, `label`, `active`, `category`). Replaces the former `opening_close_reason` and `rejection_reason` tables. | Unique `(tenant_id, kind, label)`. |
 | `requisition_jd_section` / `jd_template` / `jd_template_section` | JD body per `(variant, section)` on a requisition, and reusable templates. | Tenant-led composite PKs; sections FK their parent CASCADE. |
 | `requisition_skill` | Required skills for a requisition (`skill_id` → `core.skill`, `min_level`). | Tenant-led PK; FK → `requisition` CASCADE. |
 | `candidate` | An external person in the pipeline: `contact` jsonb, `cv_storage_key`, `source_cost`, `gender`. | `deleted_at`; indexed by `(tenant_id, created_at)`. |
 | `candidate_skill` | Candidate skills (`skill_id` → `core.skill`, `level`). | Tenant-led PK; FK → `candidate` CASCADE. |
 | `candidate_event` | Append-only candidate activity feed (`kind`, `summary`, `detail`, `actor_user_id`). | FK → `candidate` CASCADE, optional FK → `application`. |
-| `application` | A candidate's or worker's application to a requisition (`kind`, `stage`, `status`, `rating`, `tags`). | Exactly one of `candidate_id`/`worker_id` (`CHECK`); self-FK `superseded_by_application_id`; FK → `requisition`, `candidate`, `rejection_reason`. Live-row uniques per subject. |
+| `application` | A candidate's or person's application to a requisition (`kind`, `stage`, `status`, `rating`, `tags`). | Exactly one of `candidate_id`/`person_id` (`CHECK`); self-FK `superseded_by_application_id`; FK → `requisition`, `candidate`, `reason` (rejection). Live-row uniques per subject. Boundary API/event field for `person_id` stays `worker_id` (see [`ddd-design.md`](./ddd-design.md)). |
 
-### `pm` — accounts, projects, allocations, charters
+### `pm` — accounts, projects, allocations, governance
 
-Delivery structure: accounts and projects, the resource allocations against them, project charters through a two-stage governance flow, and the per-project staffing plan.
+Delivery structure: accounts and projects, the resource allocations against them, a project's approval governance, and the per-project staffing plan. A charter is **not** a separate aggregate — it is a project in a pre-approval lifecycle state (§DB-2 §4.4): the `project` row is created at submission, and `pm.charter` (which cloned 13 columns field-for-field into `project` on approval, via a circular FK) was dropped.
 
 | Table | Purpose | Notes |
 |---|---|---|
-| `account` | A client account (`name`, `industry`, `am_worker_id`). | `version`; indexed by tenant. |
-| `project` | A delivery project: `account_id`, `objective`, `budget_bmm`, `phase`, `status`, `methodology`, `pricing_model`, `planner_group_id`, `org_unit_id`. | FK → `account`; FK → `charter` (`set null`). `deleted_at`. |
-| `charter` | The project charter through `submitted → pmo_approved → approved` (or `rejected`/`withdrawn`), with PMO and BoD sign-off columns. | FK → `account`; FK → `project` (`set null`). |
-| `account_recruiter` | Recruiters assigned to an account. | Unique `(tenant_id, account_id, recruiter_worker_id)`; FK → `account` CASCADE. |
-| `allocation` | A worker's booking to a project (or an open placeholder): `worker_id`, `task_id`, `bucket`, `planned_pct`, `weekday_mask`, `status`. | FK → `project`. `CHECK`s bind status↔worker and bound `planned_pct`/`weekday_mask`. Partial uniques for open placeholders. Overlaps are legitimate (no exclusion constraint). |
-| `project_access` | Per-worker access level on a project (`owner`/`edit`/`view`). | Unique `(tenant_id, project_id, worker_id)`; FK → `project` CASCADE. |
+| `account` | A client account (`name`, `industry`, `am_person_id`). | `version`; indexed by tenant. Boundary API/event field stays `am_worker_id` (see [`ddd-design.md`](./ddd-design.md)). |
+| `project` | A delivery project: `account_id`, `objective`, `budget_bmm`, `phase`, `status` (`submitted → pmo_approved → active → on_hold → closed`, or `rejected`/`withdrawn`), `methodology`, `pricing_model`, `planner_group_id`, `org_unit_id`, `pm_person_id`/`pmo_person_id`. | FK → `account`. `deleted_at`. Readers must filter to `LIVE_PROJECT_STATUSES` (`active`/`on_hold`/`closed`) or they leak pre-approval/rejected rows into boards and pickers. |
+| `project_approval` | 1:1 governance side table (`submitted_by_user_id`, `pmo_signed_off_at`/`_by_user_id`, `approved_at`/`decided_by_user_id`, `rejected_at`/`rejected_stage`/`rejection_reason`) — the workflow metadata that doesn't belong on `project` itself. | PK `project_id` → `project.id` CASCADE. Zero columns shared with `project`. |
+| `account_recruiter` | Recruiters assigned to an account. | Unique `(tenant_id, account_id, recruiter_person_id)`; FK → `account` CASCADE. |
+| `allocation` | A person's booking to a project (or an open placeholder): `person_id`, `task_id`, `bucket`, `planned_pct`, `weekday_mask`, `status` (`placeholder`/`tentative`/`committed`). | FK → `project`. `CHECK`s bind status↔person and bound `planned_pct`/`weekday_mask`. Partial uniques for open placeholders. Overlaps are legitimate (no exclusion constraint). Boundary API/event field stays `worker_id`. |
+| `project_access` | Per-person access level on a project (`owner`/`edit`/`view`). | Unique `(tenant_id, project_id, person_id)`; FK → `project` CASCADE. |
 | `staffing_plan_line` / `staffing_plan_line_skill` | Planned roles on a project and the skills each needs (`skill_id` → `core.skill`, `min_level` 0–5). | Lines FK → `project` CASCADE; skills FK → line CASCADE, tenant-led PK. |
-| `worker_projection` | Read-model of worker name/title for pm-side joins. | Source: `people` worker events. |
+| `person_projection` | Read-model of person name/title for pm-side joins. Formerly `worker_projection`, renamed with the worker→person fold. | Source: `people.worker.*` events. Keyed `person_id`. |
 
 ### `planner` — groups, plans, boards, tasks
 
@@ -210,8 +211,8 @@ Cross-schema links are **bare `uuid` columns with no foreign key**. The database
 
 | Target aggregate | Referenced by (representative bare-uuid columns) |
 |---|---|
-| `identity.user` | `people.person.user_id`, `people.worker_history.by_user_id`, `knowledge.files.uploaded_by`, `notifications.notifications.user_id`, `core.session_scope_cache.user_id`, and every planner authorship/assignee column (`created_by`, `task_assignments.user_id`, `task_comments.author_id`, `group_members.user_id`, …), plus actor columns in `hiring` (`owner_user_id`, `actor_user_id`), `pm` (`submitted_by_user_id`, `decided_by_user_id`, `pmo_signed_off_by_user_id`), and `agent` (`started_by`, `approver_user_id`, `decided_by`). |
-| `people.worker` | `pm.account.am_worker_id`, `pm.project.pm_worker_id`/`pmo_worker_id`, `pm.charter.pm_worker_id`/`pmo_worker_id`, `pm.account_recruiter.recruiter_worker_id`, `pm.allocation.worker_id`, `pm.project_access.worker_id`, `pm.worker_projection.worker_id`, `hiring.application.worker_id`. |
+| `identity.user` | `people.person.user_id` (via `people.user_projection.person_id`), `people.person_history.by_user_id`, `knowledge.files.uploaded_by`, `notifications.notifications.user_id`, `core.session_scope_cache.user_id`, and every planner authorship/assignee column (`created_by`, `task_assignments.user_id`, `task_comments.author_id`, `group_members.user_id`, …), plus actor columns in `hiring` (`owner_user_id`, `actor_user_id`), `pm` (`submitted_by_user_id`, `decided_by_user_id`, `pmo_signed_off_by_user_id`), and `agent` (`started_by`, `approver_user_id`, `decided_by`). |
+| `people.person` | `pm.account.am_person_id`, `pm.project.pm_person_id`/`pmo_person_id`, `pm.account_recruiter.recruiter_person_id`, `pm.allocation.person_id`, `pm.project_access.person_id`, `pm.person_projection.person_id`, `hiring.application.person_id`, `people.org_unit.head_worker_id`. Every column above stores a bare `people.person.id` — none of them names a `people.worker` table, which was folded into `person` (§DB-2: worker is a role a person plays via an open `employment_period`, not a durable entity). API/event boundary fields for these keep the `worker_id` name (see [`ddd-design.md`](./ddd-design.md)); only the physical column and its Drizzle reference are `person_id`. |
 | `core.skill` | `people.person_skill.skill_id`, `hiring.requisition_skill.skill_id`, `hiring.candidate_skill.skill_id`, `pm.staffing_plan_line_skill.skill_id`. Each pairs the id with a refreshed `skill_name` cache, kept honest by the `core.skill.renamed` event. |
 | `pm.account` | `planner.groups.account_id`, `hiring.requisition.account_id`, `people.account_projection` (id). |
 | `pm.project` | `people.project_projection` / `people.worker_allocation_projection.project_id`. |
@@ -229,13 +230,14 @@ Every read-model, its source, and the replay contract. Each projector is idempot
 
 | Projection | Keyed by | Source events (owning module) |
 |---|---|---|
-| `identity.person_projection` | `person_id` | `people.worker.{created,updated,terminated,reinstated}` |
 | `identity.org_unit_projection` | `org_unit_id` | `people.org_unit.*` |
 | `planner.assignee_projection` | `user_id` | `identity.user.{created,deactivated}` + `people` worker skill/availability updates |
 | `people.worker_allocation_projection` | `allocation_id` | `pm.allocation.*` |
 | `people.account_projection` | `account_id` | `pm.account.*` |
 | `people.project_projection` | `project_id` | `pm.project.*` |
-| `pm.worker_projection` | `worker_id` | `people.worker.{created,updated}` |
+| `pm.person_projection` | `person_id` | `people.worker.{created,updated}` |
+
+`identity.person_projection` (formerly keyed on `person_id`, sourced from `people.worker.*`) was deleted: `identity.user.person_id` is now a bare correlation id, and the admin directory reads live off `people` directly (§DB-2, PR 1).
 
 `identity.tenant_sso_providers.entra_tenant_id` is projected the same way from `integrations` M365-config events, though it lives on a domain table rather than a `_projection` table.
 
@@ -250,10 +252,9 @@ Intra-schema foreign keys only — the relationships the database actually enfor
 ```mermaid
 erDiagram
     person ||--o{ employment_period : "has"
-    person ||--o{ worker : "profiled as"
     person ||--o{ person_skill : "has"
-    person ||--o{ worker_history : "audited by"
-    org_unit ||--o{ worker : "staffs"
+    person ||--o{ person_history : "audited by"
+    org_unit ||--o{ person : "staffs"
     org_unit ||--o{ org_unit : "parent of"
     person ||--o{ org_unit : "heads"
 ```
@@ -284,13 +285,12 @@ erDiagram
 ```mermaid
 erDiagram
     account ||--o{ project : "sponsors"
-    account ||--o{ charter : "sponsors"
     account ||--o{ account_recruiter : "staffed by"
     project ||--o{ allocation : "books"
     project ||--o{ project_access : "grants"
     project ||--o{ staffing_plan_line : "plans"
+    project ||--|| project_approval : "governed by"
     staffing_plan_line ||--o{ staffing_plan_line_skill : "requires"
-    charter |o--o| project : "charters"
 ```
 
 ### `hiring`
@@ -301,13 +301,14 @@ erDiagram
     requisition ||--o{ requisition_jd_section : "described by"
     requisition ||--o{ requisition_skill : "requires"
     requisition ||--o{ application : "receives"
-    opening_close_reason ||--o{ opening : "closes"
+    reason ||--o{ opening : "closes"
+    reason ||--o{ requisition : "closes"
     application ||--o{ opening : "fills"
     jd_template ||--o{ jd_template_section : "sections"
     candidate ||--o{ candidate_skill : "has"
     candidate ||--o{ candidate_event : "activity"
     candidate ||--o{ application : "applies via"
-    rejection_reason ||--o{ application : "rejects"
+    reason ||--o{ application : "rejects"
     application ||--o{ candidate_event : "logged in"
     application ||--o{ application : "superseded by"
 ```
@@ -341,9 +342,9 @@ The retention job (`retention_tick`) executes this registry (`packages/shared-db
 | `agent.workflow_runs` | ttl `finished_at` > 180 days |
 | `agent.rate_limits` | custom — delete expired windows |
 | Mastra spans | custom — delete > 180 days (via containment repository) |
-| everything else (business aggregates, `worker_history`, `candidate_event`, projections, subscription cursors, skill taxonomy, tenants, better-auth) | permanent |
+| everything else (business aggregates, `person_history`, `candidate_event`, projections, subscription cursors, skill taxonomy, tenants, better-auth) | permanent |
 
-`worker_history` and `candidate_event` are permanent audit-class tables; chat-attachment files and chunks are permanent here and cleaned up by the chat-attachment-delete job on thread deletion, which is a business rule rather than retention.
+`person_history` and `candidate_event` are permanent audit-class tables; chat-attachment files and chunks are permanent here and cleaned up by the chat-attachment-delete job on thread deletion, which is a business rule rather than retention.
 
 ---
 

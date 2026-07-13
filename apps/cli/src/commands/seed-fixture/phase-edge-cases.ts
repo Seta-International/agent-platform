@@ -67,7 +67,7 @@ export async function seedEdgeCases(
       const injected = await coreDb().execute(
         sql`SELECT 1 FROM pm.allocation
             WHERE tenant_id = ${session.tenant_id}
-              AND worker_id = ${workerId}
+              AND person_id = ${workerId}
               AND bucket = 'internal'
               AND date_from = '2026-05-01'
               AND deleted_at IS NULL
@@ -81,7 +81,7 @@ export async function seedEdgeCases(
               WHERE tenant_id = ${session.tenant_id}
                 AND id NOT IN (
                   SELECT project_id FROM pm.allocation
-                  WHERE worker_id = ${workerId} AND deleted_at IS NULL
+                  WHERE person_id = ${workerId} AND deleted_at IS NULL
                 )
               LIMIT 1`,
         );
