@@ -153,6 +153,17 @@ describe('assign_analyzeTasks taskRef resolution', () => {
     expect(memory.getWorkingMemory).not.toHaveBeenCalled();
   });
 
+  it('treats a literal "none" sentinel the same as null (weaker models emit this instead of JSON null)', async () => {
+    const { toolCtx, memory } = memCtx();
+    const { tools, taskAnalyzer } = buildTools();
+    await tools.assign_analyzeTasks.execute!(
+      { intent: 'extract_named_skills', query: 'who knows aws', taskRef: 'none' } as never,
+      toolCtx,
+    );
+    expect(taskAnalyzer.inputs[0]?.taskId).toBeNull();
+    expect(memory.getWorkingMemory).not.toHaveBeenCalled();
+  });
+
   it('rejects with the resolver error when the ordinal cannot resolve', async () => {
     const { toolCtx } = memCtx([]); // empty conversation memory
     const { tools, taskAnalyzer } = buildTools();

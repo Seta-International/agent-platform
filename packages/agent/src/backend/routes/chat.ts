@@ -14,7 +14,13 @@ import { type ApprovalEvent, pumpOrchestrationStream } from '../orchestration-ui
 import { commitActualTokens, RateLimitError, reserveTurn } from '../rate-limit.ts';
 import { getTenantSettings } from '../tenant-settings.ts';
 import { generateThreadTitle } from '../thread-title.ts';
-import { type AgentRouteDeps, type AgentRouteEnv, NO_BUFFER_HEADERS } from './_shared.ts';
+import {
+  type AgentRouteDeps,
+  type AgentRouteEnv,
+  logError,
+  logWarn,
+  NO_BUFFER_HEADERS,
+} from './_shared.ts';
 
 const ChatBody = z.object({
   id: z.string().optional(),
@@ -223,7 +229,8 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
           return;
         }
         // Read-model write failure must not abort the chat turn.
-        (deps.log?.error ?? console.error)(
+        logError(
+          deps,
           {
             subsystem: 'agent.chat',
             event: 'onApproval.write.failed',
@@ -320,10 +327,8 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
           // the client error part — otherwise mid-stream LLM/tool failures are
           // invisible in the logs and only show as "Error in ... stream" on the UI.
           onError: (e: unknown) => {
-            // TEMP debug: bypass pino (it may itself be the detached-`this`
-            // crash source) and dump the raw stack straight to stderr.
-            console.error('[STREAM_ERR_STACK]', e instanceof Error ? e.stack : e);
-            (deps.log?.error ?? console.error)(
+            logError(
+              deps,
               { subsystem: 'agent.chat', event: 'stream.error', threadId: orchThreadId, err: e },
               'agent chat stream error',
             );
@@ -360,7 +365,8 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
             actualTokensOut: outputTokens,
           });
         } catch (err) {
-          (deps.log?.warn ?? console.warn)(
+          logWarn(
+            deps,
             {
               subsystem: 'agent.chat',
               event: 'llm.usage.record.failed',
@@ -409,7 +415,8 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
             await deps.markAttachmentsConsumed(consumedFileIds);
           }
         } catch (err) {
-          (deps.log?.error ?? console.error)(
+          logError(
+            deps,
             {
               subsystem: 'agent.chat',
               event: 'orchestration.persist.failed',
@@ -431,7 +438,8 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
             });
             await store.updateThread(orchThreadId, { title, metadata: {} });
           } catch (err) {
-            (deps.log?.error ?? console.error)(
+            logError(
+              deps,
               {
                 subsystem: 'agent.chat',
                 event: 'orchestration.title.failed',

@@ -18,6 +18,18 @@ import {
   UserProfileResultSchema,
 } from './schemas.ts';
 
+// Smaller/local models sometimes fill a nullable string arg with a literal
+// "none"/"null"/"n/a" instead of JSON null. resolveTaskRef only understands
+// UUIDs and ordinals, so an unnormalized sentinel reaches it and throws
+// TaskRefResolveError, surfacing as a generic tool failure to the user.
+const NO_TASK_REF_SENTINELS = new Set(['none', 'null', 'n/a', 'na']);
+function normalizeTaskRef(taskRef: string | null): string | null {
+  if (!taskRef) return null;
+  const trimmed = taskRef.trim();
+  if (trimmed.length === 0 || NO_TASK_REF_SENTINELS.has(trimmed.toLowerCase())) return null;
+  return taskRef;
+}
+
 type TaskAnalyzerSpec = SpecializedAgentSpec<
   {
     intent: TaskAnalyzerIntent;
@@ -114,7 +126,8 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       '- extract_named_skills: skills the user named in the message.',
       '- find_tasks: list tasks whose labels match the message.',
       '',
-      'taskRef is a UUID or an ordinal ("first"/"#1"). Pass resolvedTaskId to downstream tools.',
+      'taskRef is a UUID or an ordinal ("first"/"#1"); pass null when there is no specific task. ' +
+        'Pass resolvedTaskId to downstream tools.',
     ].join('\n'),
     input: z.object({
       intent: TaskAnalyzerIntentSchema,
@@ -142,7 +155,10 @@ export function makeOrchestratorTools(deps: OrchestratorToolDeps) {
       tasks: z.array(TaskSummarySchema).optional(),
     }),
     execute: async ({ intent, query, taskRef, completionStatus, limit }, toolCtx) => {
-      const taskId = taskRef ? (await resolveTaskRef(toolCtx as never, taskRef)).taskId : null;
+      const normalizedTaskRef = normalizeTaskRef(taskRef);
+      const taskId = normalizedTaskRef
+        ? (await resolveTaskRef(toolCtx as never, normalizedTaskRef)).taskId
+        : null;
       const res = await taskAnalyzer.run(
         { intent, query, taskId, completionStatus, limit },
         subCtx,

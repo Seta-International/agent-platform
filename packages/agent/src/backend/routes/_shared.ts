@@ -11,6 +11,26 @@ export const NO_BUFFER_HEADERS = {
   'Cache-Control': 'no-cache, no-transform',
 } as const;
 
+type LogDeps = {
+  log?: { error: (obj: unknown, msg?: string) => void; warn: (obj: unknown, msg?: string) => void };
+};
+
+// `deps.log` is a pino child logger — its methods read an instance-private
+// Symbol via `this`. `(deps.log?.error ?? console.error)(...)` extracts the
+// method as a bare reference and calls it detached, which throws
+// "Cannot read properties of undefined (reading 'Symbol(pino.msgPrefix)')"
+// instead of logging the real error. These helpers call it as `deps.log.error(...)`
+// so `this` stays bound.
+export function logError(deps: LogDeps, obj: unknown, msg: string): void {
+  if (deps.log) deps.log.error(obj, msg);
+  else console.error(obj, msg);
+}
+
+export function logWarn(deps: LogDeps, obj: unknown, msg: string): void {
+  if (deps.log) deps.log.warn(obj, msg);
+  else console.warn(obj, msg);
+}
+
 export type AgentRouteDeps = {
   mastra: unknown;
   drainer: LifecycleDrainer;
