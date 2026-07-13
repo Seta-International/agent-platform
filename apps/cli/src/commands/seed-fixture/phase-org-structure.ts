@@ -200,10 +200,9 @@ async function backfillOrgUnitHeads(tenantId: string): Promise<void> {
   // Head = most senior (earliest-hired) member of the unit.
   await coreDb().execute(sql`
     UPDATE people.org_unit ou SET head_worker_id = (
-      SELECT w.person_id FROM people.worker w
-        JOIN people.person p ON p.id = w.person_id
-        WHERE w.org_unit_id = ou.id AND w.tenant_id = ou.tenant_id AND w.deleted_at IS NULL
-        ORDER BY p.original_hire_date NULLS LAST, w.full_name
+      SELECT p.id FROM people.person p
+        WHERE p.org_unit_id = ou.id AND p.tenant_id = ou.tenant_id AND p.deleted_at IS NULL
+        ORDER BY p.original_hire_date NULLS LAST, p.full_name
         LIMIT 1)
     WHERE ou.tenant_id = ${tenantId} AND ou.head_worker_id IS NULL`);
 
