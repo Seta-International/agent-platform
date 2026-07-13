@@ -1,4 +1,5 @@
 import path from 'node:path';
+import stylex from '@stylexjs/unplugin';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
@@ -12,6 +13,21 @@ export default defineConfig({
       autoCodeSplitting: true,
       routesDirectory: './src',
       virtualRouteConfig: './src/routes.virtual.ts',
+    }),
+    stylex.vite({
+      useCSSLayers: {
+        before: [
+          'reset',
+          'theme',
+          'base',
+          'astryx-base',
+          'astryx-theme',
+          'components',
+          'utilities',
+        ],
+      },
+      dev: process.env.NODE_ENV !== 'production',
+      runtimeInjection: false,
     }),
     react(),
     tailwindcss(),

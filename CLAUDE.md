@@ -25,7 +25,7 @@ When `docs/platform/architecture.md` and the code disagree, the doc is the bug �
 - **Backend**: Hono, Mastra (`@mastra/core@^1.35`), graphile-worker.
 - **Database**: Postgres + pgvector, Drizzle ORM (`pgSchema` + `schemaFilter`). No other ORM, no raw migration tool.
 - **Event bus**: transactional outbox in `core.events` + `LISTEN/NOTIFY` + 2s fallback poll. No SQS, no Kafka.
-- **Frontend**: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), shadcn/ui, Tailwind 4, AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui v6-paired.
+- **Frontend**: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), Astryx (`@astryxdesign/core` + StyleX, custom `seta` theme in `packages/shared-ui/src/theme/`) for components — foundation landed via FUT-562 (theme + build tooling wired, Storybook-verified), primitive/composite migration not yet started, so `apps/web` still runs on the pre-Astryx shadcn/Radix layer today — Tailwind 4 (unchanged, not yet integrated with Astryx — see `DESIGN.md`'s `implementation_notice`), AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui v6-paired.
 - **Auth**: better-auth + Drizzle adapter, argon2id via `@node-rs/argon2`.
 - **Cloud**: AWS — ECS Fargate, RDS, Secrets Manager, S3.
 
@@ -76,3 +76,42 @@ Declared via `"setaTier"` in `package.json` (informational, not a separate enfor
 - **HITL on every write tool.** AI SDK v6 `needsApproval: true` + assistant-ui Interactable confirmation card, wired via `registerToolPermission` from `@seta/agent-sdk`. Read tools execute directly. Native-suspend chat cards resume via `POST /chat/resume`; `/workflows/approvals/:id/decide` only records the decision (no resume).
 - **Subscribers must be idempotent**, keyed on `event_id`. At-least-once delivery; per-aggregate ordering only.
 - **Production-grade only, never quick hacks.** Diagnose the root cause and ship the optimized solution; "small patch now, real fix later" is rejected on review.
+
+**Repo-specific override of the block below** (as of FUT-562's foundation change): the StyleX
+compiler IS wired here (`@stylexjs/unplugin` in `apps/web/vite.config.ts` and
+`packages/shared-ui/.storybook/main.ts`) — `xstyle` is the supported override mechanism, contrary
+to the block's claim. Do NOT import `@astryxdesign/core/astryx.css` (or `reset.css`) into any real
+app entry point yet — it's wired into Storybook only
+(`packages/shared-ui/.storybook/preview.css`), deliberately isolated because the vendor
+stylesheet's unscoped `:root` token defaults collide with Seta's own tokens. See
+`DESIGN.md`'s `implementation_notice` for why.
+
+<!-- ASTRYX:START -->
+Astryx v0.0.1 · 90+ components
+CLI: run every command as `pnpm exec astryx <cmd>` (shown below as `astryx ...`).
+
+SETUP (once, in your app entry e.g. main.tsx) — without these, components render unstyled:
+  import "@astryxdesign/core/reset.css";
+  import "@astryxdesign/core/astryx.css";
+
+WORKFLOW — discover, don't guess. Before writing UI:
+1. `astryx build "<idea>"` — START HERE: returns a kit (closest [page] + [block]s + [component]s). No args = full playbook.
+2. `astryx template <name> [--skeleton]` — scaffold the [page]/[block]s it named, or study their layout. Templates are reference code.
+3. `astryx component <Name>` — props + examples for every component you use.
+
+RULES:
+- No <div> — components do all layout/spacing. Full page → AppShell; sidebar nav → SideNav.
+- Frame first: pick the shell (AppShell / Layout+LayoutPanel) and budget regions in px BEFORE writing content (`astryx docs layout`).
+- Dense data = rows (Table, List/Item) edge-to-edge — never Card-wrapped list items. Card = dashboard widgets, galleries, settings groups only.
+- Status → StatusDot/Token; Badge only for counts and enumerated states, never decoration.
+- Custom styling: component props first; else style/className with tokens — var(--color-*|--spacing-*|--radius-*). No raw hex/px. (No StyleX/Tailwind compiler here — don't use xstyle/utility classes.)
+- Tokens for every value (`astryx docs tokens`). Brand/accent via `astryx theme` — never override --color-* in :root.
+
+MORE CLI:
+  search "<query>"   find any component / hook / doc / template / block
+  component --list   90+ components by category
+  template --list    page + block recipes
+  docs <topic>       color, elevation, icons, illustrations, layout, migration, motion, principles, shape, spacing, styling, theme, tokens, typography
+  swizzle <Name>     eject component source for deep customization
+  upgrade --apply    run after any @astryxdesign/core bump
+<!-- ASTRYX:END -->
