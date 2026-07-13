@@ -38,6 +38,26 @@ export interface AppShellProps {
   className?: string;
 }
 
+/**
+ * Computes the same [...app.nav, ...app.useNavExtensions()] merge LeftNav does internally, for
+ * the mobile drawer's content. A sibling component (not a direct call in AppShell) so the
+ * per-app useNavExtensions hook — a different implementation per app — gets its own component
+ * instance and remounts via `key` on app switch, matching LeftNav's own safety pattern.
+ */
+function MobileNavSections({
+  app,
+  activeItemId,
+  Link,
+}: {
+  app: AppManifest;
+  activeItemId: string | undefined;
+  Link: ShellLinkComponent;
+}) {
+  const extensions = app.useNavExtensions();
+  const sections = [...app.nav, ...extensions];
+  return <>{toSideNavSections(sections, activeItemId, Link)}</>;
+}
+
 export function AppShell({
   userMenu,
   apps,
@@ -115,7 +135,14 @@ export function AppShell({
         sideNav={sideNavContent}
         mobileNav={
           <MobileNav isOpen={mobileNavOpen} onOpenChange={setMobileNavOpen} header="Navigation">
-            {activeApp && toSideNavSections(activeApp.nav, activeItemId, Link)}
+            {activeApp && (
+              <MobileNavSections
+                key={activeApp.id}
+                app={activeApp}
+                activeItemId={activeItemId}
+                Link={Link}
+              />
+            )}
           </MobileNav>
         }
       >

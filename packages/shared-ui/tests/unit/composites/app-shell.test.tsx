@@ -78,4 +78,24 @@ describe('AppShell (suite)', () => {
     await user.click(screen.getByRole('button', { name: /Agent Studio/ }));
     expect(onAppSelect).toHaveBeenCalledWith('agent');
   });
+
+  it('includes useNavExtensions sections in the mobile nav drawer, not just the sidebar', () => {
+    const appsWithExtensions: AppManifest[] = APPS.map((app) =>
+      app.id === 'planner'
+        ? {
+            ...app,
+            useNavExtensions: () => [
+              {
+                label: 'Recent',
+                items: [{ id: 'planner.recent.q3', label: 'Q3 Launch', to: '/planner/q3' }],
+              },
+            ],
+          }
+        : app,
+    );
+    renderShell({ apps: appsWithExtensions });
+    // Once in the visible sidebar (LeftNav), once in the always-mounted-but-hidden mobile
+    // drawer (MobileNavSections) — both compute the same [...nav, ...useNavExtensions()] merge.
+    expect(screen.getAllByText('Q3 Launch')).toHaveLength(2);
+  });
 });
