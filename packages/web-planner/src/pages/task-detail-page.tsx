@@ -146,9 +146,9 @@ export function TaskDetailPage({
   if (taskQ.isPending) {
     return (
       <div role="status" aria-label="Loading task" className="p-7">
-        <Skeleton className="mb-4 h-8 w-1/3" />
-        <Skeleton className="mb-2 h-4 w-1/2" />
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="mb-4" height={32} width="33.3333%" />
+        <Skeleton className="mb-2" height={16} width="50%" />
+        <Skeleton height={256} />
       </div>
     );
   }

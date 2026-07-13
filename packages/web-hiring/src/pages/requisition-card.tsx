@@ -131,12 +131,12 @@ export function RequisitionCard({
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    disabled={!canManage && !canClose}
-                    aria-label="Requisition actions"
-                  >
-                    <MoreHorizontal className="size-4" />
-                  </Button>
+                    size="sm"
+                    isIconOnly
+                    icon={<MoreHorizontal className="size-4" />}
+                    label="Requisition actions"
+                    isDisabled={!canManage && !canClose}
+                  />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {r.status === 'open' && (
@@ -266,10 +266,13 @@ export function RequisitionCard({
             {r.applicants_count} Applicants
           </span>
         </div>
-        <Button size="sm" variant="secondary" onClick={go}>
-          View Detail
-          <ExternalLink className="ml-1 size-3.5" aria-hidden />
-        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          label="View Detail"
+          endContent={<ExternalLink className="size-3.5" aria-hidden />}
+          onClick={go}
+        />
       </div>
     </div>
   );

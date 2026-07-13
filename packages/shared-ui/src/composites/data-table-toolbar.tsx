@@ -33,12 +33,10 @@ export function DataTableToolbar<TData>({
             <Button
               variant="ghost"
               size="sm"
-              aria-label="Columns"
+              label="Columns"
+              icon={<Settings2 className="size-3.5" />}
               className="h-7 gap-1.5 px-2 text-ink-muted"
-            >
-              <Settings2 className="size-3.5" />
-              Columns
-            </Button>
+            />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>

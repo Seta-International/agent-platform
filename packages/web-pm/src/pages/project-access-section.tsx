@@ -88,12 +88,11 @@ export function ProjectAccessSection({
             <Button
               size="sm"
               variant="ghost"
+              label="Remove"
               onClick={() =>
                 save.mutate((data ?? []).filter((g) => g.worker_id !== row.original.worker_id))
               }
-            >
-              Remove
-            </Button>
+            />
           ) : null,
       },
     ];
@@ -141,16 +140,15 @@ export function ProjectAccessSection({
             </Select>
           </div>
           <Button
+            label="Add"
             onClick={() =>
               save.mutate([
                 ...(data ?? []).filter((g) => g.worker_id !== worker),
                 { worker_id: worker, level },
               ])
             }
-            disabled={save.isPending || !worker.trim()}
-          >
-            Add
-          </Button>
+            isDisabled={save.isPending || !worker.trim()}
+          />
         </div>
       )}
     </section>

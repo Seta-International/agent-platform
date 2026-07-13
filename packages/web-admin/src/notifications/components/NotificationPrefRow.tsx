@@ -17,7 +17,7 @@ export function NotificationPrefRow({ row, onToggle, disabled }: NotificationPre
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-body font-medium text-ink">{row.label}</span>
-          <Badge variant={anyOn ? 'success' : 'secondary'}>{anyOn ? 'On' : 'Off'}</Badge>
+          <Badge variant={anyOn ? 'success' : 'neutral'} label={anyOn ? 'On' : 'Off'} />
         </div>
         <p className="m-0 mt-1 font-mono text-caption text-ink-subtle">{row.event_type}</p>
       </div>

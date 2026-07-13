@@ -1,15 +1,15 @@
 import {
-  Alert,
-  AlertDescription,
   AsyncCombobox,
+  Banner,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
   Input,
   Label,
   LabelChip,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   PageChrome,
   Skeleton,
   toast,
@@ -164,22 +164,22 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
 
   const headerActions =
     canManage && !editing && account ? (
-      <Button size="sm" onClick={startEdit}>
-        Edit
-      </Button>
+      <Button size="sm" label="Edit" onClick={startEdit} />
     ) : canManage && editing ? (
       <div className="flex items-center gap-2">
         <Button
           size="sm"
           variant="secondary"
+          label="Cancel"
           onClick={cancelEdit}
-          disabled={saveMutation.isPending}
-        >
-          Cancel
-        </Button>
-        <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? 'Saving…' : 'Save'}
-        </Button>
+          isDisabled={saveMutation.isPending}
+        />
+        <Button
+          size="sm"
+          label={saveMutation.isPending ? 'Saving…' : 'Save'}
+          onClick={() => saveMutation.mutate()}
+          isDisabled={saveMutation.isPending}
+        />
       </div>
     ) : undefined;
 
@@ -188,17 +188,23 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
       <PageChrome title="Account" breadcrumb={[backLink]}>
         <div className="page-container p-6 space-y-4">
           <Card>
-            <CardHeader>
-              <Skeleton className="h-5 w-48" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                  <Skeleton key={i} className="h-4 w-full" />
-                ))}
-              </div>
-            </CardContent>
+            <Layout
+              header={
+                <LayoutHeader hasDivider>
+                  <Skeleton height={20} width={192} />
+                </LayoutHeader>
+              }
+              content={
+                <LayoutContent>
+                  <div className="space-y-3">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
+                      <Skeleton key={i} height={16} />
+                    ))}
+                  </div>
+                </LayoutContent>
+              }
+            />
           </Card>
         </div>
       </PageChrome>
@@ -210,9 +216,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
     return (
       <PageChrome title="Account" breadcrumb={[backLink]}>
         <div className="page-container p-6">
-          <Alert variant="destructive">
-            <AlertDescription>{msg}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={msg} />
         </div>
       </PageChrome>
     );
@@ -223,116 +227,123 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
       <div className="page-container grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 p-6 items-start">
         {/* Details card */}
         <Card>
-          <CardHeader>
-            <CardTitle>{account.name}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {editError && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertDescription>{editError}</AlertDescription>
-              </Alert>
-            )}
+          <Layout
+            header={
+              <LayoutHeader hasDivider>
+                <CardTitle>{account.name}</CardTitle>
+              </LayoutHeader>
+            }
+            content={
+              <LayoutContent>
+                {editError && <Banner status="error" className="mb-4" title={editError} />}
 
-            {editing ? (
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <Label>Name *</Label>
-                  <Input
-                    value={draft.name ?? ''}
-                    onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Industry</Label>
-                  <Input
-                    value={draft.industry ?? ''}
-                    onChange={(e) => setDraft((d) => ({ ...d, industry: e.target.value || null }))}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Account Manager</Label>
-                  <AsyncCombobox
-                    value={draft.am_worker_id ?? null}
-                    onChange={(v) => setDraft((d) => ({ ...d, am_worker_id: v }))}
-                    search={workerPicker.search}
-                    resolveByIds={workerPicker.resolveByIds}
-                    placeholder="Search workers…"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div>
-                <FieldRow label="Name" value={account.name} />
-                <FieldRow label="Industry" value={account.industry} />
-                <FieldRow
-                  label="Account Manager"
-                  value={account.am_worker_id ? nameOf(account.am_worker_id) : null}
-                />
-                <FieldRow label="Version" value={String(account.version)} />
-              </div>
-            )}
-          </CardContent>
+                {editing ? (
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <Label>Name *</Label>
+                      <Input
+                        value={draft.name ?? ''}
+                        onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Industry</Label>
+                      <Input
+                        value={draft.industry ?? ''}
+                        onChange={(e) =>
+                          setDraft((d) => ({ ...d, industry: e.target.value || null }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Account Manager</Label>
+                      <AsyncCombobox
+                        value={draft.am_worker_id ?? null}
+                        onChange={(v) => setDraft((d) => ({ ...d, am_worker_id: v }))}
+                        search={workerPicker.search}
+                        resolveByIds={workerPicker.resolveByIds}
+                        placeholder="Search workers…"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <FieldRow label="Name" value={account.name} />
+                    <FieldRow label="Industry" value={account.industry} />
+                    <FieldRow
+                      label="Account Manager"
+                      value={account.am_worker_id ? nameOf(account.am_worker_id) : null}
+                    />
+                    <FieldRow label="Version" value={String(account.version)} />
+                  </div>
+                )}
+              </LayoutContent>
+            }
+          />
         </Card>
 
         {/* Recruiters card */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle className="flex items-center gap-2">
-                <Users className="size-4 text-ink-muted" />
-                Recruiters
-              </CardTitle>
-              {canManage && !editingRecruiters && (
-                <Button size="sm" variant="secondary" onClick={startEditRecruiters}>
-                  Edit
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {editingRecruiters ? (
-              <div className="space-y-3">
-                <AsyncCombobox
-                  multiple
-                  value={recruiterIds}
-                  onChange={setRecruiterIds}
-                  search={workerPicker.search}
-                  resolveByIds={workerPicker.resolveByIds}
-                  placeholder="Search workers…"
-                />
-                {recruiterError && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{recruiterError}</AlertDescription>
-                  </Alert>
-                )}
-                <div className="flex justify-end gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={cancelEditRecruiters}
-                    disabled={saveRecruitersMutation.isPending}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={submitRecruiters}
-                    disabled={saveRecruitersMutation.isPending}
-                  >
-                    {saveRecruitersMutation.isPending ? 'Saving…' : 'Save'}
-                  </Button>
+          <Layout
+            header={
+              <LayoutHeader hasDivider>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="size-4 text-ink-muted" />
+                    Recruiters
+                  </CardTitle>
+                  {canManage && !editingRecruiters && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      label="Edit"
+                      onClick={startEditRecruiters}
+                    />
+                  )}
                 </div>
-              </div>
-            ) : account.recruiter_worker_ids.length === 0 ? (
-              <p className="text-body-sm text-ink-muted">No recruiters assigned.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {account.recruiter_worker_ids.map((id) => (
-                  <LabelChip key={id} name={nameOf(id)} />
-                ))}
-              </div>
-            )}
-          </CardContent>
+              </LayoutHeader>
+            }
+            content={
+              <LayoutContent>
+                {editingRecruiters ? (
+                  <div className="space-y-3">
+                    <AsyncCombobox
+                      multiple
+                      value={recruiterIds}
+                      onChange={setRecruiterIds}
+                      search={workerPicker.search}
+                      resolveByIds={workerPicker.resolveByIds}
+                      placeholder="Search workers…"
+                    />
+                    {recruiterError && <Banner status="error" title={recruiterError} />}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        label="Cancel"
+                        onClick={cancelEditRecruiters}
+                        isDisabled={saveRecruitersMutation.isPending}
+                      />
+                      <Button
+                        size="sm"
+                        label={saveRecruitersMutation.isPending ? 'Saving…' : 'Save'}
+                        onClick={submitRecruiters}
+                        isDisabled={saveRecruitersMutation.isPending}
+                      />
+                    </div>
+                  </div>
+                ) : account.recruiter_worker_ids.length === 0 ? (
+                  <p className="text-body-sm text-ink-muted">No recruiters assigned.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {account.recruiter_worker_ids.map((id) => (
+                      <LabelChip key={id} name={nameOf(id)} />
+                    ))}
+                  </div>
+                )}
+              </LayoutContent>
+            }
+          />
         </Card>
       </div>
     </PageChrome>

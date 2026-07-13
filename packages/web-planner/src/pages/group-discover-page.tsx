@@ -50,16 +50,18 @@ export function GroupDiscoverPage() {
             onChange={(e) => setQ(e.target.value)}
             className="flex-1"
           />
-          <Button type="submit" disabled={q.trim().length === 0}>
-            <Search className="size-4 mr-2" />
-            Search
-          </Button>
+          <Button
+            type="submit"
+            icon={<Search className="size-4" />}
+            label="Search"
+            isDisabled={q.trim().length === 0}
+          />
         </form>
 
         {searchQuery.isPending && submittedQ && (
           <div className="flex flex-col gap-3">
             {(['sk-0', 'sk-1', 'sk-2'] as const).map((k) => (
-              <Skeleton key={k} className="h-20 w-full rounded-lg" />
+              <Skeleton key={k} height={80} radius={3} />
             ))}
           </div>
         )}
@@ -91,18 +93,15 @@ export function GroupDiscoverPage() {
                     </p>
                   </div>
                   {group.is_member ? (
-                    <Badge variant="success" className="shrink-0">
-                      Member
-                    </Badge>
+                    <Badge variant="success" className="shrink-0" label="Member" />
                   ) : (
                     <Button
                       size="sm"
-                      variant={isRequested ? 'secondary' : 'default'}
-                      disabled={isRequested || joinMutation.isPending}
+                      variant={isRequested ? 'secondary' : 'primary'}
+                      isDisabled={isRequested || joinMutation.isPending}
                       onClick={() => joinMutation.mutate(group.id)}
-                    >
-                      {isRequested ? 'Requested' : 'Request to Join'}
-                    </Button>
+                      label={isRequested ? 'Requested' : 'Request to Join'}
+                    />
                   )}
                 </li>
               );

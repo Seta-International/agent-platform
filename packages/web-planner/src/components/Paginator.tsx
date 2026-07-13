@@ -77,9 +77,14 @@ export function Paginator({
           <span className="text-ink-subtle">Rows per page</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-ink">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1 px-2 text-ink"
+                label={`${pageSize} rows per page`}
+                endContent={<ChevronDown className="size-3 text-ink-subtle" />}
+              >
                 {pageSize}
-                <ChevronDown className="size-3 text-ink-subtle" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[5rem]">
@@ -98,14 +103,14 @@ export function Paginator({
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
-            size="icon"
-            aria-label="Previous page"
-            disabled={!canPrev}
+            size="sm"
+            isIconOnly
+            icon={<ChevronLeft className="size-3" />}
+            label="Previous page"
+            isDisabled={!canPrev}
             onClick={() => onPageChange(safePageIndex - 1)}
             className="size-7"
-          >
-            <ChevronLeft className="size-3" />
-          </Button>
+          />
           {pages.map((p, i) =>
             p === 'ellipsis' ? (
               <span
@@ -120,7 +125,7 @@ export function Paginator({
                 key={p}
                 variant="ghost"
                 size="sm"
-                aria-label={`Page ${p + 1}`}
+                label={`Page ${p + 1}`}
                 aria-current={p === safePageIndex ? 'page' : undefined}
                 onClick={() => onPageChange(p)}
                 className={cn(
@@ -134,14 +139,14 @@ export function Paginator({
           )}
           <Button
             variant="ghost"
-            size="icon"
-            aria-label="Next page"
-            disabled={!canNext}
+            size="sm"
+            isIconOnly
+            icon={<ChevronRight className="size-3" />}
+            label="Next page"
+            isDisabled={!canNext}
             onClick={() => onPageChange(safePageIndex + 1)}
             className="size-7"
-          >
-            <ChevronRight className="size-3" />
-          </Button>
+          />
         </div>
       </div>
     </div>

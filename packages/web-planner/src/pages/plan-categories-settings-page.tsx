@@ -17,9 +17,9 @@ interface Props {
 function PageSkeleton() {
   return (
     <div role="status" aria-label="Loading categories" className="p-7">
-      <Skeleton className="mb-4 h-8 w-1/3" />
-      <Skeleton className="mb-2 h-6 w-full" />
-      <Skeleton className="h-64 w-full" />
+      <Skeleton className="mb-4" height={32} width="33.3333%" />
+      <Skeleton className="mb-2" height={24} />
+      <Skeleton height={256} />
     </div>
   );
 }

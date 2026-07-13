@@ -1,12 +1,13 @@
 import {
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
   Combobox,
   Input,
   Label,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../api/client.ts';
@@ -88,64 +89,75 @@ export function ProfileLocaleSection({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Locale</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="timezone">Timezone</Label>
-          <TimezonePicker value={tz} onChange={setTz} />
-        </div>
-        {canEditWorkingHours ? (
-          <div className="space-y-2">
-            <Label>Working hours (Mon–Fri)</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="time"
-                aria-label="Working hours start"
-                value={whStart}
-                onChange={(e) => setWhStart(e.target.value)}
-                className="w-32"
-              />
-              <span className="text-ink-muted text-sm">to</span>
-              <Input
-                type="time"
-                aria-label="Working hours end"
-                value={whEnd}
-                onChange={(e) => setWhEnd(e.target.value)}
-                className="w-32"
-              />
-              {(whStart || whEnd) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setWhStart('');
-                    setWhEnd('');
-                  }}
-                >
-                  Clear
-                </Button>
+      <Layout
+        header={
+          <LayoutHeader hasDivider>
+            <CardTitle>Locale</CardTitle>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Timezone</Label>
+                <TimezonePicker value={tz} onChange={setTz} />
+              </div>
+              {canEditWorkingHours ? (
+                <div className="space-y-2">
+                  <Label>Working hours (Mon–Fri)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="time"
+                      aria-label="Working hours start"
+                      value={whStart}
+                      onChange={(e) => setWhStart(e.target.value)}
+                      className="w-32"
+                    />
+                    <span className="text-ink-muted text-sm">to</span>
+                    <Input
+                      type="time"
+                      aria-label="Working hours end"
+                      value={whEnd}
+                      onChange={(e) => setWhEnd(e.target.value)}
+                      className="w-32"
+                    />
+                    {(whStart || whEnd) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setWhStart('');
+                          setWhEnd('');
+                        }}
+                        label="Clear"
+                      />
+                    )}
+                  </div>
+                  {whInvalid && (
+                    <p className="text-xs text-destructive">Use 24-hour time, like 09:00</p>
+                  )}
+                </div>
+              ) : (
+                wh && (
+                  <div className="space-y-2">
+                    <Label>Working hours (Mon–Fri)</Label>
+                    <p className="text-sm text-ink-muted">
+                      {wh.start}–{wh.end} · contact your admin to change
+                    </p>
+                  </div>
+                )
               )}
+              <div className="flex justify-end pt-1">
+                <Button
+                  onClick={save}
+                  isDisabled={saving || !dirty || Boolean(whInvalid)}
+                  label="Save changes"
+                />
+              </div>
             </div>
-            {whInvalid && <p className="text-xs text-destructive">Use 24-hour time, like 09:00</p>}
-          </div>
-        ) : (
-          wh && (
-            <div className="space-y-2">
-              <Label>Working hours (Mon–Fri)</Label>
-              <p className="text-sm text-ink-muted">
-                {wh.start}–{wh.end} · contact your admin to change
-              </p>
-            </div>
-          )
-        )}
-        <div className="flex justify-end pt-1">
-          <Button onClick={save} disabled={saving || !dirty || Boolean(whInvalid)}>
-            Save changes
-          </Button>
-        </div>
-      </CardContent>
+          </LayoutContent>
+        }
+      />
     </Card>
   );
 }

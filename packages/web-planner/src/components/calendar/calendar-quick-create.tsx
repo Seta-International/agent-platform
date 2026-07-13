@@ -52,12 +52,13 @@ export function CalendarQuickCreate({ planId, dueDate, onClose }: Props) {
         }}
       />
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button type="submit" size="sm" disabled={!title.trim() || createTask.isPending}>
-          Create
-        </Button>
+        <Button type="button" variant="ghost" size="sm" label="Cancel" onClick={onClose} />
+        <Button
+          type="submit"
+          size="sm"
+          label="Create"
+          isDisabled={!title.trim() || createTask.isPending}
+        />
       </div>
     </form>
   );

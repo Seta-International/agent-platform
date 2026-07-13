@@ -1,6 +1,5 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -99,9 +98,9 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
     return (
       <PageChrome breadcrumb={['Planner']} title="Groups">
         <div data-testid="groups-page-skeleton" className="space-y-3 p-6">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
+          <Skeleton height={48} />
+          <Skeleton height={48} />
+          <Skeleton height={48} />
         </div>
       </PageChrome>
     );
@@ -111,14 +110,13 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
     return (
       <PageChrome breadcrumb={['Planner']} title="Groups">
         <div className="p-6">
-          <Alert variant="destructive">
-            <AlertDescription className="flex items-center justify-between gap-3">
-              <span>Couldn't load groups.</span>
-              <Button size="sm" variant="secondary" onClick={() => q.refetch()}>
-                Retry
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <Banner
+            status="error"
+            title="Couldn't load groups."
+            endContent={
+              <Button size="sm" variant="secondary" label="Retry" onClick={() => q.refetch()} />
+            }
+          />
         </div>
       </PageChrome>
     );
@@ -182,25 +180,28 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
           <Button
             variant="secondary"
             size="sm"
+            icon={<Search className="size-4" />}
+            label="Find a Workspace group"
             onClick={() => void navigate({ to: '/planner/groups/discover' })}
-          >
-            <Search className="size-4 mr-2" />
-            Find a Workspace group
-          </Button>
+          />
           <DisabledActionTooltip disabled={!canCreateGroup} reason={PERMISSION_DENIED.group.create}>
             <Button
               size="sm"
               variant="secondary"
+              icon={<Cloud className="size-3" />}
+              label="Sync from IdP"
               onClick={() => setSyncFromIdPOpen(true)}
-              disabled={!canCreateGroup}
-            >
-              <Cloud className="size-3" /> Sync from IdP
-            </Button>
+              isDisabled={!canCreateGroup}
+            />
           </DisabledActionTooltip>
           <DisabledActionTooltip disabled={!canCreateGroup} reason={PERMISSION_DENIED.group.create}>
-            <Button size="sm" onClick={() => setCreateOpen(true)} disabled={!canCreateGroup}>
-              <Plus className="size-3" /> New group
-            </Button>
+            <Button
+              size="sm"
+              icon={<Plus className="size-3" />}
+              label="New group"
+              onClick={() => setCreateOpen(true)}
+              isDisabled={!canCreateGroup}
+            />
           </DisabledActionTooltip>
         </>
       }
@@ -273,18 +274,19 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
               </SelectContent>
             </Select>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setSyncFromIdPOpen(false)}>
-                Cancel
-              </Button>
               <Button
-                disabled={!groupToLink}
+                variant="secondary"
+                label="Cancel"
+                onClick={() => setSyncFromIdPOpen(false)}
+              />
+              <Button
+                label="Next"
+                isDisabled={!groupToLink}
                 onClick={() => {
                   setSyncFromIdPOpen(false);
                   setLinkDialogOpen(true);
                 }}
-              >
-                Next
-              </Button>
+              />
             </div>
           </div>
         </DialogContent>

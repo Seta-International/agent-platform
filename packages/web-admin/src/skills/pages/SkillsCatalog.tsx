@@ -1,8 +1,7 @@
 // biome-ignore-all lint/a11y/noAutofocus: inline rename inputs take focus when opened.
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   cn,
   EmptyState,
@@ -154,11 +153,12 @@ export function SkillsCatalog() {
     >
       <div className="page-container space-y-5">
         {categoriesQ.error && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              Couldn&apos;t load the skills catalog: {(categoriesQ.error as Error).message}
-            </AlertDescription>
-          </Alert>
+          <Banner
+            status="error"
+            title={
+              <>Couldn&apos;t load the skills catalog: {(categoriesQ.error as Error).message}</>
+            }
+          />
         )}
 
         {!canManage && !loading && (
@@ -171,11 +171,11 @@ export function SkillsCatalog() {
         {loading ? (
           <>
             <div className="grid grid-cols-3 gap-3">
-              <Skeleton className="h-[68px] rounded-lg" />
-              <Skeleton className="h-[68px] rounded-lg" />
-              <Skeleton className="h-[68px] rounded-lg" />
+              <Skeleton height={68} radius={3} />
+              <Skeleton height={68} radius={3} />
+              <Skeleton height={68} radius={3} />
             </div>
-            <Skeleton className="h-96 w-full rounded-lg" />
+            <Skeleton height={384} radius={3} />
           </>
         ) : (
           <>
@@ -239,16 +239,20 @@ export function SkillsCatalog() {
                     {searching ? (
                       <>
                         Search results
-                        <Badge variant="secondary" className="tabular-nums">
-                          {visibleSkills.length}
-                        </Badge>
+                        <Badge
+                          variant="neutral"
+                          className="tabular-nums"
+                          label={visibleSkills.length}
+                        />
                       </>
                     ) : activeCat ? (
                       <>
                         {activeCat.name}
-                        <Badge variant="secondary" className="tabular-nums">
-                          {visibleSkills.length}
-                        </Badge>
+                        <Badge
+                          variant="neutral"
+                          className="tabular-nums"
+                          label={visibleSkills.length}
+                        />
                       </>
                     ) : (
                       'Skills'
@@ -290,11 +294,10 @@ export function SkillsCatalog() {
                 )}
 
                 {skillsQ.error ? (
-                  <Alert variant="destructive">
-                    <AlertDescription>
-                      Couldn&apos;t load skills: {(skillsQ.error as Error).message}
-                    </AlertDescription>
-                  </Alert>
+                  <Banner
+                    status="error"
+                    title={<>Couldn&apos;t load skills: {(skillsQ.error as Error).message}</>}
+                  />
                 ) : categories.length === 0 ? (
                   <EmptyState
                     icon={<Tags className="size-8" />}
@@ -419,9 +422,13 @@ function AddRow({
           className="h-8 pl-8"
         />
       </div>
-      <Button variant="secondary" size="sm" disabled={!value.trim() || pending} onClick={submit}>
-        Add
-      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        label="Add"
+        isDisabled={!value.trim() || pending}
+        onClick={submit}
+      />
     </div>
   );
 }
@@ -489,21 +496,22 @@ function CategoryRow({
             variant="ghost"
             size="sm"
             className="h-6 px-1.5 text-destructive"
+            icon={<Check className="size-3.5" aria-hidden />}
+            label="Archive"
             onClick={() => {
               setConfirming(false);
               onArchive();
             }}
-          >
-            <Check className="size-3.5" aria-hidden /> Archive
-          </Button>
+          />
           <Button
             variant="ghost"
             size="sm"
+            isIconOnly
             className="h-6 px-1.5 text-ink-tertiary"
+            icon={<X className="size-3.5" aria-hidden />}
+            label="Cancel archive"
             onClick={() => setConfirming(false)}
-          >
-            <X className="size-3.5" aria-hidden />
-          </Button>
+          />
         </span>
       ) : (
         <>
@@ -588,21 +596,22 @@ function SkillCard({
               variant="ghost"
               size="sm"
               className="h-6 px-1.5 text-destructive"
+              icon={<Check className="size-3.5" aria-hidden />}
+              label="Archive"
               onClick={() => {
                 setConfirming(false);
                 onArchive();
               }}
-            >
-              <Check className="size-3.5" aria-hidden /> Archive
-            </Button>
+            />
             <Button
               variant="ghost"
               size="sm"
+              isIconOnly
               className="h-6 px-1.5 text-ink-tertiary"
+              icon={<X className="size-3.5" aria-hidden />}
+              label="Cancel archive"
               onClick={() => setConfirming(false)}
-            >
-              <X className="size-3.5" aria-hidden />
-            </Button>
+            />
           </span>
         ) : (
           <span className="flex flex-none items-center opacity-0 transition-opacity group-hover:opacity-100">
@@ -662,12 +671,12 @@ function IconBtn({
   return (
     <Button
       variant="ghost"
-      size="icon"
-      aria-label={label}
+      size="sm"
+      isIconOnly
+      icon={children}
+      label={label}
       className="size-6 text-ink-tertiary hover:text-ink"
       onClick={onClick}
-    >
-      {children}
-    </Button>
+    />
   );
 }

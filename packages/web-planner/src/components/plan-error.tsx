@@ -40,14 +40,8 @@ export function PlanError({ error, onRetry, onBack }: Props) {
             : 'Something went wrong on our end.'}
       </p>
       <div className="mt-3 flex gap-2">
-        <Button size="sm" onClick={onRetry}>
-          Try again
-        </Button>
-        {onBack && (
-          <Button size="sm" variant="ghost" onClick={onBack}>
-            Go back
-          </Button>
-        )}
+        <Button size="sm" label="Try again" onClick={onRetry} />
+        {onBack && <Button size="sm" variant="ghost" label="Go back" onClick={onBack} />}
       </div>
       {detail && (
         <details className="mt-3 text-xs text-ink-subtle">

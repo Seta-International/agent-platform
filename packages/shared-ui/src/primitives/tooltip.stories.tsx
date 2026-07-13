@@ -11,7 +11,7 @@ export const Default: Story = {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="secondary">Hover me</Button>
+          <Button variant="secondary" label="Hover me" />
         </TooltipTrigger>
         <TooltipContent>Save changes</TooltipContent>
       </Tooltip>
@@ -31,9 +31,7 @@ export const Multiple: Story = {
         ].map(({ label, tip }) => (
           <Tooltip key={label}>
             <TooltipTrigger asChild>
-              <Button variant="secondary" size="sm">
-                {label}
-              </Button>
+              <Button variant="secondary" size="sm" label={label} />
             </TooltipTrigger>
             <TooltipContent>{tip}</TooltipContent>
           </Tooltip>

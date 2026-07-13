@@ -23,24 +23,24 @@ export function CalendarPagination({ page, totalCount, hasNext, onPageChange }: 
       </span>
       <Button
         variant="ghost"
-        size="icon"
-        aria-label="Previous page"
-        disabled={page <= 1}
+        size="sm"
+        isIconOnly
+        icon={<ChevronLeft className="size-3" />}
+        label="Previous page"
+        isDisabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
         className="size-7"
-      >
-        <ChevronLeft className="size-3" />
-      </Button>
+      />
       <Button
         variant="ghost"
-        size="icon"
-        aria-label="Next page"
-        disabled={!hasNext}
+        size="sm"
+        isIconOnly
+        icon={<ChevronRight className="size-3" />}
+        label="Next page"
+        isDisabled={!hasNext}
         onClick={() => onPageChange(page + 1)}
         className="size-7"
-      >
-        <ChevronRight className="size-3" />
-      </Button>
+      />
     </div>
   );
 }

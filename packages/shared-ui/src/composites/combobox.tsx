@@ -135,22 +135,29 @@ export function Combobox(props: ComboboxProps) {
             ) : (
               <span className="flex flex-1 flex-wrap items-center gap-1">
                 {shownChips.map((v) => (
-                  <Badge key={v} variant="secondary" className="gap-1 pr-1">
-                    {labelOf(v)}
-                    <button
-                      type="button"
-                      aria-label={`Remove ${labelOf(v)}`}
-                      className="rounded-full text-ink-muted hover:text-ink"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        remove(v);
-                      }}
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </Badge>
+                  <Badge
+                    key={v}
+                    variant="neutral"
+                    className="gap-1 pr-1"
+                    label={
+                      <>
+                        {labelOf(v)}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${labelOf(v)}`}
+                          className="rounded-full text-ink-muted hover:text-ink"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            remove(v);
+                          }}
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </>
+                    }
+                  />
                 ))}
                 {overflow > 0 && <span className="text-caption text-ink-subtle">+{overflow}</span>}
               </span>

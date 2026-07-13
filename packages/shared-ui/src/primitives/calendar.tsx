@@ -5,7 +5,22 @@ import * as React from 'react';
 import { type DayButton, DayPicker, getDefaultClassNames } from 'react-day-picker';
 
 import { cn } from '../lib/cn';
-import { Button, buttonVariants } from '../primitives/button';
+import { Button } from '../primitives/button';
+
+// react-day-picker's prev/next nav buttons are plain `<button>`s styled via a `classNames` map
+// (not the `Button` component), so they carry their own small slice of the old shadcn button
+// classes rather than depending on `Button`'s (now-Astryx-backed) internals.
+const NAV_BUTTON_VARIANT_CLASSES: Record<
+  NonNullable<React.ComponentProps<typeof Button>['variant']>,
+  string
+> = {
+  primary: 'bg-primary text-on-primary hover:bg-primary-hover',
+  secondary: 'bg-surface-1 text-ink border border-hairline hover:bg-surface-2',
+  destructive: 'bg-destructive text-on-destructive hover:bg-destructive/90',
+  ghost: 'hover:bg-surface-2 hover:text-ink',
+};
+const NAV_BUTTON_BASE_CLASSES =
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-button font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0';
 
 function Calendar({
   className,
@@ -47,12 +62,14 @@ function Calendar({
           defaultClassNames.nav,
         ),
         button_previous: cn(
-          buttonVariants({ variant: buttonVariant }),
+          NAV_BUTTON_BASE_CLASSES,
+          NAV_BUTTON_VARIANT_CLASSES[buttonVariant],
           'h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50',
           defaultClassNames.button_previous,
         ),
         button_next: cn(
-          buttonVariants({ variant: buttonVariant }),
+          NAV_BUTTON_BASE_CLASSES,
+          NAV_BUTTON_VARIANT_CLASSES[buttonVariant],
           'h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50',
           defaultClassNames.button_next,
         ),
@@ -141,6 +158,9 @@ function CalendarDayButton({
   className,
   day,
   modifiers,
+  disabled,
+  children,
+  'aria-label': ariaLabel,
   ...props
 }: React.ComponentProps<typeof DayButton>) {
   const defaultClassNames = getDefaultClassNames();
@@ -154,24 +174,32 @@ function CalendarDayButton({
     <Button
       ref={ref}
       variant="ghost"
-      size="icon"
+      size="sm"
+      isDisabled={disabled}
+      // react-day-picker (DayPicker.js) already computes a precise, localized accessible name
+      // per day (via `labelDayButton`) and passes it as `aria-label` — that's the real accessible
+      // name here, not a generic placeholder; `children` (the visible day-of-month number) is
+      // rendered separately via Astryx's `children` slot, distinct from `label`.
+      label={ariaLabel ?? day.date.toLocaleDateString()}
       data-day={day.date.toLocaleDateString()}
-      data-selected-single={
+      data-selected-single={String(
         modifiers.selected &&
-        !modifiers.range_start &&
-        !modifiers.range_end &&
-        !modifiers.range_middle
-      }
-      data-range-start={modifiers.range_start}
-      data-range-end={modifiers.range_end}
-      data-range-middle={modifiers.range_middle}
+          !modifiers.range_start &&
+          !modifiers.range_end &&
+          !modifiers.range_middle,
+      )}
+      data-range-start={String(modifiers.range_start)}
+      data-range-end={String(modifiers.range_end)}
+      data-range-middle={String(modifiers.range_middle)}
       className={cn(
         'data-[selected-single=true]:bg-primary data-[selected-single=true]:text-on-primary data-[range-middle=true]:bg-primary-tint data-[range-middle=true]:text-ink data-[range-start=true]:bg-primary data-[range-start=true]:text-on-primary data-[range-end=true]:bg-primary data-[range-end=true]:text-on-primary group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-primary-focus/50 flex aspect-square h-auto w-full min-w-[--cell-size] flex-col gap-1 font-normal leading-none data-[range-end=true]:rounded-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-md group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] [&>span]:text-xs [&>span]:opacity-70',
         defaultClassNames.day,
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+    </Button>
   );
 }
 

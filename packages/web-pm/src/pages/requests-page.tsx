@@ -1,10 +1,8 @@
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Card,
-  CardContent,
   DataTable,
   EmptyState,
   Input,
@@ -59,13 +57,13 @@ const PAGE_SIZE = 25;
 
 const STATUS_META: Record<
   CharterListRow['status'],
-  { label: string; variant: 'secondary' | 'success' | 'destructive' | 'outline' }
+  { label: string; variant: 'neutral' | 'success' | 'error' }
 > = {
-  submitted: { label: 'Awaiting PMO review', variant: 'secondary' },
-  pmo_approved: { label: 'Awaiting BoD review', variant: 'secondary' },
+  submitted: { label: 'Awaiting PMO review', variant: 'neutral' },
+  pmo_approved: { label: 'Awaiting BoD review', variant: 'neutral' },
   approved: { label: 'Approved · created', variant: 'success' },
-  rejected: { label: 'Rejected', variant: 'destructive' },
-  withdrawn: { label: 'Withdrawn', variant: 'outline' },
+  rejected: { label: 'Rejected', variant: 'error' },
+  withdrawn: { label: 'Withdrawn', variant: 'neutral' },
 };
 
 const STATUS_OPTIONS: ReadonlyArray<{ value: CharterStatus; label: string }> = [
@@ -118,34 +116,32 @@ function Kpi({
     >
       <Card
         className={[
-          'h-full transition-shadow',
+          'h-full transition-shadow flex items-center justify-between gap-3 p-3.5',
           active ? 'border-blue ring-1 ring-blue/30' : '',
           onClick ? 'enabled:hover:shadow-sm hover:border-blue/40' : '',
         ].join(' ')}
       >
-        <CardContent className="flex items-center justify-between gap-3 p-3.5">
-          <div className="min-w-0">
-            <div className="text-[10.5px] font-medium uppercase tracking-wide text-ink-muted">
-              {label}
-            </div>
-            <div
-              className="mt-1 text-[26px] font-semibold leading-none tabular-nums"
-              style={{ color }}
-            >
-              {value}
-            </div>
-            {sub && <div className="mt-1.5 text-[11px] text-ink-muted">{sub}</div>}
+        <div className="min-w-0">
+          <div className="text-[10.5px] font-medium uppercase tracking-wide text-ink-muted">
+            {label}
           </div>
-          <span
-            className="grid size-9 flex-shrink-0 place-items-center rounded-[10px]"
-            style={{
-              background: `color-mix(in srgb, ${color} 12%, transparent)`,
-              color,
-            }}
+          <div
+            className="mt-1 text-[26px] font-semibold leading-none tabular-nums"
+            style={{ color }}
           >
-            <Icon className="size-[18px]" />
-          </span>
-        </CardContent>
+            {value}
+          </div>
+          {sub && <div className="mt-1.5 text-[11px] text-ink-muted">{sub}</div>}
+        </div>
+        <span
+          className="grid size-9 flex-shrink-0 place-items-center rounded-[10px]"
+          style={{
+            background: `color-mix(in srgb, ${color} 12%, transparent)`,
+            color,
+          }}
+        >
+          <Icon className="size-[18px]" />
+        </span>
       </Card>
     </button>
   );
@@ -183,42 +179,40 @@ function RequestCard({
   return (
     <button type="button" onClick={onOpen} className="group block w-full text-left">
       <Card
-        className="overflow-hidden border-l-[3px] transition-shadow hover:border-blue/40 hover:shadow-sm"
+        className="overflow-hidden border-l-[3px] transition-shadow hover:border-blue/40 hover:shadow-sm space-y-3 p-4"
         style={{ borderLeftColor: STATUS_ACCENT[row.status] }}
       >
-        <CardContent className="space-y-3 p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[10.5px] text-ink-muted">
-                  #{row.charter_id.slice(0, 8)}
-                </span>
-                <Badge variant={status.variant}>{status.label}</Badge>
-                <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">
-                  {accountName}
-                </span>
-              </div>
-              <div className="mt-1.5 truncate text-[15px] font-semibold text-ink">{row.name}</div>
-              <div className="mt-0.5 truncate text-body-sm text-ink-muted">{meta}</div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10.5px] text-ink-muted">
+                #{row.charter_id.slice(0, 8)}
+              </span>
+              <Badge variant={status.variant} label={status.label} />
+              <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">
+                {accountName}
+              </span>
             </div>
-            <div className="flex flex-shrink-0 items-start gap-2">
-              <div className="text-right">
-                <div className="text-[10px] uppercase tracking-wide text-ink-muted">Submitted</div>
-                <div className="font-mono text-[13px] font-semibold text-ink">
-                  {row.created_at.slice(0, 10)}
-                </div>
+            <div className="mt-1.5 truncate text-[15px] font-semibold text-ink">{row.name}</div>
+            <div className="mt-0.5 truncate text-body-sm text-ink-muted">{meta}</div>
+          </div>
+          <div className="flex flex-shrink-0 items-start gap-2">
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-wide text-ink-muted">Submitted</div>
+              <div className="font-mono text-[13px] font-semibold text-ink">
+                {row.created_at.slice(0, 10)}
               </div>
-              <ChevronRight className="mt-0.5 size-4 text-ink-muted opacity-0 transition-opacity group-hover:opacity-100" />
             </div>
+            <ChevronRight className="mt-0.5 size-4 text-ink-muted opacity-0 transition-opacity group-hover:opacity-100" />
           </div>
-          <div className="border-t border-hairline pt-3">
-            <CharterStepper
-              status={row.status}
-              rejectedStage={row.rejected_stage}
-              variant="compact"
-            />
-          </div>
-        </CardContent>
+        </div>
+        <div className="border-t border-hairline pt-3">
+          <CharterStepper
+            status={row.status}
+            rejectedStage={row.rejected_stage}
+            variant="compact"
+          />
+        </div>
       </Card>
     </button>
   );
@@ -344,7 +338,7 @@ export function RequestsPage() {
         header: 'Status',
         cell: ({ row }: CellCtx) => {
           const meta = STATUS_META[row.original.status];
-          return <Badge variant={meta.variant}>{meta.label}</Badge>;
+          return <Badge variant={meta.variant} label={meta.label} />;
         },
       },
       {
@@ -469,12 +463,14 @@ export function RequestsPage() {
             </Select>
             <Button
               variant="secondary"
-              size="icon"
-              aria-label={dir === 'asc' ? 'Ascending' : 'Descending'}
+              size="sm"
+              isIconOnly
+              label={dir === 'asc' ? 'Ascending' : 'Descending'}
               onClick={() => update({ dir: dir === 'asc' ? 'desc' : 'asc' })}
-            >
-              {dir === 'asc' ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />}
-            </Button>
+              icon={
+                dir === 'asc' ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />
+              }
+            />
             <SegmentedControl
               value={view}
               onValueChange={(v) => update({ view: v as 'cards' | 'table' }, false)}
@@ -487,9 +483,7 @@ export function RequestsPage() {
         </div>
 
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={(error as Error).message} />
         ) : rows.length === 0 ? (
           <EmptyState
             icon={<ClipboardList className="size-6" />}
@@ -537,22 +531,22 @@ export function RequestsPage() {
             </span>
             <Button
               variant="secondary"
-              size="icon"
-              aria-label="Previous page"
-              disabled={page <= 1}
+              size="sm"
+              isIconOnly
+              label="Previous page"
+              isDisabled={page <= 1}
               onClick={() => update({ page: page - 1 }, false)}
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
+              icon={<ChevronLeft className="size-4" />}
+            />
             <Button
               variant="secondary"
-              size="icon"
-              aria-label="Next page"
-              disabled={page >= pageCount}
+              size="sm"
+              isIconOnly
+              label="Next page"
+              isDisabled={page >= pageCount}
               onClick={() => update({ page: page + 1 }, false)}
-            >
-              <ChevronRight className="size-4" />
-            </Button>
+              icon={<ChevronRight className="size-4" />}
+            />
           </div>
         )}
       </div>

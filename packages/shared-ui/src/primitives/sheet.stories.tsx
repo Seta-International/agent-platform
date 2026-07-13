@@ -21,7 +21,7 @@ export const Right: Story = {
   render: () => (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="secondary">Open right sheet</Button>
+        <Button variant="secondary" label="Open right sheet" />
       </SheetTrigger>
       <SheetContent side="right">
         <SheetHeader>
@@ -42,9 +42,9 @@ export const Right: Story = {
         </div>
         <SheetFooter>
           <SheetClose asChild>
-            <Button variant="secondary">Cancel</Button>
+            <Button variant="secondary" label="Cancel" />
           </SheetClose>
-          <Button>Save changes</Button>
+          <Button label="Save changes" />
         </SheetFooter>
       </SheetContent>
     </Sheet>
@@ -55,7 +55,7 @@ export const Left: Story = {
   render: () => (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="secondary">Open left sheet</Button>
+        <Button variant="secondary" label="Open left sheet" />
       </SheetTrigger>
       <SheetContent side="left">
         <SheetHeader>

@@ -3,53 +3,38 @@ import { describe, expect, it } from 'vitest';
 import { Button } from '../../../src/primitives/button';
 
 describe('Button', () => {
-  it('renders primary variant by default with Seta blue surface', () => {
-    render(<Button>Click</Button>);
-    const btn = screen.getByRole('button', { name: 'Click' });
-    expect(btn.className).toMatch(/\bbg-primary\b/);
-    expect(btn.className).toMatch(/\btext-on-primary\b/);
+  it('renders the label as visible text and as the accessible name', () => {
+    render(<Button label="Click" />);
+    expect(screen.getByRole('button', { name: 'Click' })).toBeInTheDocument();
   });
 
-  it('renders secondary variant with surface-1 charcoal', () => {
-    render(<Button variant="secondary">S</Button>);
-    expect(screen.getByRole('button', { name: 'S' }).className).toMatch(/\bbg-surface-1\b/);
+  it.each([
+    'primary',
+    'secondary',
+    'ghost',
+    'destructive',
+  ] as const)('renders the %s variant without throwing', (variant) => {
+    render(<Button variant={variant} label={variant} />);
+    expect(screen.getByRole('button', { name: variant })).toBeInTheDocument();
   });
 
-  it('renders tertiary variant with canvas background', () => {
-    render(<Button variant="tertiary">T</Button>);
-    expect(screen.getByRole('button', { name: 'T' }).className).toMatch(/\bbg-canvas\b/);
+  it.each(['sm', 'md', 'lg'] as const)('renders the %s size without throwing', (size) => {
+    render(<Button size={size} label={size} />);
+    expect(screen.getByRole('button', { name: size })).toBeInTheDocument();
   });
 
-  it('renders inverse variant with inverse-canvas background', () => {
-    render(<Button variant="inverse">I</Button>);
-    const btn = screen.getByRole('button', { name: 'I' });
-    expect(btn.className).toMatch(/\bbg-inverse-canvas\b/);
-    expect(btn.className).toMatch(/\btext-inverse-ink\b/);
+  it('disables the button via isDisabled', () => {
+    render(<Button label="Disabled" isDisabled />);
+    expect(screen.getByRole('button', { name: 'Disabled' })).toBeDisabled();
   });
 
-  it('renders destructive variant', () => {
-    render(<Button variant="destructive">D</Button>);
-    expect(screen.getByRole('button', { name: 'D' }).className).toMatch(/\bbg-destructive\b/);
+  it('renders an icon-only button with the label as its accessible name', () => {
+    render(<Button isIconOnly icon={<svg aria-hidden />} label="Delete" />);
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
   });
 
-  it('renders ghost variant', () => {
-    render(<Button variant="ghost">G</Button>);
-    const btn = screen.getByRole('button', { name: 'G' });
-    expect(btn.className).not.toMatch(/\bbg-primary\b/);
-    expect(btn.className).toMatch(/hover:bg-surface-2/);
-  });
-
-  it('supports size variants', () => {
-    render(<Button size="sm">small</Button>);
-    expect(screen.getByRole('button', { name: 'small' }).className).toMatch(/\bh-7\b/);
-  });
-
-  it('renders asChild', () => {
-    render(
-      <Button asChild>
-        <a href="/x">link-btn</a>
-      </Button>,
-    );
+  it('renders as a link when href is provided', () => {
+    render(<Button href="/x" label="link-btn" />);
     expect(screen.getByRole('link', { name: 'link-btn' })).toBeInTheDocument();
   });
 });

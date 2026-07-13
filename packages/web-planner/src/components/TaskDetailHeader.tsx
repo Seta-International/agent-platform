@@ -147,14 +147,20 @@ export function TaskDetailHeader({
           <div className="min-w-0 flex-1">{titleSlot}</div>
 
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="secondary" onClick={onAskAgent}>
-              <Sparkles className="size-3" />
-              Ask agent
-            </Button>
-            <Button size="sm" variant="secondary" onClick={onCopyLink}>
-              <Copy className="size-3" />
-              Copy link
-            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Sparkles className="size-3" />}
+              label="Ask agent"
+              onClick={onAskAgent}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Copy className="size-3" />}
+              label="Copy link"
+              onClick={onCopyLink}
+            />
             {(onDuplicate || onMove || onDelete) && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

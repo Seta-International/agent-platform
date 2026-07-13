@@ -10,7 +10,7 @@ export const Default: Story = {
   render: () => (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="secondary">Open popover</Button>
+        <Button variant="secondary" label="Open popover" />
       </PopoverTrigger>
       <PopoverContent>
         <div className="flex flex-col gap-2">
@@ -36,7 +36,7 @@ export const AlignStart: Story = {
   render: () => (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="secondary">Align start</Button>
+        <Button variant="secondary" label="Align start" />
       </PopoverTrigger>
       <PopoverContent align="start">
         <p className="text-body-sm text-ink">Popover aligned to the start of the trigger.</p>

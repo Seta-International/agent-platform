@@ -54,9 +54,14 @@ export function DataTablePagination<TData>({
           <span className="text-ink-subtle">Rows per page</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-ink">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1 px-2 text-ink"
+                label={`${pageSize} rows per page`}
+                endContent={<ChevronDown className="size-3 text-ink-subtle" />}
+              >
                 {pageSize}
-                <ChevronDown className="size-3 text-ink-subtle" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[5rem]">
@@ -75,14 +80,14 @@ export function DataTablePagination<TData>({
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
-            size="icon"
-            aria-label="Previous"
-            disabled={!table.getCanPreviousPage()}
+            size="sm"
+            isIconOnly
+            icon={<ChevronLeft className="size-3" />}
+            label="Previous"
+            isDisabled={!table.getCanPreviousPage()}
             onClick={() => table.previousPage()}
             className="size-7"
-          >
-            <ChevronLeft className="size-3" />
-          </Button>
+          />
           {pages.map((p, i) =>
             p === 'ellipsis' ? (
               <span
@@ -97,7 +102,7 @@ export function DataTablePagination<TData>({
                 key={p}
                 variant="ghost"
                 size="sm"
-                aria-label={`Page ${p + 1}`}
+                label={`Page ${p + 1}`}
                 aria-current={p === pageIndex ? 'page' : undefined}
                 onClick={() => table.setPageIndex(p)}
                 className={cn(
@@ -111,14 +116,14 @@ export function DataTablePagination<TData>({
           )}
           <Button
             variant="ghost"
-            size="icon"
-            aria-label="Next"
-            disabled={!table.getCanNextPage()}
+            size="sm"
+            isIconOnly
+            icon={<ChevronRight className="size-3" />}
+            label="Next"
+            isDisabled={!table.getCanNextPage()}
             onClick={() => table.nextPage()}
             className="size-7"
-          >
-            <ChevronRight className="size-3" />
-          </Button>
+          />
         </div>
       </div>
     </div>

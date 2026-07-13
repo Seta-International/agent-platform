@@ -60,11 +60,11 @@ export function TaskDetailCommentsCard({ taskId, currentUserId, isGroupOwner }: 
         <div className="mt-4 flex justify-center">
           <Button
             variant="ghost"
+            label="Load earlier comments"
             onClick={() => void q.fetchNextPage()}
-            disabled={q.isFetchingNextPage}
-          >
-            {q.isFetchingNextPage ? 'Loading…' : 'Load earlier comments'}
-          </Button>
+            isDisabled={q.isFetchingNextPage}
+            isLoading={q.isFetchingNextPage}
+          />
         </div>
       )}
     </section>

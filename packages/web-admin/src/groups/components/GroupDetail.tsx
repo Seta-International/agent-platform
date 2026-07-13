@@ -102,10 +102,13 @@ function RenameDialog({ group }: { group: Group }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        <Pencil className="size-3.5" aria-hidden />
-        Edit
-      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => setOpen(true)}
+        label="Edit"
+        icon={<Pencil className="size-3.5" aria-hidden />}
+      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit group</DialogTitle>
@@ -132,20 +135,17 @@ function RenameDialog({ group }: { group: Group }) {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="secondary" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
+          <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
           <Button
-            disabled={!name.trim() || update.isPending}
+            label="Save"
+            isDisabled={!name.trim() || update.isPending}
             onClick={() =>
               update.mutate(
                 { id: group.group_id, name: name.trim(), description: description.trim() },
                 { onSuccess: () => setOpen(false) },
               )
             }
-          >
-            Save
-          </Button>
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -206,10 +206,13 @@ function DeleteGroupButton({ group, onDeleted }: { group: Group; onDeleted: () =
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-ink-tertiary hover:text-destructive">
-          <Trash2 className="size-3.5" aria-hidden />
-          Delete
-        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-ink-tertiary hover:text-destructive"
+          label="Delete"
+          icon={<Trash2 className="size-3.5" aria-hidden />}
+        />
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -275,8 +278,8 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
               <h2 className="truncate text-card-title font-semibold tracking-tight text-ink">
                 {group.name}
               </h2>
-              {group.is_base && <Badge variant="secondary">Base</Badge>}
-              {group.kind === 'default' && <Badge variant="outline">Default</Badge>}
+              {group.is_base && <Badge variant="neutral" label="Base" />}
+              {group.kind === 'default' && <Badge variant="neutral" label="Default" />}
             </div>
             <p className="font-mono text-caption text-ink-tertiary">{group.slug}</p>
           </div>
@@ -318,9 +321,11 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                     {moduleDisplay(module)}
                   </span>
                   {product && (
-                    <Badge variant="outline" className="font-normal">
-                      {PRODUCT_LABEL.get(product) ?? product}
-                    </Badge>
+                    <Badge
+                      variant="neutral"
+                      className="font-normal"
+                      label={PRODUCT_LABEL.get(product) ?? product}
+                    />
                   )}
                 </div>
                 <ul className="divide-y divide-hairline-tertiary">
@@ -388,10 +393,12 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
           {products.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {products.map((p) => (
-                <Badge key={p} variant="secondary">
-                  <Layers className="size-3" aria-hidden />
-                  {PRODUCT_LABEL.get(p) ?? p}
-                </Badge>
+                <Badge
+                  key={p}
+                  variant="neutral"
+                  icon={<Layers className="size-3" aria-hidden />}
+                  label={PRODUCT_LABEL.get(p) ?? p}
+                />
               ))}
             </div>
           ) : (

@@ -1,8 +1,7 @@
 import {
-  Alert,
-  AlertDescription,
   AsyncCombobox,
   Badge,
+  Banner,
   Button,
   Combobox,
   Dialog,
@@ -145,7 +144,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">New worker</Button>
+        <Button size="sm" label="New worker" />
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
@@ -159,16 +158,16 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
               {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
+                isIconOnly
+                icon={<X className="size-3.5" />}
+                label="Remove CV"
                 className="size-6"
-                aria-label="Remove CV"
                 onClick={() => {
                   setCvFile(null);
                   setSuggestions([]);
                 }}
-              >
-                <X className="size-3.5" />
-              </Button>
+              />
             </div>
           ) : (
             <Dropzone
@@ -315,29 +314,20 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
                 {suggestions.map((s) => (
-                  <Badge key={s} variant="outline" className="border-dashed">
-                    {s}
-                  </Badge>
+                  <Badge key={s} variant="neutral" className="border-dashed" label={s} />
                 ))}
               </div>
             )}
           </Section>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="secondary" onClick={() => setOpen(false)} label="Cancel" />
             <Button
               onClick={() => save.mutate()}
-              disabled={save.isPending || parse.isPending || !form.full_name.trim()}
-            >
-              {save.isPending ? 'Creating…' : 'Create'}
-            </Button>
+              isDisabled={save.isPending || parse.isPending || !form.full_name.trim()}
+              label={save.isPending ? 'Creating…' : 'Create'}
+            />
           </div>
         </div>
       </DialogContent>
