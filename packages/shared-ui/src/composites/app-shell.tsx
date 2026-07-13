@@ -122,14 +122,15 @@ export function AppShell({
             hideAgentButton={hideAgent}
             notificationPanel={notificationPanel}
             onMobileNavOpen={() => setMobileNavOpen(true)}
-            launcherContent={
+            launcherContent={(close) => (
               <AppLauncher
                 apps={apps}
                 currentAppId={activeAppId}
                 disabledAppIds={disabledAppIds}
                 onSelect={onAppSelect}
+                onClose={close}
               />
-            }
+            )}
           />
         }
         sideNav={sideNavContent}

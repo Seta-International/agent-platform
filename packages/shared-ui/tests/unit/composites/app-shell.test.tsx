@@ -74,7 +74,7 @@ describe('AppShell (suite)', () => {
     const onAppSelect = vi.fn();
     const user = userEvent.setup();
     renderShell({ onAppSelect });
-    await user.click(screen.getByRole('button', { name: /Open menu/i }));
+    await user.click(screen.getByRole('button', { name: /Open app launcher/i }));
     await user.click(screen.getByRole('button', { name: /Agent Studio/ }));
     expect(onAppSelect).toHaveBeenCalledWith('agent');
   });

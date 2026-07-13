@@ -1,4 +1,3 @@
-import { useNavHeadingCloseContext } from '@astryxdesign/core/NavMenu';
 import type { AppManifest } from '@seta/module-sdk';
 import { cn } from '../lib/cn';
 import { Badge } from '../primitives/badge';
@@ -9,6 +8,8 @@ export interface AppLauncherProps {
   /** App ids shown but not selectable (future modules). */
   disabledAppIds?: string[];
   onSelect: (appId: string) => void;
+  /** Called after a selection is made, e.g. to close an enclosing popover. */
+  onClose?: () => void;
   className?: string;
 }
 
@@ -17,10 +18,10 @@ export function AppLauncher({
   currentAppId,
   disabledAppIds = [],
   onSelect,
+  onClose,
   className,
 }: AppLauncherProps) {
   const disabled = new Set(disabledAppIds);
-  const closeMenu = useNavHeadingCloseContext()?.closeMenu;
 
   return (
     <fieldset className={cn('grid grid-cols-3 gap-2 p-4', className)}>
@@ -40,7 +41,7 @@ export function AppLauncher({
               onClick={() => {
                 if (isDisabled) return;
                 onSelect(app.id);
-                closeMenu?.();
+                onClose?.();
               }}
               className={cn(
                 'relative flex flex-col items-center gap-2 rounded-md border border-transparent px-2 pb-3 pt-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus',

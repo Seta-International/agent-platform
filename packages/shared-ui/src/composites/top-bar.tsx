@@ -1,9 +1,11 @@
+import { usePopover } from '@astryxdesign/core/Popover';
 import { TopNav, TopNavHeading } from '@astryxdesign/core/TopNav';
 import type { AppManifest } from '@seta/module-sdk';
-import { ChevronRight, Menu, Sparkles } from 'lucide-react';
+import { ChevronRight, LayoutGrid, Menu, Sparkles } from 'lucide-react';
 import type * as React from 'react';
 import { SetaMark } from '../icons/seta-mark';
 import { cn } from '../lib/cn';
+import { IconButton } from '../primitives/icon-button';
 import { DefaultShellLink, type ShellLinkComponent } from './shell-link';
 
 export interface TopBarProps {
@@ -21,8 +23,13 @@ export interface TopBarProps {
   /** Slot that replaces the default bell button. Pass a self-contained NotificationPopover here. */
   notificationPanel?: React.ReactNode;
   onMobileNavOpen?: () => void;
-  /** Content rendered in the app-launcher popover, typically an AppLauncher. */
-  launcherContent?: React.ReactNode;
+  /**
+   * Content rendered in the app-launcher popover, typically an AppLauncher.
+   * A render function so it can be given this popover's own `close`
+   * callback (e.g. to close on selection) without TopBar owning AppLauncher
+   * directly.
+   */
+  launcherContent?: (close: () => void) => React.ReactNode;
   className?: string;
 }
 
@@ -44,6 +51,7 @@ export function TopBar({
   className,
 }: TopBarProps) {
   const Link = linkComponent ?? DefaultShellLink;
+  const launcher = usePopover({ dialogLabel: 'Apps' });
 
   return (
     <TopNav
@@ -55,12 +63,6 @@ export function TopBar({
           logo={<SetaMark size={20} />}
           heading="Seta"
           headingHref={homeHref}
-          // Known @astryxdesign/core@0.1.4 vendor bug: showDelay:0 + an
-          // always-toggle click handler means a hover-capable mouse's first
-          // click here can net the menu closed, not open (opens on hover
-          // alone, or a 2nd click). Not fixable in this module — flag to the
-          // Astryx relationship owner if this surfaces again.
-          menu={launcherContent}
         />
       }
       startContent={
@@ -74,6 +76,23 @@ export function TopBar({
             >
               <Menu className="size-4" aria-hidden />
             </button>
+          )}
+          {launcherContent && (
+            <>
+              <IconButton
+                ref={launcher.triggerRef}
+                icon={<LayoutGrid className="size-[18px]" aria-hidden />}
+                label="Open app launcher"
+                variant="ghost"
+                size="sm"
+                onClick={() => launcher.toggle()}
+                {...launcher.triggerProps}
+              />
+              {launcher.render(launcherContent(launcher.hide), {
+                placement: 'below',
+                alignment: 'start',
+              })}
+            </>
           )}
           {activeApp && <AppCrumb app={activeApp} Link={Link} />}
         </>
