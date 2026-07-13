@@ -1,9 +1,3 @@
 @import 'tailwindcss';
 
 @source '../src/**/*.{ts,tsx}';
-
-@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
-
-@import "@astryxdesign/core/reset.css";
-@import "@astryxdesign/core/astryx.css";
-@import "../src/styles/astryx-seta-theme.css";
