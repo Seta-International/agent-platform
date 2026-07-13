@@ -1,12 +1,15 @@
 {
-  "name": "seta-agent-platform",
-  "private": true,
+  "name": "agent-platform",
+  "private": false,
+  "license": "MIT",
   "scripts": {
     "prepare": "test -d .git && lefthook install && git config commit.template .gitmessage || true",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",
+    "typecheck:affected": "turbo run typecheck --affected",
     "test": "turbo run test",
+    "test:affected": "turbo run test --affected",
     "test:watch": "turbo run test:watch",
     "test:e2e": "pnpm --filter @seta/web test:e2e",
     "lint": "pnpm depcruise && pnpm lint:styles && pnpm lint:raw-sql && pnpm lint:db && pnpm lint:test-layout && pnpm lint:module-shape && pnpm lint:rbac-coverage && pnpm exec biome ci . && pnpm lint:db-drift",

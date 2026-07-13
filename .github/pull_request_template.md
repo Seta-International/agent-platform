@@ -33,5 +33,5 @@ T1 / T2 / T3
 ## AI usage
 - [ ] AI assisted → add label `ai-assisted`
 - [ ] Agent created → add labels `ai-assisted` **and** `ai-agent`
-- AI time saved (hours): <!-- optional, e.g. 3 -->
+- AI time saved (hours): <!-- derive from the ticket's story points via docs/guides/estimation.md (points × velocity − actual), don't guess; human value in Jira wins -->
 
