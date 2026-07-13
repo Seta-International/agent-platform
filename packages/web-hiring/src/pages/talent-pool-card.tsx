@@ -90,12 +90,7 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                       <span className="text-caption text-ink-muted">Recommended for</span>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {c.recommended.map((r) => (
-                          <Badge
-                            key={r.requisition_id}
-                            variant={r.fit.strong ? 'default' : 'secondary'}
-                          >
-                            {r.title}
-                          </Badge>
+                          <Badge key={r.requisition_id} variant="neutral" label={r.title} />
                         ))}
                       </div>
                     </div>

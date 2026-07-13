@@ -64,22 +64,10 @@ const columns: ColumnDef<EntraImportableUserDto>[] = [
     cell: ({ row }) => {
       const u = row.original;
       if (!u.account_enabled)
-        return (
-          <Badge variant="secondary" className="text-xs">
-            Disabled
-          </Badge>
-        );
+        return <Badge variant="neutral" className="text-xs" label="Disabled" />;
       if (u.already_in_seta)
-        return (
-          <Badge variant="secondary" className="text-xs">
-            Already added
-          </Badge>
-        );
-      return (
-        <Badge variant="default" className="text-xs">
-          New
-        </Badge>
-      );
+        return <Badge variant="neutral" className="text-xs" label="Already added" />;
+      return <Badge variant="neutral" className="text-xs" label="New" />;
     },
   },
 ];

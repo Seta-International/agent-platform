@@ -59,13 +59,13 @@ const PAGE_SIZE = 25;
 
 const STATUS_META: Record<
   CharterListRow['status'],
-  { label: string; variant: 'secondary' | 'success' | 'destructive' | 'outline' }
+  { label: string; variant: 'neutral' | 'success' | 'error' }
 > = {
-  submitted: { label: 'Awaiting PMO review', variant: 'secondary' },
-  pmo_approved: { label: 'Awaiting BoD review', variant: 'secondary' },
+  submitted: { label: 'Awaiting PMO review', variant: 'neutral' },
+  pmo_approved: { label: 'Awaiting BoD review', variant: 'neutral' },
   approved: { label: 'Approved · created', variant: 'success' },
-  rejected: { label: 'Rejected', variant: 'destructive' },
-  withdrawn: { label: 'Withdrawn', variant: 'outline' },
+  rejected: { label: 'Rejected', variant: 'error' },
+  withdrawn: { label: 'Withdrawn', variant: 'neutral' },
 };
 
 const STATUS_OPTIONS: ReadonlyArray<{ value: CharterStatus; label: string }> = [
@@ -193,7 +193,7 @@ function RequestCard({
                 <span className="font-mono text-[10.5px] text-ink-muted">
                   #{row.charter_id.slice(0, 8)}
                 </span>
-                <Badge variant={status.variant}>{status.label}</Badge>
+                <Badge variant={status.variant} label={status.label} />
                 <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">
                   {accountName}
                 </span>
@@ -344,7 +344,7 @@ export function RequestsPage() {
         header: 'Status',
         cell: ({ row }: CellCtx) => {
           const meta = STATUS_META[row.original.status];
-          return <Badge variant={meta.variant}>{meta.label}</Badge>;
+          return <Badge variant={meta.variant} label={meta.label} />;
         },
       },
       {

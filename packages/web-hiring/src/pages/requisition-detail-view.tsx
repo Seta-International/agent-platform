@@ -805,12 +805,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                         {data.skills.map((s) => (
                           <Badge
                             key={s.skill_name}
-                            variant="secondary"
+                            variant="neutral"
                             className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
-                          >
-                            {s.skill_name}
-                            {s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
-                          </Badge>
+                            label={`${s.skill_name}${
+                              s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''
+                            }`}
+                          />
                         ))}
                       </div>
                     </div>

@@ -345,7 +345,7 @@ export function CandidateDetailDrawer({
                 <DetailCard
                   title="Skills"
                   action={
-                    fit && <Badge variant={fit.strong ? 'success' : 'secondary'}>{fit.text}</Badge>
+                    fit && <Badge variant={fit.strong ? 'success' : 'neutral'} label={fit.text} />
                   }
                 >
                   <div className="flex flex-wrap gap-1.5">
@@ -353,10 +353,16 @@ export function CandidateDetailDrawer({
                       <span className="text-caption text-ink-muted">No skills recorded.</span>
                     ) : (
                       data.skills.map((s) => (
-                        <Badge key={s.skill_id} variant="secondary">
-                          <span>{s.skill_name}</span>
-                          {s.level ? <span>{` · L${s.level}`}</span> : null}
-                        </Badge>
+                        <Badge
+                          key={s.skill_id}
+                          variant="neutral"
+                          label={
+                            <>
+                              <span>{s.skill_name}</span>
+                              {s.level ? <span>{` · L${s.level}`}</span> : null}
+                            </>
+                          }
+                        />
                       ))
                     )}
                   </div>

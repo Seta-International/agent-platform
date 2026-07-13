@@ -344,9 +344,7 @@ export function NewCandidateDialog() {
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
               {suggestions.map((sg) => (
-                <Badge key={sg} variant="outline" className="border-dashed">
-                  {sg}
-                </Badge>
+                <Badge key={sg} variant="neutral" className="border-dashed" label={sg} />
               ))}
             </div>
           )}

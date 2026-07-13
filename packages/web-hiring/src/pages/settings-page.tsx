@@ -415,7 +415,7 @@ export function SettingsPage() {
                 {templates.data?.map((t) => (
                   <div key={t.template.id} className="flex items-center justify-between py-2">
                     <span className="text-ink">
-                      {t.template.name} <Badge variant="secondary">{t.template.kind}</Badge>
+                      {t.template.name} <Badge variant="neutral" label={t.template.kind} />
                     </span>
                     {canManage && (
                       <Button size="sm" variant="ghost" onClick={() => del.mutate(t.template.id)}>
@@ -448,7 +448,7 @@ export function SettingsPage() {
                 {reasons.data?.map((r) => (
                   <div key={r.id} className="flex items-center justify-between py-2">
                     <span className="text-ink">
-                      {r.label} {!r.active && <Badge variant="secondary">archived</Badge>}
+                      {r.label} {!r.active && <Badge variant="neutral" label="archived" />}
                     </span>
                     {canManage && r.active && (
                       <Button
@@ -485,8 +485,8 @@ export function SettingsPage() {
                 {rejections.data?.map((r) => (
                   <div key={r.id} className="flex items-center justify-between py-2">
                     <span className="text-ink">
-                      {r.label} <Badge variant="secondary">{r.category}</Badge>
-                      {!r.active && <Badge variant="secondary">archived</Badge>}
+                      {r.label} <Badge variant="neutral" label={r.category} />
+                      {!r.active && <Badge variant="neutral" label="archived" />}
                     </span>
                     {canManageRejections && r.active && (
                       <Button

@@ -199,9 +199,11 @@ function RoleColumnHeader({ role, canWrite }: { role: MatrixRole; canWrite: bool
       </div>
       <div className="flex items-center gap-1">
         {product && (
-          <Badge variant="outline" className="font-normal">
-            {PRODUCT_LABEL.get(product) ?? product}
-          </Badge>
+          <Badge
+            variant="neutral"
+            className="font-normal"
+            label={PRODUCT_LABEL.get(product) ?? product}
+          />
         )}
         {modified > 0 && (
           <span className="text-caption tabular-nums text-primary">{modified} changed</span>

@@ -82,7 +82,7 @@ export function OpeningsTab({
               {detail.requisition.id.slice(0, 8)}-{o.seq}
             </span>
             <div className="flex items-center gap-2">
-              <Badge variant={o.status === 'open' ? 'default' : 'secondary'}>{o.status}</Badge>
+              <Badge variant="neutral" label={o.status} />
               {canManage && o.status === 'open' && (
                 <>
                   <Select

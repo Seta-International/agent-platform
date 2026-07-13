@@ -61,12 +61,12 @@ function DaysBadge({ days }: { days: number | null }) {
     return <span className="text-ink-tertiary">—</span>;
   }
   if (days === 0) {
-    return <Badge variant="destructive">Expiring</Badge>;
+    return <Badge variant="error" label="Expiring" />;
   }
   if (days <= 7) {
-    return <Badge variant="warning">{days}d left</Badge>;
+    return <Badge variant="warning" label={`${days}d left`} />;
   }
-  return <Badge variant="secondary">{days}d left</Badge>;
+  return <Badge variant="neutral" label={`${days}d left`} />;
 }
 
 interface Props {
@@ -180,17 +180,13 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
             <TabsTrigger value="deleted">
               Deleted
               {rows.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5">
-                  {rows.length}
-                </Badge>
+                <Badge variant="neutral" className="ml-1.5" label={rows.length} />
               )}
             </TabsTrigger>
             <TabsTrigger value="archived">
               Archived
               {archivedRows.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5">
-                  {archivedRows.length}
-                </Badge>
+                <Badge variant="neutral" className="ml-1.5" label={archivedRows.length} />
               )}
             </TabsTrigger>
           </TabsList>

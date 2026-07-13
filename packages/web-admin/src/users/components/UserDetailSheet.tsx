@@ -33,11 +33,11 @@ import { WorkSection } from './WorkSection.tsx';
 
 const ACCOUNT_STATUS_BADGE: Record<
   DirectoryRow['account_status'],
-  'outline' | 'success' | 'destructive'
+  'neutral' | 'success' | 'error'
 > = {
-  none: 'outline',
+  none: 'neutral',
   active: 'success',
-  suspended: 'destructive',
+  suspended: 'error',
 };
 
 const ACCOUNT_STATUS_LABEL: Record<DirectoryRow['account_status'], string> = {
@@ -46,9 +46,9 @@ const ACCOUNT_STATUS_LABEL: Record<DirectoryRow['account_status'], string> = {
   suspended: 'Suspended',
 };
 
-const EMPLOYMENT_BADGE: Record<DirectoryRow['employment_status'], 'success' | 'secondary'> = {
+const EMPLOYMENT_BADGE: Record<DirectoryRow['employment_status'], 'success' | 'neutral'> = {
   active: 'success',
-  terminated: 'secondary',
+  terminated: 'neutral',
 };
 
 const EMPLOYMENT_LABEL: Record<DirectoryRow['employment_status'], string> = {
@@ -257,14 +257,16 @@ export function UserDetailSheet({ row, open, onOpenChange }: Props) {
           <div className="flex flex-col gap-5">
             <div className="grid grid-cols-2 gap-4">
               <Field label="Employment">
-                <Badge variant={EMPLOYMENT_BADGE[row.employment_status]}>
-                  {EMPLOYMENT_LABEL[row.employment_status]}
-                </Badge>
+                <Badge
+                  variant={EMPLOYMENT_BADGE[row.employment_status]}
+                  label={EMPLOYMENT_LABEL[row.employment_status]}
+                />
               </Field>
               <Field label="Account">
-                <Badge variant={ACCOUNT_STATUS_BADGE[row.account_status]}>
-                  {ACCOUNT_STATUS_LABEL[row.account_status]}
-                </Badge>
+                <Badge
+                  variant={ACCOUNT_STATUS_BADGE[row.account_status]}
+                  label={ACCOUNT_STATUS_LABEL[row.account_status]}
+                />
               </Field>
             </div>
 

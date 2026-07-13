@@ -68,9 +68,7 @@ export function GroupsTable({ groups, onRestore }: Props) {
               <p className="truncate font-medium text-ink">
                 {group.name}
                 {group.deleted_at && (
-                  <Badge variant="secondary" className="ml-1.5 align-middle">
-                    Archived
-                  </Badge>
+                  <Badge variant="neutral" className="ml-1.5 align-middle" label="Archived" />
                 )}
                 {group.external_source !== 'native' && (
                   <span

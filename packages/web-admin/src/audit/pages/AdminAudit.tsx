@@ -95,9 +95,7 @@ function ActorCell({ actor }: { actor: AuditRowDto['actor'] }) {
   const label = actorLabel(actor);
   return (
     <div className="flex items-center gap-2">
-      <Badge variant={kind === 'user' ? 'default' : 'outline'} className="font-mono text-[10px]">
-        {kind}
-      </Badge>
+      <Badge variant="neutral" className="font-mono text-[10px]" label={kind} />
       <span className="truncate text-body-sm text-ink-muted">{label}</span>
     </div>
   );

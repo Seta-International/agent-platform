@@ -91,9 +91,7 @@ export function GroupDiscoverPage() {
                     </p>
                   </div>
                   {group.is_member ? (
-                    <Badge variant="success" className="shrink-0">
-                      Member
-                    </Badge>
+                    <Badge variant="success" className="shrink-0" label="Member" />
                   ) : (
                     <Button
                       size="sm"

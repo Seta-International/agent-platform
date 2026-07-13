@@ -195,9 +195,11 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
                               <div>
                                 <CommandItem value={l.name} disabled className="opacity-50">
                                   <LabelChip name={l.name} color={l.color || undefined} />
-                                  <Badge variant="outline" className="ml-auto shrink-0">
-                                    Local only
-                                  </Badge>
+                                  <Badge
+                                    variant="neutral"
+                                    className="ml-auto shrink-0"
+                                    label="Local only"
+                                  />
                                 </CommandItem>
                               </div>
                             </TooltipTrigger>

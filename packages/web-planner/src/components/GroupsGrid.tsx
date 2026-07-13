@@ -25,7 +25,7 @@ export function GroupsGrid({ groups, onRestore }: Props) {
           {/* Top row: tile on left, archived badge slot on right */}
           <div className="flex items-start justify-between">
             <GroupTile size={36} name={g.name} theme={g.theme} />
-            {g.deleted_at ? <Badge variant="secondary">Archived</Badge> : <div />}
+            {g.deleted_at ? <Badge variant="neutral" label="Archived" /> : <div />}
           </div>
 
           {/* Name */}

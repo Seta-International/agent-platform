@@ -57,17 +57,19 @@ function initials(name: string): string {
 }
 
 function LifecycleBadge({ stage }: { stage: string | null }) {
-  const variantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    active: 'default',
-    onboarding: 'secondary',
-    offboarding: 'outline',
-    terminated: 'destructive',
-    leave: 'outline',
+  const variantMap: Record<string, 'neutral' | 'error'> = {
+    active: 'neutral',
+    onboarding: 'neutral',
+    offboarding: 'neutral',
+    terminated: 'error',
+    leave: 'neutral',
   };
   return (
-    <Badge variant={(stage ? variantMap[stage] : undefined) ?? 'secondary'} className="capitalize">
-      {stage}
-    </Badge>
+    <Badge
+      variant={(stage ? variantMap[stage] : undefined) ?? 'neutral'}
+      className="capitalize"
+      label={stage}
+    />
   );
 }
 
@@ -512,9 +514,7 @@ export function WorkerProfilePage() {
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {worker.accounts.map((a) => (
-                    <Badge key={a.id} variant="outline">
-                      {a.name}
-                    </Badge>
+                    <Badge key={a.id} variant="neutral" label={a.name} />
                   ))}
                 </div>
               )}

@@ -61,13 +61,13 @@ function ScopeBox({ label, text }: { label: string; text?: string | null }) {
 
 const STATUS_META: Record<
   CharterDetail['status'],
-  { label: string; variant: 'secondary' | 'success' | 'destructive' | 'outline' }
+  { label: string; variant: 'neutral' | 'success' | 'error' }
 > = {
-  submitted: { label: 'Awaiting PMO review', variant: 'secondary' },
-  pmo_approved: { label: 'Awaiting BoD review', variant: 'secondary' },
+  submitted: { label: 'Awaiting PMO review', variant: 'neutral' },
+  pmo_approved: { label: 'Awaiting BoD review', variant: 'neutral' },
   approved: { label: 'Approved · created', variant: 'success' },
-  rejected: { label: 'Rejected', variant: 'destructive' },
-  withdrawn: { label: 'Withdrawn', variant: 'outline' },
+  rejected: { label: 'Rejected', variant: 'error' },
+  withdrawn: { label: 'Withdrawn', variant: 'neutral' },
 };
 
 export function CharterDetailPage({ charterId }: { charterId: string }) {
@@ -255,7 +255,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <CardTitle>Charter</CardTitle>
-              <Badge variant={STATUS_META[c.status].variant}>{STATUS_META[c.status].label}</Badge>
+              <Badge variant={STATUS_META[c.status].variant} label={STATUS_META[c.status].label} />
             </div>
           </CardHeader>
           <CardContent className="space-y-4">

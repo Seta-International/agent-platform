@@ -3,7 +3,7 @@ import { FileText, Trash2 } from 'lucide-react';
 import type { KnowledgeFile } from '../api/client';
 import { useDeleteKnowledgeFile } from '../hooks/use-knowledge-files';
 
-type StatusVariant = 'default' | 'secondary' | 'success' | 'destructive';
+type StatusVariant = 'neutral' | 'success' | 'error';
 
 interface StatusConfig {
   label: string;
@@ -11,11 +11,11 @@ interface StatusConfig {
 }
 
 const STATUS_CONFIG: Record<KnowledgeFile['status'], StatusConfig> = {
-  uploading: { label: 'Uploading…', variant: 'secondary' },
-  parsing: { label: 'Reading…', variant: 'secondary' },
-  embedding: { label: 'Indexing…', variant: 'secondary' },
+  uploading: { label: 'Uploading…', variant: 'neutral' },
+  parsing: { label: 'Reading…', variant: 'neutral' },
+  embedding: { label: 'Indexing…', variant: 'neutral' },
   ready: { label: 'Ready', variant: 'success' },
-  failed: { label: "Couldn't process", variant: 'destructive' },
+  failed: { label: "Couldn't process", variant: 'error' },
 };
 
 function formatBytes(bytes: number): string {
@@ -49,7 +49,7 @@ export function FileRow({ file }: FileRowProps) {
         )}
       </div>
 
-      <Badge variant={config.variant}>{config.label}</Badge>
+      <Badge variant={config.variant} label={config.label} />
 
       <Button
         variant="ghost"

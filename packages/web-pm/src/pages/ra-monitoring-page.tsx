@@ -508,14 +508,14 @@ export function RaMonitoringPage() {
                 <span className="italic text-ink-subtle">Unfilled (TBD)</span>
               )}
               {r.status !== 'committed' ? (
-                <Badge variant="outline" className="font-normal capitalize text-ink-subtle">
-                  {r.status}
-                </Badge>
+                <Badge
+                  variant="neutral"
+                  className="font-normal capitalize text-ink-subtle"
+                  label={r.status}
+                />
               ) : null}
               {r.worker_id && m.overWorkers.has(r.worker_id) ? (
-                <Badge variant="warning" className="font-normal">
-                  Over-allocated
-                </Badge>
+                <Badge variant="warning" className="font-normal" label="Over-allocated" />
               ) : null}
             </div>
           );

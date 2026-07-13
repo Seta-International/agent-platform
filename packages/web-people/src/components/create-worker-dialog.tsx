@@ -315,9 +315,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
                 {suggestions.map((s) => (
-                  <Badge key={s} variant="outline" className="border-dashed">
-                    {s}
-                  </Badge>
+                  <Badge key={s} variant="neutral" className="border-dashed" label={s} />
                 ))}
               </div>
             )}

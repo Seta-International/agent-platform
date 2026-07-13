@@ -93,39 +93,42 @@ export function SkillPicker({
         {value.map((v) => (
           <Badge
             key={v.skill_id}
-            variant="secondary"
+            variant="neutral"
             className="h-auto gap-1.5 whitespace-nowrap py-1.5 pl-3 pr-1.5 text-body-sm"
-          >
-            <span className="whitespace-nowrap">{v.skill_name}</span>
-            {showLevel ? (
-              <Select
-                value={String(v.level ?? 0)}
-                onValueChange={(val) => setLevel(v.skill_id, Number(val))}
-              >
-                <SelectTrigger
-                  aria-label={`${v.skill_name} level`}
-                  className="ml-1 h-auto gap-1 border-0 bg-transparent p-0 text-body-sm shadow-none focus-visible:shadow-none"
+            label={
+              <>
+                <span className="whitespace-nowrap">{v.skill_name}</span>
+                {showLevel ? (
+                  <Select
+                    value={String(v.level ?? 0)}
+                    onValueChange={(val) => setLevel(v.skill_id, Number(val))}
+                  >
+                    <SelectTrigger
+                      aria-label={`${v.skill_name} level`}
+                      className="ml-1 h-auto gap-1 border-0 bg-transparent p-0 text-body-sm shadow-none focus-visible:shadow-none"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[0, 1, 2, 3, 4, 5].map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+                <button
+                  type="button"
+                  aria-label={`Remove ${v.skill_name}`}
+                  onClick={() => remove(v.skill_id)}
+                  className="rounded-full p-1 hover:bg-surface-2"
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[0, 1, 2, 3, 4, 5].map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
-            <button
-              type="button"
-              aria-label={`Remove ${v.skill_name}`}
-              onClick={() => remove(v.skill_id)}
-              className="rounded-full p-1 hover:bg-surface-2"
-            >
-              <X className="size-3.5" />
-            </button>
-          </Badge>
+                  <X className="size-3.5" />
+                </button>
+              </>
+            }
+          />
         ))}
       </div>
     </div>

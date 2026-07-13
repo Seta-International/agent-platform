@@ -37,9 +37,9 @@ function GroupListItem({
       subtitle={
         <>
           {group.is_base ? (
-            <Badge variant="secondary">Base</Badge>
+            <Badge variant="neutral" label="Base" />
           ) : group.kind === 'default' ? (
-            <Badge variant="outline">Default</Badge>
+            <Badge variant="neutral" label="Default" />
           ) : null}
           <span className="truncate">{roleProductSummary(group)}</span>
         </>

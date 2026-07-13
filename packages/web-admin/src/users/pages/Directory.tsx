@@ -81,11 +81,11 @@ function FilterSelect({
 
 const ACCOUNT_STATUS_BADGE: Record<
   DirectoryRow['account_status'],
-  'outline' | 'success' | 'destructive'
+  'neutral' | 'success' | 'error'
 > = {
-  none: 'outline',
+  none: 'neutral',
   active: 'success',
-  suspended: 'destructive',
+  suspended: 'error',
 };
 
 const ACCOUNT_STATUS_LABEL: Record<DirectoryRow['account_status'], string> = {
@@ -94,9 +94,9 @@ const ACCOUNT_STATUS_LABEL: Record<DirectoryRow['account_status'], string> = {
   suspended: 'Suspended',
 };
 
-const EMPLOYMENT_BADGE: Record<DirectoryRow['employment_status'], 'success' | 'secondary'> = {
+const EMPLOYMENT_BADGE: Record<DirectoryRow['employment_status'], 'success' | 'neutral'> = {
   active: 'success',
-  terminated: 'secondary',
+  terminated: 'neutral',
 };
 
 const EMPLOYMENT_LABEL: Record<DirectoryRow['employment_status'], string> = {
@@ -112,9 +112,7 @@ function ChipList({ items }: { items: string[] }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       {items.slice(0, 2).map((label) => (
-        <Badge key={label} variant="secondary">
-          {label}
-        </Badge>
+        <Badge key={label} variant="neutral" label={label} />
       ))}
       {items.length > 2 && (
         <span className="text-caption text-ink-tertiary">+{items.length - 2}</span>
@@ -282,9 +280,10 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         header: 'Employment',
         enableSorting: false,
         cell: ({ row }) => (
-          <Badge variant={EMPLOYMENT_BADGE[row.original.employment_status]}>
-            {EMPLOYMENT_LABEL[row.original.employment_status]}
-          </Badge>
+          <Badge
+            variant={EMPLOYMENT_BADGE[row.original.employment_status]}
+            label={EMPLOYMENT_LABEL[row.original.employment_status]}
+          />
         ),
       },
       {
@@ -292,9 +291,10 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         header: 'Account status',
         enableSorting: false,
         cell: ({ row }) => (
-          <Badge variant={ACCOUNT_STATUS_BADGE[row.original.account_status]}>
-            {ACCOUNT_STATUS_LABEL[row.original.account_status]}
-          </Badge>
+          <Badge
+            variant={ACCOUNT_STATUS_BADGE[row.original.account_status]}
+            label={ACCOUNT_STATUS_LABEL[row.original.account_status]}
+          />
         ),
       },
       {

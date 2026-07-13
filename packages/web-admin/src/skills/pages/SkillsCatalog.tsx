@@ -239,16 +239,20 @@ export function SkillsCatalog() {
                     {searching ? (
                       <>
                         Search results
-                        <Badge variant="secondary" className="tabular-nums">
-                          {visibleSkills.length}
-                        </Badge>
+                        <Badge
+                          variant="neutral"
+                          className="tabular-nums"
+                          label={visibleSkills.length}
+                        />
                       </>
                     ) : activeCat ? (
                       <>
                         {activeCat.name}
-                        <Badge variant="secondary" className="tabular-nums">
-                          {visibleSkills.length}
-                        </Badge>
+                        <Badge
+                          variant="neutral"
+                          className="tabular-nums"
+                          label={visibleSkills.length}
+                        />
                       </>
                     ) : (
                       'Skills'

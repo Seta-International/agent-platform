@@ -46,17 +46,24 @@ export function DomainsField({ domains, onChange, idPrefix = 'domains' }: Domain
       {domains.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {domains.map((d) => (
-            <Badge key={d} variant="secondary" className="gap-1">
-              {d}
-              <button
-                type="button"
-                className="ml-1 hover:text-destructive"
-                onClick={() => remove(d)}
-                aria-label={`Remove ${d}`}
-              >
-                ×
-              </button>
-            </Badge>
+            <Badge
+              key={d}
+              variant="neutral"
+              className="gap-1"
+              label={
+                <>
+                  {d}
+                  <button
+                    type="button"
+                    className="ml-1 hover:text-destructive"
+                    onClick={() => remove(d)}
+                    aria-label={`Remove ${d}`}
+                  >
+                    ×
+                  </button>
+                </>
+              }
+            />
           ))}
         </div>
       )}

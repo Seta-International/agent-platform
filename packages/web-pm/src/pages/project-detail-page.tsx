@@ -42,13 +42,10 @@ import { StaffingPlanSection } from './staffing-plan-section.tsx';
 const PHASES = ['initiation', 'discovery', 'execution', 'stabilize', 'uat', 'closed'] as const;
 const STATUSES = ['active', 'on_hold', 'closed'] as const;
 
-const STATUS_VARIANT: Record<
-  ProjectDetail['status'],
-  'secondary' | 'success' | 'destructive' | 'outline'
-> = {
+const STATUS_VARIANT: Record<ProjectDetail['status'], 'neutral' | 'success'> = {
   active: 'success',
-  on_hold: 'secondary',
-  closed: 'outline',
+  on_hold: 'neutral',
+  closed: 'neutral',
 };
 
 export function ProjectDetailPage() {
@@ -206,8 +203,8 @@ export function ProjectDetailPage() {
     <PageChrome title={p.name} breadcrumb={[backLink]} actions={actions}>
       <div className="page-container p-6 space-y-6">
         <div className="flex items-center gap-2">
-          <Badge variant="secondary">{p.phase}</Badge>
-          <Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge>
+          <Badge variant="neutral" label={p.phase} />
+          <Badge variant={STATUS_VARIANT[p.status]} label={p.status} />
         </div>
 
         <Card>

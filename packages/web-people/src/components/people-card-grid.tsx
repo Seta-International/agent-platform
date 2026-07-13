@@ -20,19 +20,15 @@ function initials(name: string): string {
 }
 
 function LifecycleBadge({ stage }: { stage: string | null }) {
-  const variantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    active: 'default',
-    onboarding: 'secondary',
-    offboarding: 'outline',
-    terminated: 'destructive',
-    leave: 'outline',
+  const variantMap: Record<string, 'neutral' | 'error'> = {
+    active: 'neutral',
+    onboarding: 'neutral',
+    offboarding: 'neutral',
+    terminated: 'error',
+    leave: 'neutral',
   };
-  const variant = (stage ? variantMap[stage] : undefined) ?? 'secondary';
-  return (
-    <Badge variant={variant} className="capitalize">
-      {stage}
-    </Badge>
-  );
+  const variant = (stage ? variantMap[stage] : undefined) ?? 'neutral';
+  return <Badge variant={variant} className="capitalize" label={stage} />;
 }
 
 /** Clamp page to [1, pageCount]. Exported for unit-testing. */
@@ -143,9 +139,12 @@ export function PeopleCardGrid({
               {row.accounts.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {row.accounts.map((a) => (
-                    <Badge key={a.id} variant="secondary" className="text-[11px] px-1.5 py-0">
-                      {a.name}
-                    </Badge>
+                    <Badge
+                      key={a.id}
+                      variant="neutral"
+                      className="text-[11px] px-1.5 py-0"
+                      label={a.name}
+                    />
                   ))}
                 </div>
               )}
@@ -154,9 +153,12 @@ export function PeopleCardGrid({
               {row.skills.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {row.skills.map((s) => (
-                    <Badge key={s.id} variant="secondary" className="text-[11px] px-1.5 py-0">
-                      {s.name}
-                    </Badge>
+                    <Badge
+                      key={s.id}
+                      variant="neutral"
+                      className="text-[11px] px-1.5 py-0"
+                      label={s.name}
+                    />
                   ))}
                 </div>
               )}
