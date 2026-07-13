@@ -24,7 +24,13 @@ describe('TopBar bell', () => {
 });
 
 describe('TopBar app launcher', () => {
-  it('opens on a single click (not the TopNavHeading hover+click race this replaces)', async () => {
+  // NOTE: this only proves the trigger is wired to open on click — it can't
+  // exercise the actual mouse hover+click race the TopNavHeading menu had
+  // (tests/setup.ts forces `matches: false` for all hover/pointer media
+  // queries, so even the old buggy trigger would pass this specific
+  // assertion). The real regression guard is a live-browser mouse click,
+  // covered by the branch's Playwright verification pass, not this test.
+  it('opens on click, with aria-expanded reflecting state', async () => {
     const user = userEvent.setup();
     render(<TopBar launcherContent={() => <div>Launcher content</div>} />);
     const trigger = screen.getByRole('button', { name: /Open app launcher/i });
