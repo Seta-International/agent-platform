@@ -43,8 +43,8 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
-    "@mastra/core": "^1.42.0",
-    "@mastra/pg": "^1.13.0",
+    "@mastra/core": "^1.50.1",
+    "@mastra/pg": "^1.15.1",
     "@node-rs/argon2": "^2.0.2",
     "@seta/agent-sdk": "workspace:^",
     "@seta/shared-embeddings": "workspace:^",

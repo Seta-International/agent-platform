@@ -35,10 +35,10 @@
   },
   "dependencies": {
     "@mastra/ai-sdk": "^1.6.1",
-    "@mastra/core": "^1.42.0",
+    "@mastra/core": "^1.50.1",
     "@mastra/memory": "^1.22.2",
     "@mastra/observability": "^1.16.0",
-    "@mastra/pg": "^1.13.0",
+    "@mastra/pg": "^1.15.1",
     "@opentelemetry/api": "^1.9.1",
     "@seta/agent-sdk": "workspace:^",
     "@seta/knowledge": "workspace:^",

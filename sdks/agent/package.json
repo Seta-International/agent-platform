@@ -20,7 +20,7 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
-    "@mastra/core": "^1.42.0",
+    "@mastra/core": "^1.50.1",
     "@mastra/memory": "^1.22.2",
     "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-rbac": "workspace:^",
