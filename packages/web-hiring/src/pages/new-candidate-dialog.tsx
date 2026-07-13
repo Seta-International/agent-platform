@@ -1,7 +1,6 @@
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -203,7 +202,7 @@ export function NewCandidateDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">New candidate</Button>
+        <Button size="sm" label="New candidate" />
       </DialogTrigger>
       <DialogContent
         unstyled
@@ -226,16 +225,16 @@ export function NewCandidateDialog() {
                   {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="sm"
+                    isIconOnly
+                    icon={<X className="size-3.5" />}
+                    label="Remove CV"
                     className="size-6"
-                    aria-label="Remove CV"
                     onClick={() => {
                       setCvFile(null);
                       setSuggestions([]);
                     }}
-                  >
-                    <X className="size-3.5" />
-                  </Button>
+                  />
                 </div>
               ) : (
                 <Dropzone
@@ -358,29 +357,23 @@ export function NewCandidateDialog() {
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
                   {suggestions.map((sg) => (
-                    <Badge key={sg} variant="outline" className="border-dashed">
-                      {sg}
-                    </Badge>
+                    <Badge key={sg} variant="neutral" className="border-dashed" label={sg} />
                   ))}
                 </div>
               )}
             </div>
           </div>
           <footer className="space-y-2 border-t border-hairline bg-canvas px-6 py-3">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            {error && <Banner status="error" title={error} />}
             <div className="flex items-center justify-between gap-2">
               <p className="text-body-sm text-danger-ink">{requiredError}</p>
               <div className="flex shrink-0 gap-2">
-                <Button variant="secondary" onClick={close}>
-                  Cancel
-                </Button>
-                <Button onClick={submit} disabled={mutation.isPending || parse.isPending}>
-                  {mutation.isPending ? 'Saving…' : 'Save candidate'}
-                </Button>
+                <Button variant="secondary" label="Cancel" onClick={close} />
+                <Button
+                  label={mutation.isPending ? 'Saving…' : 'Save candidate'}
+                  onClick={submit}
+                  isDisabled={mutation.isPending || parse.isPending}
+                />
               </div>
             </div>
           </footer>

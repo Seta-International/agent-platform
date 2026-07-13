@@ -61,9 +61,7 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
     <>
       <div className="flex items-center gap-3 border-b border-hairline bg-surface-2 px-6 py-2">
         <span className="text-body-sm font-medium text-ink">{count} selected</span>
-        <Button variant="tertiary" size="sm" onClick={onClearSelection}>
-          Clear
-        </Button>
+        <Button variant="ghost" size="sm" label="Clear" onClick={onClearSelection} />
         <div className="ml-auto flex items-center gap-2">
           <Combobox
             value={groupId}
@@ -76,12 +74,11 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
           />
           <Button
             size="sm"
-            disabled={!groupId || add.isPending}
+            isDisabled={!groupId || add.isPending}
             onClick={() => setConfirming(true)}
-          >
-            <UsersRound className="size-4" aria-hidden />
-            Add to group
-          </Button>
+            icon={<UsersRound className="size-4" aria-hidden />}
+            label="Add to group"
+          />
         </div>
       </div>
 
@@ -96,11 +93,13 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="secondary">Cancel</Button>
+              <Button variant="secondary" label="Cancel" />
             </DialogClose>
-            <Button disabled={add.isPending} onClick={handleConfirm}>
-              {add.isPending ? 'Adding…' : 'Add to group'}
-            </Button>
+            <Button
+              label={add.isPending ? 'Adding…' : 'Add to group'}
+              isDisabled={add.isPending}
+              onClick={handleConfirm}
+            />
           </DialogFooter>
         </DialogContent>
       </Dialog>

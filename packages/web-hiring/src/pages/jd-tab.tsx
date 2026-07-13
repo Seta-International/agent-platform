@@ -111,9 +111,12 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
                 </SelectContent>
               </Select>
             )}
-            <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
-              {save.isPending ? 'Saving…' : 'Save JD'}
-            </Button>
+            <Button
+              size="sm"
+              label={save.isPending ? 'Saving…' : 'Save JD'}
+              onClick={() => save.mutate()}
+              isDisabled={save.isPending}
+            />
           </div>
         )}
       </div>

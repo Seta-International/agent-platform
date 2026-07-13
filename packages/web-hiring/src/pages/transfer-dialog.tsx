@@ -86,15 +86,12 @@ export function TransferDialog({
             A fresh application is opened on the target role; this one is closed as transferred.
           </p>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+            <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <Button
+              label={mutation.isPending ? 'Moving…' : 'Move candidate'}
               onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !effectiveTarget}
-            >
-              {mutation.isPending ? 'Moving…' : 'Move candidate'}
-            </Button>
+              isDisabled={mutation.isPending || !effectiveTarget}
+            />
           </div>
         </div>
       </DialogContent>

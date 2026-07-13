@@ -68,11 +68,10 @@ export function OpeningsTab({
           <Button
             size="sm"
             variant="secondary"
+            label="Add opening"
             onClick={() => add.mutate()}
-            disabled={add.isPending}
-          >
-            Add opening
-          </Button>
+            isDisabled={add.isPending}
+          />
         )}
       </div>
       <div className="divide-y divide-hairline">
@@ -82,7 +81,7 @@ export function OpeningsTab({
               {detail.requisition.id.slice(0, 8)}-{o.seq}
             </span>
             <div className="flex items-center gap-2">
-              <Badge variant={o.status === 'open' ? 'default' : 'secondary'}>{o.status}</Badge>
+              <Badge variant="neutral" label={o.status} />
               {canManage && o.status === 'open' && (
                 <>
                   <Select
@@ -108,21 +107,19 @@ export function OpeningsTab({
                   <Button
                     size="sm"
                     variant="secondary"
+                    label="Close"
                     onClick={() =>
                       close.mutate({ openingId: o.id, version: o.version, status: 'closed' })
                     }
-                  >
-                    Close
-                  </Button>
+                  />
                   <Button
                     size="sm"
                     variant="destructive"
+                    label="Cancel"
                     onClick={() =>
                       close.mutate({ openingId: o.id, version: o.version, status: 'cancelled' })
                     }
-                  >
-                    Cancel
-                  </Button>
+                  />
                 </>
               )}
             </div>

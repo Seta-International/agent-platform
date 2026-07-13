@@ -6,15 +6,15 @@ export default meta;
 type Story = StoryObj<typeof Skeleton>;
 
 export const Default: Story = {
-  render: () => <Skeleton className="h-4 w-48" />,
+  render: () => <Skeleton height={16} width={192} />,
 };
 
 export const CardSkeleton: Story = {
   render: () => (
     <div className="flex flex-col gap-3 w-64">
-      <Skeleton className="h-32 w-full rounded-md" />
-      <Skeleton className="h-4 w-3/4" />
-      <Skeleton className="h-4 w-1/2" />
+      <Skeleton height={128} radius={2} />
+      <Skeleton height={16} width="75%" />
+      <Skeleton height={16} width="50%" />
     </div>
   ),
 };
@@ -22,10 +22,10 @@ export const CardSkeleton: Story = {
 export const ProfileSkeleton: Story = {
   render: () => (
     <div className="flex items-center gap-3">
-      <Skeleton className="h-10 w-10 rounded-full" />
+      <Skeleton height={40} width={40} radius="rounded" />
       <div className="flex flex-col gap-2">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-3 w-24" />
+        <Skeleton height={16} width={128} />
+        <Skeleton height={12} width={96} />
       </div>
     </div>
   ),
@@ -36,10 +36,10 @@ export const ListSkeleton: Story = {
     <div className="flex flex-col gap-2 w-64">
       {Array.from({ length: 4 }, (_, i) => `row-${i}`).map((row) => (
         <div key={row} className="flex items-center gap-3">
-          <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+          <Skeleton height={32} width={32} radius="rounded" className="shrink-0" />
           <div className="flex flex-col gap-1.5 flex-1">
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-2/3" />
+            <Skeleton height={12} />
+            <Skeleton height={12} width="66.6667%" />
           </div>
         </div>
       ))}

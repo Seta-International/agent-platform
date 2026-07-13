@@ -165,10 +165,13 @@ export function TaskDetailAssigneesCard({
         <Popover open={pickerOpen} onOpenChange={(o) => canAssign && setPickerOpen(o)}>
           <DisabledActionTooltip disabled={!canAssign} reason={noAssignReason}>
             <PopoverTrigger asChild disabled={!canAssign}>
-              <Button size="sm" variant="ghost" aria-label="Add assignee" disabled={!canAssign}>
-                <Plus className="size-3" />
-                Add assignee
-              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<Plus className="size-3" />}
+                label="Add assignee"
+                isDisabled={!canAssign}
+              />
             </PopoverTrigger>
           </DisabledActionTooltip>
           <PopoverContent align="start" className="w-80 p-0">

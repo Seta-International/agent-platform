@@ -1,14 +1,14 @@
 import {
-  Alert,
-  AlertDescription,
   AsyncCombobox,
   Badge,
+  Banner,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
   Label,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   PageChrome,
   Select,
   SelectContent,
@@ -42,13 +42,10 @@ import { StaffingPlanSection } from './staffing-plan-section.tsx';
 const PHASES = ['initiation', 'discovery', 'execution', 'stabilize', 'uat', 'closed'] as const;
 const STATUSES = ['active', 'on_hold', 'closed'] as const;
 
-const STATUS_VARIANT: Record<
-  ProjectDetail['status'],
-  'secondary' | 'success' | 'destructive' | 'outline'
-> = {
+const STATUS_VARIANT: Record<ProjectDetail['status'], 'neutral' | 'success'> = {
   active: 'success',
-  on_hold: 'secondary',
-  closed: 'outline',
+  on_hold: 'neutral',
+  closed: 'neutral',
 };
 
 export function ProjectDetailPage() {
@@ -145,17 +142,23 @@ export function ProjectDetailPage() {
       <PageChrome title="Project" breadcrumb={[backLink]}>
         <div className="page-container p-6 space-y-4">
           <Card>
-            <CardHeader>
-              <Skeleton className="h-5 w-48" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                  <Skeleton key={i} className="h-4 w-full" />
-                ))}
-              </div>
-            </CardContent>
+            <Layout
+              header={
+                <LayoutHeader hasDivider>
+                  <Skeleton height={20} width={192} />
+                </LayoutHeader>
+              }
+              content={
+                <LayoutContent>
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
+                      <Skeleton key={i} height={16} />
+                    ))}
+                  </div>
+                </LayoutContent>
+              }
+            />
           </Card>
         </div>
       </PageChrome>
@@ -167,9 +170,7 @@ export function ProjectDetailPage() {
     return (
       <PageChrome title="Project" breadcrumb={[backLink]}>
         <div className="page-container p-6">
-          <Alert variant="destructive">
-            <AlertDescription>{msg}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={msg} />
         </div>
       </PageChrome>
     );
@@ -184,20 +185,24 @@ export function ProjectDetailPage() {
 
   const actions = canManage ? (
     isClosed ? (
-      <Button onClick={() => reopen.mutate()} disabled={reopen.isPending}>
-        {reopen.isPending ? 'Reopening…' : 'Reopen project'}
-      </Button>
+      <Button
+        label={reopen.isPending ? 'Reopening…' : 'Reopen project'}
+        onClick={() => reopen.mutate()}
+        isDisabled={reopen.isPending}
+      />
     ) : (
       <div className="flex gap-2">
-        <Button variant="secondary" onClick={() => close.mutate()} disabled={close.isPending}>
-          {close.isPending ? 'Closing…' : 'Close project'}
-        </Button>
         <Button
+          variant="secondary"
+          label={close.isPending ? 'Closing…' : 'Close project'}
+          onClick={() => close.mutate()}
+          isDisabled={close.isPending}
+        />
+        <Button
+          label={save.isPending ? 'Saving…' : 'Save'}
           onClick={() => save.mutate()}
-          disabled={save.isPending || Object.keys(patch).length === 0}
-        >
-          {save.isPending ? 'Saving…' : 'Save'}
-        </Button>
+          isDisabled={save.isPending || Object.keys(patch).length === 0}
+        />
       </div>
     )
   ) : undefined;
@@ -206,165 +211,175 @@ export function ProjectDetailPage() {
     <PageChrome title={p.name} breadcrumb={[backLink]} actions={actions}>
       <div className="page-container p-6 space-y-6">
         <div className="flex items-center gap-2">
-          <Badge variant="secondary">{p.phase}</Badge>
-          <Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge>
+          <Badge variant="neutral" label={p.phase} />
+          <Badge variant={STATUS_VARIANT[p.status]} label={p.status} />
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>Phase</Label>
-                <Select
-                  value={patchVal('phase', p.phase) ?? ''}
-                  onValueChange={(v) => setPatch((s) => ({ ...s, phase: v }))}
-                  disabled={inputsDisabled}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PHASES.map((ph) => (
-                      <SelectItem key={ph} value={ph}>
-                        {ph}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Status</Label>
-                <Select
-                  value={patchVal('status', p.status) ?? ''}
-                  onValueChange={(v) =>
-                    setPatch((s) => ({ ...s, status: v as ProjectPatch['status'] }))
-                  }
-                  disabled={inputsDisabled}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUSES.map((st) => (
-                      <SelectItem key={st} value={st}>
-                        {st}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+          <Layout
+            header={
+              <LayoutHeader hasDivider>
+                <CardTitle>Details</CardTitle>
+              </LayoutHeader>
+            }
+            content={
+              <LayoutContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label>Phase</Label>
+                      <Select
+                        value={patchVal('phase', p.phase) ?? ''}
+                        onValueChange={(v) => setPatch((s) => ({ ...s, phase: v }))}
+                        disabled={inputsDisabled}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PHASES.map((ph) => (
+                            <SelectItem key={ph} value={ph}>
+                              {ph}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Status</Label>
+                      <Select
+                        value={patchVal('status', p.status) ?? ''}
+                        onValueChange={(v) =>
+                          setPatch((s) => ({ ...s, status: v as ProjectPatch['status'] }))
+                        }
+                        disabled={inputsDisabled}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STATUSES.map((st) => (
+                            <SelectItem key={st} value={st}>
+                              {st}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
-            <div className="space-y-1">
-              <Label>Objective</Label>
-              <Textarea
-                value={(patchVal('objective', p.objective) ?? '') as string}
-                onChange={(e) => setPatch((s) => ({ ...s, objective: e.target.value }))}
-                disabled={inputsDisabled}
-              />
-            </div>
+                  <div className="space-y-1">
+                    <Label>Objective</Label>
+                    <Textarea
+                      value={(patchVal('objective', p.objective) ?? '') as string}
+                      onChange={(e) => setPatch((s) => ({ ...s, objective: e.target.value }))}
+                      disabled={inputsDisabled}
+                    />
+                  </div>
 
-            <div className="space-y-1">
-              <Label>Org unit</Label>
-              <AsyncCombobox
-                value={patch.org_unit_id !== undefined ? patch.org_unit_id : p.org_unit_id}
-                onChange={(v) => setPatch((s) => ({ ...s, org_unit_id: v }))}
-                search={orgUnitSearch.search}
-                resolveByIds={orgUnitSearch.resolveByIds}
-                placeholder="Search org units…"
-                disabled={inputsDisabled}
-              />
-            </div>
+                  <div className="space-y-1">
+                    <Label>Org unit</Label>
+                    <AsyncCombobox
+                      value={patch.org_unit_id !== undefined ? patch.org_unit_id : p.org_unit_id}
+                      onChange={(v) => setPatch((s) => ({ ...s, org_unit_id: v }))}
+                      search={orgUnitSearch.search}
+                      resolveByIds={orgUnitSearch.resolveByIds}
+                      placeholder="Search org units…"
+                      disabled={inputsDisabled}
+                    />
+                  </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>Scope (in)</Label>
-                <Textarea
-                  value={patch.scope?.in ?? p.scope?.in ?? ''}
-                  onChange={(e) =>
-                    setPatch((s) => ({
-                      ...s,
-                      scope: { in: e.target.value, out: s.scope?.out ?? p.scope?.out ?? '' },
-                    }))
-                  }
-                  disabled={inputsDisabled}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Scope (out)</Label>
-                <Textarea
-                  value={patch.scope?.out ?? p.scope?.out ?? ''}
-                  onChange={(e) =>
-                    setPatch((s) => ({
-                      ...s,
-                      scope: { in: s.scope?.in ?? p.scope?.in ?? '', out: e.target.value },
-                    }))
-                  }
-                  disabled={inputsDisabled}
-                />
-              </div>
-            </div>
-          </CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label>Scope (in)</Label>
+                      <Textarea
+                        value={patch.scope?.in ?? p.scope?.in ?? ''}
+                        onChange={(e) =>
+                          setPatch((s) => ({
+                            ...s,
+                            scope: { in: e.target.value, out: s.scope?.out ?? p.scope?.out ?? '' },
+                          }))
+                        }
+                        disabled={inputsDisabled}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Scope (out)</Label>
+                      <Textarea
+                        value={patch.scope?.out ?? p.scope?.out ?? ''}
+                        onChange={(e) =>
+                          setPatch((s) => ({
+                            ...s,
+                            scope: { in: s.scope?.in ?? p.scope?.in ?? '', out: e.target.value },
+                          }))
+                        }
+                        disabled={inputsDisabled}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </LayoutContent>
+            }
+          />
         </Card>
 
         {canManage && (
           <Card>
-            <CardHeader>
-              <CardTitle>Planner board</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end gap-2">
-                <div className="space-y-1 flex-1">
-                  <Label>Board</Label>
-                  <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a board" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(groups ?? []).map((g) => (
-                        <SelectItem key={g.id} value={g.id}>
-                          {g.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  variant="secondary"
-                  onClick={() => link.mutate()}
-                  disabled={link.isPending || !selectedGroupId}
-                >
-                  Link
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => createBoard.mutate()}
-                  disabled={createBoard.isPending}
-                >
-                  {createBoard.isPending ? 'Creating…' : 'Create board'}
-                </Button>
-              </div>
-              {p.planner_group_id && (
-                <p className="mt-2 text-body-sm text-ink-muted">
-                  Linked:{' '}
-                  <span className="font-mono text-caption text-ink">{p.planner_group_id}</span>
-                  {groups?.find((g) => g.id === p.planner_group_id) && (
-                    <> — {groups.find((g) => g.id === p.planner_group_id)?.name}</>
+            <Layout
+              header={
+                <LayoutHeader hasDivider>
+                  <CardTitle>Planner board</CardTitle>
+                </LayoutHeader>
+              }
+              content={
+                <LayoutContent>
+                  <div className="flex items-end gap-2">
+                    <div className="space-y-1 flex-1">
+                      <Label>Board</Label>
+                      <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a board" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(groups ?? []).map((g) => (
+                            <SelectItem key={g.id} value={g.id}>
+                              {g.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      label="Link"
+                      onClick={() => link.mutate()}
+                      isDisabled={link.isPending || !selectedGroupId}
+                    />
+                    <Button
+                      variant="secondary"
+                      label={createBoard.isPending ? 'Creating…' : 'Create board'}
+                      onClick={() => createBoard.mutate()}
+                      isDisabled={createBoard.isPending}
+                    />
+                  </div>
+                  {p.planner_group_id && (
+                    <p className="mt-2 text-body-sm text-ink-muted">
+                      Linked:{' '}
+                      <span className="font-mono text-caption text-ink">{p.planner_group_id}</span>
+                      {groups?.find((g) => g.id === p.planner_group_id) && (
+                        <> — {groups.find((g) => g.id === p.planner_group_id)?.name}</>
+                      )}
+                    </p>
                   )}
-                </p>
-              )}
-            </CardContent>
+                </LayoutContent>
+              }
+            />
           </Card>
         )}
 
-        <Card>
-          <CardContent className="space-y-6 pt-6">
-            <StaffingPlanSection projectId={projectId} canManage={canManage} />
-            <ProjectAccessSection projectId={projectId} canManage={canManage} />
-          </CardContent>
+        <Card className="space-y-6 pt-6">
+          <StaffingPlanSection projectId={projectId} canManage={canManage} />
+          <ProjectAccessSection projectId={projectId} canManage={canManage} />
         </Card>
       </div>
     </PageChrome>

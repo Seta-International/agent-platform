@@ -9,7 +9,7 @@ export function SkillsPage() {
   return (
     <SettingsSurface title="Skills">
       {!profile ? (
-        <Skeleton className="h-64 w-full" />
+        <Skeleton height={256} />
       ) : (
         <ProfileSkillsSection profile={profile} onSave={patchProfile} onUpdate={setProfile} />
       )}

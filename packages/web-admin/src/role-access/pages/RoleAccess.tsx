@@ -1,8 +1,7 @@
 import { PRODUCTS, productForNamespace } from '@seta/shared-rbac';
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Checkbox,
   PageChrome,
@@ -54,11 +53,10 @@ export function RoleAccess() {
     >
       {error ? (
         <div className="page-container pt-4">
-          <Alert variant="destructive">
-            <AlertDescription>
-              Couldn&apos;t load the access matrix: {(error as Error).message}
-            </AlertDescription>
-          </Alert>
+          <Banner
+            status="error"
+            title={<>Couldn&apos;t load the access matrix: {(error as Error).message}</>}
+          />
         </div>
       ) : (
         <div className="flex h-full min-h-0">
@@ -67,9 +65,9 @@ export function RoleAccess() {
             <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
               {isLoading || !data ? (
                 <>
-                  <Skeleton className="h-10 w-full rounded-md" />
-                  <Skeleton className="h-10 w-full rounded-md" />
-                  <Skeleton className="h-10 w-full rounded-md" />
+                  <Skeleton height={40} radius={2} />
+                  <Skeleton height={40} radius={2} />
+                  <Skeleton height={40} radius={2} />
                 </>
               ) : (
                 modules.map((m) => {
@@ -99,8 +97,8 @@ export function RoleAccess() {
           <div className="min-w-0 flex-1 overflow-y-auto">
             {isLoading || !data ? (
               <div className="space-y-4 px-8 py-7">
-                <Skeleton className="h-16 w-full max-w-md rounded-lg" />
-                <Skeleton className="h-96 w-full rounded-lg" />
+                <Skeleton className="max-w-md" height={64} radius={3} />
+                <Skeleton height={384} radius={3} />
               </div>
             ) : (
               active && <ModuleDetail module={active} roles={roles} canWrite={canWrite} />
@@ -187,21 +185,23 @@ function RoleColumnHeader({ role, canWrite }: { role: MatrixRole; canWrite: bool
         {canWrite && (
           <Button
             variant="ghost"
-            size="icon"
-            aria-label={`Reset ${role.slug} to defaults`}
+            size="sm"
+            isIconOnly
+            icon={<RotateCcw className="size-3" aria-hidden />}
+            label={`Reset ${role.slug} to defaults`}
             className="size-5 text-ink-tertiary transition-opacity disabled:pointer-events-none disabled:opacity-0"
-            disabled={modified === 0 || reset.isPending}
+            isDisabled={modified === 0 || reset.isPending}
             onClick={() => reset.mutate(role.slug)}
-          >
-            <RotateCcw className="size-3" aria-hidden />
-          </Button>
+          />
         )}
       </div>
       <div className="flex items-center gap-1">
         {product && (
-          <Badge variant="outline" className="font-normal">
-            {PRODUCT_LABEL.get(product) ?? product}
-          </Badge>
+          <Badge
+            variant="neutral"
+            className="font-normal"
+            label={PRODUCT_LABEL.get(product) ?? product}
+          />
         )}
         {modified > 0 && (
           <span className="text-caption tabular-nums text-primary">{modified} changed</span>

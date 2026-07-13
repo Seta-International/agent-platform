@@ -57,12 +57,12 @@ interface Props {
 function DetailSkeleton() {
   return (
     <div className="flex flex-col gap-4 p-6" data-testid="skeleton-detail">
-      <Skeleton className="h-16 w-full" />
-      <Skeleton className="h-14 w-full" />
-      <Skeleton className="h-8 w-64" />
+      <Skeleton height={64} />
+      <Skeleton height={56} />
+      <Skeleton height={32} width={256} />
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mt-4">
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
+        <Skeleton height={256} />
+        <Skeleton height={256} />
       </div>
     </div>
   );
@@ -252,11 +252,10 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
             <Button
               size="sm"
               variant="secondary"
+              label="Restore"
               onClick={doRestore}
-              disabled={!canUpdateGroup || restoreGroup.isPending}
-            >
-              Restore
-            </Button>
+              isDisabled={!canUpdateGroup || restoreGroup.isPending}
+            />
           </DisabledActionTooltip>
         </div>
       )}
@@ -393,17 +392,18 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               remains in Microsoft 365.
             </p>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setArchiveM365Open(false)}>
-                Cancel
-              </Button>
               <Button
+                variant="secondary"
+                label="Cancel"
+                onClick={() => setArchiveM365Open(false)}
+              />
+              <Button
+                label="Archive anyway"
                 onClick={() => {
                   setArchiveM365Open(false);
                   doArchive();
                 }}
-              >
-                Archive anyway
-              </Button>
+              />
             </div>
           </div>
         </DialogContent>
@@ -418,22 +418,23 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
               This group has been archived. Would you like to restore it so it becomes active again?
             </p>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setRestorePromptOpen(false)}>
-                View anyway
-              </Button>
+              <Button
+                variant="secondary"
+                label="View anyway"
+                onClick={() => setRestorePromptOpen(false)}
+              />
               <DisabledActionTooltip
                 disabled={!canUpdateGroup}
                 reason={PERMISSION_DENIED.group.restore}
               >
                 <Button
+                  label="Restore group"
                   onClick={() => {
                     setRestorePromptOpen(false);
                     doRestore();
                   }}
-                  disabled={!canUpdateGroup || restoreGroup.isPending}
-                >
-                  Restore group
-                </Button>
+                  isDisabled={!canUpdateGroup || restoreGroup.isPending}
+                />
               </DisabledActionTooltip>
             </div>
           </div>

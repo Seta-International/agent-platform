@@ -95,9 +95,7 @@ function ActorCell({ actor }: { actor: AuditRowDto['actor'] }) {
   const label = actorLabel(actor);
   return (
     <div className="flex items-center gap-2">
-      <Badge variant={kind === 'user' ? 'default' : 'outline'} className="font-mono text-[10px]">
-        {kind}
-      </Badge>
+      <Badge variant="neutral" className="font-mono text-[10px]" label={kind} />
       <span className="truncate text-body-sm text-ink-muted">{label}</span>
     </div>
   );
@@ -183,10 +181,14 @@ function AuditDiffPanel({ row }: { row: Row<AuditRowDto> }) {
         <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
           Payload diff
         </span>
-        <Button variant="ghost" size="sm" onClick={onCopy} className="h-6 gap-1.5">
-          <Copy className="size-3" />
-          {copied ? 'Copied' : 'Copy JSON'}
-        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCopy}
+          className="h-6 gap-1.5"
+          icon={<Copy className="size-3" />}
+          label={copied ? 'Copied' : 'Copy JSON'}
+        />
       </div>
       <pre className="max-h-72 overflow-auto bg-canvas p-3 font-mono text-caption leading-relaxed text-ink">
         {json}

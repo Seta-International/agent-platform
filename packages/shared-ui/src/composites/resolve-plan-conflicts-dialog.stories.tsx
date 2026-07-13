@@ -15,7 +15,7 @@ function Controlled({ data }: { data: PlanConflictsPayload }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Open dialog</Button>
+      <Button label="Open dialog" onClick={() => setOpen(true)} />
       <ResolvePlanConflictsDialog
         open={open}
         onOpenChange={setOpen}

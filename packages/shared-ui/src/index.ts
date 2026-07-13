@@ -80,10 +80,10 @@ export {
 // Plan
 export * from './plan/category-description-editor';
 // Primitives
-export * from './primitives/alert';
 export * from './primitives/alert-dialog';
 export * from './primitives/avatar';
 export * from './primitives/badge';
+export * from './primitives/banner';
 export * from './primitives/button';
 export * from './primitives/calendar';
 export * from './primitives/card';
@@ -95,6 +95,7 @@ export * from './primitives/dropdown-menu';
 export * from './primitives/form';
 export * from './primitives/input';
 export * from './primitives/label';
+export * from './primitives/layout';
 export * from './primitives/popover';
 export * from './primitives/radio-group';
 export * from './primitives/scroll-area';

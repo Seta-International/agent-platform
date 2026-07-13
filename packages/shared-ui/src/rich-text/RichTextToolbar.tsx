@@ -60,135 +60,136 @@ export function RichTextToolbar({ editor }: Props) {
         size="sm"
         variant="ghost"
         className="w-16 text-xs"
+        label={headingLabel}
+        icon={
+          headingLabel === 'Normal' ? (
+            <Type className="size-3.5" />
+          ) : headingLabel === 'H1' ? (
+            <Heading1 className="size-3.5" />
+          ) : (
+            <Heading2 className="size-3.5" />
+          )
+        }
         onClick={() => {
           if (headingLabel === 'Normal') setHeading(1);
           else if (headingLabel === 'H1') setHeading(2);
           else setHeading(null);
         }}
-      >
-        {headingLabel === 'Normal' ? (
-          <Type className="size-3.5" />
-        ) : headingLabel === 'H1' ? (
-          <Heading1 className="size-3.5" />
-        ) : (
-          <Heading2 className="size-3.5" />
-        )}
-        <span className="ml-1">{headingLabel}</span>
-      </Button>
+      />
 
       <Button
         type="button"
         size="sm"
         variant={editor.isActive('bold') ? 'secondary' : 'ghost'}
+        isIconOnly
+        icon={<Bold className="size-3.5" />}
+        label="Bold"
         onClick={() => {
           // biome-ignore lint/suspicious/noExplicitAny: Tiptap extension commands
           (editor.chain().focus() as any).toggleBold().run();
         }}
-        aria-label="Bold"
-      >
-        <Bold className="size-3.5" />
-      </Button>
+      />
 
       <Button
         type="button"
         size="sm"
         variant={editor.isActive('italic') ? 'secondary' : 'ghost'}
+        isIconOnly
+        icon={<Italic className="size-3.5" />}
+        label="Italic"
         onClick={() => {
           // biome-ignore lint/suspicious/noExplicitAny: Tiptap extension commands
           (editor.chain().focus() as any).toggleItalic().run();
         }}
-        aria-label="Italic"
-      >
-        <Italic className="size-3.5" />
-      </Button>
+      />
 
       <Button
         type="button"
         size="sm"
         variant={editor.isActive('underline') ? 'secondary' : 'ghost'}
+        isIconOnly
+        icon={<Underline className="size-3.5" />}
+        label="Underline"
         onClick={() => {
           // biome-ignore lint/suspicious/noExplicitAny: Tiptap extension commands
           (editor.chain().focus() as any).toggleUnderline().run();
         }}
-        aria-label="Underline"
-      >
-        <Underline className="size-3.5" />
-      </Button>
+      />
 
       <Button
         type="button"
         size="sm"
         variant={editor.isActive('strike') ? 'secondary' : 'ghost'}
+        isIconOnly
+        icon={<Strikethrough className="size-3.5" />}
+        label="Strikethrough"
         onClick={() => {
           // biome-ignore lint/suspicious/noExplicitAny: Tiptap extension commands
           (editor.chain().focus() as any).toggleStrike().run();
         }}
-        aria-label="Strikethrough"
-      >
-        <Strikethrough className="size-3.5" />
-      </Button>
+      />
 
       <Button
         type="button"
         size="sm"
         variant={editor.isActive('bulletList') ? 'secondary' : 'ghost'}
+        isIconOnly
+        icon={<List className="size-3.5" />}
+        label="Bullet list"
         onClick={() => {
           // biome-ignore lint/suspicious/noExplicitAny: Tiptap extension commands
           (editor.chain().focus() as any).toggleBulletList().run();
         }}
-        aria-label="Bullet list"
-      >
-        <List className="size-3.5" />
-      </Button>
+      />
 
       <Button
         type="button"
         size="sm"
         variant={editor.isActive('orderedList') ? 'secondary' : 'ghost'}
+        isIconOnly
+        icon={<ListOrdered className="size-3.5" />}
+        label="Ordered list"
         onClick={() => {
           // biome-ignore lint/suspicious/noExplicitAny: Tiptap extension commands
           (editor.chain().focus() as any).toggleOrderedList().run();
         }}
-        aria-label="Ordered list"
-      >
-        <ListOrdered className="size-3.5" />
-      </Button>
+      />
 
       <Button
         type="button"
         size="sm"
         variant={editor.isActive('code') ? 'secondary' : 'ghost'}
+        isIconOnly
+        icon={<Code className="size-3.5" />}
+        label="Inline code"
         onClick={() => {
           // biome-ignore lint/suspicious/noExplicitAny: Tiptap extension commands
           (editor.chain().focus() as any).toggleCode().run();
         }}
-        aria-label="Inline code"
-      >
-        <Code className="size-3.5" />
-      </Button>
+      />
 
       <Button
         type="button"
         size="sm"
         variant={editor.isActive('codeBlock') ? 'secondary' : 'ghost'}
+        isIconOnly
+        icon={<Code2 className="size-3.5" />}
+        label="Code block"
         onClick={() => {
           // biome-ignore lint/suspicious/noExplicitAny: Tiptap extension commands
           (editor.chain().focus() as any).toggleCodeBlock().run();
         }}
-        aria-label="Code block"
-      >
-        <Code2 className="size-3.5" />
-      </Button>
+      />
 
       <Button
         type="button"
         size="sm"
         variant={editor.isActive('link') ? 'secondary' : 'ghost'}
+        isIconOnly
+        icon={<Link className="size-3.5" />}
+        label="Link"
         onClick={toggleLink}
-        aria-label="Link"
-      >
-        <Link className="size-3.5" />
-      </Button>
+      />
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   DataTable,
   EmptyState,
@@ -264,12 +263,11 @@ export function CandidatesPage() {
           <Button
             variant="secondary"
             size="sm"
-            disabled={rows.length === 0}
+            label="Export"
+            icon={<Download className="size-4" />}
+            isDisabled={rows.length === 0}
             onClick={() => exportCandidatesCsv(rows)}
-          >
-            <Download className="size-4" />
-            Export
-          </Button>
+          />
           {canCreate ? <NewCandidateDialog /> : undefined}
         </>
       }
@@ -359,9 +357,7 @@ export function CandidatesPage() {
         </div>
 
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={(error as Error).message} />
         ) : view === 'list' ? (
           <DataTable
             columns={columns}

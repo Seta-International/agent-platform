@@ -158,14 +158,13 @@ export function ActivityFeedTab({ groupId }: Props) {
       {pendingCount > 0 && !atTop ? (
         <Button
           size="sm"
+          label={`${pendingCount} new ${pendingCount === 1 ? 'activity' : 'activities'} — jump to top`}
           onClick={() => {
             scrollEl?.scrollTo({ top: 0, behavior: 'smooth' });
             flush();
           }}
           className="sticky top-2 z-10 mx-auto rounded-full shadow-sm"
-        >
-          {pendingCount} new {pendingCount === 1 ? 'activity' : 'activities'} — jump to top
-        </Button>
+        />
       ) : (
         <p className="text-caption text-ink-subtle">All events · live</p>
       )}

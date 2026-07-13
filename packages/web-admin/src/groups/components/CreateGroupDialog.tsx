@@ -61,10 +61,7 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="size-4" aria-hidden />
-          New group
-        </Button>
+        <Button size="sm" label="New group" icon={<Plus className="size-4" aria-hidden />} />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -112,15 +109,12 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
             />
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
             <Button
+              label={createGroup.isPending ? 'Creating…' : 'Create group'}
               onClick={handleSubmit}
-              disabled={!effectiveSlug || !name.trim() || createGroup.isPending}
-            >
-              {createGroup.isPending ? 'Creating…' : 'Create group'}
-            </Button>
+              isDisabled={!effectiveSlug || !name.trim() || createGroup.isPending}
+            />
           </div>
         </div>
       </DialogContent>

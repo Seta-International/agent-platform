@@ -1,9 +1,8 @@
 import {
-  Alert,
-  AlertDescription,
   Avatar,
   AvatarFallback,
   Badge,
+  Banner,
   CounterBadgePopover,
   DataTable,
   DropdownMenu,
@@ -43,19 +42,15 @@ function initials(name: string): string {
 }
 
 function LifecycleBadge({ stage }: { stage: string | null }) {
-  const variantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    active: 'default',
-    onboarding: 'secondary',
-    offboarding: 'outline',
-    terminated: 'destructive',
-    leave: 'outline',
+  const variantMap: Record<string, 'neutral' | 'error'> = {
+    active: 'neutral',
+    onboarding: 'neutral',
+    offboarding: 'neutral',
+    terminated: 'error',
+    leave: 'neutral',
   };
-  const variant = (stage ? variantMap[stage] : undefined) ?? 'secondary';
-  return (
-    <Badge variant={variant} className="capitalize">
-      {stage}
-    </Badge>
-  );
+  const variant = (stage ? variantMap[stage] : undefined) ?? 'neutral';
+  return <Badge variant={variant} className="capitalize" label={stage} />;
 }
 
 const HIDEABLE_COLUMNS = [
@@ -178,11 +173,10 @@ export function PeoplePage() {
               {row.original.accounts.map((a) => (
                 <Badge
                   key={a.id}
-                  variant="outline"
+                  variant="neutral"
                   className="text-[11px] px-1.5 py-0 whitespace-nowrap"
-                >
-                  {a.name}
-                </Badge>
+                  label={a.name}
+                />
               ))}
             </div>
           ) : (
@@ -262,7 +256,7 @@ export function PeoplePage() {
             title="Techstack"
             limit={2}
             type="badge"
-            badgeVariant="secondary"
+            badgeVariant="neutral"
           />
         ),
       },
@@ -281,9 +275,7 @@ export function PeoplePage() {
     <PageChrome title="People" actions={actions}>
       <div className="w-full space-y-4 p-6">
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={(error as Error).message} />
         ) : (
           <>
             {/* Control & Filter Layout */}

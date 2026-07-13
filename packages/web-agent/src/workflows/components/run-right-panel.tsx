@@ -41,17 +41,15 @@ function CopyButton({ text }: { text: string }) {
     }
   };
   return (
-    <Button size="sm" variant="ghost" onClick={onClick} aria-label="Copy to clipboard">
-      {copied ? (
-        <>
-          <Check className="size-3" aria-hidden /> Copied
-        </>
-      ) : (
-        <>
-          <Copy className="size-3" aria-hidden /> Copy
-        </>
-      )}
-    </Button>
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={onClick}
+      icon={
+        copied ? <Check className="size-3" aria-hidden /> : <Copy className="size-3" aria-hidden />
+      }
+      label={copied ? 'Copied' : 'Copy'}
+    />
   );
 }
 
@@ -105,14 +103,12 @@ interface StepContextEntry {
   error?: unknown;
 }
 
-function stepStatusTone(
-  status: string | undefined,
-): 'success' | 'destructive' | 'warning' | 'secondary' {
-  if (!status || status === 'pending') return 'secondary';
+function stepStatusTone(status: string | undefined): 'success' | 'error' | 'warning' | 'neutral' {
+  if (!status || status === 'pending') return 'neutral';
   if (status === 'success') return 'success';
-  if (status === 'failed') return 'destructive';
+  if (status === 'failed') return 'error';
   if (status === 'suspended' || status === 'paused') return 'warning';
-  return 'secondary';
+  return 'neutral';
 }
 
 interface StepRowProps {
@@ -157,9 +153,7 @@ function StepRow({ stepId, entry }: StepRowProps) {
           } ${hasData ? '' : 'invisible'}`}
         />
         <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-ink">{stepId}</span>
-        <Badge variant={tone} className="flex-none text-[10px]">
-          {statusLabel}
-        </Badge>
+        <Badge variant={tone} className="flex-none text-[10px]" label={statusLabel} />
         {dataLabel && <span className="flex-none text-[10px] text-ink-tertiary">{dataLabel}</span>}
       </button>
       {open && hasData ? (

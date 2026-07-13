@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Badge, DataTable, EmptyState, PageChrome } from '@seta/shared-ui';
+import { Badge, Banner, DataTable, EmptyState, PageChrome } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { FolderKanban } from 'lucide-react';
@@ -6,13 +6,10 @@ import { useMemo } from 'react';
 import { fetchProjects, type ProjectListRow } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
 
-const STATUS_VARIANT: Record<
-  ProjectListRow['status'],
-  'default' | 'secondary' | 'success' | 'outline'
-> = {
+const STATUS_VARIANT: Record<ProjectListRow['status'], 'neutral' | 'success'> = {
   active: 'success',
-  on_hold: 'secondary',
-  closed: 'outline',
+  on_hold: 'neutral',
+  closed: 'neutral',
 };
 
 export function ProjectsPage() {
@@ -37,14 +34,14 @@ export function ProjectsPage() {
         id: 'phase',
         accessorKey: 'phase',
         header: 'Phase',
-        cell: ({ row }: CellCtx) => <Badge variant="secondary">{row.original.phase}</Badge>,
+        cell: ({ row }: CellCtx) => <Badge variant="neutral" label={row.original.phase} />,
       },
       {
         id: 'status',
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }: CellCtx) => (
-          <Badge variant={STATUS_VARIANT[row.original.status]}>{row.original.status}</Badge>
+          <Badge variant={STATUS_VARIANT[row.original.status]} label={row.original.status} />
         ),
       },
       {
@@ -64,9 +61,7 @@ export function ProjectsPage() {
     <PageChrome title="Projects">
       <div className="page-container space-y-4 p-6">
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
+          <Banner status="error" title={(error as Error).message} />
         ) : (
           <DataTable
             columns={columns}

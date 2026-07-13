@@ -27,11 +27,11 @@ export function fitLabel(fit: Fit): { text: string; strong: boolean } {
 
 export function fitScoreBadge(fit: Fit): {
   text: string;
-  variant: 'success' | 'warning' | 'secondary';
+  variant: 'success' | 'warning' | 'neutral';
 } {
-  if (fit.required === 0) return { text: '—', variant: 'secondary' };
+  if (fit.required === 0) return { text: '—', variant: 'neutral' };
   const pct = Math.round(fit.score * 100);
-  const variant = pct >= 85 ? 'success' : pct >= 70 ? 'warning' : 'secondary';
+  const variant = pct >= 85 ? 'success' : pct >= 70 ? 'warning' : 'neutral';
   return { text: `${pct}%`, variant };
 }
 

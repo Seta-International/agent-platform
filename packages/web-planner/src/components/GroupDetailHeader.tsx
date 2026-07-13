@@ -164,18 +164,25 @@ export function GroupDetailHeader({
         <div className="flex flex-none items-center gap-2">
           {!group.deleted_at && (
             <DisabledActionTooltip disabled={!canManage} reason={PERMISSION_DENIED.group.invite}>
-              <Button size="sm" variant="secondary" onClick={onInviteClick} disabled={!canManage}>
-                <Users className="size-3" />
-                Invite
-              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                label="Invite"
+                icon={<Users className="size-3" />}
+                onClick={onInviteClick}
+                isDisabled={!canManage}
+              />
             </DisabledActionTooltip>
           )}
           {!group.deleted_at && (
             <DisabledActionTooltip disabled={!canCreatePlan} reason={PERMISSION_DENIED.plan.create}>
-              <Button size="sm" onClick={onCreatePlanClick} disabled={!canCreatePlan}>
-                <Plus className="size-3" />
-                New plan
-              </Button>
+              <Button
+                size="sm"
+                label="New plan"
+                icon={<Plus className="size-3" />}
+                onClick={onCreatePlanClick}
+                isDisabled={!canCreatePlan}
+              />
             </DisabledActionTooltip>
           )}
           <DropdownMenu modal={false}>

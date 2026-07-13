@@ -1,9 +1,8 @@
 // biome-ignore-all lint/a11y/useSemanticElements: intentional div+role="table"/"row"/"cell" markup to escape native table layout constraints; a11y semantics preserved via explicit roles.
 // biome-ignore-all lint/a11y/useFocusableInteractive: row/cell roles are decorative grid wrappers, not interactive elements; focus targets live inside (buttons).
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -61,12 +60,12 @@ function DaysBadge({ days }: { days: number | null }) {
     return <span className="text-ink-tertiary">—</span>;
   }
   if (days === 0) {
-    return <Badge variant="destructive">Expiring</Badge>;
+    return <Badge variant="error" label="Expiring" />;
   }
   if (days <= 7) {
-    return <Badge variant="warning">{days}d left</Badge>;
+    return <Badge variant="warning" label={`${days}d left`} />;
   }
-  return <Badge variant="secondary">{days}d left</Badge>;
+  return <Badge variant="neutral" label={`${days}d left`} />;
 }
 
 interface Props {
@@ -99,9 +98,9 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
     return (
       <PageChrome breadcrumb={['Planner']} title="Trash">
         <div data-testid="skeleton-trash" className="space-y-3 p-6">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
+          <Skeleton height={48} />
+          <Skeleton height={48} />
+          <Skeleton height={48} />
         </div>
       </PageChrome>
     );
@@ -111,14 +110,14 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
     return (
       <PageChrome breadcrumb={['Planner']} title="Trash">
         <div className="p-6">
-          <Alert variant="destructive" role="alert">
-            <AlertDescription className="flex items-center justify-between gap-3">
-              <span>Couldn&apos;t load trash.</span>
-              <Button size="sm" variant="secondary" onClick={() => q.refetch()}>
-                Retry
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <Banner
+            status="error"
+            role="alert"
+            title="Couldn&apos;t load trash."
+            endContent={
+              <Button size="sm" variant="secondary" label="Retry" onClick={() => q.refetch()} />
+            }
+          />
         </div>
       </PageChrome>
     );
@@ -180,17 +179,13 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
             <TabsTrigger value="deleted">
               Deleted
               {rows.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5">
-                  {rows.length}
-                </Badge>
+                <Badge variant="neutral" className="ml-1.5" label={rows.length} />
               )}
             </TabsTrigger>
             <TabsTrigger value="archived">
               Archived
               {archivedRows.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5">
-                  {archivedRows.length}
-                </Badge>
+                <Badge variant="neutral" className="ml-1.5" label={archivedRows.length} />
               )}
             </TabsTrigger>
           </TabsList>
@@ -252,11 +247,11 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                           <Button
                             variant="ghost"
                             size="sm"
+                            icon={<RotateCcw className="size-3" aria-hidden />}
+                            label="Restore"
                             onClick={() => onRestore(r)}
-                            disabled={!restoreGate[r.kind].allowed}
-                          >
-                            <RotateCcw className="size-3" aria-hidden /> Restore
-                          </Button>
+                            isDisabled={!restoreGate[r.kind].allowed}
+                          />
                         </DisabledActionTooltip>
                         <DisabledActionTooltip
                           disabled={!canPermanentlyDelete}
@@ -266,11 +261,11 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                             variant="ghost"
                             size="sm"
                             className="text-semantic-danger hover:text-semantic-danger"
+                            icon={<Trash2 className="size-3" aria-hidden />}
+                            label="Delete"
                             onClick={() => setConfirmingPurge(r)}
-                            disabled={!canPermanentlyDelete}
-                          >
-                            <Trash2 className="size-3" aria-hidden /> Delete
-                          </Button>
+                            isDisabled={!canPermanentlyDelete}
+                          />
                         </DisabledActionTooltip>
                       </div>
                     </div>
@@ -329,11 +324,11 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                         <Button
                           variant="ghost"
                           size="sm"
+                          icon={<RotateCcw className="size-3" aria-hidden />}
+                          label="Restore"
                           onClick={() => unarchivePlan.mutate({ plan_id: r.id })}
-                          disabled={!canUpdatePlan}
-                        >
-                          <RotateCcw className="size-3" aria-hidden /> Restore
-                        </Button>
+                          isDisabled={!canUpdatePlan}
+                        />
                       </DisabledActionTooltip>
                       <DisabledActionTooltip
                         disabled={!canDeletePlan}
@@ -343,16 +338,16 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                           variant="ghost"
                           size="sm"
                           className="text-semantic-danger hover:text-semantic-danger"
+                          icon={<Trash2 className="size-3" aria-hidden />}
+                          label="Delete"
                           onClick={() =>
                             deleteArchivedPlan.mutate({
                               plan_id: r.id,
                               expected_version: r.version,
                             })
                           }
-                          disabled={!canDeletePlan}
-                        >
-                          <Trash2 className="size-3" aria-hidden /> Delete
-                        </Button>
+                          isDisabled={!canDeletePlan}
+                        />
                       </DisabledActionTooltip>
                     </div>
                   </div>
@@ -377,19 +372,16 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
             <DialogDescription>You won&apos;t be able to get this back.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmingPurge(null)}>
-              Cancel
-            </Button>
+            <Button variant="ghost" label="Cancel" onClick={() => setConfirmingPurge(null)} />
             <Button
               variant="destructive"
+              label="Permanently delete"
               onClick={() => {
                 // The backend's hard-delete endpoint is policy-driven (RETENTION_DAYS sweep, not
                 // a manual API); this dialog confirms intent until that endpoint lands.
                 setConfirmingPurge(null);
               }}
-            >
-              Permanently delete
-            </Button>
+            />
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -99,11 +99,10 @@ export function CancelRequisitionDialog({
                   <Button
                     type="button"
                     variant="secondary"
-                    disabled={createReason.isPending || !newReasonLabel.trim()}
+                    label={createReason.isPending ? 'Adding…' : 'Add reason'}
+                    isDisabled={createReason.isPending || !newReasonLabel.trim()}
                     onClick={() => createReason.mutate()}
-                  >
-                    {createReason.isPending ? 'Adding…' : 'Add reason'}
-                  </Button>
+                  />
                 </div>
               </div>
             ) : (
@@ -127,18 +126,16 @@ export function CancelRequisitionDialog({
           <div className="flex justify-end gap-2 pt-2">
             <Button
               variant="secondary"
+              label="Back"
               onClick={() => onOpenChange(false)}
-              disabled={mutation.isPending}
-            >
-              Back
-            </Button>
+              isDisabled={mutation.isPending}
+            />
             <Button
               variant="destructive"
+              label={mutation.isPending ? 'Cancelling…' : 'Cancel requisition'}
               onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !effectiveReason}
-            >
-              {mutation.isPending ? 'Cancelling…' : 'Cancel requisition'}
-            </Button>
+              isDisabled={mutation.isPending || !effectiveReason}
+            />
           </div>
         </div>
       </DialogContent>

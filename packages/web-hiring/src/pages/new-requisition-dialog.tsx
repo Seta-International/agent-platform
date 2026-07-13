@@ -1,6 +1,5 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Dialog,
   DialogContent,
@@ -167,9 +166,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     >
       <DisabledActionTooltip disabled={disabled} reason={PERMISSION_DENIED.requisition.create}>
         <DialogTrigger asChild>
-          <Button size="sm" disabled={disabled}>
-            New requisition
-          </Button>
+          <Button size="sm" label="New requisition" isDisabled={disabled} />
         </DialogTrigger>
       </DisabledActionTooltip>
       <DialogContent
@@ -349,20 +346,21 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
             </div>
           </div>
           <footer className="space-y-2 border-t border-hairline bg-canvas px-6 py-3">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            {error && <Banner status="error" title={error} />}
             <div className="flex items-center justify-between gap-2">
               <p className="text-body-sm text-danger-ink">{requiredError}</p>
               <div className="flex shrink-0 gap-2">
-                <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
-                  Cancel
-                </Button>
-                <Button onClick={submit} disabled={mutation.isPending}>
-                  {mutation.isPending ? 'Creating…' : 'Create'}
-                </Button>
+                <Button
+                  variant="secondary"
+                  label="Cancel"
+                  onClick={close}
+                  isDisabled={mutation.isPending}
+                />
+                <Button
+                  label={mutation.isPending ? 'Creating…' : 'Create'}
+                  onClick={submit}
+                  isDisabled={mutation.isPending}
+                />
               </div>
             </div>
           </footer>

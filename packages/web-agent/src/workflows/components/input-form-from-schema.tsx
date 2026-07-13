@@ -232,9 +232,11 @@ export function InputFormFromSchema({
           </div>
         );
       })}
-      <Button type="submit" disabled={submitting}>
-        {submitting ? 'Submitting…' : (submitLabel ?? 'Submit')}
-      </Button>
+      <Button
+        type="submit"
+        isDisabled={submitting}
+        label={submitting ? 'Submitting…' : (submitLabel ?? 'Submit')}
+      />
     </form>
   );
 }

@@ -48,19 +48,15 @@ export function CandidateCard({
             {item.source ?? '—'} · {appliedLabel(item.applied_at)}
           </div>
         </div>
-        <Badge variant={fit.variant} className="flex-none">
-          {fit.text}
-        </Badge>
+        <Badge variant={fit.variant} className="flex-none" label={fit.text} />
       </div>
 
       {item.skills.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {visibleSkills.map((s) => (
-            <Badge key={s.skill_id} variant="secondary">
-              {s.skill_name}
-            </Badge>
+            <Badge key={s.skill_id} variant="neutral" label={s.skill_name} />
           ))}
-          {hiddenSkillCount > 0 && <Badge variant="secondary">+{hiddenSkillCount}</Badge>}
+          {hiddenSkillCount > 0 && <Badge variant="neutral" label={`+${hiddenSkillCount}`} />}
         </div>
       )}
     </KanbanCardShell>

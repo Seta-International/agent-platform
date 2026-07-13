@@ -1,9 +1,8 @@
 import {
-  Alert,
-  AlertDescription,
   Avatar,
   AvatarFallback,
   Badge,
+  Banner,
   Button,
   Calendar as DayPickerCalendar,
   DisabledActionTooltip,
@@ -483,9 +482,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   if (error || !data) {
     return (
       <div className="flex flex-col overflow-hidden p-6">
-        <Alert variant="destructive">
-          <AlertDescription>{(error as Error)?.message ?? 'Not found'}</AlertDescription>
-        </Alert>
+        <Banner status="error" title={(error as Error)?.message ?? 'Not found'} />
       </div>
     );
   }
@@ -537,14 +534,16 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               <Button
                 size="sm"
                 variant="secondary"
+                label="Cancel"
                 onClick={cancelEditing}
-                disabled={save.isPending}
-              >
-                Cancel
-              </Button>
-              <Button size="sm" onClick={submitEdit} disabled={save.isPending}>
-                {save.isPending ? 'Updating…' : 'Update'}
-              </Button>
+                isDisabled={save.isPending}
+              />
+              <Button
+                size="sm"
+                label={save.isPending ? 'Updating…' : 'Update'}
+                onClick={submitEdit}
+                isDisabled={save.isPending}
+              />
             </div>
             {requiredError && <p className="text-caption text-danger-ink">{requiredError}</p>}
           </div>
@@ -736,10 +735,13 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="sm" disabled={!canManage && !canClose}>
-                    <MoreHorizontal className="mr-1.5 size-4" />
-                    More actions
-                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    label="More actions"
+                    icon={<MoreHorizontal className="size-4" />}
+                    isDisabled={!canManage && !canClose}
+                  />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {req.status === 'open' && (
@@ -805,12 +807,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                         {data.skills.map((s) => (
                           <Badge
                             key={s.skill_name}
-                            variant="secondary"
+                            variant="neutral"
                             className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
-                          >
-                            {s.skill_name}
-                            {s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
-                          </Badge>
+                            label={`${s.skill_name}${
+                              s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''
+                            }`}
+                          />
                         ))}
                       </div>
                     </div>

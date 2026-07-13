@@ -31,12 +31,13 @@ export function ConfirmDeleteBucketDialog({
           <DialogDescription>All tasks in this bucket will also be deleted.</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={pending}>
-            Delete
-          </Button>
+          <Button
+            variant="ghost"
+            label="Cancel"
+            onClick={() => onOpenChange(false)}
+            isDisabled={pending}
+          />
+          <Button variant="destructive" label="Delete" onClick={onConfirm} isDisabled={pending} />
         </DialogFooter>
       </DialogContent>
     </Dialog>

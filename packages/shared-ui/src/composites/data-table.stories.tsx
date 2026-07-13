@@ -50,8 +50,7 @@ const richColumns: ColumnDef<Row>[] = [
     header: 'Status',
     cell: ({ getValue }) => {
       const v = getValue<Row['status']>();
-      const variant = v === 'open' ? 'default' : v === 'closed' ? 'secondary' : 'outline';
-      return <Badge variant={variant}>{v.replace('_', ' ')}</Badge>;
+      return <Badge variant="neutral" label={v.replace('_', ' ')} />;
     },
   },
   { accessorKey: 'owner', header: 'Owner' },
