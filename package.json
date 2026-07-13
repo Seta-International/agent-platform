@@ -54,8 +54,6 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@astryxdesign/cli": "^0.1.4",
-    "@astryxdesign/core": "^0.1.4",
-    "@astryxdesign/theme-neutral": "^0.1.4"
+    "@astryxdesign/cli": "^0.1.4"
   }
 }

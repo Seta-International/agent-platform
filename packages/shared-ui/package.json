@@ -23,6 +23,8 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
+    "@astryxdesign/core": "^0.1.4",
+    "@astryxdesign/theme-neutral": "^0.1.4",
     "@fontsource/geist-mono": "^5.2.8",
     "@fontsource/geist-sans": "^5.2.5",
     "@hookform/resolvers": "^5.4.0",
