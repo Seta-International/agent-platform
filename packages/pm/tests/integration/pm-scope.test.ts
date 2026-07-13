@@ -352,7 +352,7 @@ describe('project_access owners (FUT-353)', () => {
         await pmDb().insert(projectAccess).values({
           tenant_id: g.t.tenant_id,
           project_id: g.P2,
-          worker_id: W_owner,
+          person_id: W_owner,
           level: 'owner',
         });
 
@@ -388,8 +388,8 @@ describe('project_access owners (FUT-353)', () => {
         await pmDb()
           .insert(projectAccess)
           .values([
-            { tenant_id: g.t.tenant_id, project_id: g.P2, worker_id: W_editor, level: 'edit' },
-            { tenant_id: g.t.tenant_id, project_id: g.P3, worker_id: W_editor, level: 'view' },
+            { tenant_id: g.t.tenant_id, project_id: g.P2, person_id: W_editor, level: 'edit' },
+            { tenant_id: g.t.tenant_id, project_id: g.P3, person_id: W_editor, level: 'view' },
           ]);
 
         const session = relationshipViewer(g.t, W_editor);

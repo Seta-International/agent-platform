@@ -36,7 +36,7 @@ async function buildGraph(pool: Pool): Promise<Graph> {
 
   const [acc] = await pmDb()
     .insert(account)
-    .values({ tenant_id: t.tenant_id, name: 'Acct', am_worker_id: null })
+    .values({ tenant_id: t.tenant_id, name: 'Acct', am_person_id: null })
     .returning({ id: account.id });
   const mkProject = async (name: string): Promise<string> => {
     const [row] = await pmDb()
@@ -50,7 +50,7 @@ async function buildGraph(pool: Pool): Promise<Graph> {
   await pmDb().insert(projectAccess).values({
     tenant_id: t.tenant_id,
     project_id: P_own,
-    worker_id: W_em,
+    person_id: W_em,
     level: 'owner',
   });
 
@@ -60,7 +60,7 @@ async function buildGraph(pool: Pool): Promise<Graph> {
       .values({
         tenant_id: t.tenant_id,
         project_id,
-        worker_id: crypto.randomUUID(),
+        person_id: crypto.randomUUID(),
         date_from: '2026-01-01',
         status: 'committed',
       })
