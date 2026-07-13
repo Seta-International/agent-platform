@@ -6,7 +6,11 @@ import {
 
 describe('qna taskDetailAgent', () => {
   it('is wired with exactly the task-detail toolbox', () => {
-    expect(TASK_DETAIL_TOOL_IDS).toEqual(['planner_getTask', 'planner_listComments']);
+    expect(TASK_DETAIL_TOOL_IDS).toEqual([
+      'planner_getTask',
+      'planner_listComments',
+      'planner_queryTasks',
+    ]);
   });
 
   it('has the right id + schemas and returns prose via the seam', async () => {

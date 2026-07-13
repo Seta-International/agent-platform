@@ -54,7 +54,7 @@ export function SkillsTab({
               className="rounded-full bg-surface-2 px-3 py-1 text-caption text-ink"
             >
               {s.skill_name}
-              {s.min_level != null ? ` · ${s.min_level}` : ''}
+              {s.min_level ? ` · ${s.min_level}` : ''}
             </span>
           ))
         )}

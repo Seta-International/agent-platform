@@ -109,6 +109,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     setSubmitAttempted(false);
   }
 
+  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
+  // programmatically must reset explicitly or the next open shows stale data.
+  function close() {
+    setOpen(false);
+    reset();
+  }
+
   const mutation = useMutation({
     mutationFn: () => {
       const jd_sections = SECTIONS.filter((s) => !isRichTextEmpty(jd[s.key])).map((s) => ({
@@ -139,8 +146,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
       void queryClient.invalidateQueries({
         queryKey: hiringKeys.requisitions(),
       });
-      setOpen(false);
-      reset();
+      close();
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -182,12 +188,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setOpen(false)}
-                  disabled={mutation.isPending}
-                >
+                <Button size="sm" variant="secondary" onClick={close} disabled={mutation.isPending}>
                   Cancel
                 </Button>
                 <Button size="sm" onClick={submit} disabled={mutation.isPending}>
@@ -329,7 +330,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               </div>
               {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
 
-              <SkillPicker value={skills} onChange={setSkills} />
+              <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
 
               <div className="flex items-center justify-between">
                 <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
@@ -345,29 +346,20 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
               {SECTIONS.map((s) => (
                 <div key={s.key}>
-                  {s.key === 'about' ? (
-                    <div className="rounded-lg bg-primary/8 p-4">
-                      <div className="mb-1 font-semibold text-ink">About the role *</div>
-                      <RichTextEditor
-                        value={jd[s.key]}
-                        onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
-                        placeholder="Write the about section…"
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <div
-                        className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
-                      >
-                        {s.label}
-                      </div>
-                      <RichTextEditor
-                        value={jd[s.key]}
-                        onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
-                        placeholder={`Write the ${s.label.toLowerCase()}…`}
-                      />
-                    </div>
-                  )}
+                  <div
+                    className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                  >
+                    {s.key === 'about' ? 'About the role *' : s.label}
+                  </div>
+                  <RichTextEditor
+                    value={jd[s.key]}
+                    onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
+                    placeholder={
+                      s.key === 'about'
+                        ? 'Write the about section…'
+                        : `Write the ${s.label.toLowerCase()}…`
+                    }
+                  />
                 </div>
               ))}
 

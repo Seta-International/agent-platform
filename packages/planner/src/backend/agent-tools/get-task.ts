@@ -6,7 +6,10 @@ import {
   resolveTaskRef,
 } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { plannerDb } from '../db/index.ts';
+import { assigneeProjection, buckets, groups } from '../db/schema.ts';
 import { getPlan } from '../domain/get-plan.ts';
 import { getTask } from '../domain/get-task.ts';
 
@@ -28,10 +31,12 @@ export const plannerGetTaskTool = defineAgentTool({
   output: z.object({
     task: z.object({
       taskId: z.string(),
-      tenantId: z.string(),
       groupId: z.string(),
+      groupName: z.string(),
       planId: z.string(),
+      planName: z.string(),
       bucketId: z.string().nullable(),
+      bucketName: z.string().nullable(),
       title: z.string(),
       description: z.string().nullable(),
       priority: z.enum(['urgent', 'important', 'medium', 'low']),
@@ -41,12 +46,11 @@ export const plannerGetTaskTool = defineAgentTool({
       isDeferred: z.boolean(),
       reviewState: z.enum(['needs_review']).nullable(),
       dueAt: z.string().nullable(),
-      orderHint: z.string().nullable(),
       createdBy: z.string(),
+      createdByName: z.string().nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
       deletedAt: z.string().nullable(),
-      version: z.number(),
       assignees: z.array(
         z.object({
           userId: z.string(),
@@ -60,12 +64,8 @@ export const plannerGetTaskTool = defineAgentTool({
       labels: z.array(
         z.object({
           id: z.string(),
-          tenantId: z.string(),
-          planId: z.string(),
           name: z.string(),
           color: z.string(),
-          createdAt: z.string(),
-          deletedAt: z.string().nullable(),
         }),
       ),
       checklistSummary: z.object({
@@ -97,6 +97,30 @@ export const plannerGetTaskTool = defineAgentTool({
       session,
     });
 
+    const db = plannerDb();
+    const [bucketRow, groupRow, creatorRow] = await Promise.all([
+      taskRow.bucket_id
+        ? db
+            .select({ name: buckets.name })
+            .from(buckets)
+            .where(eq(buckets.id, taskRow.bucket_id))
+            .limit(1)
+            .then((r) => r[0] ?? null)
+        : Promise.resolve(null),
+      db
+        .select({ name: groups.name })
+        .from(groups)
+        .where(eq(groups.id, plan.group_id))
+        .limit(1)
+        .then((r) => r[0] ?? null),
+      db
+        .select({ display_name: assigneeProjection.display_name })
+        .from(assigneeProjection)
+        .where(eq(assigneeProjection.user_id, taskRow.created_by))
+        .limit(1)
+        .then((r) => r[0] ?? null),
+    ]);
+
     const priorityLabel = ({ 1: 'urgent', 3: 'important', 5: 'medium', 9: 'low' } as const)[
       taskRow.priority_number
     ];
@@ -116,10 +140,12 @@ export const plannerGetTaskTool = defineAgentTool({
     return {
       task: {
         taskId: taskRow.id,
-        tenantId: taskRow.tenant_id,
         groupId: plan.group_id,
+        groupName: groupRow?.name ?? plan.group_id,
         planId: taskRow.plan_id,
+        planName: plan.name,
         bucketId: taskRow.bucket_id,
+        bucketName: bucketRow?.name ?? null,
         title: taskRow.title,
         description: taskRow.description,
         priority: priorityLabel,
@@ -129,12 +155,11 @@ export const plannerGetTaskTool = defineAgentTool({
         isDeferred: taskRow.is_deferred,
         reviewState: taskRow.review_state,
         dueAt: taskRow.due_at,
-        orderHint: taskRow.order_hint,
         createdBy: taskRow.created_by,
+        createdByName: creatorRow?.display_name ?? null,
         createdAt: taskRow.created_at,
         updatedAt: taskRow.updated_at,
         deletedAt: taskRow.deleted_at,
-        version: taskRow.version,
         assignees: taskRow.assignees.map((a) => ({
           userId: a.user_id,
           displayName: a.display_name,
@@ -145,12 +170,8 @@ export const plannerGetTaskTool = defineAgentTool({
         })),
         labels: taskRow.labels.map((l) => ({
           id: l.id,
-          tenantId: l.tenant_id,
-          planId: l.plan_id,
           name: l.name,
           color: l.color,
-          createdAt: l.created_at,
-          deletedAt: l.deleted_at,
         })),
         checklistSummary: taskRow.checklist_summary,
         pendingAssignWorkflowRunId,

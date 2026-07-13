@@ -188,7 +188,8 @@ export function RequisitionCard({
               className="rounded-full bg-surface-2 px-2.5 py-1 text-caption text-ink-muted"
             >
               {s.skill_name}
-              {s.min_level != null ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
+              {/* Level 0 means "no minimum" — show the suffix only for a real 1–5 requirement. */}
+              {s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
             </span>
           ))}
         </div>

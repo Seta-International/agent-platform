@@ -680,29 +680,20 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
             {SECTIONS.map((s) => (
               <div key={s.key}>
-                {s.key === 'about' ? (
-                  <div className="rounded-lg bg-primary/8 p-4">
-                    <div className="mb-1 font-semibold text-ink">About the role *</div>
-                    <RichTextEditor
-                      value={sections[s.key]}
-                      onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
-                      placeholder="Write the about section…"
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <div
-                      className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
-                    >
-                      {s.label}
-                    </div>
-                    <RichTextEditor
-                      value={sections[s.key]}
-                      onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
-                      placeholder={`Write the ${s.label.toLowerCase()}…`}
-                    />
-                  </div>
-                )}
+                <div
+                  className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                >
+                  {s.key === 'about' ? 'About the role *' : s.label}
+                </div>
+                <RichTextEditor
+                  value={sections[s.key]}
+                  onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
+                  placeholder={
+                    s.key === 'about'
+                      ? 'Write the about section…'
+                      : `Write the ${s.label.toLowerCase()}…`
+                  }
+                />
               </div>
             ))}
           </div>
@@ -818,9 +809,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                             className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
                           >
                             {s.skill_name}
-                            {s.min_level != null
-                              ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}`
-                              : ''}
+                            {s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
                           </Badge>
                         ))}
                       </div>

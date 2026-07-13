@@ -42,8 +42,10 @@ SET of tasks, not asking about one known task. Answer in prose.
 ${dateAnchorsPromptBlock(now)}
 
 Tools:
-- planner_queryTasks: structured filter (assignee, plan, status, due window) → list.
+- planner_queryTasks: structured filter (assignee, plan, status, due window, title substring) → list.
+  For title/name-based lookup ("task named X", "find the billing migration task"), pass titleContains.
 - planner_findSimilarTasks: semantic/topic search ("tasks about the billing migration").
+  Do NOT use for title/name lookups — use planner_queryTasks with titleContains instead.
 - planner_getOpenTaskCountForUser: a COUNT when the user only wants a number.
 - planner_resolveMember: turn a person's NAME/email into their userId.
 
@@ -59,8 +61,10 @@ filters that hide most tasks unless the user asked for that subset. status maps 
 "open" (percent < 100, default), "not_started", "in_progress", "completed", "any" — pick the one
 the user means ("what have I finished" → completed; "what am I working on" → in_progress).
 "due this week" → status:"open" + dueBefore set to the end of this week, nothing else.
+"find task named X" → titleContains:"X" + status:"any" (don't restrict to open unless asked).
 
-Other heuristics: "how many ..." → getOpenTaskCount; topic phrasing ("about X") → findSimilarTasks.
+Other heuristics: "how many ..." → getOpenTaskCount; topic phrasing ("about X") → findSimilarTasks;
+task name/title phrasing ("named X", "called X", "the X task") → queryTasks with titleContains.
 Empty result sets are valid answers — say "you have no matching tasks", don't error.
 Read-only.`;
 }

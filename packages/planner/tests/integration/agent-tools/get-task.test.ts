@@ -73,19 +73,25 @@ describe('planner_getTask tool', () => {
       )) as {
         task: {
           taskId: string;
-          tenantId: string;
           groupId: string;
+          groupName: string;
+          planId: string;
+          planName: string;
           title: string;
           description: string | null;
+          createdByName: string | null;
           labels: Array<{ id: string; name: string; color: string }>;
         };
       };
 
       expect(result.task.taskId).toBe(task.id);
-      expect(result.task.tenantId).toBe(tenant_id);
       expect(result.task.groupId).toBe(group.id);
+      expect(result.task.groupName).toBe('Test Group');
+      expect(result.task.planId).toBe(plan.id);
+      expect(result.task.planName).toBe('Test Plan');
       expect(result.task.title).toBe('Wire SSE backpressure');
       expect(result.task.description).toBeNull();
+      expect(result.task.createdByName).toBe('Admin');
       expect(result.task.labels).toEqual([]);
     });
   });

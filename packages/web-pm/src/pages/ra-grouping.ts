@@ -1,4 +1,4 @@
-import { clippedCalendarEffort, type EffortWindow } from './ra-effort.ts';
+import { rowCalendarEffort } from '../utils/common.ts';
 
 export interface GroupableRow {
   allocation_id: string;
@@ -36,12 +36,7 @@ export function personGroupKey(r: GroupableRow): string {
 }
 
 /** Ascending comparator for the within-group secondary sort field. */
-export function compareByField(
-  field: string,
-  a: GroupableRow,
-  b: GroupableRow,
-  win: EffortWindow,
-): number {
+export function compareByField(field: string, a: GroupableRow, b: GroupableRow): number {
   switch (field) {
     case 'account':
       return (a.account_name ?? '').localeCompare(b.account_name ?? '');
@@ -54,7 +49,7 @@ export function compareByField(
     case 'end':
       return (a.date_to ?? '').localeCompare(b.date_to ?? '');
     case 'effort':
-      return clippedCalendarEffort(a, win) - clippedCalendarEffort(b, win);
+      return rowCalendarEffort(a) - rowCalendarEffort(b);
     case 'bucket':
       return (a.bucket ?? '').localeCompare(b.bucket ?? '');
     default:
@@ -71,13 +66,12 @@ export function groupByPerson<T extends GroupableRow>(
   rows: T[],
   field: string,
   desc: boolean,
-  win: EffortWindow,
 ): T[] {
   const arr = [...rows];
   arr.sort((a, b) => {
     const personCmp = personSortKey(a).localeCompare(personSortKey(b));
     if (personCmp !== 0) return personCmp;
-    const raw = compareByField(field, a, b, win);
+    const raw = compareByField(field, a, b);
     return desc ? -raw : raw;
   });
   return arr;

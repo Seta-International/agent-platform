@@ -79,7 +79,7 @@ describe('groupByPerson', () => {
       row({ allocation_id: 'a1', worker_name: 'Alice', project_name: 'Zzz' }),
       row({ allocation_id: 'a2', worker_name: 'Alice', project_name: 'Bbb' }),
     ];
-    const sorted = groupByPerson(rows, 'project', false, {});
+    const sorted = groupByPerson(rows, 'project', false);
     expect(sorted.map((r) => r.allocation_id)).toEqual(['a2', 'a1', 'z1']);
   });
 
@@ -88,9 +88,9 @@ describe('groupByPerson', () => {
       row({ allocation_id: 'a1', worker_name: 'Alice', planned_pct: 80 }),
       row({ allocation_id: 'a2', worker_name: 'Alice', planned_pct: 20 }),
     ];
-    const asc = groupByPerson(rows, 'planned', false, {});
+    const asc = groupByPerson(rows, 'planned', false);
     expect(asc.map((r) => r.allocation_id)).toEqual(['a2', 'a1']);
-    const desc = groupByPerson(rows, 'planned', true, {});
+    const desc = groupByPerson(rows, 'planned', true);
     expect(desc.map((r) => r.allocation_id)).toEqual(['a1', 'a2']);
   });
 
@@ -99,7 +99,7 @@ describe('groupByPerson', () => {
       row({ allocation_id: 'z1', worker_name: 'Zed', planned_pct: 50 }),
       row({ allocation_id: 'a1', worker_name: 'Alice', planned_pct: 50 }),
     ];
-    const desc = groupByPerson(rows, 'planned', true, {});
+    const desc = groupByPerson(rows, 'planned', true);
     // Alice still comes before Zed even though the field sort direction is desc.
     expect(desc.map((r) => r.allocation_id)).toEqual(['a1', 'z1']);
   });
