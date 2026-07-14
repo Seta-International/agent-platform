@@ -1,14 +1,4 @@
-import {
-  Button,
-  Input,
-  Label,
-  NumberInput,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@seta/shared-ui';
+import { Button, Input, Label, NumberInput, Selector } from '@seta/shared-ui';
 import { dequal } from 'dequal';
 import { useState } from 'react';
 
@@ -205,28 +195,25 @@ export function InputFormFromSchema({
               ) : null}
             </Label>
             {leaf.enumValues ? (
-              <Select value={rawStr || undefined} onValueChange={(v) => handleChange(leaf, v)}>
-                <SelectTrigger id={id} aria-label={labelFor(leaf)} className="w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  {leaf.enumValues.map((v) => (
-                    <SelectItem key={v} value={v}>
-                      {v}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Selector
+                label={labelFor(leaf)}
+                isLabelHidden
+                options={leaf.enumValues.map((v) => ({ value: v, label: v }))}
+                value={rawStr || undefined}
+                onChange={(v) => handleChange(leaf, v)}
+                placeholder="—"
+              />
             ) : leaf.type === 'boolean' ? (
-              <Select value={rawStr || 'false'} onValueChange={(v) => handleChange(leaf, v)}>
-                <SelectTrigger id={id} aria-label={labelFor(leaf)} className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="false">false</SelectItem>
-                  <SelectItem value="true">true</SelectItem>
-                </SelectContent>
-              </Select>
+              <Selector
+                label={labelFor(leaf)}
+                isLabelHidden
+                options={[
+                  { value: 'false', label: 'false' },
+                  { value: 'true', label: 'true' },
+                ]}
+                value={rawStr || 'false'}
+                onChange={(v) => handleChange(leaf, v)}
+              />
             ) : leaf.type === 'number' || leaf.type === 'integer' ? (
               <NumberInput
                 label={labelFor(leaf)}
