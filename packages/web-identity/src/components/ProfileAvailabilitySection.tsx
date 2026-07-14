@@ -1,4 +1,4 @@
-import { Button, Card, Input, Label, RadioGroup, RadioGroupItem } from '@seta/shared-ui';
+import { Button, Card, Input, Label, RadioGroup, RadioListItem } from '@seta/shared-ui';
 import { useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../api/client.ts';
 
@@ -51,22 +51,15 @@ export function ProfileAvailabilitySection({
   return (
     <Card className="space-y-4 pt-6">
       <RadioGroup
+        label="Availability status"
+        isLabelHidden
         value={status}
-        onValueChange={(v) => setStatus(v as typeof status)}
-        className="flex gap-4"
+        onChange={(v) => setStatus(v as typeof status)}
+        orientation="horizontal"
       >
-        <Label className="flex items-center gap-2">
-          <RadioGroupItem value="available" />
-          Available
-        </Label>
-        <Label className="flex items-center gap-2">
-          <RadioGroupItem value="busy" />
-          Busy
-        </Label>
-        <Label className="flex items-center gap-2">
-          <RadioGroupItem value="ooo" />
-          Out of office
-        </Label>
+        <RadioListItem value="available" label="Available" />
+        <RadioListItem value="busy" label="Busy" />
+        <RadioListItem value="ooo" label="Out of office" />
       </RadioGroup>
       {status === 'ooo' && (
         <div className="space-y-2">

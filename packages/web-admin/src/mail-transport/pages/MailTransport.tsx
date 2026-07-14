@@ -6,7 +6,7 @@ import {
   Label,
   PageChrome,
   RadioGroup,
-  RadioGroupItem,
+  RadioListItem,
   Switch,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -157,23 +157,15 @@ export function MailTransport() {
         {error && <Banner status="error" title={(error as Error).message} />}
 
         <Card className="p-5 space-y-5">
-          <div>
-            <Label className="text-eyebrow uppercase text-ink-subtle">Transport</Label>
-            <RadioGroup
-              value={form.kind}
-              onValueChange={(v) => setKind(v as Kind)}
-              className="mt-2 flex gap-6"
-            >
-              <div className="flex items-center gap-2 text-body-sm">
-                <RadioGroupItem value="graph" id="transport-graph" />
-                <Label htmlFor="transport-graph">Microsoft Graph</Label>
-              </div>
-              <div className="flex items-center gap-2 text-body-sm">
-                <RadioGroupItem value="smtp" id="transport-smtp" />
-                <Label htmlFor="transport-smtp">SMTP</Label>
-              </div>
-            </RadioGroup>
-          </div>
+          <RadioGroup
+            label="Transport"
+            value={form.kind}
+            onChange={(v) => setKind(v as Kind)}
+            orientation="horizontal"
+          >
+            <RadioListItem value="graph" label="Microsoft Graph" />
+            <RadioListItem value="smtp" label="SMTP" />
+          </RadioGroup>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -224,25 +216,17 @@ export function MailTransport() {
                     placeholder="smtp.your-provider.com"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="smtp-port">Port</Label>
-                  <RadioGroup
-                    value={String(form.smtpPort)}
-                    onValueChange={(v) =>
-                      setForm((s) => ({ ...s, smtpPort: Number(v) === 465 ? 465 : 587 }))
-                    }
-                    className="mt-2 flex gap-6"
-                  >
-                    <div className="flex items-center gap-2 text-body-sm">
-                      <RadioGroupItem value="587" id="smtp-port-587" />
-                      <Label htmlFor="smtp-port-587">587 (STARTTLS)</Label>
-                    </div>
-                    <div className="flex items-center gap-2 text-body-sm">
-                      <RadioGroupItem value="465" id="smtp-port-465" />
-                      <Label htmlFor="smtp-port-465">465 (TLS)</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+                <RadioGroup
+                  label="Port"
+                  value={String(form.smtpPort)}
+                  onChange={(v) =>
+                    setForm((s) => ({ ...s, smtpPort: Number(v) === 465 ? 465 : 587 }))
+                  }
+                  orientation="horizontal"
+                >
+                  <RadioListItem value="587" label="587 (STARTTLS)" />
+                  <RadioListItem value="465" label="465 (TLS)" />
+                </RadioGroup>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
