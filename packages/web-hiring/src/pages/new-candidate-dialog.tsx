@@ -2,6 +2,7 @@ import {
   Badge,
   Banner,
   Button,
+  DateInput,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -266,12 +267,10 @@ export function NewCandidateDialog() {
                   {phoneError && <p className="text-caption text-danger-ink">{phoneError}</p>}
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="cand-dob">Date of birth</Label>
-                  <Input
-                    id="cand-dob"
-                    type="date"
-                    value={dob}
-                    onChange={(e) => setDob(e.target.value)}
+                  <DateInput
+                    label="Date of birth"
+                    value={dob || undefined}
+                    onChange={(v) => setDob(v ?? '')}
                   />
                 </div>
                 <div className="space-y-1">

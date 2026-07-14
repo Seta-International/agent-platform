@@ -90,6 +90,7 @@ export * from './primitives/card';
 export * from './primitives/checkbox';
 export * from './primitives/command';
 export * from './primitives/context-menu';
+export * from './primitives/date-input';
 export * from './primitives/dialog';
 export * from './primitives/dropdown-menu';
 export * from './primitives/icon-button';

@@ -2,6 +2,7 @@ import {
   AsyncCombobox,
   Banner,
   Button,
+  DateInput,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -225,19 +226,17 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Date from</Label>
-              <Input
-                type="date"
-                value={form.date_from}
-                onChange={(e) => set({ date_from: e.target.value })}
+              <DateInput
+                label="Date from"
+                value={form.date_from || undefined}
+                onChange={(v) => set({ date_from: v ?? '' })}
               />
             </div>
             <div className="space-y-1">
-              <Label>Date to</Label>
-              <Input
-                type="date"
-                value={form.date_to}
-                onChange={(e) => set({ date_to: e.target.value })}
+              <DateInput
+                label="Date to"
+                value={form.date_to || undefined}
+                onChange={(v) => set({ date_to: v ?? '' })}
               />
             </div>
           </div>

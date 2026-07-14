@@ -10,6 +10,7 @@ const REQUIRED = [
   'Card',
   'Checkbox',
   'DataTable',
+  'DateInput',
   'Dialog',
   'DropdownMenu',
   'EmptyState',

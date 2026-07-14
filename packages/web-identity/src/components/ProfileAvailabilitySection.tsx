@@ -1,4 +1,4 @@
-import { Button, Card, Input, Label, RadioGroup, RadioListItem } from '@seta/shared-ui';
+import { Button, Card, DateInput, RadioGroup, RadioListItem } from '@seta/shared-ui';
 import { useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../api/client.ts';
 
@@ -63,18 +63,14 @@ export function ProfileAvailabilitySection({
       </RadioGroup>
       {status === 'ooo' && (
         <div className="space-y-2">
-          <Label htmlFor="ooo-until">Until</Label>
-          <Input
-            id="ooo-until"
-            type="date"
+          <DateInput
+            label="Until"
             min={todayInputValue()}
-            value={toDateInputValue(oooUntil)}
-            onChange={(e) => {
-              const v = e.target.value;
+            value={toDateInputValue(oooUntil) || undefined}
+            onChange={(v) => {
               setOooUntil(v ? new Date(`${v}T00:00:00`) : null);
             }}
-            className="w-56"
-            suppressHydrationWarning
+            width={224}
           />
         </div>
       )}

@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   CardTitle,
+  DateInput,
   EmptyState,
   formatRelative,
   Input,
@@ -373,11 +374,10 @@ export function WorkerProfilePage() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label>Date of birth</Label>
-                        <Input
-                          type="date"
-                          value={draft.dob ?? ''}
-                          onChange={(e) => setDraft((d) => ({ ...d, dob: e.target.value }))}
+                        <DateInput
+                          label="Date of birth"
+                          value={draft.dob || undefined}
+                          onChange={(v) => setDraft((d) => ({ ...d, dob: v ?? '' }))}
                         />
                       </div>
                       <div className="space-y-1">

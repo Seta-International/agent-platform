@@ -11,6 +11,7 @@ import {
   Button,
   Combobox,
   type ComboboxOption,
+  DateInput,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -441,14 +442,14 @@ export function ReassignWizardDialog({
                           ariaLabel={`Allocation for ${a.project_name}`}
                           onChange={(v) => updateRowDraft(a, { planned_pct: v })}
                         />
-                        <Input
-                          type="date"
-                          aria-label={`Start date for ${a.project_name}`}
-                          className="h-8 text-caption"
-                          disabled={startLocked}
-                          value={draft.date_from}
-                          onChange={(e) => {
-                            const newFrom = e.target.value;
+                        <DateInput
+                          label={`Start date for ${a.project_name}`}
+                          isLabelHidden
+                          size="sm"
+                          isDisabled={startLocked}
+                          value={draft.date_from || undefined}
+                          onChange={(v) => {
+                            const newFrom = v ?? '';
                             updateRowDraft(a, {
                               date_from: newFrom,
                               date_to:
@@ -456,13 +457,14 @@ export function ReassignWizardDialog({
                             });
                           }}
                         />
-                        <Input
-                          type="date"
-                          aria-label={`End date for ${a.project_name}`}
-                          className="h-8 text-caption"
+                        <DateInput
+                          label={`End date for ${a.project_name}`}
+                          isLabelHidden
+                          size="sm"
+                          isDisabled={startLocked}
                           min={draft.date_from || undefined}
-                          value={draft.date_to}
-                          onChange={(e) => updateRowDraft(a, { date_to: e.target.value })}
+                          value={draft.date_to || undefined}
+                          onChange={(v) => updateRowDraft(a, { date_to: v ?? '' })}
                         />
                         <Select
                           value={draft.bucket}
@@ -735,24 +737,26 @@ function TargetRowFields({
           ariaLabel="Allocation"
           onChange={(v) => onChange({ planned_pct: v })}
         />
-        <Input
-          type="date"
-          aria-label="Start date"
-          value={row.date_from}
-          onChange={(e) => {
-            const newFrom = e.target.value;
+        <DateInput
+          label="Start date"
+          isLabelHidden
+          size="sm"
+          value={row.date_from || undefined}
+          onChange={(v) => {
+            const newFrom = v ?? '';
             onChange({
               date_from: newFrom,
               date_to: row.date_to && row.date_to < newFrom ? newFrom : row.date_to,
             });
           }}
         />
-        <Input
-          type="date"
-          aria-label="End date"
+        <DateInput
+          label="End date"
+          isLabelHidden
+          size="sm"
           min={row.date_from || undefined}
-          value={row.date_to}
-          onChange={(e) => onChange({ date_to: e.target.value })}
+          value={row.date_to || undefined}
+          onChange={(v) => onChange({ date_to: v ?? '' })}
         />
         <Select value={row.bucket} onValueChange={(v) => onChange({ bucket: v as Bucket })}>
           <SelectTrigger>

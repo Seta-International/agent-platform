@@ -4,6 +4,7 @@ import {
   Banner,
   Button,
   Combobox,
+  DateInput,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -190,14 +191,11 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                   aria-label="Full name"
                 />
               </Field>
-              <Field label="Date of birth">
-                <Input
-                  type="date"
-                  value={form.dob}
-                  onChange={(e) => set('dob')(e.target.value)}
-                  aria-label="Date of birth"
-                />
-              </Field>
+              <DateInput
+                label="Date of birth"
+                value={form.dob || undefined}
+                onChange={(v) => set('dob')(v ?? '')}
+              />
               <Field label="Gender">
                 <Select value={form.gender || undefined} onValueChange={set('gender')}>
                   <SelectTrigger aria-label="Gender">
@@ -270,14 +268,11 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Start date">
-                <Input
-                  type="date"
-                  value={form.start_date}
-                  onChange={(e) => set('start_date')(e.target.value)}
-                  aria-label="Start date"
-                />
-              </Field>
+              <DateInput
+                label="Start date"
+                value={form.start_date || undefined}
+                onChange={(v) => set('start_date')(v ?? '')}
+              />
               <Field label="Employee no">
                 <Input
                   value={form.employee_no}

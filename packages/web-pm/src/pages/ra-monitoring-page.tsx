@@ -7,6 +7,7 @@ import {
   Combobox,
   type ComboboxOption,
   DataTable,
+  DateInput,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -29,7 +30,7 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { ArrowRightLeft, CalendarRange, Plus, Users, X } from 'lucide-react';
+import { ArrowRightLeft, Plus, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchAccounts,
@@ -236,13 +237,12 @@ function SplitAllocationDialog({
         <div className="space-y-4">
           {mutation.isError ? <Banner status="error" title={mutation.error.message} /> : null}
           <div className="space-y-1.5">
-            <Label>New end date for this allocation</Label>
-            <Input
-              type="date"
+            <DateInput
+              label="New end date for this allocation"
               min={target?.date_from ?? undefined}
               max={target?.date_to ?? undefined}
-              value={newEndDate}
-              onChange={(e) => setNewEndDate(e.target.value)}
+              value={newEndDate || undefined}
+              onChange={(v) => setNewEndDate(v ?? '')}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -272,11 +272,10 @@ function SplitAllocationDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Continuation end date</Label>
-            <Input
-              type="date"
-              value={continuationTo}
-              onChange={(e) => setContinuationTo(e.target.value)}
+            <DateInput
+              label="Continuation end date"
+              value={continuationTo || undefined}
+              onChange={(v) => setContinuationTo(v ?? '')}
             />
           </div>
           <div className="space-y-1.5">
@@ -680,22 +679,21 @@ export function RaMonitoringPage() {
             value={projectId || null}
             onChange={(v) => update({ project: v ?? undefined })}
           />
-          <div className="flex h-8 items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2 text-ink-muted">
-            <CalendarRange className="size-3.5 text-ink-subtle" />
-            <Input
-              type="date"
-              aria-label="Active from"
-              className="h-7 w-[7.5rem] border-0 bg-transparent px-1 focus-visible:ring-0"
-              value={activeFrom}
-              onChange={(e) => update({ from: e.target.value || undefined })}
+          <div className="flex items-center gap-1.5">
+            <DateInput
+              label="Active from"
+              isLabelHidden
+              size="sm"
+              value={activeFrom || undefined}
+              onChange={(v) => update({ from: v })}
             />
             <span className="text-ink-subtle">→</span>
-            <Input
-              type="date"
-              aria-label="Active to"
-              className="h-7 w-[7.5rem] border-0 bg-transparent px-1 focus-visible:ring-0"
-              value={activeTo}
-              onChange={(e) => update({ to: e.target.value || undefined })}
+            <DateInput
+              label="Active to"
+              isLabelHidden
+              size="sm"
+              value={activeTo || undefined}
+              onChange={(v) => update({ to: v })}
             />
           </div>
           {hasFilters ? (
