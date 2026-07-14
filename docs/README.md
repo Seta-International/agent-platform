@@ -18,6 +18,11 @@ How the `docs/` tree is organized. Start with `platform/architecture.md` — the
 - [`dev-quickstart.md`](guides/dev-quickstart.md) — first tenant and accounts on a fresh DB.
 - [`commit-convention.md`](guides/commit-convention.md) — Jira-keyed branch names, commit format, and PR template (CI-gated).
 - [`creating-modules.md`](guides/creating-modules.md) — add a module + agent tool via `pnpm gen module`.
+- [`defining-rbac.md`](guides/defining-rbac.md) — author roles, permissions, and scopes for a module.
+- [`requirement-to-tickets.md`](guides/requirement-to-tickets.md) — turn a feature/epic into tickets.
+- [`ticket-template.md`](guides/ticket-template.md) — the ticket shape to follow.
+- [`estimation.md`](guides/estimation.md) — story points and AI-time-saved (derived, not guessed).
+- [`writing-tests.md`](guides/writing-tests.md) — testing playbook (real Postgres, failing test first).
 - [`writing-a-prd.md`](guides/writing-a-prd.md) — playbook for authoring a module PRD.
 - [`writing-a-wbs.md`](guides/writing-a-wbs.md) — playbook for breaking a module into a WBS (CSV → Jira).
 
