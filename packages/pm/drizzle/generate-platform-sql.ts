@@ -16,6 +16,14 @@ const TOUCH_TABLES = [
   'person_projection',
   'staffing_plan_line',
   'staffing_plan_line_skill',
+  // Weekly Report & KPI Performance (FUT-609) — mutable tables only.
+  // flag_audit_entry and norm_snapshot are immutable (no updated_at) and excluded.
+  'report',
+  'metric_value',
+  'flag',
+  'norm_baseline',
+  'project_week_rollup',
+  'comment',
 ];
 
 // Every pm table is tenant-scoped and gets the RLS backstop policy (constitution: none
@@ -30,6 +38,15 @@ const RLS_TABLES = [
   'person_projection',
   'staffing_plan_line',
   'staffing_plan_line_skill',
+  // Weekly Report & KPI Performance (FUT-609) — all eight tables are tenant-scoped.
+  'report',
+  'metric_value',
+  'flag',
+  'flag_audit_entry',
+  'norm_baseline',
+  'norm_snapshot',
+  'project_week_rollup',
+  'comment',
 ];
 
 const lines: string[] = [];
