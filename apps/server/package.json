@@ -45,6 +45,7 @@
   },
   "devDependencies": {
     "@hono/node-server": "^2.0.4",
+    "@seta/shared-agent-evals": "workspace:*",
     "@seta/shared-config": "workspace:^",
     "@seta/shared-testing": "workspace:^",
     "@types/node": "^25.9.3",

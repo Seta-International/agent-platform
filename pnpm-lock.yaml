@@ -238,6 +238,9 @@ importers:
       '@hono/node-server':
         specifier: ^2.0.4
         version: 2.0.4(hono@4.12.25)
+      '@seta/shared-agent-evals':
+        specifier: workspace:*
+        version: link:../../packages/shared-agent-evals
       '@seta/shared-config':
         specifier: workspace:^
         version: link:../../packages/shared-config

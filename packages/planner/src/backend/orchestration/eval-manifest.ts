@@ -9,6 +9,8 @@ import { makeQnaTaskQueryAgent } from './agents/task-query.ts';
 import { makeAvaiCheckerAgent } from './assignment/agents/avai-checker.ts';
 import { makeRecommenderAgent } from './assignment/agents/recommender.ts';
 import type { AvailabilityPort } from './assignment/ports.ts';
+import { makeQnaOrchestrator } from './orchestrator.ts';
+import { makeWeeklyPlanOrchestrator } from './weekly-plan/orchestrator.ts';
 
 // The discovery tool is injected as a stub — the deterministic gate never
 // executes tools (the runAgent seam returns canned prose, no tool loop).
@@ -136,6 +138,73 @@ export const recommenderEvalSuite = defineEvalSuite({
   ],
 });
 
+// Trust envelope shared by the stubbed sub-agents below — its shape is never
+// asserted on (the orchestrator suites only score the outer AgentResult), it
+// just needs to satisfy the `run` return type.
+const STUB_SUB_AGENT_TRUST = { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.6 };
+
+/**
+ * A sub-agent stub whose `run()` is never actually invoked by the orchestrator
+ * suites below: both orchestrators' `streamAgent` seam bypasses the tool loop
+ * entirely (same seam exercised by
+ * `packages/planner/tests/unit/orchestration/weekly-plan/orchestrator.test.ts`),
+ * so this only needs to satisfy the deps' structural shape.
+ */
+const stubSubAgent = (id: string) =>
+  ({
+    id,
+    description: 'stub',
+    inputSchema: {} as never,
+    outputSchema: {} as never,
+    run: async () => ({ result: {} as never, trust: STUB_SUB_AGENT_TRUST }),
+  }) as never;
+
+export const qnaOrchestratorEvalSuite = defineEvalSuite({
+  specId: 'planner.qna.orchestrator',
+  buildSpec: () =>
+    makeQnaOrchestrator({
+      taskQuery: stubSubAgent('planner.qna.taskQuery'),
+      taskDetail: stubSubAgent('planner.qna.taskDetail'),
+      teamInfo: stubSubAgent('planner.qna.teamInfo'),
+      generalAnswer: stubSubAgent('planner.qna.generalAnswer'),
+      resolveModel: () => ({}) as never,
+      // Test seam — replaces agent.stream()/the model call outright, so the
+      // tool loop (and thus the stub sub-agents above) is never invoked.
+      streamAgent: () => ({ text: Promise.resolve('You have 3 open tasks due this week.') }),
+    }),
+  cases: [
+    defineEvalCase({
+      name: 'answers a Q&A turn via the streamAgent seam',
+      layer: 'deterministic',
+      input: { userText: 'what are my open tasks?', taskId: null },
+      actor: { tenantId: 't1', userId: 'u1' },
+    }),
+  ],
+});
+
+export const weeklyPlanOrchestratorEvalSuite = defineEvalSuite({
+  specId: 'planner.weeklyPlan.orchestrator',
+  buildSpec: () =>
+    makeWeeklyPlanOrchestrator({
+      collector: stubSubAgent('planner.weeklyPlan.taskCollector'),
+      builder: stubSubAgent('planner.weeklyPlan.scheduleBuilder'),
+      insighter: stubSubAgent('planner.weeklyPlan.insightGenerator'),
+      resolveModel: () => ({}) as never,
+      now: () => new Date('2026-07-08T09:00:00Z'), // a Wednesday — pins the window
+      // Test seam — replaces agent.stream()/the model call outright, so the
+      // tool loop (and thus the stub sub-agents above) is never invoked.
+      streamAgent: () => ({ text: Promise.resolve('Here is your weekly plan.') }),
+    }),
+  cases: [
+    defineEvalCase({
+      name: 'answers a weekly-plan turn via the streamAgent seam',
+      layer: 'deterministic',
+      input: { userText: 'plan my week', taskId: null },
+      actor: { tenantId: 't1', userId: 'u1' },
+    }),
+  ],
+});
+
 export const plannerEvalManifest: EvalManifest = {
   module: '@seta/planner',
   // `EvalSuite<I, O>`'s `run` is contravariant in `I` (like
@@ -147,5 +216,7 @@ export const plannerEvalManifest: EvalManifest = {
     taskQueryEvalSuite as EvalSuite,
     avaiCheckerEvalSuite as EvalSuite,
     recommenderEvalSuite as EvalSuite,
+    qnaOrchestratorEvalSuite as EvalSuite,
+    weeklyPlanOrchestratorEvalSuite as EvalSuite,
   ],
 };
