@@ -129,22 +129,23 @@ export function GroupsToolbar({
       />
 
       {/* Right cluster */}
-      <div className="relative ml-auto w-[260px]">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-subtle" />
-        <Input
-          type="search"
-          placeholder="Search groups…"
-          value={localSearch}
-          onChange={(e) => setLocalSearch(e.target.value)}
-          onCompositionStart={() => setIsComposing(true)}
-          onCompositionEnd={(e) => {
-            setIsComposing(false);
-            setLocalSearch(e.currentTarget.value);
-          }}
-          className="pl-8"
-          size="sm"
-        />
-      </div>
+      <Input
+        type="text"
+        label="Search groups"
+        isLabelHidden
+        startIcon={<Search className="size-3.5" aria-hidden />}
+        hasClear
+        placeholder="Search groups…"
+        value={localSearch}
+        onChange={(_value, e) => setLocalSearch(e.target.value)}
+        onCompositionStart={() => setIsComposing(true)}
+        onCompositionEnd={(e) => {
+          setIsComposing(false);
+          setLocalSearch((e.currentTarget as HTMLInputElement).value);
+        }}
+        className="ml-auto w-[260px]"
+        size="sm"
+      />
     </div>
   );
 }

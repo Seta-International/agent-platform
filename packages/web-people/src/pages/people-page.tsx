@@ -284,10 +284,13 @@ export function PeoplePage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Input
-                    className="h-9 w-64"
+                    label="Search people"
+                    isLabelHidden
+                    className="w-64"
+                    size="sm"
                     placeholder="Search people…"
                     value={searchText}
-                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onChange={(value) => handleSearchChange(value)}
                   />
                   <span className="text-ink-tertiary select-none">|</span>
                   {activeFiltersCount > 0 && (

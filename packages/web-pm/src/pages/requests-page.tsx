@@ -439,8 +439,10 @@ export function RequestsPage() {
           </Select>
 
           <Input
+            label="Search project name"
+            isLabelHidden
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onChange={(value) => setSearchInput(value)}
             placeholder="Search project name…"
             className="w-[220px]"
           />

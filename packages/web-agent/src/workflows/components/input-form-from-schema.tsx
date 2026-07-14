@@ -2,6 +2,7 @@ import {
   Button,
   Input,
   Label,
+  NumberInput,
   Select,
   SelectContent,
   SelectItem,
@@ -215,13 +216,20 @@ export function InputFormFromSchema({
                   <SelectItem value="true">true</SelectItem>
                 </SelectContent>
               </Select>
+            ) : leaf.type === 'number' || leaf.type === 'integer' ? (
+              <NumberInput
+                label={labelFor(leaf)}
+                isLabelHidden
+                isIntegerOnly={leaf.type === 'integer'}
+                value={rawStr === '' ? null : Number(rawStr)}
+                onChange={(v) => handleChange(leaf, v === null ? '' : String(v))}
+              />
             ) : (
               <Input
-                id={id}
-                aria-label={labelFor(leaf)}
-                type={leaf.type === 'number' || leaf.type === 'integer' ? 'number' : 'text'}
+                label={labelFor(leaf)}
+                isLabelHidden
                 value={rawStr}
-                onChange={(e) => handleChange(leaf, e.target.value)}
+                onChange={(value) => handleChange(leaf, value)}
               />
             )}
             {error ? (

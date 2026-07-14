@@ -7,7 +7,6 @@ import {
   DialogTitle,
   DialogTrigger,
   Input,
-  Label,
   Textarea,
 } from '@seta/shared-ui';
 import { Plus } from 'lucide-react';
@@ -73,23 +72,21 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
         </DialogHeader>
         <div className="space-y-4 pt-1">
           <div className="space-y-1.5">
-            <Label htmlFor="group-name">Name</Label>
             <Input
-              id="group-name"
+              label="Name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(value) => setName(value)}
               placeholder="HR Team"
-              autoFocus
+              hasAutoFocus
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="group-slug">Slug</Label>
             <Input
-              id="group-slug"
+              label="Slug"
               value={effectiveSlug}
-              onChange={(e) => {
+              onChange={(value) => {
                 setSlugDirty(true);
-                setSlug(slugify(e.target.value));
+                setSlug(slugify(value));
               }}
               placeholder="hr-team"
               className="font-mono text-body-sm"

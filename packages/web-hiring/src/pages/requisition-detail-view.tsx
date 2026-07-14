@@ -552,8 +552,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         <div className="min-h-0 flex-1 overflow-auto">
           <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
             <div className="space-y-1">
-              <Label htmlFor="jd-title">Job title *</Label>
-              <Input id="jd-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Input label="Job title *" value={title} onChange={(value) => setTitle(value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">

@@ -1,4 +1,4 @@
-import { Button, DataTable, EmptyState, Input, Label, NumberInput, toast } from '@seta/shared-ui';
+import { Button, DataTable, EmptyState, Input, NumberInput, toast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -114,8 +114,7 @@ export function StaffingPlanSection({
       {canManage && (
         <div className="flex items-end gap-2">
           <div className="space-y-1 flex-1">
-            <Label>Role</Label>
-            <Input value={role} onChange={(e) => setRole(e.target.value)} />
+            <Input label="Role" value={role} onChange={(value) => setRole(value)} />
           </div>
           <NumberInput
             label="Effort (MM)"

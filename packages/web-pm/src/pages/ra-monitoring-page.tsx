@@ -279,10 +279,10 @@ function SplitAllocationDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Note</Label>
             <Input
+              label="Note"
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              onChange={(value) => setNote(value)}
               placeholder="e.g. plan revised in March"
             />
           </div>
@@ -656,10 +656,13 @@ export function RaMonitoringPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           <Input
-            className="h-8 w-56"
+            label="Search person, project"
+            isLabelHidden
+            className="w-56"
+            size="sm"
             placeholder="Search person, project…"
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onChange={(value) => setSearchInput(value)}
           />
           <Combobox
             className="h-8 w-44"

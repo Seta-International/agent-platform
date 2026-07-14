@@ -117,10 +117,10 @@ function NewTemplateDialog() {
         </DialogHeader>
         <div className="space-y-3 max-h-[70vh] overflow-y-auto">
           <div className="space-y-1">
-            <Label>Name *</Label>
             <Input
+              label="Name *"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(value) => setName(value)}
               placeholder="e.g. Backend role"
             />
           </div>
@@ -216,10 +216,10 @@ function NewCloseReasonDialog() {
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Label *</Label>
             <Input
+              label="Label *"
               value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              onChange={(value) => setLabel(value)}
               placeholder="e.g. Position cancelled"
             />
           </div>
@@ -291,10 +291,10 @@ function NewRejectionReasonDialog() {
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Label *</Label>
             <Input
+              label="Label *"
               value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              onChange={(value) => setLabel(value)}
               placeholder="e.g. Lacking required skills"
             />
           </div>

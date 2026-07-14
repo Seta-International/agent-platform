@@ -20,7 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -115,13 +114,7 @@ function RenameDialog({ group }: { group: Group }) {
         </DialogHeader>
         <div className="space-y-4 pt-1">
           <div className="space-y-1.5">
-            <Label htmlFor="edit-group-name">Name</Label>
-            <Input
-              id="edit-group-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-            />
+            <Input label="Name" value={name} onChange={(value) => setName(value)} hasAutoFocus />
           </div>
           <Textarea
             label="Description"

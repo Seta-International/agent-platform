@@ -184,11 +184,10 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
           <div className="min-h-0 flex-1 overflow-auto">
             <div className="space-y-5 px-6 pb-5 pt-3">
               <div className="space-y-1">
-                <Label htmlFor="new-req-title">Job title *</Label>
                 <Input
-                  id="new-req-title"
+                  label="Job title *"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(value) => setTitle(value)}
                   placeholder="e.g. Senior Backend Engineer"
                 />
               </div>

@@ -88,11 +88,10 @@ export function RejectDialog({
             </Select>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="reject-tags">Tags — comma-separated</Label>
             <Input
-              id="reject-tags"
+              label="Tags — comma-separated"
               value={tags}
-              onChange={(e) => setTags(e.target.value)}
+              onChange={(value) => setTags(value)}
               placeholder="e.g. frontend, junior"
             />
           </div>

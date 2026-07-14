@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
 import { Button } from './button';
 import { Input } from './input';
-import { Label } from './label';
 import {
   Sheet,
   SheetClose,
@@ -18,37 +18,40 @@ export default meta;
 type Story = StoryObj;
 
 export const Right: Story = {
-  render: () => (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="secondary" label="Open right sheet" />
-      </SheetTrigger>
-      <SheetContent side="right">
-        <SheetHeader>
-          <SheetTitle>Edit profile</SheetTitle>
-          <SheetDescription>
-            Update your display name and notification preferences. Changes are saved automatically.
-          </SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-4 py-4">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="sheet-display-name">Display name</Label>
-            <Input id="sheet-display-name" defaultValue="Jane Smith" />
+  render: () => {
+    const [name, setName] = useState('Jane Smith');
+    const [email, setEmail] = useState('jane@example.com');
+    return (
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button variant="secondary" label="Open right sheet" />
+        </SheetTrigger>
+        <SheetContent side="right">
+          <SheetHeader>
+            <SheetTitle>Edit profile</SheetTitle>
+            <SheetDescription>
+              Update your display name and notification preferences. Changes are saved
+              automatically.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex flex-col gap-1">
+              <Input label="Display name" value={name} onChange={setName} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Input type="email" label="Email" value={email} onChange={setEmail} />
+            </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="sheet-email">Email</Label>
-            <Input id="sheet-email" type="email" defaultValue="jane@example.com" />
-          </div>
-        </div>
-        <SheetFooter>
-          <SheetClose asChild>
-            <Button variant="secondary" label="Cancel" />
-          </SheetClose>
-          <Button label="Save changes" />
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
-  ),
+          <SheetFooter>
+            <SheetClose asChild>
+              <Button variant="secondary" label="Cancel" />
+            </SheetClose>
+            <Button label="Save changes" />
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    );
+  },
 };
 
 export const Left: Story = {

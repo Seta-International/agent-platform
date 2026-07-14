@@ -329,17 +329,17 @@ export function WorkerProfilePage() {
                   {editing ? (
                     <div className="space-y-4">
                       <div className="space-y-1">
-                        <Label>Full name</Label>
                         <Input
+                          label="Full name"
                           value={draft.full_name ?? ''}
-                          onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))}
+                          onChange={(value) => setDraft((d) => ({ ...d, full_name: value }))}
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label>Job title</Label>
                         <Input
+                          label="Job title"
                           value={draft.job_title ?? ''}
-                          onChange={(e) => setDraft((d) => ({ ...d, job_title: e.target.value }))}
+                          onChange={(value) => setDraft((d) => ({ ...d, job_title: value }))}
                         />
                       </div>
                       <div className="space-y-1">
@@ -359,18 +359,18 @@ export function WorkerProfilePage() {
                         <p className="text-body-sm text-ink py-2">{worker.manager_name ?? '—'}</p>
                       </div>
                       <div className="space-y-1">
-                        <Label>Work email</Label>
                         <Input
                           type="email"
+                          label="Work email"
                           value={draft.work_email ?? ''}
-                          onChange={(e) => setDraft((d) => ({ ...d, work_email: e.target.value }))}
+                          onChange={(value) => setDraft((d) => ({ ...d, work_email: value }))}
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label>Phone</Label>
                         <Input
+                          label="Phone"
                           value={draft.phone ?? ''}
-                          onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
+                          onChange={(value) => setDraft((d) => ({ ...d, phone: value }))}
                         />
                       </div>
                       <div className="space-y-1">
@@ -399,11 +399,11 @@ export function WorkerProfilePage() {
                         </Select>
                       </div>
                       <div className="space-y-1">
-                        <Label>Emergency contact</Label>
                         <Input
+                          label="Emergency contact"
                           value={draft.emergency_contact ?? ''}
-                          onChange={(e) =>
-                            setDraft((d) => ({ ...d, emergency_contact: e.target.value }))
+                          onChange={(value) =>
+                            setDraft((d) => ({ ...d, emergency_contact: value }))
                           }
                         />
                       </div>

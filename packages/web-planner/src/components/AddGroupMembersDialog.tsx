@@ -143,10 +143,12 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
         )}
 
         <Input
+          label="Search by name or email"
+          isLabelHidden
           placeholder="Search by name or email…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          autoFocus
+          onChange={(value) => setSearch(value)}
+          hasAutoFocus
         />
 
         <div className="max-h-[260px] overflow-y-auto divide-y divide-hairline rounded-md border border-hairline">

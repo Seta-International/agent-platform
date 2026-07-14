@@ -155,8 +155,7 @@ export function ProfileIdentityCard({
 
         <div className="flex-1 min-w-0 flex flex-col gap-3.5">
           <div>
-            <FieldLabel label="Name" />
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <Input label="Name" value={name} onChange={(value) => setName(value)} />
           </div>
 
           <Textarea
@@ -169,13 +168,13 @@ export function ProfileIdentityCard({
           />
 
           <div>
-            <FieldLabel
+            <Input
               label="Email"
-              hint="If you change this, you'll need to verify the new email."
+              description="If you change this, you'll need to verify the new email."
+              value={profile.email}
+              isDisabled
+              className="font-mono text-sm"
             />
-            <div className="flex items-center gap-2">
-              <Input value={profile.email} readOnly className="font-mono text-sm" />
-            </div>
           </div>
 
           <div>

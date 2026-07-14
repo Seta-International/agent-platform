@@ -240,19 +240,17 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                 {editing ? (
                   <div className="space-y-4">
                     <div className="space-y-1">
-                      <Label>Name *</Label>
                       <Input
+                        label="Name *"
                         value={draft.name ?? ''}
-                        onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+                        onChange={(value) => setDraft((d) => ({ ...d, name: value }))}
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label>Industry</Label>
                       <Input
+                        label="Industry"
                         value={draft.industry ?? ''}
-                        onChange={(e) =>
-                          setDraft((d) => ({ ...d, industry: e.target.value || null }))
-                        }
+                        onChange={(value) => setDraft((d) => ({ ...d, industry: value || null }))}
                       />
                     </div>
                     <div className="space-y-1">

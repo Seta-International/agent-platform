@@ -190,20 +190,18 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
       <SectionTitle icon={<Briefcase className="size-4" />}>Work</SectionTitle>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Position">
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur();
-            }}
-            disabled={!workerEditable || !profile}
-            placeholder="Job title…"
-            className="h-8 text-body-sm"
-            aria-label="Job title"
-          />
-        </Field>
+        <Input
+          label="Position"
+          value={title}
+          onChange={(value) => setTitle(value)}
+          onBlur={commitTitle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+          }}
+          isDisabled={!workerEditable || !profile}
+          placeholder="Job title…"
+          size="sm"
+        />
         <Field label="Department">
           <Combobox
             value={profile?.org_unit_id ?? null}

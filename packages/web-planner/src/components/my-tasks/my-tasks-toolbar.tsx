@@ -127,26 +127,23 @@ export function MyTasksToolbar({
       </div>
 
       <div className="flex items-center gap-1.5">
-        <div className="relative w-56">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-ink-subtle"
-          />
-          <Input
-            type="search"
-            placeholder="Search my tasks"
-            aria-label="Search my tasks"
-            size="sm"
-            className="pl-7"
-            value={localSearch}
-            onChange={(e) => setLocalSearch(e.target.value)}
-            onCompositionStart={() => setIsComposing(true)}
-            onCompositionEnd={(e) => {
-              setIsComposing(false);
-              setLocalSearch(e.currentTarget.value);
-            }}
-          />
-        </div>
+        <Input
+          type="text"
+          label="Search my tasks"
+          isLabelHidden
+          startIcon={<Search className="size-3.5" aria-hidden />}
+          hasClear
+          placeholder="Search my tasks"
+          size="sm"
+          className="w-56"
+          value={localSearch}
+          onChange={(_value, e) => setLocalSearch(e.target.value)}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={(e) => {
+            setIsComposing(false);
+            setLocalSearch((e.currentTarget as HTMLInputElement).value);
+          }}
+        />
         <button
           type="button"
           aria-label="More toolbar options"

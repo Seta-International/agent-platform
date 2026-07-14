@@ -3,7 +3,6 @@ import {
   Button,
   Card,
   Input,
-  Label,
   PageChrome,
   RadioGroup,
   RadioListItem,
@@ -169,21 +168,19 @@ export function MailTransport() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="sender-address">Sender address</Label>
               <Input
-                id="sender-address"
                 type="email"
+                label="Sender address"
                 value={form.senderAddress}
-                onChange={(e) => setForm((s) => ({ ...s, senderAddress: e.target.value }))}
+                onChange={(value) => setForm((s) => ({ ...s, senderAddress: value }))}
                 placeholder="noreply@your-domain.com"
               />
             </div>
             <div>
-              <Label htmlFor="sender-name">Sender display name</Label>
               <Input
-                id="sender-name"
+                label="Sender display name"
                 value={form.senderDisplayName}
-                onChange={(e) => setForm((s) => ({ ...s, senderDisplayName: e.target.value }))}
+                onChange={(value) => setForm((s) => ({ ...s, senderDisplayName: value }))}
                 placeholder="Acme"
               />
             </div>
@@ -209,11 +206,10 @@ export function MailTransport() {
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="smtp-host">Host</Label>
                   <Input
-                    id="smtp-host"
+                    label="Host"
                     value={form.smtpHost}
-                    onChange={(e) => setForm((s) => ({ ...s, smtpHost: e.target.value }))}
+                    onChange={(value) => setForm((s) => ({ ...s, smtpHost: value }))}
                     placeholder="smtp.your-provider.com"
                   />
                 </div>
@@ -231,20 +227,18 @@ export function MailTransport() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="smtp-username">Username</Label>
                   <Input
-                    id="smtp-username"
+                    label="Username"
                     value={form.smtpUsername}
-                    onChange={(e) => setForm((s) => ({ ...s, smtpUsername: e.target.value }))}
+                    onChange={(value) => setForm((s) => ({ ...s, smtpUsername: value }))}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="smtp-password">Password</Label>
                   <Input
-                    id="smtp-password"
                     type="password"
+                    label="Password"
                     value={form.smtpPassword}
-                    onChange={(e) => setForm((s) => ({ ...s, smtpPassword: e.target.value }))}
+                    onChange={(value) => setForm((s) => ({ ...s, smtpPassword: value }))}
                     placeholder={enabled ? '(unchanged — leave blank to keep)' : ''}
                   />
                 </div>
@@ -288,10 +282,11 @@ export function MailTransport() {
           <div className="flex gap-2">
             <Input
               type="email"
+              label="Recipient email"
+              isLabelHidden
               value={verifyEmail}
-              onChange={(e) => setVerifyEmail(e.target.value)}
+              onChange={(value) => setVerifyEmail(value)}
               placeholder="recipient@your-domain.com"
-              aria-label="Recipient email"
             />
             <Button
               type="button"

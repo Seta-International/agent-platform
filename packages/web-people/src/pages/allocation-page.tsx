@@ -354,10 +354,13 @@ export function AllocationPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-wrap items-center gap-3">
                   <Input
-                    className="h-9 w-64"
+                    label="Search name or worker ID"
+                    isLabelHidden
+                    className="w-64"
+                    size="sm"
                     placeholder="Search name or worker ID…"
                     value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
+                    onChange={(value) => setSearchInput(value)}
                   />
                   <span className="hidden text-ink-tertiary select-none sm:inline">|</span>
                   {activeFiltersCount > 0 && (

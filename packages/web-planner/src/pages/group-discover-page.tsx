@@ -45,9 +45,11 @@ export function GroupDiscoverPage() {
       <div className="page-container max-w-2xl py-8">
         <form onSubmit={handleSearch} className="flex gap-2 mb-8">
           <Input
+            label="Search by group name"
+            isLabelHidden
             placeholder="Search by group name…"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(value) => setQ(value)}
             className="flex-1"
           />
           <Button

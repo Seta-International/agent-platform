@@ -480,11 +480,12 @@ export function ReassignWizardDialog({
                           </SelectContent>
                         </Select>
                         <Input
-                          className="h-8"
-                          aria-label={`Note for ${a.project_name}`}
-                          disabled={startLocked}
+                          label={`Note for ${a.project_name}`}
+                          isLabelHidden
+                          size="sm"
+                          isDisabled={startLocked}
                           value={draft.note}
-                          onChange={(e) => updateRowDraft(a, { note: e.target.value })}
+                          onChange={(value) => updateRowDraft(a, { note: value })}
                         />
                         <div className="flex items-center gap-1">
                           <Button

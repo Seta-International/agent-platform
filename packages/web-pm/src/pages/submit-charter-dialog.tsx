@@ -149,8 +149,11 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
           </div>
 
           <div className="space-y-1">
-            <Label>Project name *</Label>
-            <Input value={form.name} onChange={(e) => set({ name: e.target.value })} />
+            <Input
+              label="Project name *"
+              value={form.name}
+              onChange={(value) => set({ name: value })}
+            />
           </div>
 
           <div className="space-y-1">

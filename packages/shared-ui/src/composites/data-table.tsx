@@ -16,7 +16,7 @@ import {
   useReactTable,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '../lib/cn';
 import { Button } from '../primitives/button';
@@ -280,9 +280,12 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
         searchSlot={
           enableGlobalFilter ? (
             <Input
+              label="Search"
+              isLabelHidden
+              startIcon={<Search className="size-3.5" aria-hidden />}
               placeholder={props.globalFilterPlaceholder ?? 'Search…'}
               value={globalFilter ?? ''}
-              onChange={(e) => onGlobalFilterChange(e.target.value)}
+              onChange={(value) => onGlobalFilterChange(value)}
               className="max-w-sm"
             />
           ) : null

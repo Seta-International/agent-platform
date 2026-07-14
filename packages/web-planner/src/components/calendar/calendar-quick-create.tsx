@@ -42,11 +42,12 @@ export function CalendarQuickCreate({ planId, dueDate, onClose }: Props) {
         New task — due {dateLabelFmt.format(fromDateKey(dueDate))}
       </span>
       <Input
-        autoFocus
-        aria-label="Task title"
+        hasAutoFocus
+        label="Task title"
+        isLabelHidden
         placeholder="Task title"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={(value) => setTitle(value)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') onClose();
         }}
