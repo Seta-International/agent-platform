@@ -96,6 +96,7 @@ export * from './primitives/icon-button';
 export * from './primitives/input';
 export * from './primitives/label';
 export * from './primitives/layout';
+export * from './primitives/number-input';
 export * from './primitives/popover';
 export * from './primitives/radio-group';
 export * from './primitives/scroll-area';

@@ -15,6 +15,7 @@ import {
   EmptyState,
   Input,
   Label,
+  NumberInput,
   type OnChangeFn,
   PageChrome,
   Select,
@@ -245,16 +246,14 @@ function SplitAllocationDialog({
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Continuation allocation %</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={continuationPct}
-                onChange={(e) => setContinuationPct(e.target.value)}
-              />
-            </div>
+            <NumberInput
+              label="Continuation allocation %"
+              min={0}
+              max={100}
+              units="%"
+              value={continuationPct === '' ? null : Number(continuationPct)}
+              onChange={(v) => setContinuationPct(String(v))}
+            />
             <div className="space-y-1.5">
               <Label>Continuation type</Label>
               <Select

@@ -17,6 +17,7 @@ const REQUIRED = [
   'Input',
   'KbdHint',
   'Label',
+  'NumberInput',
   'Popover',
   'ScrollArea',
   'SetaLogo',

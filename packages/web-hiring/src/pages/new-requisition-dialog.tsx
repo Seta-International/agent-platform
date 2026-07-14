@@ -8,6 +8,7 @@ import {
   DisabledActionTooltip,
   Input,
   Label,
+  NumberInput,
   RichTextEditor,
   SegmentedControl,
   Select,
@@ -276,16 +277,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="new-req-headcount">Headcount (openings)</Label>
-                  <Input
-                    id="new-req-headcount"
-                    type="number"
-                    min={1}
-                    value={headcount}
-                    onChange={(e) => setHeadcount(Math.max(1, Number(e.target.value) || 1))}
-                  />
-                </div>
+                <NumberInput
+                  label="Headcount (openings)"
+                  min={1}
+                  isIntegerOnly
+                  value={headcount}
+                  onChange={(v) => setHeadcount(Math.max(1, v || 1))}
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">

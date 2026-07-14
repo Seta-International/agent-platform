@@ -9,6 +9,7 @@ import {
   DialogTrigger,
   Input,
   Label,
+  NumberInput,
   Select,
   SelectContent,
   SelectItem,
@@ -206,25 +207,20 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Team size</Label>
-              <Input
-                type="number"
-                min={0}
-                value={form.team_size}
-                onChange={(e) => set({ team_size: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Budget (BMM)</Label>
-              <Input
-                type="number"
-                min={0}
-                step="0.25"
-                value={form.budget_bmm}
-                onChange={(e) => set({ budget_bmm: e.target.value })}
-              />
-            </div>
+            <NumberInput
+              label="Team size"
+              min={0}
+              isIntegerOnly
+              value={form.team_size === '' ? null : Number(form.team_size)}
+              onChange={(v) => set({ team_size: String(v) })}
+            />
+            <NumberInput
+              label="Budget (BMM)"
+              min={0}
+              step={0.25}
+              value={form.budget_bmm === '' ? null : Number(form.budget_bmm)}
+              onChange={(v) => set({ budget_bmm: String(v) })}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
