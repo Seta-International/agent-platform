@@ -25,7 +25,7 @@
     "depcruise": "depcruise apps packages sdks --config .dependency-cruiser.cjs",
     "gen": "turbo gen run",
     "gen:rbac": "pnpm exec tsx scripts/gen-rbac.ts",
-    "db:up": "docker compose --profile bundled-db up -d postgres",
+    "db:up": "docker compose --profile bundled-db up -d postgres minio minio-setup",
     "db:down": "docker compose --profile bundled-db down",
     "db:migrate": "pnpm -F @seta/cli exec tsx src/index.ts migrate",
     "db:seed": "pnpm -F @seta/cli exec tsx src/index.ts seed",
