@@ -123,16 +123,13 @@ function RenameDialog({ group }: { group: Group }) {
               autoFocus
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-group-description">Description</Label>
-            <Textarea
-              id="edit-group-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What this group is for (optional)"
-              rows={2}
-            />
-          </div>
+          <Textarea
+            label="Description"
+            value={description}
+            onChange={(value) => setDescription(value)}
+            placeholder="What this group is for (optional)"
+            rows={2}
+          />
         </div>
         <DialogFooter>
           <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />

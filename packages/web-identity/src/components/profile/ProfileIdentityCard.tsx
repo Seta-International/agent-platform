@@ -159,18 +159,14 @@ export function ProfileIdentityCard({
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
-          <div>
-            <FieldLabel label="Bio" hint={`${bio.length} / 500`} />
-            <Textarea
-              aria-label="Bio"
-              value={bio}
-              maxLength={500}
-              rows={4}
-              placeholder="Add a short bio so teammates know who you are."
-              onChange={(e) => setBio(e.target.value)}
-              className="resize-none"
-            />
-          </div>
+          <Textarea
+            label="Bio"
+            value={bio}
+            maxLength={500}
+            rows={4}
+            placeholder="Add a short bio so teammates know who you are."
+            onChange={(value) => setBio(value)}
+          />
 
           <div>
             <FieldLabel

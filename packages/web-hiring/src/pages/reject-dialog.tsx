@@ -96,10 +96,7 @@ export function RejectDialog({
               placeholder="e.g. frontend, junior"
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="reject-note">Note</Label>
-            <Textarea id="reject-note" value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
+          <Textarea label="Note" value={note} onChange={(value) => setNote(value)} />
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <Button

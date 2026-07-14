@@ -1,6 +1,5 @@
 import { Button, DisabledActionTooltip, Textarea } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { usePostComment } from '../hooks/mutations/post-comment';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
@@ -52,28 +51,20 @@ export function CommentComposer({ taskId }: Props) {
   return (
     <div className="flex flex-col gap-2">
       <Textarea
-        autoFocus
+        label="Comment"
+        isLabelHidden
+        hasAutoFocus
         value={body}
-        onChange={(e) => setBody(e.target.value)}
+        onChange={(value) => setBody(value)}
         placeholder="Write a comment…"
         rows={3}
-        className="resize-y"
+        maxLength={MAX}
+        status={
+          tooLong
+            ? { type: 'error', message: `Comment cannot exceed ${MAX} characters.` }
+            : undefined
+        }
       />
-      {(tooLong || body.length > MAX - 500) && (
-        <div className="flex items-center gap-2">
-          {tooLong && (
-            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
-              <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-              Comment cannot exceed {MAX} characters.
-            </p>
-          )}
-          <span
-            className={`ml-auto text-caption ${tooLong ? 'text-destructive' : 'text-ink-tertiary'}`}
-          >
-            {body.length} / {MAX}
-          </span>
-        </div>
-      )}
       <div className="flex justify-end gap-2">
         <Button
           variant="ghost"

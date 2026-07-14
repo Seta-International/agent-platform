@@ -348,10 +348,7 @@ export function NewCandidateDialog() {
                 <Label>Skills</Label>
                 <SkillPicker value={skills} onChange={setSkills} />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="cand-note">Notes</Label>
-                <Textarea id="cand-note" value={note} onChange={(e) => setNote(e.target.value)} />
-              </div>
+              <Textarea label="Notes" value={note} onChange={(value) => setNote(value)} />
               {suggestions.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>

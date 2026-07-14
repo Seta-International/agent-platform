@@ -98,16 +98,13 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
               A stable identifier. Lowercase letters, numbers, and hyphens.
             </p>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="group-description">Description</Label>
-            <Textarea
-              id="group-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What this group is for (optional)"
-              rows={2}
-            />
-          </div>
+          <Textarea
+            label="Description"
+            value={description}
+            onChange={(value) => setDescription(value)}
+            placeholder="What this group is for (optional)"
+            rows={2}
+          />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
             <Button

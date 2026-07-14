@@ -241,23 +241,23 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
             </div>
           </div>
 
-          <div className="space-y-1">
-            <Label>Objective</Label>
-            <Textarea value={form.objective} onChange={(e) => set({ objective: e.target.value })} />
-          </div>
+          <Textarea
+            label="Objective"
+            value={form.objective}
+            onChange={(value) => set({ objective: value })}
+          />
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Scope (in)</Label>
-              <Textarea value={form.scope_in} onChange={(e) => set({ scope_in: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label>Scope (out)</Label>
-              <Textarea
-                value={form.scope_out}
-                onChange={(e) => set({ scope_out: e.target.value })}
-              />
-            </div>
+            <Textarea
+              label="Scope (in)"
+              value={form.scope_in}
+              onChange={(value) => set({ scope_in: value })}
+            />
+            <Textarea
+              label="Scope (out)"
+              value={form.scope_out}
+              onChange={(value) => set({ scope_out: value })}
+            />
           </div>
 
           {error && <Banner status="error" title={error} />}

@@ -149,13 +149,12 @@ function NewTemplateDialog() {
             />
           </div>
           {SECTIONS.map((s) => (
-            <div key={s.key} className="space-y-1">
-              <Label>{s.label}</Label>
-              <Textarea
-                value={jd[s.key]}
-                onChange={(e) => setJd((d) => ({ ...d, [s.key]: e.target.value }))}
-              />
-            </div>
+            <Textarea
+              key={s.key}
+              label={s.label}
+              value={jd[s.key]}
+              onChange={(value) => setJd((d) => ({ ...d, [s.key]: value }))}
+            />
           ))}
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2 pt-2">
