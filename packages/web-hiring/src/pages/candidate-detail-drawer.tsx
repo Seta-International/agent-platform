@@ -22,6 +22,7 @@ import {
   Check,
   ChevronDown,
   Copy,
+  FileText,
   Globe,
   Mail,
   MoreHorizontal,
@@ -362,10 +363,11 @@ export function CandidateDetailDrawer({
                   </div>
                 </DetailCard>
 
-                <DetailCard title="Resume / CV">
+                <DetailCard title="CV">
                   <CandidateCvActions
                     candidateId={data.candidate.id}
                     hasCv={Boolean(data.candidate.cv_storage_key)}
+                    cvStorageKey={data.candidate.cv_storage_key}
                     canManage={canManage}
                     onChanged={() =>
                       void queryClient.invalidateQueries({
@@ -449,11 +451,13 @@ export function CandidateDetailDrawer({
 function CandidateCvActions({
   candidateId,
   hasCv,
+  cvStorageKey,
   canManage,
   onChanged,
 }: {
   candidateId: string;
   hasCv: boolean;
+  cvStorageKey: string | null | undefined;
   canManage: boolean;
   onChanged: () => void;
 }) {
@@ -480,34 +484,63 @@ function CandidateCvActions({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return (
-    <div className="flex items-center gap-3 text-body-sm">
-      {hasCv ? (
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto p-0"
+  const CV_MAX_BYTES = 10 * 1024 * 1024;
+  function handleCvFile(file: File | undefined) {
+    if (!file) return;
+    if (file.size > CV_MAX_BYTES) {
+      toast.error('CV must be under 10MB');
+      return;
+    }
+    replace.mutate(file);
+  }
+
+  if (hasCv) {
+    const filename = cvStorageKey ? cvStorageKey.split('/').pop() : 'CV.pdf';
+    return (
+      <div className="flex items-center justify-between gap-4 w-full">
+        <button
+          type="button"
           disabled={download.isPending}
           onClick={() => download.mutate()}
+          className="flex flex-1 items-center gap-3 rounded-lg border border-hairline bg-canvas p-4 cursor-pointer text-left transition-colors hover:bg-surface-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Download CV
-        </Button>
-      ) : (
-        <span className="text-ink-muted">No CV on file</span>
-      )}
+          <div className="flex size-10 flex-none items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <FileText className="size-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-body-sm font-semibold text-ink truncate hover:underline">
+              {filename}
+            </div>
+          </div>
+        </button>
+        {canManage && (
+          <label className="cursor-pointer text-body-sm font-medium text-primary hover:underline flex-none">
+            {replace.isPending ? 'Uploading…' : 'Replace'}
+            <input
+              type="file"
+              accept=".pdf,.docx"
+              className="hidden"
+              disabled={replace.isPending}
+              onChange={(e) => handleCvFile(e.target.files?.[0])}
+            />
+          </label>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 text-body-sm">
+      <span className="text-ink-muted">No CV on file</span>
       {canManage && (
         <label className="cursor-pointer text-primary hover:underline">
-          {replace.isPending ? 'Uploading…' : hasCv ? 'Replace' : 'Upload'}
+          {replace.isPending ? 'Uploading…' : 'Upload'}
           <input
             type="file"
             accept=".pdf,.docx"
             className="hidden"
             disabled={replace.isPending}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) replace.mutate(f);
-              e.target.value = '';
-            }}
+            onChange={(e) => handleCvFile(e.target.files?.[0])}
           />
         </label>
       )}
