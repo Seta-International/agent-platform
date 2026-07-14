@@ -1245,6 +1245,9 @@ importers:
       '@seta/people':
         specifier: workspace:^
         version: link:../people
+      '@seta/shared-agent-evals':
+        specifier: workspace:*
+        version: link:../shared-agent-evals
       '@seta/shared-embeddings':
         specifier: workspace:^
         version: link:../shared-embeddings
