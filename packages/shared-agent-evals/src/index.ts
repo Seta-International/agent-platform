@@ -8,3 +8,9 @@ export {
   type EvalManifest,
   type EvalSuite,
 } from './dataset.ts';
+
+export {
+  goldenMatchScorer,
+  schemaConformanceScorer,
+  trustEnvelopeScorer,
+} from './scorers.ts';
