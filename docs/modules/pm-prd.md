@@ -9,7 +9,7 @@
 
 ## 1. Overview
 
-Project Management is Seta's **delivery system-of-record** — the place that knows **which clients we serve, what projects we run for them, who is staffed on each one, and whether those projects are healthy**. It holds the company's **accounts** (the outsourcing clients) and the **projects** under them, runs each new project through a **charter approval** before it goes live, and — most importantly for an outsourcing business — owns **resource allocation**: the authoritative record of **who is staffed on what, at what monthly effort, billable or not**. On top of that it monitors delivery health through **QCDP** (Quality, Cost, Delivery, Process) with a **RAG** (Red / Amber / Green) read, collects **weekly status reports**, tracks **risks and issues**, runs a **KPI** programme with an operational-health score, and surfaces the **staffing gaps** a project needs filled — handing them to Hiring.
+Project Management is Seta's **delivery system-of-record** — the place that knows **which clients we serve, what projects we run for them, who is staffed on each one, and whether those projects are healthy**. It holds the company's **accounts** (the outsourcing clients) and the **projects** under them, runs each new project through a **charter approval** before it goes live, and — most importantly for an outsourcing business — owns **resource allocation**: the authoritative record of **who is staffed on what, at what monthly effort, billable or not**. On top of that it monitors delivery health through **QCDP** (Quality, Cost, Delivery, Performance) with a **RAG** (Red / Amber / Green) read, collects **weekly status reports**, tracks **risks and issues**, runs a **KPI** programme with an operational-health score, and surfaces the **staffing gaps** a project needs filled — handing them to Hiring.
 
 PM is built around six working areas that mirror how a PMO actually runs a portfolio: **Portfolio** (account-and-project health rollup), **Requests** (the project-charter governance flow), **Weekly Reports**, **RA Monitoring** (resource allocation and utilization), **Risks & Issues**, and **KPI Metrics**. It sits at the centre of the workforce flow: it is the **single source of truth for allocation and utilization** that People reads (to show who's loaded and to decide who can see whom), it raises the **demand** Hiring turns into open roles, and it commits the **allocation** when a hire or an internal move lands. It never keeps its own copy of the employee — it references each worker by id and reads their skills, capacity, and availability from People.
 
@@ -176,7 +176,7 @@ graph TD
 - **Staffing gap / backfill** — an unfilled seat on a project (plan exceeds staffed): one seat is one backfill, handed to Hiring to fill.
 - **Weekly report** — a project's weekly status (submitted by the **PM and/or PMO**) with a RAG and QCDP read; a non-Green status requires a road-to-green action and spawns a tracked recovery.
 - **Risks & issues** — the register for a project; types include Bug, Customer, Resource, Stability, Recovery, Action, Improvement. A resource risk can raise a backfill.
-- **KPI metrics** — the measured numbers across Quality / Cost / Delivery / Process against thresholds that drive the derived health read, the **operational-health score (OHS)**, the **EQI×TDI** engineering-health matrix, and the **CAPA** register.
+- **KPI metrics** — the measured numbers across Quality / Cost / Delivery / Performance against thresholds that drive the derived health read, the **operational-health score (OHS)**, the **EQI×TDI** engineering-health matrix, and the **CAPA** register.
 - **Account retrospective** — a per-account retro (keep doing / problems / try next) drawn from the week's reports, risks, and metrics; an item can be promoted to a tracked action.
 - **Project access** — the explicit Owner / Edit / View grants on a single project.
 
@@ -276,7 +276,7 @@ graph LR
 
 ### 7.4 Portfolio & project health
 
-**F-PORT-1 — Project health (QCDP / RAG).** Each project carries a **QCDP** read — Quality, Cost, Delivery, Process — each Green / Yellow / Red, **derived** from its KPI metrics and reported status; the project's **RAG** is the worst of the four pillars.
+**F-PORT-1 — Project health (QCDP / RAG).** Each project carries a **QCDP** read — Quality, Cost, Delivery, Performance — each Green / Yellow / Red, **derived** from its KPI metrics and reported status; the project's **RAG** is the worst of the four pillars.
 - Because each pillar follows its KPIs, turning a pillar's KPI red turns that pillar Red and (being the worst) the project's RAG Red — a change anyone can observe without seeing the formula.
 - The PM may **override** a derived status, with the override recorded.
 - A project also shows its **phase**, team count, BMM, predictability, and **customer-satisfaction score (CSS, out of 5)**. How CSS is sourced — a real customer signal versus a derived proxy — is unresolved (OQ-9), so it is shown but not yet trusted to drive decisions.
@@ -307,20 +307,20 @@ graph LR
 
 ### 7.7 KPI metrics
 
-**F-KPI-1 — KPI catalogue & derivation.** A project's KPIs are measured across **Quality / Cost / Delivery / Process** against a catalogue, each with goal and yellow thresholds and a direction; a subset of these values **derive** the QCDP/RAG (F-PORT-1). The representative catalogue is below; the exact metric set, and which of them feed the QCDP derivation, is confirmed at sign-off (OQ-8):
+**F-KPI-1 — KPI catalogue & derivation.** A project's KPIs are measured across **Quality / Cost / Delivery / Performance** against a catalogue, each with goal and yellow thresholds and a direction; a subset of these values **derive** the QCDP/RAG (F-PORT-1). The representative catalogue is below; the exact metric set, and which of them feed the QCDP derivation, is confirmed at sign-off (OQ-8):
 
 | Pillar | KPIs |
 |---|---|
 | **Quality** | Defect Leakage · Reopened Rate · Defect Removal Efficiency (DRE) · Defect Density |
 | **Cost** | Gross Margin · Billable Rate · Utilization · Effort Consumption |
 | **Delivery** | On-time Delivery · Forecast Accuracy · Release Predictability · Schedule Performance Index (SPI) |
-| **Process** | Process Compliance · Retro Closure · Audit Compliance · CAPA Closure |
+| **Performance** | Process Compliance · Retro Closure · Audit Compliance · CAPA Closure |
 
 **F-KPI-2 — Manual input & thresholds.** The PMO sets goal/yellow thresholds per metric; a metric reads green / amber / red against them. Where a number isn't fed automatically, a privileged user can **enter the raw metric** (e.g. on-time rate, leakage, actual-vs-budget, commitment/velocity), and the QCDP/RAG re-derives with a live preview.
 
 **F-KPI-3 — Operational-health score & engineering matrix.** The KPIs roll into an **Operational Health Score (OHS)** per project — a **weighted blend across the four pillars** (Green / Yellow / Red), distinct from the QCDP/RAG *worst-of-four* read — and an **EQI×TDI matrix** plots each project's **engineering-quality index** against its **technical-debt index** so "high debt, low quality" projects stand out, with the high-risk quadrant marked. The exact OHS weighting and the EQI/TDI derivation are confirmed at sign-off (OQ-8).
 
-**F-KPI-4 — CAPA register.** A **corrective-and-preventive-action (CAPA)** register is built from breached KPIs — CAPA (quality), Risk (delivery), Improvement (cost/process) — each with an owner, due date, and progress, advanced **Open → In Progress → Done** by the item's owner or the PMO, so a missed KPI has a tracked response rather than a one-off note.
+**F-KPI-4 — CAPA register.** A **corrective-and-preventive-action (CAPA)** register is built from breached KPIs — CAPA (quality), Risk (delivery), Improvement (cost/performance) — each with an owner, due date, and progress, advanced **Open → In Progress → Done** by the item's owner or the PMO, so a missed KPI has a tracked response rather than a one-off note.
 
 ### 7.8 Staffing demand / backfill
 

@@ -39,7 +39,7 @@ An agent estimating a ticket should carry these anchors as calibration and state
 Planning uses points; ROI needs hours. We bridge them with a **team velocity constant** and reconcile against what actually happened.
 
 ```
-baseline_hours = story_points × velocity        # velocity = the team's hours-per-point WITHOUT AI
+baseline_hours = story_points × velocity        # velocity = the team's hours-per-point WITHOUT AI (currently 1)
                                                   # a team-owned constant, recalibrated each quarter from real deliveries
 baseline_hours = reconcile(baseline_hours, code_change)
                                                   # cross-check against the merged PR's real size (lines / files / complexity);
@@ -47,7 +47,7 @@ baseline_hours = reconcile(baseline_hours, code_change)
 ai_time_saved  = baseline_hours − actual_hours_with_AI
 ```
 
-- **`velocity` is measured, not assumed.** Set it from the team's own historical hours-per-point on non-AI work, and re-derive it quarterly. Do not ship a made-up constant as if it were fact; until it's calibrated, mark it provisional.
+- **`velocity` is measured, not assumed.** Set it from the team's own historical hours-per-point on non-AI work, and re-derive it quarterly. **The team's current velocity is `1` (1 hour per point)** — so `baseline_hours = story_points` for now. This is a provisional starting value; recalibrate it from real deliveries and update this number.
 - **The code-change reconciliation is a second, independent anchor.** Story points are estimated up front and can be mis-sized; the actual diff is ground truth about scope. When the two disagree sharply, the ticket is surfaced for review rather than silently believed.
 - **The human holds the final say.** The derived `ai_time_saved` is written to the ticket's **AI Time Saved** field as a *proposal*. An engineer can overwrite it in Jira, and the human value wins. This keeps ROI honest without turning it into paperwork.
 
