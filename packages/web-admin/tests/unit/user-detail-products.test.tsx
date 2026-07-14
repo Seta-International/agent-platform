@@ -63,6 +63,8 @@ describe('user detail products', () => {
         />
       </QueryClientProvider>,
     );
-    expect(await screen.findByText(/Project Monitoring/)).toBeInTheDocument();
+    // Exact match: a substring regex would also match the "Project Monitoring
+    // access" Selector's own (isLabelHidden, but still DOM-present) <label>.
+    expect(await screen.findByText('Project Monitoring')).toBeInTheDocument();
   });
 });

@@ -13,11 +13,7 @@ import {
   Dropzone,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -196,18 +192,14 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                 onChange={(v) => set('dob')(v ?? '')}
               />
               <Field label="Gender">
-                <Select value={form.gender || undefined} onValueChange={set('gender')}>
-                  <SelectTrigger aria-label="Gender">
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GENDER_OPTIONS.map((g) => (
-                      <SelectItem key={g.value} value={g.value}>
-                        {g.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Selector
+                  label="Gender"
+                  isLabelHidden
+                  options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: g.label }))}
+                  value={form.gender || undefined}
+                  onChange={set('gender')}
+                  placeholder="—"
+                />
               </Field>
             </div>
           </Section>
@@ -240,21 +232,14 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                 onChange={(value) => set('job_title')(value)}
               />
               <Field label="Employment type">
-                <Select
+                <Selector
+                  label="Employment type"
+                  isLabelHidden
+                  options={EMPLOYMENT_TYPES.map((t) => ({ value: t, label: t.replace('_', ' ') }))}
                   value={form.employment_type || undefined}
-                  onValueChange={set('employment_type')}
-                >
-                  <SelectTrigger aria-label="Employment type">
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EMPLOYMENT_TYPES.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t.replace('_', ' ')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={set('employment_type')}
+                  placeholder="—"
+                />
               </Field>
               <DateInput
                 label="Start date"

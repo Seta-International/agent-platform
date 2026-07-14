@@ -20,11 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   Textarea,
 } from '@seta/shared-ui';
 import { Boxes, Layers, Pencil, ShieldCheck, Trash2, Users } from 'lucide-react';
@@ -148,6 +144,11 @@ const SCOPE_LABEL: Record<GroupRole['scope_kind'], string> = {
   self: 'Self',
 };
 
+const SCOPE_OPTIONS = (Object.keys(SCOPE_LABEL) as GroupRole['scope_kind'][]).map((value) => ({
+  value,
+  label: SCOPE_LABEL[value],
+}));
+
 /** Inline scope control for one checked role row: scope kind + (when org_unit) unit picker. */
 function RoleScopeControl({
   role,
@@ -158,25 +159,17 @@ function RoleScopeControl({
 }) {
   return (
     <div className="flex flex-none items-center gap-1.5">
-      <Select
+      <Selector
+        label={`${role.role_slug} scope`}
+        isLabelHidden
+        size="sm"
         value={role.scope_kind}
-        onValueChange={(v) => {
+        onChange={(v) => {
           const scope_kind = v as GroupRole['scope_kind'];
           onChange(scope_kind, scope_kind === 'org_unit' ? role.scope_id : null);
         }}
-      >
-        <SelectTrigger
-          aria-label={`${role.role_slug} scope`}
-          className="h-7 w-[8.5rem] flex-none text-caption"
-        >
-          <SelectValue>{SCOPE_LABEL[role.scope_kind]}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="tenant">Tenant-wide</SelectItem>
-          <SelectItem value="org_unit">Org unit</SelectItem>
-          <SelectItem value="self">Self</SelectItem>
-        </SelectContent>
-      </Select>
+        options={SCOPE_OPTIONS}
+      />
       {role.scope_kind === 'org_unit' && (
         <AsyncCombobox
           value={role.scope_id}

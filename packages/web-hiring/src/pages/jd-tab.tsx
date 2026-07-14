@@ -1,14 +1,4 @@
-import {
-  Button,
-  RichTextEditor,
-  SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
-} from '@seta/shared-ui';
+import { Button, RichTextEditor, SegmentedControl, Selector, toast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -92,24 +82,20 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
         {canManage && (
           <div className="flex items-center gap-2">
             {(templates.data?.length ?? 0) > 0 && (
-              <Select
+              <Selector
                 key={templatePickerKey}
-                onValueChange={(v) => {
+                label="Apply template"
+                isLabelHidden
+                options={(templates.data ?? []).map((t) => ({
+                  value: t.template.id,
+                  label: t.template.name,
+                }))}
+                onChange={(v) => {
                   applyTemplate(v);
                   setTemplatePickerKey((k) => k + 1);
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Apply template…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.data?.map((t) => (
-                    <SelectItem key={t.template.id} value={t.template.id}>
-                      {t.template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Apply template…"
+              />
             )}
             <Button
               size="sm"

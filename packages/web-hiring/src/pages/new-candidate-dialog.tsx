@@ -10,11 +10,7 @@ import {
   Dropzone,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   Textarea,
   toast,
 } from '@seta/shared-ui';
@@ -276,75 +272,51 @@ export function NewCandidateDialog() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="cand-gender">Gender</Label>
-                  <Select
+                  <Selector
+                    label="Gender"
+                    options={[
+                      { value: NONE, label: '—' },
+                      { value: 'male', label: 'Male' },
+                      { value: 'female', label: 'Female' },
+                      { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+                    ]}
                     value={gender || NONE}
-                    onValueChange={(v) => setGender(v === NONE ? '' : v)}
-                  >
-                    <SelectTrigger id="cand-gender" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    onChange={(v) => setGender(v === NONE ? '' : v)}
+                  />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="cand-seniority">Seniority</Label>
-                  <Select
+                  <Selector
+                    label="Seniority"
+                    options={[
+                      { value: NONE, label: '—' },
+                      ...seniorityOptions.map((s) => ({ value: s, label: s })),
+                    ]}
                     value={seniority || NONE}
-                    onValueChange={(v) => setSeniority(v === NONE ? '' : v)}
-                  >
-                    <SelectTrigger id="cand-seniority" className="w-full">
-                      <SelectValue placeholder="Select seniority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      {seniorityOptions.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(v) => setSeniority(v === NONE ? '' : v)}
+                    placeholder="Select seniority"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="cand-source">Source</Label>
-                  <Select
+                  <Selector
+                    label="Source"
+                    options={[
+                      { value: NONE, label: '—' },
+                      ...sourceOptions.map((s) => ({ value: s, label: s })),
+                    ]}
                     value={source || NONE}
-                    onValueChange={(v) => setSource(v === NONE ? '' : v)}
-                  >
-                    <SelectTrigger id="cand-source" className="w-full">
-                      <SelectValue placeholder="Select source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      {sourceOptions.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(v) => setSource(v === NONE ? '' : v)}
+                    placeholder="Select source"
+                  />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="cand-req">Position applied *</Label>
-                <Select value={effectiveReq} onValueChange={(v) => setReqId(v)}>
-                  <SelectTrigger id="cand-req" className="w-full">
-                    <SelectValue placeholder="Select a position" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {openReqs.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Selector
+                  label="Position applied *"
+                  options={openReqs.map((r) => ({ value: r.id, label: r.title }))}
+                  value={effectiveReq}
+                  onChange={(v) => setReqId(v)}
+                  placeholder="Select a position"
+                />
               </div>
               <div className="space-y-1">
                 <Label>Skills</Label>

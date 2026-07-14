@@ -11,11 +11,7 @@ import {
   Input,
   Label,
   NumberInput,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   Textarea,
   toast,
 } from '@seta/shared-ui';
@@ -133,19 +129,13 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Account *</Label>
-            <Select value={form.account_id} onValueChange={(v) => set({ account_id: v })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select account" />
-              </SelectTrigger>
-              <SelectContent>
-                {(accounts ?? []).map((a) => (
-                  <SelectItem key={a.account_id} value={a.account_id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Selector
+              label="Account *"
+              options={(accounts ?? []).map((a) => ({ value: a.account_id, label: a.name }))}
+              value={form.account_id || undefined}
+              onChange={(v) => set({ account_id: v })}
+              placeholder="Select account"
+            />
           </div>
 
           <div className="space-y-1">
@@ -169,44 +159,36 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Methodology</Label>
-              <Select
+              <Selector
+                label="Methodology"
+                options={[
+                  { value: NONE, label: '—' },
+                  { value: 'scrum', label: 'Scrum' },
+                  { value: 'kanban', label: 'Kanban' },
+                ]}
                 value={form.methodology || NONE}
-                onValueChange={(v) =>
+                onChange={(v) =>
                   set({
                     methodology: (v === NONE ? '' : v) as SubmitCharterBody['methodology'] | '',
                   })
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>—</SelectItem>
-                  <SelectItem value="scrum">Scrum</SelectItem>
-                  <SelectItem value="kanban">Kanban</SelectItem>
-                </SelectContent>
-              </Select>
+              />
             </div>
             <div className="space-y-1">
-              <Label>Pricing</Label>
-              <Select
+              <Selector
+                label="Pricing"
+                options={[
+                  { value: NONE, label: '—' },
+                  { value: 'fixed_price', label: 'Fixed-price' },
+                  { value: 'time_materials', label: 'Time & materials' },
+                ]}
                 value={form.pricing_model || NONE}
-                onValueChange={(v) =>
+                onChange={(v) =>
                   set({
                     pricing_model: (v === NONE ? '' : v) as SubmitCharterBody['pricing_model'] | '',
                   })
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>—</SelectItem>
-                  <SelectItem value="fixed_price">Fixed-price</SelectItem>
-                  <SelectItem value="time_materials">Time &amp; materials</SelectItem>
-                </SelectContent>
-              </Select>
+              />
             </div>
           </div>
 
