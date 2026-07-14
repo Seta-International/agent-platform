@@ -245,3 +245,47 @@ jobs:
     with:
       environment: uat
     secrets: inherit
+
+  tag:
+    name: Tag & release (prod only)
+    needs: deploy
+    # Only a healthy prod promote earns a version. prod-recovery redeploys an
+    # existing image and must never re-tag.
+    if: ${{ inputs.environment == 'prod' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0 # full history so `gh release --generate-notes` has a diff base
+
+      - name: Tag the promoted commit and create the GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Version is the source of truth carried by the release branch name.
+          # package.json itself is bumped at cut (via the release PR) — CI can't
+          # commit to release/* or main (both require a PR; release also requires
+          # signed commits, and the Actions token has no bypass). Tags are not
+          # protected, so tag + Release are the parts CI owns.
+          VERSION="$(bash scripts/release/stamp-version.sh --extract-only "${GITHUB_REF_NAME}")"
+          TAG="v${VERSION}"
+
+          # Idempotent: a re-run of an already-released version is a no-op.
+          if git ls-remote --tags --exit-code origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "${TAG} already exists — nothing to do."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Tag exactly the commit that was deployed (the run's checked-out SHA).
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+
+          # Auto-generate notes from the PRs/commits since the previous release.
+          gh release create "${TAG}" --title "${TAG}" --generate-notes
