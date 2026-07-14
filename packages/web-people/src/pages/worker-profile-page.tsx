@@ -16,11 +16,7 @@ import {
   LayoutContent,
   LayoutHeader,
   PageChrome,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   Skeleton,
   SkillLevelRating,
   toast,
@@ -382,21 +378,14 @@ export function WorkerProfilePage() {
                       </div>
                       <div className="space-y-1">
                         <Label>Gender</Label>
-                        <Select
-                          value={draft.gender ?? ''}
-                          onValueChange={(v) => setDraft((d) => ({ ...d, gender: v }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select…" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {GENDER_OPTIONS.map((g) => (
-                              <SelectItem key={g.value} value={g.value}>
-                                {g.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Selector
+                          label="Gender"
+                          isLabelHidden
+                          options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: g.label }))}
+                          value={draft.gender || undefined}
+                          onChange={(v) => setDraft((d) => ({ ...d, gender: v }))}
+                          placeholder="Select…"
+                        />
                       </div>
                       <div className="space-y-1">
                         <Input
