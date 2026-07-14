@@ -4,6 +4,7 @@ import {
   Badge,
   Banner,
   Button,
+  DateInput,
   Calendar as DayPickerCalendar,
   DisabledActionTooltip,
   DropdownMenu,
@@ -552,8 +553,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         <div className="min-h-0 flex-1 overflow-auto">
           <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
             <div className="space-y-1">
-              <Label htmlFor="jd-title">Job title *</Label>
-              <Input id="jd-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Input label="Job title *" value={title} onChange={(value) => setTitle(value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -642,23 +642,19 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="jd-start">Start date</Label>
-                <Input
-                  id="jd-start"
-                  type="date"
-                  value={start}
+                <DateInput
+                  label="Start date"
+                  value={start || undefined}
                   max={due || undefined}
-                  onChange={(e) => setStart(e.target.value)}
+                  onChange={(v) => setStart(v ?? '')}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="jd-due">Due date</Label>
-                <Input
-                  id="jd-due"
-                  type="date"
-                  value={due}
+                <DateInput
+                  label="Due date"
+                  value={due || undefined}
                   min={start || undefined}
-                  onChange={(e) => setDue(e.target.value)}
+                  onChange={(v) => setDue(v ?? '')}
                 />
               </div>
             </div>

@@ -178,19 +178,15 @@ function EmailStep({
         onSubmit={onSubmit}
         className="flex flex-col gap-sm rounded-lg border border-hairline bg-canvas p-lg duration-200 animate-in fade-in"
       >
-        <Field id="email" label="Work email">
-          <Input
-            id="email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            placeholder="you@company.com"
-            value={email}
-            onChange={(e) => onEmailChange(e.target.value)}
-            size="lg"
-            required
-          />
-        </Field>
+        <Input
+          type="email"
+          label="Work email"
+          placeholder="you@company.com"
+          value={email}
+          onChange={(value) => onEmailChange(value)}
+          size="lg"
+          isRequired
+        />
 
         {error ? <Banner status="error" title={error} /> : null}
 
@@ -255,13 +251,13 @@ function PasswordStep({
           }
         >
           <Input
-            id="password"
+            label="Password"
+            isLabelHidden
             type="password"
-            autoComplete="current-password"
             value={password}
-            onChange={(e) => onPasswordChange(e.target.value)}
+            onChange={(value) => onPasswordChange(value)}
             size="lg"
-            required
+            isRequired
           />
         </Field>
 

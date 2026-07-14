@@ -91,10 +91,11 @@ export function CancelRequisitionDialog({
                 </p>
                 <div className="flex gap-2">
                   <Input
-                    id="cancel-requisition-reason"
+                    label="Reason"
+                    isLabelHidden
                     placeholder="e.g. Position no longer needed"
                     value={newReasonLabel}
-                    onChange={(e) => setNewReasonLabel(e.target.value)}
+                    onChange={(value) => setNewReasonLabel(value)}
                   />
                   <Button
                     type="button"

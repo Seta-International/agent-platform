@@ -20,7 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -115,24 +114,15 @@ function RenameDialog({ group }: { group: Group }) {
         </DialogHeader>
         <div className="space-y-4 pt-1">
           <div className="space-y-1.5">
-            <Label htmlFor="edit-group-name">Name</Label>
-            <Input
-              id="edit-group-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-            />
+            <Input label="Name" value={name} onChange={(value) => setName(value)} hasAutoFocus />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-group-description">Description</Label>
-            <Textarea
-              id="edit-group-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What this group is for (optional)"
-              rows={2}
-            />
-          </div>
+          <Textarea
+            label="Description"
+            value={description}
+            onChange={(value) => setDescription(value)}
+            placeholder="What this group is for (optional)"
+            rows={2}
+          />
         </div>
         <DialogFooter>
           <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
@@ -342,15 +332,12 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                               : 'hover:bg-surface-2',
                           )}
                         >
-                          <label
-                            htmlFor={`grouprole-${r.slug}`}
-                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3"
-                          >
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
                             <Checkbox
-                              id={`grouprole-${r.slug}`}
-                              checked={checked}
-                              onCheckedChange={(v) => toggleRole(r.slug, v === true)}
-                              aria-label={r.label}
+                              label={r.label}
+                              isLabelHidden
+                              value={checked}
+                              onChange={(v) => toggleRole(r.slug, v)}
                             />
                             <div className="min-w-0 flex-1">
                               <span className="text-body-sm font-medium text-ink">
@@ -365,7 +352,7 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                             <span className="flex-none font-mono text-caption text-ink-tertiary">
                               {r.slug}
                             </span>
-                          </label>
+                          </div>
                           {entry && (
                             <RoleScopeControl
                               role={entry}

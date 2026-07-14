@@ -13,6 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   Textarea,
+  TimeInput,
 } from '@seta/shared-ui';
 import { Calendar, Check, ChevronsUpDown } from 'lucide-react';
 import { useState } from 'react';
@@ -29,6 +30,7 @@ const TIMEZONES = ((
 ];
 
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const BIO_MAX = 500;
 
 function initials(name: string): string {
   return name
@@ -111,10 +113,11 @@ export function ProfileIdentityCard({
   const whInvalid =
     canEditWorkingHours && (whStart || whEnd) && !(whStart.match(HHMM_RE) && whEnd.match(HHMM_RE));
   const bioDirty = bio !== (profile.bio ?? '');
+  const bioTooLong = bio.length > BIO_MAX;
   const dirty = name !== profile.display_name || tz !== profile.timezone || bioDirty || whDirty;
 
   async function save() {
-    if (!dirty || whInvalid) return;
+    if (!dirty || whInvalid || bioTooLong) return;
     setSaving(true);
     try {
       const patch: Parameters<SaveProfile>[0] = {};
@@ -154,31 +157,31 @@ export function ProfileIdentityCard({
 
         <div className="flex-1 min-w-0 flex flex-col gap-3.5">
           <div>
-            <FieldLabel label="Name" />
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <Input label="Name" value={name} onChange={(value) => setName(value)} />
           </div>
 
-          <div>
-            <FieldLabel label="Bio" hint={`${bio.length} / 500`} />
-            <Textarea
-              aria-label="Bio"
-              value={bio}
-              maxLength={500}
-              rows={4}
-              placeholder="Add a short bio so teammates know who you are."
-              onChange={(e) => setBio(e.target.value)}
-              className="resize-none"
-            />
-          </div>
+          <Textarea
+            label="Bio"
+            value={bio}
+            maxLength={BIO_MAX}
+            rows={4}
+            placeholder="Add a short bio so teammates know who you are."
+            onChange={(value) => setBio(value)}
+            status={
+              bioTooLong
+                ? { type: 'error', message: `Bio cannot exceed ${BIO_MAX} characters.` }
+                : undefined
+            }
+          />
 
           <div>
-            <FieldLabel
+            <Input
               label="Email"
-              hint="If you change this, you'll need to verify the new email."
+              description="If you change this, you'll need to verify the new email."
+              value={profile.email}
+              isDisabled
+              className="font-mono text-sm"
             />
-            <div className="flex items-center gap-2">
-              <Input value={profile.email} readOnly className="font-mono text-sm" />
-            </div>
           </div>
 
           <div>
@@ -190,20 +193,20 @@ export function ProfileIdentityCard({
             <FieldLabel label="Working hours" />
             {canEditWorkingHours && editingHours ? (
               <div className="flex items-center gap-2">
-                <Input
-                  type="time"
-                  aria-label="Working hours start"
-                  value={whStart}
-                  onChange={(e) => setWhStart(e.target.value)}
-                  className="w-32"
+                <TimeInput
+                  label="Working hours start"
+                  isLabelHidden
+                  hourFormat="24h"
+                  value={whStart || undefined}
+                  onChange={(v) => setWhStart(v ?? '')}
                 />
                 <span className="text-ink-muted text-sm">to</span>
-                <Input
-                  type="time"
-                  aria-label="Working hours end"
-                  value={whEnd}
-                  onChange={(e) => setWhEnd(e.target.value)}
-                  className="w-32"
+                <TimeInput
+                  label="Working hours end"
+                  isLabelHidden
+                  hourFormat="24h"
+                  value={whEnd || undefined}
+                  onChange={(v) => setWhEnd(v ?? '')}
                 />
                 <Button
                   variant="ghost"
@@ -242,7 +245,7 @@ export function ProfileIdentityCard({
           <div className="flex justify-end pt-1">
             <Button
               onClick={save}
-              isDisabled={saving || !dirty || Boolean(whInvalid)}
+              isDisabled={saving || !dirty || Boolean(whInvalid) || bioTooLong}
               label="Save changes"
             />
           </div>

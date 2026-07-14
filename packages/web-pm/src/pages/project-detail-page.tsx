@@ -268,14 +268,12 @@ export function ProjectDetailPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <Label>Objective</Label>
-                    <Textarea
-                      value={(patchVal('objective', p.objective) ?? '') as string}
-                      onChange={(e) => setPatch((s) => ({ ...s, objective: e.target.value }))}
-                      disabled={inputsDisabled}
-                    />
-                  </div>
+                  <Textarea
+                    label="Objective"
+                    value={(patchVal('objective', p.objective) ?? '') as string}
+                    onChange={(value) => setPatch((s) => ({ ...s, objective: value }))}
+                    isDisabled={inputsDisabled}
+                  />
 
                   <div className="space-y-1">
                     <Label>Org unit</Label>
@@ -290,32 +288,28 @@ export function ProjectDetailPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label>Scope (in)</Label>
-                      <Textarea
-                        value={patch.scope?.in ?? p.scope?.in ?? ''}
-                        onChange={(e) =>
-                          setPatch((s) => ({
-                            ...s,
-                            scope: { in: e.target.value, out: s.scope?.out ?? p.scope?.out ?? '' },
-                          }))
-                        }
-                        disabled={inputsDisabled}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Scope (out)</Label>
-                      <Textarea
-                        value={patch.scope?.out ?? p.scope?.out ?? ''}
-                        onChange={(e) =>
-                          setPatch((s) => ({
-                            ...s,
-                            scope: { in: s.scope?.in ?? p.scope?.in ?? '', out: e.target.value },
-                          }))
-                        }
-                        disabled={inputsDisabled}
-                      />
-                    </div>
+                    <Textarea
+                      label="Scope (in)"
+                      value={patch.scope?.in ?? p.scope?.in ?? ''}
+                      onChange={(value) =>
+                        setPatch((s) => ({
+                          ...s,
+                          scope: { in: value, out: s.scope?.out ?? p.scope?.out ?? '' },
+                        }))
+                      }
+                      isDisabled={inputsDisabled}
+                    />
+                    <Textarea
+                      label="Scope (out)"
+                      value={patch.scope?.out ?? p.scope?.out ?? ''}
+                      onChange={(value) =>
+                        setPatch((s) => ({
+                          ...s,
+                          scope: { in: s.scope?.in ?? p.scope?.in ?? '', out: value },
+                        }))
+                      }
+                      isDisabled={inputsDisabled}
+                    />
                   </div>
                 </div>
               </LayoutContent>

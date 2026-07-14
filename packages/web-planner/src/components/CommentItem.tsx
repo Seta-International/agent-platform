@@ -110,7 +110,13 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
         </header>
         {editing ? (
           <div className="mt-1 flex flex-col gap-2">
-            <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} />
+            <Textarea
+              label="Edit comment"
+              isLabelHidden
+              value={draft}
+              onChange={(value) => setDraft(value)}
+              rows={3}
+            />
             <div className="flex justify-end gap-2">
               <Button
                 variant="ghost"

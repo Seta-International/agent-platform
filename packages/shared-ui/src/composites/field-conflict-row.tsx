@@ -1,5 +1,4 @@
-import { Label } from '../primitives/label';
-import { RadioGroup, RadioGroupItem } from '../primitives/radio-group';
+import { RadioGroup, RadioListItem } from '../primitives/radio-group';
 
 export interface FieldConflictRowProps {
   field: string;
@@ -26,8 +25,6 @@ export function FieldConflictRow({
   onChoose,
 }: FieldConflictRowProps) {
   const hasSnapshot = snapshot !== undefined;
-  const localId = `${field}-local`;
-  const remoteId = `${field}-remote`;
 
   return (
     <div className="grid gap-2" data-testid={`conflict-row-${field}`}>
@@ -51,18 +48,13 @@ export function FieldConflictRow({
           </div>
         )}
         <RadioGroup
+          label="Resolve conflict"
+          isLabelHidden
           value={choice ?? ''}
-          onValueChange={(v) => onChoose(v as 'local' | 'remote')}
-          className="flex flex-col gap-2"
+          onChange={(v) => onChoose(v as 'local' | 'remote')}
         >
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="local" id={localId} />
-            <Label htmlFor={localId}>Use Seta</Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="remote" id={remoteId} />
-            <Label htmlFor={remoteId}>Use M365</Label>
-          </div>
+          <RadioListItem value="local" label="Use Seta" />
+          <RadioListItem value="remote" label="Use M365" />
         </RadioGroup>
       </div>
     </div>

@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
-import { Label } from './label';
-import { RadioGroup, RadioGroupItem } from './radio-group';
+import { RadioGroup, RadioListItem } from './radio-group';
 
 const meta: Meta<typeof RadioGroup> = { title: 'primitives/RadioGroup', component: RadioGroup };
 export default meta;
@@ -11,35 +10,23 @@ export const Default: Story = {
   render: () => {
     const [value, setValue] = useState('option-one');
     return (
-      <RadioGroup value={value} onValueChange={setValue}>
-        <div className="flex items-center gap-2">
-          <RadioGroupItem value="option-one" id="rg-one" />
-          <Label htmlFor="rg-one">Option one</Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <RadioGroupItem value="option-two" id="rg-two" />
-          <Label htmlFor="rg-two">Option two</Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <RadioGroupItem value="option-three" id="rg-three" />
-          <Label htmlFor="rg-three">Option three</Label>
-        </div>
+      <RadioGroup label="Options" value={value} onChange={setValue}>
+        <RadioListItem value="option-one" label="Option one" />
+        <RadioListItem value="option-two" label="Option two" />
+        <RadioListItem value="option-three" label="Option three" />
       </RadioGroup>
     );
   },
 };
 
 export const WithDisabled: Story = {
-  render: () => (
-    <RadioGroup defaultValue="active">
-      <div className="flex items-center gap-2">
-        <RadioGroupItem value="active" id="rg-active" />
-        <Label htmlFor="rg-active">Active</Label>
-      </div>
-      <div className="flex items-center gap-2">
-        <RadioGroupItem value="disabled" id="rg-disabled" disabled />
-        <Label htmlFor="rg-disabled">Disabled option</Label>
-      </div>
-    </RadioGroup>
-  ),
+  render: () => {
+    const [value, setValue] = useState('active');
+    return (
+      <RadioGroup label="Status" value={value} onChange={setValue}>
+        <RadioListItem value="active" label="Active" />
+        <RadioListItem value="disabled" label="Disabled option" isDisabled />
+      </RadioGroup>
+    );
+  },
 };

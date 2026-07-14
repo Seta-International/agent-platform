@@ -51,7 +51,7 @@ export function TenantSettings() {
               <Skeleton height={36} />
             ) : (
               <>
-                <DomainsField domains={domains} onChange={setDomains} idPrefix="org-domains" />
+                <DomainsField domains={domains} onChange={setDomains} />
                 {saveDomainsM.error && (
                   <div className="text-body-sm text-destructive">
                     {(saveDomainsM.error as Error).message}

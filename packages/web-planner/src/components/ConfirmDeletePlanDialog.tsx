@@ -57,17 +57,11 @@ export function ConfirmDeletePlanDialog({
         </DialogHeader>
 
         {isLinked && (
-          <label
-            htmlFor="confirm-delete-m365"
-            className="flex items-center gap-2 text-body-sm text-ink cursor-pointer select-none"
-          >
-            <Checkbox
-              id="confirm-delete-m365"
-              checked={acknowledged}
-              onCheckedChange={(v) => setAcknowledged(v === true)}
-            />
-            I understand this also deletes the matching Microsoft Planner plan.
-          </label>
+          <Checkbox
+            label="I understand this also deletes the matching Microsoft Planner plan."
+            value={acknowledged}
+            onChange={(v) => setAcknowledged(v)}
+          />
         )}
 
         <DialogFooter>

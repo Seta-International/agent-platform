@@ -135,14 +135,14 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                         <GripVertical className="size-3.5" />
                       </button>
                       <Checkbox
-                        id={`chk-${it.id}`}
-                        aria-label={it.label}
-                        checked={it.checked}
-                        disabled={!canUpdate}
-                        onCheckedChange={(v) =>
+                        label={it.label}
+                        isLabelHidden
+                        value={it.checked}
+                        isDisabled={!canUpdate}
+                        onChange={(v) =>
                           update.mutate({
                             item_id: it.id,
-                            patch: { checked: v === true },
+                            patch: { checked: v },
                           })
                         }
                       />

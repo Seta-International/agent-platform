@@ -1,13 +1,12 @@
-import { Badge, Button, Input, Label } from '@seta/shared-ui';
+import { Badge, Button, Input } from '@seta/shared-ui';
 import { useState } from 'react';
 
 interface DomainsFieldProps {
   domains: string[];
   onChange: (next: string[]) => void;
-  idPrefix?: string;
 }
 
-export function DomainsField({ domains, onChange, idPrefix = 'domains' }: DomainsFieldProps) {
+export function DomainsField({ domains, onChange }: DomainsFieldProps) {
   const [input, setInput] = useState('');
 
   function add() {
@@ -25,19 +24,13 @@ export function DomainsField({ domains, onChange, idPrefix = 'domains' }: Domain
 
   return (
     <div className="space-y-1">
-      <Label htmlFor={`${idPrefix}-domain-input`}>Email domains</Label>
       <div className="flex gap-2">
         <Input
-          id={`${idPrefix}-domain-input`}
+          label="Email domains"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(value) => setInput(value)}
           placeholder="contoso.com"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              add();
-            }
-          }}
+          onEnter={add}
         />
         <Button type="button" variant="secondary" label="Add" onClick={add} />
       </div>

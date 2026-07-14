@@ -2,6 +2,7 @@ import {
   Badge,
   Banner,
   Button,
+  DateInput,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -251,27 +252,27 @@ export function NewCandidateDialog() {
                 />
               )}
               <div className="space-y-1">
-                <Label htmlFor="cand-name">Full name *</Label>
-                <Input id="cand-name" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input label="Full name *" value={name} onChange={(value) => setName(value)} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="cand-email">Email</Label>
-                  <Input id="cand-email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Input
+                    type="email"
+                    label="Email"
+                    value={email}
+                    onChange={(value) => setEmail(value)}
+                  />
                   {emailError && <p className="text-caption text-danger-ink">{emailError}</p>}
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="cand-phone">Phone</Label>
-                  <Input id="cand-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  <Input label="Phone" value={phone} onChange={(value) => setPhone(value)} />
                   {phoneError && <p className="text-caption text-danger-ink">{phoneError}</p>}
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="cand-dob">Date of birth</Label>
-                  <Input
-                    id="cand-dob"
-                    type="date"
-                    value={dob}
-                    onChange={(e) => setDob(e.target.value)}
+                  <DateInput
+                    label="Date of birth"
+                    value={dob || undefined}
+                    onChange={(v) => setDob(v ?? '')}
                   />
                 </div>
                 <div className="space-y-1">
@@ -349,10 +350,7 @@ export function NewCandidateDialog() {
                 <Label>Skills</Label>
                 <SkillPicker value={skills} onChange={setSkills} />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="cand-note">Notes</Label>
-                <Textarea id="cand-note" value={note} onChange={(e) => setNote(e.target.value)} />
-              </div>
+              <Textarea label="Notes" value={note} onChange={(value) => setNote(value)} />
               {suggestions.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>

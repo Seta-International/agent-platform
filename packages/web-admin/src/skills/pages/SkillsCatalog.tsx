@@ -259,28 +259,17 @@ export function SkillsCatalog() {
                     )}
                   </h2>
 
-                  <div className="relative w-56">
-                    <Search
-                      className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 size-3.5 text-ink-tertiary"
-                      aria-hidden
-                    />
-                    <Input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search all skills…"
-                      className="h-8 pl-8"
-                    />
-                    {searching && (
-                      <button
-                        type="button"
-                        aria-label="Clear search"
-                        onClick={() => setSearch('')}
-                        className="-translate-y-1/2 absolute top-1/2 right-2 text-ink-tertiary hover:text-ink"
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    )}
-                  </div>
+                  <Input
+                    label="Search skills"
+                    isLabelHidden
+                    startIcon={<Search className="size-3.5" aria-hidden />}
+                    hasClear
+                    value={search}
+                    onChange={(value) => setSearch(value)}
+                    placeholder="Search all skills…"
+                    className="w-56"
+                    size="sm"
+                  />
                 </div>
 
                 {canManage && activeCat && !searching && (
@@ -407,21 +396,17 @@ function AddRow({
   };
   return (
     <div className="flex gap-2">
-      <div className="relative flex-1">
-        <Plus
-          className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 size-3.5 text-ink-tertiary"
-          aria-hidden
-        />
-        <Input
-          value={value}
-          placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submit();
-          }}
-          className="h-8 pl-8"
-        />
-      </div>
+      <Input
+        label={placeholder}
+        isLabelHidden
+        startIcon={<Plus className="size-3.5" aria-hidden />}
+        value={value}
+        placeholder={placeholder}
+        onChange={(v) => onChange(v)}
+        onEnter={submit}
+        className="flex-1"
+        size="sm"
+      />
       <Button
         variant="secondary"
         size="sm"
@@ -646,15 +631,17 @@ function InlineEditInput({
 }) {
   return (
     <Input
-      autoFocus
+      label="Name"
+      isLabelHidden
+      hasAutoFocus
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(v) => onChange(v)}
       onBlur={onCommit}
       onKeyDown={(e) => {
         if (e.key === 'Enter') onCommit();
         if (e.key === 'Escape') onCancel();
       }}
-      className="h-8"
+      size="sm"
     />
   );
 }

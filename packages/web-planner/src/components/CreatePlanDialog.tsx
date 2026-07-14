@@ -7,7 +7,6 @@ import {
   DialogTitle,
   DisabledActionTooltip,
   Input,
-  Label,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useState } from 'react';
@@ -69,14 +68,11 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
             One plan = one stream of work, with its own buckets and tasks.
           </p>
           <div className="space-y-1">
-            <Label htmlFor="create-plan-name">Name</Label>
             <Input
-              id="create-plan-name"
+              label="Name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submit();
-              }}
+              onChange={(value) => setName(value)}
+              onEnter={submit}
               placeholder="e.g. Q3 Launch"
             />
           </div>

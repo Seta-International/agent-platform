@@ -2,6 +2,7 @@ import {
   Button,
   Input,
   Label,
+  NumberInput,
   Select,
   SelectContent,
   SelectItem,
@@ -155,6 +156,17 @@ export function InputFormFromSchema({
     }
   }
 
+  function handleNumberChange(leaf: LeafSpec, value: number | null) {
+    setValues((prev) => writePath(prev, leaf.path, value ?? undefined));
+    if (errors[leaf.path.join('.')]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[leaf.path.join('.')];
+        return next;
+      });
+    }
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const next: Errors = {};
@@ -215,13 +227,21 @@ export function InputFormFromSchema({
                   <SelectItem value="true">true</SelectItem>
                 </SelectContent>
               </Select>
+            ) : leaf.type === 'number' || leaf.type === 'integer' ? (
+              <NumberInput
+                label={labelFor(leaf)}
+                isLabelHidden
+                isIntegerOnly={leaf.type === 'integer'}
+                hasClear
+                value={typeof raw === 'number' ? raw : null}
+                onChange={(v) => handleNumberChange(leaf, v)}
+              />
             ) : (
               <Input
-                id={id}
-                aria-label={labelFor(leaf)}
-                type={leaf.type === 'number' || leaf.type === 'integer' ? 'number' : 'text'}
+                label={labelFor(leaf)}
+                isLabelHidden
                 value={rawStr}
-                onChange={(e) => handleChange(leaf, e.target.value)}
+                onChange={(value) => handleChange(leaf, value)}
               />
             )}
             {error ? (

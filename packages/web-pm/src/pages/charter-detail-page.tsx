@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  Label,
   Layout,
   LayoutContent,
   LayoutHeader,
@@ -344,15 +343,14 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
             <DialogTitle>Reject charter</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-1">
-              <Label>Reason *</Label>
-              <Textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Explain the reason for rejection…"
-                className="min-h-[100px] resize-y"
-              />
-            </div>
+            <Textarea
+              label="Reason"
+              isRequired
+              value={reason}
+              onChange={(value) => setReason(value)}
+              placeholder="Explain the reason for rejection…"
+              rows={4}
+            />
             <div className="flex justify-end gap-2">
               <Button
                 variant="secondary"

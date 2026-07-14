@@ -144,24 +144,23 @@ export function ProfileSkillsSection({
   return (
     <Card className="space-y-4 pt-6">
       <div className="relative">
-        <div className="flex items-center gap-2">
-          <Search className="size-4 shrink-0 text-ink-subtle" />
-          <Input
-            placeholder="Search to add a skill…"
-            value={prefix}
-            disabled={saving}
-            className="flex-1"
-            onChange={(e) => setPrefix(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                commitTypedSkill();
-              } else if (e.key === 'Escape') {
-                setPrefix('');
-              }
-            }}
-          />
-        </div>
+        <Input
+          label="Search to add a skill"
+          isLabelHidden
+          startIcon={<Search className="size-3.5" aria-hidden />}
+          placeholder="Search to add a skill…"
+          value={prefix}
+          isDisabled={saving}
+          onChange={(value) => setPrefix(value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitTypedSkill();
+            } else if (e.key === 'Escape') {
+              setPrefix('');
+            }
+          }}
+        />
         {showSuggestions && (
           <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-hairline bg-canvas shadow-md">
             <Command shouldFilter={false}>

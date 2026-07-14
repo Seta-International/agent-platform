@@ -147,11 +147,10 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
 
           <div className="space-y-4">
             <div className="space-y-1">
-              <Label htmlFor="cg-name">Group name</Label>
               <Input
-                id="cg-name"
+                label="Group name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(value) => setName(value)}
                 placeholder="e.g. Customer Success"
               />
             </div>

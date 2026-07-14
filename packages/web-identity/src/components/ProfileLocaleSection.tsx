@@ -3,11 +3,11 @@ import {
   Card,
   CardTitle,
   Combobox,
-  Input,
   Label,
   Layout,
   LayoutContent,
   LayoutHeader,
+  TimeInput,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../api/client.ts';
@@ -106,20 +106,20 @@ export function ProfileLocaleSection({
                 <div className="space-y-2">
                   <Label>Working hours (Mon–Fri)</Label>
                   <div className="flex items-center gap-2">
-                    <Input
-                      type="time"
-                      aria-label="Working hours start"
-                      value={whStart}
-                      onChange={(e) => setWhStart(e.target.value)}
-                      className="w-32"
+                    <TimeInput
+                      label="Working hours start"
+                      isLabelHidden
+                      hourFormat="24h"
+                      value={whStart || undefined}
+                      onChange={(v) => setWhStart(v ?? '')}
                     />
                     <span className="text-ink-muted text-sm">to</span>
-                    <Input
-                      type="time"
-                      aria-label="Working hours end"
-                      value={whEnd}
-                      onChange={(e) => setWhEnd(e.target.value)}
-                      className="w-32"
+                    <TimeInput
+                      label="Working hours end"
+                      isLabelHidden
+                      hourFormat="24h"
+                      value={whEnd || undefined}
+                      onChange={(v) => setWhEnd(v ?? '')}
                     />
                     {(whStart || whEnd) && (
                       <Button
