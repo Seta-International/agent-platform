@@ -155,10 +155,14 @@ describe('Directory page', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<Harness />, { wrapper: wrap(qc) });
 
+    // Scoped to the table: a page-wide text query would also match the same
+    // strings sitting (hidden, but DOM-present) in the "Filter by account
+    // status" Selector's own option list.
     await waitFor(() => {
-      expect(screen.getByText('No account')).toBeInTheDocument();
-      expect(screen.getByText('Active')).toBeInTheDocument();
-      expect(screen.getByText('Suspended')).toBeInTheDocument();
+      const table = screen.getByRole('table');
+      expect(within(table).getByText('No account')).toBeInTheDocument();
+      expect(within(table).getByText('Active')).toBeInTheDocument();
+      expect(within(table).getByText('Suspended')).toBeInTheDocument();
     });
   });
 

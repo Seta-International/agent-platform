@@ -3,11 +3,7 @@ import {
   Badge,
   Combobox,
   cn,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   Sheet,
   SheetContent,
   SheetHeader,
@@ -207,26 +203,22 @@ function ProductsSection({ userId }: { userId: string }) {
                 <span className="block truncate text-caption text-ink-subtle">{source}</span>
               </div>
             </div>
-            <Select
+            <Selector
+              label={`${p.label} access`}
+              isLabelHidden
+              size="sm"
               value={overrideValue}
-              onValueChange={(v) => {
+              onChange={(v) => {
                 if (busy) return;
                 if (v === 'inherit') clearOverride.mutate({ productId: p.id });
                 else setOverride.mutate({ productId: p.id, effect: v as 'grant' | 'revoke' });
               }}
-            >
-              <SelectTrigger
-                aria-label={`${p.label} access`}
-                className="h-8 w-28 flex-none text-body-sm"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="inherit">Auto</SelectItem>
-                <SelectItem value="grant">Grant</SelectItem>
-                <SelectItem value="revoke">Revoke</SelectItem>
-              </SelectContent>
-            </Select>
+              options={[
+                { value: 'inherit', label: 'Auto' },
+                { value: 'grant', label: 'Grant' },
+                { value: 'revoke', label: 'Revoke' },
+              ]}
+            />
           </div>
         );
       })}
