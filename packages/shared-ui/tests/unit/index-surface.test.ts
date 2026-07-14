@@ -13,7 +13,6 @@ const REQUIRED = [
   'Dialog',
   'DropdownMenu',
   'EmptyState',
-  'Form',
   'InboxList',
   'Input',
   'KbdHint',

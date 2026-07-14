@@ -92,7 +92,6 @@ export * from './primitives/command';
 export * from './primitives/context-menu';
 export * from './primitives/dialog';
 export * from './primitives/dropdown-menu';
-export * from './primitives/form';
 export * from './primitives/icon-button';
 export * from './primitives/input';
 export * from './primitives/label';
