@@ -20,11 +20,7 @@ import {
   RichTextDisplay,
   RichTextEditor,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -556,87 +552,71 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="jd-grade">Grade</Label>
-                <Select value={grade} onValueChange={setGrade}>
-                  <SelectTrigger id="jd-grade" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GRADES.map((g) => (
-                      <SelectItem key={g} value={g}>
-                        {g}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Grade</Label>
+                <Selector
+                  label="Grade"
+                  isLabelHidden
+                  options={GRADES.map((g) => ({ value: g, label: g }))}
+                  value={grade}
+                  onChange={setGrade}
+                />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="jd-type">Type</Label>
-                <Select value={kind} onValueChange={(v) => setKind(v as 'new' | 'replacement')}>
-                  <SelectTrigger id="jd-type" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">New</SelectItem>
-                    <SelectItem value="replacement">Replacement</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Type</Label>
+                <Selector
+                  label="Type"
+                  isLabelHidden
+                  options={[
+                    { value: 'new', label: 'New' },
+                    { value: 'replacement', label: 'Replacement' },
+                  ]}
+                  value={kind}
+                  onChange={(v) => setKind(v as 'new' | 'replacement')}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="jd-account">Account</Label>
-                <Select
+                <Label>Account</Label>
+                <Selector
+                  label="Account"
+                  isLabelHidden
+                  options={(accounts ?? []).map((a) => ({ value: a.account_id, label: a.name }))}
                   value={accountId}
-                  onValueChange={(v) => {
+                  onChange={(v) => {
                     setAccountId(v);
                     setProjectId('');
                   }}
-                >
-                  <SelectTrigger id="jd-account" className="w-full">
-                    <SelectValue placeholder="No account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(accounts ?? []).map((a) => (
-                      <SelectItem key={a.account_id} value={a.account_id}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="No account"
+                />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="jd-project">Project</Label>
-                <Select value={projectId} onValueChange={setProjectId} disabled={!accountId}>
-                  <SelectTrigger id="jd-project" className="w-full">
-                    <SelectValue placeholder={accountId ? 'No project' : 'Pick an account first'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(projects ?? []).map((p) => (
-                      <SelectItem key={p.project_id} value={p.project_id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Project</Label>
+                <Selector
+                  label="Project"
+                  isLabelHidden
+                  options={(projects ?? []).map((p) => ({ value: p.project_id, label: p.name }))}
+                  value={projectId}
+                  onChange={setProjectId}
+                  isDisabled={!accountId}
+                  placeholder={accountId ? 'No project' : 'Pick an account first'}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="jd-mode">Interview mode</Label>
-                <Select
+                <Label>Interview mode</Label>
+                <Selector
+                  label="Interview mode"
+                  isLabelHidden
+                  options={[
+                    { value: 'online', label: 'Online (Teams)' },
+                    { value: 'onsite', label: 'Onsite' },
+                    { value: 'either', label: 'Either' },
+                  ]}
                   value={mode}
-                  onValueChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
-                >
-                  <SelectTrigger id="jd-mode" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="online">Online (Teams)</SelectItem>
-                    <SelectItem value="onsite">Onsite</SelectItem>
-                    <SelectItem value="either">Either</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">

@@ -5,11 +5,7 @@ import {
   Input,
   PageChrome,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -302,56 +298,50 @@ export function RequisitionsPage() {
               cluster from the search box and the view toggle, so proximity signals the
               relationship: search finds, filters narrow, toggle changes layout. */}
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Status</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="on_hold">On hold</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={accountFilter} onValueChange={onAccountFilterChange}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Account</SelectItem>
-                {accountOptions.map((a) => (
-                  <SelectItem key={a} value={a}>
-                    {a}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
+            <Selector
+              label="Filter by status"
+              isLabelHidden
+              options={[
+                { value: 'all', label: 'Status' },
+                { value: 'open', label: 'Open' },
+                { value: 'on_hold', label: 'On hold' },
+              ]}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
+            <Selector
+              label="Filter by account"
+              isLabelHidden
+              options={[
+                { value: 'all', label: 'Account' },
+                ...accountOptions.map((a) => ({ value: a, label: a })),
+              ]}
+              value={accountFilter}
+              onChange={onAccountFilterChange}
+            />
+            <Selector
+              label="Filter by project"
+              isLabelHidden
+              options={[
+                { value: 'all', label: 'Project' },
+                ...projectOptions.map((p) => ({ value: p, label: p })),
+              ]}
               value={projectFilter}
-              onValueChange={setProjectFilter}
-              disabled={accountFilter === 'all'}
-            >
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Project" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Project</SelectItem>
-                {projectOptions.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={kindFilter} onValueChange={setKindFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">More filters</SelectItem>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="replacement">Replacement</SelectItem>
-              </SelectContent>
-            </Select>
+              onChange={setProjectFilter}
+              isDisabled={accountFilter === 'all'}
+              placeholder="Project"
+            />
+            <Selector
+              label="Filter by type"
+              isLabelHidden
+              options={[
+                { value: 'all', label: 'More filters' },
+                { value: 'new', label: 'New' },
+                { value: 'replacement', label: 'Replacement' },
+              ]}
+              value={kindFilter}
+              onChange={setKindFilter}
+            />
           </div>
           <div className="ml-auto">
             <SegmentedControl

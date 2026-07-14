@@ -6,11 +6,7 @@ import {
   DialogTitle,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -83,7 +79,7 @@ export function CancelRequisitionDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label htmlFor="cancel-requisition-reason">Reason</Label>
+            <Label>Reason</Label>
             {!reasonsLoading && active.length === 0 ? (
               <div className="space-y-2">
                 <p className="text-body-sm text-ink-muted">
@@ -107,18 +103,14 @@ export function CancelRequisitionDialog({
                 </div>
               </div>
             ) : (
-              <Select value={effectiveReason} onValueChange={(v) => setReasonId(v)}>
-                <SelectTrigger id="cancel-requisition-reason" className="w-full">
-                  <SelectValue placeholder="Select a reason" />
-                </SelectTrigger>
-                <SelectContent>
-                  {active.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Selector
+                label="Reason"
+                isLabelHidden
+                options={active.map((r) => ({ value: r.id, label: r.label }))}
+                value={effectiveReason}
+                onChange={(v) => setReasonId(v)}
+                placeholder="Select a reason"
+              />
             )}
           </div>
           <p className="text-body-sm text-ink-muted">

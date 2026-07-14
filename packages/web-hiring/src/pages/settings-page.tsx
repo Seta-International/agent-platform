@@ -16,11 +16,7 @@ import {
   LayoutHeader,
   PageChrome,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   Textarea,
   toast,
 } from '@seta/shared-ui';
@@ -126,16 +122,17 @@ function NewTemplateDialog() {
           </div>
           <div className="space-y-1">
             <Label>Kind</Label>
-            <Select value={kind} onValueChange={(v) => setKind(v as 'role' | 'intro' | 'closing')}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="role">role</SelectItem>
-                <SelectItem value="intro">intro</SelectItem>
-                <SelectItem value="closing">closing</SelectItem>
-              </SelectContent>
-            </Select>
+            <Selector
+              label="Kind"
+              isLabelHidden
+              options={[
+                { value: 'role', label: 'role' },
+                { value: 'intro', label: 'intro' },
+                { value: 'closing', label: 'closing' },
+              ]}
+              value={kind}
+              onChange={(v) => setKind(v as 'role' | 'intro' | 'closing')}
+            />
           </div>
           <div className="flex items-center justify-between pt-2">
             <div className="text-caption font-semibold uppercase text-ink-muted">Sections</div>
@@ -300,18 +297,13 @@ function NewRejectionReasonDialog() {
           </div>
           <div className="space-y-1">
             <Label>Category</Label>
-            <Select value={category} onValueChange={(v) => setCategory(v as RejectionCategory)}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REJECTION_CATEGORIES.map((c) => (
-                  <SelectItem key={c.value} value={c.value}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Selector
+              label="Category"
+              isLabelHidden
+              options={REJECTION_CATEGORIES}
+              value={category}
+              onChange={(v) => setCategory(v as RejectionCategory)}
+            />
           </div>
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
