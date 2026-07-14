@@ -1,12 +1,12 @@
 # Agent system
 
-Seta's agent system is an **agent-of-agents orchestration**: every chat turn is classified by a tiered intent router (`apps/server/src/chat-routing/`) and dispatched to one of three orchestrators — **staffing** (assignment/recommendation; sub-agents taskAnalyzer / skillMatcher / avaiChecker / recommender), **planner Q&A** (read-only task/team questions; sub-agents taskQuery / taskDetail / teamInfo / generalAnswer), or the **weekly planner** (organizes the caller's tasks into a day-by-day plan; sub-agents taskCollector / scheduleBuilder / insightGenerator). Each orchestrator delegates to its sub-agents through tools and stops at the right terminal for the request. Agent-driven mutations are gated by an explicit human-in-the-loop approval card; every workflow step is audited and replayable through the same event bus as the rest of the platform.
+Seta's agent system is an **agent-of-agents orchestration**: every chat turn is classified by a tiered intent router (`apps/server/src/chat-routing/`) and dispatched to one of three orchestrators — **assignment** (recommend-and-assign; sub-agents taskAnalyzer / skillMatcher / avaiChecker / recommender), **planner Q&A** (read-only task/team questions; sub-agents taskQuery / taskDetail / teamInfo / generalAnswer), or the **weekly planner** (organizes the caller's tasks into a day-by-day plan; sub-agents taskCollector / scheduleBuilder / insightGenerator). Each orchestrator delegates to its sub-agents through tools and stops at the right terminal for the request. Agent-driven mutations are gated by an explicit human-in-the-loop approval card; every workflow step is audited and replayable through the same event bus as the rest of the platform.
 
 This document explains the design by tracing one realistic workload — planner assignment assistance for a product manager — from user pain point through to implementation. The planner is used as the running example because it exercises every layer the system offers: a specialist with read and HITL-gated write tools, a deterministic multi-step workflow (`assignBySkill`), and cross-module read tools owned by `identity`.
 
 **Related documents.** [`architecture.md`](../platform/architecture.md) describes the surrounding platform shape (modules, event bus, identity). [`tech-stack.md`](../platform/tech-stack.md) records the rationale for Mastra, AI SDK v6, and assistant-ui. [`creating-modules.md`](../guides/creating-modules.md) is the module-author guide.
 
-> **Scope note.** Every layer described below — the staffing orchestrator and its sub-agents, the registered specialists backing the tool catalogue, the `assignBySkill` and `dedupOnCreate` workflows, and the cross-module read tools — is wired up in the codebase today. Code locations are listed in §21.
+> **Scope note.** Every layer described below — the assignment orchestrator and its sub-agents, the registered specialists backing the tool catalogue, the `assignBySkill` and `dedupOnCreate` workflows, and the cross-module read tools — is wired up in the codebase today. Code locations are listed in §21.
 
 ---
 
@@ -28,7 +28,7 @@ This document explains the design by tracing one realistic workload — planner 
 flowchart LR
     User[User in assistant-ui]
     Chat[POST /api/agent/v1/chat]
-    Orch[Staffing orchestrator]
+    Orch[Assignment orchestrator]
     TA[taskAnalyzer]
     SM[skillMatcher]
     AC[avaiChecker — deterministic]
@@ -61,12 +61,12 @@ flowchart LR
 |---|---|
 | User-facing chat | Message stream, orchestration step cards, approval cards rendered by assistant-ui |
 | Agent HTTP | A single route bridges the AI SDK v6 stream protocol to the inline orchestration runner |
-| Intent router | Regex + LLM-fallback classifier picks `staffing` \| `planner_qna` \| `weekly_planner` per turn (`apps/server/src/chat-routing/`) |
-| Orchestrators | Three agents-of-agents (`staffing.orchestrator`, `planner.qna.orchestrator`, `planner.weeklyPlan.orchestrator`), each routing across its own sub-agent tools |
+| Intent router | Regex + LLM-fallback classifier picks `assignment` \| `planner_qna` \| `weekly_planner` per turn (`apps/server/src/chat-routing/`) |
+| Orchestrators | Three agents-of-agents (`planner.assignment-orchestrator`, `planner.qna.orchestrator`, `planner.weeklyPlan.orchestrator`), each routing across its own sub-agent tools |
 | Sub-agents | `taskAnalyzer` / `skillMatcher` (LLM-driven) and `avaiChecker` / `recommender` (deterministic), invoked as orchestrator tools |
 | Tools | Thin adapters over module domain functions (ports bound in apps/server), owned by the source module |
 | Workflows | Deterministic multi-step flows on the REST surface; emit lifecycle events into `agent.workflow_runs` |
-| HITL gate | The orchestrator's deterministic post-step records a `workflow_approvals` card; the user decides via the decide endpoint |
+| HITL gate | The assignment orchestrator's `proposeAssignment` composite suspends natively with an approval card; the user approves via `POST /chat/resume`, which records the decision (persisted to `agent.workflow_approvals`) and resumes the turn |
 | Modules | Perform the actual reads and mutations through their public surfaces |
 | Memory | Threads, messages, traces + two typed working memories persisted to the `agent` Postgres schema |
 | Audit | Workflow lifecycle, approvals, and domain events recorded across `core.events`, `agent.workflow_runs`, and `agent.workflow_approvals` |
@@ -157,9 +157,11 @@ The orchestrator shape exists for two reasons:
 
 ## 6. Request flow
 
-Every chat turn runs the inline staffing orchestration. The orchestrator owns
-the people-vs-task routing decision and the stop conditions; sub-agents are
-invoked through its tools. The workflow registry exists for the REST surface
+Every chat turn is classified by the intent router and dispatched to one of the
+three orchestrators; the assignment orchestrator (traced below) owns the
+people-vs-task routing decision and the stop conditions; sub-agents are
+invoked through its tools, and a full recommend-and-assign runs through the
+`proposeAssignment` composite tool. The workflow registry exists for the REST surface
 (`/workflows/runs/:id/start`) and the workflow inbox; chat never invokes a
 workflow directly.
 
@@ -167,7 +169,7 @@ workflow directly.
 sequenceDiagram
     participant User
     participant Route as POST /api/agent/v1/chat
-    participant Orch as staffing.orchestrator
+    participant Orch as planner.assignment-orchestrator
     participant TA as callTaskAnalyzer
     participant SM as callSkillMatcher
     participant AC as callAvaiChecker
@@ -175,16 +177,16 @@ sequenceDiagram
     participant DB as workflow_approvals
 
     User->>Route: Who should take TASK-101
-    Route->>Orch: runInline({ userText, taskId }, RunCtx)
+    Route->>Orch: runStream({ userText, taskId }, RunCtx)
     Orch->>TA: resolve_task_skills(taskRef)
     TA-->>Orch: skills + resolvedTaskId
     Orch->>SM: skills → ranked candidates
     Orch->>AC: candidates → availability (deterministic)
     Orch->>RC: candidates + availability → recommendations
-    Orch->>DB: deterministic post-step — record approval card
+    Orch->>DB: proposeAssignment suspends (native) — approval card + workflow_approvals row
     Orch-->>User: recommendations + pending approval card
-    User->>DB: POST /workflows/approvals/:id/decide (approve)
-    DB-->>User: assignment executed via chatHitlDecider
+    User->>Route: POST /chat/resume (approve)
+    Route-->>User: turn resumes; assignTask runs; assignment executed
 ```
 
 ## 7. Specialist composition
@@ -200,7 +202,7 @@ A specialist is a Mastra `Agent` built dynamically at boot from a `SpecialistSpe
 | Memory store | `@mastra/pg` `PostgresStore({ schemaName: 'agent' })`, wrapped in `Memory` with sliding window, semantic recall, and working memory | Shared store, per-user resource scope |
 | Model | `resolveModel('auto', { tierHint: 'fast' })` at boot; an explicit chat-picker choice overrides per turn via `RunCtx.model` | Per turn |
 
-Specialists registered via `AgentRegistry.registerSpecialist(...)` back the tool catalogue (`GET /api/agent/v1/tools`) and the REST workflow surface; the chat path itself is the staffing orchestration.
+Specialists registered via `AgentRegistry.registerSpecialist(...)` back the tool catalogue (`GET /api/agent/v1/tools`) and the REST workflow surface; the chat path itself is the intent-routed orchestration (assignment / Q&A / weekly).
 
 ## 8. Tool catalogue and RBAC binding
 
@@ -224,15 +226,15 @@ Each agent tool calls `registerToolPermission(tool, slug)` (done inside `defineA
 
 HITL has two shapes today, both audited and both persisted to `agent.workflow_approvals`:
 
-**Chat approvals (orchestrator post-step).** After a successful recommend flow, the orchestrator's deterministic post-step records an approval card (`makeAssignApprovalRecorder`, toolId `planner_proposeAssignment`) — no LLM decides whether the card exists. The web renders the card inline in the thread (`GET /workflows/threads/:threadId/approvals`) and posts the user's decision to `POST /api/agent/v1/workflows/approvals/:approvalId/decide`; the matching `chatHitlDecider` (wired in apps/server) executes the assignment through the planner domain function.
+**Chat approvals (native suspend/resume).** For a recommend-and-assign turn the assignment orchestrator calls the `proposeAssignment` composite tool (toolId `planner_proposeAssignment`), which ranks candidates as code and suspends via Mastra-native `ctx.agent.suspend(card)` — no LLM decides whether the card exists. The web renders the card inline in the thread and posts the user's decision to `POST /api/agent/v1/chat/resume`, which records the decision (`recordApprovalDecision`, persisted to `agent.workflow_approvals`) and re-enters the suspended composite via `resumeOrchestration` (`assignmentOrchestration.runResume`), executing the assignment as it streams the continuation.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Proposed: recommend flow succeeds
-    Proposed --> AwaitingApproval: post-step records workflow_approvals row
+    [*] --> Proposed: proposeAssignment ranks candidates
+    Proposed --> AwaitingApproval: native suspend — approval card + workflow_approvals row
     AwaitingApproval --> Executed: user approves (or modifies the assignee)
     AwaitingApproval --> Rejected: user rejects
-    Executed --> [*]: chatHitlDecider runs assignTask; decided card persists
+    Executed --> [*]: /chat/resume re-enters composite; assignTask runs; decided card persists
     Rejected --> [*]: decided card persists; no mutation
 ```
 
@@ -396,17 +398,26 @@ The `planner_suggestAssignee` tool uses the richer `suspendSchema` / `resumeSche
 ## 13. Chat runtime wiring
 
 ```ts
-// apps/server/src/index.ts (shape only) — the composition root binds the
-// staffing runtime to the engine; packages/agent never imports staffing.
-const staffingOrchestration = buildStaffingOrchestrationRuntime({
-  repo: new StaffingRunStateRepository(),
+// apps/server/src/index.ts (shape only) — the composition root builds all three
+// orchestrators (from @seta/planner/orchestration) and the intent router;
+// packages/agent stays import-isolated and receives one chatOrchestration fn.
+const assignmentOrchestration = buildAssignmentOrchestrationRuntime({
   resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
-  ports: { taskReader, taskSearch, skillSearch, availability },
+  ports: { taskReader, taskSearch, skillSearch, availability, /* … */ },
+});
+const plannerQnaOrchestration = buildPlannerQnaRuntime({ /* … */ });
+const weeklyPlanOrchestration = buildWeeklyPlanRuntime({ /* … */ });
+const chatRouter = makeChatRouter({
+  classify: makeIntentClassifier({ resolveModel: /* … */ }),
+  assignment: assignmentOrchestration.runStream,
+  plannerQna: plannerQnaOrchestration.runStream,
+  weeklyPlanner: weeklyPlanOrchestration.runStream,
 });
 const agent = registerAgent({
   pool, databaseUrl, reg,
-  chatHitlDeciders: { planner_proposeAssignment: plannerProposeAssignmentChatHitlDecider },
-  chatOrchestration: staffingOrchestration.runInline,
+  chatOrchestration: chatRouter,
+  // Native-suspend HITL: POST /chat/resume re-enters the suspended composite.
+  resumeOrchestration: assignmentOrchestration.runResume,
 });
 ```
 
@@ -450,7 +461,7 @@ At boot, the platform wires Mastra's pubsub channels `workflows` and `workflows-
 - Records a row in `agent.workflow_run_events_seen` keyed on `(runId, eventId)` for idempotency.
 - Creates a row in `agent.workflow_approvals` when a `hitlSteps` step suspends.
 
-The chat path records its approval card through the orchestrator's deterministic post-step (`workflow_approvals` with toolId `planner_proposeAssignment`) and decides through the same workflow HITL endpoints as programmatic runs (`/workflows/approvals/:id/decide`, `/workflows/runs/:id/rerun`, `/workflows/runs/:id/replay-from-step`, `/workflows/runs/:id/cancel`). Both produce identical audit trails because the lifecycle hook is on the Mastra publish path, not the API path.
+The chat path suspends natively with its approval card (`workflow_approvals` with toolId `planner_proposeAssignment`) and resumes via `POST /chat/resume`; programmatic workflow runs decide through the workflow HITL endpoints (`/workflows/approvals/:id/decide`, `/workflows/runs/:id/rerun`, `/workflows/runs/:id/replay-from-step`, `/workflows/runs/:id/cancel`). Both persist their decisions to `agent.workflow_approvals` for a uniform audit trail.
 
 The deterministic `assignBySkill` ranking is still reachable from the workflow
 inbox (the "Suggest" button on a task card kicks off a workflow run via REST).
@@ -514,7 +525,8 @@ The route surface (all under `/api/agent/v1`):
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `chat` | Stream a turn through the inline staffing orchestration (UI message stream; per-step trust-trace data parts) |
+| POST | `chat` | Classify the turn and stream it through the matching orchestrator (UI message stream; per-step trust-trace data parts) |
+| POST | `chat/resume` | Resume a natively-suspended HITL turn — records the decision, then re-enters the suspended composite and streams the continuation |
 | GET | `threads` | List the user's threads |
 | GET / PATCH / DELETE | `threads/:id` | Read, rename, or delete a thread (translates Mastra `tool-invocation` parts to `tool-<name>` parts) |
 | GET | `tools` | Deduped catalogue of every specialist's tools |
@@ -538,23 +550,24 @@ The full path from user approval to assignee notification:
 ```mermaid
 sequenceDiagram
     participant UI as assistant-ui (chat-embedded HITL card)
-    participant API as POST /workflows/approvals/:id/decide
-    participant Dec as chatHitlDecider (planner_proposeAssignment)
+    participant API as POST /chat/resume
+    participant Orch as assignment orchestrator (resumed composite)
     participant Dom as planner.assignTask (domain)
     participant DB as Postgres
     participant Disp as Dispatcher
     participant Sub as notifications subscriber
     participant Devon as Assignee SSE
 
-    UI->>API: decide { decision: approve | modify, overrideUserIds? }
-    API->>Dec: execute chat HITL decision
-    Dec->>Dom: assignTask(taskId, userId)
+    UI->>API: resume { decision: approve | modify, overrideUserIds? }
+    API->>API: recordApprovalDecision (workflow_approvals)
+    API->>Orch: resumeOrchestration re-enters suspended composite
+    Orch->>Dom: assignTask(taskId, userId)
     Dom->>DB: BEGIN UPDATE planner.tasks INSERT core.events COMMIT
     DB-->>Disp: pg_notify events
     Disp->>Sub: planner.task.assigned
     Sub->>DB: INSERT notifications.notice
     Sub->>Devon: SSE new notification
-    Dec-->>API: decided row
+    Orch-->>API: continuation streamed
     API-->>UI: decided card re-rendered (persistent)
 ```
 
@@ -570,7 +583,7 @@ The approval decision is a single domain transaction; the SSE notification reach
 |---|---|---|
 | LLM provider unavailable | Provider error returned to the tool layer; AI SDK v6 retries on transient errors | Model registry falls back via `resolveModel('auto', …)` to another model in the same tier |
 | Tool implementation raises an unexpected exception | Mastra captures the exception and streams a tool error to the agent | Agent receives the error in context and re-plans or surfaces it to the user |
-| User rejects approval | AI SDK v6 streams the rejection as a tool result; workflow path writes to `agent.workflow_approvals` | Agent receives the rejection and suggests alternatives |
+| User rejects approval | `/chat/resume` records the rejection to `agent.workflow_approvals` and resumes the composite on the reject branch | Agent surfaces alternatives; no mutation occurs |
 | Dispatcher lag increases | `/health/ready` reports backlog | Scale `apps/worker`; investigate slow subscribers |
 | Long-running tool blocks the specialist | Mastra timeout | Tool returns timeout; agent re-plans |
 | Workflow run stuck in suspended state | `agent.workflow_approvals` row aging | `POST /workflows/runs/:id/cancel` or `replay-from-step` once unblocked |
@@ -644,7 +657,7 @@ flowchart TD
 | Request context + session types | `sdks/agent/src/request-context.ts`, `sdks/agent/src/session.ts` |
 | Mastra runtime + lifecycle hook wiring | `packages/agent/src/backend/runtime.ts` |
 | Working-memory factories (GuardedMemory, entities) | `packages/agent/src/backend/memory.ts` |
-| Staffing orchestration runtime (orchestrator + sub-agents + ports) | `packages/staffing/src/backend/orchestration/` |
+| Assignment orchestration runtime (orchestrator + sub-agents + ports) | `packages/planner/src/backend/orchestration/assignment/` |
 | Chat intent router (classifier + dispatch) | `apps/server/src/chat-routing/` |
 | Planner QnA orchestration runtime | `packages/planner/src/backend/orchestration/` |
 | Weekly planner orchestration runtime (collector / builder / insights + pure scheduling) | `packages/planner/src/backend/orchestration/weekly-plan/` |

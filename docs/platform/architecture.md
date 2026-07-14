@@ -19,7 +19,7 @@ flowchart LR
       Worker[apps worker — dispatcher and job pool]
     end
 
-    Modules[Feature modules in-process — planner, identity, knowledge, notifications, staffing, integrations]
+    Modules[Feature modules in-process — planner, identity, people, pm, hiring, knowledge, notifications, integrations]
 
     subgraph PG[Postgres — one database, many schemas]
       ModSchemas[(Module schemas — planner, identity, ...)]
@@ -137,19 +137,24 @@ apps/
 packages/
 ├── core/             # event bus, outbox, registry, runtime composition
 ├── identity/         # users, sessions, SSO, role grants
-├── planner/          # plans, buckets, tasks, M365 sync
+├── planner/          # plans, buckets, tasks, M365 sync + chat orchestrators
+├── people/           # workers, skills, org units, allocations
+├── pm/               # accounts, projects, requests, resource allocation
+├── hiring/           # requisitions, openings, candidates, pipeline
 ├── integrations/     # M365 boot, mail-transport config, MCP clients
 ├── knowledge/        # tenant knowledge corpus, RAG pipeline
 ├── notifications/    # in-app + email prefs, SSE hub
-├── agent/          # engine-only: Mastra runtime + agent factory
-├── staffing/         # orchestrator: cross-module workflows
+├── agent/            # engine-only: Mastra runtime + agent factory
 ├── web-planner/        # launcher app: planner UI + client + query keys
+├── web-people/         # launcher app: people directory + org chart
+├── web-pm/             # launcher app: project monitoring
+├── web-hiring/         # launcher app: hiring
 ├── web-agent/          # launcher app (Agent Studio) + shell-rendered "Ask Seta" panel
 ├── web-admin/          # launcher app: tenant-admin console
 ├── web-identity/       # shell infra: SessionProvider, login/profile, user menu (no tile)
 ├── web-notifications/  # shell infra: top-bar popover, notification stream (no tile)
-└── shared-*/         # infra: config, db, rbac, types, ui, crypto, mailer,
-                      #        storage, embeddings, retrieval, testing
+└── shared-*/         # infra: config, db, rbac, types, ui, crypto, mailer, storage,
+                      #        embeddings, retrieval, orchestration, testing
 
 sdks/
 ├── agent/   # @seta/agent-sdk — agent-tool contract (pure types)
@@ -213,7 +218,7 @@ Path layers — enforced by dep-cruiser, no maintained allowlist:
 | **module** | `packages/<name>/` | Cross-module imports go through the public surface only |
 | **app** | `apps/*`, `packages/web-*` | Leaf frontend apps. `no-cross-web-app-imports` keeps `web-planner` / `web-agent` / `web-admin` from importing one another (the `web-identity`, `web-notifications`, and `web-agent` panel are sanctioned cross-app infra); `web-no-backend-imports` blocks any `web-*` / `apps/web` import of a module's `backend` or `db` paths |
 
-On top of the path layer, each module declares a `"setaTier"` in `package.json` — informational metadata naming its role: **foundation** (`core`, `identity`) depended on by every module; **feature** (`planner`, `integrations`, `knowledge`, `notifications`) domain-owning modules; **orchestrator** (`staffing`) composing multiple feature modules; **engine** (`agent`) composing tools and specs into a Mastra runtime.
+On top of the path layer, each module declares a `"setaTier"` in `package.json` — informational metadata naming its role: **foundation** (`core`, `identity`) depended on by every module; **feature** (`planner`, `people`, `pm`, `hiring`, `integrations`, `knowledge`, `notifications`) domain-owning modules; **engine** (`agent`) composing tools and specs into a Mastra runtime. The chat orchestrators (assignment / planner-Q&A / weekly-planner) live in `planner` on the shared orchestration kernel (`@seta/shared-orchestration`); the former standalone `staffing` orchestrator module was removed.
 
 ---
 
@@ -435,13 +440,13 @@ sequenceDiagram
 
 `@seta/agent` is engine-only. It composes module-owned agent tools and specs into Mastra agents via the contribution registry; it does **not** import any feature or orchestrator module (enforced by dep-cruiser rule `agent-no-feature-imports`). The agent registry, tool + RBAC contracts, workflow surface, HITL contract, memory model, and code locations are in [`agent-architecture.md`](../agent/architecture.md).
 
-### Chat runtime — staffing orchestration
+### Chat runtime — intent router + orchestrators
 
-Every chat turn (`POST /api/agent/v1/chat`) streams through the inline staffing orchestration — an agent-of-agents in `packages/staffing/` (orchestrator delegating to taskAnalyzer / skillMatcher / avaiChecker / recommender through its tools). The composition root (`apps/server`) is the only layer that binds the staffing runtime to the engine: it injects `chatOrchestration: staffingOrchestration.runInline` into `registerAgent`. There is no runtime selector — the former three-tier supervisor tree was removed.
+Every chat turn (`POST /api/agent/v1/chat`) is classified by an intent router (`apps/server/src/chat-routing/`) and dispatched to one of three orchestrators — **assignment** (recommend-and-assign; sub-agents taskAnalyzer / skillMatcher / avaiChecker / recommender), **planner Q&A** (read-only task/team questions), or the **weekly planner** (organizes the caller's tasks into a day-by-day plan). Each is an agent-of-agents built in `@seta/planner/orchestration` on the shared orchestration kernel (`@seta/shared-orchestration`). The composition root (`apps/server`) is the only layer that can see all three runtimes: it builds them, wraps them in `makeChatRouter` (classify → dispatch), and injects the result as `chatOrchestration` into `registerAgent`. The former standalone `staffing` orchestrator module was absorbed into `planner`.
 
 An explicit pick in the chat model selector resolves through the engine's model registry (`packages/agent/src/backend/model-registry.ts`) and rides `RunCtx.model` into the orchestrator and every sub-agent LLM call for that turn. Auto (or no pick) uses the runtime's boot-time default (`resolveModel('auto', { tierHint: 'fast' })`). The catalog comes from `AGENT_MODELS`, falling back to `AGENT_MODEL`, then a built-in catalog.
 
-Chat HITL is the orchestrator's deterministic post-step: after a successful recommend flow it records a `workflow_approvals` card (`makeAssignApprovalRecorder`, toolId `planner_proposeAssignment`); the web renders it via `GET /workflows/threads/:threadId/approvals` and decides via `POST /workflows/approvals/:id/decide` (`chatHitlDeciders` wired in apps/server).
+Chat HITL uses Mastra-native suspend/resume. The assignment orchestrator's `proposeAssignment` composite calls `ctx.agent.suspend(candidate card)`; the web renders the card inline and, on approval, resumes the suspended turn via `POST /api/agent/v1/chat/resume` (`resumeOrchestration: assignmentOrchestration.runResume`, bound in `apps/server`), which streams the continuation and runs `assignTask`. The separate `POST /workflows/approvals/:id/decide` route only records decisions for workflow-step approvals — it does not resume chat.
 
 ### Orchestration working memory
 
@@ -465,7 +470,7 @@ The chat runtime wires two working-memory mechanisms (factories in `packages/age
   `updateWorkingMemory` tool (the `GuardedMemory` LLM-write guard) performs
   the writes.
 
-Both mechanisms are best-effort: memory failures never break a staffing
+Both mechanisms are best-effort: memory failures never break a chat
 answer, and all of it no-ops on the queued runner (no chat thread).
 
 ---
@@ -605,7 +610,7 @@ The architecture imposes the following constraints. Each is a deliberate exchang
 | **Is Prisma supported as an alternative to Drizzle?** | No. Drizzle's `pgSchema('<name>')` plus `schemaFilter` directives are central to module boundary enforcement; Prisma does not model schema-scoped clients at parity. |
 | **Is MongoDB supported?** | No. The system depends on `LISTEN/NOTIFY`, deferred-constraint triggers, table partitioning, and pgvector — all Postgres-specific capabilities. |
 | **Can the AI SDK v6 substitute for Mastra?** | No. AI SDK v6 provides the LLM client and tool-call protocol; Mastra provides agent composition, memory, and workflow primitives. The two are complementary. |
-| **How are agents added independently of modules?** | Agents are not module-independent. Tools are owned by modules; cross-module agents are composed in orchestrator-tier packages (for example, `staffing`). |
+| **How are agents added independently of modules?** | Agents are not module-independent. Tools are owned by modules; cross-module chat orchestrators are composed in the `planner` module (assignment / Q&A / weekly-planner) on the shared orchestration kernel (`@seta/shared-orchestration`). |
 | **What is the scale ceiling?** | The targets in §3 describe the validated envelope. Above this, the trade-offs in §17 begin to apply; mitigation involves the `PLATFORM_MODULES` split, read replicas, and isolating the highest-load module onto a dedicated database. |
 | **Is the agent system documented separately?** | Yes — see [`agent-architecture.md`](../agent/architecture.md). |
 
@@ -621,7 +626,8 @@ The fastest path to understanding any subsystem:
 | `buildRuntime`, `startBoth` | `packages/core/src/runtime/bootstrap.ts` |
 | Outbox + dispatcher | `packages/core/src/events/*` |
 | Reference feature module | `packages/planner/` |
-| Reference orchestrator | `packages/staffing/` |
+| Chat orchestrators (assignment / Q&A / weekly) | `packages/planner/src/backend/orchestration/` |
+| Orchestration kernel (runners, RunCtx) | `packages/shared-orchestration/src/` |
 | Composition in practice | `apps/server/src/index.ts` + `apps/worker/src/index.ts` |
 | Agent-tool contract | `sdks/agent/src/index.ts` |
 | Frontend app-manifest contract | `sdks/module/src/index.ts` |
