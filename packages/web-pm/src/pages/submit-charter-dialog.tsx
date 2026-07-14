@@ -129,10 +129,8 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Account *</Label>
             <Selector
-              label="Account"
-              isLabelHidden
+              label="Account *"
               options={(accounts ?? []).map((a) => ({ value: a.account_id, label: a.name }))}
               value={form.account_id || undefined}
               onChange={(v) => set({ account_id: v })}
@@ -161,10 +159,8 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Methodology</Label>
               <Selector
                 label="Methodology"
-                isLabelHidden
                 options={[
                   { value: NONE, label: '—' },
                   { value: 'scrum', label: 'Scrum' },
@@ -179,10 +175,8 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
               />
             </div>
             <div className="space-y-1">
-              <Label>Pricing</Label>
               <Selector
                 label="Pricing"
-                isLabelHidden
                 options={[
                   { value: NONE, label: '—' },
                   { value: 'fixed_price', label: 'Fixed-price' },

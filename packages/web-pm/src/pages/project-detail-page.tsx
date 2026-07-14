@@ -223,10 +223,8 @@ export function ProjectDetailPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label>Phase</Label>
                       <Selector
                         label="Phase"
-                        isLabelHidden
                         options={PHASES.map((ph) => ({ value: ph, label: ph }))}
                         value={patchVal('phase', p.phase) ?? undefined}
                         onChange={(v) => setPatch((s) => ({ ...s, phase: v }))}
@@ -234,10 +232,8 @@ export function ProjectDetailPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label>Status</Label>
                       <Selector
                         label="Status"
-                        isLabelHidden
                         options={STATUSES.map((st) => ({ value: st, label: st }))}
                         value={patchVal('status', p.status) ?? undefined}
                         onChange={(v) =>
@@ -309,10 +305,8 @@ export function ProjectDetailPage() {
                 <LayoutContent>
                   <div className="flex items-end gap-2">
                     <div className="space-y-1 flex-1">
-                      <Label>Board</Label>
                       <Selector
                         label="Board"
-                        isLabelHidden
                         options={(groups ?? []).map((g) => ({ value: g.id, label: g.name }))}
                         value={selectedGroupId || undefined}
                         onChange={setSelectedGroupId}

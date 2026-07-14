@@ -10,7 +10,6 @@ import {
   DialogTitle,
   DialogTrigger,
   Input,
-  Label,
   Layout,
   LayoutContent,
   LayoutHeader,
@@ -121,10 +120,8 @@ function NewTemplateDialog() {
             />
           </div>
           <div className="space-y-1">
-            <Label>Kind</Label>
             <Selector
               label="Kind"
-              isLabelHidden
               options={[
                 { value: 'role', label: 'role' },
                 { value: 'intro', label: 'intro' },
@@ -296,10 +293,8 @@ function NewRejectionReasonDialog() {
             />
           </div>
           <div className="space-y-1">
-            <Label>Category</Label>
             <Selector
               label="Category"
-              isLabelHidden
               options={REJECTION_CATEGORIES}
               value={category}
               onChange={(v) => setCategory(v as RejectionCategory)}

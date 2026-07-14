@@ -377,10 +377,8 @@ export function WorkerProfilePage() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label>Gender</Label>
                         <Selector
                           label="Gender"
-                          isLabelHidden
                           options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: g.label }))}
                           value={draft.gender || undefined}
                           onChange={(v) => setDraft((d) => ({ ...d, gender: v }))}

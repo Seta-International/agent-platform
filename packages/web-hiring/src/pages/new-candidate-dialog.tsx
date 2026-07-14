@@ -272,10 +272,8 @@ export function NewCandidateDialog() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Gender</Label>
                   <Selector
                     label="Gender"
-                    isLabelHidden
                     options={[
                       { value: NONE, label: '—' },
                       { value: 'male', label: 'Male' },
@@ -287,10 +285,8 @@ export function NewCandidateDialog() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Seniority</Label>
                   <Selector
                     label="Seniority"
-                    isLabelHidden
                     options={[
                       { value: NONE, label: '—' },
                       ...seniorityOptions.map((s) => ({ value: s, label: s })),
@@ -301,10 +297,8 @@ export function NewCandidateDialog() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Source</Label>
                   <Selector
                     label="Source"
-                    isLabelHidden
                     options={[
                       { value: NONE, label: '—' },
                       ...sourceOptions.map((s) => ({ value: s, label: s })),
@@ -316,10 +310,8 @@ export function NewCandidateDialog() {
                 </div>
               </div>
               <div className="space-y-1">
-                <Label>Position applied *</Label>
                 <Selector
                   label="Position applied *"
-                  isLabelHidden
                   options={openReqs.map((r) => ({ value: r.id, label: r.title }))}
                   value={effectiveReq}
                   onChange={(v) => setReqId(v)}

@@ -251,10 +251,8 @@ function SplitAllocationDialog({
               onChange={(v) => setContinuationPct(String(v))}
             />
             <div className="space-y-1.5">
-              <Label>Continuation type</Label>
               <Selector
                 label="Continuation type"
-                isLabelHidden
                 options={[
                   { value: 'billable', label: 'Billable' },
                   { value: 'internal', label: 'Internal' },

@@ -8,7 +8,6 @@ import {
   DialogTrigger,
   DisabledActionTooltip,
   Input,
-  Label,
   NumberInput,
   RichTextEditor,
   SegmentedControl,
@@ -189,20 +188,16 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Grade</Label>
                   <Selector
                     label="Grade"
-                    isLabelHidden
                     options={GRADES.map((g) => ({ value: g, label: g }))}
                     value={grade}
                     onChange={setGrade}
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Type</Label>
                   <Selector
                     label="Type"
-                    isLabelHidden
                     options={[
                       { value: 'new', label: 'New' },
                       { value: 'replacement', label: 'Replacement' },
@@ -214,10 +209,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Account</Label>
                   <Selector
                     label="Account"
-                    isLabelHidden
                     options={(accounts ?? []).map((a) => ({
                       value: a.account_id,
                       label: a.name,
@@ -231,10 +224,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Project</Label>
                   <Selector
                     label="Project"
-                    isLabelHidden
                     options={(projects ?? []).map((p) => ({
                       value: p.project_id,
                       label: p.name,
@@ -248,10 +239,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Interview mode</Label>
                   <Selector
                     label="Interview mode"
-                    isLabelHidden
                     options={[
                       { value: 'online', label: 'Online (Teams)' },
                       { value: 'onsite', label: 'Onsite' },

@@ -4,7 +4,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  Label,
   Selector,
   toast,
 } from '@seta/shared-ui';
@@ -64,10 +63,8 @@ export function TransferDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Target role</Label>
             <Selector
               label="Target role"
-              isLabelHidden
               options={targets.map((r) => ({ value: r.id, label: r.title }))}
               value={effectiveTarget}
               onChange={(v) => setTargetId(v)}

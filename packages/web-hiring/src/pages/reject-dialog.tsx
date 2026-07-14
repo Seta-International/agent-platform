@@ -5,7 +5,6 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Label,
   Selector,
   Textarea,
   toast,
@@ -69,10 +68,8 @@ export function RejectDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Reason</Label>
             <Selector
               label="Reason"
-              isLabelHidden
               options={active.map((r) => ({ value: r.id, label: r.label }))}
               value={effectiveReason}
               onChange={(v) => setReasonId(v)}
