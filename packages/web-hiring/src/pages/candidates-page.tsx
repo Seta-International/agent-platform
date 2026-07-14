@@ -284,18 +284,15 @@ export function CandidatesPage() {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative max-w-xs flex-1">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-subtle"
-            />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search by name, skill, seniority…"
-              className="pl-8"
-            />
-          </div>
+          <Input
+            label="Search candidates"
+            isLabelHidden
+            startIcon={<Search className="size-3.5" aria-hidden />}
+            value={q}
+            onChange={(value) => setQ(value)}
+            placeholder="Search by name, skill, seniority…"
+            className="max-w-xs flex-1"
+          />
           <Select
             value={reqFilter || NONE}
             onValueChange={(v) => setReqFilter(v === NONE ? '' : v)}

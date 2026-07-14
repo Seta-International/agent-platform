@@ -137,11 +137,11 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
       <div className="mt-2.5 flex items-start gap-2">
         <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
           <Switch
-            id={`hold-${task.id}`}
-            aria-label="Put task on hold"
-            checked={task.is_deferred}
-            disabled={!canUpdate}
-            onCheckedChange={(is_deferred) =>
+            label="Put task on hold"
+            isLabelHidden
+            value={task.is_deferred}
+            isDisabled={!canUpdate}
+            onChange={(is_deferred) =>
               update.mutate({
                 task_id: task.id,
                 expected_version: task.version,
@@ -150,10 +150,10 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
             }
           />
         </DisabledActionTooltip>
-        <label htmlFor={`hold-${task.id}`} className="flex flex-col">
+        <div className="flex flex-col">
           <span className="t-sm text-ink">On hold</span>
           <span className="t-xs subtle">Pause this task and hide it from active views.</span>
-        </label>
+        </div>
       </div>
     </section>
   );

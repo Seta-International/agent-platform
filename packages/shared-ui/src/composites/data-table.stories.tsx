@@ -127,7 +127,7 @@ export const RowSelection: Story = {
     const firstRow = checkboxes[1];
     if (!firstRow) throw new Error('expected a row checkbox');
     await userEvent.click(firstRow);
-    await expect(firstRow).toHaveAttribute('aria-checked', 'true');
+    await expect(firstRow).toBeChecked();
   },
 };
 

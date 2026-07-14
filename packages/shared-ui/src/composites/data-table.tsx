@@ -16,7 +16,7 @@ import {
   useReactTable,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '../lib/cn';
 import { Button } from '../primitives/button';
@@ -177,22 +177,30 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
         id: '__select',
         header: ({ table }) => (
           <Checkbox
-            aria-label="Select all"
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && 'indeterminate')
+            label="Select all"
+            isLabelHidden
+            value={
+              table.getIsAllPageRowsSelected()
+                ? true
+                : table.getIsSomePageRowsSelected()
+                  ? 'indeterminate'
+                  : false
             }
-            onCheckedChange={(v) => table.toggleAllPageRowsSelected(!!v)}
+            onChange={(v) => table.toggleAllPageRowsSelected(v)}
           />
         ),
         cell: ({ row }) => (
-          <Checkbox
-            aria-label="Select row"
-            checked={row.getIsSelected()}
-            disabled={!row.getCanSelect()}
-            onCheckedChange={(v) => row.toggleSelected(!!v)}
-            onClick={(e) => e.stopPropagation()}
-          />
+          // biome-ignore lint/a11y/noStaticElementInteractions: swallows the row's own click handler so selecting the checkbox doesn't also trigger row navigation; the actual interactive control is CheckboxInput itself.
+          // biome-ignore lint/a11y/useKeyWithClickEvents: same as above — the div only stops propagation, it isn't itself an activation target.
+          <div onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              label="Select row"
+              isLabelHidden
+              value={row.getIsSelected()}
+              isDisabled={!row.getCanSelect()}
+              onChange={(v) => row.toggleSelected(v)}
+            />
+          </div>
         ),
         enableSorting: false,
         enableHiding: false,
@@ -272,9 +280,12 @@ export function DataTable<TData, TValue>(props: DataTableProps<TData, TValue>) {
         searchSlot={
           enableGlobalFilter ? (
             <Input
+              label="Search"
+              isLabelHidden
+              startIcon={<Search className="size-3.5" aria-hidden />}
               placeholder={props.globalFilterPlaceholder ?? 'Search…'}
               value={globalFilter ?? ''}
-              onChange={(e) => onGlobalFilterChange(e.target.value)}
+              onChange={(value) => onGlobalFilterChange(value)}
               className="max-w-sm"
             />
           ) : null

@@ -106,8 +106,8 @@ describe('FieldConflictRow', () => {
     );
     const localRadio = screen.getByRole('radio', { name: /Use Seta/i });
     const remoteRadio = screen.getByRole('radio', { name: /Use M365/i });
-    expect(localRadio).toHaveAttribute('data-state', 'checked');
-    expect(remoteRadio).toHaveAttribute('data-state', 'unchecked');
+    expect(localRadio).toBeChecked();
+    expect(remoteRadio).not.toBeChecked();
   });
 
   it('choice="remote" renders remote radio as checked', () => {
@@ -122,8 +122,8 @@ describe('FieldConflictRow', () => {
     );
     const localRadio = screen.getByRole('radio', { name: /Use Seta/i });
     const remoteRadio = screen.getByRole('radio', { name: /Use M365/i });
-    expect(localRadio).toHaveAttribute('data-state', 'unchecked');
-    expect(remoteRadio).toHaveAttribute('data-state', 'checked');
+    expect(localRadio).not.toBeChecked();
+    expect(remoteRadio).toBeChecked();
   });
 
   it('choice=null renders neither radio as checked', () => {
@@ -138,7 +138,7 @@ describe('FieldConflictRow', () => {
     );
     const localRadio = screen.getByRole('radio', { name: /Use Seta/i });
     const remoteRadio = screen.getByRole('radio', { name: /Use M365/i });
-    expect(localRadio).toHaveAttribute('data-state', 'unchecked');
-    expect(remoteRadio).toHaveAttribute('data-state', 'unchecked');
+    expect(localRadio).not.toBeChecked();
+    expect(remoteRadio).not.toBeChecked();
   });
 });

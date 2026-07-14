@@ -4,6 +4,7 @@ import {
   Banner,
   Button,
   Combobox,
+  DateInput,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -183,21 +184,17 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
 
           <Section title="Identity">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Full name *" className="col-span-2">
-                <Input
-                  value={form.full_name}
-                  onChange={(e) => set('full_name')(e.target.value)}
-                  aria-label="Full name"
-                />
-              </Field>
-              <Field label="Date of birth">
-                <Input
-                  type="date"
-                  value={form.dob}
-                  onChange={(e) => set('dob')(e.target.value)}
-                  aria-label="Date of birth"
-                />
-              </Field>
+              <Input
+                label="Full name *"
+                value={form.full_name}
+                onChange={(value) => set('full_name')(value)}
+                className="col-span-2"
+              />
+              <DateInput
+                label="Date of birth"
+                value={form.dob || undefined}
+                onChange={(v) => set('dob')(v ?? '')}
+              />
               <Field label="Gender">
                 <Select value={form.gender || undefined} onValueChange={set('gender')}>
                   <SelectTrigger aria-label="Gender">
@@ -217,42 +214,31 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
 
           <Section title="Contact">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Personal email">
-                <Input
-                  type="email"
-                  value={form.personal_email}
-                  onChange={(e) => set('personal_email')(e.target.value)}
-                  aria-label="Personal email"
-                />
-              </Field>
-              <Field label="Phone">
-                <Input
-                  value={form.phone}
-                  onChange={(e) => set('phone')(e.target.value)}
-                  aria-label="Phone"
-                />
-              </Field>
-              <Field label="Work email" className="col-span-2">
-                <Input
-                  type="email"
-                  value={form.work_email}
-                  onChange={(e) => set('work_email')(e.target.value)}
-                  placeholder="Generated from the tenant domain when left empty"
-                  aria-label="Work email"
-                />
-              </Field>
+              <Input
+                type="email"
+                label="Personal email"
+                value={form.personal_email}
+                onChange={(value) => set('personal_email')(value)}
+              />
+              <Input label="Phone" value={form.phone} onChange={(value) => set('phone')(value)} />
+              <Input
+                type="email"
+                label="Work email"
+                value={form.work_email}
+                onChange={(value) => set('work_email')(value)}
+                placeholder="Generated from the tenant domain when left empty"
+                className="col-span-2"
+              />
             </div>
           </Section>
 
           <Section title="Employment">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Job title">
-                <Input
-                  value={form.job_title}
-                  onChange={(e) => set('job_title')(e.target.value)}
-                  aria-label="Job title"
-                />
-              </Field>
+              <Input
+                label="Job title"
+                value={form.job_title}
+                onChange={(value) => set('job_title')(value)}
+              />
               <Field label="Employment type">
                 <Select
                   value={form.employment_type || undefined}
@@ -270,21 +256,16 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Start date">
-                <Input
-                  type="date"
-                  value={form.start_date}
-                  onChange={(e) => set('start_date')(e.target.value)}
-                  aria-label="Start date"
-                />
-              </Field>
-              <Field label="Employee no">
-                <Input
-                  value={form.employee_no}
-                  onChange={(e) => set('employee_no')(e.target.value)}
-                  aria-label="Employee no"
-                />
-              </Field>
+              <DateInput
+                label="Start date"
+                value={form.start_date || undefined}
+                onChange={(v) => set('start_date')(v ?? '')}
+              />
+              <Input
+                label="Employee no"
+                value={form.employee_no}
+                onChange={(value) => set('employee_no')(value)}
+              />
               <Field label="Department" className="col-span-2">
                 <Combobox
                   value={form.org_unit_id || null}

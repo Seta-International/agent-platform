@@ -3,10 +3,9 @@ import {
   Button,
   Card,
   Input,
-  Label,
   PageChrome,
   RadioGroup,
-  RadioGroupItem,
+  RadioListItem,
   Switch,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -157,41 +156,31 @@ export function MailTransport() {
         {error && <Banner status="error" title={(error as Error).message} />}
 
         <Card className="p-5 space-y-5">
-          <div>
-            <Label className="text-eyebrow uppercase text-ink-subtle">Transport</Label>
-            <RadioGroup
-              value={form.kind}
-              onValueChange={(v) => setKind(v as Kind)}
-              className="mt-2 flex gap-6"
-            >
-              <div className="flex items-center gap-2 text-body-sm">
-                <RadioGroupItem value="graph" id="transport-graph" />
-                <Label htmlFor="transport-graph">Microsoft Graph</Label>
-              </div>
-              <div className="flex items-center gap-2 text-body-sm">
-                <RadioGroupItem value="smtp" id="transport-smtp" />
-                <Label htmlFor="transport-smtp">SMTP</Label>
-              </div>
-            </RadioGroup>
-          </div>
+          <RadioGroup
+            label="Transport"
+            value={form.kind}
+            onChange={(v) => setKind(v as Kind)}
+            orientation="horizontal"
+          >
+            <RadioListItem value="graph" label="Microsoft Graph" />
+            <RadioListItem value="smtp" label="SMTP" />
+          </RadioGroup>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="sender-address">Sender address</Label>
               <Input
-                id="sender-address"
                 type="email"
+                label="Sender address"
                 value={form.senderAddress}
-                onChange={(e) => setForm((s) => ({ ...s, senderAddress: e.target.value }))}
+                onChange={(value) => setForm((s) => ({ ...s, senderAddress: value }))}
                 placeholder="noreply@your-domain.com"
               />
             </div>
             <div>
-              <Label htmlFor="sender-name">Sender display name</Label>
               <Input
-                id="sender-name"
+                label="Sender display name"
                 value={form.senderDisplayName}
-                onChange={(e) => setForm((s) => ({ ...s, senderDisplayName: e.target.value }))}
+                onChange={(value) => setForm((s) => ({ ...s, senderDisplayName: value }))}
                 placeholder="Acme"
               />
             </div>
@@ -200,9 +189,10 @@ export function MailTransport() {
           {form.kind === 'graph' ? (
             <div className="flex items-start gap-3 rounded-md border border-hairline p-3">
               <Switch
-                checked={form.graphPolicyAcked}
-                onCheckedChange={(v) => setForm((s) => ({ ...s, graphPolicyAcked: v }))}
-                aria-label="Application access policy acknowledged"
+                label="Application access policy acknowledged"
+                isLabelHidden
+                value={form.graphPolicyAcked}
+                onChange={(v) => setForm((s) => ({ ...s, graphPolicyAcked: v }))}
               />
               <div className="min-w-0">
                 <div className="font-medium text-ink">Application access policy is in place</div>
@@ -216,62 +206,48 @@ export function MailTransport() {
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="smtp-host">Host</Label>
                   <Input
-                    id="smtp-host"
+                    label="Host"
                     value={form.smtpHost}
-                    onChange={(e) => setForm((s) => ({ ...s, smtpHost: e.target.value }))}
+                    onChange={(value) => setForm((s) => ({ ...s, smtpHost: value }))}
                     placeholder="smtp.your-provider.com"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="smtp-port">Port</Label>
-                  <RadioGroup
-                    value={String(form.smtpPort)}
-                    onValueChange={(v) =>
-                      setForm((s) => ({ ...s, smtpPort: Number(v) === 465 ? 465 : 587 }))
-                    }
-                    className="mt-2 flex gap-6"
-                  >
-                    <div className="flex items-center gap-2 text-body-sm">
-                      <RadioGroupItem value="587" id="smtp-port-587" />
-                      <Label htmlFor="smtp-port-587">587 (STARTTLS)</Label>
-                    </div>
-                    <div className="flex items-center gap-2 text-body-sm">
-                      <RadioGroupItem value="465" id="smtp-port-465" />
-                      <Label htmlFor="smtp-port-465">465 (TLS)</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+                <RadioGroup
+                  label="Port"
+                  value={String(form.smtpPort)}
+                  onChange={(v) =>
+                    setForm((s) => ({ ...s, smtpPort: Number(v) === 465 ? 465 : 587 }))
+                  }
+                  orientation="horizontal"
+                >
+                  <RadioListItem value="587" label="587 (STARTTLS)" />
+                  <RadioListItem value="465" label="465 (TLS)" />
+                </RadioGroup>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="smtp-username">Username</Label>
                   <Input
-                    id="smtp-username"
+                    label="Username"
                     value={form.smtpUsername}
-                    onChange={(e) => setForm((s) => ({ ...s, smtpUsername: e.target.value }))}
+                    onChange={(value) => setForm((s) => ({ ...s, smtpUsername: value }))}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="smtp-password">Password</Label>
                   <Input
-                    id="smtp-password"
                     type="password"
+                    label="Password"
                     value={form.smtpPassword}
-                    onChange={(e) => setForm((s) => ({ ...s, smtpPassword: e.target.value }))}
+                    onChange={(value) => setForm((s) => ({ ...s, smtpPassword: value }))}
                     placeholder={enabled ? '(unchanged — leave blank to keep)' : ''}
                   />
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-body-sm">
-                <Switch
-                  id="smtp-require-tls"
-                  checked={form.smtpRequireTls}
-                  onCheckedChange={(v) => setForm((s) => ({ ...s, smtpRequireTls: v }))}
-                />
-                <Label htmlFor="smtp-require-tls">Require TLS</Label>
-              </div>
+              <Switch
+                label="Require TLS"
+                value={form.smtpRequireTls}
+                onChange={(v) => setForm((s) => ({ ...s, smtpRequireTls: v }))}
+              />
             </div>
           )}
 
@@ -306,10 +282,11 @@ export function MailTransport() {
           <div className="flex gap-2">
             <Input
               type="email"
+              label="Recipient email"
+              isLabelHidden
               value={verifyEmail}
-              onChange={(e) => setVerifyEmail(e.target.value)}
+              onChange={(value) => setVerifyEmail(value)}
               placeholder="recipient@your-domain.com"
-              aria-label="Recipient email"
             />
             <Button
               type="button"

@@ -3,7 +3,6 @@ import {
   Card,
   CardTitle,
   Input,
-  Label,
   Layout,
   LayoutContent,
   LayoutHeader,
@@ -49,13 +48,11 @@ export function ProfileAccountSection({
           <LayoutContent>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="display_name">Display name</Label>
-                <Input id="display_name" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input label="Display name" value={name} onChange={(value) => setName(value)} />
               </div>
               {showEmail && (
                 <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input value={profile.email} readOnly />
+                  <Input label="Email" value={profile.email} isDisabled />
                 </div>
               )}
               {passwordHint && <p className="text-sm text-ink-muted">{passwordHint}</p>}

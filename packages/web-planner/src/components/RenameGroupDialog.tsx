@@ -97,29 +97,23 @@ function EditForm({ group, onDone }: EditFormProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <Label htmlFor="edit-group-name">Name</Label>
         <Input
-          id="edit-group-name"
+          label="Name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submit();
-          }}
-          disabled={isM365}
+          onChange={(value) => setName(value)}
+          onEnter={submit}
+          isDisabled={isM365}
         />
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="edit-group-description">Description</Label>
-        <Textarea
-          id="edit-group-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          placeholder="Optional description…"
-          disabled={isM365}
-        />
-      </div>
+      <Textarea
+        label="Description"
+        value={description}
+        onChange={(value) => setDescription(value)}
+        rows={2}
+        placeholder="Optional description…"
+        isDisabled={isM365}
+      />
 
       {isM365 && (
         <p className="text-xs text-ink-subtle">

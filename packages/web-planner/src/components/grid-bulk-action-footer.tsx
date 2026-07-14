@@ -5,6 +5,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  DateInput,
   DisabledActionTooltip,
   Popover,
   PopoverContent,
@@ -223,19 +224,13 @@ function DueMenu({
         <button type="button">Set due</button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-56 p-2">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-ink-subtle">Due date</span>
-          <input
-            suppressHydrationWarning
-            type="date"
-            aria-label="Bulk due date"
-            onChange={(e) => {
-              const v = e.target.value;
-              onPick(v ? new Date(v).toISOString() : null);
-              setOpen(false);
-            }}
-          />
-        </label>
+        <DateInput
+          label="Due date"
+          onChange={(v) => {
+            onPick(v ? new Date(v).toISOString() : null);
+            setOpen(false);
+          }}
+        />
         <button
           type="button"
           className="mt-2 w-full rounded px-2 py-1.5 text-left text-sm text-ink-subtle hover:bg-surface-2"

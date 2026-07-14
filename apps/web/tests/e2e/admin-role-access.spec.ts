@@ -33,19 +33,19 @@ test('admin role-access: toggling a cell persists and reset restores defaults', 
 
   // knowledge.viewer lacks knowledge.file.update by seed — toggle it on.
   const cell = page.getByRole('checkbox', { name: /^Viewer .*knowledge\.file\.update$/ });
-  await expect(cell).toHaveAttribute('data-state', 'unchecked');
+  await expect(cell).not.toBeChecked();
   await cell.click();
-  await expect(cell).toHaveAttribute('data-state', 'checked');
+  await expect(cell).toBeChecked();
 
   // Persisted: reload and the grant survives.
   await page.reload();
   await page.getByRole('tab', { name: 'Knowledge' }).click();
   const cellAfter = page.getByRole('checkbox', { name: /^Viewer .*knowledge\.file\.update$/ });
-  await expect(cellAfter).toHaveAttribute('data-state', 'checked');
+  await expect(cellAfter).toBeChecked();
 
   // Reset restores the seed default (unchecked).
   await page.getByRole('button', { name: 'Reset knowledge.viewer to defaults' }).click();
   await expect(
     page.getByRole('checkbox', { name: /^Viewer .*knowledge\.file\.update$/ }),
-  ).toHaveAttribute('data-state', 'unchecked');
+  ).not.toBeChecked();
 });

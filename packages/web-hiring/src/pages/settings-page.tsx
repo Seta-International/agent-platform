@@ -117,10 +117,10 @@ function NewTemplateDialog() {
         </DialogHeader>
         <div className="space-y-3 max-h-[70vh] overflow-y-auto">
           <div className="space-y-1">
-            <Label>Name *</Label>
             <Input
+              label="Name *"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(value) => setName(value)}
               placeholder="e.g. Backend role"
             />
           </div>
@@ -149,13 +149,12 @@ function NewTemplateDialog() {
             />
           </div>
           {SECTIONS.map((s) => (
-            <div key={s.key} className="space-y-1">
-              <Label>{s.label}</Label>
-              <Textarea
-                value={jd[s.key]}
-                onChange={(e) => setJd((d) => ({ ...d, [s.key]: e.target.value }))}
-              />
-            </div>
+            <Textarea
+              key={s.key}
+              label={s.label}
+              value={jd[s.key]}
+              onChange={(value) => setJd((d) => ({ ...d, [s.key]: value }))}
+            />
           ))}
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2 pt-2">
@@ -217,10 +216,10 @@ function NewCloseReasonDialog() {
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Label *</Label>
             <Input
+              label="Label *"
               value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              onChange={(value) => setLabel(value)}
               placeholder="e.g. Position cancelled"
             />
           </div>
@@ -292,10 +291,10 @@ function NewRejectionReasonDialog() {
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Label *</Label>
             <Input
+              label="Label *"
               value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              onChange={(value) => setLabel(value)}
               placeholder="e.g. Lacking required skills"
             />
           </div>

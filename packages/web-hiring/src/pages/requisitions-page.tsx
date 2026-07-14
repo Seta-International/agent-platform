@@ -289,18 +289,15 @@ export function RequisitionsPage() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[220px] max-w-sm flex-1">
-            <Search
-              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-ink-subtle"
-              aria-hidden
-            />
-            <Input
-              placeholder="Search requisitions…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="pl-8"
-            />
-          </div>
+          <Input
+            label="Search requisitions"
+            isLabelHidden
+            startIcon={<Search className="size-3.5" aria-hidden />}
+            placeholder="Search requisitions…"
+            value={query}
+            onChange={(value) => setQuery(value)}
+            className="min-w-[220px] max-w-sm flex-1"
+          />
           {/* Filters cluster — grouped tighter (gap-2) than the gap-3 that separates this
               cluster from the search box and the view toggle, so proximity signals the
               relationship: search finds, filters narrow, toggle changes layout. */}

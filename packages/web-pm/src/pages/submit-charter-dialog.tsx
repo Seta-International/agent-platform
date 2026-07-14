@@ -2,6 +2,7 @@ import {
   AsyncCombobox,
   Banner,
   Button,
+  DateInput,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -9,6 +10,7 @@ import {
   DialogTrigger,
   Input,
   Label,
+  NumberInput,
   Select,
   SelectContent,
   SelectItem,
@@ -147,8 +149,11 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
           </div>
 
           <div className="space-y-1">
-            <Label>Project name *</Label>
-            <Input value={form.name} onChange={(e) => set({ name: e.target.value })} />
+            <Input
+              label="Project name *"
+              value={form.name}
+              onChange={(value) => set({ name: value })}
+            />
           </div>
 
           <div className="space-y-1">
@@ -206,63 +211,56 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Team size</Label>
-              <Input
-                type="number"
-                min={0}
-                value={form.team_size}
-                onChange={(e) => set({ team_size: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Budget (BMM)</Label>
-              <Input
-                type="number"
-                min={0}
-                step="0.25"
-                value={form.budget_bmm}
-                onChange={(e) => set({ budget_bmm: e.target.value })}
-              />
-            </div>
+            <NumberInput
+              label="Team size"
+              min={0}
+              isIntegerOnly
+              value={form.team_size === '' ? null : Number(form.team_size)}
+              onChange={(v) => set({ team_size: String(v) })}
+            />
+            <NumberInput
+              label="Budget (BMM)"
+              min={0}
+              step={0.25}
+              value={form.budget_bmm === '' ? null : Number(form.budget_bmm)}
+              onChange={(v) => set({ budget_bmm: String(v) })}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Date from</Label>
-              <Input
-                type="date"
-                value={form.date_from}
-                onChange={(e) => set({ date_from: e.target.value })}
+              <DateInput
+                label="Date from"
+                value={form.date_from || undefined}
+                onChange={(v) => set({ date_from: v ?? '' })}
               />
             </div>
             <div className="space-y-1">
-              <Label>Date to</Label>
-              <Input
-                type="date"
-                value={form.date_to}
-                onChange={(e) => set({ date_to: e.target.value })}
+              <DateInput
+                label="Date to"
+                value={form.date_to || undefined}
+                onChange={(v) => set({ date_to: v ?? '' })}
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <Label>Objective</Label>
-            <Textarea value={form.objective} onChange={(e) => set({ objective: e.target.value })} />
-          </div>
+          <Textarea
+            label="Objective"
+            value={form.objective}
+            onChange={(value) => set({ objective: value })}
+          />
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Scope (in)</Label>
-              <Textarea value={form.scope_in} onChange={(e) => set({ scope_in: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label>Scope (out)</Label>
-              <Textarea
-                value={form.scope_out}
-                onChange={(e) => set({ scope_out: e.target.value })}
-              />
-            </div>
+            <Textarea
+              label="Scope (in)"
+              value={form.scope_in}
+              onChange={(value) => set({ scope_in: value })}
+            />
+            <Textarea
+              label="Scope (out)"
+              value={form.scope_out}
+              onChange={(value) => set({ scope_out: value })}
+            />
           </div>
 
           {error && <Banner status="error" title={error} />}

@@ -26,7 +26,7 @@ import {
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import type { ColumnDef, OnChangeFn, PaginationState, Row } from '@tanstack/react-table';
-import { MoreHorizontal, X } from 'lucide-react';
+import { MoreHorizontal, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PersonAvatar } from '../../components/person-avatar.tsx';
 import { useGroupsQuery } from '../../groups/hooks/useGroups.ts';
@@ -433,14 +433,17 @@ export function Directory({ search, onSearch }: DirectoryProps) {
           }
           right={
             <Input
+              label="Search people"
+              isLabelHidden
+              startIcon={<Search className="size-3.5" aria-hidden />}
               placeholder="Search people…"
               value={qInput}
-              onChange={(e) => {
-                setQInput(e.target.value);
-                applyFilter({ q: e.target.value.trim() || undefined });
+              onChange={(value) => {
+                setQInput(value);
+                applyFilter({ q: value.trim() || undefined });
               }}
-              className="h-8 w-64 text-body-sm"
-              aria-label="Search people"
+              className="w-64"
+              size="sm"
             />
           }
         />

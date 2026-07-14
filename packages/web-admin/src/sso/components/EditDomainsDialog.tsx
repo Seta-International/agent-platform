@@ -7,7 +7,6 @@ import {
   DialogTitle,
   DialogTrigger,
   Input,
-  Label,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import { DomainsField } from '../../components/DomainsField.tsx';
@@ -70,16 +69,14 @@ export function EditDomainsDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
-            <Label htmlFor="edit-domains-tenant-id">Entra tenant ID</Label>
             <Input
-              id="edit-domains-tenant-id"
+              label="Entra tenant ID"
               value={entraTenantId ?? ''}
               placeholder="Configured via the Microsoft 365 integration"
-              readOnly
-              className="text-muted-foreground"
+              isDisabled
             />
           </div>
-          <DomainsField domains={domains} onChange={setDomains} idPrefix="edit-domains" />
+          <DomainsField domains={domains} onChange={setDomains} />
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />

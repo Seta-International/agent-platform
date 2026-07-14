@@ -311,18 +311,16 @@ export function AdminAudit({
             </>
           }
           right={
-            <div className="relative w-72">
-              <Search
-                aria-hidden
-                className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-subtle"
-              />
-              <Input
-                placeholder="Search trace id…"
-                className="h-8 pl-8 text-body-sm"
-                disabled
-                aria-label="Search trace id (coming soon)"
-              />
-            </div>
+            <Input
+              label="Search trace id (coming soon)"
+              isLabelHidden
+              startIcon={<Search className="size-3.5" aria-hidden />}
+              placeholder="Search trace id…"
+              value=""
+              onChange={() => {}}
+              isDisabled
+              className="w-72"
+            />
           }
         />
       }

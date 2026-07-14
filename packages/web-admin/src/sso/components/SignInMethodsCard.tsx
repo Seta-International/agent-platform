@@ -9,7 +9,6 @@ interface SignInMethodsCardProps {
 }
 
 interface MethodRowProps {
-  switchId: string;
   title: string;
   description: React.ReactNode;
   enabled: boolean;
@@ -19,7 +18,6 @@ interface MethodRowProps {
 }
 
 function MethodRow({
-  switchId,
   title,
   description,
   enabled,
@@ -29,7 +27,7 @@ function MethodRow({
 }: MethodRowProps) {
   return (
     <div className="flex items-start justify-between gap-4 px-5 py-4">
-      <label htmlFor={switchId} className="min-w-0 flex-1 cursor-pointer">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-body font-medium text-ink">{title}</span>
           <span
@@ -43,12 +41,13 @@ function MethodRow({
           </span>
         </div>
         <p className="m-0 mt-1 text-body-sm text-ink-subtle">{description}</p>
-      </label>
+      </div>
       <Switch
-        id={switchId}
-        checked={enabled}
-        disabled={disabledSwitch || busy}
-        onCheckedChange={onToggle ? (v) => onToggle(!!v) : undefined}
+        label={title}
+        isLabelHidden
+        value={enabled}
+        isDisabled={disabledSwitch || busy}
+        onChange={onToggle ? (v) => onToggle(v) : undefined}
       />
     </div>
   );
@@ -97,7 +96,6 @@ export function SignInMethodsCard({
 
       <div className="divide-y divide-hairline-tertiary">
         <MethodRow
-          switchId="local-password-switch"
           title="Password sign-in"
           description={
             localDisableBlocked
@@ -110,7 +108,6 @@ export function SignInMethodsCard({
           onToggle={handleToggle}
         />
         <MethodRow
-          switchId="sso-method-mirror"
           title="Single sign-on"
           description={
             hasEnabledProvider

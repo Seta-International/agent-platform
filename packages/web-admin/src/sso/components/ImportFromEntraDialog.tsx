@@ -37,11 +37,12 @@ const columns: ColumnDef<EntraImportableUserDto>[] = [
       const selectable = u.account_enabled && !u.already_in_seta;
       return (
         <Checkbox
-          aria-label="Select row"
-          checked={row.getIsSelected()}
-          disabled={!selectable}
-          onCheckedChange={(v) => {
-            if (selectable) row.toggleSelected(!!v);
+          label="Select row"
+          isLabelHidden
+          value={row.getIsSelected()}
+          isDisabled={!selectable}
+          onChange={(v) => {
+            if (selectable) row.toggleSelected(v);
           }}
         />
       );

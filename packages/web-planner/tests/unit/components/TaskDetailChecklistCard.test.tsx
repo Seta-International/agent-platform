@@ -53,8 +53,8 @@ describe('TaskDetailChecklistCard', () => {
     ];
     renderWithClient(<TaskDetailChecklistCard task={makeDetail(items)} planId="p1" />);
     expect(screen.getAllByRole('checkbox')).toHaveLength(5);
-    expect(screen.getByText('one')).toBeInTheDocument();
-    expect(screen.getByText('five')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'one' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'five' })).toBeInTheDocument();
     expect(screen.queryByText('a0')).not.toBeInTheDocument();
     expect(screen.queryByText('a4')).not.toBeInTheDocument();
   });
@@ -95,7 +95,7 @@ describe('TaskDetailChecklistCard', () => {
       <TaskDetailChecklistCard task={makeDetail([item({ id: 'c1', label: 'old' })])} planId="p1" />,
     );
 
-    await user.dblClick(screen.getByText('old'));
+    await user.dblClick(screen.getByRole('button', { name: 'old' }));
     const editInput = screen.getByRole('textbox', { name: /Edit checklist item/i });
     await user.clear(editInput);
     await user.type(editInput, 'renamed{Enter}');
@@ -117,12 +117,12 @@ describe('TaskDetailChecklistCard', () => {
       <TaskDetailChecklistCard task={makeDetail([item({ id: 'c1', label: 'old' })])} planId="p1" />,
     );
 
-    await user.dblClick(screen.getByText('old'));
+    await user.dblClick(screen.getByRole('button', { name: 'old' }));
     const editInput = screen.getByRole('textbox', { name: /Edit checklist item/i });
     await user.clear(editInput);
     await user.type(editInput, 'discarded{Escape}');
     expect(captured).not.toHaveBeenCalled();
-    expect(screen.getByText('old')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'old' })).toBeInTheDocument();
   });
 
   it('ignores empty rename and reverts on Enter', async () => {
@@ -140,12 +140,12 @@ describe('TaskDetailChecklistCard', () => {
       <TaskDetailChecklistCard task={makeDetail([item({ id: 'c1', label: 'old' })])} planId="p1" />,
     );
 
-    await user.dblClick(screen.getByText('old'));
+    await user.dblClick(screen.getByRole('button', { name: 'old' }));
     const editInput = screen.getByRole('textbox', { name: /Edit checklist item/i });
     await user.clear(editInput);
     await user.type(editInput, '   {Enter}');
     expect(captured).not.toHaveBeenCalled();
-    expect(screen.getByText('old')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'old' })).toBeInTheDocument();
   });
 
   it('adds an item via the inline input on Enter', async () => {

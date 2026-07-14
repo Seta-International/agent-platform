@@ -262,8 +262,13 @@ describe('TaskDetailPage', () => {
     await user.click(screen.getByRole('button', { name: /more actions/i }));
     await user.click(await screen.findByRole('menuitem', { name: /^delete$/i }));
 
-    // Confirm dialog opens with the task title quoted in its body
-    const dialog = await screen.findByRole('dialog');
+    // Confirm dialog opens with the task title quoted in its body. Query by accessible name
+    // (from ConfirmDeleteTaskDialog's DialogTitle "Delete this task?") — the Schedule card's two
+    // Astryx DateInput fields (Start/Due) each always render their Calendar popover into the DOM
+    // as role="dialog" aria-label="Choose date" (jsdom doesn't implement the Popover API that
+    // keeps it visually/programmatically hidden until opened), so a bare `getByRole('dialog')`
+    // now matches three dialogs instead of one.
+    const dialog = await screen.findByRole('dialog', { name: /delete this task\?/i });
     expect(await screen.findByRole('heading', { name: /delete this task\?/i })).toBeInTheDocument();
     const { within } = await import('@testing-library/react');
     expect(within(dialog).getByText(/wire telemetry/i)).toBeInTheDocument();

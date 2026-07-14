@@ -58,7 +58,7 @@ describe('ProfileIdentityCard bio', () => {
     expect(onUpdate).toHaveBeenCalledWith(updated);
   });
 
-  it('shows the character counter and caps at 500', async () => {
+  it('shows the character counter against the 500 limit', async () => {
     const user = userEvent.setup();
     render(
       <ProfileIdentityCard
@@ -67,13 +67,45 @@ describe('ProfileIdentityCard bio', () => {
         onUpdate={vi.fn()}
       />,
     );
-    expect(screen.getByText('5 / 500')).toBeInTheDocument();
+    // Astryx TextArea's maxLength renders a live counter but does not enforce a
+    // native HTML maxlength cap (see @astryxdesign/core TextArea.d.ts) — the
+    // counter still tracks length accurately as the user types.
+    expect(screen.getByText('5/500')).toBeInTheDocument();
 
     const textarea = screen.getByLabelText('Bio') as HTMLTextAreaElement;
-    expect(textarea.maxLength).toBe(500);
 
     await user.clear(textarea);
     await user.type(textarea, 'abc');
-    expect(screen.getByText('3 / 500')).toBeInTheDocument();
+    expect(screen.getByText('3/500')).toBeInTheDocument();
+  });
+
+  it('disables Save and shows an error status once an edit pushes bio past the 500 char limit', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(makeProfile());
+    const startingBio = 'a'.repeat(495); // 5 chars of headroom before 500
+
+    render(
+      <ProfileIdentityCard
+        profile={makeProfile({ bio: startingBio })}
+        onSave={onSave}
+        onUpdate={vi.fn()}
+      />,
+    );
+
+    const textarea = screen.getByLabelText('Bio') as HTMLTextAreaElement;
+    const saveButton = screen.getByRole('button', { name: /save changes/i });
+
+    // Still within the limit and dirty (name edit) → Save is enabled.
+    await user.type(screen.getByLabelText('Name'), '!');
+    expect(saveButton).not.toBeDisabled();
+
+    // Push the bio 10 chars past the limit.
+    await user.type(textarea, '1234567890');
+    expect(screen.getByText('505/500')).toBeInTheDocument();
+    expect(screen.getByText(/bio cannot exceed 500 characters/i)).toBeInTheDocument();
+    expect(saveButton).toBeDisabled();
+
+    await user.click(saveButton);
+    expect(onSave).not.toHaveBeenCalled();
   });
 });

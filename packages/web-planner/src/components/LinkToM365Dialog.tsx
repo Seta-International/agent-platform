@@ -90,11 +90,13 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange, onSelect }: Prop
         <div className="space-y-3">
           <div className="relative">
             <Input
-              autoFocus
+              hasAutoFocus
+              label="Search Microsoft 365 groups"
+              isLabelHidden
               placeholder="Search Microsoft 365 groups…"
               value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
+              onChange={(value) => {
+                setQuery(value);
                 setSelectedId(null);
               }}
             />

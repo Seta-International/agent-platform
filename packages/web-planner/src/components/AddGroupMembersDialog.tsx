@@ -143,10 +143,12 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
         )}
 
         <Input
+          label="Search by name or email"
+          isLabelHidden
           placeholder="Search by name or email…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          autoFocus
+          onChange={(value) => setSearch(value)}
+          hasAutoFocus
         />
 
         <div className="max-h-[260px] overflow-y-auto divide-y divide-hairline rounded-md border border-hairline">
@@ -170,9 +172,10 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
                 className="flex w-full items-center gap-3 px-3 py-2.5 hover:bg-surface-1 text-left"
               >
                 <Checkbox
-                  checked={isSelected}
-                  aria-label={`Select ${c.display_name}`}
-                  className="pointer-events-none"
+                  label={`Select ${c.display_name}`}
+                  isLabelHidden
+                  value={isSelected}
+                  isReadOnly
                 />
                 <Avatar className="size-7 shrink-0">
                   <AvatarFallback className="text-xs">{initialsOf(c.display_name)}</AvatarFallback>

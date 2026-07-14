@@ -3,11 +3,11 @@ import {
   Button,
   Card,
   CardTitle,
-  Input,
   Label,
   Layout,
   LayoutContent,
   LayoutHeader,
+  NumberInput,
   Select,
   SelectContent,
   SelectItem,
@@ -245,13 +245,16 @@ export function CharterStaffingEditor({
                           </td>
                           <td className="px-3 py-2 text-center font-mono">
                             {editing ? (
-                              <Input
-                                type="number"
+                              <NumberInput
+                                label="RA %"
+                                isLabelHidden
                                 min={0}
                                 max={100}
+                                units="%"
+                                width={80}
                                 value={draftPct}
-                                onChange={(e) => setDraftPct(Number(e.target.value))}
-                                className="mx-auto h-8 w-20"
+                                onChange={(v) => setDraftPct(v)}
+                                className="mx-auto"
                               />
                             ) : (
                               `${a.planned_pct ?? '—'}%`
@@ -353,16 +356,15 @@ export function CharterStaffingEditor({
                     <Label>Role</Label>
                     <RoleSelect value={role} onChange={setRole} />
                   </div>
-                  <div className="w-24 space-y-1">
-                    <Label>RA %</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={pct}
-                      onChange={(e) => setPct(Number(e.target.value))}
-                    />
-                  </div>
+                  <NumberInput
+                    label="RA %"
+                    min={0}
+                    max={100}
+                    units="%"
+                    width={96}
+                    value={pct}
+                    onChange={(v) => setPct(v)}
+                  />
                   <div className="w-28 space-y-1">
                     <Label>Access</Label>
                     <LevelSelect value={level} onChange={setLevel} />

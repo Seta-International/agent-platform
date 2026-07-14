@@ -1,4 +1,4 @@
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@seta/shared-ui';
+import { Button, DateInput, Popover, PopoverContent, PopoverTrigger } from '@seta/shared-ui';
 import { CalendarDays, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 
@@ -29,24 +29,13 @@ export function ChartRangeControl({ from, to, onChange }: Props) {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-3">
         <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-xs text-ink-subtle">
-            From
-            <input
-              type="date"
-              value={from ?? ''}
-              onChange={(e) => onChange({ from: e.target.value || undefined, to })}
-              className="rounded-md border border-hairline bg-canvas px-2 py-1.5 text-sm text-ink"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-ink-subtle">
-            To
-            <input
-              type="date"
-              value={to ?? ''}
-              onChange={(e) => onChange({ from, to: e.target.value || undefined })}
-              className="rounded-md border border-hairline bg-canvas px-2 py-1.5 text-sm text-ink"
-            />
-          </label>
+          <DateInput
+            label="From"
+            size="sm"
+            value={from}
+            onChange={(v) => onChange({ from: v, to })}
+          />
+          <DateInput label="To" size="sm" value={to} onChange={(v) => onChange({ from, to: v })} />
           {active && (
             <button
               type="button"

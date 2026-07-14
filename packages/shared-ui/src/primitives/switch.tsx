@@ -1,26 +1,8 @@
-import * as SwitchPrimitives from '@radix-ui/react-switch';
-import type * as React from 'react';
+import { Switch as AstryxSwitch } from '@astryxdesign/core/Switch';
+import type { ComponentProps } from 'react';
 
-import { cn } from '../lib/cn';
+export type SwitchProps = ComponentProps<typeof AstryxSwitch>;
 
-function Switch({ className, ref, ...props }: React.ComponentProps<typeof SwitchPrimitives.Root>) {
-  return (
-    <SwitchPrimitives.Root
-      className={cn(
-        'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-surface-3',
-        className,
-      )}
-      {...props}
-      ref={ref}
-    >
-      <SwitchPrimitives.Thumb
-        className={cn(
-          'pointer-events-none block h-4 w-4 rounded-full bg-canvas shadow-sm ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0',
-        )}
-      />
-    </SwitchPrimitives.Root>
-  );
+export function Switch(props: SwitchProps) {
+  return <AstryxSwitch {...props} />;
 }
-Switch.displayName = SwitchPrimitives.Root.displayName;
-
-export { Switch };

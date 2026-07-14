@@ -42,39 +42,30 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
         </div>
         <ul className="flex flex-col">
           {CHART_REGISTRY.map((c) => (
-            <li key={c.id}>
-              <label
-                htmlFor={`chart-toggle-${c.id}`}
-                className={`flex items-start gap-2 rounded px-1 py-1.5 ${
-                  c.disabled ? 'opacity-50' : 'cursor-pointer hover:bg-surface-2'
-                }`}
-              >
-                <Checkbox
-                  id={`chart-toggle-${c.id}`}
-                  className="mt-0.5"
-                  checked={visibleSet.has(c.id)}
-                  disabled={c.disabled}
-                  onCheckedChange={() => {
-                    if (!c.disabled) toggle(c.id);
-                  }}
-                />
-                <span className="min-w-0">
-                  <span className="flex items-center gap-1.5 text-sm text-ink">
-                    {c.title}
-                    {c.default && (
-                      <span className="rounded border border-hairline px-1 text-[10px] uppercase tracking-wide text-ink-subtle">
-                        Default
-                      </span>
-                    )}
-                    {c.disabled && (
-                      <span className="text-[10px] uppercase tracking-wide text-ink-subtle">
-                        Coming soon
-                      </span>
-                    )}
-                  </span>
-                  <span className="block text-xs text-ink-subtle">{c.subtitle}</span>
+            <li key={c.id} className="flex items-center gap-2 rounded px-1 py-1.5">
+              <Checkbox
+                label={c.title}
+                description={c.subtitle}
+                value={visibleSet.has(c.id)}
+                isDisabled={c.disabled}
+                onChange={() => {
+                  if (!c.disabled) toggle(c.id);
+                }}
+              />
+              {(c.default || c.disabled) && (
+                <span className="flex items-center gap-1.5">
+                  {c.default && (
+                    <span className="rounded border border-hairline px-1 text-[10px] uppercase tracking-wide text-ink-subtle">
+                      Default
+                    </span>
+                  )}
+                  {c.disabled && (
+                    <span className="text-[10px] uppercase tracking-wide text-ink-subtle">
+                      Coming soon
+                    </span>
+                  )}
                 </span>
-              </label>
+              )}
             </li>
           ))}
         </ul>

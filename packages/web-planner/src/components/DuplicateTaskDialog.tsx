@@ -82,27 +82,15 @@ export function DuplicateTaskDialog({
 
         <div className="space-y-3 py-2">
           {FIELDS.map((f) => {
-            const id = `duplicate-task-${f.key}`;
             const checked = options[f.key] ?? false;
             return (
-              <label
+              <Checkbox
                 key={f.key}
-                htmlFor={id}
-                className="flex cursor-pointer items-start gap-3 rounded-md px-2 py-1.5 hover:bg-surface-1"
-              >
-                <Checkbox
-                  id={id}
-                  checked={checked}
-                  onCheckedChange={(next) =>
-                    setOptions((prev) => ({ ...prev, [f.key]: next === true }))
-                  }
-                  className="mt-0.5"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-body-sm text-ink">{f.label}</span>
-                  <span className="block text-caption text-ink-subtle">{f.description}</span>
-                </span>
-              </label>
+                label={f.label}
+                description={f.description}
+                value={checked}
+                onChange={(next) => setOptions((prev) => ({ ...prev, [f.key]: next }))}
+              />
             );
           })}
         </div>

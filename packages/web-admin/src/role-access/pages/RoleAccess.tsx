@@ -263,11 +263,12 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
                 <TableCell key={role.slug} className="border-l border-hairline-tertiary py-2.5">
                   <div className="relative inline-flex">
                     <Checkbox
-                      checked={cell.effective}
-                      disabled={!canWrite || setPerm.isPending}
-                      aria-label={`${roleShort(role.slug)} — ${key}`}
-                      onCheckedChange={(v) =>
-                        setPerm.mutate({ role: role.slug, permission: key, enabled: v === true })
+                      label={`${roleShort(role.slug)} — ${key}`}
+                      isLabelHidden
+                      value={cell.effective}
+                      isDisabled={!canWrite || setPerm.isPending}
+                      onChange={(v) =>
+                        setPerm.mutate({ role: role.slug, permission: key, enabled: v })
                       }
                     />
                     {cell.overridden && (

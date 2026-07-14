@@ -1,6 +1,7 @@
 import {
   Banner,
   Button,
+  DateInput,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -8,6 +9,7 @@ import {
   DisabledActionTooltip,
   Input,
   Label,
+  NumberInput,
   RichTextEditor,
   SegmentedControl,
   Select,
@@ -182,11 +184,10 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
           <div className="min-h-0 flex-1 overflow-auto">
             <div className="space-y-5 px-6 pb-5 pt-3">
               <div className="space-y-1">
-                <Label htmlFor="new-req-title">Job title *</Label>
                 <Input
-                  id="new-req-title"
+                  label="Job title *"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(value) => setTitle(value)}
                   placeholder="e.g. Senior Backend Engineer"
                 />
               </div>
@@ -276,36 +277,29 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="new-req-headcount">Headcount (openings)</Label>
-                  <Input
-                    id="new-req-headcount"
-                    type="number"
-                    min={1}
-                    value={headcount}
-                    onChange={(e) => setHeadcount(Math.max(1, Number(e.target.value) || 1))}
-                  />
-                </div>
+                <NumberInput
+                  label="Headcount (openings)"
+                  min={1}
+                  isIntegerOnly
+                  value={headcount}
+                  onChange={(v) => setHeadcount(Math.max(1, v || 1))}
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="new-req-start">Start date</Label>
-                  <Input
-                    id="new-req-start"
-                    type="date"
-                    value={start}
+                  <DateInput
+                    label="Start date"
+                    value={start || undefined}
                     max={due || undefined}
-                    onChange={(e) => setStart(e.target.value)}
+                    onChange={(v) => setStart(v ?? '')}
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="new-req-due">Due date</Label>
-                  <Input
-                    id="new-req-due"
-                    type="date"
-                    value={due}
+                  <DateInput
+                    label="Due date"
+                    value={due || undefined}
                     min={start || undefined}
-                    onChange={(e) => setDue(e.target.value)}
+                    onChange={(v) => setDue(v ?? '')}
                   />
                 </div>
               </div>

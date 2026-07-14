@@ -9,7 +9,6 @@ import {
   DialogTrigger,
   EmptyState,
   Input,
-  Label,
   PageChrome,
   toast,
 } from '@seta/shared-ui';
@@ -65,12 +64,10 @@ function CreateAccountDialog({ onCreated }: { onCreated: () => void }) {
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Name *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <Input label="Name *" value={name} onChange={(value) => setName(value)} />
           </div>
           <div className="space-y-1">
-            <Label>Industry</Label>
-            <Input value={industry} onChange={(e) => setIndustry(e.target.value)} />
+            <Input label="Industry" value={industry} onChange={(value) => setIndustry(value)} />
           </div>
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">

@@ -317,15 +317,11 @@ function LabelEditPanel({
       </div>
 
       <Input
-        aria-label="Label name"
+        label="Label name"
+        isLabelHidden
         value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            handleSave();
-          }
-        }}
+        onChange={(value) => setName(value)}
+        onEnter={handleSave}
       />
 
       <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Label color">
