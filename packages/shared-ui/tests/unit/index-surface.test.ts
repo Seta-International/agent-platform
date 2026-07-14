@@ -32,6 +32,7 @@ const REQUIRED = [
   'Textarea',
   'ThemeProvider',
   'ThemeToggle',
+  'TimeInput',
   'Toaster',
   'Tooltip',
   'cn',

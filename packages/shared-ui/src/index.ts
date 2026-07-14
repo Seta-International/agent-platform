@@ -108,6 +108,7 @@ export * from './primitives/switch';
 export * from './primitives/table';
 export * from './primitives/tabs';
 export * from './primitives/textarea';
+export * from './primitives/time-input';
 export * from './primitives/toast';
 export * from './primitives/tooltip';
 // Rich text

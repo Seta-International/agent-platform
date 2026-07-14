@@ -13,6 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   Textarea,
+  TimeInput,
 } from '@seta/shared-ui';
 import { Calendar, Check, ChevronsUpDown } from 'lucide-react';
 import { useState } from 'react';
@@ -190,20 +191,20 @@ export function ProfileIdentityCard({
             <FieldLabel label="Working hours" />
             {canEditWorkingHours && editingHours ? (
               <div className="flex items-center gap-2">
-                <Input
-                  type="time"
-                  aria-label="Working hours start"
-                  value={whStart}
-                  onChange={(e) => setWhStart(e.target.value)}
-                  className="w-32"
+                <TimeInput
+                  label="Working hours start"
+                  isLabelHidden
+                  hourFormat="24h"
+                  value={whStart || undefined}
+                  onChange={(v) => setWhStart(v ?? '')}
                 />
                 <span className="text-ink-muted text-sm">to</span>
-                <Input
-                  type="time"
-                  aria-label="Working hours end"
-                  value={whEnd}
-                  onChange={(e) => setWhEnd(e.target.value)}
-                  className="w-32"
+                <TimeInput
+                  label="Working hours end"
+                  isLabelHidden
+                  hourFormat="24h"
+                  value={whEnd || undefined}
+                  onChange={(v) => setWhEnd(v ?? '')}
                 />
                 <Button
                   variant="ghost"
