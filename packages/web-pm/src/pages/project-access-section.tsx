@@ -4,11 +4,7 @@ import {
   DataTable,
   EmptyState,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -128,16 +124,17 @@ export function ProjectAccessSection({
           </div>
           <div className="space-y-1 w-32">
             <Label>Level</Label>
-            <Select value={level} onValueChange={(v) => setLevel(v as ProjectAccessRow['level'])}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="owner">Owner</SelectItem>
-                <SelectItem value="edit">Edit</SelectItem>
-                <SelectItem value="view">View</SelectItem>
-              </SelectContent>
-            </Select>
+            <Selector
+              label="Level"
+              isLabelHidden
+              options={[
+                { value: 'owner', label: 'Owner' },
+                { value: 'edit', label: 'Edit' },
+                { value: 'view', label: 'View' },
+              ]}
+              value={level}
+              onChange={(v) => setLevel(v as ProjectAccessRow['level'])}
+            />
           </div>
           <Button
             label="Add"

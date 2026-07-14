@@ -1,13 +1,4 @@
-import {
-  Badge,
-  Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
-} from '@seta/shared-ui';
+import { Badge, Button, Selector, toast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -84,26 +75,21 @@ export function OpeningsTab({
               <Badge variant="neutral" label={o.status} />
               {canManage && o.status === 'open' && (
                 <>
-                  <Select
+                  <Selector
+                    label="Close reason"
+                    isLabelHidden
+                    options={[
+                      { value: NONE, label: '—' },
+                      ...(reasons.data ?? [])
+                        .filter((r) => r.active)
+                        .map((r) => ({ value: r.id, label: r.label })),
+                    ]}
                     value={reasonByOpening[o.id] || NONE}
-                    onValueChange={(v) =>
+                    onChange={(v) =>
                       setReasonByOpening((m) => ({ ...m, [o.id]: v === NONE ? '' : v }))
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Reason…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      {reasons.data
-                        ?.filter((r) => r.active)
-                        .map((r) => (
-                          <SelectItem key={r.id} value={r.id}>
-                            {r.label}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Reason…"
+                  />
                   <Button
                     size="sm"
                     variant="secondary"

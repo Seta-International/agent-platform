@@ -1,7 +1,6 @@
 import {
   Badge,
   Button,
-  cn,
   DataTable,
   Dialog,
   DialogClose,
@@ -18,11 +17,7 @@ import {
   PageChrome,
   PageChromeToolbar,
   type RowSelectionState,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import type { ColumnDef, OnChangeFn, PaginationState, Row } from '@tanstack/react-table';
@@ -52,30 +47,24 @@ const EMPLOYMENT_OPTIONS = [
 
 function FilterSelect({
   value,
-  onValueChange,
+  onChange,
   options,
   ariaLabel,
-  className,
 }: {
   value: string;
-  onValueChange: (v: string) => void;
+  onChange: (v: string) => void;
   options: ReadonlyArray<{ value: string; label: string }>;
   ariaLabel: string;
-  className?: string;
 }) {
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger aria-label={ariaLabel} className={cn('h-8 text-body-sm', className)}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Selector
+      label={ariaLabel}
+      isLabelHidden
+      size="sm"
+      value={value}
+      onChange={onChange}
+      options={[...options]}
+    />
   );
 }
 
@@ -390,31 +379,28 @@ export function Directory({ search, onSearch }: DirectoryProps) {
               <FilterSelect
                 ariaLabel="Filter by group"
                 value={group}
-                onValueChange={(v) => applyFilter({ group: v === 'all' ? undefined : v })}
+                onChange={(v) => applyFilter({ group: v === 'all' ? undefined : v })}
                 options={groupOptions}
-                className="w-44"
               />
               <FilterSelect
                 ariaLabel="Filter by account status"
                 value={status}
-                onValueChange={(v) =>
+                onChange={(v) =>
                   applyFilter({
                     status: v === 'all' ? undefined : (v as DirectorySearch['status']),
                   })
                 }
                 options={STATUS_OPTIONS}
-                className="w-40"
               />
               <FilterSelect
                 ariaLabel="Filter by employment"
                 value={employment}
-                onValueChange={(v) =>
+                onChange={(v) =>
                   applyFilter({
                     employment: v === 'all' ? undefined : (v as DirectorySearch['employment']),
                   })
                 }
                 options={EMPLOYMENT_OPTIONS}
-                className="w-40"
               />
               {hasFilters && (
                 <Button

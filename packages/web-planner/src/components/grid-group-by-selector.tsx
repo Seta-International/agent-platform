@@ -1,4 +1,4 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@seta/shared-ui';
+import { Selector } from '@seta/shared-ui';
 import type { GroupBy } from '../state/url-state';
 
 interface Props {
@@ -8,21 +8,22 @@ interface Props {
 
 export function GridGroupBySelector({ value, onChange }: Props) {
   return (
-    // biome-ignore lint/a11y/noLabelWithoutControl: Radix Select trigger is a button, not a recognized form control
-    <label className="grid-group-by">
+    <span className="grid-group-by">
       Grouped by{' '}
-      <Select value={value} onValueChange={(v) => onChange(v as GroupBy)}>
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="bucket">Bucket</SelectItem>
-          <SelectItem value="assignee">Assignee</SelectItem>
-          <SelectItem value="priority">Priority</SelectItem>
-          <SelectItem value="due">Due</SelectItem>
-          <SelectItem value="label">Label</SelectItem>
-        </SelectContent>
-      </Select>
-    </label>
+      <Selector
+        label="Group by"
+        isLabelHidden
+        size="sm"
+        options={[
+          { value: 'bucket', label: 'Bucket' },
+          { value: 'assignee', label: 'Assignee' },
+          { value: 'priority', label: 'Priority' },
+          { value: 'due', label: 'Due' },
+          { value: 'label', label: 'Label' },
+        ]}
+        value={value}
+        onChange={(v) => onChange(v as GroupBy)}
+      />
+    </span>
   );
 }

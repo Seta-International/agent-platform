@@ -10,11 +10,7 @@ import {
   GroupTile,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
 } from '@seta/shared-ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link2, Shield, Users } from 'lucide-react';
@@ -193,16 +189,15 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="cg-role">Default member role</Label>
-                <Select value={defaultRole} onValueChange={(v) => setDefaultRole(v as DefaultRole)}>
-                  <SelectTrigger id="cg-role" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="owner">Owner</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Selector
+                  label="Default member role"
+                  options={[
+                    { value: 'member', label: 'Member' },
+                    { value: 'owner', label: 'Owner' },
+                  ]}
+                  value={defaultRole}
+                  onChange={(v) => setDefaultRole(v as DefaultRole)}
+                />
               </div>
             </div>
 

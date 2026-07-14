@@ -17,11 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   toast,
 } from '@seta/shared-ui';
 import { useMutation } from '@tanstack/react-query';
@@ -465,20 +461,19 @@ export function ReassignWizardDialog({
                           value={draft.date_to || undefined}
                           onChange={(v) => updateRowDraft(a, { date_to: v ?? '' })}
                         />
-                        <Select
+                        <Selector
+                          label={`Type for ${a.project_name}`}
+                          isLabelHidden
+                          size="sm"
+                          options={[
+                            { value: 'billable', label: 'Billable' },
+                            { value: 'internal', label: 'Internal' },
+                            { value: 'bench', label: 'Bench' },
+                          ]}
                           value={draft.bucket}
-                          disabled={startLocked}
-                          onValueChange={(v) => updateRowDraft(a, { bucket: v as Bucket })}
-                        >
-                          <SelectTrigger className="h-8" aria-label={`Type for ${a.project_name}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="billable">Billable</SelectItem>
-                            <SelectItem value="internal">Internal</SelectItem>
-                            <SelectItem value="bench">Bench</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          isDisabled={startLocked}
+                          onChange={(v) => updateRowDraft(a, { bucket: v as Bucket })}
+                        />
                         <Input
                           label={`Note for ${a.project_name}`}
                           isLabelHidden
@@ -665,18 +660,15 @@ function AllocationSelect({
     ? ALLOCATION_FRACTION_STEPS
     : [value, ...ALLOCATION_FRACTION_STEPS];
   return (
-    <Select value={value} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger className="h-8" aria-label={ariaLabel}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((v) => (
-          <SelectItem key={v} value={v}>
-            {v}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Selector
+      label={ariaLabel}
+      isLabelHidden
+      size="sm"
+      options={options.map((v) => ({ value: v, label: v }))}
+      value={value}
+      onChange={onChange}
+      isDisabled={disabled}
+    />
   );
 }
 
@@ -758,16 +750,17 @@ function TargetRowFields({
           value={row.date_to || undefined}
           onChange={(v) => onChange({ date_to: v ?? '' })}
         />
-        <Select value={row.bucket} onValueChange={(v) => onChange({ bucket: v as Bucket })}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="billable">Billable</SelectItem>
-            <SelectItem value="internal">Internal</SelectItem>
-            <SelectItem value="bench">Bench</SelectItem>
-          </SelectContent>
-        </Select>
+        <Selector
+          label="Type"
+          isLabelHidden
+          options={[
+            { value: 'billable', label: 'Billable' },
+            { value: 'internal', label: 'Internal' },
+            { value: 'bench', label: 'Bench' },
+          ]}
+          value={row.bucket}
+          onChange={(v) => onChange({ bucket: v as Bucket })}
+        />
         <Button
           size="sm"
           variant="ghost"

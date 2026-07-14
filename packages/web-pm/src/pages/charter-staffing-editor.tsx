@@ -8,11 +8,7 @@ import {
   LayoutContent,
   LayoutHeader,
   NumberInput,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -42,33 +38,31 @@ function LevelSelect({
   onChange: (v: AccessLevel) => void;
 }) {
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as AccessLevel)}>
-      <SelectTrigger className="h-8">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="owner">Owner</SelectItem>
-        <SelectItem value="edit">Edit</SelectItem>
-        <SelectItem value="view">View</SelectItem>
-      </SelectContent>
-    </Select>
+    <Selector
+      label="Access level"
+      isLabelHidden
+      size="sm"
+      options={[
+        { value: 'owner', label: 'Owner' },
+        { value: 'edit', label: 'Edit' },
+        { value: 'view', label: 'View' },
+      ]}
+      value={value}
+      onChange={(v) => onChange(v as AccessLevel)}
+    />
   );
 }
 
 function RoleSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-8">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {ROLES.map((r) => (
-          <SelectItem key={r} value={r}>
-            {r}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Selector
+      label="Role"
+      isLabelHidden
+      size="sm"
+      options={ROLES.map((r) => ({ value: r, label: r }))}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 

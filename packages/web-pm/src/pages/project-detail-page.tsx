@@ -10,11 +10,7 @@ import {
   LayoutContent,
   LayoutHeader,
   PageChrome,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   Skeleton,
   Textarea,
   toast,
@@ -227,44 +223,24 @@ export function ProjectDetailPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label>Phase</Label>
-                      <Select
-                        value={patchVal('phase', p.phase) ?? ''}
-                        onValueChange={(v) => setPatch((s) => ({ ...s, phase: v }))}
-                        disabled={inputsDisabled}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PHASES.map((ph) => (
-                            <SelectItem key={ph} value={ph}>
-                              {ph}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Selector
+                        label="Phase"
+                        options={PHASES.map((ph) => ({ value: ph, label: ph }))}
+                        value={patchVal('phase', p.phase) ?? undefined}
+                        onChange={(v) => setPatch((s) => ({ ...s, phase: v }))}
+                        isDisabled={inputsDisabled}
+                      />
                     </div>
                     <div className="space-y-1">
-                      <Label>Status</Label>
-                      <Select
-                        value={patchVal('status', p.status) ?? ''}
-                        onValueChange={(v) =>
+                      <Selector
+                        label="Status"
+                        options={STATUSES.map((st) => ({ value: st, label: st }))}
+                        value={patchVal('status', p.status) ?? undefined}
+                        onChange={(v) =>
                           setPatch((s) => ({ ...s, status: v as ProjectPatch['status'] }))
                         }
-                        disabled={inputsDisabled}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STATUSES.map((st) => (
-                            <SelectItem key={st} value={st}>
-                              {st}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        isDisabled={inputsDisabled}
+                      />
                     </div>
                   </div>
 
@@ -329,19 +305,13 @@ export function ProjectDetailPage() {
                 <LayoutContent>
                   <div className="flex items-end gap-2">
                     <div className="space-y-1 flex-1">
-                      <Label>Board</Label>
-                      <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a board" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(groups ?? []).map((g) => (
-                            <SelectItem key={g.id} value={g.id}>
-                              {g.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Selector
+                        label="Board"
+                        options={(groups ?? []).map((g) => ({ value: g.id, label: g.name }))}
+                        value={selectedGroupId || undefined}
+                        onChange={setSelectedGroupId}
+                        placeholder="Select a board"
+                      />
                     </div>
                     <Button
                       variant="secondary"

@@ -10,11 +10,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
@@ -97,24 +93,17 @@ export function SkillPicker({
               <>
                 <span className="whitespace-nowrap">{v.skill_name}</span>
                 {showLevel ? (
-                  <Select
+                  <Selector
+                    label={`${v.skill_name} level`}
+                    isLabelHidden
+                    size="sm"
+                    options={[0, 1, 2, 3, 4, 5].map((n) => ({
+                      value: String(n),
+                      label: String(n),
+                    }))}
                     value={String(v.level ?? 0)}
-                    onValueChange={(val) => setLevel(v.skill_id, Number(val))}
-                  >
-                    <SelectTrigger
-                      aria-label={`${v.skill_name} level`}
-                      className="ml-1 h-auto gap-1 border-0 bg-transparent p-0 text-body-sm shadow-none focus-visible:shadow-none"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[0, 1, 2, 3, 4, 5].map((n) => (
-                        <SelectItem key={n} value={String(n)}>
-                          {n}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(val) => setLevel(v.skill_id, Number(val))}
+                  />
                 ) : null}
                 <button
                   type="button"

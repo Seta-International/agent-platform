@@ -9,11 +9,7 @@ import {
   KanbanColumn,
   PageChrome,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -293,54 +289,39 @@ export function CandidatesPage() {
             placeholder="Search by name, skill, seniority…"
             className="max-w-xs flex-1"
           />
-          <Select
+          <Selector
+            label="Filter by role"
+            isLabelHidden
+            options={[
+              { value: NONE, label: 'All roles' },
+              ...reqOptions.map(([id, title]) => ({ value: id, label: title })),
+            ]}
             value={reqFilter || NONE}
-            onValueChange={(v) => setReqFilter(v === NONE ? '' : v)}
-          >
-            <SelectTrigger aria-label="Filter by role" className="w-40">
-              <SelectValue placeholder="All roles" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>All roles</SelectItem>
-              {reqOptions.map(([id, title]) => (
-                <SelectItem key={id} value={id}>
-                  {title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
+            onChange={(v) => setReqFilter(v === NONE ? '' : v)}
+            placeholder="All roles"
+          />
+          <Selector
+            label="Filter by seniority"
+            isLabelHidden
+            options={[
+              { value: NONE, label: 'All seniority' },
+              ...seniorityOptions.map((s) => ({ value: s, label: s })),
+            ]}
             value={seniorityFilter || NONE}
-            onValueChange={(v) => setSeniorityFilter(v === NONE ? '' : v)}
-          >
-            <SelectTrigger aria-label="Filter by seniority" className="w-36">
-              <SelectValue placeholder="Seniority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>All seniority</SelectItem>
-              {seniorityOptions.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
+            onChange={(v) => setSeniorityFilter(v === NONE ? '' : v)}
+            placeholder="Seniority"
+          />
+          <Selector
+            label="Filter by source"
+            isLabelHidden
+            options={[
+              { value: NONE, label: 'All sources' },
+              ...sourceOptions.map((s) => ({ value: s, label: s })),
+            ]}
             value={sourceFilter || NONE}
-            onValueChange={(v) => setSourceFilter(v === NONE ? '' : v)}
-          >
-            <SelectTrigger aria-label="Filter by source" className="w-36">
-              <SelectValue placeholder="Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>All sources</SelectItem>
-              {sourceOptions.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={(v) => setSourceFilter(v === NONE ? '' : v)}
+            placeholder="Source"
+          />
           <div className="ml-auto">
             <SegmentedControl
               value={view}

@@ -46,14 +46,18 @@ describe('GroupDetail scope picker', () => {
 
   it('shows the org-unit scope and unit label for a scoped role', async () => {
     renderDetail(scopedGroup);
-    expect(await screen.findByText('Org unit')).toBeInTheDocument();
+    // Scoped to the scope Selector's own combobox: a page-wide text query would
+    // also match the Selector's selected-item overlay (a second "Org unit" node
+    // Astryx renders over the trigger — see Selector's `placement` doc).
+    const scopeCombobox = await screen.findByRole('combobox', { name: 'people.manager scope' });
+    expect(scopeCombobox).toHaveTextContent('Org unit');
     expect(await screen.findByText('Engineering')).toBeInTheDocument();
   }, 15_000);
 
   it('posts a scoped role entry when checking a role (defaults to tenant-wide)', async () => {
     const user = userEvent.setup();
     renderDetail(scopedGroup);
-    await screen.findByText('Org unit');
+    await screen.findByRole('combobox', { name: 'people.manager scope' });
 
     const checkbox = await screen.findByRole('checkbox', { name: /people · viewer/i });
     await user.click(checkbox);

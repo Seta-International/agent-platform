@@ -19,11 +19,7 @@ import {
   NumberInput,
   type OnChangeFn,
   PageChrome,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
   type SortingState,
   toast,
 } from '@seta/shared-ui';
@@ -255,20 +251,16 @@ function SplitAllocationDialog({
               onChange={(v) => setContinuationPct(String(v))}
             />
             <div className="space-y-1.5">
-              <Label>Continuation type</Label>
-              <Select
+              <Selector
+                label="Continuation type"
+                options={[
+                  { value: 'billable', label: 'Billable' },
+                  { value: 'internal', label: 'Internal' },
+                  { value: 'bench', label: 'Bench' },
+                ]}
                 value={continuationBucket}
-                onValueChange={(v) => setContinuationBucket(v as Bucket)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="billable">Billable</SelectItem>
-                  <SelectItem value="internal">Internal</SelectItem>
-                  <SelectItem value="bench">Bench</SelectItem>
-                </SelectContent>
-              </Select>
+                onChange={(v) => setContinuationBucket(v as Bucket)}
+              />
             </div>
           </div>
           <div className="space-y-1.5">
