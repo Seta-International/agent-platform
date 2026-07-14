@@ -79,6 +79,53 @@ describe('embedKnowledgeChunks worker', () => {
     });
   });
 
+  it('embeds 250 chunks in bounded upsert batches (<=100 each) with full correctness', async () => {
+    await withDb(async ({ pool, pgVector }) => {
+      const tenant_id = randomUUID();
+      const provider = new FakeEmbeddingProvider({ dimensions: 1536 });
+
+      const chunks = Array.from({ length: 250 }, (_, i) => ({
+        text: `chunk number ${i}`,
+        page_hint: `p.${i}`,
+      }));
+      const file_id = await seedFileWithChunks(pool, tenant_id, chunks);
+
+      // Spy on upsert to record vectors-per-call without changing behavior.
+      const origUpsert = pgVector.upsert.bind(pgVector);
+      const batchSizes: number[] = [];
+      (pgVector as unknown as { upsert: typeof pgVector.upsert }).upsert = async (args) => {
+        batchSizes.push(args.vectors.length);
+        return origUpsert(args);
+      };
+
+      await embedKnowledgeChunks(
+        { tenant_id, file_id, event_id: randomUUID() },
+        { pool, pgVector, provider },
+      );
+
+      // 250 / 100 => three pages: 100, 100, 50
+      expect(batchSizes).toEqual([100, 100, 50]);
+      expect(Math.max(...batchSizes)).toBeLessThanOrEqual(100);
+
+      const rows = await pgVector.query({
+        indexName: KNOWLEDGE_VECTOR_INDEX,
+        filter: { tenant_id: { $eq: tenant_id }, file_id: { $eq: file_id } },
+        topK: 300,
+      });
+      expect(rows).toHaveLength(250);
+      const ordinals = rows
+        .map((r) => (r.metadata as Partial<KnowledgeChunkVectorMetadata>).chunk_ordinal as number)
+        .sort((a, b) => a - b);
+      expect(ordinals).toEqual(Array.from({ length: 250 }, (_, i) => i));
+
+      const status = await pool.query<{ status: string }>(
+        `SELECT status FROM knowledge.files WHERE id = $1`,
+        [file_id],
+      );
+      expect(status.rows[0]?.status).toBe('ready');
+    });
+  });
+
   it('flips to failed and emits processed-failed event on provider error', async () => {
     await withDb(async ({ pool, pgVector }) => {
       const tenant_id = randomUUID();
