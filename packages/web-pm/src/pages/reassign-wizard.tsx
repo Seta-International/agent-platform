@@ -461,7 +461,6 @@ export function ReassignWizardDialog({
                           label={`End date for ${a.project_name}`}
                           isLabelHidden
                           size="sm"
-                          isDisabled={startLocked}
                           min={draft.date_from || undefined}
                           value={draft.date_to || undefined}
                           onChange={(v) => updateRowDraft(a, { date_to: v ?? '' })}
