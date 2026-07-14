@@ -4,7 +4,6 @@ import { useState } from 'react';
 interface DomainsFieldProps {
   domains: string[];
   onChange: (next: string[]) => void;
-  idPrefix?: string;
 }
 
 export function DomainsField({ domains, onChange }: DomainsFieldProps) {

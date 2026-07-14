@@ -156,6 +156,17 @@ export function InputFormFromSchema({
     }
   }
 
+  function handleNumberChange(leaf: LeafSpec, value: number | null) {
+    setValues((prev) => writePath(prev, leaf.path, value ?? undefined));
+    if (errors[leaf.path.join('.')]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[leaf.path.join('.')];
+        return next;
+      });
+    }
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const next: Errors = {};
@@ -221,8 +232,9 @@ export function InputFormFromSchema({
                 label={labelFor(leaf)}
                 isLabelHidden
                 isIntegerOnly={leaf.type === 'integer'}
-                value={rawStr === '' ? null : Number(rawStr)}
-                onChange={(v) => handleChange(leaf, v === null ? '' : String(v))}
+                hasClear
+                value={typeof raw === 'number' ? raw : null}
+                onChange={(v) => handleNumberChange(leaf, v)}
               />
             ) : (
               <Input

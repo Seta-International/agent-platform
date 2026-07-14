@@ -76,7 +76,7 @@ export function EditDomainsDialog({
               isDisabled
             />
           </div>
-          <DomainsField domains={domains} onChange={setDomains} idPrefix="edit-domains" />
+          <DomainsField domains={domains} onChange={setDomains} />
           {error && <Banner status="error" title={error} />}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
