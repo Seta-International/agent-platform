@@ -31,6 +31,7 @@ const PARSERS: Record<string, Parser> = {
 
 const CHUNK_MAX_SIZE = 512;
 const CHUNK_OVERLAP = 50;
+const INSERT_BATCH = 500;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -110,29 +111,17 @@ export async function parseKnowledgeFile(
     const buf = await deps.fetchObject(fileRow.rows[0]?.s3_key);
     const parsed: ParsedDocument = await parser.parse(buf);
 
-    // Chunk every section. page_hint passes through to the chunks table.
-    const chunks: { ordinal: number; text: string; page_hint: string | null }[] = [];
-    let ordinal = 0;
-    for (const section of parsed.sections) {
-      const subchunks = await MDocument.fromText(section.text).chunk({
-        strategy: 'recursive',
-        maxSize: CHUNK_MAX_SIZE,
-        overlap: CHUNK_OVERLAP,
-      });
-      for (const sub of subchunks) {
-        chunks.push({ ordinal, text: sub.text, page_hint: section.page_hint });
-        ordinal += 1;
-      }
-    }
-
-    if (chunks.length === 0) throw new Error('parser produced no chunks');
-
     // Lazily provision the per-tenant LIST partition before inserting chunks.
+    // Idempotent + tenant-scoped, so it is safe to run before we know the chunk
+    // count.
     await ensureChunksPartition(deps.pool, tenant_id);
 
     // Insert chunks, flip status, enqueue embed job — all in one tx.
     // pool.connect() pins all statements to a single connection so BEGIN/COMMIT
-    // are not silently dispatched to different pool members.
+    // are not silently dispatched to different pool members. Chunks are streamed
+    // section-by-section and flushed in INSERT_BATCH-sized statements so peak
+    // memory stays bounded regardless of file size (FUT-561) and no single
+    // statement approaches Postgres's 65535 bind-param ceiling.
     const client = await deps.pool.connect();
     try {
       await client.query('BEGIN');
@@ -143,22 +132,44 @@ export async function parseKnowledgeFile(
         file_id,
       ]);
 
-      // Bulk insert.
-      const placeholders = chunks
-        .map((_, i) => {
-          const base = 2 + i * 3;
-          return `($1, $2, $${base + 1}, $${base + 2}, $${base + 3})`;
-        })
-        .join(', ');
-      const params: unknown[] = [tenant_id, file_id];
-      for (const c of chunks) params.push(c.ordinal, c.text, c.page_hint);
+      let ordinal = 0;
+      let pending: { ordinal: number; text: string; page_hint: string | null }[] = [];
 
-      await client.query(
-        `INSERT INTO knowledge.chunks
-           (tenant_id, file_id, chunk_ordinal, chunk_text, page_hint)
-         VALUES ${placeholders}`,
-        params,
-      );
+      const flush = async () => {
+        if (pending.length === 0) return;
+        const placeholders = pending
+          .map((_, i) => {
+            const base = 2 + i * 3;
+            return `($1, $2, $${base + 1}, $${base + 2}, $${base + 3})`;
+          })
+          .join(', ');
+        const params: unknown[] = [tenant_id, file_id];
+        for (const c of pending) params.push(c.ordinal, c.text, c.page_hint);
+        await client.query(
+          `INSERT INTO knowledge.chunks
+             (tenant_id, file_id, chunk_ordinal, chunk_text, page_hint)
+           VALUES ${placeholders}`,
+          params,
+        );
+        pending = [];
+      };
+
+      // Chunk every section. page_hint passes through to the chunks table.
+      for (const section of parsed.sections) {
+        const subchunks = await MDocument.fromText(section.text).chunk({
+          strategy: 'recursive',
+          maxSize: CHUNK_MAX_SIZE,
+          overlap: CHUNK_OVERLAP,
+        });
+        for (const sub of subchunks) {
+          pending.push({ ordinal, text: sub.text, page_hint: section.page_hint });
+          ordinal += 1;
+          if (pending.length >= INSERT_BATCH) await flush();
+        }
+      }
+      await flush();
+
+      if (ordinal === 0) throw new Error('parser produced no chunks');
 
       await client.query(
         `UPDATE knowledge.files
