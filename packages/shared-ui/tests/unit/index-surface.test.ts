@@ -21,6 +21,7 @@ const REQUIRED = [
   'NumberInput',
   'Popover',
   'ScrollArea',
+  'Selector',
   'SetaLogo',
   'SetaMark',
   'Sheet',
