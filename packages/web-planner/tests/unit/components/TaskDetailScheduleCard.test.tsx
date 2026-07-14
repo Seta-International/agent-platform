@@ -19,6 +19,20 @@ function renderWithClient(node: ReactNode) {
   return render(<QueryClientProvider client={qc}>{node}</QueryClientProvider>);
 }
 
+// Astryx DateInput (packages/shared-ui/src/primitives/date-input.tsx) renders a formatted
+// text input (role="combobox"), not a native <input type="date"> — its DOM `.value` is a
+// localized "Month D, YYYY" string, not the ISO value the component takes/emits. Mirror its
+// internal formatting (DateInput -> plainDateToDate + DATE_FORMAT_LONG, both local-time based)
+// so assertions on displayed text stay correct regardless of machine locale/timezone.
+function formatLongDate(iso: string): string {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date(year, month - 1, day));
+}
+
 describe('TaskDetailScheduleCard', () => {
   it('renders Start and Due date pills bound to task values', () => {
     const task = makeTaskWithAssignees({
@@ -27,8 +41,8 @@ describe('TaskDetailScheduleCard', () => {
       due_at: '2026-08-17',
     });
     renderWithClient(<TaskDetailScheduleCard task={task} planId="p1" />);
-    expect(screen.getByLabelText('Start')).toHaveValue('2026-08-10');
-    expect(screen.getByLabelText('Due')).toHaveValue('2026-08-17');
+    expect(screen.getByLabelText('Start')).toHaveValue(formatLongDate('2026-08-10'));
+    expect(screen.getByLabelText('Due')).toHaveValue(formatLongDate('2026-08-17'));
   });
 
   it('sends start_at on change', async () => {

@@ -31,6 +31,24 @@ const isoOffset = (days: number): string =>
   new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 const FUTURE_START = isoOffset(90);
 const PAST_START = isoOffset(-90);
+// A second future date, well after FUTURE_START, for tests that edit an end date and need
+// the new value to stay >= date_from (Astryx DateInput enforces `min` on typed input, unlike
+// the native <input type="date"> this replaced).
+const NEW_END = isoOffset(150);
+
+// Astryx DateInput (packages/shared-ui/src/primitives/date-input.tsx) renders a formatted
+// text input (role="combobox"), not a native <input type="date"> — its DOM `.value` is a
+// localized "Month D, YYYY" string, not the ISO value the component takes/emits. Mirror its
+// internal formatting (DateInput -> plainDateToDate + DATE_FORMAT_LONG, both local-time based)
+// so assertions on displayed text stay correct regardless of machine locale/timezone.
+function formatLongDate(iso: string): string {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date(year, month - 1, day));
+}
 
 function allocation(over: Partial<RaMonitoringAllocation> = {}): RaMonitoringAllocation {
   return {
@@ -93,7 +111,7 @@ describe('ReassignWizardDialog', () => {
     renderWizard([allocation({ date_to: '2026-12-23' })]);
 
     const endDateInput = screen.getByLabelText(/end date for/i) as HTMLInputElement;
-    expect(endDateInput.value).toBe('2026-12-23');
+    expect(endDateInput.value).toBe(formatLongDate('2026-12-23'));
     expect(screen.getByLabelText(/start date for/i)).toBeInTheDocument();
     // Allocation is a 0–1 fraction dropdown now: 30% renders as 0.3.
     expect(screen.getByLabelText(/allocation for/i)).toHaveTextContent('0.3');
@@ -112,7 +130,7 @@ describe('ReassignWizardDialog', () => {
     await user.type(startDateInput, '2027-01-01');
 
     const endDateInput = screen.getByLabelText(/end date for/i) as HTMLInputElement;
-    expect(endDateInput.value).toBe('2027-01-01');
+    expect(endDateInput.value).toBe(formatLongDate('2027-01-01'));
   });
 
   it('calls updateAllocation with the full row patch on Save and displays the newly saved values', async () => {
@@ -121,7 +139,10 @@ describe('ReassignWizardDialog', () => {
 
     const endDateInput = screen.getByLabelText(/end date for/i) as HTMLInputElement;
     await user.clear(endDateInput);
-    await user.type(endDateInput, '2026-08-15');
+    // Must land on or after date_from (FUTURE_START) — Astryx DateInput enforces the row's
+    // `min` on typed input (unlike the native date input this replaced), silently rejecting
+    // an out-of-range value instead of committing it.
+    await user.type(endDateInput, NEW_END);
 
     const noteInput = screen.getByLabelText(/note for/i) as HTMLInputElement;
     await user.type(noteInput, 'Handover in progress');
@@ -133,14 +154,14 @@ describe('ReassignWizardDialog', () => {
       project_id: 'p1',
       planned_pct: 30,
       date_from: FUTURE_START,
-      date_to: '2026-08-15',
+      date_to: NEW_END,
       bucket: 'billable',
       note: 'Handover in progress',
       expected_version: 3,
     });
     // Row stays directly editable (no view-mode toggle) — its fields keep
     // reflecting exactly what was just saved.
-    expect(endDateInput).toHaveValue('2026-08-15');
+    expect(endDateInput).toHaveValue(formatLongDate(NEW_END));
     expect(noteInput).toHaveValue('Handover in progress');
   });
 
@@ -281,8 +302,12 @@ describe('ReassignWizardDialog', () => {
     expect(endDate.value).not.toBe('');
     expect(screen.getByRole('button', { name: /review impact/i })).toBeEnabled();
 
-    // Clearing a required date (end) gates the button again.
+    // Clearing a required date (end) gates the button again. Astryx DateInput only commits a
+    // cleared value on blur (onChange fires undefined then) — a bare `change` to '' just sets
+    // in-progress text without touching the underlying value, unlike the native date input
+    // this replaced where the change event alone updated `.value`.
     fireEvent.change(endDate, { target: { value: '' } });
+    fireEvent.blur(endDate);
     expect(screen.getByRole('button', { name: /review impact/i })).toBeDisabled();
 
     // Restoring a valid end date re-enables it.
