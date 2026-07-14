@@ -15,8 +15,7 @@ export const Default: Story = {
         <Input id="label-input" type="email" placeholder="you@example.com" />
       </div>
       <div className="flex items-center gap-2">
-        <Checkbox id="label-checkbox" />
-        <Label htmlFor="label-checkbox">Subscribe to updates</Label>
+        <Checkbox label="Subscribe to updates" value={false} />
       </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor="label-disabled-input">Disabled field</Label>

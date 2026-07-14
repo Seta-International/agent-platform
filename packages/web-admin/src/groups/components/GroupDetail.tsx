@@ -342,15 +342,12 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                               : 'hover:bg-surface-2',
                           )}
                         >
-                          <label
-                            htmlFor={`grouprole-${r.slug}`}
-                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3"
-                          >
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
                             <Checkbox
-                              id={`grouprole-${r.slug}`}
-                              checked={checked}
-                              onCheckedChange={(v) => toggleRole(r.slug, v === true)}
-                              aria-label={r.label}
+                              label={r.label}
+                              isLabelHidden
+                              value={checked}
+                              onChange={(v) => toggleRole(r.slug, v)}
                             />
                             <div className="min-w-0 flex-1">
                               <span className="text-body-sm font-medium text-ink">
@@ -365,7 +362,7 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                             <span className="flex-none font-mono text-caption text-ink-tertiary">
                               {r.slug}
                             </span>
-                          </label>
+                          </div>
                           {entry && (
                             <RoleScopeControl
                               role={entry}

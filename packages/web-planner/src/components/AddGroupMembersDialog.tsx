@@ -170,9 +170,10 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
                 className="flex w-full items-center gap-3 px-3 py-2.5 hover:bg-surface-1 text-left"
               >
                 <Checkbox
-                  checked={isSelected}
-                  aria-label={`Select ${c.display_name}`}
-                  className="pointer-events-none"
+                  label={`Select ${c.display_name}`}
+                  isLabelHidden
+                  value={isSelected}
+                  isReadOnly
                 />
                 <Avatar className="size-7 shrink-0">
                   <AvatarFallback className="text-xs">{initialsOf(c.display_name)}</AvatarFallback>
