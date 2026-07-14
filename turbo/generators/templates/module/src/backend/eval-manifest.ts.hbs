@@ -1,0 +1,8 @@
+import { type EvalManifest } from '@seta/shared-agent-evals';
+
+// Register one defineEvalSuite() per specialist this module owns.
+// The coverage gate (apps/server) fails if a registered specialist has no suite here.
+export const {{camelCase name}}EvalManifest: EvalManifest = {
+  module: '@seta/{{name}}',
+  suites: [],
+};

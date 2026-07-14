@@ -1,0 +1,8 @@
+import { describe, expect, it } from 'vitest';
+import { {{camelCase name}}EvalManifest } from '../../../src/backend/eval-manifest.ts';
+
+describe('eval: {{name}} manifest', () => {
+  it('declares a module-scoped manifest (add suites as specialists land)', () => {
+    expect({{camelCase name}}EvalManifest.module).toBe('@seta/{{name}}');
+  });
+});
