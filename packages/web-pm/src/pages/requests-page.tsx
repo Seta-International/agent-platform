@@ -8,11 +8,7 @@ import {
   Input,
   PageChrome,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Selector,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -402,41 +398,29 @@ export function RequestsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Select
+          <Selector
+            label="Filter by status"
+            isLabelHidden
+            options={[
+              { value: 'all', label: 'All statuses' },
+              ...STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+            ]}
             value={status ?? 'all'}
-            onValueChange={(v) =>
-              update({ status: v === 'all' ? undefined : (v as CharterStatus) })
-            }
-          >
-            <SelectTrigger className="w-[170px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              {STATUS_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={(v) => update({ status: v === 'all' ? undefined : (v as CharterStatus) })}
+            placeholder="Status"
+          />
 
-          <Select
+          <Selector
+            label="Filter by account"
+            isLabelHidden
+            options={[
+              { value: 'all', label: 'All accounts' },
+              ...(accounts ?? []).map((a) => ({ value: a.account_id, label: a.name })),
+            ]}
             value={account ?? 'all'}
-            onValueChange={(v) => update({ account: v === 'all' ? undefined : v })}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Account" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All accounts</SelectItem>
-              {(accounts ?? []).map((a) => (
-                <SelectItem key={a.account_id} value={a.account_id}>
-                  {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={(v) => update({ account: v === 'all' ? undefined : v })}
+            placeholder="Account"
+          />
 
           <Input
             label="Search project name"
@@ -448,21 +432,13 @@ export function RequestsPage() {
           />
 
           <div className="ml-auto flex items-center gap-2">
-            <Select
+            <Selector
+              label="Sort by"
+              isLabelHidden
+              options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
               value={sort}
-              onValueChange={(v) => update({ sort: v as RequestsSearch['sort'] })}
-            >
-              <SelectTrigger className="w-[170px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={(v) => update({ sort: v as RequestsSearch['sort'] })}
+            />
             <Button
               variant="secondary"
               size="sm"
