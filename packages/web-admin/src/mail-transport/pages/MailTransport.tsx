@@ -192,9 +192,10 @@ export function MailTransport() {
           {form.kind === 'graph' ? (
             <div className="flex items-start gap-3 rounded-md border border-hairline p-3">
               <Switch
-                checked={form.graphPolicyAcked}
-                onCheckedChange={(v) => setForm((s) => ({ ...s, graphPolicyAcked: v }))}
-                aria-label="Application access policy acknowledged"
+                label="Application access policy acknowledged"
+                isLabelHidden
+                value={form.graphPolicyAcked}
+                onChange={(v) => setForm((s) => ({ ...s, graphPolicyAcked: v }))}
               />
               <div className="min-w-0">
                 <div className="font-medium text-ink">Application access policy is in place</div>
@@ -248,14 +249,11 @@ export function MailTransport() {
                   />
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-body-sm">
-                <Switch
-                  id="smtp-require-tls"
-                  checked={form.smtpRequireTls}
-                  onCheckedChange={(v) => setForm((s) => ({ ...s, smtpRequireTls: v }))}
-                />
-                <Label htmlFor="smtp-require-tls">Require TLS</Label>
-              </div>
+              <Switch
+                label="Require TLS"
+                value={form.smtpRequireTls}
+                onChange={(v) => setForm((s) => ({ ...s, smtpRequireTls: v }))}
+              />
             </div>
           )}
 

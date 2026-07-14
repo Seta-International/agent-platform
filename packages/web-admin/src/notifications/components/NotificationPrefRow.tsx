@@ -8,8 +8,6 @@ export interface NotificationPrefRowProps {
 }
 
 export function NotificationPrefRow({ row, onToggle, disabled }: NotificationPrefRowProps) {
-  const inAppId = `notif-${row.event_type}-in-app`;
-  const emailId = `notif-${row.event_type}-email`;
   const anyOn = row.in_app_enabled || (row.email_enabled && row.email_available);
 
   return (
@@ -24,7 +22,6 @@ export function NotificationPrefRow({ row, onToggle, disabled }: NotificationPre
 
       <div className="flex shrink-0 items-start gap-6">
         <ChannelToggle
-          id={inAppId}
           label="In-app"
           checked={row.in_app_enabled}
           disabled={disabled}
@@ -33,7 +30,6 @@ export function NotificationPrefRow({ row, onToggle, disabled }: NotificationPre
           }
         />
         <ChannelToggle
-          id={emailId}
           label="Email"
           checked={row.email_enabled}
           disabled={disabled || !row.email_available}
@@ -47,25 +43,22 @@ export function NotificationPrefRow({ row, onToggle, disabled }: NotificationPre
 }
 
 interface ChannelToggleProps {
-  id: string;
   label: string;
   checked: boolean;
   disabled?: boolean;
   onCheckedChange: (next: boolean) => void;
 }
 
-function ChannelToggle({ id, label, checked, disabled, onCheckedChange }: ChannelToggleProps) {
+function ChannelToggle({ label, checked, disabled, onCheckedChange }: ChannelToggleProps) {
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <label htmlFor={id} className="text-caption font-medium text-ink-muted">
-        {label}
-      </label>
+      <span className="text-caption font-medium text-ink-muted">{label}</span>
       <Switch
-        id={id}
-        checked={checked}
-        disabled={disabled}
-        onCheckedChange={onCheckedChange}
-        aria-label={`Toggle ${label.toLowerCase()} notifications`}
+        label={`Toggle ${label.toLowerCase()} notifications`}
+        isLabelHidden
+        value={checked}
+        isDisabled={disabled}
+        onChange={onCheckedChange}
       />
     </div>
   );
