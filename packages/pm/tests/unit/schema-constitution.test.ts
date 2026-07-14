@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   accountRecruiter,
   allocation,
+  comment,
+  flag,
+  metricValue,
+  report,
   staffingPlanLine,
   staffingPlanLineSkill,
 } from '../../src/backend/db/schema.ts';
@@ -30,5 +34,26 @@ describe('pm schema constitution', () => {
 
   it('account_recruiter carries version', () => {
     expect(getTableConfig(accountRecruiter).columns.some((c) => c.name === 'version')).toBe(true);
+  });
+
+  it('report and metric_value carry a version token', () => {
+    expect(getTableConfig(report).columns.some((c) => c.name === 'version')).toBe(true);
+    expect(getTableConfig(metricValue).columns.some((c) => c.name === 'version')).toBe(true);
+  });
+
+  it('report identity unique is tenant-led', () => {
+    const idx = getTableConfig(report).indexes.find((i) =>
+      i.config.name?.includes('report_identity_uniq'),
+    );
+    const first = idx?.config.columns[0];
+    expect(first && 'name' in first ? first.name : '').toBe('tenant_id');
+  });
+
+  it('flag is one row per report per QCDP category, and comment carries version', () => {
+    const idx = getTableConfig(flag).indexes.find((i) =>
+      i.config.name?.includes('flag_report_category_uniq'),
+    );
+    expect(idx?.config.unique).toBe(true);
+    expect(getTableConfig(comment).columns.some((c) => c.name === 'version')).toBe(true);
   });
 });

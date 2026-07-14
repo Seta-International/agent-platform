@@ -271,3 +271,199 @@ export const staffingPlanLineSkill = pmSchema.table(
     check('staffing_plan_line_skill_min_level_check', sql`min_level BETWEEN 0 AND 5`),
   ],
 );
+
+// ── Weekly Report & KPI Performance (FUT-609) ──────────────────────────────
+
+export const REPORT_COLOURS = ['green', 'yellow', 'red', 'gray'] as const;
+export const QCDP_CATEGORIES = ['quality', 'cost', 'delivery', 'performance'] as const;
+export const METRIC_DIRECTIONS = ['higher_better', 'lower_better'] as const;
+export const REPORT_STATUS = ['draft', 'submitted'] as const;
+
+export const report = pmSchema.table(
+  'report',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    project_id: uuid('project_id')
+      .notNull()
+      .references(() => project.id),
+    week_start: date('week_start').notNull(), // Monday, Asia/Ho_Chi_Minh
+    reporter_id: uuid('reporter_id').notNull(), // People worker (no cross-schema FK)
+    status: textEnum('status', REPORT_STATUS).notNull().default('draft'),
+    executive_summary: text('executive_summary'),
+    overall_colour: textEnum('overall_colour', REPORT_COLOURS), // derived RAG, set later
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('report_identity_uniq').on(t.tenant_id, t.project_id, t.week_start, t.reporter_id),
+    index('report_by_project_week').on(t.tenant_id, t.project_id, t.week_start),
+    index('report_by_reporter').on(t.tenant_id, t.reporter_id),
+    textEnumCheck('report', 'status', REPORT_STATUS),
+    textEnumCheck('report', 'overall_colour', REPORT_COLOURS),
+  ],
+);
+
+export const metricValue = pmSchema.table(
+  'metric_value',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    report_id: uuid('report_id')
+      .notNull()
+      .references(() => report.id, { onDelete: 'cascade' }),
+    metric_id: uuid('metric_id').notNull(), // Admin catalog metric (no cross-schema FK)
+    raw_value: numeric('raw_value', { precision: 18, scale: 6 }),
+    colour: textEnum('colour', REPORT_COLOURS), // derived, set by colour computation
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('metric_value_identity_uniq').on(t.tenant_id, t.report_id, t.metric_id),
+    index('metric_value_by_report').on(t.tenant_id, t.report_id),
+    textEnumCheck('metric_value', 'colour', REPORT_COLOURS),
+  ],
+);
+
+export const flag = pmSchema.table(
+  'flag',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    report_id: uuid('report_id')
+      .notNull()
+      .references(() => report.id, { onDelete: 'cascade' }),
+    category: textEnum('category', QCDP_CATEGORIES).notNull(),
+    computed_colour: textEnum('computed_colour', REPORT_COLOURS).notNull(),
+    final_colour: textEnum('final_colour', REPORT_COLOURS).notNull(),
+    latest_audit_entry_id: uuid('latest_audit_entry_id'), // FK added in platform migration
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('flag_report_category_uniq').on(t.tenant_id, t.report_id, t.category),
+    textEnumCheck('flag', 'category', QCDP_CATEGORIES),
+    textEnumCheck('flag', 'computed_colour', REPORT_COLOURS),
+    textEnumCheck('flag', 'final_colour', REPORT_COLOURS),
+  ],
+);
+
+export const flagAuditEntry = pmSchema.table(
+  'flag_audit_entry',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    flag_id: uuid('flag_id')
+      .notNull()
+      .references(() => flag.id, { onDelete: 'cascade' }),
+    from_colour: textEnum('from_colour', REPORT_COLOURS), // null for the initial entry
+    to_colour: textEnum('to_colour', REPORT_COLOURS).notNull(),
+    reason: text('reason'),
+    actor_user_id: uuid('actor_user_id'), // null = system-computed
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('flag_audit_entry_by_flag').on(t.tenant_id, t.flag_id, t.created_at),
+    textEnumCheck('flag_audit_entry', 'from_colour', REPORT_COLOURS),
+    textEnumCheck('flag_audit_entry', 'to_colour', REPORT_COLOURS),
+  ],
+);
+
+export const normBaseline = pmSchema.table(
+  'norm_baseline',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    metric_id: uuid('metric_id').notNull(), // Admin catalog metric
+    catalog_version: integer('catalog_version').notNull(),
+    category: textEnum('category', QCDP_CATEGORIES).notNull(),
+    direction: textEnum('direction', METRIC_DIRECTIONS).notNull(),
+    goal_threshold: numeric('goal_threshold', { precision: 18, scale: 6 }),
+    yellow_threshold: numeric('yellow_threshold', { precision: 18, scale: 6 }),
+    formula_ref: text('formula_ref'),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('norm_baseline_version_uniq').on(t.tenant_id, t.metric_id, t.catalog_version),
+    textEnumCheck('norm_baseline', 'category', QCDP_CATEGORIES),
+    textEnumCheck('norm_baseline', 'direction', METRIC_DIRECTIONS),
+  ],
+);
+
+export const normSnapshot = pmSchema.table(
+  'norm_snapshot',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    report_id: uuid('report_id')
+      .notNull()
+      .references(() => report.id, { onDelete: 'cascade' }),
+    metric_id: uuid('metric_id').notNull(),
+    catalog_version: integer('catalog_version').notNull(),
+    category: textEnum('category', QCDP_CATEGORIES).notNull(),
+    direction: textEnum('direction', METRIC_DIRECTIONS).notNull(),
+    goal_threshold: numeric('goal_threshold', { precision: 18, scale: 6 }),
+    yellow_threshold: numeric('yellow_threshold', { precision: 18, scale: 6 }),
+    formula_ref: text('formula_ref'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('norm_snapshot_report_metric_uniq').on(t.tenant_id, t.report_id, t.metric_id),
+    textEnumCheck('norm_snapshot', 'category', QCDP_CATEGORIES),
+    textEnumCheck('norm_snapshot', 'direction', METRIC_DIRECTIONS),
+  ],
+);
+
+export const projectWeekRollup = pmSchema.table(
+  'project_week_rollup',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    project_id: uuid('project_id')
+      .notNull()
+      .references(() => project.id),
+    week_start: date('week_start').notNull(),
+    quality_colour: textEnum('quality_colour', REPORT_COLOURS),
+    cost_colour: textEnum('cost_colour', REPORT_COLOURS),
+    delivery_colour: textEnum('delivery_colour', REPORT_COLOURS),
+    performance_colour: textEnum('performance_colour', REPORT_COLOURS),
+    rag: textEnum('rag', REPORT_COLOURS), // worst-of-four
+    ohs: numeric('ohs', { precision: 5, scale: 2 }), // operational health score
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('project_week_rollup_uniq').on(t.tenant_id, t.project_id, t.week_start),
+    textEnumCheck('project_week_rollup', 'quality_colour', REPORT_COLOURS),
+    textEnumCheck('project_week_rollup', 'cost_colour', REPORT_COLOURS),
+    textEnumCheck('project_week_rollup', 'delivery_colour', REPORT_COLOURS),
+    textEnumCheck('project_week_rollup', 'performance_colour', REPORT_COLOURS),
+    textEnumCheck('project_week_rollup', 'rag', REPORT_COLOURS),
+  ],
+);
+
+export const comment = pmSchema.table(
+  'comment',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    report_id: uuid('report_id')
+      .notNull()
+      .references(() => report.id, { onDelete: 'cascade' }),
+    parent_comment_id: uuid('parent_comment_id'), // self-FK added below
+    author_user_id: uuid('author_user_id').notNull(),
+    body: text('body').notNull(),
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('comment_by_report').on(t.tenant_id, t.report_id, t.created_at),
+    foreignKey({
+      columns: [t.parent_comment_id],
+      foreignColumns: [t.id],
+      name: 'comment_parent_fk',
+    }).onDelete('cascade'),
+  ],
+);
