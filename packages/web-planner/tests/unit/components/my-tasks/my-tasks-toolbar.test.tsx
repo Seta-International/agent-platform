@@ -105,4 +105,18 @@ describe('MyTasksToolbar', () => {
     await user.click(await screen.findByText('Any'));
     expect(onChange).toHaveBeenCalledWith({ planId: undefined });
   });
+
+  it('clicking the clear ("×") button resets the search input without crashing', async () => {
+    const user = userEvent.setup();
+    setup();
+    const input = screen.getByPlaceholderText(/search my tasks/i) as HTMLInputElement;
+    await user.type(input, 'cache');
+    expect(input.value).toBe('cache');
+
+    // Astryx TextInput's clear button calls onChange('', null) — the event arg
+    // is null on this path. A handler that reads e.target.value crashes here.
+    await user.click(screen.getByRole('button', { name: /Clear Search my tasks/i }));
+
+    expect(input.value).toBe('');
+  });
 });

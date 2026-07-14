@@ -137,7 +137,7 @@ export function GroupsToolbar({
         hasClear
         placeholder="Search groups…"
         value={localSearch}
-        onChange={(_value, e) => setLocalSearch(e.target.value)}
+        onChange={(value) => setLocalSearch(value)}
         onCompositionStart={() => setIsComposing(true)}
         onCompositionEnd={(e) => {
           setIsComposing(false);

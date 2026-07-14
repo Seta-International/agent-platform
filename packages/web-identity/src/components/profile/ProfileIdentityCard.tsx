@@ -30,6 +30,7 @@ const TIMEZONES = ((
 ];
 
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const BIO_MAX = 500;
 
 function initials(name: string): string {
   return name
@@ -112,10 +113,11 @@ export function ProfileIdentityCard({
   const whInvalid =
     canEditWorkingHours && (whStart || whEnd) && !(whStart.match(HHMM_RE) && whEnd.match(HHMM_RE));
   const bioDirty = bio !== (profile.bio ?? '');
+  const bioTooLong = bio.length > BIO_MAX;
   const dirty = name !== profile.display_name || tz !== profile.timezone || bioDirty || whDirty;
 
   async function save() {
-    if (!dirty || whInvalid) return;
+    if (!dirty || whInvalid || bioTooLong) return;
     setSaving(true);
     try {
       const patch: Parameters<SaveProfile>[0] = {};
@@ -161,10 +163,15 @@ export function ProfileIdentityCard({
           <Textarea
             label="Bio"
             value={bio}
-            maxLength={500}
+            maxLength={BIO_MAX}
             rows={4}
             placeholder="Add a short bio so teammates know who you are."
             onChange={(value) => setBio(value)}
+            status={
+              bioTooLong
+                ? { type: 'error', message: `Bio cannot exceed ${BIO_MAX} characters.` }
+                : undefined
+            }
           />
 
           <div>
@@ -238,7 +245,7 @@ export function ProfileIdentityCard({
           <div className="flex justify-end pt-1">
             <Button
               onClick={save}
-              isDisabled={saving || !dirty || Boolean(whInvalid)}
+              isDisabled={saving || !dirty || Boolean(whInvalid) || bioTooLong}
               label="Save changes"
             />
           </div>
