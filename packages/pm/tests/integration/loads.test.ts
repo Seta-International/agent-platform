@@ -8,7 +8,7 @@ const ctx = {
 };
 
 describe('pm schema', () => {
-  it('migrates the four pm tables', async () => {
+  it('migrates the pm tables', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       initPools({ databaseUrl });
       try {
@@ -20,10 +20,18 @@ describe('pm schema', () => {
           'account',
           'account_recruiter',
           'allocation',
+          'comment',
+          'flag',
+          'flag_audit_entry',
+          'metric_value',
+          'norm_baseline',
+          'norm_snapshot',
           'person_projection',
           'project',
           'project_access',
           'project_approval',
+          'project_week_rollup',
+          'report',
           'staffing_plan_line',
           'staffing_plan_line_skill',
         ]);

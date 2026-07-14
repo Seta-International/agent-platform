@@ -138,7 +138,53 @@ describe('pm weekly-report schema', () => {
     });
   });
 
-  it('cascades flag_audit_entry when its report is deleted', async () => {
+  it('cascade-deletes report children (metric_value, comment, unflagged flag) with the report', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectId = await seedProject(pool, t.tenant_id);
+        const reportId = crypto.randomUUID();
+        await pool.query(
+          `INSERT INTO pm.report (id, tenant_id, project_id, week_start, reporter_id)
+           VALUES ($1,$2,$3,'2026-07-13',$4)`,
+          [reportId, t.tenant_id, projectId, crypto.randomUUID()],
+        );
+        await pool.query(
+          `INSERT INTO pm.metric_value (tenant_id, report_id, metric_id) VALUES ($1,$2,$3)`,
+          [t.tenant_id, reportId, crypto.randomUUID()],
+        );
+        await pool.query(
+          `INSERT INTO pm.comment (tenant_id, report_id, author_user_id, body)
+           VALUES ($1,$2,$3,'hi')`,
+          [t.tenant_id, reportId, crypto.randomUUID()],
+        );
+        // A flag with no audit history is not protected by the append-only guard.
+        await pool.query(
+          `INSERT INTO pm.flag (tenant_id, report_id, category, computed_colour, final_colour)
+           VALUES ($1,$2,'quality','green','green')`,
+          [t.tenant_id, reportId],
+        );
+
+        await pool.query(`DELETE FROM pm.report WHERE id = $1`, [reportId]);
+
+        for (const table of ['metric_value', 'comment', 'flag']) {
+          const left = await pool.query(`SELECT 1 FROM pm.${table} WHERE report_id = $1`, [
+            reportId,
+          ]);
+          expect(left.rowCount, table).toBe(0);
+        }
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('append-only guard protects flag audit history from cascade deletion of the report', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -162,11 +208,13 @@ describe('pm weekly-report schema', () => {
           `INSERT INTO pm.flag_audit_entry (tenant_id, flag_id, to_colour) VALUES ($1,$2,'red')`,
           [t.tenant_id, flagId],
         );
-        await pool.query(`DELETE FROM pm.report WHERE id = $1`, [reportId]);
-        const remaining = await pool.query(`SELECT 1 FROM pm.flag_audit_entry WHERE flag_id = $1`, [
-          flagId,
-        ]);
-        expect(remaining.rowCount).toBe(0);
+        // Hard-deleting a report whose flags carry audit history is refused — audit is permanent.
+        // (The domain soft-deletes aggregates; this guards against accidental history loss.)
+        await expect(pool.query(`DELETE FROM pm.report WHERE id = $1`, [reportId])).rejects.toThrow(
+          /append-only/,
+        );
+        const stillThere = await pool.query(`SELECT 1 FROM pm.report WHERE id = $1`, [reportId]);
+        expect(stillThere.rowCount).toBe(1);
       } finally {
         resetPmDb();
         resetCoreDb();
