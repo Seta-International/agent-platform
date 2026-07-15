@@ -52,10 +52,18 @@ COPY apps/server/  apps/server/
 COPY apps/cli/     apps/cli/
 COPY apps/worker/  apps/worker/
 
-# Typecheck-only — fail the image build if the TS doesn't pass.
-RUN pnpm --filter=@seta/server exec tsc --noEmit \
- && pnpm --filter=@seta/cli    exec tsc --noEmit \
- && pnpm --filter=@seta/worker exec tsc --noEmit
+# Typecheck-only gate — fail the image build if the TS doesn't pass. Produces no
+# artifact (runtime uses tsx), so it is purely a correctness check that is
+# redundant with CI's typecheck. Skippable via SKIP_TYPECHECK=1 for throwaway /
+# e2e builds (where CI already gates); prod builds leave it on (default 0).
+ARG SKIP_TYPECHECK=0
+RUN if [ "$SKIP_TYPECHECK" = "1" ]; then \
+      echo "SKIP_TYPECHECK=1 — skipping tsc gate"; \
+    else \
+      pnpm --filter=@seta/server exec tsc --noEmit \
+      && pnpm --filter=@seta/cli    exec tsc --noEmit \
+      && pnpm --filter=@seta/worker exec tsc --noEmit; \
+    fi
 
 # ============================================================================
 # Stage 4 — prune

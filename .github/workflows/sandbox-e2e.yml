@@ -33,7 +33,10 @@ env:
 
 jobs:
   e2e:
-    runs-on: ubuntu-latest
+    # Native arm64 runner: builds the Graviton image without QEMU emulation and
+    # matches the Fargate arm64 runtime. Requires arm64 hosted runners enabled
+    # for the org.
+    runs-on: ubuntu-24.04-arm
     environment: sandbox
     env:
       MODE: ${{ github.event.inputs.mode || 'e2e' }}
@@ -84,24 +87,16 @@ jobs:
           TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
         run: terraform apply -input=false -auto-approve
 
-      - name: Set up QEMU (arm64 emulation)
-        if: env.MODE != 'plan' && env.MODE != 'destroy'
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Buildx
-        if: env.MODE != 'plan' && env.MODE != 'destroy'
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build & push arm64 image
+      - name: Build & push arm64 image (native)
         if: env.MODE != 'plan' && env.MODE != 'destroy'
         run: |
           aws ecr get-login-password --region "$AWS_REGION" \
             | docker login --username AWS --password-stdin "${{ steps.ctx.outputs.registry }}"
-          docker buildx build \
-            --platform linux/arm64 \
+          docker build \
+            --build-arg SKIP_TYPECHECK=1 \
             -f infra/docker/server.Dockerfile \
-            -t "${{ steps.ctx.outputs.image_uri }}" \
-            --push .
+            -t "${{ steps.ctx.outputs.image_uri }}" .
+          docker push "${{ steps.ctx.outputs.image_uri }}"
 
       - name: Migrate (one-off task)
         if: env.MODE != 'plan' && env.MODE != 'destroy'
@@ -136,7 +131,7 @@ jobs:
       - name: Install session-manager-plugin
         if: env.MODE == 'e2e' || env.MODE == 'apply'
         run: |
-          curl -s "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" \
+          curl -s "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_arm64/session-manager-plugin.deb" \
             -o /tmp/smp.deb
           sudo dpkg -i /tmp/smp.deb
 
