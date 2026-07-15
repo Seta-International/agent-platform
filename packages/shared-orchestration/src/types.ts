@@ -1,3 +1,4 @@
+import type { MastraDBMessage } from '@mastra/core/agent';
 import type { MastraModelOutput } from '@mastra/core/stream';
 import type {
   AgentMemoryHandle,
@@ -21,6 +22,9 @@ export interface RunCtx {
   /** Per-turn model override (chat inline runs only) — forwarded into each
    *  agent's run ctx; see SpecializedAgentRunCtx.model. */
   model?: SpecializedAgentRunCtx['model'];
+  /** Conversation history loaded once per turn by the chat route.
+   *  All orchestrators and the intent classifier share this. */
+  sessionHistory?: MastraDBMessage[];
 }
 
 /** Accumulated state of a run: each completed step's output keyed by step id. */

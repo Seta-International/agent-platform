@@ -136,3 +136,23 @@ export function buildEntitiesMemory(opts: {
   const memory = new Memory({ storage: storage as never, options: memoryConfig });
   return { memory, memoryConfig };
 }
+
+// ---------------------------------------------------------------------------
+// Session-level history loader — called once per turn by the chat route.
+// ---------------------------------------------------------------------------
+export async function loadSessionHistory(
+  handle:
+    | { memory: Pick<Memory, 'recall'>; memoryConfig: { lastMessages?: number | false } }
+    | undefined,
+  threadId: string | undefined,
+): Promise<import('@mastra/core/agent').MastraDBMessage[]> {
+  if (!handle || !threadId) return [];
+  try {
+    const perPage =
+      typeof handle.memoryConfig.lastMessages === 'number' ? handle.memoryConfig.lastMessages : 20;
+    const { messages } = await handle.memory.recall({ threadId, perPage });
+    return messages ?? [];
+  } catch {
+    return [];
+  }
+}
