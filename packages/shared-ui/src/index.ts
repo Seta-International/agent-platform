@@ -108,6 +108,7 @@ export * from './primitives/tabs';
 export * from './primitives/textarea';
 export * from './primitives/time-input';
 export * from './primitives/toast';
+export * from './primitives/token';
 export * from './primitives/tokenizer';
 export * from './primitives/tooltip';
 export * from './primitives/typeahead';
@@ -120,6 +121,7 @@ export * from './rich-text/RichTextToolbar';
 export * from './sync/m365-error-messages';
 // Task
 export * from './task/add-reference-combobox';
+export * from './task/classify-url';
 export * from './task/reference-row';
 // Theme
 export * from './theme/theme-provider';
