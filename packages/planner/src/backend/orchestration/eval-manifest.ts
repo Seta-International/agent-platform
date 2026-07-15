@@ -1,3 +1,4 @@
+import { InMemoryStore } from '@mastra/core/storage';
 import type { AgentTool } from '@seta/agent-sdk';
 import {
   defineEvalCase,
@@ -11,6 +12,7 @@ import { makeQnaTaskQueryAgent } from './agents/task-query.ts';
 import { makeQnaTeamInfoAgent } from './agents/team-info.ts';
 import { makeAvaiCheckerAgent } from './assignment/agents/avai-checker.ts';
 import { makeRecommenderAgent } from './assignment/agents/recommender.ts';
+import { makeOrchestratorAgent } from './assignment/orchestrator.ts';
 import type { AvailabilityPort } from './assignment/ports.ts';
 import { makeQnaOrchestrator } from './orchestrator.ts';
 import { makeWeeklyPlanOrchestrator } from './weekly-plan/orchestrator.ts';
@@ -208,6 +210,50 @@ export const weeklyPlanOrchestratorEvalSuite = defineEvalSuite({
   ],
 });
 
+/**
+ * Deterministic gate for the assignment (staffing) orchestrator. Unlike the qna/
+ * weekly-plan orchestrators, `makeOrchestratorAgent(...).run()` — the
+ * `SpecializedAgentSpec` `runSpecEvals` drives — consults `deps.runAgent`, not
+ * `deps.streamAgent`; `streamAgent` only backs the separate streaming entrypoint
+ * `makeChatOrchestrationStreamer`, which returns a `ChatStreamRun` (not a
+ * `SpecializedAgentSpec`) and can't be plugged into `runSpecEvals`. `runAgent`
+ * returns the same canned-text, no-tool-calls shape the qna/weekly seams use, so
+ * `assemble()`'s no-tools-ran branch answers with the LLM's own (canned) text —
+ * schema-valid and LLM-free either way.
+ */
+export const assignmentOrchestratorEvalSuite = defineEvalSuite({
+  specId: 'planner.assignment-orchestrator',
+  buildSpec: () =>
+    makeOrchestratorAgent({
+      taskAnalyzer: stubSubAgent('staffing.taskAnalyzer'),
+      skillMatcher: stubSubAgent('staffing.skillMatcher'),
+      avaiChecker: stubSubAgent('staffing.avaiChecker'),
+      recommender: stubSubAgent('staffing.recommender'),
+      generalAnswer: stubSubAgent('staffing.generalAnswer'),
+      userProfileLookup: { findByName: async () => [] },
+      assign: { assign: async () => {} },
+      suggest: async () => ({ task: { title: '' }, candidates: [] }),
+      taskAssignees: { currentAssigneeIds: async () => [] },
+      resolveModel: () => ({}) as never,
+      mastraStorage: new InMemoryStore(),
+      // Test seam — replaces agent.generate()/the model call outright, so the
+      // tool loop (and thus the stub sub-agents above) is never invoked.
+      runAgent: async () => ({
+        toolCalls: [],
+        toolResults: [],
+        text: "Here's who I'd recommend for this task.",
+      }),
+    }),
+  cases: [
+    defineEvalCase({
+      name: 'answers an assignment turn via the runAgent seam',
+      layer: 'deterministic',
+      input: { userText: 'who should I assign this to?', taskId: 't-1' },
+      actor: { tenantId: 't1', userId: 'u1' },
+    }),
+  ],
+});
+
 export const taskQueryQualitySuite = defineEvalSuite({
   specId: 'planner.qna.taskQuery',
   // Deterministic build kept for type-completeness (canned seam, LLM-free).
@@ -388,6 +434,7 @@ export const plannerEvalManifest: EvalManifest = {
     recommenderEvalSuite as EvalSuite,
     qnaOrchestratorEvalSuite as EvalSuite,
     weeklyPlanOrchestratorEvalSuite as EvalSuite,
+    assignmentOrchestratorEvalSuite as EvalSuite,
     generalAnswerQualitySuite as EvalSuite,
     taskQueryQualitySuite as EvalSuite,
     taskDetailQualitySuite as EvalSuite,
