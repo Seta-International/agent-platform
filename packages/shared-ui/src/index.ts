@@ -87,7 +87,8 @@ export * from './primitives/calendar';
 export * from './primitives/card';
 export * from './primitives/checkbox';
 export * from './primitives/date-input';
-export * from './primitives/dialog';
+// Dialog re-export: use Astryx version (Radix version still in primitives/dialog.tsx for backwards compat)
+export * from './primitives/dialog-astryx';
 export * from './primitives/dropdown-menu';
 export * from './primitives/hover-card';
 export * from './primitives/icon-button';
