@@ -128,6 +128,16 @@ resource "aws_ecs_task_definition" "api" {
     cpu_architecture        = var.cpu_architecture
   }
   container_definitions = jsonencode(local.api_containers)
+
+  # The service must not launch tasks until the secret VALUES exist (they are
+  # built from the RDS endpoint, so their versions land only after RDS is up).
+  # Without this, tasks start against empty secrets, fail to fetch AWSCURRENT,
+  # and trip the deployment circuit breaker.
+  depends_on = [
+    aws_secretsmanager_secret_version.database_url,
+    aws_secretsmanager_secret_version.better_auth_secret,
+    aws_secretsmanager_secret_version.crypto_local_master_key,
+  ]
 }
 
 resource "aws_ecs_task_definition" "worker" {
@@ -143,6 +153,13 @@ resource "aws_ecs_task_definition" "worker" {
     cpu_architecture        = var.cpu_architecture
   }
   container_definitions = jsonencode([local.worker_container])
+
+  # See api task def: don't launch worker tasks until secret values exist.
+  depends_on = [
+    aws_secretsmanager_secret_version.database_url,
+    aws_secretsmanager_secret_version.better_auth_secret,
+    aws_secretsmanager_secret_version.crypto_local_master_key,
+  ]
 }
 
 resource "aws_ecs_service" "api" {
