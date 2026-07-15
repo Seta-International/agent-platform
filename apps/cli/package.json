@@ -9,7 +9,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval:quality": "tsx src/index.ts eval-quality"
   },
   "devDependencies": {
     "@seta/shared-config": "workspace:^",
@@ -29,6 +30,7 @@
     "@seta/people": "workspace:^",
     "@seta/planner": "workspace:^",
     "@seta/pm": "workspace:^",
+    "@seta/shared-agent-evals": "workspace:^",
     "@seta/shared-crypto": "workspace:^",
     "@seta/shared-db": "workspace:^",
     "@seta/shared-mailer": "workspace:^",

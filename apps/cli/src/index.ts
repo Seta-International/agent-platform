@@ -15,6 +15,7 @@ import { Command } from 'commander';
 import pino from 'pino';
 import { demoSuggestionsCommand } from './commands/demo-suggestions.ts';
 import { runEmbedBackfill } from './commands/embed-backfill.ts';
+import { runEvalQuality, summarizeQualityResults } from './commands/eval-quality.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
 import { migrateCommand } from './commands/migrate.ts';
@@ -302,6 +303,26 @@ program
   .action(async (opts: { module: string; tenant: string }) => {
     try {
       await runEmbedBackfill({ module: opts.module, tenant: opts.tenant });
+    } finally {
+      await closePools();
+    }
+  });
+
+program
+  .command('eval-quality')
+  .description(
+    'Run the real-model quality eval lane across all module manifests, persist scores, and print a summary. Advisory only — a low score never fails the command.',
+  )
+  .option('--trigger <trigger>', 'nightly or manual', 'manual')
+  .action(async (opts: { trigger: string }) => {
+    try {
+      const trigger = opts.trigger === 'nightly' ? 'nightly' : 'manual';
+      const gitSha = process.env.GITHUB_SHA ?? 'local';
+      const { runId, results } = await runEvalQuality({ trigger, gitSha, persist: true });
+      console.table(summarizeQualityResults(results));
+      if (runId) {
+        console.log(`eval run persisted: ${runId}`);
+      }
     } finally {
       await closePools();
     }

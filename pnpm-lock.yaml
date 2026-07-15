@@ -95,6 +95,9 @@ importers:
       '@seta/pm':
         specifier: workspace:^
         version: link:../../packages/pm
+      '@seta/shared-agent-evals':
+        specifier: workspace:^
+        version: link:../../packages/shared-agent-evals
       '@seta/shared-crypto':
         specifier: workspace:^
         version: link:../../packages/shared-crypto
