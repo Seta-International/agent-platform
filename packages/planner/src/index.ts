@@ -30,6 +30,11 @@ export { duplicatePlan } from './backend/domain/duplicate-plan.ts';
 export { duplicateTask } from './backend/domain/duplicate-task.ts';
 export { getGroup } from './backend/domain/get-group.ts';
 export { getGroupActivity } from './backend/domain/get-group-activity.ts';
+export {
+  type GetGroupWorkloadResult,
+  getGroupWorkload,
+  type WorkloadRow,
+} from './backend/domain/get-group-workload.ts';
 export { getPlan } from './backend/domain/get-plan.ts';
 export { getPlanChartData } from './backend/domain/get-plan-chart-data.ts';
 export { getTask } from './backend/domain/get-task.ts';

@@ -14,6 +14,7 @@ export {
   plannerGetStatsTool,
   plannerGetTaskTool,
   plannerGetTimelineTool,
+  plannerGetWorkloadTool,
   plannerListBucketsTool,
   plannerListCommentsTool,
   plannerListPlansTool,
