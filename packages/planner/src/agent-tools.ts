@@ -7,6 +7,7 @@ export {
   plannerAgentTools,
   plannerAssignTaskTool,
   plannerFindSimilarTasksTool,
+  plannerGetBoardSnapshotTool,
   plannerGetGroupOverviewTool,
   plannerGetItemActivityTool,
   plannerGetOpenTaskCountTool,
