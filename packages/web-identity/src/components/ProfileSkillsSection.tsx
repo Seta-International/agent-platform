@@ -61,9 +61,15 @@ export function ProfileSkillsSection({
       async search(query) {
         const q = query.trim();
         if (q.length === 0) return [];
-        const results = await searchSkillsApi(q);
-        const have = new Set(draft.map((d) => d.name.toLowerCase()));
-        return results.filter((s) => !have.has(s.toLowerCase())).map((s) => ({ id: s, label: s }));
+        try {
+          const results = await searchSkillsApi(q);
+          const have = new Set(draft.map((d) => d.name.toLowerCase()));
+          return results
+            .filter((s) => !have.has(s.toLowerCase()))
+            .map((s) => ({ id: s, label: s }));
+        } catch {
+          return [];
+        }
       },
       bootstrap() {
         return [];

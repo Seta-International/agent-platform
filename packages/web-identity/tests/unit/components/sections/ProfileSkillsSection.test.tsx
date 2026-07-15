@@ -140,4 +140,25 @@ describe('ProfileSkillsSection', () => {
     expect(screen.queryByText('notacatalogskill')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
+
+  it('does not add a skill when Enter is pressed without selecting an option', async () => {
+    const user = userEvent.setup();
+    const clientModule = await import('../../../../src/api/client.ts');
+    vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue(['TypeScript']);
+
+    render(
+      <ProfileSkillsSection
+        profile={makeProfile({ skills: [] })}
+        onSave={vi.fn()}
+        onUpdate={vi.fn()}
+      />,
+    );
+    const input = screen.getByPlaceholderText(/search to add a skill/i);
+    await user.click(input);
+    await user.type(input, 'TypeScript');
+    await user.keyboard('{Enter}'); // no option clicked
+    // No draft entry was created (no remove-button for the skill) and Save stays disabled.
+    expect(screen.queryByRole('button', { name: /remove typescript/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
+  });
 });
