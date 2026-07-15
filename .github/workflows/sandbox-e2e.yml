@@ -13,11 +13,6 @@ on:
         type: choice
         default: e2e
         options: [e2e, apply, destroy, plan]
-  # Push trigger so the workflow can run from this feature branch before it
-  # reaches the default branch (workflow_dispatch requires default-branch
-  # presence). Remove once merged to main; dispatch is the long-term entrypoint.
-  push:
-    branches: [chore/FUT-620-terraform-sandbox]
 
 concurrency: sandbox-e2e
 

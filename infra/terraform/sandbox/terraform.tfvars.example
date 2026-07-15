@@ -3,4 +3,5 @@
 db_master_password      = "CHANGE_ME"
 better_auth_secret      = "CHANGE_ME_min_32_chars_................"
 crypto_local_master_key = "CHANGE_ME_64_hex_chars"
+openai_api_key          = "sk-...(dummy ok for sandbox; presence-checked at boot)"
 image_uri               = "ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/future-app-sandbox:latest"
