@@ -11,9 +11,6 @@ import {
   SheetTrigger,
   Skeleton,
   Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@seta/shared-ui';
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import { useState } from 'react';
@@ -140,12 +137,9 @@ export function ImportFromEntraDialog({
   return (
     <>
       {!enabled && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-            <TooltipContent>Connect and turn on Microsoft Entra ID first</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip content="Connect and turn on Microsoft Entra ID first" hasHoverIndication={false}>
+          {trigger}
+        </Tooltip>
       )}
       <Sheet open={open} onOpenChange={handleOpenChange}>
         {enabled && <SheetTrigger asChild>{trigger}</SheetTrigger>}
