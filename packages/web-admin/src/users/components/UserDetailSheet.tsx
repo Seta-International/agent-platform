@@ -1,16 +1,19 @@
 import { PRODUCTS } from '@seta/shared-rbac';
 import {
   Badge,
-  Combobox,
   cn,
+  createStaticSource,
+  type SearchableItem,
   Selector,
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
+  Tokenizer,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Boxes, ShieldCheck, UsersRound } from 'lucide-react';
+import { useMemo } from 'react';
 import { PersonAvatar } from '../../components/person-avatar.tsx';
 import {
   clearUserProductOverride,
@@ -58,32 +61,46 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+type GroupItem = SearchableItem<{ keywords: string[] }>;
+
 function GroupsSection({ userId }: { userId: string }) {
   const { data: userGroups = [] } = useUserGroups(userId);
   const { data: allGroups = [] } = useGroupsQuery();
   const { add, remove } = useGroupMembersMutations();
 
-  const value = userGroups.map((g) => g.group_id);
-  const options = allGroups.map((g) => ({ value: g.group_id, label: g.name, keywords: [g.slug] }));
-
-  const handleChange = (next: string[]) => {
-    const before = new Set(value);
-    const after = new Set(next);
-    for (const id of next) if (!before.has(id)) add.mutate({ id, user_ids: [userId] });
-    for (const id of value) if (!after.has(id)) remove.mutate({ id, userId });
-  };
+  const groupItems = useMemo<GroupItem[]>(
+    () =>
+      allGroups.map((g) => ({
+        id: g.group_id,
+        label: g.name,
+        auxiliaryData: { keywords: [g.slug] },
+      })),
+    [allGroups],
+  );
+  const source = useMemo(
+    () =>
+      createStaticSource(groupItems, { keywords: (item) => item.auxiliaryData?.keywords ?? [] }),
+    [groupItems],
+  );
+  const selectedGroups = useMemo(
+    () => groupItems.filter((item) => userGroups.some((g) => g.group_id === item.id)),
+    [groupItems, userGroups],
+  );
 
   return (
     <Field label="Groups">
-      <Combobox
-        multiple
-        value={value}
-        onChange={handleChange}
-        options={options}
+      <Tokenizer
+        label="Groups"
+        isLabelHidden
+        searchSource={source}
+        debounceMs={0}
+        hasEntriesOnFocus
+        value={selectedGroups}
+        onChange={(_items, change) => {
+          if (change.type === 'add') add.mutate({ id: change.item.id, user_ids: [userId] });
+          else if (change.type === 'remove') remove.mutate({ id: change.item.id, userId });
+        }}
         placeholder="Add to group…"
-        searchPlaceholder="Search groups…"
-        aria-label="Groups"
-        modal
       />
     </Field>
   );

@@ -15,8 +15,11 @@ vi.mock('../../src/groups/api/groups-client.ts', () => ({
 
 vi.mock('../../src/api/org-unit-search.ts', () => ({
   orgUnitSearch: {
-    search: async () => [{ value: 'ou-1', label: 'Engineering' }],
-    resolveByIds: async () => [{ value: 'ou-1', label: 'Engineering' }],
+    source: {
+      search: async () => [{ id: 'ou-1', label: 'Engineering' }],
+      bootstrap: async () => [{ id: 'ou-1', label: 'Engineering' }],
+    },
+    seed: async () => [{ id: 'ou-1', label: 'Engineering' }],
   },
 }));
 

@@ -1,15 +1,16 @@
 import {
-  AsyncCombobox,
   Button,
-  Combobox,
-  type EntityOption,
+  createStaticSource,
   Input,
   NumberInput,
+  type SearchableItem,
+  type SearchSource,
   Skeleton,
+  Typeahead,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { Briefcase, FolderKanban, Plus, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { searchAccounts, searchProjects, type WorkerAllocation } from '../api/work-client.ts';
 import {
   useOrgUnits,
@@ -52,39 +53,42 @@ function AddAllocationForm({
   onSubmit: (input: { project_id: string; planned_pct: number | null }, reset: () => void) => void;
   onCancel: () => void;
 }) {
-  const [accountId, setAccountId] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState<string | null>(null);
+  const [account, setAccount] = useState<SearchableItem | null>(null);
+  const [project, setProject] = useState<SearchableItem | null>(null);
   const [pct, setPct] = useState('100');
 
-  const accountSearch = useCallback(
-    async (q: string): Promise<EntityOption[]> =>
-      (await searchAccounts(q)).map((r) => ({ value: r.id, label: r.name })),
+  const accountId = account?.id ?? null;
+
+  // Selections always come from live search results, so there are never unknown ids to hydrate.
+  const accountSource: SearchSource<SearchableItem> = useMemo(
+    () => ({
+      search: async (q) => (await searchAccounts(q)).map((r) => ({ id: r.id, label: r.name })),
+      bootstrap: async () => (await searchAccounts('')).map((r) => ({ id: r.id, label: r.name })),
+    }),
     [],
   );
-  const projectSearch = useCallback(
-    async (q: string): Promise<EntityOption[]> => {
+  const projectSource: SearchSource<SearchableItem> = useMemo(() => {
+    const load = async (q: string) => {
       if (!accountId) return [];
       const rows = await searchProjects(q, accountId);
       return rows
         .filter((r) => !allocatedProjectIds.has(r.id))
-        .map((r) => ({ value: r.id, label: r.name }));
-    },
-    [accountId, allocatedProjectIds],
-  );
-  // Selections always come from live search results, so there are never unknown ids to hydrate.
-  const resolveNone = useCallback(async (): Promise<EntityOption[]> => [], []);
+        .map((r) => ({ id: r.id, label: r.name }));
+    };
+    return { search: load, bootstrap: () => load('') };
+  }, [accountId, allocatedProjectIds]);
 
   const submit = () => {
-    if (!projectId) return;
+    if (!project) return;
     const parsed = pct.trim() === '' ? null : Math.min(100, Math.max(0, Number(pct)));
     onSubmit(
       {
-        project_id: projectId,
+        project_id: project.id,
         planned_pct: parsed !== null && Number.isFinite(parsed) ? parsed : null,
       },
       // Keep the account so several projects can be added under it in a row.
       () => {
-        setProjectId(null);
+        setProject(null);
         setPct('100');
       },
     );
@@ -93,30 +97,30 @@ function AddAllocationForm({
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface-1 p-3">
       <Field label="Account">
-        <AsyncCombobox
-          value={accountId}
-          onChange={(v) => {
-            setAccountId(v);
-            setProjectId(null);
+        <Typeahead
+          label="Account"
+          isLabelHidden
+          searchSource={accountSource}
+          hasEntriesOnFocus
+          value={account}
+          onChange={(item) => {
+            setAccount(item);
+            setProject(null);
           }}
-          search={accountSearch}
-          resolveByIds={resolveNone}
           placeholder="Select account…"
-          aria-label="Account"
-          modal
         />
       </Field>
       <Field label="Project">
-        <AsyncCombobox
+        <Typeahead
           key={accountId ?? 'none'}
-          value={projectId}
-          onChange={setProjectId}
-          search={projectSearch}
-          resolveByIds={resolveNone}
-          disabled={!accountId}
+          label="Project"
+          isLabelHidden
+          searchSource={projectSource}
+          hasEntriesOnFocus
+          value={project}
+          onChange={setProject}
+          isDisabled={!accountId}
           placeholder={accountId ? 'Select project…' : 'Pick an account first'}
-          aria-label="Project"
-          modal
         />
       </Field>
       <Field label="Allocation %">
@@ -133,7 +137,7 @@ function AddAllocationForm({
       </Field>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" label="Cancel" onClick={onCancel} />
-        <Button size="sm" label="Add" isDisabled={!projectId || pending} onClick={submit} />
+        <Button size="sm" label="Add" isDisabled={!project || pending} onClick={submit} />
       </div>
     </div>
   );
@@ -171,9 +175,14 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
     () => new Set(allocations.map((a) => a.project_id)),
     [allocations],
   );
-  const orgUnitOptions = useMemo(
-    () => orgUnits.map((u) => ({ value: u.id, label: u.name })),
+  const orgUnitItems = useMemo<SearchableItem[]>(
+    () => orgUnits.map((u) => ({ id: u.id, label: u.name })),
     [orgUnits],
+  );
+  const orgUnitSource = useMemo(() => createStaticSource(orgUnitItems), [orgUnitItems]);
+  const orgUnitValue = useMemo(
+    () => orgUnitItems.find((u) => u.id === profile?.org_unit_id) ?? null,
+    [orgUnitItems, profile?.org_unit_id],
   );
 
   if (profileError) {
@@ -203,21 +212,22 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
           size="sm"
         />
         <Field label="Department">
-          <Combobox
-            value={profile?.org_unit_id ?? null}
-            onChange={(v) => {
+          <Typeahead
+            label="Department"
+            isLabelHidden
+            searchSource={orgUnitSource}
+            debounceMs={0}
+            hasEntriesOnFocus
+            value={orgUnitValue}
+            onChange={(item) => {
               if (!profile) return;
               editWorker.mutate({
                 expectedVersion: profile.version,
-                patch: { org_unit_id: v },
+                patch: { org_unit_id: item?.id ?? null },
               });
             }}
-            options={orgUnitOptions}
-            disabled={!workerEditable || !profile}
+            isDisabled={!workerEditable || !profile}
             placeholder="No department"
-            searchPlaceholder="Search departments…"
-            aria-label="Department"
-            modal
           />
         </Field>
       </div>

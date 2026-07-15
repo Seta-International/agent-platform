@@ -1,4 +1,4 @@
-import { createHttpEntitySearch } from '@seta/shared-ui';
+import { createHttpEntitySource } from '@seta/shared-ui';
 
 export interface OrgUnitRow {
   org_unit_id: string;
@@ -6,8 +6,8 @@ export interface OrgUnitRow {
   parent_id: string | null;
 }
 
-export const orgUnitSearch = createHttpEntitySearch<OrgUnitRow>({
+export const orgUnitSearch = createHttpEntitySource<OrgUnitRow>({
   path: '/api/identity/v1/org-units',
   extract: (json) => (json as { org_units: OrgUnitRow[] }).org_units,
-  mapRow: (u) => ({ value: u.org_unit_id, label: u.name }),
+  mapRow: (u) => ({ id: u.org_unit_id, label: u.name }),
 });

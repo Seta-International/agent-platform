@@ -9,7 +9,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-  AsyncCombobox,
   Badge,
   Button,
   Checkbox,
@@ -20,8 +19,10 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  type SearchableItem,
   Selector,
   Textarea,
+  Typeahead,
 } from '@seta/shared-ui';
 import { Boxes, Layers, Pencil, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -157,6 +158,24 @@ function RoleScopeControl({
   role: GroupRole;
   onChange: (scope_kind: GroupRole['scope_kind'], scope_id: string | null) => void;
 }) {
+  const [scopeItem, setScopeItem] = useState<SearchableItem | null>(null);
+
+  // The role only carries a persisted scope_id — seed it into a labelled item on mount
+  // (and whenever the scope changes to a different org unit) so the picker shows a name.
+  useEffect(() => {
+    if (role.scope_kind !== 'org_unit' || !role.scope_id) {
+      setScopeItem(null);
+      return;
+    }
+    let cancelled = false;
+    orgUnitSearch.seed([role.scope_id]).then((items) => {
+      if (!cancelled) setScopeItem(items[0] ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [role.scope_kind, role.scope_id]);
+
   return (
     <div className="flex flex-none items-center gap-1.5">
       <Selector
@@ -171,11 +190,16 @@ function RoleScopeControl({
         options={SCOPE_OPTIONS}
       />
       {role.scope_kind === 'org_unit' && (
-        <AsyncCombobox
-          value={role.scope_id}
-          onChange={(scope_id) => onChange('org_unit', scope_id)}
-          search={orgUnitSearch.search}
-          resolveByIds={orgUnitSearch.resolveByIds}
+        <Typeahead
+          label="Org unit"
+          isLabelHidden
+          searchSource={orgUnitSearch.source}
+          hasEntriesOnFocus
+          value={scopeItem}
+          onChange={(item) => {
+            setScopeItem(item);
+            onChange('org_unit', item?.id ?? null);
+          }}
           placeholder="Org unit…"
           className="h-7 w-40 flex-none text-caption"
         />
