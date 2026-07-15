@@ -28,6 +28,11 @@ variable "crypto_local_master_key" {
   sensitive = true
 }
 
+variable "openai_api_key" {
+  type      = string
+  sensitive = true
+}
+
 variable "image_uri" {
   type = string
 }

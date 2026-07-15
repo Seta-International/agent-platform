@@ -164,3 +164,8 @@ variable "crypto_local_master_key" {
   type      = string
   sensitive = true
 }
+variable "openai_api_key" {
+  description = "Required at boot by the embedding provider (presence-checked only). Sandbox may pass a dummy."
+  type        = string
+  sensitive   = true
+}

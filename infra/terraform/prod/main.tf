@@ -15,6 +15,7 @@ module "app" {
   db_master_password      = var.db_master_password
   better_auth_secret      = var.better_auth_secret
   crypto_local_master_key = var.crypto_local_master_key
+  openai_api_key          = var.openai_api_key
   image_uri               = var.image_uri
 
   # Graviton for prod (per docs/hosting/aws.md). Sandbox uses the X86_64 default

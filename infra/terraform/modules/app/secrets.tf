@@ -32,12 +32,25 @@ resource "aws_secretsmanager_secret_version" "crypto_local_master_key" {
   secret_string = var.crypto_local_master_key
 }
 
+# Required at boot: resolveEmbeddingProvider() defaults EMBED_MODEL to
+# openai/text-embedding-3-small and throws if OPENAI_API_KEY is unset. Only the
+# key's presence is checked at boot (no API call), so sandbox can use a dummy.
+resource "aws_secretsmanager_secret" "openai_api_key" {
+  name                    = "${var.name}/OPENAI_API_KEY"
+  recovery_window_in_days = var.secret_recovery_window_days
+}
+resource "aws_secretsmanager_secret_version" "openai_api_key" {
+  secret_id     = aws_secretsmanager_secret.openai_api_key.id
+  secret_string = var.openai_api_key
+}
+
 locals {
   # name → Secrets Manager ARN, injected as container `secrets`.
   app_secret_arns = {
     DATABASE_URL            = aws_secretsmanager_secret.database_url.arn
     BETTER_AUTH_SECRET      = aws_secretsmanager_secret.better_auth_secret.arn
     CRYPTO_LOCAL_MASTER_KEY = aws_secretsmanager_secret.crypto_local_master_key.arn
+    OPENAI_API_KEY          = aws_secretsmanager_secret.openai_api_key.arn
   }
   # ARNs the execution role may read (app secrets + optional cloudflared token).
   readable_secret_arns = concat(

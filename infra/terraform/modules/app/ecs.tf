@@ -138,6 +138,7 @@ resource "aws_ecs_task_definition" "api" {
     aws_secretsmanager_secret_version.database_url,
     aws_secretsmanager_secret_version.better_auth_secret,
     aws_secretsmanager_secret_version.crypto_local_master_key,
+    aws_secretsmanager_secret_version.openai_api_key,
   ]
 }
 
@@ -160,6 +161,7 @@ resource "aws_ecs_task_definition" "worker" {
     aws_secretsmanager_secret_version.database_url,
     aws_secretsmanager_secret_version.better_auth_secret,
     aws_secretsmanager_secret_version.crypto_local_master_key,
+    aws_secretsmanager_secret_version.openai_api_key,
   ]
 }
 

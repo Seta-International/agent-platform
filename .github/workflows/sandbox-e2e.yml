@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: sandbox
     env:
-      MODE: ${{ github.event.inputs.mode || 'apply' }} # TEMP: apply (no destroy) for live debugging
+      MODE: ${{ github.event.inputs.mode || 'e2e' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -73,6 +73,7 @@ jobs:
           TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
           TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
           TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
+          TF_VAR_openai_api_key: ${{ secrets.SANDBOX_OPENAI_API_KEY }}
           TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
         run: terraform plan -input=false
 
@@ -86,6 +87,7 @@ jobs:
           TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
           TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
           TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
+          TF_VAR_openai_api_key: ${{ secrets.SANDBOX_OPENAI_API_KEY }}
           TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
         run: terraform apply -input=false -auto-approve -target=module.app.aws_ecr_repository.app
 
@@ -107,6 +109,7 @@ jobs:
           TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
           TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
           TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
+          TF_VAR_openai_api_key: ${{ secrets.SANDBOX_OPENAI_API_KEY }}
           TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
         run: terraform apply -input=false -auto-approve
 
@@ -229,5 +232,6 @@ jobs:
           TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
           TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
           TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
+          TF_VAR_openai_api_key: ${{ secrets.SANDBOX_OPENAI_API_KEY }}
           TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
         run: terraform destroy -input=false -auto-approve
