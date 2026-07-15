@@ -35,4 +35,4 @@ export {
   schemaConformanceScorer,
   trustEnvelopeScorer,
 } from './scorers.ts';
-export { buildMockTools } from './tool-mock.ts';
+export { buildMockTools, requireMockTool } from './tool-mock.ts';

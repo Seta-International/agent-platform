@@ -5,6 +5,7 @@ import {
   defineEvalSuite,
   type EvalManifest,
   type EvalSuite,
+  requireMockTool,
 } from '@seta/shared-agent-evals';
 import { makeQnaGeneralAnswerAgent } from './agents/general-answer.ts';
 import { makeQnaTaskDetailAgent } from './agents/task-detail.ts';
@@ -266,7 +267,7 @@ export const taskQueryQualitySuite = defineEvalSuite({
   // Quality build: NO runAgent seam ⇒ the real Agent + tool loop runs; every
   // tool is a per-case mock so nothing hits the DB. runQualityEvals sets ctx.model.
   buildQualitySpec: (mocks) => {
-    const tool = (id: string) => mocks.find((m) => (m as { id: string }).id === id) as AgentTool;
+    const tool = (id: string) => requireMockTool(mocks, id);
     return makeQnaTaskQueryAgent({
       resolveModel: () => ({}) as never,
       findSimilarTasksTool: tool('planner_findSimilarTasks'),
@@ -307,7 +308,7 @@ export const taskDetailQualitySuite = defineEvalSuite({
   // Quality build: NO runAgent seam ⇒ the real Agent + tool loop runs; every
   // tool is a per-case mock so nothing hits the DB. runQualityEvals sets ctx.model.
   buildQualitySpec: (mocks) => {
-    const tool = (id: string) => mocks.find((m) => (m as { id: string }).id === id) as AgentTool;
+    const tool = (id: string) => requireMockTool(mocks, id);
     return makeQnaTaskDetailAgent({
       resolveModel: () => ({}) as never,
       getTaskTool: tool('planner_getTask'),
@@ -351,7 +352,7 @@ export const teamInfoQualitySuite = defineEvalSuite({
   // (listMemberGroupIds/buildActorSession/listPlans) are also canned so run()'s
   // caller-group/plan pre-resolution stays offline. runQualityEvals sets ctx.model.
   buildQualitySpec: (mocks) => {
-    const tool = (id: string) => mocks.find((m) => (m as { id: string }).id === id) as AgentTool;
+    const tool = (id: string) => requireMockTool(mocks, id);
     return makeQnaTeamInfoAgent({
       resolveModel: () => ({}) as never,
       getGroupOverviewTool: tool('planner_getGroupOverview'),
