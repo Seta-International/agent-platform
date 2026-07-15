@@ -187,6 +187,36 @@ jobs:
             exit 1
           fi
 
+      - name: Diagnostics on failure
+        if: failure() && (env.MODE == 'e2e' || env.MODE == 'apply')
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set +e
+          CLUSTER=$(terraform output -raw cluster_name)
+          API=$(terraform output -raw api_service_name)
+          WORKER=$(terraform output -raw worker_service_name)
+          echo "############ SERVICE DEPLOYMENTS / EVENTS ############"
+          aws ecs describe-services --cluster "$CLUSTER" --services "$API" "$WORKER" \
+            --query 'services[].{name:serviceName,deployments:deployments[].{status:status,rollout:rolloutState,reason:rolloutStateReason,desired:desiredCount,running:runningCount,failed:failedTasks},events:events[0:5].message}'
+          for SVC in "$API" "$WORKER"; do
+            echo "############ TASKS for $SVC ############"
+            for T in $(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SVC" --query 'taskArns' --output text); do
+              aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$T" \
+                --query 'tasks[0].{last:lastStatus,health:healthStatus,stopped:stoppedReason,containers:containers[].{name:name,last:lastStatus,health:healthStatus,exit:exitCode,reason:reason}}'
+            done
+          done
+          echo "############ SERVER LOGS ############"
+          for S in $(aws logs describe-log-streams --log-group-name "/ecs/${ECR_REPO}/api" --order-by LastEventTime --descending --max-items 2 --query 'logStreams[].logStreamName' --output text 2>/dev/null); do
+            echo "-- stream $S --"
+            aws logs get-log-events --log-group-name "/ecs/${ECR_REPO}/api" --log-stream-name "$S" --limit 100 --query 'events[].message' --output text 2>/dev/null
+          done
+          echo "############ WORKER LOGS ############"
+          for S in $(aws logs describe-log-streams --log-group-name "/ecs/${ECR_REPO}/worker" --order-by LastEventTime --descending --max-items 2 --query 'logStreams[].logStreamName' --output text 2>/dev/null); do
+            echo "-- stream $S --"
+            aws logs get-log-events --log-group-name "/ecs/${ECR_REPO}/worker" --log-stream-name "$S" --limit 100 --query 'events[].message' --output text 2>/dev/null
+          done
+          true
+
       - name: Terraform destroy
         if: always() && (env.MODE == 'e2e' || env.MODE == 'destroy')
         working-directory: ${{ env.TF_DIR }}
