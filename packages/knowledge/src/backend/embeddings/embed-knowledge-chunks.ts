@@ -43,46 +43,64 @@ export async function embedKnowledgeChunks(
     const thread_id = fileRow.rows[0]?.thread_id ?? null;
     const origin = fileRow.rows[0]?.origin ?? 'knowledge_base';
 
-    const chunks = await deps.pool.query<{
-      chunk_ordinal: number;
-      chunk_text: string;
-      page_hint: string | null;
-    }>(
-      `SELECT chunk_ordinal, chunk_text, page_hint FROM knowledge.chunks
-        WHERE tenant_id = $1 AND file_id = $2 ORDER BY chunk_ordinal`,
-      [tenant_id, file_id],
-    );
-    if (chunks.rows.length === 0) throw new Error('no chunks found for file');
-
     await ensureKnowledgeVectorIndex(deps.pgVector);
 
-    const vectors = await embedMany(
-      deps.provider,
-      chunks.rows.map((c) => c.chunk_text),
-      { batchSize: BATCH_SIZE },
-    );
-
+    // Stream chunks in keyset-paginated pages so peak resident memory stays
+    // O(BATCH_SIZE) regardless of file size: embed a page, upsert it, release,
+    // then advance the cursor. Holding every chunk + vector + metadata at once
+    // is what OOM'd the worker (FUT-561).
     const embeddedAt = new Date().toISOString();
-    const ids = chunks.rows.map((c) => knowledgeVectorId(tenant_id, file_id, c.chunk_ordinal));
-    const metadata: KnowledgeChunkVectorMetadata[] = chunks.rows.map((c) => ({
-      tenant_id,
-      file_id,
-      chunk_ordinal: c.chunk_ordinal,
-      chunk_text: c.chunk_text,
-      filename,
-      page_hint: c.page_hint,
-      model_id: deps.provider.modelId,
-      embedded_at: embeddedAt,
-      thread_id,
-      origin,
-    }));
+    let lastOrdinal = -1;
+    let embeddedAny = false;
 
-    await deps.pgVector.upsert({
-      indexName: KNOWLEDGE_VECTOR_INDEX,
-      vectors,
-      metadata,
-      ids,
-    });
+    for (;;) {
+      const page = await deps.pool.query<{
+        chunk_ordinal: number;
+        chunk_text: string;
+        page_hint: string | null;
+      }>(
+        `SELECT chunk_ordinal, chunk_text, page_hint FROM knowledge.chunks
+          WHERE tenant_id = $1 AND file_id = $2 AND chunk_ordinal > $3
+          ORDER BY chunk_ordinal
+          LIMIT $4`,
+        [tenant_id, file_id, lastOrdinal, BATCH_SIZE],
+      );
+      if (page.rows.length === 0) break;
+      embeddedAny = true;
+
+      const vectors = await embedMany(
+        deps.provider,
+        page.rows.map((c) => c.chunk_text),
+        { batchSize: BATCH_SIZE },
+      );
+      const ids = page.rows.map((c) => knowledgeVectorId(tenant_id, file_id, c.chunk_ordinal));
+      const metadata: KnowledgeChunkVectorMetadata[] = page.rows.map((c) => ({
+        tenant_id,
+        file_id,
+        chunk_ordinal: c.chunk_ordinal,
+        chunk_text: c.chunk_text,
+        filename,
+        page_hint: c.page_hint,
+        model_id: deps.provider.modelId,
+        embedded_at: embeddedAt,
+        thread_id,
+        origin,
+      }));
+
+      await deps.pgVector.upsert({
+        indexName: KNOWLEDGE_VECTOR_INDEX,
+        vectors,
+        metadata,
+        ids,
+      });
+
+      const lastRow = page.rows.at(-1);
+      if (!lastRow) break;
+      lastOrdinal = lastRow.chunk_ordinal;
+      if (page.rows.length < BATCH_SIZE) break;
+    }
+
+    if (!embeddedAny) throw new Error('no chunks found for file');
 
     await deps.pool.query(
       `UPDATE knowledge.files

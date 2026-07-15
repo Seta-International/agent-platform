@@ -2,7 +2,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getPool } from '@seta/shared-db';
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { getS3Client } from '@seta/shared-storage';
-import type { TaskList } from 'graphile-worker';
+import type { JobHelpers, TaskList } from 'graphile-worker';
 import {
   type EmbedKnowledgeChunksPayload,
   embedKnowledgeChunks,
@@ -20,6 +20,22 @@ import { runScanUpload, type ScanUploadPayload } from './scan-upload.ts';
 
 const BUCKET = process.env.S3_BUCKET ?? 'seta-knowledge';
 
+export const KNOWLEDGE_HEAVY_QUEUE = 'knowledge-heavy';
+
+/**
+ * Route large, memory-heavy jobs onto a single serial queue so they never run
+ * concurrently: graphile-worker executes one job per named queue at a time.
+ * This caps the knowledge parse/embed path to a single bounded-memory job at
+ * once instead of up to `concurrency` (5) stacking spikes on the box (FUT-561).
+ */
+export function enqueueHeavy(
+  helpers: JobHelpers,
+  task: 'parse_knowledge_file' | 'embed_knowledge_chunks',
+  payload: unknown,
+): Promise<unknown> {
+  return helpers.addJob(task, payload, { queueName: KNOWLEDGE_HEAVY_QUEUE });
+}
+
 async function fetchS3Object(s3_key: string): Promise<Buffer> {
   const client = getS3Client();
   const res = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: s3_key }));
@@ -35,7 +51,7 @@ export const knowledgeJobs: TaskList = {
       bucket: BUCKET,
       s3: getS3Client(),
       enqueueParseJob: async (parsePayload) => {
-        await helpers.addJob('parse_knowledge_file', parsePayload);
+        await enqueueHeavy(helpers, 'parse_knowledge_file', parsePayload);
       },
     });
   },
@@ -45,7 +61,7 @@ export const knowledgeJobs: TaskList = {
       pool,
       fetchObject: fetchS3Object,
       enqueueEmbedJob: async ({ tenant_id, file_id }) => {
-        await helpers.addJob('embed_knowledge_chunks', {
+        await enqueueHeavy(helpers, 'embed_knowledge_chunks', {
           tenant_id,
           file_id,
           event_id: (payload as ParseKnowledgeFilePayload).event_id,
