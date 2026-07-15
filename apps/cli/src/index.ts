@@ -15,7 +15,12 @@ import { Command, Option } from 'commander';
 import pino from 'pino';
 import { demoSuggestionsCommand } from './commands/demo-suggestions.ts';
 import { runEmbedBackfill } from './commands/embed-backfill.ts';
-import { runEvalQuality, summarizeQualityResults } from './commands/eval-quality.ts';
+import {
+  formatRegressionReport,
+  REGRESSION_WINDOW,
+  runEvalQuality,
+  summarizeQualityResults,
+} from './commands/eval-quality.ts';
 import { integrationsMailSetCommand } from './commands/integrations-mail-set.ts';
 import { integrationsMailTestCommand } from './commands/integrations-mail-test.ts';
 import { migrateCommand } from './commands/migrate.ts';
@@ -322,8 +327,15 @@ program
     try {
       const trigger = opts.trigger;
       const gitSha = process.env.GITHUB_SHA ?? 'local';
-      const { runId, results } = await runEvalQuality({ trigger, gitSha, persist: true });
+      const { runId, results, regression } = await runEvalQuality({
+        trigger,
+        gitSha,
+        persist: true,
+      });
       console.table(summarizeQualityResults(results));
+      if (regression) {
+        console.log(formatRegressionReport(regression, REGRESSION_WINDOW));
+      }
       if (runId) {
         console.log(`eval run persisted: ${runId}`);
       }

@@ -3,6 +3,7 @@ import './undici-timeouts.ts'; // MUST run before any outbound fetch.
 import { AgentRunStateRepository, resolveModel } from '@seta/agent';
 import { createAgentMastraStorage, registerAgent } from '@seta/agent/register';
 import { createContributionRegistry, createOverlayStore, requestIdStorage } from '@seta/core';
+import { readLatestScores } from '@seta/core/agent-eval';
 import { coreDb } from '@seta/core/db';
 import { emit, withEmit } from '@seta/core/events';
 import { createOutboxStore } from '@seta/core/outbox';
@@ -39,6 +40,7 @@ import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { createMailer } from '@seta/shared-mailer';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
+import { initAgentEvalMetrics } from './agent-eval-metrics.ts';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { makeIntentClassifier } from './chat-routing/intent-classifier.ts';
 import { makeChatRouter } from './chat-routing/route-chat.ts';
@@ -109,6 +111,10 @@ if (lag.length > 0) {
   log.error({ lag }, 'schema_migrations behind — run apps/cli migrate before booting server');
   process.exit(1);
 }
+
+// Re-export the latest nightly agent-quality scores as OTel gauges for Grafana.
+// Advisory: refresh failures hold the last snapshot and never affect the server.
+initAgentEvalMetrics({ readLatest: () => readLatestScores(coreDb()) });
 
 // Forward reference: the mailer is wired after workers start so its addJob target
 // (the WorkerHandle) exists. The reference is set inside onServerStart before any
