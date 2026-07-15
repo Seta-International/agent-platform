@@ -14,8 +14,6 @@ import {
   EmptyState,
   Input,
   Popover,
-  PopoverContent,
-  PopoverTrigger,
   RichTextDisplay,
   RichTextEditor,
   SegmentedControl,
@@ -185,16 +183,12 @@ function DateField({
           }
         >
           {editable ? (
-            <Popover open={open} onOpenChange={setOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="text-body-sm font-medium text-ink underline decoration-dotted underline-offset-4 hover:text-primary"
-                >
-                  {value ? formatDate(value) : 'Set date'}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+            <Popover
+              isOpen={open}
+              onOpenChange={setOpen}
+              alignment="start"
+              label="Set date"
+              content={
                 <DayPickerCalendar
                   mode="single"
                   selected={value ? new Date(value) : undefined}
@@ -203,9 +197,16 @@ function DateField({
                     onChange(toDateInputValue(date));
                     setOpen(false);
                   }}
-                  className="w-[280px] p-3"
+                  className="w-[280px]"
                 />
-              </PopoverContent>
+              }
+            >
+              <button
+                type="button"
+                className="text-body-sm font-medium text-ink underline decoration-dotted underline-offset-4 hover:text-primary"
+              >
+                {value ? formatDate(value) : 'Set date'}
+              </button>
             </Popover>
           ) : (
             <span className="text-body-sm font-medium text-ink">
