@@ -25,7 +25,10 @@ describe('MultiFilterPill', () => {
 
   it('shows the single label when exactly one value is selected', () => {
     render(<MultiFilterPill label="Label" values={['b']} options={options} onChange={() => {}} />);
-    expect(screen.getByText('Bravo')).toBeInTheDocument();
+    // Popover content is eagerly mounted (hidden), which re-lists every option — so
+    // "Bravo" also matches its (closed) menuitemcheckbox. The trigger's summary span
+    // renders first in DOM order and is the one actually visible.
+    expect(screen.getAllByText('Bravo')[0]).toBeVisible();
   });
 
   it('shows the count when more than one value is selected', () => {

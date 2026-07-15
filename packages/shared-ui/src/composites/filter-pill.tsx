@@ -1,7 +1,7 @@
 import { Check, ChevronDown, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../primitives/button';
-import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
+import { Popover } from '../primitives/popover';
 
 export interface FilterPillOption<T extends string> {
   value: T;
@@ -26,46 +26,52 @@ export function FilterPill<T extends string>({
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="h-7 gap-1"
-          label={`${label}${selected ? `: ${selected.label}` : ''} filter`}
-        >
-          <span className="text-ink-muted">{label}</span>
-          {selected ? <span className="font-medium">{selected.label}</span> : null}
-          <ChevronDown className="size-3 opacity-60" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 p-1">
-        <button
-          type="button"
-          className="flex w-full items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-surface-2"
-          onClick={() => {
-            onChange(null);
-            setOpen(false);
-          }}
-        >
-          {anyLabel}
-          {value == null ? <Check className="size-3" /> : null}
-        </button>
-        {options.map((o) => (
+    <Popover
+      isOpen={open}
+      onOpenChange={setOpen}
+      alignment="start"
+      width={224}
+      label={`${label} filter options`}
+      content={
+        <>
           <button
-            key={o.value}
             type="button"
             className="flex w-full items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-surface-2"
             onClick={() => {
-              onChange(o.value);
+              onChange(null);
               setOpen(false);
             }}
           >
-            {o.label}
-            {value === o.value ? <Check className="size-3" /> : null}
+            {anyLabel}
+            {value == null ? <Check className="size-3" /> : null}
           </button>
-        ))}
-      </PopoverContent>
+          {options.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              className="flex w-full items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-surface-2"
+              onClick={() => {
+                onChange(o.value);
+                setOpen(false);
+              }}
+            >
+              {o.label}
+              {value === o.value ? <Check className="size-3" /> : null}
+            </button>
+          ))}
+        </>
+      }
+    >
+      <Button
+        variant="secondary"
+        size="sm"
+        className="h-7 gap-1"
+        label={`${label}${selected ? `: ${selected.label}` : ''} filter`}
+      >
+        <span className="text-ink-muted">{label}</span>
+        {selected ? <span className="font-medium">{selected.label}</span> : null}
+        <ChevronDown className="size-3 opacity-60" />
+      </Button>
     </Popover>
   );
 }
@@ -101,35 +107,14 @@ export function MultiFilterPill<T extends string>({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
-          size="sm"
-          className={`h-7 gap-1 ${active ? 'border-primary text-ink' : ''}`}
-          label={`${label} filter`}
-        >
-          <span className="text-ink-muted">{label}</span>
-          <span className="font-medium">{summary}</span>
-          {active ? (
-            <button
-              type="button"
-              aria-label={`Clear ${label} filter`}
-              className="ml-1 inline-flex size-4 items-center justify-center rounded hover:bg-surface-3"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange([]);
-              }}
-            >
-              <X className="size-3" />
-            </button>
-          ) : (
-            <ChevronDown className="size-3 opacity-60" />
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-1">
-        {options.length === 0 ? (
+    <Popover
+      isOpen={open}
+      onOpenChange={setOpen}
+      alignment="start"
+      width={256}
+      label={`${label} filter options`}
+      content={
+        options.length === 0 ? (
           <p className="p-2 text-sm text-ink-subtle">No options.</p>
         ) : (
           options.map((o) => {
@@ -148,8 +133,33 @@ export function MultiFilterPill<T extends string>({
               </button>
             );
           })
+        )
+      }
+    >
+      <Button
+        variant="secondary"
+        size="sm"
+        className={`h-7 gap-1 ${active ? 'border-primary text-ink' : ''}`}
+        label={`${label} filter`}
+      >
+        <span className="text-ink-muted">{label}</span>
+        <span className="font-medium">{summary}</span>
+        {active ? (
+          <button
+            type="button"
+            aria-label={`Clear ${label} filter`}
+            className="ml-1 inline-flex size-4 items-center justify-center rounded hover:bg-surface-3"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange([]);
+            }}
+          >
+            <X className="size-3" />
+          </button>
+        ) : (
+          <ChevronDown className="size-3 opacity-60" />
         )}
-      </PopoverContent>
+      </Button>
     </Popover>
   );
 }

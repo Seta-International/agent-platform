@@ -36,7 +36,9 @@ describe('MyTasksToolbar', () => {
     expect(screen.getByRole('button', { name: /Plan/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Group/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Priority/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Due/i })).toBeInTheDocument();
+    // Anchored: Popover content is eagerly mounted (hidden), and the Due pill's own
+    // "Overdue" option would otherwise also match a loose /Due/i.
+    expect(screen.getByRole('button', { name: /^Due/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /list view/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /grid view/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/search my tasks/i)).toBeInTheDocument();
@@ -68,7 +70,7 @@ describe('MyTasksToolbar', () => {
   it('selecting a Due option calls onChange with the canonical value', async () => {
     const user = userEvent.setup();
     const { onChange } = setup();
-    await user.click(screen.getByRole('button', { name: /Due/i }));
+    await user.click(screen.getByRole('button', { name: /^Due/i }));
     await user.click(await screen.findByText('This week'));
     expect(onChange).toHaveBeenCalledWith({ due: 'this_week' });
   });
@@ -102,7 +104,10 @@ describe('MyTasksToolbar', () => {
     const user = userEvent.setup();
     const { onChange } = setup({ planId: 'p1' });
     await user.click(screen.getByRole('button', { name: /Plan/i }));
-    await user.click(await screen.findByText('Any'));
+    // Every filter pill's Popover content is eagerly mounted (hidden), so each one
+    // renders its own "Any" option — Plan's is first in DOM order since it's the
+    // first pill in the toolbar.
+    await user.click(screen.getAllByText('Any')[0]);
     expect(onChange).toHaveBeenCalledWith({ planId: undefined });
   });
 

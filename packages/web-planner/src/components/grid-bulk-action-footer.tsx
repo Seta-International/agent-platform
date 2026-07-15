@@ -3,8 +3,6 @@ import {
   DateInput,
   DisabledActionTooltip,
   Popover,
-  PopoverContent,
-  PopoverTrigger,
   type SearchableItem,
   Typeahead,
 } from '@seta/shared-ui';
@@ -92,35 +90,41 @@ function BucketMenu({
     );
   }
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button">Move</button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-48 p-1">
-        <button
-          type="button"
-          className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface-2"
-          onClick={() => {
-            onPick(null);
-            setOpen(false);
-          }}
-        >
-          No bucket
-        </button>
-        {options.map((b) => (
+    <Popover
+      isOpen={open}
+      onOpenChange={setOpen}
+      alignment="start"
+      width={192}
+      label="Move to bucket"
+      content={
+        <>
           <button
-            key={b.id}
             type="button"
             className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface-2"
             onClick={() => {
-              onPick(b.id);
+              onPick(null);
               setOpen(false);
             }}
           >
-            {b.name}
+            No bucket
           </button>
-        ))}
-      </PopoverContent>
+          {options.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface-2"
+              onClick={() => {
+                onPick(b.id);
+                setOpen(false);
+              }}
+            >
+              {b.name}
+            </button>
+          ))}
+        </>
+      }
+    >
+      <button type="button">Move</button>
     </Popover>
   );
 }
@@ -201,29 +205,35 @@ function DueMenu({
     );
   }
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button">Set due</button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 p-2">
-        <DateInput
-          label="Due date"
-          onChange={(v) => {
-            onPick(v ? new Date(v).toISOString() : null);
-            setOpen(false);
-          }}
-        />
-        <button
-          type="button"
-          className="mt-2 w-full rounded px-2 py-1.5 text-left text-sm text-ink-subtle hover:bg-surface-2"
-          onClick={() => {
-            onPick(null);
-            setOpen(false);
-          }}
-        >
-          Clear due date
-        </button>
-      </PopoverContent>
+    <Popover
+      isOpen={open}
+      onOpenChange={setOpen}
+      alignment="start"
+      width={224}
+      label="Set due date"
+      content={
+        <>
+          <DateInput
+            label="Due date"
+            onChange={(v) => {
+              onPick(v ? new Date(v).toISOString() : null);
+              setOpen(false);
+            }}
+          />
+          <button
+            type="button"
+            className="mt-2 w-full rounded px-2 py-1.5 text-left text-sm text-ink-subtle hover:bg-surface-2"
+            onClick={() => {
+              onPick(null);
+              setOpen(false);
+            }}
+          >
+            Clear due date
+          </button>
+        </>
+      }
+    >
+      <button type="button">Set due</button>
     </Popover>
   );
 }
