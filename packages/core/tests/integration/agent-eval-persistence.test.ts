@@ -7,9 +7,18 @@ import { withCoreTestDb } from '../helpers.ts';
 describe('writeEvalRun', () => {
   it('persists a run and its scores, linked by FK', async () => {
     await withCoreTestDb(async ({ db }) => {
+      const startedAt = new Date();
+      const finishedAt = new Date(startedAt.getTime() + 1000);
       const { runId } = await writeEvalRun(
         db,
-        { gitSha: 'abc123', harnessVersion: 'phase-2a', modelTier: 'fast', trigger: 'manual' },
+        {
+          gitSha: 'abc123',
+          harnessVersion: 'phase-2a',
+          modelTier: 'fast',
+          trigger: 'manual',
+          startedAt,
+          finishedAt,
+        },
         [
           {
             specialistId: 'planner.qna.generalAnswer',
@@ -32,6 +41,11 @@ describe('writeEvalRun', () => {
 
       const runs = await db.select().from(coreAgentEvalRun).where(eq(coreAgentEvalRun.id, runId));
       expect(runs).toHaveLength(1);
+      const [run] = runs;
+      // FUT-621 finding 2: started_at must precede finished_at — regression guard
+      // against the run row's started_at defaulting to INSERT time (after
+      // finished_at was already captured), which produced an inverted window.
+      expect(run?.started_at.getTime()).toBeLessThanOrEqual(run!.finished_at!.getTime());
       const scores = await db
         .select()
         .from(coreAgentEvalScore)

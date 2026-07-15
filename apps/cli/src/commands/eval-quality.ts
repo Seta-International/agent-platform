@@ -33,6 +33,9 @@ export async function runEvalQuality(opts: {
   gitSha: string;
   persist: boolean;
 }): Promise<{ runId?: string; results: RunQualityEvalsResult[] }> {
+  // Captured before the manifest loop / generation runs so the persisted
+  // `started_at` reflects real wall-clock start, not INSERT time.
+  const startedAt = new Date();
   // Same resolve reused for gen + judge (temp 0 configured in AGENT_MODELS); `entry.tier`
   // is the *actual* resolved tier, which may differ from the 'fast' hint if no fast-tier
   // model is configured (resolveModel falls back to the catalog's first entry).
@@ -72,6 +75,10 @@ export async function runEvalQuality(opts: {
         harnessVersion: EVALS_HARNESS_VERSION,
         modelTier: entry.tier,
         trigger: opts.trigger,
+        startedAt,
+        // judge_tokens_total: reserved, not populated yet — see store.ts. The
+        // prebuilt judge scorers' run() result doesn't expose token usage, so
+        // there's nothing real to thread through here until Phase 2B.
         finishedAt: new Date(),
       },
       scoreRows,
