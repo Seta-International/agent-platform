@@ -290,7 +290,6 @@ async function buildOrchestrator(
     instructions,
     model: pickModel(ctx, deps.resolveModel),
     tools: tools as never,
-    ...(ctx.userMemory ? { memory: ctx.userMemory.memory } : {}),
     inputProcessors: [new TokenLimiterProcessor({ limit: 100_000 })],
   });
 
@@ -333,21 +332,7 @@ async function buildOrchestrator(
     // this the `reasoning` parts arrive empty. Provider-namespaced, so non-OpenAI
     // models ignore it. Forwarded by Mastra to the AI SDK model call.
     providerOptions: { openai: { reasoningSummary: 'auto' } },
-    // Restore supervisor parity: Mastra injects lastMessages history
-    // + semanticRecall and fires generateTitle. readOnly => it does
-    // NOT persist messages (our chat route persists via
-    // userMemory.saveMessages). workingMemory disabled here because
-    // the orchestrator still injects userContext manually via
-    // loadUserContextSection (no double handling).
-    ...(ctx.userMemory && ctx.threadId
-      ? {
-          memory: {
-            thread: ctx.threadId,
-            resource: `${ctx.tenantId}:${ctx.actorUserId}`,
-            options: { readOnly: true, workingMemory: { enabled: false } },
-          },
-        }
-      : {}),
+    ...(ctx.sessionHistory?.length ? { messages: ctx.sessionHistory } : {}),
   };
 
   return { agent: boundAgent, mastra, rc, message, runOptions, instructions, tools };
