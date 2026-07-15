@@ -8,7 +8,9 @@ import type {
   SpecializedAgentSpec,
 } from '@seta/agent-sdk';
 import {
+  plannerGetBoardSnapshotTool,
   plannerGetOpenTaskCountTool,
+  plannerGetStatsTool,
   plannerQueryTasksTool,
   plannerResolveMemberTool,
 } from '@seta/planner/agent-tools';
@@ -24,6 +26,8 @@ import {
 export const TASK_QUERY_TOOL_IDS = [
   'planner_queryTasks',
   'planner_findSimilarTasks',
+  'planner_getBoardSnapshot',
+  'planner_getStats',
   'planner_getOpenTaskCountForUser',
   'planner_resolveMember',
 ] as const;
@@ -50,6 +54,8 @@ Tools:
   For title/name-based lookup ("task named X", "find the billing migration task"), pass titleContains.
 - planner_findSimilarTasks: semantic/topic search ("tasks about the billing migration").
   Do NOT use for title/name lookups — use planner_queryTasks with titleContains instead.
+- planner_getBoardSnapshot: current state of a plan — buckets and task counts by status.
+- planner_getStats: aggregate task metrics for a plan (planId) or whole group (groupId).
 - planner_getOpenTaskCountForUser: a COUNT when the user only wants a number.
 - planner_resolveMember: turn a person's NAME/email into their userId.
 
@@ -97,6 +103,8 @@ export function makeQnaTaskQueryAgent(deps: QnaTaskQueryDeps): SpecializedAgentS
               tools: {
                 planner_queryTasks: deps.queryTasksTool ?? plannerQueryTasksTool,
                 planner_findSimilarTasks: deps.findSimilarTasksTool,
+                planner_getBoardSnapshot: plannerGetBoardSnapshotTool,
+                planner_getStats: plannerGetStatsTool,
                 planner_getOpenTaskCountForUser:
                   deps.getOpenTaskCountTool ?? plannerGetOpenTaskCountTool,
                 planner_resolveMember: deps.resolveMemberTool ?? plannerResolveMemberTool,

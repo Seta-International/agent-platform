@@ -8,7 +8,9 @@ import type {
   SpecializedAgentSpec,
 } from '@seta/agent-sdk';
 import {
+  plannerGetItemActivityTool,
   plannerGetTaskTool,
+  plannerGetTimelineTool,
   plannerListCommentsTool,
   plannerQueryTasksTool,
 } from '@seta/planner/agent-tools';
@@ -22,6 +24,8 @@ import {
 
 export const TASK_DETAIL_TOOL_IDS = [
   'planner_getTask',
+  'planner_getItemActivity',
+  'planner_getTimeline',
   'planner_listComments',
   'planner_queryTasks',
 ] as const;
@@ -47,6 +51,8 @@ Tools:
   instead of UUID. Call with titleContains + status:"any", take the matching
   task's taskId, then call planner_getTask with that taskId.
   Do NOT use for listing or filtering — you are a single-task detail agent.
+- planner_getItemActivity: change history (activity feed) for a task, newest first.
+- planner_getTimeline: tasks in a plan within a date window (start/due dates).
 - planner_listComments: the task's discussion thread (only when comments are asked about).
 
 Workflow:
@@ -83,6 +89,8 @@ export function makeQnaTaskDetailAgent(deps: QnaTaskDetailDeps): SpecializedAgen
               model: pickModel(ctx, deps.resolveModel),
               tools: {
                 planner_getTask: deps.getTaskTool ?? plannerGetTaskTool,
+                planner_getItemActivity: plannerGetItemActivityTool,
+                planner_getTimeline: plannerGetTimelineTool,
                 planner_listComments: deps.listCommentsTool ?? plannerListCommentsTool,
                 planner_queryTasks: deps.queryTasksTool ?? plannerQueryTasksTool,
               } as never,
