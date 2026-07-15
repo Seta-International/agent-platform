@@ -10,6 +10,12 @@ export {
 } from './dataset.ts';
 export { fakeJudgeModel, type JudgeConfig, type JudgeModel } from './judge.ts';
 export {
+  answerRelevancyScorer,
+  faithfulnessScorer,
+  hallucinationScorer,
+  toxicityScorer,
+} from './judge-scorers.ts';
+export {
   type CaseScore,
   type RunSpecEvalsConfig,
   type RunSpecEvalsResult,
