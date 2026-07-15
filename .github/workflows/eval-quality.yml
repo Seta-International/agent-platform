@@ -2,7 +2,7 @@ name: eval-quality
 
 on:
   schedule:
-    - cron: '0 3 * * *' # nightly 03:00 UTC
+    - cron: '0 20 * * *' # 20:00 UTC = 03:00 ICT (UTC+7) — runs overnight in the team's timezone
   workflow_dispatch:
 
 permissions:
