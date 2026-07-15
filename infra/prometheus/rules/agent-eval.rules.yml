@@ -1,0 +1,16 @@
+# Agent-quality eval freshness. The nightly `eval-quality` lane (GitHub Actions,
+# cron 20:00 UTC = 03:00 ICT) writes core.agent_eval_run; the server re-exports the
+# latest run's finished_at as agent_eval_last_run_timestamp_seconds. If that stops
+# advancing, the lane silently broke — a run that never happens cannot self-report.
+# Score-drop regressions live in the nightly job summary, not here (PromQL can't
+# express "mean of the last 5 completed daily runs").
+groups:
+  - name: agent-eval
+    rules:
+      - alert: AgentEvalStale
+        expr: time() - max by (env) (agent_eval_last_run_timestamp_seconds) > 129600
+        for: 1h
+        labels: { severity: warning }
+        annotations:
+          summary: "Agent-quality eval lane stale ({{ $labels.env }})"
+          description: "No completed nightly agent-quality eval run for >36h — the eval-quality workflow or its DB write likely broke."
