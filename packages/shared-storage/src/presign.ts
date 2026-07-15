@@ -34,7 +34,6 @@ export async function presignedUploadUrl(
   });
   return signer(client, command, {
     expiresIn: opts.expiresInSeconds,
-    unhoistableHeaders: new Set(['x-amz-checksum-crc32']),
   });
 }
 
