@@ -27,6 +27,26 @@ describe('useSeededItem', () => {
     const { result } = renderHook(() => useSeededItem('missing', seedFullList));
     await waitFor(() => expect(result.current[0]).toBeNull());
   });
+
+  it('keeps the previously-resolved item when a later seed call rejects transiently', async () => {
+    let call = 0;
+    const flaky = async (_ids: string[]): Promise<SearchableItem[]> => {
+      call += 1;
+      if (call === 1) return [{ id: 'ou-1', label: 'Engineering' }];
+      throw new Error('transient network error');
+    };
+    const { result, rerender } = renderHook(({ id }) => useSeededItem(id, flaky), {
+      initialProps: { id: 'ou-1' as string | null },
+    });
+    await waitFor(() => expect(result.current[0]).toEqual({ id: 'ou-1', label: 'Engineering' }));
+
+    // id changes, re-firing seed(); this second call rejects.
+    rerender({ id: 'ou-2' });
+    await waitFor(() => expect(call).toBe(2));
+
+    // The prior resolved value must be retained, not wiped to null.
+    expect(result.current[0]).toEqual({ id: 'ou-1', label: 'Engineering' });
+  });
 });
 
 describe('useSeededItems', () => {
@@ -44,5 +64,25 @@ describe('useSeededItems', () => {
   it('returns an empty array when given no ids', async () => {
     const { result } = renderHook(() => useSeededItems([], seedFullList));
     await waitFor(() => expect(result.current[0]).toEqual([]));
+  });
+
+  it('keeps the previously-resolved items when a later seed call rejects transiently', async () => {
+    let call = 0;
+    const flaky = async (_ids: string[]): Promise<SearchableItem[]> => {
+      call += 1;
+      if (call === 1) return [{ id: 'ou-1', label: 'Engineering' }];
+      throw new Error('transient network error');
+    };
+    const { result, rerender } = renderHook(({ ids }) => useSeededItems(ids, flaky), {
+      initialProps: { ids: ['ou-1'] },
+    });
+    await waitFor(() => expect(result.current[0]).toEqual([{ id: 'ou-1', label: 'Engineering' }]));
+
+    // ids change, re-firing seed(); this second call rejects.
+    rerender({ ids: ['ou-1', 'ou-2'] });
+    await waitFor(() => expect(call).toBe(2));
+
+    // The prior resolved list must be retained, not wiped to [].
+    expect(result.current[0]).toEqual([{ id: 'ou-1', label: 'Engineering' }]);
   });
 });

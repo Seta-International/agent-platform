@@ -26,7 +26,8 @@ export function useSeededItem(
         if (!cancelled) setItem(items.find((i) => i.id === id) ?? null);
       })
       .catch(() => {
-        if (!cancelled) setItem(null);
+        // Transient seed rejection: leave the prior value in place rather than
+        // wiping it — the id is still applied, only the refetch failed.
       });
     return () => {
       cancelled = true;
@@ -63,7 +64,8 @@ export function useSeededItems(
         setItems(ids.map((id) => byId.get(id)).filter((i): i is SearchableItem => i != null));
       })
       .catch(() => {
-        if (!cancelled) setItems([]);
+        // Transient seed rejection: leave the prior list in place rather than
+        // wiping it — the ids are still applied, only the refetch failed.
       });
     return () => {
       cancelled = true;

@@ -15,13 +15,13 @@ proto.scrollIntoView ??= () => {};
 // `style.display` toggling when `showPopover`/`hidePopover` are absent (its
 // documented old-Safari/old-Firefox fallback path) — this only supplies the
 // missing initial-hidden state so that fallback path starts consistent.
-const nativeSetAttribute = Element.prototype.setAttribute;
-Element.prototype.setAttribute = function setAttribute(this: Element, name: string, value: string) {
-  nativeSetAttribute.call(this, name, value);
-  if (name === 'popover' && this instanceof HTMLElement) {
-    this.style.display = 'none';
-  }
-};
+// A narrow stylesheet rule (rather than a global Element.prototype.setAttribute
+// override) keeps this scoped to [popover] elements and to the lowest possible
+// CSS specificity, so Astryx's own inline `style.display` toggle on open still
+// wins and is never fought or re-clobbered by a later re-render.
+const popoverShim = document.createElement('style');
+popoverShim.textContent = '[popover] { display: none; }';
+document.head.appendChild(popoverShim);
 
 afterEach(() => {
   cleanup();

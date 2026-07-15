@@ -30,9 +30,12 @@ describe('useWorkerSource', () => {
     expect(out).toEqual([{ id: 'w1', label: 'Alice' }]);
   });
 
-  it('resolves seed ids by matching id, not array position', async () => {
-    // Regression guard (Task-2 lesson): the real workers endpoint ignores the `ids` filter
-    // and returns the tenant's full list — the requested id ('w1') is deliberately NOT first.
+  it('seed() maps the endpoint rows to searchable items as-is, without filtering by id', async () => {
+    // The real workers endpoint ignores the `ids` filter and returns the tenant's
+    // full list — `seed()` here only maps rows through `mapRow`; it does not (and
+    // is not meant to) filter or reorder by the requested id. That by-id guard
+    // lives in the consuming hook (`useSeededItem`/`useSeededItems`), which is
+    // exercised directly in use-seeded-item.test.tsx.
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -51,7 +54,10 @@ describe('useWorkerSource', () => {
     const { result } = renderHook(() => useWorkerSource(), { wrapper: wrapper() });
     const out = await result.current.seed(['w1']);
     await waitFor(() =>
-      expect(out).toEqual(expect.arrayContaining([{ id: 'w1', label: 'Alice' }])),
+      expect(out).toEqual([
+        { id: 'w9', label: 'Zoe' },
+        { id: 'w1', label: 'Alice' },
+      ]),
     );
   });
 });
