@@ -1,0 +1,41 @@
+locals {
+  database_url = "postgres://${var.db_username}:${var.db_master_password}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/${var.db_name}?sslmode=require"
+}
+
+resource "aws_secretsmanager_secret" "database_url" {
+  name = "${var.name}/DATABASE_URL"
+}
+resource "aws_secretsmanager_secret_version" "database_url" {
+  secret_id     = aws_secretsmanager_secret.database_url.id
+  secret_string = local.database_url
+}
+
+resource "aws_secretsmanager_secret" "better_auth_secret" {
+  name = "${var.name}/BETTER_AUTH_SECRET"
+}
+resource "aws_secretsmanager_secret_version" "better_auth_secret" {
+  secret_id     = aws_secretsmanager_secret.better_auth_secret.id
+  secret_string = var.better_auth_secret
+}
+
+resource "aws_secretsmanager_secret" "crypto_local_master_key" {
+  name = "${var.name}/CRYPTO_LOCAL_MASTER_KEY"
+}
+resource "aws_secretsmanager_secret_version" "crypto_local_master_key" {
+  secret_id     = aws_secretsmanager_secret.crypto_local_master_key.id
+  secret_string = var.crypto_local_master_key
+}
+
+locals {
+  # name → Secrets Manager ARN, injected as container `secrets`.
+  app_secret_arns = {
+    DATABASE_URL            = aws_secretsmanager_secret.database_url.arn
+    BETTER_AUTH_SECRET      = aws_secretsmanager_secret.better_auth_secret.arn
+    CRYPTO_LOCAL_MASTER_KEY = aws_secretsmanager_secret.crypto_local_master_key.arn
+  }
+  # ARNs the execution role may read (app secrets + optional cloudflared token).
+  readable_secret_arns = concat(
+    values(local.app_secret_arns),
+    var.cloudflared_token_secret_arn == null ? [] : [var.cloudflared_token_secret_arn],
+  )
+}
