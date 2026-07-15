@@ -98,4 +98,57 @@ describe('parseKnowledgeFile worker', () => {
       expect(enqueue).not.toHaveBeenCalled();
     });
   });
+
+  it('inserts a large chunk set across INSERT batches with contiguous ordinals', async () => {
+    await withDb(async ({ pool }) => {
+      const tenant_id = randomUUID();
+      // Text that yields > INSERT_BATCH (500) chunks: ~1200 paragraphs, each
+      // near the 512 max chunk size, separated by blank lines.
+      const bigText = Array.from(
+        { length: 1200 },
+        (_, i) => `Paragraph ${i} ${'x'.repeat(480)}`,
+      ).join('\n\n');
+      const enqueue = vi.fn(async () => {});
+
+      const fileId = await pool
+        .query<{ id: string }>(
+          `INSERT INTO knowledge.files
+             (tenant_id, uploaded_by, filename, mime_type, size_bytes, s3_key, status, scan_status)
+           VALUES ($1, $2, 'big.txt', 'text/plain', 100, 'tenants/x/knowledge/3/big.txt', 'parsing', 'clean')
+           RETURNING id`,
+          [tenant_id, randomUUID()],
+        )
+        .then((r) => r.rows[0]!.id);
+
+      await parseKnowledgeFile(
+        { tenant_id, file_id: fileId, event_id: randomUUID() },
+        {
+          pool,
+          fetchObject: async () => Buffer.from(bigText, 'utf-8'),
+          enqueueEmbedJob: enqueue,
+        },
+      );
+
+      const count = await pool.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM knowledge.chunks WHERE tenant_id = $1 AND file_id = $2`,
+        [tenant_id, fileId],
+      );
+      const n = Number(count.rows[0]!.n);
+      expect(n).toBeGreaterThan(500); // crossed at least one INSERT batch boundary
+
+      const ord = await pool.query<{ chunk_ordinal: number }>(
+        `SELECT chunk_ordinal FROM knowledge.chunks
+          WHERE tenant_id = $1 AND file_id = $2 ORDER BY chunk_ordinal`,
+        [tenant_id, fileId],
+      );
+      expect(ord.rows.map((r) => r.chunk_ordinal)).toEqual(Array.from({ length: n }, (_, i) => i));
+
+      const status = await pool.query<{ status: string }>(
+        `SELECT status FROM knowledge.files WHERE id = $1`,
+        [fileId],
+      );
+      expect(status.rows[0]?.status).toBe('embedding');
+      expect(enqueue).toHaveBeenCalledOnce();
+    });
+  });
 });

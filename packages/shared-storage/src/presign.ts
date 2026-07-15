@@ -27,15 +27,14 @@ export async function presignedUploadUrl(
 ): Promise<string> {
   const client = getS3Client();
   const signer = deps.getSignedUrl ?? defaultGetSignedUrl;
-  return signer(
-    client,
-    new PutObjectCommand({
-      Bucket: opts.bucket,
-      Key: opts.key,
-      ContentType: opts.contentType,
-    }),
-    { expiresIn: opts.expiresInSeconds },
-  );
+  const command = new PutObjectCommand({
+    Bucket: opts.bucket,
+    Key: opts.key,
+    ContentType: opts.contentType,
+  });
+  return signer(client, command, {
+    expiresIn: opts.expiresInSeconds,
+  });
 }
 
 export async function presignedDownloadUrl(

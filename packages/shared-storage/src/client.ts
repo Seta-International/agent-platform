@@ -16,6 +16,7 @@ export function getS3Client(opts: S3ClientOptions = {}): S3Client {
     region: opts.region ?? process.env.S3_REGION ?? 'us-east-1',
     endpoint: opts.endpoint ?? process.env.S3_ENDPOINT,
     forcePathStyle: opts.forcePathStyle ?? process.env.S3_FORCE_PATH_STYLE === 'true',
+    requestChecksumCalculation: 'WHEN_REQUIRED',
     credentials:
       opts.accessKeyId && opts.secretAccessKey
         ? { accessKeyId: opts.accessKeyId, secretAccessKey: opts.secretAccessKey }
