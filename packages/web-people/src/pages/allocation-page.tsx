@@ -2,8 +2,8 @@ import {
   Avatar,
   AvatarFallback,
   Card,
-  Combobox,
   cn,
+  createStaticSource,
   DataTable,
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -14,7 +14,9 @@ import {
   EmptyState,
   Input,
   PageChrome,
+  type SearchableItem,
   SegmentedControl,
+  Typeahead,
 } from '@seta/shared-ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -194,17 +196,29 @@ export function AllocationPage() {
     placeholderData: keepPreviousData,
   });
 
-  const accountOptions = useMemo(
-    () => (data?.facets.accounts ?? []).map((a) => ({ value: a.id, label: a.name })),
+  const accountItems = useMemo<SearchableItem[]>(
+    () => (data?.facets.accounts ?? []).map((a) => ({ id: a.id, label: a.name })),
     [data],
   );
-  const projectOptions = useMemo(
+  const accountSource = useMemo(() => createStaticSource(accountItems), [accountItems]);
+  const accountValue = accountItems.find((a) => a.id === raw.account) ?? null;
+
+  const projectItems = useMemo<SearchableItem[]>(
     () =>
       (data?.facets.projects ?? [])
         .filter((p) => !raw.account || p.account_id === raw.account)
-        .map((p) => ({ value: p.id, label: p.name })),
+        .map((p) => ({ id: p.id, label: p.name })),
     [data, raw.account],
   );
+  const projectSource = useMemo(() => createStaticSource(projectItems), [projectItems]);
+  const projectValue = projectItems.find((p) => p.id === raw.project) ?? null;
+
+  const bucketItems = useMemo<SearchableItem[]>(
+    () => BUCKET_OPTIONS.map((b) => ({ id: b.value, label: b.label })),
+    [],
+  );
+  const bucketSource = useMemo(() => createStaticSource(bucketItems), [bucketItems]);
+  const bucketValue = bucketItems.find((b) => b.id === raw.bucket) ?? null;
 
   const overByWorkerMonth = useMemo(() => {
     const m = new Map<string, Set<number>>();
@@ -433,32 +447,42 @@ export function AllocationPage() {
                   onValueChange={(v) => setSearch({ status: v === 'all' ? undefined : v })}
                   options={STATUS_OPTIONS}
                 />
-                <Combobox
+                <Typeahead
                   className="h-8 w-44"
-                  aria-label="Account"
+                  label="Account"
+                  isLabelHidden
+                  searchSource={accountSource}
+                  debounceMs={0}
+                  hasEntriesOnFocus
+                  value={accountValue}
+                  onChange={(item) =>
+                    setSearch({ account: item?.id ?? undefined, project: undefined })
+                  }
                   placeholder="All accounts"
-                  searchPlaceholder="Search accounts…"
-                  options={accountOptions}
-                  value={raw.account ?? null}
-                  onChange={(v) => setSearch({ account: v ?? undefined, project: undefined })}
                 />
-                <Combobox
+                <Typeahead
                   className="h-8 w-44"
-                  aria-label="Project"
+                  label="Project"
+                  isLabelHidden
+                  searchSource={projectSource}
+                  debounceMs={0}
+                  hasEntriesOnFocus
+                  value={projectValue}
+                  onChange={(item) => setSearch({ project: item?.id ?? undefined })}
                   placeholder="All projects"
-                  searchPlaceholder="Search projects…"
-                  options={projectOptions}
-                  value={raw.project ?? null}
-                  onChange={(v) => setSearch({ project: v ?? undefined })}
                 />
-                <Combobox
+                <Typeahead
                   className="h-8 w-36"
-                  aria-label="Bucket"
+                  label="Bucket"
+                  isLabelHidden
+                  searchSource={bucketSource}
+                  debounceMs={0}
+                  hasEntriesOnFocus
+                  value={bucketValue}
+                  onChange={(item) =>
+                    setSearch({ bucket: (item?.id as AllocationBucket) ?? undefined })
+                  }
                   placeholder="All buckets"
-                  searchable={false}
-                  options={BUCKET_OPTIONS}
-                  value={raw.bucket ?? null}
-                  onChange={(v) => setSearch({ bucket: (v as AllocationBucket) ?? undefined })}
                 />
               </div>
 

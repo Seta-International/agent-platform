@@ -1,3 +1,5 @@
+import type { SearchableItem, SearchSource } from '@seta/shared-ui';
+
 export interface OrgUnitNode {
   id: string;
   parent_id: string | null;
@@ -70,18 +72,24 @@ export async function fetchOrgCompany(): Promise<{ nodes: CompanyNode[] }> {
 
 // Org-unit picker source for the worker profile (org_unit_id is the reporting write path;
 // there is no dedicated search endpoint, so we flatten the RBAC-scoped structure tree).
-function unitOption(u: OrgUnitNode): { value: string; label: string } {
-  return { value: u.id, label: u.name };
+function unitOption(u: OrgUnitNode): SearchableItem {
+  return { id: u.id, label: u.name };
 }
 
 export const searchOrgUnits = {
-  async search(q: string): Promise<{ value: string; label: string }[]> {
-    const { units } = await fetchOrgStructure();
-    const options = units.map(unitOption);
-    const needle = q.trim().toLowerCase();
-    return needle ? options.filter((o) => o.label.toLowerCase().includes(needle)) : options;
-  },
-  async resolveByIds(ids: string[]): Promise<{ value: string; label: string }[]> {
+  source: {
+    async search(q: string): Promise<SearchableItem[]> {
+      const { units } = await fetchOrgStructure();
+      const options = units.map(unitOption);
+      const needle = q.trim().toLowerCase();
+      return needle ? options.filter((o) => o.label.toLowerCase().includes(needle)) : options;
+    },
+    async bootstrap(): Promise<SearchableItem[]> {
+      const { units } = await fetchOrgStructure();
+      return units.map(unitOption);
+    },
+  } satisfies SearchSource<SearchableItem>,
+  async seed(ids: string[]): Promise<SearchableItem[]> {
     if (ids.length === 0) return [];
     const { units } = await fetchOrgStructure();
     const wanted = new Set(ids);
