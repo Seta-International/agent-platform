@@ -8,6 +8,7 @@ import {
 import { makeQnaGeneralAnswerAgent } from './agents/general-answer.ts';
 import { makeQnaTaskDetailAgent } from './agents/task-detail.ts';
 import { makeQnaTaskQueryAgent } from './agents/task-query.ts';
+import { makeQnaTeamInfoAgent } from './agents/team-info.ts';
 import { makeAvaiCheckerAgent } from './assignment/agents/avai-checker.ts';
 import { makeRecommenderAgent } from './assignment/agents/recommender.ts';
 import type { AvailabilityPort } from './assignment/ports.ts';
@@ -291,6 +292,58 @@ export const taskDetailQualitySuite = defineEvalSuite({
   ],
 });
 
+export const teamInfoQualitySuite = defineEvalSuite({
+  specId: 'planner.qna.teamInfo',
+  // Deterministic build kept for type-completeness (canned seam, LLM-free).
+  buildSpec: () =>
+    makeQnaTeamInfoAgent({
+      resolveModel: () => ({}) as never,
+      runAgent: async ({ input }) => ({ text: `re: ${input.query}` }),
+    }),
+  // Quality build: NO runAgent seam ⇒ the real Agent + tool loop runs; every
+  // tool is a per-case mock so nothing hits the DB. The three non-tool DB seams
+  // (listMemberGroupIds/buildActorSession/listPlans) are also canned so run()'s
+  // caller-group/plan pre-resolution stays offline. runQualityEvals sets ctx.model.
+  buildQualitySpec: (mocks) => {
+    const tool = (id: string) => mocks.find((m) => (m as { id: string }).id === id) as AgentTool;
+    return makeQnaTeamInfoAgent({
+      resolveModel: () => ({}) as never,
+      getGroupOverviewTool: tool('planner_getGroupOverview'),
+      listPlansTool: tool('planner_listPlans'),
+      listBucketsTool: tool('planner_listBuckets'),
+      searchGroupMembersBySkillsTool: tool('planner_searchGroupMembersBySkills'),
+      // Canned DB seams so run() is offline. Shapes: listMemberGroupIds → string[];
+      // buildActorSession → a session object (only `.role_summary` is read downstream,
+      // and only by listPlans, which we also stub); listPlans → [{ id }].
+      listMemberGroupIds: (async () => ['g1']) as never,
+      buildActorSession: (async () => ({ role_summary: {} })) as never,
+      listPlans: (async () => [{ id: 'p1' }]) as never,
+    });
+  },
+  cases: [
+    defineEvalCase({
+      name: "answers about the caller's group from overview evidence",
+      layer: 'quality',
+      input: { query: 'who is on my team?' },
+      actor: { tenantId: 't1', userId: 'u1' },
+      toolMocks: [
+        {
+          toolId: 'planner_getGroupOverview',
+          respond: () => ({
+            groupId: 'g1',
+            name: 'Platform',
+            members: [{ name: 'Ada', role: 'eng' }],
+            planCount: 2,
+          }),
+        },
+        { toolId: 'planner_listPlans', respond: () => [{ id: 'p1', name: 'Q3' }] },
+        { toolId: 'planner_listBuckets', respond: () => [] },
+        { toolId: 'planner_searchGroupMembersBySkills', respond: () => [] },
+      ],
+    }),
+  ],
+});
+
 export const generalAnswerQualitySuite = defineEvalSuite({
   specId: 'planner.qna.generalAnswer',
   // Deterministic build is unused for this quality-only suite, but the type
@@ -338,5 +391,6 @@ export const plannerEvalManifest: EvalManifest = {
     generalAnswerQualitySuite as EvalSuite,
     taskQueryQualitySuite as EvalSuite,
     taskDetailQualitySuite as EvalSuite,
+    teamInfoQualitySuite as EvalSuite,
   ],
 };

@@ -1,7 +1,12 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
-import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import type {
+  AgentResult,
+  AgentTool,
+  SpecializedAgentRunCtx,
+  SpecializedAgentSpec,
+} from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import {
   plannerGetGroupOverviewTool,
@@ -28,6 +33,15 @@ export const TEAM_INFO_TOOL_IDS = [
 
 export interface QnaTeamInfoDeps {
   resolveModel: () => MastraModelConfig;
+  /** Optional tool overrides for eval mocking; default to the real module tools. */
+  getGroupOverviewTool?: AgentTool;
+  listPlansTool?: AgentTool;
+  listBucketsTool?: AgentTool;
+  searchGroupMembersBySkillsTool?: AgentTool;
+  /** Non-tool DB seams (default to the real functions); overridden for eval. */
+  listMemberGroupIds?: typeof listMemberGroupIds;
+  buildActorSession?: typeof buildActorSession;
+  listPlans?: typeof listPlans;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
 }
 
@@ -83,9 +97,14 @@ export function makeQnaTeamInfoAgent(deps: QnaTeamInfoDeps): SpecializedAgentSpe
             // self-resolution (unlike listPlans(groupId?)), so without this the
             // sub-agent has nothing to answer "my group/team/plan" cold and asks
             // the user for an id instead.
-            const groupIds = await listMemberGroupIds(ctx.actorUserId, ctx.tenantId);
-            const session = await buildActorSession({ user_id: ctx.actorUserId });
-            const myPlans = await listPlans({ session });
+            const groupIds = await (deps.listMemberGroupIds ?? listMemberGroupIds)(
+              ctx.actorUserId,
+              ctx.tenantId,
+            );
+            const session = await (deps.buildActorSession ?? buildActorSession)({
+              user_id: ctx.actorUserId,
+            });
+            const myPlans = await (deps.listPlans ?? listPlans)({ session });
             rc.set('caller_group_ids', groupIds);
             rc.set(
               'caller_plan_ids',
@@ -98,10 +117,11 @@ export function makeQnaTeamInfoAgent(deps: QnaTeamInfoDeps): SpecializedAgentSpe
               instructions: buildInstructions,
               model: pickModel(ctx, deps.resolveModel),
               tools: {
-                planner_getGroupOverview: plannerGetGroupOverviewTool,
-                planner_listPlans: plannerListPlansTool,
-                planner_listBuckets: plannerListBucketsTool,
-                planner_searchGroupMembersBySkills: plannerSearchGroupMembersBySkillsTool,
+                planner_getGroupOverview: deps.getGroupOverviewTool ?? plannerGetGroupOverviewTool,
+                planner_listPlans: deps.listPlansTool ?? plannerListPlansTool,
+                planner_listBuckets: deps.listBucketsTool ?? plannerListBucketsTool,
+                planner_searchGroupMembersBySkills:
+                  deps.searchGroupMembersBySkillsTool ?? plannerSearchGroupMembersBySkillsTool,
               } as never,
             });
             const r = await agent.generate(input.query, {
