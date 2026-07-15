@@ -5,6 +5,7 @@ import {
   type EvalManifest,
   type EvalSuite,
 } from '@seta/shared-agent-evals';
+import { makeQnaGeneralAnswerAgent } from './agents/general-answer.ts';
 import { makeQnaTaskQueryAgent } from './agents/task-query.ts';
 import { makeAvaiCheckerAgent } from './assignment/agents/avai-checker.ts';
 import { makeRecommenderAgent } from './assignment/agents/recommender.ts';
@@ -205,6 +206,37 @@ export const weeklyPlanOrchestratorEvalSuite = defineEvalSuite({
   ],
 });
 
+export const generalAnswerQualitySuite = defineEvalSuite({
+  specId: 'planner.qna.generalAnswer',
+  // Deterministic build is unused for this quality-only suite, but the type
+  // requires it; a canned-seam build keeps it LLM-free if ever run.
+  buildSpec: () =>
+    makeQnaGeneralAnswerAgent({
+      resolveModel: () => ({}) as never,
+      runAgent: async ({ input }) => ({ text: `re: ${input.query}` }),
+    }),
+  // Quality build: NO runAgent seam ⇒ the real Mastra Agent + model path runs.
+  // resolveModel is a safety fallback; runQualityEvals sets ctx.model, which wins.
+  buildQualitySpec: () =>
+    makeQnaGeneralAnswerAgent({
+      resolveModel: () => ({}) as never,
+    }),
+  cases: [
+    defineEvalCase({
+      name: 'summarizes open tasks relevantly',
+      layer: 'quality',
+      input: { query: 'how many open tasks do I have this week?' },
+      actor: { tenantId: 't1', userId: 'u1' },
+    }),
+    defineEvalCase({
+      name: 'stays on-topic for a planning question',
+      layer: 'quality',
+      input: { query: 'what should I focus on first?' },
+      actor: { tenantId: 't1', userId: 'u1' },
+    }),
+  ],
+});
+
 export const plannerEvalManifest: EvalManifest = {
   module: '@seta/planner',
   // `EvalSuite<I, O>`'s `run` is contravariant in `I` (like
@@ -218,5 +250,6 @@ export const plannerEvalManifest: EvalManifest = {
     recommenderEvalSuite as EvalSuite,
     qnaOrchestratorEvalSuite as EvalSuite,
     weeklyPlanOrchestratorEvalSuite as EvalSuite,
+    generalAnswerQualitySuite as EvalSuite,
   ],
 };
