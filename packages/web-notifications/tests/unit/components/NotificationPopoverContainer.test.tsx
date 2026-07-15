@@ -41,8 +41,15 @@ describe('NotificationPopoverContainer', () => {
   it('shows the item and marks all read after opening the popover', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<NotificationPopoverContainer />, { wrapper: wrap(qc) });
-    await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
+    // Astryx's Popover eagerly mounts `content` (hidden), so the item is already in
+    // the DOM before opening — assert it isn't visible yet, so this test still fails
+    // if the click stops actually opening the popover.
     await waitFor(() => expect(screen.getByText('Hi')).toBeInTheDocument());
+    expect(screen.getByText('Hi')).not.toBeVisible();
+
+    await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
+    await waitFor(() => expect(screen.getByText('Hi')).toBeVisible());
+
     await userEvent.click(screen.getByRole('button', { name: /mark all read/i }));
     const { notificationsClient } = await import('../../../src/api/client');
     expect(notificationsClient.markAllRead).toHaveBeenCalled();

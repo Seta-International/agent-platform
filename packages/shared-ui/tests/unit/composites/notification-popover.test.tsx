@@ -41,6 +41,11 @@ describe('NotificationPopover', () => {
         onDismiss={() => {}}
       />,
     );
+    // Astryx's Popover eagerly mounts `content` (hidden via the shared-ui test shim's
+    // initial-hidden [popover] style), so assert it's not yet in the accessibility
+    // tree, so this test still fails if the trigger click stops actually opening it.
+    expect(screen.queryByRole('article')).not.toBeInTheDocument();
+
     await openPopover();
     const all = screen.getAllByRole('article');
     expect(all[0]).toHaveTextContent('A');
