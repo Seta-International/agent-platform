@@ -26,6 +26,7 @@ export interface WorkerListRow {
   offboarding_date: string | null;
   manager_id: string | null;
   manager_name: string | null;
+  employee_no: string | null;
   accounts: { id: string; name: string }[];
   skills: { id: string; name: string; level: number | null }[];
 }
@@ -86,6 +87,7 @@ export interface WorkerPatch {
   emergency_contact?: string;
   job_title?: string | null;
   org_unit_id?: string | null;
+  employee_no?: string | null;
 }
 
 export interface EditWorkerInput {

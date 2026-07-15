@@ -210,6 +210,7 @@ export function NewCandidateDialog() {
       toast({ body: 'Candidate added' });
       if (cvWarning) toast({ body: cvWarning, type: 'error' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.candidateStageCounts() });
       close();
     },
     onError: (e: Error) => setError(e.message),

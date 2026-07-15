@@ -2,7 +2,7 @@ import { closePools, initPools } from '@seta/shared-db';
 import { withTestDb } from '@seta/shared-testing';
 import { describe, expect, it } from 'vitest';
 import { hiringDb, resetHiringDb } from '../../src/backend/db/client.ts';
-import { application } from '../../src/backend/db/schema.ts';
+import { application, candidate } from '../../src/backend/db/schema.ts';
 import { openRequisition } from '../../src/index.ts';
 import { seedTenant } from '../helpers.ts';
 
@@ -57,6 +57,29 @@ describe('application exactly-one-subject CHECK', () => {
           })
           .returning({ id: application.id });
         expect(inserted).toHaveLength(1);
+
+        // both subjects, but status is 'hired' → accepted
+        const [cand] = await hiringDb()
+          .insert(candidate)
+          .values({
+            tenant_id: t.tenant_id,
+            name: 'Hired Candidate',
+          })
+          .returning();
+        expect(cand).toBeDefined();
+
+        const hiredInserted = await hiringDb()
+          .insert(application)
+          .values({
+            tenant_id: t.tenant_id,
+            requisition_id,
+            kind: 'external',
+            candidate_id: cand!.id,
+            person_id: crypto.randomUUID(),
+            status: 'hired',
+          })
+          .returning({ id: application.id });
+        expect(hiredInserted).toHaveLength(1);
       } finally {
         resetHiringDb();
         await closePools();

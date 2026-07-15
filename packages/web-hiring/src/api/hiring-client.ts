@@ -442,6 +442,7 @@ export interface AddCandidatePayload {
   requisition_id: string;
   name: string;
   personal_email?: string;
+  email?: string;
   phone?: string;
   dob?: string;
   gender?: string;

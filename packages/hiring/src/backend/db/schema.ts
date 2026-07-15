@@ -368,7 +368,7 @@ export const application = hiringSchema.table(
     check('application_rating_check', sql`rating IS NULL OR rating BETWEEN 0 AND 5`),
     check(
       'application_one_subject_check',
-      sql`(candidate_id IS NOT NULL) <> (person_id IS NOT NULL)`,
+      sql`((candidate_id IS NOT NULL) <> (person_id IS NOT NULL)) OR (status = 'hired' AND candidate_id IS NOT NULL AND person_id IS NOT NULL)`,
     ),
   ],
 );

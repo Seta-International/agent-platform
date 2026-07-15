@@ -38,6 +38,7 @@ export const editWorkerPatch = z.object({
   emergency_contact: z.unknown().optional(),
   job_title: z.string().nullable().optional(),
   org_unit_id: z.string().uuid().nullable().optional(),
+  employee_no: z.string().nullable().optional(),
 });
 export const editWorkerInput = z.object({
   worker_id: z.string().uuid(),

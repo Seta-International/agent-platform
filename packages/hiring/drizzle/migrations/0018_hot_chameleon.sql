@@ -1,0 +1,2 @@
+ALTER TABLE "hiring"."application" DROP CONSTRAINT "application_one_subject_check";--> statement-breakpoint
+ALTER TABLE "hiring"."application" ADD CONSTRAINT "application_one_subject_check" CHECK (((candidate_id IS NOT NULL) <> (person_id IS NOT NULL)) OR (status = 'hired' AND candidate_id IS NOT NULL AND person_id IS NOT NULL));
