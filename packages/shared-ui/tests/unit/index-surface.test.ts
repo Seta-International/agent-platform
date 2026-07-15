@@ -35,8 +35,11 @@ const REQUIRED = [
   'ThemeToggle',
   'TimeInput',
   'Toaster',
+  'Tokenizer',
   'Tooltip',
+  'Typeahead',
   'cn',
+  'createStaticSource',
   'cva',
   'useTheme',
 ];
