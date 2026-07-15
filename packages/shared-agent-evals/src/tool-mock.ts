@@ -20,3 +20,19 @@ export function buildMockTools(mocks: DatasetItemToolMock[]): AgentTool[] {
     }),
   );
 }
+
+/**
+ * Look up a built mock tool by id from the array a suite's `buildQualitySpec`
+ * receives. Throws a self-describing error when the case omitted a mock for a
+ * tool the specialist's loop can call — otherwise the missing tool surfaces as
+ * an opaque `undefined.execute` TypeError deep in the nightly real-model run.
+ */
+export function requireMockTool(mocks: AgentTool[], toolId: string): AgentTool {
+  const found = mocks.find((m) => (m as { id: string }).id === toolId);
+  if (!found) {
+    throw new Error(
+      `quality eval: no tool mock for '${toolId}' — every tool the specialist can call must be listed in the case's toolMocks`,
+    );
+  }
+  return found;
+}

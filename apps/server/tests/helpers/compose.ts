@@ -1,3 +1,5 @@
+import { InMemoryStore } from '@mastra/core/storage';
+import type { AssignmentPorts } from '@seta/planner/orchestration';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
 import type { ComposeDeps } from '../../src/compose-registries.ts';
 
@@ -18,8 +20,40 @@ export function testComposeDeps(): ComposeDeps {
     },
   };
 
+  // Registration-only: composeRegistries()/buildAssignmentOrchestrationRuntime
+  // only reads these to build + register the orchestrator agent's tool
+  // closures; the gate never invokes `.run` on any of them, so throwing stubs
+  // are safe here and double as a tripwire if a future test starts exercising
+  // the assignment runtime for real.
+  const throwing =
+    (name: string) =>
+    (..._args: unknown[]) => {
+      throw new Error(`testComposeDeps: ${name} should never be called by the gate`);
+    };
+
+  const assignmentPorts: AssignmentPorts = {
+    taskReader: { load: throwing('taskReader.load') },
+    taskSearch: {
+      byLabels: throwing('taskSearch.byLabels'),
+      listAvailableLabels: throwing('taskSearch.listAvailableLabels'),
+    },
+    skillSearch: { search: throwing('skillSearch.search') },
+    availability: {
+      status: throwing('availability.status'),
+      inProgressCount: throwing('availability.inProgressCount'),
+    },
+    userProfileLookup: { findByName: throwing('userProfileLookup.findByName') },
+    assign: { assign: throwing('assign.assign') },
+    taskAssignees: { currentAssigneeIds: throwing('taskAssignees.currentAssigneeIds') },
+  };
+
   return {
     resolveModel: () => ({}) as never,
     embeddingProvider,
+    assignmentPorts,
+    // Registration-only; register.test.ts uses `repo: {} as never` for the
+    // same reason — the gate never touches run-state persistence.
+    assignmentRepo: {} as never,
+    mastraStorage: new InMemoryStore(),
   };
 }

@@ -1,6 +1,6 @@
 import { makeToolContext } from '@seta/agent-sdk/testing';
 import { describe, expect, it } from 'vitest';
-import { buildMockTools } from '../../src/tool-mock.ts';
+import { buildMockTools, requireMockTool } from '../../src/tool-mock.ts';
 
 describe('buildMockTools', () => {
   it('builds an executable tool that returns the canned response', async () => {
@@ -19,5 +19,20 @@ describe('buildMockTools', () => {
     // a real execute call through the real wrapper, not a bypass.
     const out = await tool.execute!({ q: 'hi' }, makeToolContext({ user_id: 'u1' }));
     expect(out).toEqual({ echoed: { q: 'hi' } });
+  });
+});
+
+describe('requireMockTool', () => {
+  it('returns the mock whose id matches', () => {
+    const tools = buildMockTools([
+      { toolId: 'a_tool', respond: () => 1 },
+      { toolId: 'b_tool', respond: () => 2 },
+    ]);
+    expect((requireMockTool(tools, 'b_tool') as { id: string }).id).toBe('b_tool');
+  });
+
+  it('throws a self-describing error when the id is not mocked', () => {
+    const tools = buildMockTools([{ toolId: 'a_tool', respond: () => 1 }]);
+    expect(() => requireMockTool(tools, 'missing_tool')).toThrow(/no tool mock for 'missing_tool'/);
   });
 });
