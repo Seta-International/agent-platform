@@ -1,5 +1,6 @@
 import type { AgentTool } from '@seta/agent-sdk';
 import { plannerAssignTaskTool } from './assign-task.ts';
+import { plannerGetBoardSnapshotTool } from './get-board-snapshot.ts';
 import { plannerGetGroupOverviewTool } from './get-group-overview.ts';
 import { plannerGetItemActivityTool } from './get-item-activity.ts';
 import { plannerGetTaskTool } from './get-task.ts';
@@ -17,6 +18,7 @@ export {
   type PlannerFindSimilarTasksToolDeps,
   plannerFindSimilarTasksTool,
 } from './find-similar-tasks.ts';
+export { plannerGetBoardSnapshotTool } from './get-board-snapshot.ts';
 export { plannerGetGroupOverviewTool } from './get-group-overview.ts';
 export { plannerGetItemActivityTool } from './get-item-activity.ts';
 export { plannerGetOpenTaskCountTool } from './get-open-task-count.ts';
@@ -42,6 +44,7 @@ export const plannerAgentTools: AgentTool[] = [
   plannerAssignTaskTool,
   plannerSetAssigneesTool,
   plannerGetTaskTool,
+  plannerGetBoardSnapshotTool,
   plannerGetItemActivityTool,
   plannerGetTimelineTool,
   plannerListCommentsTool,
