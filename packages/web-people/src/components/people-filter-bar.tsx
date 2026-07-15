@@ -36,15 +36,24 @@ export function PeopleFilterBar({ query, onChange }: Props) {
     [query.status],
   );
 
-  const [accountItems] = useSeededItems(query.account_id ?? [], searchAccounts.seed);
+  const [accountItems, setAccountItems] = useSeededItems(
+    query.account_id ?? [],
+    searchAccounts.seed,
+  );
 
   // Project suggestions are scoped to the selected accounts; rebind the source whenever the
   // account selection changes so cascading stays correct (persisted ids still resolve via the
   // unscoped `seed`, since a selection was already account-scoped when it was made).
   const projectSource = useMemo(() => projectSearch.source(query.account_id), [query.account_id]);
-  const [projectItems] = useSeededItems(query.project_id ?? [], projectSearch.seed);
+  const [projectItems, setProjectItems] = useSeededItems(
+    query.project_id ?? [],
+    projectSearch.seed,
+  );
 
-  const [techstackItems] = useSeededItems(query.skill_id ?? [], searchSkills.seed);
+  const [techstackItems, setTechstackItems] = useSeededItems(
+    query.skill_id ?? [],
+    searchSkills.seed,
+  );
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -67,12 +76,13 @@ export function PeopleFilterBar({ query, onChange }: Props) {
         searchSource={searchAccounts.source}
         hasEntriesOnFocus
         value={accountItems}
-        onChange={(items) =>
+        onChange={(items) => {
+          setAccountItems(items);
           onChange({
             account_id: items.length ? items.map((i) => i.id) : undefined,
             project_id: undefined,
-          })
-        }
+          });
+        }}
         placeholder="Account"
         className="w-44"
       />
@@ -82,9 +92,10 @@ export function PeopleFilterBar({ query, onChange }: Props) {
         searchSource={projectSource}
         hasEntriesOnFocus
         value={projectItems}
-        onChange={(items) =>
-          onChange({ project_id: items.length ? items.map((i) => i.id) : undefined })
-        }
+        onChange={(items) => {
+          setProjectItems(items);
+          onChange({ project_id: items.length ? items.map((i) => i.id) : undefined });
+        }}
         placeholder="Project"
         className="w-44"
       />
@@ -94,9 +105,10 @@ export function PeopleFilterBar({ query, onChange }: Props) {
         searchSource={searchSkills.source}
         hasEntriesOnFocus
         value={techstackItems}
-        onChange={(items) =>
-          onChange({ skill_id: items.length ? items.map((i) => i.id) : undefined })
-        }
+        onChange={(items) => {
+          setTechstackItems(items);
+          onChange({ skill_id: items.length ? items.map((i) => i.id) : undefined });
+        }}
         placeholder="Techstack"
         className="w-44"
       />
