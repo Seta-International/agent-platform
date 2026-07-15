@@ -6,7 +6,6 @@ interface ModelSelectorProps {
   value: string;
   onChange: (next: string) => void;
   variant?: 'bordered' | 'ghost';
-  compact?: boolean;
 }
 
 const TIER_ICON: Record<ModelTier, typeof Zap> = {
@@ -40,12 +39,7 @@ function MenuDivider() {
   );
 }
 
-export function ModelSelector({
-  value,
-  onChange,
-  variant = 'ghost',
-  compact = false,
-}: ModelSelectorProps) {
+export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelectorProps) {
   const { data, isLoading } = useModelCatalog();
   const models = data?.models ?? [];
   const current = models.find((m) => m.key === value);
@@ -64,7 +58,7 @@ export function ModelSelector({
       menuWidth={240}
       button={{
         variant: variant === 'bordered' ? 'secondary' : 'ghost',
-        size: compact ? 'sm' : 'sm',
+        size: 'sm',
         label: ariaLabel,
         isDisabled: isLoading || models.length === 0,
         children: (
@@ -77,12 +71,13 @@ export function ModelSelector({
     >
       {grouped.flatMap((group, gi) => {
         const header = (
-          <DropdownMenuItem
+          <div
             key={`hdr-${group.tier}`}
-            isDisabled
-            label={TIER_LABEL[group.tier]}
             className="uppercase text-caption text-ink-subtle"
-          />
+            style={{ padding: '4px 8px' }}
+          >
+            {TIER_LABEL[group.tier]}
+          </div>
         );
         const rows = group.items.map((m) => {
           const Icon = TIER_ICON[m.tier];

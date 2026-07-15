@@ -209,7 +209,7 @@ export function GroupDetailHeader({
             />
             <DropdownMenuItem
               label="Delete"
-              className="text-semantic-danger"
+              style={{ color: 'var(--color-danger)' }}
               isDisabled={!canDeleteGroup}
               onClick={() => onMenuAction('delete')}
             />

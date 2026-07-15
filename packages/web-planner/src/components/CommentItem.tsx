@@ -88,7 +88,7 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
               {canDelete && (
                 <DropdownMenuItem
                   label="Delete"
-                  className="text-semantic-danger"
+                  style={{ color: 'var(--color-danger)' }}
                   onClick={() => del.mutate({ taskId, commentId: comment.id })}
                 />
               )}

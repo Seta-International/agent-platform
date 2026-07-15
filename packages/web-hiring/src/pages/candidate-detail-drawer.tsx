@@ -249,7 +249,7 @@ export function CandidateDetailDrawer({
                     {canReject && !terminal && (
                       <DropdownMenuItem
                         label="Reject"
-                        className="text-destructive"
+                        style={{ color: 'var(--color-destructive)' }}
                         onClick={() => setRejectOpen(true)}
                       />
                     )}

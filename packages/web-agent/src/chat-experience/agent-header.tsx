@@ -188,7 +188,7 @@ export function AgentHeader({
           <DropdownMenuItem
             icon={<Trash2 className="size-3.5" aria-hidden />}
             label="Delete chat"
-            className="text-destructive"
+            style={{ color: 'var(--color-destructive)' }}
             isDisabled={!canEdit}
             onClick={onDelete}
           />

@@ -729,7 +729,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 <DropdownMenuItem
                   label="Cancel"
                   isDisabled={!canClose}
-                  className="text-danger-ink"
+                  style={{ color: 'var(--color-danger-ink)' }}
                   onClick={() => setTimeout(() => setShowCancelDialog(true), 0)}
                 />
               </DropdownMenu>

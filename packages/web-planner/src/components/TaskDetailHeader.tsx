@@ -203,7 +203,7 @@ export function TaskDetailHeader({
                   >
                     <DropdownMenuItem
                       label="Delete"
-                      className="text-semantic-danger"
+                      style={{ color: 'var(--color-danger)' }}
                       onClick={() => onDelete()}
                       isDisabled={Boolean(deleteDisabledReason)}
                     />

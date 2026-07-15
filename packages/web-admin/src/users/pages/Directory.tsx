@@ -339,7 +339,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
                 {r.account_status === 'active' && r.user_id && (
                   <DropdownMenuItem
                     label="Suspend"
-                    className="text-destructive"
+                    style={{ color: 'var(--color-destructive)' }}
                     onClick={() => setSuspendTarget(r)}
                   />
                 )}

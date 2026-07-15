@@ -329,7 +329,7 @@ export function TaskDetailPage({
                 >
                   <DropdownMenuItem
                     label="Delete"
-                    className="text-semantic-danger"
+                    style={{ color: 'var(--color-danger)' }}
                     onClick={openFromMenu(() => setDeleteOpen(true))}
                     isDisabled={Boolean(deleteDisabledReason)}
                   />

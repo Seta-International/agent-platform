@@ -163,7 +163,7 @@ export function RequisitionCard({
                 <DropdownMenuItem
                   label="Cancel"
                   isDisabled={!canClose}
-                  className="text-danger-ink"
+                  style={{ color: 'var(--color-danger-ink)' }}
                   onClick={() => setTimeout(onRequestCancel, 0)}
                 />
               </DropdownMenu>

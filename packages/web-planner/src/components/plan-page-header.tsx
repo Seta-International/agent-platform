@@ -254,7 +254,7 @@ export function PlanPageHeader({
               <DropdownMenuItem
                 icon={<Unlink aria-hidden />}
                 label="Unlink from Microsoft 365…"
-                className="text-semantic-danger"
+                style={{ color: 'var(--color-danger)' }}
                 onClick={onUnlinkFromM365}
               />
             )}
@@ -295,7 +295,7 @@ export function PlanPageHeader({
               <DropdownMenuItem
                 icon={<X aria-hidden />}
                 label="Delete plan"
-                className="text-semantic-danger"
+                style={{ color: 'var(--color-danger)' }}
                 isDisabled={!canDelete}
                 onClick={onDelete}
               />
