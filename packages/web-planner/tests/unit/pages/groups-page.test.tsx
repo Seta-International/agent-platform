@@ -273,9 +273,21 @@ describe('GroupsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Internal' }));
     await waitFor(() => expect(screen.queryByText('M365 Group')).not.toBeInTheDocument());
 
-    // Clear filter via "Any"
+    // Clear filter via "Any". Every filter pill's Popover content is eagerly
+    // mounted (hidden), so each of the four pills renders its own "Any" option —
+    // pick the one that's actually visible (Source's, now open). happy-dom has no
+    // checkVisibility(), so walk ancestors for an inline display:none.
     await user.click(screen.getByRole('button', { name: /Source/i }));
-    await user.click(screen.getByRole('button', { name: /Any/i }));
+    const isVisible = (el: HTMLElement): boolean => {
+      for (let node: HTMLElement | null = el; node; node = node.parentElement) {
+        if (getComputedStyle(node).display === 'none') return false;
+      }
+      return true;
+    };
+    const anyOptions = screen.getAllByRole('button', { name: /Any/i });
+    const visibleAnyOption = anyOptions.find(isVisible);
+    if (!visibleAnyOption) throw new Error('No visible "Any" option found');
+    await user.click(visibleAnyOption);
 
     await waitFor(() => expect(screen.getByText('M365 Group')).toBeInTheDocument());
     expect(screen.getByText('Native Group')).toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { Button, DateInput, Popover, PopoverContent, PopoverTrigger } from '@seta/shared-ui';
+import { Button, DateInput, Popover } from '@seta/shared-ui';
 import { CalendarDays, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 
@@ -14,20 +14,13 @@ export function ChartRangeControl({ from, to, onChange }: Props) {
   const summary = active ? `${from ?? '…'} → ${to ?? '…'}` : 'Range';
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
-          size="sm"
-          className={`h-7 gap-1.5 ${active ? 'border-primary text-ink' : ''}`}
-          label="Date range filter"
-          icon={<CalendarDays className="size-3.5 opacity-70" />}
-          endContent={<ChevronDown className="size-3 opacity-60" />}
-        >
-          <span className="font-medium">{summary}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-64 p-3">
+    <Popover
+      isOpen={open}
+      onOpenChange={setOpen}
+      alignment="end"
+      width={256}
+      label="Date range"
+      content={
         <div className="flex flex-col gap-3">
           <DateInput
             label="From"
@@ -46,7 +39,18 @@ export function ChartRangeControl({ from, to, onChange }: Props) {
             </button>
           )}
         </div>
-      </PopoverContent>
+      }
+    >
+      <Button
+        variant="secondary"
+        size="sm"
+        className={`h-7 gap-1.5 ${active ? 'border-primary text-ink' : ''}`}
+        label="Date range filter"
+        icon={<CalendarDays className="size-3.5 opacity-70" />}
+        endContent={<ChevronDown className="size-3 opacity-60" />}
+      >
+        <span className="font-medium">{summary}</span>
+      </Button>
     </Popover>
   );
 }
