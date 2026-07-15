@@ -1,7 +1,12 @@
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
-import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
+import type {
+  AgentResult,
+  AgentTool,
+  SpecializedAgentRunCtx,
+  SpecializedAgentSpec,
+} from '@seta/agent-sdk';
 import {
   plannerGetTaskTool,
   plannerListCommentsTool,
@@ -23,6 +28,10 @@ export const TASK_DETAIL_TOOL_IDS = [
 
 export interface QnaTaskDetailDeps {
   resolveModel: () => MastraModelConfig;
+  /** Optional tool overrides for eval mocking; default to the real module tools. */
+  getTaskTool?: AgentTool;
+  listCommentsTool?: AgentTool;
+  queryTasksTool?: AgentTool;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
 }
 
@@ -73,9 +82,9 @@ export function makeQnaTaskDetailAgent(deps: QnaTaskDetailDeps): SpecializedAgen
               instructions: INSTRUCTIONS,
               model: pickModel(ctx, deps.resolveModel),
               tools: {
-                planner_getTask: plannerGetTaskTool,
-                planner_listComments: plannerListCommentsTool,
-                planner_queryTasks: plannerQueryTasksTool,
+                planner_getTask: deps.getTaskTool ?? plannerGetTaskTool,
+                planner_listComments: deps.listCommentsTool ?? plannerListCommentsTool,
+                planner_queryTasks: deps.queryTasksTool ?? plannerQueryTasksTool,
               } as never,
             });
             const r = await agent.generate(input.query, {

@@ -6,6 +6,7 @@ import {
   type EvalSuite,
 } from '@seta/shared-agent-evals';
 import { makeQnaGeneralAnswerAgent } from './agents/general-answer.ts';
+import { makeQnaTaskDetailAgent } from './agents/task-detail.ts';
 import { makeQnaTaskQueryAgent } from './agents/task-query.ts';
 import { makeAvaiCheckerAgent } from './assignment/agents/avai-checker.ts';
 import { makeRecommenderAgent } from './assignment/agents/recommender.ts';
@@ -248,6 +249,48 @@ export const taskQueryQualitySuite = defineEvalSuite({
   ],
 });
 
+export const taskDetailQualitySuite = defineEvalSuite({
+  specId: 'planner.qna.taskDetail',
+  // Deterministic build kept for type-completeness (canned seam, LLM-free).
+  buildSpec: () =>
+    makeQnaTaskDetailAgent({
+      resolveModel: () => ({}) as never,
+      runAgent: async ({ input }) => ({ text: `re: ${input.query}` }),
+    }),
+  // Quality build: NO runAgent seam ⇒ the real Agent + tool loop runs; every
+  // tool is a per-case mock so nothing hits the DB. runQualityEvals sets ctx.model.
+  buildQualitySpec: (mocks) => {
+    const tool = (id: string) => mocks.find((m) => (m as { id: string }).id === id) as AgentTool;
+    return makeQnaTaskDetailAgent({
+      resolveModel: () => ({}) as never,
+      getTaskTool: tool('planner_getTask'),
+      listCommentsTool: tool('planner_listComments'),
+      queryTasksTool: tool('planner_queryTasks'),
+    });
+  },
+  cases: [
+    defineEvalCase({
+      name: 'answers about one task grounded in getTask evidence',
+      layer: 'quality',
+      input: { query: '[Context: planner.task#t-1] what is the status of this task?' },
+      actor: { tenantId: 't1', userId: 'u1' },
+      toolMocks: [
+        {
+          toolId: 'planner_getTask',
+          respond: () => ({
+            taskId: 't-1',
+            title: 'Ship billing migration',
+            status: 'in_progress',
+            dueDate: '2026-07-17',
+          }),
+        },
+        { toolId: 'planner_listComments', respond: () => [] },
+        { toolId: 'planner_queryTasks', respond: () => [] },
+      ],
+    }),
+  ],
+});
+
 export const generalAnswerQualitySuite = defineEvalSuite({
   specId: 'planner.qna.generalAnswer',
   // Deterministic build is unused for this quality-only suite, but the type
@@ -294,5 +337,6 @@ export const plannerEvalManifest: EvalManifest = {
     weeklyPlanOrchestratorEvalSuite as EvalSuite,
     generalAnswerQualitySuite as EvalSuite,
     taskQueryQualitySuite as EvalSuite,
+    taskDetailQualitySuite as EvalSuite,
   ],
 };
