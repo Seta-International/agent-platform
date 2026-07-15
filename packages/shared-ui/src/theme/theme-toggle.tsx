@@ -1,41 +1,36 @@
 import { Monitor, Moon, Sun } from 'lucide-react';
-import { Button } from '../primitives/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../primitives/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem } from '../primitives/dropdown-menu';
 import { useTheme } from './theme-provider';
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          isIconOnly
-          label="Toggle theme"
-          icon={resolvedTheme === 'dark' ? <Moon className="size-4" /> : <Sun className="size-4" />}
-        />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme('light')}>
-          <Sun className="mr-2 size-4" />
-          Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('dark')}>
-          <Moon className="mr-2 size-4" />
-          Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('system')}>
-          <Monitor className="mr-2 size-4" />
-          System
-        </DropdownMenuItem>
-      </DropdownMenuContent>
+    <DropdownMenu
+      placement="below"
+      button={{
+        variant: 'ghost',
+        size: 'sm',
+        isIconOnly: true,
+        label: 'Toggle theme',
+        icon: resolvedTheme === 'dark' ? <Moon className="size-4" /> : <Sun className="size-4" />,
+      }}
+    >
+      <DropdownMenuItem
+        icon={<Sun className="size-4" />}
+        label="Light"
+        onClick={() => setTheme('light')}
+      />
+      <DropdownMenuItem
+        icon={<Moon className="size-4" />}
+        label="Dark"
+        onClick={() => setTheme('dark')}
+      />
+      <DropdownMenuItem
+        icon={<Monitor className="size-4" />}
+        label="System"
+        onClick={() => setTheme('system')}
+      />
     </DropdownMenu>
   );
 }

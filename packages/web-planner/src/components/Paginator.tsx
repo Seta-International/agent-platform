@@ -1,12 +1,5 @@
-import {
-  Button,
-  cn,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@seta/shared-ui';
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button, cn, DropdownMenu, DropdownMenuItem } from '@seta/shared-ui';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Props {
   pageIndex: number;
@@ -75,29 +68,29 @@ export function Paginator({
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <span className="text-ink-subtle">Rows per page</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1 px-2 text-ink"
-                label={`${pageSize} rows per page`}
-                endContent={<ChevronDown className="size-3 text-ink-subtle" />}
-              >
-                {pageSize}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[5rem]">
-              {pageSizeOptions.map((s) => (
-                <DropdownMenuItem
-                  key={s}
-                  onClick={() => onPageSizeChange(s)}
-                  className={cn(s === pageSize && 'bg-surface-2 text-ink')}
-                >
-                  {s}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
+          <DropdownMenu
+            placement="below"
+            menuWidth={80}
+            hasChevron
+            button={{
+              variant: 'ghost',
+              size: 'sm',
+              label: `${pageSize} rows per page`,
+              children: pageSize,
+            }}
+          >
+            {pageSizeOptions.map((s) => (
+              <DropdownMenuItem
+                key={s}
+                label={String(s)}
+                onClick={() => onPageSizeChange(s)}
+                style={
+                  s === pageSize
+                    ? { backgroundColor: 'var(--color-surface-2)', color: 'var(--color-ink)' }
+                    : undefined
+                }
+              />
+            ))}
           </DropdownMenu>
         </div>
         <div className="flex items-center gap-1">

@@ -1,12 +1,4 @@
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  SyncBadge,
-  type SyncState,
-} from '@seta/shared-ui';
+import { DropdownMenu, DropdownMenuItem, SyncBadge, type SyncState } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
 import {
   Archive,
@@ -86,6 +78,7 @@ export function PlanPageHeader({
   onUnlinkFromM365,
 }: Props) {
   const [editing, setEditing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingRenameRef = useRef(false);
 
@@ -168,97 +161,145 @@ export function PlanPageHeader({
           />
         )}
         {hasOverflow && (
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="Plan actions"
-                className="plan-page-header__overflow"
-              >
-                ⋯
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              onCloseAutoFocus={(e) => {
-                if (pendingRenameRef.current) {
-                  e.preventDefault();
-                  pendingRenameRef.current = false;
+          <DropdownMenu
+            placement="below"
+            isMenuOpen={menuOpen}
+            onOpenChange={(open) => {
+              setMenuOpen(open);
+              // Astryx's DropdownMenu always returns focus to the trigger on close
+              // (no onCloseAutoFocus escape hatch); defer to a microtask so our
+              // rename-input focus wins the race against that internal call.
+              if (!open && pendingRenameRef.current) {
+                pendingRenameRef.current = false;
+                queueMicrotask(() => {
                   inputRef.current?.focus();
                   inputRef.current?.select();
+                });
+              }
+            }}
+            hasChevron={false}
+            button={{
+              label: 'Plan actions',
+              variant: 'ghost',
+              className: 'plan-page-header__overflow',
+              children: '⋯',
+            }}
+          >
+            {onRename && (
+              <DropdownMenuItem
+                icon={<Pencil aria-hidden />}
+                label="Rename plan"
+                isDisabled={!canRename}
+                onClick={() => {
+                  pendingRenameRef.current = true;
+                  setEditing(true);
+                }}
+              />
+            )}
+            {onDuplicate && (
+              <DropdownMenuItem
+                icon={<Copy aria-hidden />}
+                label="Duplicate plan"
+                isDisabled={!canDuplicate}
+                onClick={onDuplicate}
+              />
+            )}
+            {onCopyShareLink && (
+              <DropdownMenuItem
+                icon={<LinkIcon aria-hidden />}
+                label="Copy share link"
+                onClick={onCopyShareLink}
+              />
+            )}
+            {showRefresh && (
+              <DropdownMenuItem
+                icon={<RefreshCw aria-hidden />}
+                label="Sync now"
+                onClick={onRefreshSync}
+              />
+            )}
+            {showResolveConflicts && (
+              <DropdownMenuItem
+                icon={<RefreshCw aria-hidden />}
+                label={
+                  conflictCount != null ? `Review changes (${conflictCount})…` : 'Review changes…'
                 }
-              }}
-            >
-              {onRename && (
-                <DropdownMenuItem
-                  disabled={!canRename}
-                  onSelect={() => {
-                    pendingRenameRef.current = true;
-                    setEditing(true);
-                  }}
-                >
-                  <Pencil aria-hidden /> Rename plan
-                </DropdownMenuItem>
-              )}
-              {onDuplicate && (
-                <DropdownMenuItem disabled={!canDuplicate} onSelect={onDuplicate}>
-                  <Copy aria-hidden /> Duplicate plan
-                </DropdownMenuItem>
-              )}
-              {onCopyShareLink && (
-                <DropdownMenuItem onSelect={onCopyShareLink}>
-                  <LinkIcon aria-hidden /> Copy share link
-                </DropdownMenuItem>
-              )}
-              {showRefresh && (
-                <DropdownMenuItem onSelect={onRefreshSync}>
-                  <RefreshCw aria-hidden /> Sync now
-                </DropdownMenuItem>
-              )}
-              {showResolveConflicts && (
-                <DropdownMenuItem onSelect={onOpenConflictDialog}>
-                  <RefreshCw aria-hidden />
-                  {conflictCount != null ? `Review changes (${conflictCount})…` : 'Review changes…'}
-                </DropdownMenuItem>
-              )}
-              {showOpenInM365 && linkUrl && (
-                <DropdownMenuItem asChild>
-                  <a href={linkUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink aria-hidden /> Open in Microsoft Planner
-                  </a>
-                </DropdownMenuItem>
-              )}
-              {showUnlink && (
-                <DropdownMenuItem onSelect={onUnlinkFromM365} className="text-semantic-danger">
-                  <Unlink aria-hidden /> Unlink from Microsoft 365…
-                </DropdownMenuItem>
-              )}
-              {onExport && (
-                <DropdownMenuItem onSelect={onExport}>
-                  <ExternalLink aria-hidden /> Export
-                </DropdownMenuItem>
-              )}
-              {(onArchive || onRestore || onDelete) && <DropdownMenuSeparator />}
-              {!isArchived && onArchive && (
-                <DropdownMenuItem disabled={!canArchive} onSelect={onArchive}>
-                  <Archive aria-hidden /> Archive plan
-                </DropdownMenuItem>
-              )}
-              {isArchived && onRestore && (
-                <DropdownMenuItem onSelect={onRestore}>
-                  <RotateCcw aria-hidden /> Restore plan
-                </DropdownMenuItem>
-              )}
-              {onDelete && (
-                <DropdownMenuItem
-                  disabled={!canDelete}
-                  onSelect={onDelete}
-                  className="text-semantic-danger"
-                >
-                  <X aria-hidden /> Delete plan
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
+                onClick={onOpenConflictDialog}
+              />
+            )}
+            {showOpenInM365 && linkUrl && (
+              // Astryx's DropdownMenuItem can't render as a link (no `asChild`/`href`); a real
+              // anchor is required here so right-click/Cmd+click "open in new tab" still works.
+              // useListFocus's keyboard nav only depends on `[role="menuitem"]`, not the tag name.
+              <a
+                href={linkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                role="menuitem"
+                tabIndex={-1}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--spacing-xxs)',
+                  padding: 'var(--spacing-xxs) var(--spacing-xs)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--color-ink)',
+                  textDecoration: 'none',
+                }}
+              >
+                <ExternalLink aria-hidden /> Open in Microsoft Planner
+              </a>
+            )}
+            {showUnlink && (
+              <DropdownMenuItem
+                icon={<Unlink aria-hidden />}
+                label="Unlink from Microsoft 365…"
+                className="text-semantic-danger"
+                onClick={onUnlinkFromM365}
+              />
+            )}
+            {onExport && (
+              <DropdownMenuItem
+                icon={<ExternalLink aria-hidden />}
+                label="Export"
+                onClick={onExport}
+              />
+            )}
+            {(onArchive || onRestore || onDelete) && (
+              <hr
+                aria-hidden
+                style={{
+                  height: 1,
+                  margin: '4px 6px',
+                  border: 'none',
+                  backgroundColor: 'var(--color-hairline)',
+                }}
+              />
+            )}
+            {!isArchived && onArchive && (
+              <DropdownMenuItem
+                icon={<Archive aria-hidden />}
+                label="Archive plan"
+                isDisabled={!canArchive}
+                onClick={onArchive}
+              />
+            )}
+            {isArchived && onRestore && (
+              <DropdownMenuItem
+                icon={<RotateCcw aria-hidden />}
+                label="Restore plan"
+                onClick={onRestore}
+              />
+            )}
+            {onDelete && (
+              <DropdownMenuItem
+                icon={<X aria-hidden />}
+                label="Delete plan"
+                className="text-semantic-danger"
+                isDisabled={!canDelete}
+                onClick={onDelete}
+              />
+            )}
           </DropdownMenu>
         )}
       </div>

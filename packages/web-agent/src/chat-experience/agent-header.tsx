@@ -1,10 +1,4 @@
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@seta/shared-ui';
+import { DropdownMenu, DropdownMenuItem } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Menu, MessageSquare, MoreHorizontal, Pencil, Sparkles, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -19,6 +13,21 @@ interface AgentHeaderProps {
   showThreadSwitcher?: boolean;
   onOpenMobileNav?: () => void;
   onClose?: () => void;
+}
+
+// Astryx's compound DropdownMenuItem has no divider sub-component (data-driven only).
+function MenuDivider() {
+  return (
+    <hr
+      aria-hidden
+      style={{
+        height: 1,
+        margin: '4px 6px',
+        border: 'none',
+        backgroundColor: 'var(--color-hairline)',
+      }}
+    />
+  );
 }
 
 function useTitleFor(threadId: string | undefined): string {
@@ -141,50 +150,48 @@ export function AgentHeader({
 
       <div className="flex flex-none items-center gap-1">
         <DensityToggle />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Chat actions"
-              disabled={!canEdit && !compact}
-              className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <MoreHorizontal className="size-4" aria-hidden />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[220px]">
-            {compact && showThreadSwitcher && (
-              <>
-                <AgentThreadSwitcher />
-                <DropdownMenuSeparator />
-              </>
-            )}
-            {compact && !showThreadSwitcher && (
-              <>
-                <DropdownMenuItem
-                  onSelect={() => void navigate({ to: '/agent/chat' })}
-                  className="gap-2"
-                >
-                  <MessageSquare className="size-3.5" aria-hidden />
-                  View all chats
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
-            <DropdownMenuItem onSelect={startEdit} disabled={!canEdit} className="gap-2">
-              <Pencil className="size-3.5" aria-hidden />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={onDelete}
-              disabled={!canEdit}
-              className="gap-2 text-destructive focus:text-destructive"
-            >
-              <Trash2 className="size-3.5" aria-hidden />
-              Delete chat
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+        <DropdownMenu
+          placement="below"
+          menuWidth={220}
+          button={{
+            isIconOnly: true,
+            icon: <MoreHorizontal className="size-4" aria-hidden />,
+            variant: 'ghost',
+            size: 'sm',
+            label: 'Chat actions',
+            isDisabled: !canEdit && !compact,
+          }}
+        >
+          {compact && showThreadSwitcher && (
+            <>
+              <AgentThreadSwitcher />
+              <MenuDivider />
+            </>
+          )}
+          {compact && !showThreadSwitcher && (
+            <>
+              <DropdownMenuItem
+                icon={<MessageSquare className="size-3.5" aria-hidden />}
+                label="View all chats"
+                onClick={() => void navigate({ to: '/agent/chat' })}
+              />
+              <MenuDivider />
+            </>
+          )}
+          <DropdownMenuItem
+            icon={<Pencil className="size-3.5" aria-hidden />}
+            label="Rename"
+            isDisabled={!canEdit}
+            onClick={startEdit}
+          />
+          <MenuDivider />
+          <DropdownMenuItem
+            icon={<Trash2 className="size-3.5" aria-hidden />}
+            label="Delete chat"
+            className="text-destructive"
+            isDisabled={!canEdit}
+            onClick={onDelete}
+          />
         </DropdownMenu>
         {onClose && (
           <button

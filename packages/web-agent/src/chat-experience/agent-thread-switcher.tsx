@@ -1,4 +1,4 @@
-import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@seta/shared-ui';
+import { DropdownMenuItem } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { useThreadList } from '../hooks/use-thread-list';
@@ -6,6 +6,23 @@ import { useAgentSelection } from './agent-provider';
 
 interface AgentThreadSwitcherProps {
   onAfterSelect?: () => void;
+}
+
+// Astryx's compound DropdownMenuItem has no divider/label sub-components (those only
+// exist for data-driven `items`); plain nodes render fine since useListFocus's keyboard
+// nav only queries `[role="menuitem"]` in the DOM, not React children shape.
+function MenuDivider() {
+  return (
+    <hr
+      aria-hidden
+      style={{
+        height: 1,
+        margin: '4px 6px',
+        border: 'none',
+        backgroundColor: 'var(--color-hairline)',
+      }}
+    />
+  );
 }
 
 export function AgentThreadSwitcher({ onAfterSelect }: AgentThreadSwitcherProps) {
@@ -20,43 +37,44 @@ export function AgentThreadSwitcher({ onAfterSelect }: AgentThreadSwitcherProps)
   return (
     <>
       <DropdownMenuItem
-        onSelect={() => {
+        icon={<Plus className="size-3.5" aria-hidden />}
+        label="New chat"
+        onClick={() => {
           actions.startFreshThread();
           onAfterSelect?.();
         }}
-        className="gap-2"
-      >
-        <Plus className="size-3.5" aria-hidden />
-        New chat
-      </DropdownMenuItem>
-      {flat.length > 0 && <DropdownMenuSeparator />}
+      />
+      {flat.length > 0 && <MenuDivider />}
       {flat.length > 0 && (
-        <DropdownMenuLabel className="text-caption uppercase tracking-wide text-ink-subtle">
+        <div
+          className="text-caption uppercase tracking-wide text-ink-subtle"
+          style={{ padding: '4px 8px' }}
+        >
           Recent
-        </DropdownMenuLabel>
+        </div>
       )}
       {flat.map((t) => (
         <DropdownMenuItem
           key={t.id}
-          onSelect={() => {
+          label={<span className="truncate">{t.title || 'Untitled chat'}</span>}
+          style={
+            selection.threadId === t.id ? { backgroundColor: 'var(--color-surface-2)' } : undefined
+          }
+          onClick={() => {
             actions.setThreadId(t.id);
             onAfterSelect?.();
           }}
-          className={`gap-2 ${selection.threadId === t.id ? 'bg-surface-2' : ''}`}
-        >
-          <span className="truncate">{t.title || 'Untitled chat'}</span>
-        </DropdownMenuItem>
+        />
       ))}
-      <DropdownMenuSeparator />
+      <MenuDivider />
       <DropdownMenuItem
-        onSelect={() => {
+        label="Show all in /agent/chat"
+        className="text-ink-muted"
+        onClick={() => {
           void navigate({ to: '/agent/chat', search: { thread: selection.threadId } });
           onAfterSelect?.();
         }}
-        className="gap-2 text-ink-muted"
-      >
-        Show all in /agent/chat
-      </DropdownMenuItem>
+      />
     </>
   );
 }

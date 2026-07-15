@@ -1,13 +1,5 @@
 import type { CommentDto } from '@seta/planner';
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  formatRelative,
-  Textarea,
-} from '@seta/shared-ui';
+import { Button, DropdownMenu, DropdownMenuItem, formatRelative, Textarea } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { MoreHorizontal } from 'lucide-react';
 import { useState } from 'react';
@@ -82,29 +74,24 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
             )}
           </div>
           {(canEdit || canDelete) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Comment actions"
-                  className="inline-flex size-6 items-center justify-center rounded text-ink-muted hover:bg-surface-2"
-                >
-                  <MoreHorizontal className="size-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {canEdit && (
-                  <DropdownMenuItem onSelect={() => setEditing(true)}>Edit</DropdownMenuItem>
-                )}
-                {canDelete && (
-                  <DropdownMenuItem
-                    onSelect={() => del.mutate({ taskId, commentId: comment.id })}
-                    className="text-semantic-danger"
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
+            <DropdownMenu
+              placement="below"
+              button={{
+                isIconOnly: true,
+                icon: <MoreHorizontal className="size-4" />,
+                variant: 'ghost',
+                size: 'sm',
+                label: 'Comment actions',
+              }}
+            >
+              {canEdit && <DropdownMenuItem label="Edit" onClick={() => setEditing(true)} />}
+              {canDelete && (
+                <DropdownMenuItem
+                  label="Delete"
+                  className="text-semantic-danger"
+                  onClick={() => del.mutate({ taskId, commentId: comment.id })}
+                />
+              )}
             </DropdownMenu>
           )}
         </header>

@@ -4,9 +4,7 @@ import {
   Button,
   DisabledActionTooltip,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   GroupTile,
   SyncBadge,
 } from '@seta/shared-ui';
@@ -185,37 +183,36 @@ export function GroupDetailHeader({
               />
             </DisabledActionTooltip>
           )}
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="More actions"
-                className="inline-flex items-center justify-center rounded p-1 text-ink-subtle hover:bg-surface-1 hover:text-ink"
-              >
-                <MoreHorizontal className="size-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <SyncControlsMenu
-                groupId={group.id}
-                externalSource={group.external_source}
-                syncStatus={rawSyncStatus}
-                onLinkClick={() => setLinkOpen(true)}
-                onResolveClick={() => setResolveOpen(true)}
-                onRefreshClick={() => refresh.mutate()}
-                isRefreshing={refresh.isPending}
-              />
-              <DropdownMenuItem disabled={!canDeleteGroup} onSelect={() => onMenuAction('archive')}>
-                Archive
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!canDeleteGroup}
-                onSelect={() => onMenuAction('delete')}
-                className="text-semantic-danger"
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
+          <DropdownMenu
+            placement="below"
+            button={{
+              isIconOnly: true,
+              icon: <MoreHorizontal className="size-4" />,
+              variant: 'ghost',
+              size: 'sm',
+              label: 'More actions',
+            }}
+          >
+            <SyncControlsMenu
+              groupId={group.id}
+              externalSource={group.external_source}
+              syncStatus={rawSyncStatus}
+              onLinkClick={() => setLinkOpen(true)}
+              onResolveClick={() => setResolveOpen(true)}
+              onRefreshClick={() => refresh.mutate()}
+              isRefreshing={refresh.isPending}
+            />
+            <DropdownMenuItem
+              label="Archive"
+              isDisabled={!canDeleteGroup}
+              onClick={() => onMenuAction('archive')}
+            />
+            <DropdownMenuItem
+              label="Delete"
+              className="text-semantic-danger"
+              isDisabled={!canDeleteGroup}
+              onClick={() => onMenuAction('delete')}
+            />
           </DropdownMenu>
         </div>
       </header>
