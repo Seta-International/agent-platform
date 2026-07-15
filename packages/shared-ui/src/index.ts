@@ -86,7 +86,6 @@ export * from './primitives/button';
 export * from './primitives/calendar';
 export * from './primitives/card';
 export * from './primitives/checkbox';
-export * from './primitives/command';
 export * from './primitives/context-menu';
 export * from './primitives/date-input';
 export * from './primitives/dialog';
