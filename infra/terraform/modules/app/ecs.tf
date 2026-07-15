@@ -95,10 +95,13 @@ locals {
   ]
 
   worker_container = {
-    name        = "worker"
-    image       = var.image_uri
-    essential   = true
-    command     = ["worker"]
+    name      = "worker"
+    image     = var.image_uri
+    essential = true
+    command   = ["worker"]
+    # Give in-flight jobs time to drain on SIGTERM (deploy / scale-in) before ECS
+    # SIGKILLs the container. graphile-worker stops claiming new jobs on SIGTERM.
+    stopTimeout = 120
     environment = local.base_env
     secrets     = local.secret_defs
     logConfiguration = {
@@ -153,6 +156,13 @@ resource "aws_ecs_service" "api" {
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
 
+  # Auto-rollback a deployment that can't reach steady state instead of leaving
+  # the service stuck on failing tasks.
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
   network_configuration {
     subnets          = aws_subnet.public[*].id
     security_groups  = [aws_security_group.tasks.id]
@@ -174,6 +184,13 @@ resource "aws_ecs_service" "worker" {
 
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
+
+  # Auto-rollback a deployment that can't reach steady state instead of leaving
+  # the service stuck on failing tasks.
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
 
   network_configuration {
     subnets          = aws_subnet.public[*].id

@@ -76,7 +76,10 @@ jobs:
           TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
         run: terraform plan -input=false
 
-      - name: Terraform apply
+      # Create just the ECR repo first so the image can be pushed BEFORE the
+      # services are created — with the circuit breaker on, creating services
+      # against a not-yet-pushed image would trip the breaker.
+      - name: Create ECR repo (targeted)
         if: env.MODE != 'plan' && env.MODE != 'destroy'
         working-directory: ${{ env.TF_DIR }}
         env:
@@ -84,7 +87,7 @@ jobs:
           TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
           TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
           TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
-        run: terraform apply -input=false -auto-approve
+        run: terraform apply -input=false -auto-approve -target=module.app.aws_ecr_repository.app
 
       - name: Build & push image (native x86_64)
         if: env.MODE != 'plan' && env.MODE != 'destroy'
@@ -96,6 +99,16 @@ jobs:
             -f infra/docker/server.Dockerfile \
             -t "${{ steps.ctx.outputs.image_uri }}" .
           docker push "${{ steps.ctx.outputs.image_uri }}"
+
+      - name: Terraform apply (full)
+        if: env.MODE != 'plan' && env.MODE != 'destroy'
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
+          TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
+          TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
+          TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
+        run: terraform apply -input=false -auto-approve
 
       - name: Migrate (one-off task)
         if: env.MODE != 'plan' && env.MODE != 'destroy'
@@ -110,11 +123,20 @@ jobs:
             --overrides '{"containerOverrides":[{"name":"server","command":["migrate"]}]}' \
             --task-definition "${ECR_REPO}-api" \
             --query 'tasks[0].taskArn' --output text)
+          TASK_ID=${TASK_ARN##*/}
           echo "migrate task: $TASK_ARN"
           aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
           CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
             --query 'tasks[0].containers[0].exitCode' --output text)
-          echo "migrate exit=$CODE"; test "$CODE" = "0"
+          REASON=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0].stoppedReason' --output text)
+          echo "migrate exit=$CODE reason=$REASON"
+          echo "---- migrate container logs ----"
+          aws logs get-log-events \
+            --log-group-name "/ecs/${ECR_REPO}/api" \
+            --log-stream-name "server/server/${TASK_ID}" \
+            --limit 200 --query 'events[].message' --output text 2>/dev/null || echo "(no logs)"
+          test "$CODE" = "0"
 
       - name: Deploy & wait stable
         if: env.MODE != 'plan' && env.MODE != 'destroy'

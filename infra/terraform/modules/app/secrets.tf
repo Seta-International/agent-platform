@@ -1,5 +1,8 @@
 locals {
-  database_url = "postgres://${var.db_username}:${var.db_master_password}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/${var.db_name}?sslmode=require"
+  # sslmode=no-verify: encrypt in transit but skip CA verification (RDS uses the
+  # Amazon RDS CA, not in the default trust store; matches prod, which the app's
+  # `pg` client connects with — `require` would make pg verify and fail).
+  database_url = "postgres://${var.db_username}:${var.db_master_password}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/${var.db_name}?sslmode=no-verify"
 }
 
 resource "aws_secretsmanager_secret" "database_url" {
