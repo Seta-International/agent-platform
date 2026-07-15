@@ -90,10 +90,6 @@ if it is unset — presence is checked, not validity), plus the tunnel token, `M
 `DATABASE_URL` uses `sslmode=no-verify` (encrypt in transit; the RDS CA is not in the default trust store,
 and `pg` would fail to verify with `require`).
 
-**A fresh environment is validated end-to-end by the sandbox e2e** (`infra/terraform/sandbox/` +
-`.github/workflows/sandbox-e2e.yml`): OIDC into a sandbox account → apply → build/push → migrate → deploy
-→ in-VPC `/health/ready` check → destroy. Same module as prod, so the create-graph is exercised for real.
-
 Out of repo: create the Cloudflare Tunnel + hostname (TLS Full), store the token in Secrets Manager; set
 up the GitHub→AWS OIDC role for deploys (no on-box runner — Fargate has no persistent box).
 
