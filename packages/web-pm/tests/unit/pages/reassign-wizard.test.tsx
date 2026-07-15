@@ -75,7 +75,7 @@ function allocation(over: Partial<RaMonitoringAllocation> = {}): RaMonitoringAll
 
 function renderWizard(
   allocations: RaMonitoringAllocation[],
-  accountOptions: { value: string; label: string }[] = [],
+  accountOptions: { id: string; label: string }[] = [],
   projects: ProjectListRow[] = [],
 ) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -185,8 +185,8 @@ describe('ReassignWizardDialog', () => {
     renderWizard(
       [allocation({ date_to: '2026-12-23', version: 3 })],
       [
-        { value: 'acc1', label: 'Aeris' },
-        { value: 'acc2', label: 'Veritone' },
+        { id: 'acc1', label: 'Aeris' },
+        { id: 'acc2', label: 'Veritone' },
       ],
       [
         {
@@ -210,9 +210,20 @@ describe('ReassignWizardDialog', () => {
       ],
     );
 
-    await user.click(screen.getByLabelText(/account for/i));
+    // The existing-row Account/Project fields deliberately don't show entries on
+    // bare focus (no `hasEntriesOnFocus`) — they're the Dialog's initial auto-focus
+    // target, and that combination would silently pop the dropdown open the instant
+    // the wizard mounts. Type to filter instead, same as a real user narrowing down.
+    const accountField = screen.getByLabelText(/account for/i);
+    await user.click(accountField);
+    await user.clear(accountField);
+    await user.type(accountField, 'Veritone');
     await user.click(await screen.findByRole('option', { name: 'Veritone' }));
-    await user.click(screen.getByLabelText(/project for/i));
+
+    const projectField = screen.getByLabelText(/project for/i);
+    await user.click(projectField);
+    await user.clear(projectField);
+    await user.type(projectField, 'Veritone - Core');
     await user.click(await screen.findByRole('option', { name: 'Veritone - Core' }));
 
     await user.click(screen.getByRole('button', { name: /save aeris - watchtower/i }));
@@ -243,7 +254,7 @@ describe('ReassignWizardDialog', () => {
     const user = userEvent.setup({ delay: null });
     renderWizard(
       [allocation({ date_to: '2026-12-23' })],
-      [{ value: 'acc1', label: 'Aeris' }],
+      [{ id: 'acc1', label: 'Aeris' }],
       [
         {
           project_id: 'p2',
@@ -275,7 +286,7 @@ describe('ReassignWizardDialog', () => {
     const user = userEvent.setup({ delay: null });
     renderWizard(
       [allocation({ date_to: '2026-12-23' })],
-      [{ value: 'acc1', label: 'Aeris' }],
+      [{ id: 'acc1', label: 'Aeris' }],
       [
         {
           project_id: 'p2',
@@ -319,7 +330,7 @@ describe('ReassignWizardDialog', () => {
     const user = userEvent.setup({ delay: null });
     renderWizard(
       [allocation({ date_to: '2026-12-23' })],
-      [{ value: 'acc1', label: 'Aeris' }],
+      [{ id: 'acc1', label: 'Aeris' }],
       [
         {
           project_id: 'p2',

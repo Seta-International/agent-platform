@@ -1,5 +1,4 @@
 import {
-  AsyncCombobox,
   Button,
   Card,
   CardTitle,
@@ -8,8 +7,11 @@ import {
   LayoutContent,
   LayoutHeader,
   NumberInput,
+  type SearchableItem,
   Selector,
+  Typeahead,
   toast,
+  useSeededItems,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
@@ -24,7 +26,7 @@ import {
   setProjectAccess,
   updateAllocation,
 } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search';
+import { useWorkerSource } from '../api/worker-search';
 import { pmKeys } from '../state/query-keys.ts';
 
 const ROLES = ['Developer', 'Tech Lead', 'PM', 'QA', 'BA', 'PMO'] as const;
@@ -84,7 +86,7 @@ export function CharterStaffingEditor({
   canManage: boolean;
 }) {
   const queryClient = useQueryClient();
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
 
   const allocations = useQuery({
     queryKey: pmKeys.projectAllocations(projectId),
@@ -99,14 +101,10 @@ export function CharterStaffingEditor({
     () => (allocations.data ?? []).map((a) => a.worker_id).filter((id): id is string => !!id),
     [allocations.data],
   );
-  const { data: resolvedWorkers } = useQuery({
-    queryKey: ['people', 'worker-resolve-staffing', workerIds.slice().sort()],
-    queryFn: () => workerPicker.resolveByIds(workerIds),
-    enabled: workerIds.length > 0,
-  });
+  const [resolvedWorkers] = useSeededItems(workerIds, workerSource.seed);
 
   const nameOf = (id: string | null) =>
-    (id && resolvedWorkers?.find((o) => o.value === id)?.label) || id?.slice(0, 8) || '—';
+    (id && resolvedWorkers.find((o) => o.id === id)?.label) || id?.slice(0, 8) || '—';
   const levelOf = (id: string | null): AccessLevel | null =>
     (access.data?.find((g) => g.worker_id === id)?.level as AccessLevel | undefined) ?? null;
 
@@ -116,29 +114,30 @@ export function CharterStaffingEditor({
   }
 
   // ── add ────────────────────────────────────────────────────────────────
-  const [worker, setWorker] = useState('');
+  const [worker, setWorker] = useState<SearchableItem | null>(null);
   const [role, setRole] = useState<string>('Developer');
   const [pct, setPct] = useState(100);
   const [level, setLevel] = useState<AccessLevel>('edit');
 
   const add = useMutation({
     mutationFn: async () => {
+      if (!worker) throw new Error('No worker selected');
       await createAllocation({
         project_id: projectId,
-        worker_id: worker,
+        worker_id: worker.id,
         role,
         planned_pct: pct,
         date_from: dateFrom ?? new Date().toISOString().slice(0, 10),
         date_to: dateTo,
       });
       const next = (access.data ?? [])
-        .filter((g) => g.worker_id !== worker)
-        .concat({ worker_id: worker, level });
+        .filter((g) => g.worker_id !== worker.id)
+        .concat({ worker_id: worker.id, level });
       await setProjectAccess(projectId, next);
     },
     onSuccess: () => {
       toast.success('Staffed & access granted');
-      setWorker('');
+      setWorker(null);
       setRole('Developer');
       setPct(100);
       setLevel('edit');
@@ -338,11 +337,12 @@ export function CharterStaffingEditor({
                 <div className="flex flex-wrap items-end gap-2 border-t border-hairline pt-4">
                   <div className="min-w-[200px] flex-1 space-y-1">
                     <Label>Add member</Label>
-                    <AsyncCombobox
-                      value={worker || null}
-                      onChange={(v) => setWorker(v ?? '')}
-                      search={workerPicker.search}
-                      resolveByIds={workerPicker.resolveByIds}
+                    <Typeahead
+                      label="Add member"
+                      isLabelHidden
+                      searchSource={workerSource.source}
+                      value={worker}
+                      onChange={setWorker}
                       placeholder="Search workers…"
                     />
                   </div>
@@ -366,7 +366,7 @@ export function CharterStaffingEditor({
                   <Button
                     label={add.isPending ? 'Adding…' : 'Add'}
                     onClick={() => add.mutate()}
-                    isDisabled={!worker.trim() || add.isPending}
+                    isDisabled={!worker || add.isPending}
                   />
                 </div>
               )}

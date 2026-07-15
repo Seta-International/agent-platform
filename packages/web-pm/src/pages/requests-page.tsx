@@ -9,6 +9,7 @@ import {
   PageChrome,
   SegmentedControl,
   Selector,
+  useSeededItems,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -34,7 +35,7 @@ import {
   fetchCharterSummary,
   fetchCharters,
 } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search';
+import { useWorkerSource } from '../api/worker-search';
 import { pmKeys } from '../state/query-keys.ts';
 import { CharterStepper } from './charter-stepper.tsx';
 import { SubmitCharterDialog } from './submit-charter-dialog.tsx';
@@ -276,18 +277,14 @@ export function RequestsPage() {
     return (id: string) => m.get(id) ?? id.slice(0, 8);
   }, [accounts]);
 
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
   const pmIds = useMemo(
     () => [...new Set(rows.map((r) => r.pm_worker_id).filter((id): id is string => !!id))],
     [rows],
   );
-  const { data: resolvedPms } = useQuery({
-    queryKey: ['people', 'worker-resolve-requests', pmIds.slice().sort()],
-    queryFn: () => workerPicker.resolveByIds(pmIds),
-    enabled: pmIds.length > 0,
-  });
+  const [resolvedPms] = useSeededItems(pmIds, workerSource.seed);
   const pmName = useMemo(() => {
-    const m = new Map((resolvedPms ?? []).map((o) => [o.value, o.label]));
+    const m = new Map(resolvedPms.map((o) => [o.id, o.label]));
     return (id: string | null) => (id ? (m.get(id) ?? id.slice(0, 8)) : '—');
   }, [resolvedPms]);
 

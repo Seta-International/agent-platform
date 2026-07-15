@@ -1,6 +1,6 @@
 import {
   Button,
-  Combobox,
+  createStaticSource,
   Dialog,
   DialogClose,
   DialogContent,
@@ -8,10 +8,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  type SearchableItem,
+  Typeahead,
 } from '@seta/shared-ui';
 import { UsersRound } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useGroupMembersMutations, useGroupsQuery } from '../../groups/hooks/useGroups.ts';
+
+type GroupItem = SearchableItem<{ keywords: string[] }>;
 
 interface Props {
   selectedUserIds: string[];
@@ -24,33 +28,38 @@ interface Props {
  * directly — per-user role grants are the exception, handled in user detail.
  */
 export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
-  const [groupId, setGroupId] = useState<string | null>(null);
+  const [group, setGroup] = useState<GroupItem | null>(null);
   const [confirming, setConfirming] = useState(false);
 
   const { data: groups } = useGroupsQuery();
   const { add } = useGroupMembersMutations();
 
-  const groupOptions = useMemo(
+  const groupItems = useMemo<GroupItem[]>(
     () =>
       (groups ?? []).map((g) => ({
-        value: g.group_id,
+        id: g.group_id,
         label: g.name,
-        keywords: [g.slug, ...g.roles.map((r) => r.role_slug)],
+        auxiliaryData: { keywords: [g.slug, ...g.roles.map((r) => r.role_slug)] },
       })),
     [groups],
   );
+  const source = useMemo(
+    () =>
+      createStaticSource(groupItems, { keywords: (item) => item.auxiliaryData?.keywords ?? [] }),
+    [groupItems],
+  );
 
-  const groupName = groups?.find((g) => g.group_id === groupId)?.name ?? '';
+  const groupName = group?.label ?? '';
   const count = selectedUserIds.length;
 
   function handleConfirm() {
-    if (!groupId) return;
+    if (!group) return;
     add.mutate(
-      { id: groupId, user_ids: selectedUserIds },
+      { id: group.id, user_ids: selectedUserIds },
       {
         onSuccess: () => {
           setConfirming(false);
-          setGroupId(null);
+          setGroup(null);
           onClearSelection();
         },
       },
@@ -63,18 +72,20 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
         <span className="text-body-sm font-medium text-ink">{count} selected</span>
         <Button variant="ghost" size="sm" label="Clear" onClick={onClearSelection} />
         <div className="ml-auto flex items-center gap-2">
-          <Combobox
-            value={groupId}
-            onChange={setGroupId}
-            options={groupOptions}
+          <Typeahead
+            label="Group"
+            isLabelHidden
+            searchSource={source}
+            debounceMs={0}
+            hasEntriesOnFocus
+            value={group}
+            onChange={setGroup}
             placeholder="Add to group…"
-            searchPlaceholder="Search groups…"
             className="w-56"
-            aria-label="Group"
           />
           <Button
             size="sm"
-            isDisabled={!groupId || add.isPending}
+            isDisabled={!group || add.isPending}
             onClick={() => setConfirming(true)}
             icon={<UsersRound className="size-4" aria-hidden />}
             label="Add to group"

@@ -1,17 +1,19 @@
 import {
-  AsyncCombobox,
   Button,
   DataTable,
   EmptyState,
   Label,
+  type SearchableItem,
   Selector,
+  Typeahead,
   toast,
+  useSeededItems,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { fetchProjectAccess, type ProjectAccessRow, setProjectAccess } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search';
+import { useWorkerSource } from '../api/worker-search';
 import { pmKeys } from '../state/query-keys.ts';
 
 export function ProjectAccessSection({
@@ -26,15 +28,14 @@ export function ProjectAccessSection({
     queryKey: pmKeys.projectAccess(projectId),
     queryFn: () => fetchProjectAccess(projectId),
   });
-  const [worker, setWorker] = useState('');
+  const [worker, setWorker] = useState<SearchableItem | null>(null);
   const [level, setLevel] = useState<ProjectAccessRow['level']>('view');
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
 
-  const { data: resolvedWorkers } = useQuery({
-    queryKey: ['people', 'worker-resolve-access', (data ?? []).map((g) => g.worker_id).sort()],
-    queryFn: () => workerPicker.resolveByIds((data ?? []).map((g) => g.worker_id)),
-    enabled: (data ?? []).length > 0,
-  });
+  const [resolvedWorkers] = useSeededItems(
+    (data ?? []).map((g) => g.worker_id),
+    workerSource.seed,
+  );
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: pmKeys.projectAccess(projectId) });
@@ -44,7 +45,7 @@ export function ProjectAccessSection({
     mutationFn: (grants: ProjectAccessRow[]) => setProjectAccess(projectId, grants),
     onSuccess: () => {
       toast.success('Access updated');
-      setWorker('');
+      setWorker(null);
       invalidate();
     },
     onError: (e: Error & { status?: number }) => {
@@ -55,7 +56,7 @@ export function ProjectAccessSection({
   const columns = useMemo(() => {
     type CellCtx = { row: { original: ProjectAccessRow } };
     function nameOf(id: string): string {
-      return resolvedWorkers?.find((o) => o.value === id)?.label ?? id;
+      return resolvedWorkers.find((o) => o.id === id)?.label ?? id;
     }
     return [
       {
@@ -114,11 +115,12 @@ export function ProjectAccessSection({
         <div className="flex items-end gap-2">
           <div className="space-y-1 flex-1">
             <Label>Worker</Label>
-            <AsyncCombobox
-              value={worker || null}
-              onChange={(v) => setWorker(v ?? '')}
-              search={workerPicker.search}
-              resolveByIds={workerPicker.resolveByIds}
+            <Typeahead
+              label="Worker"
+              isLabelHidden
+              searchSource={workerSource.source}
+              value={worker}
+              onChange={setWorker}
               placeholder="Search workers…"
             />
           </div>
@@ -138,13 +140,14 @@ export function ProjectAccessSection({
           </div>
           <Button
             label="Add"
-            onClick={() =>
+            onClick={() => {
+              if (!worker) return;
               save.mutate([
-                ...(data ?? []).filter((g) => g.worker_id !== worker),
-                { worker_id: worker, level },
-              ])
-            }
-            isDisabled={save.isPending || !worker.trim()}
+                ...(data ?? []).filter((g) => g.worker_id !== worker.id),
+                { worker_id: worker.id, level },
+              ]);
+            }}
+            isDisabled={save.isPending || !worker}
           />
         </div>
       )}

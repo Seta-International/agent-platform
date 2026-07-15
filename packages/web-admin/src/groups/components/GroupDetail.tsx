@@ -9,7 +9,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-  AsyncCombobox,
   Badge,
   Button,
   Checkbox,
@@ -22,6 +21,8 @@ import {
   Input,
   Selector,
   Textarea,
+  Typeahead,
+  useSeededItem,
 } from '@seta/shared-ui';
 import { Boxes, Layers, Pencil, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -157,6 +158,15 @@ function RoleScopeControl({
   role: GroupRole;
   onChange: (scope_kind: GroupRole['scope_kind'], scope_id: string | null) => void;
 }) {
+  // The role only carries a persisted scope_id — resolve it into a labelled item on
+  // mount (and whenever the scope changes to a different org unit) so the picker shows
+  // a name. Matched BY ID: the org-units endpoint ignores the `ids` filter and returns
+  // the tenant's full list, so the first result is not necessarily the right one.
+  const [scopeItem, setScopeItem] = useSeededItem(
+    role.scope_kind === 'org_unit' ? role.scope_id : null,
+    orgUnitSearch.seed,
+  );
+
   return (
     <div className="flex flex-none items-center gap-1.5">
       <Selector
@@ -171,11 +181,16 @@ function RoleScopeControl({
         options={SCOPE_OPTIONS}
       />
       {role.scope_kind === 'org_unit' && (
-        <AsyncCombobox
-          value={role.scope_id}
-          onChange={(scope_id) => onChange('org_unit', scope_id)}
-          search={orgUnitSearch.search}
-          resolveByIds={orgUnitSearch.resolveByIds}
+        <Typeahead
+          label={`${role.role_slug} org unit`}
+          isLabelHidden
+          searchSource={orgUnitSearch.source}
+          hasEntriesOnFocus
+          value={scopeItem}
+          onChange={(item) => {
+            setScopeItem(item);
+            onChange('org_unit', item?.id ?? null);
+          }}
           placeholder="Org unit…"
           className="h-7 w-40 flex-none text-caption"
         />

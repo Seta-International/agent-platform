@@ -1,4 +1,9 @@
-import { AsyncCombobox, Combobox, type ComboboxOption } from '@seta/shared-ui';
+import {
+  createStaticSource,
+  type SearchableItem,
+  Tokenizer,
+  useSeededItems,
+} from '@seta/shared-ui';
 import { useMemo } from 'react';
 import {
   projectSearch,
@@ -7,16 +12,18 @@ import {
   type WorkersQuery,
 } from '../api/people-client.ts';
 
-const STATUS_OPTIONS: ComboboxOption[] = [
-  { value: 'preboarding', label: 'Preboarding' },
-  { value: 'onboarding', label: 'Onboarding' },
-  { value: 'probation', label: 'Probation' },
-  { value: 'active', label: 'Active' },
-  { value: 'on_leave', label: 'On leave' },
-  { value: 'offboarding', label: 'Offboarding' },
-  { value: 'alumni', label: 'Alumni' },
-  { value: 'did_not_start', label: 'Did not start' },
+const STATUS_OPTIONS: SearchableItem[] = [
+  { id: 'preboarding', label: 'Preboarding' },
+  { id: 'onboarding', label: 'Onboarding' },
+  { id: 'probation', label: 'Probation' },
+  { id: 'active', label: 'Active' },
+  { id: 'on_leave', label: 'On leave' },
+  { id: 'offboarding', label: 'Offboarding' },
+  { id: 'alumni', label: 'Alumni' },
+  { id: 'did_not_start', label: 'Did not start' },
 ];
+
+const STATUS_SOURCE = createStaticSource(STATUS_OPTIONS);
 
 interface Props {
   query: WorkersQuery;
@@ -24,55 +31,85 @@ interface Props {
 }
 
 export function PeopleFilterBar({ query, onChange }: Props) {
-  // Stable per selected-accounts: AsyncCombobox lists `search` in its effect deps, so a new
-  // reference each render would re-fetch projects on every unrelated parent render.
-  const projectSearchBound = useMemo(
-    () => ({
-      search: (q: string) => projectSearch.search(q, query.account_id),
-      resolveByIds: projectSearch.resolveByIds,
-    }),
-    [query.account_id],
+  const statusItems = useMemo(
+    () => STATUS_OPTIONS.filter((o) => (query.status ?? []).includes(o.id)),
+    [query.status],
+  );
+
+  const [accountItems, setAccountItems] = useSeededItems(
+    query.account_id ?? [],
+    searchAccounts.seed,
+  );
+
+  // Project suggestions are scoped to the selected accounts; rebind the source whenever the
+  // account selection changes so cascading stays correct (persisted ids still resolve via the
+  // unscoped `seed`, since a selection was already account-scoped when it was made).
+  const projectSource = useMemo(() => projectSearch.source(query.account_id), [query.account_id]);
+  const [projectItems, setProjectItems] = useSeededItems(
+    query.project_id ?? [],
+    projectSearch.seed,
+  );
+
+  const [techstackItems, setTechstackItems] = useSeededItems(
+    query.skill_id ?? [],
+    searchSkills.seed,
   );
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Combobox
-        multiple
-        options={STATUS_OPTIONS}
-        value={query.status ?? []}
-        onChange={(v) => onChange({ status: v.length ? v : undefined })}
+      <Tokenizer
+        label="Status"
+        isLabelHidden
+        searchSource={STATUS_SOURCE}
+        debounceMs={0}
+        hasEntriesOnFocus
+        value={statusItems}
+        onChange={(items) =>
+          onChange({ status: items.length ? items.map((i) => i.id) : undefined })
+        }
         placeholder="Status"
-        triggerPrefix="Status"
         className="w-40"
       />
-      <AsyncCombobox
-        multiple
-        value={query.account_id ?? []}
-        onChange={(v) => onChange({ account_id: v.length ? v : undefined, project_id: undefined })}
-        search={searchAccounts.search}
-        resolveByIds={searchAccounts.resolveByIds}
+      <Tokenizer
+        label="Account"
+        isLabelHidden
+        searchSource={searchAccounts.source}
+        hasEntriesOnFocus
+        value={accountItems}
+        onChange={(items) => {
+          setAccountItems(items);
+          onChange({
+            account_id: items.length ? items.map((i) => i.id) : undefined,
+            project_id: undefined,
+          });
+        }}
         placeholder="Account"
-        triggerPrefix="Account"
         className="w-44"
       />
-      <AsyncCombobox
-        multiple
-        value={query.project_id ?? []}
-        onChange={(v) => onChange({ project_id: v.length ? v : undefined })}
-        search={projectSearchBound.search}
-        resolveByIds={projectSearchBound.resolveByIds}
+      <Tokenizer
+        label="Project"
+        isLabelHidden
+        searchSource={projectSource}
+        hasEntriesOnFocus
+        value={projectItems}
+        onChange={(items) => {
+          setProjectItems(items);
+          onChange({ project_id: items.length ? items.map((i) => i.id) : undefined });
+        }}
         placeholder="Project"
-        triggerPrefix="Project"
         className="w-44"
       />
-      <AsyncCombobox
-        multiple
-        value={query.skill_id ?? []}
-        onChange={(v) => onChange({ skill_id: v.length ? v : undefined })}
-        search={searchSkills.search}
-        resolveByIds={searchSkills.resolveByIds}
+      <Tokenizer
+        label="Techstack"
+        isLabelHidden
+        searchSource={searchSkills.source}
+        hasEntriesOnFocus
+        value={techstackItems}
+        onChange={(items) => {
+          setTechstackItems(items);
+          onChange({ skill_id: items.length ? items.map((i) => i.id) : undefined });
+        }}
         placeholder="Techstack"
-        triggerPrefix="Techstack"
         className="w-44"
       />
     </div>
