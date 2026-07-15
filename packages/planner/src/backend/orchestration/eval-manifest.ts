@@ -206,6 +206,48 @@ export const weeklyPlanOrchestratorEvalSuite = defineEvalSuite({
   ],
 });
 
+export const taskQueryQualitySuite = defineEvalSuite({
+  specId: 'planner.qna.taskQuery',
+  // Deterministic build kept for type-completeness (canned seam, LLM-free).
+  buildSpec: () =>
+    makeQnaTaskQueryAgent({
+      resolveModel: () => ({}) as never,
+      findSimilarTasksTool: stubFindSimilar,
+      runAgent: async ({ input }) => ({ text: `re: ${input.query}` }),
+    }),
+  // Quality build: NO runAgent seam ⇒ the real Agent + tool loop runs; every
+  // tool is a per-case mock so nothing hits the DB. runQualityEvals sets ctx.model.
+  buildQualitySpec: (mocks) => {
+    const tool = (id: string) => mocks.find((m) => (m as { id: string }).id === id) as AgentTool;
+    return makeQnaTaskQueryAgent({
+      resolveModel: () => ({}) as never,
+      findSimilarTasksTool: tool('planner_findSimilarTasks'),
+      queryTasksTool: tool('planner_queryTasks'),
+      getOpenTaskCountTool: tool('planner_getOpenTaskCountForUser'),
+      resolveMemberTool: tool('planner_resolveMember'),
+    });
+  },
+  cases: [
+    defineEvalCase({
+      name: "lists the user's open tasks from queried evidence",
+      layer: 'quality',
+      input: { query: 'what are my open tasks?' },
+      actor: { tenantId: 't1', userId: 'u1' },
+      toolMocks: [
+        {
+          toolId: 'planner_queryTasks',
+          respond: () => [
+            { taskId: 't-1', title: 'Ship billing migration', status: 'in_progress' },
+          ],
+        },
+        { toolId: 'planner_findSimilarTasks', respond: () => [] },
+        { toolId: 'planner_getOpenTaskCountForUser', respond: () => ({ count: 1 }) },
+        { toolId: 'planner_resolveMember', respond: () => [] },
+      ],
+    }),
+  ],
+});
+
 export const generalAnswerQualitySuite = defineEvalSuite({
   specId: 'planner.qna.generalAnswer',
   // Deterministic build is unused for this quality-only suite, but the type
@@ -251,5 +293,6 @@ export const plannerEvalManifest: EvalManifest = {
     qnaOrchestratorEvalSuite as EvalSuite,
     weeklyPlanOrchestratorEvalSuite as EvalSuite,
     generalAnswerQualitySuite as EvalSuite,
+    taskQueryQualitySuite as EvalSuite,
   ],
 };

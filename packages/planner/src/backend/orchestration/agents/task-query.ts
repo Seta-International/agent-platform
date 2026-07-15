@@ -32,6 +32,10 @@ export interface QnaTaskQueryDeps {
   resolveModel: () => MastraModelConfig;
   /** Built find-similar tool (factory needs provider + databaseUrl), injected by the runtime. */
   findSimilarTasksTool: AgentTool;
+  /** Optional tool overrides for eval mocking; default to the real module tools. */
+  queryTasksTool?: AgentTool;
+  getOpenTaskCountTool?: AgentTool;
+  resolveMemberTool?: AgentTool;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
 }
 
@@ -91,10 +95,11 @@ export function makeQnaTaskQueryAgent(deps: QnaTaskQueryDeps): SpecializedAgentS
               instructions: buildInstructions(),
               model: pickModel(ctx, deps.resolveModel),
               tools: {
-                planner_queryTasks: plannerQueryTasksTool,
+                planner_queryTasks: deps.queryTasksTool ?? plannerQueryTasksTool,
                 planner_findSimilarTasks: deps.findSimilarTasksTool,
-                planner_getOpenTaskCountForUser: plannerGetOpenTaskCountTool,
-                planner_resolveMember: plannerResolveMemberTool,
+                planner_getOpenTaskCountForUser:
+                  deps.getOpenTaskCountTool ?? plannerGetOpenTaskCountTool,
+                planner_resolveMember: deps.resolveMemberTool ?? plannerResolveMemberTool,
               } as never,
             });
             const r = await agent.generate(input.query, {
