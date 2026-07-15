@@ -43,6 +43,12 @@ export type {
   TaskForEmbedding,
 } from './backend/domain/get-task-for-embedding.ts';
 export { getTaskForEmbedding } from './backend/domain/get-task-for-embedding.ts';
+export {
+  type GetUserActivityOpts,
+  type GetUserActivityResult,
+  getUserActivity,
+  type UserActivityEvent,
+} from './backend/domain/get-user-activity.ts';
 export { linkGroupToM365 } from './backend/domain/link-group-to-m365.ts';
 export { linkPlanToM365 } from './backend/domain/link-plan-to-m365.ts';
 export { listBuckets } from './backend/domain/list-buckets.ts';
