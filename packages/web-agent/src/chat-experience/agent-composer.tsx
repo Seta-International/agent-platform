@@ -7,11 +7,7 @@ import { useChatAttachments } from '../hooks/use-chat-attachments';
 import { AGENT_COPY } from '../i18n';
 import { useAgentRuntimeContext, useAgentSelection, usePanelUI } from './agent-provider';
 
-interface AgentComposerProps {
-  compact?: boolean;
-}
-
-export function AgentComposer({ compact = false }: AgentComposerProps) {
+export function AgentComposer() {
   const [value, setValue] = useState('');
   const aui = useAui();
   const isRunning = useAuiState((s) => s.thread.isRunning);
@@ -85,7 +81,6 @@ export function AgentComposer({ compact = false }: AgentComposerProps) {
             value={selection.modelKey}
             onChange={actions.setModelKey}
             variant="ghost"
-            compact={compact}
           />
         }
       />

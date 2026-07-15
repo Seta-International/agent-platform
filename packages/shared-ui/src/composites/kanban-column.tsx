@@ -16,12 +16,7 @@ import {
   useState,
 } from 'react';
 import { PRIORITY_LEVELS } from '../lib/priority';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../primitives/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem } from '../primitives/dropdown-menu';
 import { DisabledActionTooltip } from './disabled-action-tooltip';
 import { KbdHint } from './kbd-hint';
 
@@ -434,38 +429,40 @@ export function KanbanColumn({
             </p>
           ) : null}
           <div className="kanban-column__compose-chips">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="kanban-column__compose-chip"
-                  aria-label="Priority"
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  <span
-                    className="inline-block size-2 rounded-sm"
-                    style={priorityOpt ? { backgroundColor: priorityOpt.color } : undefined}
-                    aria-hidden
-                  />
-                  <span>{priorityOpt?.label ?? 'Priority'}</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {PRIORITY_OPTIONS.map((opt) => (
-                  <DropdownMenuItem
-                    key={opt.value}
-                    onSelect={() => setPriority(opt.value)}
-                    className="flex items-center gap-2"
-                  >
+            <DropdownMenu
+              placement="below"
+              hasChevron={false}
+              button={{
+                label: 'Priority',
+                variant: 'ghost',
+                className: 'kanban-column__compose-chip',
+                onMouseDown: (e) => e.preventDefault(),
+                children: (
+                  <>
+                    <span
+                      className="inline-block size-2 rounded-sm"
+                      style={priorityOpt ? { backgroundColor: priorityOpt.color } : undefined}
+                      aria-hidden
+                    />
+                    <span>{priorityOpt?.label ?? 'Priority'}</span>
+                  </>
+                ),
+              }}
+            >
+              {PRIORITY_OPTIONS.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.value}
+                  icon={
                     <span
                       className="inline-block size-2 rounded-sm"
                       style={{ backgroundColor: opt.color }}
                       aria-hidden
                     />
-                    {opt.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
+                  }
+                  label={opt.label}
+                  onClick={() => setPriority(opt.value)}
+                />
+              ))}
             </DropdownMenu>
 
             <label className="kanban-column__compose-chip kanban-column__compose-chip--input">

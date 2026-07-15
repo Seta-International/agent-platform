@@ -62,7 +62,8 @@ describe('TaskGrid', () => {
       />,
     );
 
-    expect(screen.getByText('Backlog')).toBeInTheDocument();
+    // "Backlog" now also appears as a hidden option inside each row's bucket-cell menu.
+    expect(screen.getAllByText('Backlog').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('0', { selector: 'span' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /\+ Add a task/ })).toHaveLength(2);
   });

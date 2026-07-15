@@ -35,27 +35,32 @@ export function SyncControlsMenu({
   return (
     <>
       {isNative && (
-        <DropdownMenuItem onSelect={onLinkClick} disabled={!canManageLink}>
-          Link with Microsoft 365…
-        </DropdownMenuItem>
-      )}
-      {!isNative && (
-        <DropdownMenuItem onSelect={handleRefresh} disabled={refreshPending}>
-          {refreshPending ? 'Syncing…' : 'Sync now'}
-        </DropdownMenuItem>
+        <DropdownMenuItem
+          label="Link with Microsoft 365…"
+          onClick={onLinkClick}
+          isDisabled={!canManageLink}
+        />
       )}
       {!isNative && (
         <DropdownMenuItem
-          onSelect={() => unlink.mutate()}
-          disabled={!canManageLink || unlink.isPending}
-        >
-          {unlink.isPending ? 'Unlinking…' : 'Unlink from Microsoft 365'}
-        </DropdownMenuItem>
+          label={refreshPending ? 'Syncing…' : 'Sync now'}
+          onClick={handleRefresh}
+          isDisabled={refreshPending}
+        />
+      )}
+      {!isNative && (
+        <DropdownMenuItem
+          label={unlink.isPending ? 'Unlinking…' : 'Unlink from Microsoft 365'}
+          onClick={() => unlink.mutate()}
+          isDisabled={!canManageLink || unlink.isPending}
+        />
       )}
       {!isNative && syncStatus === 'conflict' && (
-        <DropdownMenuItem onSelect={onResolveClick} disabled={!canManageLink}>
-          Review changes…
-        </DropdownMenuItem>
+        <DropdownMenuItem
+          label="Review changes…"
+          onClick={onResolveClick}
+          isDisabled={!canManageLink}
+        />
       )}
     </>
   );

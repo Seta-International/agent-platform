@@ -10,9 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   Input,
   PageChrome,
   PageChromeToolbar,
@@ -320,38 +318,39 @@ export function Directory({ search, onSearch }: DirectoryProps) {
           if (!canWrite) return null;
           const r = row.original;
           return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  isIconOnly
-                  label={`Row actions for ${r.full_name}`}
-                  onClick={(e) => e.stopPropagation()}
-                  icon={<MoreHorizontal className="size-4" />}
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+            // biome-ignore lint/a11y/noStaticElementInteractions: swallows clicks so the trigger doesn't bubble to the row's onClick; the real interactive control is the DropdownMenu's own Button.
+            <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+              <DropdownMenu
+                placement="below"
+                button={{
+                  variant: 'ghost',
+                  size: 'sm',
+                  isIconOnly: true,
+                  label: `Row actions for ${r.full_name}`,
+                  icon: <MoreHorizontal className="size-4" />,
+                }}
+              >
                 {r.account_status === 'none' && (
-                  <DropdownMenuItem onSelect={() => provision.mutate(r.person_id)}>
-                    Provision
-                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    label="Provision"
+                    onClick={() => provision.mutate(r.person_id)}
+                  />
                 )}
                 {r.account_status === 'active' && r.user_id && (
                   <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onSelect={() => setSuspendTarget(r)}
-                  >
-                    Suspend
-                  </DropdownMenuItem>
+                    label="Suspend"
+                    style={{ color: 'var(--color-destructive)' }}
+                    onClick={() => setSuspendTarget(r)}
+                  />
                 )}
                 {r.account_status === 'suspended' && r.user_id && (
-                  <DropdownMenuItem onSelect={() => reactivate.mutate(r.user_id ?? '')}>
-                    Reactivate
-                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    label="Reactivate"
+                    onClick={() => reactivate.mutate(r.user_id ?? '')}
+                  />
                 )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </DropdownMenu>
+            </div>
           );
         },
       },

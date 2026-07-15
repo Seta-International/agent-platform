@@ -1,9 +1,7 @@
 import {
   DisabledActionTooltip,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   formatRelative,
   Skeleton,
   toast,
@@ -293,54 +291,49 @@ export function TaskDetailPage({
               </span>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="More actions"
-                    className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-                  >
-                    <MoreHorizontal className="size-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DisabledActionTooltip
-                    disabled={Boolean(duplicateDisabledReason)}
-                    reason={duplicateDisabledReason}
-                  >
-                    <DropdownMenuItem
-                      onSelect={openFromMenu(() => setDuplicateOpen(true))}
-                      disabled={Boolean(duplicateDisabledReason)}
-                    >
-                      <Copy className="size-3.5" />
-                      Duplicate
-                    </DropdownMenuItem>
-                  </DisabledActionTooltip>
-                  <DisabledActionTooltip
-                    disabled={Boolean(moveDisabledReason)}
-                    reason={moveDisabledReason}
-                  >
-                    <DropdownMenuItem
-                      onSelect={openFromMenu(() => setMoveOpen(true))}
-                      disabled={Boolean(moveDisabledReason)}
-                    >
-                      <ArrowRightLeft className="size-3.5" />
-                      Move…
-                    </DropdownMenuItem>
-                  </DisabledActionTooltip>
-                  <DisabledActionTooltip
-                    disabled={Boolean(deleteDisabledReason)}
-                    reason={deleteDisabledReason}
-                  >
-                    <DropdownMenuItem
-                      onSelect={openFromMenu(() => setDeleteOpen(true))}
-                      disabled={Boolean(deleteDisabledReason)}
-                      className="text-semantic-danger"
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  </DisabledActionTooltip>
-                </DropdownMenuContent>
+              <DropdownMenu
+                placement="below"
+                button={{
+                  isIconOnly: true,
+                  icon: <MoreHorizontal className="size-4" />,
+                  variant: 'ghost',
+                  size: 'sm',
+                  label: 'More actions',
+                }}
+              >
+                <DisabledActionTooltip
+                  disabled={Boolean(duplicateDisabledReason)}
+                  reason={duplicateDisabledReason}
+                >
+                  <DropdownMenuItem
+                    icon={<Copy className="size-3.5" />}
+                    label="Duplicate"
+                    onClick={openFromMenu(() => setDuplicateOpen(true))}
+                    isDisabled={Boolean(duplicateDisabledReason)}
+                  />
+                </DisabledActionTooltip>
+                <DisabledActionTooltip
+                  disabled={Boolean(moveDisabledReason)}
+                  reason={moveDisabledReason}
+                >
+                  <DropdownMenuItem
+                    icon={<ArrowRightLeft className="size-3.5" />}
+                    label="Move…"
+                    onClick={openFromMenu(() => setMoveOpen(true))}
+                    isDisabled={Boolean(moveDisabledReason)}
+                  />
+                </DisabledActionTooltip>
+                <DisabledActionTooltip
+                  disabled={Boolean(deleteDisabledReason)}
+                  reason={deleteDisabledReason}
+                >
+                  <DropdownMenuItem
+                    label="Delete"
+                    style={{ color: 'var(--color-danger)' }}
+                    onClick={openFromMenu(() => setDeleteOpen(true))}
+                    isDisabled={Boolean(deleteDisabledReason)}
+                  />
+                </DisabledActionTooltip>
               </DropdownMenu>
               {modalHeaderActions}
             </div>

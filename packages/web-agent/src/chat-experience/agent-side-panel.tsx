@@ -16,7 +16,7 @@ export function AgentSidePanel({ onClose, showThreadSwitcher = true }: AgentSide
       <div className="flex min-h-0 flex-1 flex-col">
         <AgentTranscript />
       </div>
-      <AgentComposer compact />
+      <AgentComposer />
     </div>
   );
 }
