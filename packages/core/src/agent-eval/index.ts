@@ -1,4 +1,11 @@
 export {
+  type LatestScoreRow,
+  type LatestScores,
+  type RegressionInputs,
+  readLatestScores,
+  readRegressionInputs,
+} from './read.ts';
+export {
   type BaselineStat,
   detectRegressions,
   type RegressionReport,
