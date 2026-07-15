@@ -141,10 +141,30 @@ describe('ProfileSkillsSection', () => {
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
 
-  it('does not add a skill when Enter is pressed without selecting an option', async () => {
+  it('does not offer an already-drafted skill as a dropdown option', async () => {
     const user = userEvent.setup();
     const clientModule = await import('../../../../src/api/client.ts');
-    vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue(['TypeScript']);
+    vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue(['React', 'Redux']);
+
+    render(
+      <ProfileSkillsSection
+        profile={makeProfile({ skills: [{ id: 's-react', name: 'React', level: null }] })}
+        onSave={vi.fn()}
+        onUpdate={vi.fn()}
+      />,
+    );
+    const input = screen.getByPlaceholderText(/search to add a skill/i);
+    await user.click(input);
+    await user.type(input, 'r');
+    // Redux is offered; React (already drafted) is filtered out of the source.
+    expect(await screen.findByRole('option', { name: 'Redux' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'React' })).toBeNull();
+  });
+
+  it('offers no option when the catalog search returns nothing', async () => {
+    const user = userEvent.setup();
+    const clientModule = await import('../../../../src/api/client.ts');
+    vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue([]);
 
     render(
       <ProfileSkillsSection
@@ -155,10 +175,9 @@ describe('ProfileSkillsSection', () => {
     );
     const input = screen.getByPlaceholderText(/search to add a skill/i);
     await user.click(input);
-    await user.type(input, 'TypeScript');
-    await user.keyboard('{Enter}'); // no option clicked
-    // No draft entry was created (no remove-button for the skill) and Save stays disabled.
-    expect(screen.queryByRole('button', { name: /remove typescript/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
+    await user.type(input, 'zzz-not-a-skill');
+    // give the async source a tick to resolve
+    await new Promise((r) => setTimeout(r, 300));
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
   });
 });
