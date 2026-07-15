@@ -15,6 +15,7 @@ import {
   Skeleton,
   Textarea,
   toast,
+  useSeededItems,
 } from '@seta/shared-ui';
 import { usePermission, useSession } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,7 +31,7 @@ import {
   rejectCharter,
   withdrawCharter,
 } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search';
+import { useWorkerSource } from '../api/worker-search';
 import { pmKeys } from '../state/query-keys.ts';
 import { CharterStaffingEditor } from './charter-staffing-editor.tsx';
 import { CharterStepper } from './charter-stepper.tsx';
@@ -91,15 +92,11 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
   });
 
   const { data: accounts } = useQuery({ queryKey: pmKeys.accounts(), queryFn: fetchAccounts });
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
   const workerIds = [c?.pm_worker_id, c?.pmo_worker_id].filter((id): id is string => !!id);
-  const { data: resolvedWorkers } = useQuery({
-    queryKey: ['people', 'worker-resolve-charter', workerIds.slice().sort()],
-    queryFn: () => workerPicker.resolveByIds(workerIds),
-    enabled: workerIds.length > 0,
-  });
+  const [resolvedWorkers] = useSeededItems(workerIds, workerSource.seed);
   const workerName = (id: string | null) =>
-    id ? (resolvedWorkers?.find((o) => o.value === id)?.label ?? id.slice(0, 8)) : '—';
+    id ? (resolvedWorkers.find((o) => o.id === id)?.label ?? id.slice(0, 8)) : '—';
   const accountName = (id: string) =>
     accounts?.find((a) => a.account_id === id)?.name ?? id.slice(0, 8);
 
