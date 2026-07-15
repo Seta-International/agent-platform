@@ -147,6 +147,11 @@ variable "worker_queue_target" {
 }
 
 # --- app secrets (Secrets Manager) ---
+variable "secret_recovery_window_days" {
+  description = "Recovery window on secret deletion. 0 = delete immediately (needed so an ephemeral env can be re-provisioned; a scheduled-for-deletion name blocks re-create for the whole window)."
+  type        = number
+  default     = 0
+}
 variable "better_auth_secret" {
   type      = string
   sensitive = true

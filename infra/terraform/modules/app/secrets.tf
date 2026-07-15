@@ -3,7 +3,8 @@ locals {
 }
 
 resource "aws_secretsmanager_secret" "database_url" {
-  name = "${var.name}/DATABASE_URL"
+  name                    = "${var.name}/DATABASE_URL"
+  recovery_window_in_days = var.secret_recovery_window_days
 }
 resource "aws_secretsmanager_secret_version" "database_url" {
   secret_id     = aws_secretsmanager_secret.database_url.id
@@ -11,7 +12,8 @@ resource "aws_secretsmanager_secret_version" "database_url" {
 }
 
 resource "aws_secretsmanager_secret" "better_auth_secret" {
-  name = "${var.name}/BETTER_AUTH_SECRET"
+  name                    = "${var.name}/BETTER_AUTH_SECRET"
+  recovery_window_in_days = var.secret_recovery_window_days
 }
 resource "aws_secretsmanager_secret_version" "better_auth_secret" {
   secret_id     = aws_secretsmanager_secret.better_auth_secret.id
@@ -19,7 +21,8 @@ resource "aws_secretsmanager_secret_version" "better_auth_secret" {
 }
 
 resource "aws_secretsmanager_secret" "crypto_local_master_key" {
-  name = "${var.name}/CRYPTO_LOCAL_MASTER_KEY"
+  name                    = "${var.name}/CRYPTO_LOCAL_MASTER_KEY"
+  recovery_window_in_days = var.secret_recovery_window_days
 }
 resource "aws_secretsmanager_secret_version" "crypto_local_master_key" {
   secret_id     = aws_secretsmanager_secret.crypto_local_master_key.id
