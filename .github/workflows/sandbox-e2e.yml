@@ -1,0 +1,157 @@
+name: sandbox-e2e
+
+# End-to-end sandbox provision into the personal sandbox AWS account.
+# OIDC-assumes the gha-sandbox role, applies the greenfield stack, builds+pushes
+# the arm64 image, seeds secrets (as TF vars), migrates, deploys, verifies health
+# inside the VPC, then destroys. Account id + state bucket are derived at runtime.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: e2e (apply+verify+destroy) | apply | destroy | plan
+        type: choice
+        default: e2e
+        options: [e2e, apply, destroy, plan]
+
+concurrency: sandbox-e2e
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-1
+  TF_DIR: infra/terraform/sandbox
+  ECR_REPO: future-app-sandbox
+  STATE_BUCKET_PREFIX: seta-tfstate-sandbox
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    environment: sandbox
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_SANDBOX_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve account-derived values
+        id: ctx
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          {
+            echo "account_id=${ACCOUNT_ID}"
+            echo "registry=${REGISTRY}"
+            echo "image_uri=${REGISTRY}/${ECR_REPO}:${GITHUB_SHA}"
+            echo "state_bucket=${STATE_BUCKET_PREFIX}-${ACCOUNT_ID}"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.11.0
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init -input=false -backend-config="bucket=${{ steps.ctx.outputs.state_bucket }}"
+
+      - name: Terraform plan
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
+          TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
+          TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
+          TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
+        run: terraform plan -input=false
+
+      - name: Terraform apply
+        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
+          TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
+          TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
+          TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
+        run: terraform apply -input=false -auto-approve
+
+      - name: Set up QEMU (arm64 emulation)
+        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push arm64 image
+        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        run: |
+          aws ecr get-login-password --region "$AWS_REGION" \
+            | docker login --username AWS --password-stdin "${{ steps.ctx.outputs.registry }}"
+          docker buildx build \
+            --platform linux/arm64 \
+            -f infra/docker/server.Dockerfile \
+            -t "${{ steps.ctx.outputs.image_uri }}" \
+            --push .
+
+      - name: Migrate (one-off task)
+        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          CLUSTER=$(terraform output -raw cluster_name)
+          SUBNETS=$(terraform output -json public_subnet_ids | jq -r 'join(",")')
+          SG=$(terraform output -raw task_security_group_id)
+          TASK_ARN=$(aws ecs run-task --cluster "$CLUSTER" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=ENABLED}" \
+            --overrides '{"containerOverrides":[{"name":"server","command":["migrate"]}]}' \
+            --task-definition "${ECR_REPO}-api" \
+            --query 'tasks[0].taskArn' --output text)
+          echo "migrate task: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
+          CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+          echo "migrate exit=$CODE"; test "$CODE" = "0"
+
+      - name: Deploy & wait stable
+        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          CLUSTER=$(terraform output -raw cluster_name)
+          API=$(terraform output -raw api_service_name)
+          WORKER=$(terraform output -raw worker_service_name)
+          aws ecs update-service --cluster "$CLUSTER" --service "$API" --force-new-deployment >/dev/null
+          aws ecs update-service --cluster "$CLUSTER" --service "$WORKER" --force-new-deployment >/dev/null
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$API" "$WORKER"
+
+      - name: Install session-manager-plugin
+        if: inputs.mode == 'e2e' || inputs.mode == 'apply'
+        run: |
+          curl -s "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" \
+            -o /tmp/smp.deb
+          sudo dpkg -i /tmp/smp.deb
+
+      - name: Verify in-VPC health
+        if: inputs.mode == 'e2e' || inputs.mode == 'apply'
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          CLUSTER=$(terraform output -raw cluster_name)
+          API=$(terraform output -raw api_service_name)
+          TASK=$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$API" \
+            --query 'taskArns[0]' --output text)
+          aws ecs execute-command --cluster "$CLUSTER" --task "$TASK" \
+            --container server --interactive \
+            --command "wget -qO- http://localhost:3000/health/ready" | tee out.txt
+          grep -q '"ok":true' out.txt
+
+      - name: Terraform destroy
+        if: always() && (inputs.mode == 'e2e' || inputs.mode == 'destroy')
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
+          TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
+          TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
+          TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
+        run: terraform destroy -input=false -auto-approve
