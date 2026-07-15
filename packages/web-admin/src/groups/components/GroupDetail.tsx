@@ -19,10 +19,10 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  type SearchableItem,
   Selector,
   Textarea,
   Typeahead,
+  useSeededItem,
 } from '@seta/shared-ui';
 import { Boxes, Layers, Pencil, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -158,23 +158,14 @@ function RoleScopeControl({
   role: GroupRole;
   onChange: (scope_kind: GroupRole['scope_kind'], scope_id: string | null) => void;
 }) {
-  const [scopeItem, setScopeItem] = useState<SearchableItem | null>(null);
-
-  // The role only carries a persisted scope_id — seed it into a labelled item on mount
-  // (and whenever the scope changes to a different org unit) so the picker shows a name.
-  useEffect(() => {
-    if (role.scope_kind !== 'org_unit' || !role.scope_id) {
-      setScopeItem(null);
-      return;
-    }
-    let cancelled = false;
-    orgUnitSearch.seed([role.scope_id]).then((items) => {
-      if (!cancelled) setScopeItem(items[0] ?? null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [role.scope_kind, role.scope_id]);
+  // The role only carries a persisted scope_id — resolve it into a labelled item on
+  // mount (and whenever the scope changes to a different org unit) so the picker shows
+  // a name. Matched BY ID: the org-units endpoint ignores the `ids` filter and returns
+  // the tenant's full list, so the first result is not necessarily the right one.
+  const [scopeItem, setScopeItem] = useSeededItem(
+    role.scope_kind === 'org_unit' ? role.scope_id : null,
+    orgUnitSearch.seed,
+  );
 
   return (
     <div className="flex flex-none items-center gap-1.5">
@@ -191,7 +182,7 @@ function RoleScopeControl({
       />
       {role.scope_kind === 'org_unit' && (
         <Typeahead
-          label="Org unit"
+          label={`${role.role_slug} org unit`}
           isLabelHidden
           searchSource={orgUnitSearch.source}
           hasEntriesOnFocus

@@ -41,6 +41,8 @@ const REQUIRED = [
   'cn',
   'createStaticSource',
   'cva',
+  'useSeededItem',
+  'useSeededItems',
   'useTheme',
 ];
 

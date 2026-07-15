@@ -19,7 +19,13 @@ vi.mock('../../src/api/org-unit-search.ts', () => ({
       search: async () => [{ id: 'ou-1', label: 'Engineering' }],
       bootstrap: async () => [{ id: 'ou-1', label: 'Engineering' }],
     },
-    seed: async () => [{ id: 'ou-1', label: 'Engineering' }],
+    // Regression guard: the real org-units endpoint ignores the `ids` filter and
+    // returns the tenant's full list — here the requested id ('ou-1') is NOT first.
+    // A resolver that trusted items[0] would show "Zzz" instead of "Engineering".
+    seed: async () => [
+      { id: 'ou-9', label: 'Zzz' },
+      { id: 'ou-1', label: 'Engineering' },
+    ],
   },
 }));
 
