@@ -17,6 +17,10 @@ module "app" {
   crypto_local_master_key = var.crypto_local_master_key
   image_uri               = var.image_uri
 
+  # Graviton for prod (per docs/hosting/aws.md). Sandbox uses the X86_64 default
+  # so its image builds natively on standard runners.
+  cpu_architecture = "ARM64"
+
   enable_cloudflared           = true
   cloudflared_token_secret_arn = var.cloudflared_token_secret_arn
 }

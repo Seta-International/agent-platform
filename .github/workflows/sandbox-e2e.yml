@@ -33,10 +33,9 @@ env:
 
 jobs:
   e2e:
-    # Native arm64 runner: builds the Graviton image without QEMU emulation and
-    # matches the Fargate arm64 runtime. Requires arm64 hosted runners enabled
-    # for the org.
-    runs-on: ubuntu-24.04-arm
+    # Sandbox builds x86_64 natively on a standard runner (fast, no QEMU, no
+    # arm64-runner dependency). The task defs default to X86_64 to match.
+    runs-on: ubuntu-latest
     environment: sandbox
     env:
       MODE: ${{ github.event.inputs.mode || 'e2e' }}
@@ -87,7 +86,7 @@ jobs:
           TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
         run: terraform apply -input=false -auto-approve
 
-      - name: Build & push arm64 image (native)
+      - name: Build & push image (native x86_64)
         if: env.MODE != 'plan' && env.MODE != 'destroy'
         run: |
           aws ecr get-login-password --region "$AWS_REGION" \
@@ -131,7 +130,7 @@ jobs:
       - name: Install session-manager-plugin
         if: env.MODE == 'e2e' || env.MODE == 'apply'
         run: |
-          curl -s "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_arm64/session-manager-plugin.deb" \
+          curl -s "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" \
             -o /tmp/smp.deb
           sudo dpkg -i /tmp/smp.deb
 

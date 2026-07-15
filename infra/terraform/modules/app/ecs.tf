@@ -122,7 +122,7 @@ resource "aws_ecs_task_definition" "api" {
   task_role_arn            = aws_iam_role.api_task.arn
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "ARM64"
+    cpu_architecture        = var.cpu_architecture
   }
   container_definitions = jsonencode(local.api_containers)
 }
@@ -137,7 +137,7 @@ resource "aws_ecs_task_definition" "worker" {
   task_role_arn            = aws_iam_role.worker_task.arn
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "ARM64"
+    cpu_architecture        = var.cpu_architecture
   }
   container_definitions = jsonencode([local.worker_container])
 }

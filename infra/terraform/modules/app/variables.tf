@@ -74,6 +74,15 @@ variable "image_uri" {
   description = "Full image ref incl. tag, e.g. <acct>.dkr.ecr.<region>.amazonaws.com/future-app:<sha>."
   type        = string
 }
+variable "cpu_architecture" {
+  description = "Fargate CPU architecture: X86_64 or ARM64 (Graviton). Must match the pushed image's arch."
+  type        = string
+  default     = "X86_64"
+  validation {
+    condition     = contains(["X86_64", "ARM64"], var.cpu_architecture)
+    error_message = "cpu_architecture must be X86_64 or ARM64."
+  }
+}
 variable "api_cpu" {
   type    = number
   default = 512
