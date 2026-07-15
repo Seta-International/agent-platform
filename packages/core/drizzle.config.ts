@@ -7,6 +7,7 @@ export default defineConfig({
   // `generate` in drizzle-kit 0.31, so exclusion is enforced via this explicit file list.
   schema: [
     './src/db/schema/_core-schema.ts',
+    './src/db/schema/agent-eval.ts',
     './src/db/schema/outgoing-emails.ts',
     './src/db/schema/rpc-idempotency.ts',
     './src/db/schema/session-scope.ts',

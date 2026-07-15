@@ -15,6 +15,13 @@
       "when": 1783353028158,
       "tag": "0003_skill_alias_and_slug",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784090882853,
+      "tag": "0004_wise_wildside",
+      "breakpoints": true
     }
   ]
 }
