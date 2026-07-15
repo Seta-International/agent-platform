@@ -1,4 +1,4 @@
-export const EVALS_HARNESS_VERSION = 'phase-1';
+export const EVALS_HARNESS_VERSION = 'phase-2a';
 
 export {
   type DatasetItemToolMock,
@@ -16,6 +16,13 @@ export {
   hallucinationScorer,
   toxicityScorer,
 } from './judge-scorers.ts';
+export {
+  type QualityCaseScore,
+  type QualityScorerEntry,
+  type RunQualityEvalsConfig,
+  type RunQualityEvalsResult,
+  runQualityEvals,
+} from './run-quality-evals.ts';
 export {
   type CaseScore,
   type RunSpecEvalsConfig,
