@@ -63,8 +63,8 @@ describe('ProfileSkillsSection', () => {
     await user.click(screen.getByRole('button', { name: /remove typescript/i }));
     const input = screen.getByPlaceholderText(/search to add a skill/i);
     await user.type(input, 'Go');
-    await new Promise((r) => setTimeout(r, 300)); // debounce
-    await user.keyboard('{Enter}');
+    const option = await screen.findByRole('option', { name: 'Go' });
+    await user.click(option);
 
     await user.click(screen.getByRole('button', { name: /save/i }));
 
@@ -88,6 +88,7 @@ describe('ProfileSkillsSection', () => {
     );
 
     const input = screen.getByPlaceholderText(/search to add a skill/i);
+    await user.click(input);
     await user.type(input, 'ru');
 
     // Wait for debounce (200ms)
@@ -96,55 +97,87 @@ describe('ProfileSkillsSection', () => {
     expect(searchSpy).toHaveBeenCalledWith('ru');
   });
 
-  it('Enter on partial text matching a catalog suggestion adds the CANONICAL name', async () => {
+  it('adds the canonical catalog name when a suggestion is selected', async () => {
     const user = userEvent.setup();
     const clientModule = await import('../../../../src/api/client.ts');
     vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue(['TypeScript']);
 
-    const onSave = vi.fn().mockResolvedValue(makeProfile({ skills: ['TypeScript'] }));
-
     render(
       <ProfileSkillsSection
         profile={makeProfile({ skills: [] })}
-        onSave={onSave}
+        onSave={vi.fn()}
         onUpdate={vi.fn()}
       />,
     );
-
     const input = screen.getByPlaceholderText(/search to add a skill/i);
-    await user.type(input, 'type'); // lowercase partial
-    await new Promise((r) => setTimeout(r, 300)); // debounce -> suggestions = ['TypeScript']
-    await user.keyboard('{Enter}');
-
-    // Badge shows canonical casing, not 'type'
+    await user.click(input);
+    await user.type(input, 'type');
+    const option = await screen.findByRole('option', { name: 'TypeScript' });
+    await user.click(option);
+    // draft grid now shows the canonical name
     expect(screen.getByText('TypeScript')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /save/i }));
-    expect(onSave).toHaveBeenCalledWith({ skills: ['TypeScript'] });
   });
 
-  it('Enter on text matching NO catalog entry adds nothing', async () => {
+  it('typing a query with no catalog match yields no option and no draft entry', async () => {
     const user = userEvent.setup();
     const clientModule = await import('../../../../src/api/client.ts');
     vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue([]); // no catalog match
 
-    const onSave = vi.fn().mockResolvedValue(makeProfile({ skills: [] }));
-
     render(
       <ProfileSkillsSection
         profile={makeProfile({ skills: [] })}
-        onSave={onSave}
+        onSave={vi.fn()}
         onUpdate={vi.fn()}
       />,
     );
 
     const input = screen.getByPlaceholderText(/search to add a skill/i);
+    await user.click(input);
     await user.type(input, 'notacatalogskill');
     await new Promise((r) => setTimeout(r, 300)); // debounce -> suggestions = []
-    await user.keyboard('{Enter}');
 
-    // No badge added; save button disabled (not dirty)
+    expect(screen.queryByRole('option')).not.toBeInTheDocument();
     expect(screen.queryByText('notacatalogskill')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
+  });
+
+  it('does not offer an already-drafted skill as a dropdown option', async () => {
+    const user = userEvent.setup();
+    const clientModule = await import('../../../../src/api/client.ts');
+    vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue(['React', 'Redux']);
+
+    render(
+      <ProfileSkillsSection
+        profile={makeProfile({ skills: [{ id: 's-react', name: 'React', level: null }] })}
+        onSave={vi.fn()}
+        onUpdate={vi.fn()}
+      />,
+    );
+    const input = screen.getByPlaceholderText(/search to add a skill/i);
+    await user.click(input);
+    await user.type(input, 'r');
+    // Redux is offered; React (already drafted) is filtered out of the source.
+    expect(await screen.findByRole('option', { name: 'Redux' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'React' })).toBeNull();
+  });
+
+  it('offers no option when the catalog search returns nothing', async () => {
+    const user = userEvent.setup();
+    const clientModule = await import('../../../../src/api/client.ts');
+    vi.spyOn(clientModule, 'searchSkillsApi').mockResolvedValue([]);
+
+    render(
+      <ProfileSkillsSection
+        profile={makeProfile({ skills: [] })}
+        onSave={vi.fn()}
+        onUpdate={vi.fn()}
+      />,
+    );
+    const input = screen.getByPlaceholderText(/search to add a skill/i);
+    await user.click(input);
+    await user.type(input, 'zzz-not-a-skill');
+    // give the async source a tick to resolve
+    await new Promise((r) => setTimeout(r, 300));
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
   });
 });

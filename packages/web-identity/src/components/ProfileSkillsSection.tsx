@@ -1,15 +1,14 @@
 import {
   Button,
   Card,
-  Command,
-  CommandItem,
-  CommandList,
-  Input,
+  type SearchableItem,
+  type SearchSource,
   SkillLevelRating,
+  Typeahead,
   toast,
 } from '@seta/shared-ui';
-import { Search, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   type ProfileDto,
   type ProfileSkill,
@@ -40,8 +39,6 @@ export function ProfileSkillsSection({
   onUpdate: (p: ProfileDto) => void;
 }) {
   const [draft, setDraft] = useState<DraftSkill[]>(() => profile.skills.map((s) => ({ ...s })));
-  const [prefix, setPrefix] = useState('');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   const serverSig = signature(profile.skills);
@@ -56,49 +53,35 @@ export function ProfileSkillsSection({
 
   const draftNames = draft.map((s) => s.name);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: draftNames.join captures the membership; the effect filters suggestions against it without re-running on every array reference
-  useEffect(() => {
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      if (prefix.trim().length === 0) {
-        if (!cancelled) setSuggestions([]);
-        return;
-      }
-      try {
-        const results = await searchSkillsApi(prefix);
-        const have = new Set(draftNames.map((n) => n.toLowerCase()));
-        if (!cancelled) setSuggestions(results.filter((s) => !have.has(s.toLowerCase())));
-      } catch {
-        if (!cancelled) setSuggestions([]);
-      }
-    }, 200);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [prefix, draftNames.join('|')]);
+  // The Typeahead only ever emits a catalog item from this source, so a
+  // non-catalog free-text value can never be added (PUT /me/skills 400s on
+  // non-catalog names) — the old exact/top-match commit logic is unnecessary.
+  const source: SearchSource<SearchableItem> = useMemo(
+    () => ({
+      async search(query) {
+        const q = query.trim();
+        if (q.length === 0) return [];
+        try {
+          const results = await searchSkillsApi(q);
+          const have = new Set(draft.map((d) => d.name.toLowerCase()));
+          return results
+            .filter((s) => !have.has(s.toLowerCase()))
+            .map((s) => ({ id: s, label: s }));
+        } catch {
+          return [];
+        }
+      },
+      bootstrap() {
+        return [];
+      },
+    }),
+    [draft],
+  );
 
-  // `name` must be a canonical catalog name (PUT /me/skills 400s on non-catalog text).
   function addSkill(name: string) {
     const canonical = name.trim();
-    if (!canonical || draftNames.some((n) => n.toLowerCase() === canonical.toLowerCase())) return;
+    if (!canonical || draft.some((d) => d.name.toLowerCase() === canonical.toLowerCase())) return;
     setDraft((prev) => [...prev, { id: null, name: canonical, level: null }]);
-    setPrefix('');
-    setSuggestions([]);
-  }
-
-  // Enter only commits a genuine catalog match: an exact case-insensitive hit, or
-  // the top prefix suggestion. Non-catalog text is ignored (never reaches save).
-  function commitTypedSkill() {
-    const typed = prefix.trim().toLowerCase();
-    if (!typed) return;
-    const exact = suggestions.find((s) => s.toLowerCase() === typed);
-    if (exact) {
-      addSkill(exact);
-      return;
-    }
-    const top = suggestions[0];
-    if (top?.toLowerCase().startsWith(typed)) addSkill(top);
   }
 
   function removeSkill(name: string) {
@@ -139,42 +122,21 @@ export function ProfileSkillsSection({
 
   const shown = [...draft].sort((a, b) => a.name.localeCompare(b.name));
   const dirty = signature(draft) !== serverSig;
-  const showSuggestions = prefix.trim().length > 0 && suggestions.length > 0;
 
   return (
     <Card className="space-y-4 pt-6">
-      <div className="relative">
-        <Input
-          label="Search to add a skill"
-          isLabelHidden
-          startIcon={<Search className="size-3.5" aria-hidden />}
-          placeholder="Search to add a skill…"
-          value={prefix}
-          isDisabled={saving}
-          onChange={(value) => setPrefix(value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              commitTypedSkill();
-            } else if (e.key === 'Escape') {
-              setPrefix('');
-            }
-          }}
-        />
-        {showSuggestions && (
-          <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-hairline bg-canvas shadow-md">
-            <Command shouldFilter={false}>
-              <CommandList className="max-h-56">
-                {suggestions.slice(0, 8).map((s) => (
-                  <CommandItem key={s} value={s} onSelect={() => addSkill(s)}>
-                    {s}
-                  </CommandItem>
-                ))}
-              </CommandList>
-            </Command>
-          </div>
-        )}
-      </div>
+      <Typeahead
+        label="Search to add a skill"
+        isLabelHidden
+        placeholder="Search to add a skill…"
+        searchSource={source}
+        value={null}
+        onChange={(item) => {
+          if (item) addSkill(item.label);
+        }}
+        debounceMs={200}
+        isDisabled={saving}
+      />
 
       {shown.length === 0 ? (
         <p className="text-body-sm text-ink-muted">No skills yet — search above to add one.</p>
