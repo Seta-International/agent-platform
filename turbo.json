@@ -26,6 +26,10 @@
       "cache": false,
       "persistent": true
     },
+    "eval:quality": {
+      "cache": false,
+      "env": ["DATABASE_URL", "AGENT_MODELS", "OPENAI_API_KEY", "CI"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

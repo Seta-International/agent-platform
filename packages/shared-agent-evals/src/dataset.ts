@@ -1,4 +1,12 @@
-import type { SpecializedAgentSpec } from '@seta/agent-sdk';
+import type { AgentTool, SpecializedAgentSpec } from '@seta/agent-sdk';
+
+/** A per-case canned tool result for the quality lane's real Agent tool loop. */
+export interface DatasetItemToolMock {
+  /** The AgentTool id this mock stands in for (e.g. 'planner_findSimilarTasks'). */
+  toolId: string;
+  /** Canned output returned when the model invokes the tool. */
+  respond: (input: unknown) => unknown;
+}
 
 export interface EvalActor {
   tenantId: string;
@@ -15,6 +23,9 @@ export interface EvalCase<I = unknown> {
   actor: EvalActor;
   /** Expected result for golden/exact scorers; omit when not asserting equality. */
   groundTruth?: unknown;
+  /** Quality lane only: canned tool outputs so generation is real but inputs
+   *  are reproducible. Ignored by the deterministic runner. */
+  toolMocks?: DatasetItemToolMock[];
 }
 
 export interface EvalSuite<I = unknown, O = unknown> {
@@ -22,6 +33,9 @@ export interface EvalSuite<I = unknown, O = unknown> {
   specId: string;
   /** Builds the spec under eval with fake deps injected (no LLM, no DB). */
   buildSpec: () => SpecializedAgentSpec<I, O>;
+  /** Quality lane build: real model + injected mock tools. Absent ⇒ no quality
+   *  lane for this suite. The deterministic `buildSpec` stays canned/LLM-free. */
+  buildQualitySpec?: (mocks: AgentTool[]) => SpecializedAgentSpec<I, O>;
   cases: EvalCase<I>[];
 }
 

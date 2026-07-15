@@ -8,6 +8,8 @@ const UPDATE = process.argv.includes('--update-baseline');
 // spec §3.1 global-table allowlist + projection/junction shapes exempt from single rules
 const NO_TENANT_ALLOWLIST = new Set([
   'tenants',
+  'agent_eval_run',
+  'agent_eval_score',
   'subscription_cursors',
   'subscription_processed',
   'subscription_dead_letter',

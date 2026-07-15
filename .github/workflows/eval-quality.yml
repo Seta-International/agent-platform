@@ -1,0 +1,61 @@
+name: eval-quality
+
+on:
+  schedule:
+    - cron: '0 20 * * *' # 20:00 UTC = 03:00 ICT (UTC+7) — runs overnight in the team's timezone
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-quality
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Start Postgres + migrate
+        run: |
+          pnpm db:up
+          # give the container a moment, then apply migrations
+          sleep 3
+          pnpm db:migrate
+        env:
+          DATABASE_URL: postgres://seta:seta@localhost:5542/seta
+
+      # Human setup required: create the `EVAL_AGENT_MODELS` repo *variable* (e.g.
+      # "openai/gpt-5.5:fast") and the `OPENAI_API_KEY` repo *secret* under
+      # Settings > Secrets and variables > Actions before this lane can score anything.
+      - name: Run quality evals (advisory)
+        id: evals
+        run: pnpm -F @seta/cli exec tsx src/index.ts eval-quality --trigger nightly | tee eval-out.txt
+        env:
+          DATABASE_URL: postgres://seta:seta@localhost:5542/seta
+          AGENT_MODELS: ${{ vars.EVAL_AGENT_MODELS }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Agent quality evals (advisory)"
+            echo ""
+            echo '```'
+            cat eval-out.txt || echo "(no output)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

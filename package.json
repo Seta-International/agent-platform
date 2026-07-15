@@ -30,6 +30,7 @@
     "db:migrate": "pnpm -F @seta/cli exec tsx src/index.ts migrate",
     "db:seed": "pnpm -F @seta/cli exec tsx src/index.ts seed",
     "db:reset": "docker compose --profile bundled-db down -v && pnpm db:up && sleep 3 && pnpm db:migrate && pnpm db:seed",
+    "eval:quality": "pnpm -F @seta/cli exec tsx src/index.ts eval-quality --trigger manual",
     "smoke:login": "tsx apps/web/e2e/login.smoke.ts",
     "docker:build:server": "docker build -f infra/docker/server.Dockerfile -t seta-server:local .",
     "docker:build:web": "docker build -f infra/docker/web.Dockerfile -t seta-web:local .",

@@ -1,6 +1,7 @@
-export const EVALS_HARNESS_VERSION = 'phase-1';
+export const EVALS_HARNESS_VERSION = 'phase-2a';
 
 export {
+  type DatasetItemToolMock,
   defineEvalCase,
   defineEvalSuite,
   type EvalActor,
@@ -8,6 +9,20 @@ export {
   type EvalManifest,
   type EvalSuite,
 } from './dataset.ts';
+export { fakeJudgeModel, type JudgeConfig, type JudgeModel } from './judge.ts';
+export {
+  answerRelevancyScorer,
+  faithfulnessScorer,
+  hallucinationScorer,
+  toxicityScorer,
+} from './judge-scorers.ts';
+export {
+  type QualityCaseScore,
+  type QualityScorerEntry,
+  type RunQualityEvalsConfig,
+  type RunQualityEvalsResult,
+  runQualityEvals,
+} from './run-quality-evals.ts';
 export {
   type CaseScore,
   type RunSpecEvalsConfig,
@@ -20,3 +35,4 @@ export {
   schemaConformanceScorer,
   trustEnvelopeScorer,
 } from './scorers.ts';
+export { buildMockTools } from './tool-mock.ts';
