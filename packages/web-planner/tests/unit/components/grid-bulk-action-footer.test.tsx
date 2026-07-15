@@ -1,9 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { GridBulkActionFooter } from '../../../src/components/grid-bulk-action-footer';
+import { useGroupMembers } from '../../../src/hooks/queries/use-group-members';
 
 vi.mock('../../../src/hooks/queries/use-group-members', () => ({
-  useGroupMembers: () => ({
+  useGroupMembers: vi.fn(() => ({
     data: {
       members: [
         { user_id: 'u1', display_name: 'Ada Lovelace', email: 'ada@x.io' },
@@ -11,7 +12,7 @@ vi.mock('../../../src/hooks/queries/use-group-members', () => ({
       ],
     },
     isPending: false,
-  }),
+  })),
 }));
 
 function renderFooter() {
@@ -54,7 +55,25 @@ describe('GridBulkActionFooter AssigneeMenu', () => {
         onDelete={vi.fn()}
       />,
     );
-    // Disabled Astryx field exposes aria-disabled; the placeholder input is not editable.
-    expect(screen.queryByPlaceholderText(/assign to/i)).not.toBeNull();
+    // Disabled Astryx fields render aria-disabled + readOnly rather than the
+    // native `disabled` attribute, so assert on that instead of just presence.
+    const input = screen.getByPlaceholderText(/assign to/i);
+    expect(input).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  // Regression: mirrors the SkillPicker catalog-load gate. useGroupMembers'
+  // search source is static, derived from the query's data — if the field
+  // were interactive while the query is still pending, typing would search
+  // an empty source. Gate the field on isPending so it can't be searched
+  // before the member list has actually loaded.
+  it('disables the assignee field while group members are loading, even when canAssign is true', () => {
+    vi.mocked(useGroupMembers).mockReturnValueOnce({
+      data: undefined,
+      isPending: true,
+    } as ReturnType<typeof useGroupMembers>);
+
+    renderFooter();
+    const input = screen.getByPlaceholderText(/assign to/i);
+    expect(input).toHaveAttribute('aria-disabled', 'true');
   });
 });

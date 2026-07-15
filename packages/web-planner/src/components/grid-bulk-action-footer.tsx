@@ -136,7 +136,7 @@ function AssigneeMenu({
   onPick: (userId: string) => void;
   disabled?: boolean;
 }) {
-  const { data } = useGroupMembers(groupId);
+  const { data, isPending: membersPending } = useGroupMembers(groupId);
   const members = data?.members ?? [];
   const source = useMemo(
     () =>
@@ -161,8 +161,8 @@ function AssigneeMenu({
       searchSource={source}
       debounceMs={0}
       hasEntriesOnFocus
-      isDisabled={disabled}
-      disabledMessage={PERMISSION_DENIED.task.assign}
+      isDisabled={disabled || membersPending}
+      disabledMessage={disabled ? PERMISSION_DENIED.task.assign : 'Loading members…'}
       value={value}
       onChange={(item) => {
         if (item) {

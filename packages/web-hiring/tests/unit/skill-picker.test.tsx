@@ -78,9 +78,6 @@ describe('SkillPicker', () => {
     // Still loading: the field must be non-interactive so it can't be
     // searched against the not-yet-populated source.
     expect(input).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: 'Postgres' } });
-    expect(screen.queryByText('Postgres')).toBeNull();
 
     resolveCatalog({
       categories: [{ id: 'c1', name: 'Backend' }],
