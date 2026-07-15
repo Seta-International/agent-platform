@@ -50,7 +50,7 @@ export async function insertWorkerAggregate(
     seq: 1,
     start_date: args.start_date ?? null,
     end_date: null,
-    lifecycle_stage: 'preboarding',
+    lifecycle_stage: 'active',
     employment_type: args.employment_type ?? null,
     job_title: args.job_title ?? null,
   });

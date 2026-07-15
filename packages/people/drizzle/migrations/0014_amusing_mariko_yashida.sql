@@ -1,0 +1,1 @@
+ALTER TABLE "people"."employment_period" ALTER COLUMN "lifecycle_stage" SET DEFAULT 'active';

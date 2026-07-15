@@ -39,7 +39,7 @@ describe('provisionWorker', () => {
           .where(eq(employmentPeriod.person_id, worker_id));
         expect(periods).toHaveLength(1);
         expect(periods[0]?.seq).toBe(1);
-        expect(periods[0]?.lifecycle_stage).toBe('preboarding');
+        expect(periods[0]?.lifecycle_stage).toBe('active');
         expect(periods[0]?.end_date).toBeNull();
 
         const history = await peopleDb()

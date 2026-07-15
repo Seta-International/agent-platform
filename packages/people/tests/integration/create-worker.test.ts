@@ -31,6 +31,12 @@ describe('createWorker', () => {
         expect(p?.full_name).toBe('Alice Example');
         expect(p?.work_email).toBeNull();
 
+        const [ep] = await peopleDb()
+          .select()
+          .from(employmentPeriod)
+          .where(and(eq(employmentPeriod.person_id, worker_id), isNull(employmentPeriod.end_date)));
+        expect(ep?.lifecycle_stage).toBe('active');
+
         const events = await readEvents(pool, t.tenant_id, 'people.worker.created');
         expect(events).toHaveLength(1);
         expect(events[0]?.aggregate_id).toBe(worker_id);

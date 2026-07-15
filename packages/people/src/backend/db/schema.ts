@@ -96,7 +96,7 @@ export const employmentPeriod = peopleSchema.table(
     seq: integer('seq').notNull(),
     start_date: date('start_date'),
     end_date: date('end_date'),
-    lifecycle_stage: textEnum('lifecycle_stage', LIFECYCLE_STAGES).notNull().default('preboarding'),
+    lifecycle_stage: textEnum('lifecycle_stage', LIFECYCLE_STAGES).notNull().default('active'),
     employment_type: text('employment_type'),
     job_title: text('job_title'),
     version: integer('version').default(1).notNull(),
