@@ -1,0 +1,12 @@
+output "vpc_id" { value = aws_vpc.main.id }
+output "public_subnet_ids" { value = aws_subnet.public[*].id }
+output "cluster_arn" { value = aws_ecs_cluster.main.arn }
+output "cluster_name" { value = aws_ecs_cluster.main.name }
+output "api_service_name" { value = aws_ecs_service.api.name }
+output "worker_service_name" { value = aws_ecs_service.worker.name }
+output "task_security_group_id" { value = aws_security_group.tasks.id }
+output "db_endpoint" { value = "${aws_db_instance.main.address}:${aws_db_instance.main.port}" }
+output "db_address" { value = aws_db_instance.main.address }
+output "s3_bucket" { value = aws_s3_bucket.app.id }
+output "ecr_repository_url" { value = aws_ecr_repository.app.repository_url }
+output "task_execution_role_arn" { value = aws_iam_role.task_execution.arn }
