@@ -1,5 +1,5 @@
 import type { ChatStreamRun, RunCtx } from '@seta/shared-orchestration';
-import type { ChatIntent } from './intent-classifier.ts';
+import type { ChatIntent, ClassifierHistory } from './intent-classifier.ts';
 
 type RunStream = (
   runInput: { userText: string; taskId: string | null },
@@ -7,7 +7,7 @@ type RunStream = (
 ) => Promise<ChatStreamRun>;
 
 export interface ChatRouterDeps {
-  classify: (userText: string) => Promise<ChatIntent>;
+  classify: (userText: string, history?: ClassifierHistory) => Promise<ChatIntent>;
   assignment: RunStream;
   plannerQna: RunStream;
   weeklyPlanner: RunStream;
@@ -17,7 +17,8 @@ export interface ChatRouterDeps {
  *  Has the exact signature `registerAgent({ chatOrchestration })` expects. */
 export function makeChatRouter(deps: ChatRouterDeps): RunStream {
   return async function routeChat(runInput, ctx) {
-    const intent = await deps.classify(runInput.userText);
+    const classifierHistory = ctx.sessionHistory?.slice(-4);
+    const intent = await deps.classify(runInput.userText, classifierHistory);
     if (intent === 'assignment') return deps.assignment(runInput, ctx);
     if (intent === 'weekly_planner') return deps.weeklyPlanner(runInput, ctx);
     return deps.plannerQna(runInput, ctx);
