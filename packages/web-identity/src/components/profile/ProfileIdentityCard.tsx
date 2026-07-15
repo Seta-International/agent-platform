@@ -1,33 +1,8 @@
-import {
-  Avatar,
-  AvatarFallback,
-  Button,
-  Card,
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Textarea,
-  TimeInput,
-} from '@seta/shared-ui';
-import { Calendar, Check, ChevronsUpDown } from 'lucide-react';
+import { Avatar, AvatarFallback, Button, Card, Input, Textarea, TimeInput } from '@seta/shared-ui';
+import { Calendar } from 'lucide-react';
 import { useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../../api/client.ts';
-
-const TIMEZONES = ((
-  Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
-).supportedValuesOf?.('timeZone') as string[]) ?? [
-  'UTC',
-  'America/New_York',
-  'Europe/London',
-  'Asia/Singapore',
-  'Asia/Ho_Chi_Minh',
-];
+import { TimezonePicker } from '../TimezonePicker';
 
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const BIO_MAX = 500;
@@ -38,44 +13,6 @@ function initials(name: string): string {
     .map((s) => s[0]?.toUpperCase() ?? '')
     .slice(0, 2)
     .join('');
-}
-
-function TimezonePicker({ value, onChange }: { value: string; onChange: (next: string) => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
-          aria-expanded={open}
-          className="w-full justify-between font-normal h-9"
-          label={value || 'Select timezone'}
-          endContent={<ChevronsUpDown className="ml-2 size-4 opacity-50 flex-none" />}
-        />
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
-        <Command>
-          <CommandInput placeholder="Search timezone…" />
-          <CommandList className="max-h-72">
-            <CommandEmpty>No timezone found.</CommandEmpty>
-            {TIMEZONES.map((z) => (
-              <CommandItem
-                key={z}
-                value={z}
-                onSelect={() => {
-                  onChange(z);
-                  setOpen(false);
-                }}
-              >
-                <Check className={`mr-2 h-4 w-4 ${value === z ? 'opacity-100' : 'opacity-0'}`} />
-                {z}
-              </CommandItem>
-            ))}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
 }
 
 function FieldLabel({ label, hint }: { label: string; hint?: string }) {
