@@ -13,6 +13,11 @@ on:
         type: choice
         default: e2e
         options: [e2e, apply, destroy, plan]
+  # Push trigger so the workflow can run from this feature branch before it
+  # reaches the default branch (workflow_dispatch requires default-branch
+  # presence). Remove once merged to main; dispatch is the long-term entrypoint.
+  push:
+    branches: [chore/FUT-620-terraform-sandbox]
 
 concurrency: sandbox-e2e
 
@@ -30,6 +35,8 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     environment: sandbox
+    env:
+      MODE: ${{ github.event.inputs.mode || 'e2e' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -68,7 +75,7 @@ jobs:
         run: terraform plan -input=false
 
       - name: Terraform apply
-        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        if: env.MODE != 'plan' && env.MODE != 'destroy'
         working-directory: ${{ env.TF_DIR }}
         env:
           TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
@@ -78,15 +85,15 @@ jobs:
         run: terraform apply -input=false -auto-approve
 
       - name: Set up QEMU (arm64 emulation)
-        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        if: env.MODE != 'plan' && env.MODE != 'destroy'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Buildx
-        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        if: env.MODE != 'plan' && env.MODE != 'destroy'
         uses: docker/setup-buildx-action@v3
 
       - name: Build & push arm64 image
-        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        if: env.MODE != 'plan' && env.MODE != 'destroy'
         run: |
           aws ecr get-login-password --region "$AWS_REGION" \
             | docker login --username AWS --password-stdin "${{ steps.ctx.outputs.registry }}"
@@ -97,7 +104,7 @@ jobs:
             --push .
 
       - name: Migrate (one-off task)
-        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        if: env.MODE != 'plan' && env.MODE != 'destroy'
         working-directory: ${{ env.TF_DIR }}
         run: |
           CLUSTER=$(terraform output -raw cluster_name)
@@ -116,7 +123,7 @@ jobs:
           echo "migrate exit=$CODE"; test "$CODE" = "0"
 
       - name: Deploy & wait stable
-        if: inputs.mode != 'plan' && inputs.mode != 'destroy'
+        if: env.MODE != 'plan' && env.MODE != 'destroy'
         working-directory: ${{ env.TF_DIR }}
         run: |
           CLUSTER=$(terraform output -raw cluster_name)
@@ -127,14 +134,14 @@ jobs:
           aws ecs wait services-stable --cluster "$CLUSTER" --services "$API" "$WORKER"
 
       - name: Install session-manager-plugin
-        if: inputs.mode == 'e2e' || inputs.mode == 'apply'
+        if: env.MODE == 'e2e' || env.MODE == 'apply'
         run: |
           curl -s "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" \
             -o /tmp/smp.deb
           sudo dpkg -i /tmp/smp.deb
 
       - name: Verify in-VPC health
-        if: inputs.mode == 'e2e' || inputs.mode == 'apply'
+        if: env.MODE == 'e2e' || env.MODE == 'apply'
         working-directory: ${{ env.TF_DIR }}
         run: |
           CLUSTER=$(terraform output -raw cluster_name)
@@ -147,7 +154,7 @@ jobs:
           grep -q '"ok":true' out.txt
 
       - name: Terraform destroy
-        if: always() && (inputs.mode == 'e2e' || inputs.mode == 'destroy')
+        if: always() && (env.MODE == 'e2e' || env.MODE == 'destroy')
         working-directory: ${{ env.TF_DIR }}
         env:
           TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
