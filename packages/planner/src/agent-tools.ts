@@ -11,6 +11,7 @@ export {
   plannerGetGroupOverviewTool,
   plannerGetItemActivityTool,
   plannerGetOpenTaskCountTool,
+  plannerGetStatsTool,
   plannerGetTaskTool,
   plannerGetTimelineTool,
   plannerListBucketsTool,
