@@ -1,0 +1,25 @@
+{
+  "name": "@seta/shared-agent-evals",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --no-error-on-unmatched-pattern",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.50.1",
+    "@seta/agent-sdk": "workspace:^",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@seta/shared-config": "workspace:^",
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

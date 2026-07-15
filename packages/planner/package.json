@@ -15,6 +15,7 @@
       "default": "./src/backend/agent-tools/register.ts"
     },
     "./events": "./src/events/index.ts",
+    "./evals": "./src/backend/orchestration/eval-manifest.ts",
     "./http": "./src/backend/http/index.ts",
     "./stream": "./src/backend/stream/index.ts",
     "./testing": "./src/testing/index.ts"
@@ -52,6 +53,7 @@
     "@seta/identity": "workspace:^",
     "@seta/notifications": "workspace:^",
     "@seta/people": "workspace:^",
+    "@seta/shared-agent-evals": "workspace:*",
     "@seta/shared-embeddings": "workspace:^",
     "@seta/shared-orchestration": "workspace:*",
     "@seta/shared-retrieval": "workspace:^",

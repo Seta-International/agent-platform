@@ -2,7 +2,6 @@ import './otel.ts'; // MUST be first; see otel.ts header comment.
 import './undici-timeouts.ts'; // MUST run before any outbound fetch.
 import { AgentRunStateRepository, resolveModel } from '@seta/agent';
 import { createAgentMastraStorage, registerAgent } from '@seta/agent/register';
-import { SpecializedAgentRegistry } from '@seta/agent-sdk';
 import { createContributionRegistry, createOverlayStore, requestIdStorage } from '@seta/core';
 import { coreDb } from '@seta/core/db';
 import { emit, withEmit } from '@seta/core/events';
@@ -23,11 +22,8 @@ import { registerKnowledgeContributions } from '@seta/knowledge/register';
 import { registerNotificationsContributions } from '@seta/notifications/register';
 import { getPeopleVectorStore } from '@seta/people';
 import { registerPeopleContributions } from '@seta/people/register';
-import { plannerFindSimilarTasksTool } from '@seta/planner/agent-tools';
 import {
   buildAssignmentOrchestrationRuntime,
-  buildPlannerQnaRuntime,
-  buildWeeklyPlanRuntime,
   makeAssign,
   makeAvailability,
   makeSkillSearch,
@@ -42,12 +38,12 @@ import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/sh
 import { closePools, getPool, initPools } from '@seta/shared-db';
 import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { createMailer } from '@seta/shared-mailer';
-import { OrchestrationRegistry } from '@seta/shared-orchestration';
 // MODULE_IMPORTS_END — generator inserts new register*Contributions imports above this comment.
 import pino from 'pino';
 import { buildServerApp, registerAppContributions } from './build.ts';
 import { makeIntentClassifier } from './chat-routing/intent-classifier.ts';
 import { makeChatRouter } from './chat-routing/route-chat.ts';
+import { composeRegistries } from './compose-registries.ts';
 import { parseEnv } from './env.ts';
 import { logStreams } from './log-streams.ts';
 import { failedLoginAlertSubscriber } from './subscribers/failed-login-alert.ts';
@@ -166,24 +162,17 @@ const assignmentOrchestration = buildAssignmentOrchestrationRuntime({
   },
 });
 
-// Planner QnA runtime — built + registered here so it lands before the
-// registries freeze.
-const plannerFindSimilar = plannerFindSimilarTasksTool({
-  provider: resolveEmbeddingProvider(),
+// Compose the planner QnA + weekly-plan orchestration runtimes (built here so
+// they land before the registries freeze) and freeze SpecializedAgentRegistry,
+// OrchestrationRegistry, and AgentRegistry — the same composition the
+// agent-registry-integrity test drives standalone. Must run after
+// assignmentOrchestration above, whose SpecializedAgentRegistry.register()
+// call needs to land before the freeze inside composeRegistries.
+const { plannerQnaOrchestration, weeklyPlanOrchestration } = composeRegistries({
+  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+  embeddingProvider: resolveEmbeddingProvider(),
   databaseUrl: env.DATABASE_URL,
 });
-const plannerQnaOrchestration = buildPlannerQnaRuntime({
-  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
-  findSimilarTasksTool: plannerFindSimilar,
-});
-
-// Weekly planner runtime — organizes the caller's tasks into a day-by-day plan.
-const weeklyPlanOrchestration = buildWeeklyPlanRuntime({
-  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
-});
-
-SpecializedAgentRegistry.freeze();
-OrchestrationRegistry.freeze();
 
 // Tiered chat router: classify each turn (tier-1 domain hard-coded to planner;
 // tier-2 assignment vs planner_qna) and dispatch to the matching runtime. Composed

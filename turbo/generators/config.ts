@@ -199,6 +199,20 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
           templateFile: 'templates/module/tests/contract/loads.test.ts.hbs',
         },
 
+        // Eval contract: every module starts with a manifest + a starter suite
+        // so the coverage gate (apps/server) has something to check against
+        // once the module registers its first specialist.
+        {
+          type: 'add',
+          path: `${base}/src/backend/eval-manifest.ts`,
+          templateFile: 'templates/module/src/backend/eval-manifest.ts.hbs',
+        },
+        {
+          type: 'add',
+          path: `${base}/tests/unit/evals/example.eval.test.ts`,
+          templateFile: 'templates/module/tests/unit/evals/example.eval.test.ts.hbs',
+        },
+
         // Entry-point edits: apps/server
         {
           type: 'modify',
