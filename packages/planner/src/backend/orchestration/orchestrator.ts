@@ -1,4 +1,4 @@
-import { Agent } from '@mastra/core/agent';
+import { Agent, type MastraDBMessage } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { RequestContext } from '@mastra/core/request-context';
 import type {
@@ -35,6 +35,7 @@ export interface QnaOrchestratorDeps {
     message: string;
     requestContext: RequestContext;
     tools: Record<string, AgentTool>;
+    sessionHistory?: MastraDBMessage[];
   }) => { text: Promise<string> };
 }
 
@@ -114,12 +115,16 @@ export function makeQnaOrchestrator(
             message: built.message,
             requestContext: built.rc,
             tools: built.tools,
+            sessionHistory: ctx.sessionHistory,
           }).text
         : (
-            await built.agent.generate(built.message, {
-              requestContext: built.rc,
-              abortSignal: ctx.abortSignal,
-            })
+            await built.agent.generate(
+              ctx.sessionHistory?.length ? [...ctx.sessionHistory, built.message] : built.message,
+              {
+                requestContext: built.rc,
+                abortSignal: ctx.abortSignal,
+              },
+            )
           ).text;
       const answer = text?.trim() ?? '';
       return { result: { answer }, trust: { ...EMPTY_TRUST, confidenceScore: answer ? 0.6 : 0.2 } };
@@ -140,6 +145,7 @@ export function makeQnaChatStreamer(deps: QnaOrchestratorDeps) {
         message: built.message,
         requestContext: built.rc,
         tools: built.tools,
+        sessionHistory: ctx.sessionHistory,
       });
       return {
         output: fake as unknown as ChatStreamRun['output'],
@@ -153,10 +159,13 @@ export function makeQnaChatStreamer(deps: QnaOrchestratorDeps) {
       };
     }
 
-    const output = await built.agent.stream(built.message, {
-      requestContext: built.rc,
-      abortSignal: ctx.abortSignal,
-    });
+    const output = await built.agent.stream(
+      ctx.sessionHistory?.length ? [...ctx.sessionHistory, built.message] : built.message,
+      {
+        requestContext: built.rc,
+        abortSignal: ctx.abortSignal,
+      },
+    );
     return {
       output: output as unknown as ChatStreamRun['output'],
       finalize: async () => {

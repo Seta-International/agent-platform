@@ -19,6 +19,8 @@ export type EntityPatch = Partial<{
   lastProposedCandidateUserId: string | null;
   pendingDecision: ConversationEntities['pendingDecision'];
   rejectedCandidates: ConversationEntities['rejectedCandidates'];
+  recentDocuments: Array<{ documentId: string; title: string; lastSeenAt: string }>;
+  lastDiscussedDocumentId: string | null;
 }>;
 
 // Local mutex map mirrors Mastra's per-thread serialization. We need our own
@@ -84,6 +86,20 @@ function mergeEntities(current: ConversationEntities, patch: EntityPatch): Conve
   }
   if (patch.pendingDecision !== undefined) next.pendingDecision = patch.pendingDecision;
   if (patch.rejectedCandidates !== undefined) next.rejectedCandidates = patch.rejectedCandidates;
+  if (patch.recentDocuments) {
+    const seen = new Set<string>();
+    const merged = [...patch.recentDocuments, ...(current.recentDocuments ?? [])];
+    next.recentDocuments = merged
+      .filter((d) => {
+        if (seen.has(d.documentId)) return false;
+        seen.add(d.documentId);
+        return true;
+      })
+      .slice(0, 10);
+  }
+  if (patch.lastDiscussedDocumentId !== undefined) {
+    next.lastDiscussedDocumentId = patch.lastDiscussedDocumentId;
+  }
   return next;
 }
 

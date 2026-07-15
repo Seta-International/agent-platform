@@ -64,4 +64,35 @@ describe('ConversationEntitiesSchema (thread-scoped)', () => {
     };
     expect(parseEntities(serializeEntities(entities))).toEqual(entities);
   });
+
+  it('accepts recentDocuments and lastDiscussedDocumentId', () => {
+    const data = {
+      ...EMPTY_ENTITIES,
+      recentDocuments: [
+        { documentId: UUID, title: 'Report.pdf', lastSeenAt: '2026-07-15T03:00:00Z' },
+      ],
+      lastDiscussedDocumentId: UUID,
+    };
+    const parsed = ConversationEntitiesSchema.parse(data);
+    expect(parsed.recentDocuments).toHaveLength(1);
+    expect(parsed.lastDiscussedDocumentId).toBe(UUID);
+  });
+
+  it('EMPTY_ENTITIES has empty recentDocuments', () => {
+    expect(EMPTY_ENTITIES.recentDocuments).toEqual([]);
+    expect(EMPTY_ENTITIES.lastDiscussedDocumentId).toBeNull();
+  });
+
+  it('round-trips document fields through serialize/parse', () => {
+    const data = {
+      ...EMPTY_ENTITIES,
+      recentDocuments: [
+        { documentId: UUID, title: 'Design.docx', lastSeenAt: '2026-07-15T04:00:00Z' },
+      ],
+      lastDiscussedDocumentId: UUID,
+    };
+    const reparsed = parseEntities(serializeEntities(data));
+    expect(reparsed.recentDocuments).toEqual(data.recentDocuments);
+    expect(reparsed.lastDiscussedDocumentId).toBe(UUID);
+  });
 });

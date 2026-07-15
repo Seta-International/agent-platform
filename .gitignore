@@ -7,6 +7,7 @@ docs/superpowers
 .claude/settings.local.json
 .claude/worktrees/
 .claude/*.lock
+.claude/skills
 
 # Dependencies
 node_modules

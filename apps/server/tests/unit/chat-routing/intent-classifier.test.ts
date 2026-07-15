@@ -100,4 +100,33 @@ describe('chat intent classifier (tier 2: assignment vs planner_qna)', () => {
     const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
     expect(await c('hmm')).toBe('weekly_planner');
   });
+
+  it('forwards history to LLM seam for ambiguous follow-ups', async () => {
+    const llm = vi.fn(async () => 'planner_qna' as const);
+    const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+    const history = [
+      { role: 'user' as const, content: 'find tasks about design' },
+      { role: 'assistant' as const, content: 'Found 3 tasks about design.' },
+    ];
+    await c('cho toi chi tiet cai dau tien', history);
+    expect(llm).toHaveBeenCalledWith('cho toi chi tiet cai dau tien', history);
+  });
+
+  it('regex fast-paths ignore history', async () => {
+    const llm = vi.fn(async () => 'assignment' as const);
+    const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+    const history = [
+      { role: 'user' as const, content: 'something' },
+      { role: 'assistant' as const, content: 'response' },
+    ];
+    expect(await c('what are my open tasks?', history)).toBe('planner_qna');
+    expect(llm).not.toHaveBeenCalled();
+  });
+
+  it('classify works without history (backward compatible)', async () => {
+    const llm = vi.fn(async () => 'assignment' as const);
+    const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+    await c('hmm');
+    expect(llm).toHaveBeenCalledWith('hmm', undefined);
+  });
 });

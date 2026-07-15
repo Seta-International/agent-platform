@@ -1,8 +1,6 @@
 import type { Mastra } from '@mastra/core';
-import { ModelRouterEmbeddingModel } from '@mastra/core/llm';
 import type { MemoryConfig, MemoryConfigInternal } from '@mastra/core/memory';
 import { Memory } from '@mastra/memory';
-import { PgVector } from '@mastra/pg';
 import {
   ConversationEntitiesSchema,
   WorkingMemorySchema,
@@ -35,35 +33,15 @@ export class GuardedMemory extends Memory {
 }
 
 // ---------------------------------------------------------------------------
-// PgVector singleton — same lazy-init pattern as getIdentityVectorStore
-// ---------------------------------------------------------------------------
-let cachedRecallVector: { store: PgVector; databaseUrl: string } | null = null;
-
-function getRecallVector(databaseUrl: string): PgVector {
-  if (cachedRecallVector?.databaseUrl === databaseUrl) return cachedRecallVector.store;
-  if (cachedRecallVector) {
-    void cachedRecallVector.store.disconnect().catch(() => {});
-  }
-  const store = new PgVector({
-    id: 'agent-recall',
-    connectionString: databaseUrl,
-    schemaName: 'agent',
-  });
-  cachedRecallVector = { store, databaseUrl };
-  return store;
-}
-
-// ---------------------------------------------------------------------------
 // Resource-scoped userContext memory factory
 // ---------------------------------------------------------------------------
 export function buildMemory(opts: {
   mastra: Mastra | undefined;
-  databaseUrl?: string;
 }): { memory: Memory; memoryConfig: MemoryConfig } | undefined {
   const storage = opts.mastra?.getStorage();
   if (!storage) return undefined;
 
-  const baseOpts: Pick<MemoryConfig, 'lastMessages' | 'generateTitle' | 'workingMemory'> = {
+  const memoryConfig: MemoryConfig = {
     lastMessages: agentEnv.AGENT_MEMORY_LAST_MESSAGES,
     generateTitle: true,
     workingMemory: {
@@ -71,38 +49,10 @@ export function buildMemory(opts: {
       scope: 'resource',
       schema: WorkingMemorySchema,
     },
-  };
-
-  if (!opts.databaseUrl) {
-    const memoryConfig: MemoryConfig = { ...baseOpts, semanticRecall: false };
-    const memory = new GuardedMemory({
-      storage: storage as never,
-      options: memoryConfig,
-    });
-    return { memory, memoryConfig };
-  }
-
-  const vector = getRecallVector(opts.databaseUrl);
-  const embedder = new ModelRouterEmbeddingModel(
-    process.env.EMBED_MODEL ?? 'openai/text-embedding-3-small',
-  );
-  const memoryConfig: MemoryConfig = {
-    ...baseOpts,
-    semanticRecall: {
-      topK: 5,
-      messageRange: 2,
-      scope: 'thread',
-      indexConfig: {
-        type: 'hnsw',
-        metric: 'dotproduct',
-        hnsw: { m: 16, efConstruction: 64 },
-      },
-    },
+    semanticRecall: false,
   };
   const memory = new GuardedMemory({
     storage: storage as never,
-    vector,
-    embedder,
     options: memoryConfig,
   });
   return { memory, memoryConfig };
@@ -135,4 +85,24 @@ export function buildEntitiesMemory(opts: {
   };
   const memory = new Memory({ storage: storage as never, options: memoryConfig });
   return { memory, memoryConfig };
+}
+
+// ---------------------------------------------------------------------------
+// Session-level history loader — called once per turn by the chat route.
+// ---------------------------------------------------------------------------
+export async function loadSessionHistory(
+  handle:
+    | { memory: Pick<Memory, 'recall'>; memoryConfig: { lastMessages?: number | false } }
+    | undefined,
+  threadId: string | undefined,
+): Promise<import('@mastra/core/agent').MastraDBMessage[]> {
+  if (!handle || !threadId) return [];
+  try {
+    const perPage =
+      typeof handle.memoryConfig.lastMessages === 'number' ? handle.memoryConfig.lastMessages : 20;
+    const { messages } = await handle.memory.recall({ threadId, perPage });
+    return messages ?? [];
+  } catch {
+    return [];
+  }
 }
