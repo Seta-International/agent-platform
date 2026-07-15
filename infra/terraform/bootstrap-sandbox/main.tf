@@ -43,7 +43,7 @@ resource "aws_iam_role_policy_attachment" "gha_sandbox_admin" {
 }
 
 resource "aws_s3_bucket" "tfstate" {
-  bucket = "seta-tfstate-sandbox-931628308308"
+  bucket = "${var.state_bucket_prefix}-${data.aws_caller_identity.current.account_id}"
 }
 
 resource "aws_s3_bucket_versioning" "tfstate" {

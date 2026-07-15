@@ -6,7 +6,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "ap-southeast-1"
+  region = var.region
   default_tags {
     tags = {
       Project     = "future-app"
