@@ -17,6 +17,14 @@ import { makeTaskWithAssignees } from '../../../src/testing/fixtures';
 // label_name/label_color before the request), which can't carry the richer
 // assertions below. Mock the four label mutation hooks the same way
 // grid-bulk-action-footer.test.tsx mocks use-group-members.
+// The global test stub (tests/setup.ts) grants usePermission() === true for every test in this
+// package. This card must also gate the applied-label token's remove button on
+// usePermission('planner.task.update') (Astryx's Tokenizer doesn't gate a custom renderToken's
+// controls when isDisabled), so override the stub locally the same way
+// SyncControlsMenu.test.tsx does, letting individual tests flip it to false.
+let mockCanUpdate = true;
+vi.mock('@seta/web-identity', () => ({ usePermission: () => mockCanUpdate }));
+
 const { applySpy, unapplySpy, createSpy, updateSpy, deleteSpy } = vi.hoisted(() => ({
   applySpy: vi.fn(),
   unapplySpy: vi.fn(),
@@ -61,6 +69,7 @@ beforeEach(() => {
   createSpy.mockClear();
   updateSpy.mockClear();
   deleteSpy.mockClear();
+  mockCanUpdate = true;
 });
 
 function fxLabel(id: string, name: string, over: Partial<LabelRow> = {}): LabelRow {
@@ -138,6 +147,19 @@ describe('TaskDetailLabelsCard', () => {
     );
     await user.click(screen.getByRole('button', { name: /remove urgent/i }));
     expect(unapplySpy).toHaveBeenCalledWith(expect.objectContaining({ label_id: 'l-urgent' }));
+  });
+
+  it('disables the token remove button and blocks unapply when the user lacks update permission', async () => {
+    mockCanUpdate = false;
+    const user = userEvent.setup();
+    const { unapplySpy } = renderWithClient(
+      <TaskDetailLabelsCard task={taskWithUrgent} planId="p1" />,
+      [fxLabel('l-urgent', 'Urgent')],
+    );
+    const removeButton = screen.getByRole('button', { name: /remove urgent/i });
+    expect(removeButton).toBeDisabled();
+    await user.click(removeButton);
+    expect(unapplySpy).not.toHaveBeenCalled();
   });
 
   it('renders a read-only category-slot pill when task has a category label', async () => {

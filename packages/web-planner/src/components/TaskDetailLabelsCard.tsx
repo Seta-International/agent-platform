@@ -143,7 +143,8 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
               type="button"
               aria-label={`Remove ${item.label}`}
               onClick={onRemove}
-              className="cursor-pointer border-none bg-transparent p-0.5 text-ink-subtle"
+              disabled={!canUpdate}
+              className="cursor-pointer border-none bg-transparent p-0.5 text-ink-subtle disabled:cursor-not-allowed disabled:opacity-40"
             >
               <X className="size-3" />
             </button>
