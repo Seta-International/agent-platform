@@ -7,9 +7,6 @@ import {
   SegmentedControl,
   Selector,
   Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -145,16 +142,11 @@ export function RequisitionsPage() {
         header: 'Position',
         cell: ({ row }: Ctx) => (
           <div className="min-w-[240px] max-w-[420px]">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="line-clamp-2 break-words font-medium text-ink">
-                    {row.original.title}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>{row.original.title}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip content={row.original.title} hasHoverIndication={false}>
+              <div className="line-clamp-2 break-words font-medium text-ink">
+                {row.original.title}
+              </div>
+            </Tooltip>
           </div>
         ),
       },
@@ -185,14 +177,9 @@ export function RequisitionsPage() {
         cell: ({ row }: Ctx) =>
           row.original.grade ? (
             <div className="max-w-[160px]">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="truncate text-ink-muted">{row.original.grade}</div>
-                  </TooltipTrigger>
-                  <TooltipContent>{row.original.grade}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip content={row.original.grade} hasHoverIndication={false}>
+                <div className="truncate text-ink-muted">{row.original.grade}</div>
+              </Tooltip>
             </div>
           ) : (
             <span className="text-ink-muted">—</span>

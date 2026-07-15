@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { cn } from '../lib/cn';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../primitives/tooltip';
+import { Tooltip } from '../primitives/tooltip';
 
 export interface DisabledActionTooltipProps {
   /** When true, render children inside a non-interactive wrapper and explain why on hover/focus. */
@@ -35,17 +35,12 @@ export function DisabledActionTooltip({
 }: DisabledActionTooltipProps) {
   if (!disabled) return <>{children}</>;
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {/* biome-ignore lint/a11y/noNoninteractiveTabindex: the wrapped control is disabled (and
-              thus unfocusable), so the span must take focus to keep the reason reachable by keyboard. */}
-          <span tabIndex={0} className={cn('inline-flex cursor-not-allowed', className)}>
-            {children}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{reason}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip content={reason} hasHoverIndication={false}>
+      {/* biome-ignore lint/a11y/noNoninteractiveTabindex: the wrapped control is disabled (and
+          thus unfocusable), so the span must take focus to keep the reason reachable by keyboard. */}
+      <span tabIndex={0} className={cn('inline-flex cursor-not-allowed', className)}>
+        {children}
+      </span>
+    </Tooltip>
   );
 }

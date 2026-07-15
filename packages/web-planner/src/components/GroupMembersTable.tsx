@@ -5,11 +5,8 @@ import {
   Button,
   cn,
   DataTable,
+  HoverCard,
   Selector,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@seta/shared-ui';
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
@@ -79,25 +76,27 @@ function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: R
 
   if (isLinkedGroup) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {/* biome-ignore lint/a11y/noNoninteractiveTabindex: tooltip needs keyboard access */}
-          <span tabIndex={0}>{pill}</span>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Managed in Microsoft 365</p>
-          {externalId && (
-            <a
-              href={`https://entra.microsoft.com/#view/Microsoft_AAD_IAM/GroupDetailsMenuBlade/~/Overview/groupId/${externalId}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-0.5 block text-xs underline"
-            >
-              Open in Azure portal
-            </a>
-          )}
-        </TooltipContent>
-      </Tooltip>
+      <HoverCard
+        content={
+          <>
+            <p>Managed in Microsoft 365</p>
+            {externalId && (
+              <a
+                href={`https://entra.microsoft.com/#view/Microsoft_AAD_IAM/GroupDetailsMenuBlade/~/Overview/groupId/${externalId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-0.5 block text-xs underline"
+              >
+                Open in Azure portal
+              </a>
+            )}
+          </>
+        }
+        hasHoverIndication={false}
+      >
+        {/* biome-ignore lint/a11y/noNoninteractiveTabindex: hover card needs keyboard access */}
+        <span tabIndex={0}>{pill}</span>
+      </HoverCard>
     );
   }
 
@@ -200,51 +199,49 @@ export function GroupMembersTable({
   );
 
   return (
-    <TooltipProvider>
-      <section className="rounded-lg border border-hairline bg-canvas overflow-hidden">
-        {selectedIds.length > 0 && (
-          <div className="flex items-center gap-3 border-b border-hairline bg-surface-1 px-4 py-2">
-            <span className="text-body-sm text-ink-subtle">
-              {selectedIds.length} {selectedIds.length === 1 ? 'member' : 'members'} selected
-            </span>
-            <Button
-              variant="destructive"
-              size="sm"
-              label="Remove selected"
-              onClick={() => {
-                onRemoveMembers(selectedIds);
-                setRowSelection({});
-              }}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              label="Clear selection"
-              onClick={() => setRowSelection({})}
-            />
-          </div>
-        )}
-        <div className="[&_>div]:space-y-0 [&_>div>div:first-child]:px-4 [&_>div>div:first-child]:pt-3 [&_>div>div:first-child]:pb-3 [&_>div>div:first-child]:border-b [&_>div>div:first-child]:border-hairline">
-          <DataTable
-            mode="client"
-            data={members as GroupMemberRow[]}
-            columns={columns}
-            enableGlobalFilter
-            globalFilterPlaceholder="Search members…"
-            enableColumnVisibility={false}
-            density="comfortable"
-            pagination={{ defaultPageSize: 20, pageSizeOptions: [20, 50, 100] }}
-            enableRowSelection={canRemove}
-            rowSelection={rowSelection}
-            onRowSelectionChange={setRowSelection}
-            emptyState={
-              <div className="px-4 py-12 text-center text-body-sm text-ink-subtle">
-                No members in this group yet.
-              </div>
-            }
+    <section className="rounded-lg border border-hairline bg-canvas overflow-hidden">
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-3 border-b border-hairline bg-surface-1 px-4 py-2">
+          <span className="text-body-sm text-ink-subtle">
+            {selectedIds.length} {selectedIds.length === 1 ? 'member' : 'members'} selected
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            label="Remove selected"
+            onClick={() => {
+              onRemoveMembers(selectedIds);
+              setRowSelection({});
+            }}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            label="Clear selection"
+            onClick={() => setRowSelection({})}
           />
         </div>
-      </section>
-    </TooltipProvider>
+      )}
+      <div className="[&_>div]:space-y-0 [&_>div>div:first-child]:px-4 [&_>div>div:first-child]:pt-3 [&_>div>div:first-child]:pb-3 [&_>div>div:first-child]:border-b [&_>div>div:first-child]:border-hairline">
+        <DataTable
+          mode="client"
+          data={members as GroupMemberRow[]}
+          columns={columns}
+          enableGlobalFilter
+          globalFilterPlaceholder="Search members…"
+          enableColumnVisibility={false}
+          density="comfortable"
+          pagination={{ defaultPageSize: 20, pageSizeOptions: [20, 50, 100] }}
+          enableRowSelection={canRemove}
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
+          emptyState={
+            <div className="px-4 py-12 text-center text-body-sm text-ink-subtle">
+              No members in this group yet.
+            </div>
+          }
+        />
+      </div>
+    </section>
   );
 }
