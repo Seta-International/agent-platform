@@ -100,7 +100,12 @@ jobs:
             -t "${{ steps.ctx.outputs.image_uri }}" .
           docker push "${{ steps.ctx.outputs.image_uri }}"
 
-      - name: Terraform apply (full)
+      # Phase 1: create everything the migrate needs (cluster, task defs, network,
+      # RDS, secrets) but NOT the services. The server refuses to boot against an
+      # un-migrated DB (assertCaughtUpOnly -> process.exit), so services must be
+      # created only after migrate — otherwise they crash-loop and trip the
+      # deployment circuit breaker.
+      - name: Terraform apply (pre-migrate, no services)
         if: env.MODE != 'plan' && env.MODE != 'destroy'
         working-directory: ${{ env.TF_DIR }}
         env:
@@ -108,7 +113,13 @@ jobs:
           TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
           TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
           TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
-        run: terraform apply -input=false -auto-approve
+        run: |
+          terraform apply -input=false -auto-approve \
+            -target=module.app.aws_ecs_cluster.main \
+            -target=module.app.aws_ecs_task_definition.api \
+            -target=module.app.aws_ecs_task_definition.worker \
+            -target=module.app.aws_security_group.tasks \
+            -target=module.app.aws_subnet.public
 
       - name: Migrate (one-off task)
         if: env.MODE != 'plan' && env.MODE != 'destroy'
@@ -138,9 +149,18 @@ jobs:
             --limit 200 --query 'events[].message' --output text 2>/dev/null || echo "(no logs)"
           test "$CODE" = "0"
 
-      # No force-new-deployment: the image already exists at apply time, so the
-      # services come up on the correct image. Just wait for steady state (apply
-      # returns before tasks are healthy).
+      # Phase 2: now that the DB is migrated, create the services. Their tasks
+      # boot healthy on the first try (image present, schema present, secrets set).
+      - name: Terraform apply (full — creates services)
+        if: env.MODE != 'plan' && env.MODE != 'destroy'
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
+          TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
+          TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
+          TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
+        run: terraform apply -input=false -auto-approve
+
       - name: Wait for services stable
         if: env.MODE != 'plan' && env.MODE != 'destroy'
         working-directory: ${{ env.TF_DIR }}
@@ -171,7 +191,7 @@ jobs:
           for i in $(seq 1 10); do
             OUT=$(aws ecs execute-command --cluster "$CLUSTER" --task "$TASK" \
               --container server --interactive \
-              --command "wget -qO- http://127.0.0.1:3000/health/ready" 2>&1 || true)
+              --command "wget -qO- http://localhost:3000/health/ready" 2>&1 || true)
             echo "--- attempt $i ---"; echo "$OUT"
             if echo "$OUT" | grep -q '"ok":true'; then ok=1; break; fi
             sleep 6
