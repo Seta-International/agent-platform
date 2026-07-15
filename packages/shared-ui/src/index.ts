@@ -120,7 +120,6 @@ export * from './rich-text/RichTextToolbar';
 // Sync
 export * from './sync/m365-error-messages';
 // Task
-export * from './task/add-reference-combobox';
 export * from './task/classify-url';
 export * from './task/reference-row';
 // Theme
