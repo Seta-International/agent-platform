@@ -1,6 +1,7 @@
 export const EVALS_HARNESS_VERSION = 'phase-1';
 
 export {
+  type DatasetItemToolMock,
   defineEvalCase,
   defineEvalSuite,
   type EvalActor,
@@ -27,3 +28,4 @@ export {
   schemaConformanceScorer,
   trustEnvelopeScorer,
 } from './scorers.ts';
+export { buildMockTools } from './tool-mock.ts';
