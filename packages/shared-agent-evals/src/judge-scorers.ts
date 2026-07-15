@@ -50,6 +50,12 @@ function adapt(
 ): MastraScorer {
   return {
     id,
+    // Forward the prebuilt's own `name`/`description` getters so the wrapper
+    // doesn't silently drop real metadata behind the `as unknown as
+    // MastraScorer` cast below — callers reading `.name`/`.description` off
+    // the returned scorer get the prebuilt's values, not `undefined`.
+    name: prebuilt.name,
+    description: prebuilt.description,
     run: async (runInput: { input?: unknown; output: unknown; groundTruth?: unknown }) => {
       const answer = answerOf((runInput.output as ResultOutput).result);
       return prebuilt.run({

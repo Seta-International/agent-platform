@@ -39,7 +39,14 @@ function synthesizeFromSchema(schema: JsonSchemaLike | undefined, score: number)
       const required = schema.required ?? Object.keys(properties);
       const out: Record<string, unknown> = {};
       for (const key of required) {
-        out[key] = /score/i.test(key) ? score : synthesizeFromSchema(properties[key], score);
+        // Only bias a `/score/i`-named field to the numeric score when its
+        // declared type is actually numeric — a `score`-named `string` field
+        // (e.g. a verdict enum) must still fall through to the default
+        // string/enum handling below instead of getting a number.
+        const fieldSchema = properties[key];
+        const isNumericScoreField =
+          /score/i.test(key) && (fieldSchema?.type === 'number' || fieldSchema?.type === 'integer');
+        out[key] = isNumericScoreField ? score : synthesizeFromSchema(fieldSchema, score);
       }
       return out;
     }
