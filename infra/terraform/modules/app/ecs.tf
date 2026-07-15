@@ -63,11 +63,12 @@ locals {
       }
     }
     healthCheck = {
-      command     = ["CMD-SHELL", "wget -qO- http://localhost:3000/health/live || exit 1"]
-      interval    = 30
-      timeout     = 5
-      retries     = 3
-      startPeriod = 30
+      command  = ["CMD-SHELL", "wget -qO- http://localhost:3000/health/live || exit 1"]
+      interval = 30
+      timeout  = 5
+      retries  = 3
+      # tsx compiles the whole graph on boot; give it generous startup grace.
+      startPeriod = 120
     }
   }
 

@@ -83,13 +83,17 @@ variable "cpu_architecture" {
     error_message = "cpu_architecture must be X86_64 or ARM64."
   }
 }
+# The app runs TypeScript via tsx at runtime, which compiles the full module
+# graph on boot — a large transient memory/CPU spike well above steady state
+# (prod server idles ~425 MB but the box has no per-container limit to absorb the
+# boot spike). 0.5 vCPU / 1 GB OOM-kills the api mid-boot; 1 vCPU / 2 GB boots it.
 variable "api_cpu" {
   type    = number
-  default = 512
+  default = 1024
 }
 variable "api_memory" {
   type    = number
-  default = 1024
+  default = 2048
 }
 variable "api_desired" {
   type    = number

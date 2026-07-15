@@ -202,10 +202,12 @@ jobs:
           aws ecs describe-services --cluster "$CLUSTER" --services "$API" "$WORKER" \
             --query 'services[].{name:serviceName,deployments:deployments[].{status:status,rollout:rolloutState,reason:rolloutStateReason,desired:desiredCount,running:runningCount,failed:failedTasks},events:events[0:5].message}'
           for SVC in "$API" "$WORKER"; do
-            echo "############ TASKS for $SVC ############"
-            for T in $(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SVC" --query 'taskArns' --output text); do
-              aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$T" \
-                --query 'tasks[0].{last:lastStatus,health:healthStatus,stopped:stoppedReason,containers:containers[].{name:name,last:lastStatus,health:healthStatus,exit:exitCode,reason:reason}}'
+            for ST in RUNNING STOPPED; do
+              echo "############ $ST TASKS for $SVC ############"
+              for T in $(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SVC" --desired-status "$ST" --query 'taskArns' --output text); do
+                aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$T" \
+                  --query 'tasks[0].{last:lastStatus,health:healthStatus,stopped:stoppedReason,containers:containers[].{name:name,last:lastStatus,exit:exitCode,reason:reason}}'
+              done
             done
           done
           echo "############ SERVER LOGS ############"
