@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { SkillCatalog } from '../../src/api/hiring-client.ts';
+import { fetchSkillCatalog } from '../../src/api/hiring-client.ts';
 import { SkillPicker } from '../../src/pages/skill-picker.tsx';
 import { hiringKeys } from '../../src/state/query-keys.ts';
 
@@ -55,5 +57,44 @@ describe('SkillPicker', () => {
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: 'Retired' } });
     expect(screen.queryByText('Retired')).toBeNull();
+  });
+
+  // Regression: BaseTypeahead's search is event-driven — it runs against
+  // whatever searchSource existed at the moment of the input event. If the
+  // field were interactive while the catalog query is still pending, typing
+  // would search an empty source and the dropdown would stay empty forever
+  // (only self-healing on a manual clear + retype). The fix disables the
+  // field until the catalog resolves, so the source is never queried empty.
+  it('disables the field while the skill catalog is loading, then enables it with a queryable source once loaded', async () => {
+    let resolveCatalog!: (value: SkillCatalog) => void;
+    const pending = new Promise<SkillCatalog>((resolve) => {
+      resolveCatalog = resolve;
+    });
+    vi.mocked(fetchSkillCatalog).mockReturnValueOnce(pending);
+
+    renderPicker();
+    const input = await screen.findByPlaceholderText(/search skills/i);
+
+    // Still loading: the field must be non-interactive so it can't be
+    // searched against the not-yet-populated source.
+    expect(input).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'Postgres' } });
+    expect(screen.queryByText('Postgres')).toBeNull();
+
+    resolveCatalog({
+      categories: [{ id: 'c1', name: 'Backend' }],
+      skills: [{ id: 's1', name: 'Postgres', category_id: 'c1', active: true }],
+    });
+
+    // Once the catalog resolves, the field enables and the now fully
+    // populated source is queryable. Clear the input before retyping the
+    // same query — React's controlled-input value tracker treats a
+    // no-op value assignment as a non-event otherwise.
+    await waitFor(() => expect(input).not.toHaveAttribute('aria-disabled'));
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.change(input, { target: { value: 'Postgres' } });
+    expect(await screen.findByText('Postgres')).toBeInTheDocument();
   });
 });

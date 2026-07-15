@@ -28,7 +28,10 @@ export function SkillPicker({
   /** Show the per-skill 0–5 level dropdown. Off for requisition creation, which doesn't set levels. */
   showLevel?: boolean;
 }) {
-  const { data } = useQuery({ queryKey: hiringKeys.skillCatalog(), queryFn: fetchSkillCatalog });
+  const { data, isPending } = useQuery({
+    queryKey: hiringKeys.skillCatalog(),
+    queryFn: fetchSkillCatalog,
+  });
   const categories = data?.categories ?? [];
   const catName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
   const activeSkills = useMemo(() => (data?.skills ?? []).filter((s) => s.active), [data]);
@@ -70,6 +73,8 @@ export function SkillPicker({
       searchSource={source}
       debounceMs={0}
       hasEntriesOnFocus
+      isDisabled={isPending}
+      disabledMessage="Loading skills…"
       value={items}
       onChange={(next) =>
         onChange(
