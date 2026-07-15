@@ -277,6 +277,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const [editVariant, setEditVariant] = useState<JdVariant>('external');
   const [sections, setSections] = useState<SectionGrid>(emptySections());
   const [skills, setSkills] = useState<PickedSkill[]>([]);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [showFillConfirm, setShowFillConfirm] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -734,7 +735,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               disabled={!canManage && !canClose}
               reason={PERMISSION_DENIED.requisition.manage}
             >
-              <DropdownMenu>
+              <DropdownMenu open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="secondary" size="sm" disabled={!canManage && !canClose}>
                     <MoreHorizontal className="mr-1.5 size-4" />
@@ -756,7 +757,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     disabled={!canClose}
                     onSelect={(e) => {
                       e.preventDefault();
-                      setTimeout(() => setShowFillConfirm(true), 0);
+                      setMoreActionsOpen(false);
+                      setTimeout(() => setShowFillConfirm(true), 150);
                     }}
                   >
                     Mark filled
@@ -766,7 +768,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     className="text-danger-ink"
                     onSelect={(e) => {
                       e.preventDefault();
-                      setTimeout(() => setShowCancelDialog(true), 0);
+                      setMoreActionsOpen(false);
+                      setTimeout(() => setShowCancelDialog(true), 150);
                     }}
                   >
                     Cancel

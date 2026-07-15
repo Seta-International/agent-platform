@@ -10,6 +10,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Calendar, Check, ExternalLink, MoreHorizontal, Users } from 'lucide-react';
+import { useState } from 'react';
 import {
   holdRequisition,
   type RequisitionListRow,
@@ -51,6 +52,7 @@ export function RequisitionCard({
   onRequestMarkFilled: () => void;
   onRequestCancel: () => void;
 }) {
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const invalidate = () =>
@@ -129,7 +131,7 @@ export function RequisitionCard({
               disabled={!canManage && !canClose}
               reason={PERMISSION_DENIED.requisition.edit}
             >
-              <DropdownMenu>
+              <DropdownMenu open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
@@ -158,7 +160,8 @@ export function RequisitionCard({
                     // body pointer-events stuck off (page looks frozen until a refresh).
                     onSelect={(e) => {
                       e.preventDefault();
-                      setTimeout(onRequestMarkFilled, 0);
+                      setMoreActionsOpen(false);
+                      setTimeout(onRequestMarkFilled, 150);
                     }}
                   >
                     Mark filled
@@ -168,7 +171,8 @@ export function RequisitionCard({
                     className="text-danger-ink"
                     onSelect={(e) => {
                       e.preventDefault();
-                      setTimeout(onRequestCancel, 0);
+                      setMoreActionsOpen(false);
+                      setTimeout(onRequestCancel, 150);
                     }}
                   >
                     Cancel
