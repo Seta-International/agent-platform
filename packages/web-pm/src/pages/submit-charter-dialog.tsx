@@ -1,5 +1,4 @@
 import {
-  AsyncCombobox,
   Banner,
   Button,
   DateInput,
@@ -11,8 +10,10 @@ import {
   Input,
   Label,
   NumberInput,
+  type SearchableItem,
   Selector,
   Textarea,
+  Typeahead,
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -23,7 +24,7 @@ import {
   type SubmitCharterBody,
   submitCharter,
 } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search';
+import { useWorkerSource } from '../api/worker-search';
 
 const NONE = '__none__';
 
@@ -61,8 +62,9 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  const [pmWorker, setPmWorker] = useState<SearchableItem | null>(null);
 
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
 
   const { data: accounts } = useQuery<AccountListRow[]>({
     queryKey: ['pm', 'accounts'],
@@ -94,6 +96,7 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
       onCreated();
       setOpen(false);
       setForm(EMPTY);
+      setPmWorker(null);
       setError(null);
     },
     onError: (e: Error) => setError(e.message),
@@ -116,6 +119,7 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
         setOpen(v);
         if (!v) {
           setForm(EMPTY);
+          setPmWorker(null);
           setError(null);
         }
       }}
@@ -148,11 +152,15 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
 
           <div className="space-y-1">
             <Label>PM *</Label>
-            <AsyncCombobox
-              value={form.pm_worker_id || null}
-              onChange={(v) => set({ pm_worker_id: v ?? '' })}
-              search={workerPicker.search}
-              resolveByIds={workerPicker.resolveByIds}
+            <Typeahead
+              label="PM"
+              isLabelHidden
+              searchSource={workerSource.source}
+              value={pmWorker}
+              onChange={(item) => {
+                setPmWorker(item);
+                set({ pm_worker_id: item?.id ?? '' });
+              }}
               placeholder="Search workers…"
             />
           </div>

@@ -1,11 +1,9 @@
 import {
-  AsyncCombobox,
   Badge,
   Banner,
   Button,
   Card,
-  Combobox,
-  type ComboboxOption,
+  createStaticSource,
   DataTable,
   DateInput,
   Dialog,
@@ -15,12 +13,13 @@ import {
   DialogTrigger,
   EmptyState,
   Input,
-  Label,
   NumberInput,
   type OnChangeFn,
   PageChrome,
+  type SearchableItem,
   Selector,
   type SortingState,
+  Typeahead,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -35,7 +34,7 @@ import {
   type RaMonitoringAllocation,
   splitAllocation,
 } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search.ts';
+import { useWorkerSource } from '../api/worker-search.ts';
 import { pmKeys } from '../state/query-keys.ts';
 import { rowCalendarEffort } from '../utils/common.ts';
 import { type EffortWindow, overAllocatedWorkers, rollupKpis } from './ra-effort.ts';
@@ -117,16 +116,15 @@ function SelectEmployeeDialog({
 }: {
   onSelect: (worker: { id: string; name: string | null }) => void;
 }) {
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
   const [open, setOpen] = useState(false);
-  const [worker, setWorker] = useState<string | null>(null);
+  const [worker, setWorker] = useState<SearchableItem | null>(null);
 
-  async function handleNext() {
+  function handleNext() {
     if (!worker) return;
-    const [resolved] = await workerPicker.resolveByIds([worker]);
     setOpen(false);
+    onSelect({ id: worker.id, name: worker.label });
     setWorker(null);
-    onSelect({ id: worker, name: resolved?.label ?? null });
   }
 
   return (
@@ -151,12 +149,11 @@ function SelectEmployeeDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Employee</Label>
-            <AsyncCombobox
+            <Typeahead
+              label="Employee"
+              searchSource={workerSource.source}
               value={worker}
               onChange={setWorker}
-              search={workerPicker.search}
-              resolveByIds={workerPicker.resolveByIds}
               placeholder="Search people…"
             />
           </div>
@@ -404,14 +401,16 @@ export function RaMonitoringPage() {
     () => canManage && (projects ?? []).some((p) => p.can_manage),
     [canManage, projects],
   );
-  const accountOptions = useMemo<ComboboxOption[]>(
-    () => (accounts ?? []).map((a) => ({ value: a.account_id, label: a.name })),
+  const accountOptions = useMemo<SearchableItem[]>(
+    () => (accounts ?? []).map((a) => ({ id: a.account_id, label: a.name })),
     [accounts],
   );
-  const projectOptions = useMemo<ComboboxOption[]>(
-    () => visibleProjects.map((p) => ({ value: p.project_id, label: p.name })),
+  const projectOptions = useMemo<SearchableItem[]>(
+    () => visibleProjects.map((p) => ({ id: p.project_id, label: p.name })),
     [visibleProjects],
   );
+  const accountSource = useMemo(() => createStaticSource(accountOptions), [accountOptions]);
+  const projectSource = useMemo(() => createStaticSource(projectOptions), [projectOptions]);
   const kpis = useMemo(() => rollupKpis(allocations, win), [allocations, win]);
   const overWorkers = useMemo(() => overAllocatedWorkers(allocations, win), [allocations, win]);
   const hasFilters = Boolean(
@@ -656,23 +655,29 @@ export function RaMonitoringPage() {
             value={searchInput}
             onChange={(value) => setSearchInput(value)}
           />
-          <Combobox
+          <Typeahead
+            label="Account"
+            isLabelHidden
             className="h-8 w-44"
-            aria-label="Account"
+            searchSource={accountSource}
+            debounceMs={0}
+            hasEntriesOnFocus
+            hasClear
             placeholder="All accounts"
-            searchPlaceholder="Search accounts…"
-            options={accountOptions}
-            value={accountId || null}
-            onChange={(v) => update({ account: v ?? undefined, project: undefined })}
+            value={accountOptions.find((o) => o.id === accountId) ?? null}
+            onChange={(item) => update({ account: item?.id ?? undefined, project: undefined })}
           />
-          <Combobox
+          <Typeahead
+            label="Project"
+            isLabelHidden
             className="h-8 w-44"
-            aria-label="Project"
+            searchSource={projectSource}
+            debounceMs={0}
+            hasEntriesOnFocus
+            hasClear
             placeholder="All projects"
-            searchPlaceholder="Search projects…"
-            options={projectOptions}
-            value={projectId || null}
-            onChange={(v) => update({ project: v ?? undefined })}
+            value={projectOptions.find((o) => o.id === projectId) ?? null}
+            onChange={(item) => update({ project: item?.id ?? undefined })}
           />
           <div className="flex items-center gap-1.5">
             <DateInput

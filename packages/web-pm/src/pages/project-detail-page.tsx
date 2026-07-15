@@ -1,5 +1,4 @@
 import {
-  AsyncCombobox,
   Badge,
   Banner,
   Button,
@@ -13,7 +12,9 @@ import {
   Selector,
   Skeleton,
   Textarea,
+  Typeahead,
   toast,
+  useSeededItem,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -67,6 +68,12 @@ export function ProjectDetailPage() {
   useEffect(() => {
     setSelectedGroupId(p?.planner_group_id ?? '');
   }, [p?.planner_group_id]);
+
+  // Org unit: seeded by the persisted id until the draft patch picks a different one — the
+  // same hook backs both the read-only-when-locked display and the editing Typeahead.
+  const effectiveOrgUnitId =
+    patch.org_unit_id !== undefined ? patch.org_unit_id : (p?.org_unit_id ?? null);
+  const [orgUnitItem, setOrgUnitItem] = useSeededItem(effectiveOrgUnitId, orgUnitSearch.seed);
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: pmKeys.project(projectId) });
@@ -253,13 +260,17 @@ export function ProjectDetailPage() {
 
                   <div className="space-y-1">
                     <Label>Org unit</Label>
-                    <AsyncCombobox
-                      value={patch.org_unit_id !== undefined ? patch.org_unit_id : p.org_unit_id}
-                      onChange={(v) => setPatch((s) => ({ ...s, org_unit_id: v }))}
-                      search={orgUnitSearch.search}
-                      resolveByIds={orgUnitSearch.resolveByIds}
+                    <Typeahead
+                      label="Org unit"
+                      isLabelHidden
+                      searchSource={orgUnitSearch.source}
+                      value={orgUnitItem}
+                      onChange={(item) => {
+                        setOrgUnitItem(item);
+                        setPatch((s) => ({ ...s, org_unit_id: item?.id ?? null }));
+                      }}
                       placeholder="Search org units…"
-                      disabled={inputsDisabled}
+                      isDisabled={inputsDisabled}
                     />
                   </div>
 

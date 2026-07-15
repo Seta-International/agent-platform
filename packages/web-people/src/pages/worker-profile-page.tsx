@@ -1,5 +1,4 @@
 import {
-  AsyncCombobox,
   Avatar,
   AvatarFallback,
   Badge,
@@ -16,10 +15,13 @@ import {
   LayoutContent,
   LayoutHeader,
   PageChrome,
+  type SearchableItem,
   Selector,
   Skeleton,
   SkillLevelRating,
+  Typeahead,
   toast,
+  useSeededItem,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -90,6 +92,13 @@ export function WorkerProfilePage() {
     Array<{ id: string; name: string; level: number | null }>
   >([]);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // The draft only carries a persisted org_unit_id — resolve it into a labelled item while
+  // editing (matched BY ID: searchOrgUnits.seed may not return the wanted unit first).
+  const [orgUnitItem, setOrgUnitItem] = useSeededItem(
+    editing ? (draft.org_unit_id ?? null) : null,
+    searchOrgUnits.seed,
+  );
 
   const {
     data: worker,
@@ -166,14 +175,13 @@ export function WorkerProfilePage() {
     },
   });
 
-  // Skill edits stage into skillDraft and commit with the page's Save button.
-  async function addSkillToDraft(id: string) {
-    if (skillDraft.some((s) => s.id === id)) return;
-    const [opt] = await searchSkills.resolveByIds([id]);
+  // Skill edits stage into skillDraft and commit with the page's Save button. The typeahead
+  // onChange already hands us the resolved item (id + label) — no need to re-resolve by id.
+  function addSkillToDraft(item: SearchableItem) {
     setSkillDraft((prev) =>
-      prev.some((s) => s.id === id)
+      prev.some((s) => s.id === item.id)
         ? prev
-        : [...prev, { id, name: opt?.label ?? '…', level: null }],
+        : [...prev, { id: item.id, name: item.label, level: null }],
     );
   }
 
@@ -340,12 +348,15 @@ export function WorkerProfilePage() {
                       </div>
                       <div className="space-y-1">
                         <Label>Org unit</Label>
-                        <AsyncCombobox
-                          search={searchOrgUnits.search}
-                          resolveByIds={searchOrgUnits.resolveByIds}
-                          value={draft.org_unit_id ?? null}
-                          onChange={(v) => {
-                            setDraft((d) => ({ ...d, org_unit_id: v }));
+                        <Typeahead
+                          label="Org unit"
+                          isLabelHidden
+                          searchSource={searchOrgUnits.source}
+                          hasEntriesOnFocus
+                          value={orgUnitItem}
+                          onChange={(item) => {
+                            setOrgUnitItem(item);
+                            setDraft((d) => ({ ...d, org_unit_id: item?.id ?? null }));
                           }}
                           placeholder="Search org units…"
                         />
@@ -439,12 +450,13 @@ export function WorkerProfilePage() {
                       {editing && (
                         <div className="flex items-center gap-2">
                           <Search className="size-4 shrink-0 text-ink-subtle" />
-                          <AsyncCombobox
-                            search={searchSkills.search}
-                            resolveByIds={searchSkills.resolveByIds}
+                          <Typeahead
+                            label="Add a skill"
+                            isLabelHidden
+                            searchSource={searchSkills.source}
                             value={null}
-                            onChange={(id) => {
-                              if (id && !currentSkillIds.includes(id)) void addSkillToDraft(id);
+                            onChange={(item) => {
+                              if (item && !currentSkillIds.includes(item.id)) addSkillToDraft(item);
                             }}
                             placeholder="Search to add a skill…"
                             className="flex-1"

@@ -11,7 +11,6 @@ export * from './composites/agent-panel';
 // Composites
 export * from './composites/app-launcher';
 export * from './composites/app-shell';
-export * from './composites/async-combobox';
 export * from './composites/avatar-stack';
 export * from './composites/chat-composer';
 export * from './composites/chat-hitl-card';
@@ -20,7 +19,6 @@ export * from './composites/chat-message';
 export * from './composites/chat-thread-rail';
 export * from './composites/chat-tool-call';
 export * from './composites/chat-transcript';
-export * from './composites/combobox';
 export * from './composites/coming-soon';
 export * from './composites/counter-badge-popover';
 export * from './composites/data-table';
@@ -110,7 +108,10 @@ export * from './primitives/tabs';
 export * from './primitives/textarea';
 export * from './primitives/time-input';
 export * from './primitives/toast';
+export * from './primitives/tokenizer';
 export * from './primitives/tooltip';
+export * from './primitives/typeahead';
+export * from './primitives/use-seeded-item';
 // Rich text
 export * from './rich-text/RichTextDisplay';
 export * from './rich-text/RichTextEditor';

@@ -1,4 +1,10 @@
-import { Combobox, PageChrome, SegmentedControl } from '@seta/shared-ui';
+import {
+  createStaticSource,
+  PageChrome,
+  type SearchableItem,
+  SegmentedControl,
+  Typeahead,
+} from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useMemo } from 'react';
@@ -56,55 +62,54 @@ export function OrgChartPage() {
   const accounts = useMemo(() => deliveryQ.data?.accounts ?? [], [deliveryQ.data]);
   const units = useMemo(() => structureQ.data?.units ?? [], [structureQ.data]);
 
-  const accountOptions = useMemo(
-    () => accounts.map((a) => ({ value: a.account_id, label: a.name })),
+  const accountItems = useMemo<SearchableItem[]>(
+    () => accounts.map((a) => ({ id: a.account_id, label: a.name })),
     [accounts],
   );
-  const projectOptions = useMemo(
+  const accountSource = useMemo(() => createStaticSource(accountItems), [accountItems]);
+  const accountValue = accountItems.find((a) => a.id === account) ?? null;
+
+  const projectItems = useMemo<SearchableItem[]>(
     () =>
       accounts.flatMap((a) =>
-        a.projects.map((p) => ({ value: p.project_id, label: `${p.name} · ${a.name}` })),
+        a.projects.map((p) => ({ id: p.project_id, label: `${p.name} · ${a.name}` })),
       ),
     [accounts],
   );
-  const departmentOptions = useMemo(
-    () => units.map((u) => ({ value: u.id, label: u.name })),
+  const projectSource = useMemo(() => createStaticSource(projectItems), [projectItems]);
+  const projectValue = projectItems.find((p) => p.id === project) ?? null;
+
+  const departmentItems = useMemo<SearchableItem[]>(
+    () => units.map((u) => ({ id: u.id, label: u.name })),
     [units],
   );
+  const departmentSource = useMemo(() => createStaticSource(departmentItems), [departmentItems]);
+  const departmentValue = departmentItems.find((d) => d.id === department) ?? null;
 
   // Default the picker to the first option once data arrives, persisting it to the URL.
   useEffect(() => {
-    if (view === 'account' && !account && accountOptions.length > 0) {
+    if (view === 'account' && !account && accountItems.length > 0) {
       void navigate({
         to: '/people/org',
-        search: { view, project, department, account: accountOptions[0]?.value },
+        search: { view, project, department, account: accountItems[0]?.id },
         replace: true,
       });
     }
-    if (view === 'project' && !project && projectOptions.length > 0) {
+    if (view === 'project' && !project && projectItems.length > 0) {
       void navigate({
         to: '/people/org',
-        search: { view, account, department, project: projectOptions[0]?.value },
+        search: { view, account, department, project: projectItems[0]?.id },
         replace: true,
       });
     }
-    if (view === 'department' && !department && departmentOptions.length > 0) {
+    if (view === 'department' && !department && departmentItems.length > 0) {
       void navigate({
         to: '/people/org',
-        search: { view, account, project, department: departmentOptions[0]?.value },
+        search: { view, account, project, department: departmentItems[0]?.id },
         replace: true,
       });
     }
-  }, [
-    view,
-    account,
-    project,
-    department,
-    accountOptions,
-    projectOptions,
-    departmentOptions,
-    navigate,
-  ]);
+  }, [view, account, project, department, accountItems, projectItems, departmentItems, navigate]);
 
   const graph = useMemo(() => {
     if (view === 'company') return buildCompanyGraph(companyQ.data?.nodes ?? []);
@@ -160,30 +165,42 @@ export function OrgChartPage() {
           />
           {view === 'account' ? (
             <div className="w-64">
-              <Combobox
-                options={accountOptions}
-                value={account ?? null}
-                onChange={(v) => setSearch({ account: v ?? undefined })}
+              <Typeahead
+                label="Account"
+                isLabelHidden
+                searchSource={accountSource}
+                debounceMs={0}
+                hasEntriesOnFocus
+                value={accountValue}
+                onChange={(item) => setSearch({ account: item?.id ?? undefined })}
                 placeholder="Select account…"
               />
             </div>
           ) : null}
           {view === 'project' ? (
             <div className="w-72">
-              <Combobox
-                options={projectOptions}
-                value={project ?? null}
-                onChange={(v) => setSearch({ project: v ?? undefined })}
+              <Typeahead
+                label="Project"
+                isLabelHidden
+                searchSource={projectSource}
+                debounceMs={0}
+                hasEntriesOnFocus
+                value={projectValue}
+                onChange={(item) => setSearch({ project: item?.id ?? undefined })}
                 placeholder="Select project…"
               />
             </div>
           ) : null}
           {view === 'department' ? (
             <div className="w-64">
-              <Combobox
-                options={departmentOptions}
-                value={department ?? null}
-                onChange={(v) => setSearch({ department: v ?? undefined })}
+              <Typeahead
+                label="Department"
+                isLabelHidden
+                searchSource={departmentSource}
+                debounceMs={0}
+                hasEntriesOnFocus
+                value={departmentValue}
+                onChange={(item) => setSearch({ department: item?.id ?? undefined })}
                 placeholder="Select department…"
               />
             </div>

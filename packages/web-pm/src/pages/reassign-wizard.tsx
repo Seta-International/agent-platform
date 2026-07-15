@@ -9,15 +9,16 @@ import {
   AlertDialogTitle,
   Banner,
   Button,
-  Combobox,
-  type ComboboxOption,
+  createStaticSource,
   DateInput,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   Input,
+  type SearchableItem,
   Selector,
+  Typeahead,
   toast,
 } from '@seta/shared-ui';
 import { useMutation } from '@tanstack/react-query';
@@ -85,11 +86,12 @@ export function ReassignWizardDialog({
 }: {
   target: ReassignWizardTarget | null;
   allocations: RaMonitoringAllocation[];
-  accountOptions: ComboboxOption[];
+  accountOptions: SearchableItem[];
   projects: ProjectListRow[];
   onClose: () => void;
   onReassigned: () => void;
 }) {
+  const accountSource = useMemo(() => createStaticSource(accountOptions), [accountOptions]);
   const [step, setStep] = useState<Step>(1);
   const [targetRows, setTargetRows] = useState<ReassignTargetRow[]>([]);
   const [preview, setPreview] = useState<ReassignGroupPreviewResult | null>(null);
@@ -377,6 +379,17 @@ export function ReassignWizardDialog({
                     // delete only — you can shorten/extend or remove it, but not rewrite its terms.
                     const eff = effectiveRow(a);
                     const startLocked = !!eff.date_from && eff.date_from < todayIso();
+                    // Reassign target must be a project the caller manages (FUT-353) — the
+                    // backend rejects others, so don't offer them. Recomputed per row (not
+                    // memoized — this is a per-iteration render, not a hook-eligible scope)
+                    // since the cascade depends on this row's own selected account.
+                    const rowProjectItems = projects
+                      .filter(
+                        (p) =>
+                          p.can_manage && (!draft.account_id || p.account_id === draft.account_id),
+                      )
+                      .map((p) => ({ id: p.project_id, label: p.name }));
+                    const rowProjectSource = createStaticSource(rowProjectItems);
                     return (
                       <div
                         key={a.allocation_id}
@@ -387,20 +400,27 @@ export function ReassignWizardDialog({
                             aria-hidden="true"
                             className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
                           />
-                          <Combobox
-                            options={accountOptions}
-                            value={draft.account_id || null}
-                            disabled={startLocked}
-                            onChange={(v) =>
+                          <Typeahead
+                            label={`Account for ${a.project_name}`}
+                            isLabelHidden
+                            searchSource={accountSource}
+                            debounceMs={0}
+                            // No hasEntriesOnFocus here: this is the first tabbable field in the
+                            // Dialog, so Radix's open-time auto-focus lands on it — combined with
+                            // hasEntriesOnFocus that silently pops its dropdown open the instant
+                            // the wizard appears (confirmed via focusin firing synchronously
+                            // during the Dialog's mount commit). The "Add project" rows below
+                            // don't exist at mount time, so they're unaffected and keep it.
+                            value={accountOptions.find((o) => o.id === draft.account_id) ?? null}
+                            isDisabled={startLocked}
+                            onChange={(item) =>
                               updateRowDraft(a, {
-                                account_id: v ?? '',
+                                account_id: item?.id ?? '',
                                 project_id: '',
                               })
                             }
                             placeholder="Select account…"
-                            searchPlaceholder="Search accounts…"
                             className="w-full pl-7"
-                            aria-label={`Account for ${a.project_name}`}
                           />
                         </div>
                         <div className="relative">
@@ -408,28 +428,18 @@ export function ReassignWizardDialog({
                             aria-hidden="true"
                             className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
                           />
-                          <Combobox
-                            options={projects
-                              // Reassign target must be a project the caller manages (FUT-353) —
-                              // the backend rejects others, so don't offer them.
-                              .filter(
-                                (p) =>
-                                  p.can_manage &&
-                                  (!draft.account_id || p.account_id === draft.account_id),
-                              )
-                              .map((p) => ({
-                                value: p.project_id,
-                                label: p.name,
-                              }))}
-                            value={draft.project_id || null}
-                            disabled={startLocked}
-                            onChange={(v) => updateRowDraft(a, { project_id: v ?? '' })}
+                          <Typeahead
+                            label={`Project for ${a.project_name}`}
+                            isLabelHidden
+                            searchSource={rowProjectSource}
+                            debounceMs={0}
+                            value={rowProjectItems.find((o) => o.id === draft.project_id) ?? null}
+                            isDisabled={startLocked}
+                            onChange={(item) => updateRowDraft(a, { project_id: item?.id ?? '' })}
                             placeholder={
                               draft.account_id ? 'Select project…' : 'Pick an account first'
                             }
-                            searchPlaceholder="Search projects…"
                             className="w-full pl-7"
-                            aria-label={`Project for ${a.project_name}`}
                           />
                         </div>
                         <AllocationSelect
@@ -682,13 +692,23 @@ function TargetRowFields({
   error,
 }: {
   row: ReassignTargetRow;
-  accountOptions: ComboboxOption[];
+  accountOptions: SearchableItem[];
   projects: ProjectListRow[];
   onChange: (patch: Partial<ReassignTargetRow>) => void;
   onRemove: () => void;
   canRemove: boolean;
   error: string | null;
 }) {
+  const accountSource = useMemo(() => createStaticSource(accountOptions), [accountOptions]);
+  const projectItems = useMemo(
+    () =>
+      projects
+        .filter((p) => !row.account_id || p.account_id === row.account_id)
+        .map((p) => ({ id: p.project_id, label: p.name })),
+    [projects, row.account_id],
+  );
+  const projectSource = useMemo(() => createStaticSource(projectItems), [projectItems]);
+
   return (
     <div className="border-t border-hairline">
       <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] items-center gap-2 px-2 py-2">
@@ -697,14 +717,16 @@ function TargetRowFields({
             aria-hidden="true"
             className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
           />
-          <Combobox
-            options={accountOptions}
-            value={row.account_id || null}
-            onChange={(v) => onChange({ account_id: v ?? '', project_id: '' })}
+          <Typeahead
+            label="Account"
+            isLabelHidden
+            searchSource={accountSource}
+            debounceMs={0}
+            hasEntriesOnFocus
+            value={accountOptions.find((o) => o.id === row.account_id) ?? null}
+            onChange={(item) => onChange({ account_id: item?.id ?? '', project_id: '' })}
             placeholder="Select account…"
-            searchPlaceholder="Search accounts…"
             className="w-full pl-7"
-            aria-label="Account"
           />
         </div>
         <div className="relative">
@@ -712,16 +734,16 @@ function TargetRowFields({
             aria-hidden="true"
             className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
           />
-          <Combobox
-            options={projects
-              .filter((p) => !row.account_id || p.account_id === row.account_id)
-              .map((p) => ({ value: p.project_id, label: p.name }))}
-            value={row.project_id || null}
-            onChange={(v) => onChange({ project_id: v ?? '' })}
+          <Typeahead
+            label="Project"
+            isLabelHidden
+            searchSource={projectSource}
+            debounceMs={0}
+            hasEntriesOnFocus
+            value={projectItems.find((o) => o.id === row.project_id) ?? null}
+            onChange={(item) => onChange({ project_id: item?.id ?? '' })}
             placeholder={row.account_id ? 'Select project…' : 'Pick an account first'}
-            searchPlaceholder="Search projects…"
             className="w-full pl-7"
-            aria-label="Project"
           />
         </div>
         <AllocationSelect

@@ -1,9 +1,8 @@
 import {
-  AsyncCombobox,
   Badge,
   Banner,
   Button,
-  Combobox,
+  createStaticSource,
   DateInput,
   Dialog,
   DialogContent,
@@ -13,12 +12,16 @@ import {
   Dropzone,
   Input,
   Label,
+  type SearchableItem,
   Selector,
+  Tokenizer,
+  Typeahead,
   toast,
+  useSeededItems,
 } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { FileText, X } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { fetchOrgStructure } from '../api/org-client.ts';
 import {
   addWorkerSkill,
@@ -80,7 +83,14 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
     queryFn: fetchOrgStructure,
     enabled: open,
   });
-  const orgOptions = (org?.units ?? []).map((u) => ({ value: u.id, label: u.name }));
+  const orgItems = useMemo<SearchableItem[]>(
+    () => (org?.units ?? []).map((u) => ({ id: u.id, label: u.name })),
+    [org],
+  );
+  const orgSource = useMemo(() => createStaticSource(orgItems), [orgItems]);
+  const orgValue = orgItems.find((i) => i.id === form.org_unit_id) ?? null;
+
+  const [skillItems, setSkillItems] = useSeededItems(skillIds, searchSkills.seed);
 
   const set = (field: keyof WorkerFormValues) => (v: string) =>
     setForm((prev) => ({ ...prev, [field]: v }));
@@ -252,29 +262,32 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                 onChange={(value) => set('employee_no')(value)}
               />
               <Field label="Department" className="col-span-2">
-                <Combobox
-                  value={form.org_unit_id || null}
-                  onChange={(v) => set('org_unit_id')(v ?? '')}
-                  options={orgOptions}
+                <Typeahead
+                  label="Department"
+                  isLabelHidden
+                  searchSource={orgSource}
+                  debounceMs={0}
+                  hasEntriesOnFocus
+                  value={orgValue}
+                  onChange={(item) => set('org_unit_id')(item?.id ?? '')}
                   placeholder="No department"
-                  searchPlaceholder="Search departments…"
-                  aria-label="Department"
-                  modal
                 />
               </Field>
             </div>
           </Section>
 
           <Section title="Skills">
-            <AsyncCombobox
-              multiple
-              search={searchSkills.search}
-              resolveByIds={searchSkills.resolveByIds}
-              value={skillIds}
-              onChange={setSkillIds}
+            <Tokenizer
+              label="Skills"
+              isLabelHidden
+              searchSource={searchSkills.source}
+              hasEntriesOnFocus
+              value={skillItems}
+              onChange={(items) => {
+                setSkillItems(items);
+                setSkillIds(items.map((i) => i.id));
+              }}
               placeholder="Add skills…"
-              aria-label="Skills"
-              modal
             />
             {suggestions.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
