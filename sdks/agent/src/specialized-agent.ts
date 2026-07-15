@@ -1,3 +1,4 @@
+import type { MastraDBMessage } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import type { z } from 'zod';
 import type { AgentMemoryHandle } from './request-context.ts';
@@ -36,6 +37,9 @@ export interface SpecializedAgentRunCtx {
   /** Optional sink for sub-step events emitted while this agent runs. The inline
    *  runner provides it; the queued runner and direct callers leave it undefined. */
   onEvent?: (event: SubStepEvent) => void;
+  /** Conversation history loaded once per turn by the chat route.
+   *  Orchestrators can inject this into their agent's stream/generate call. */
+  sessionHistory?: MastraDBMessage[];
 }
 
 /**
