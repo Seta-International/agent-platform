@@ -2,14 +2,16 @@ import {
   Button,
   Card,
   CardTitle,
-  Combobox,
+  createStaticSource,
   Label,
   Layout,
   LayoutContent,
   LayoutHeader,
+  type SearchableItem,
   TimeInput,
+  Typeahead,
 } from '@seta/shared-ui';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../api/client.ts';
 
 const TIMEZONES = ((
@@ -25,15 +27,22 @@ const TIMEZONES = ((
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function TimezonePicker({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+  const source = useMemo(() => createStaticSource(TIMEZONES.map((z) => ({ id: z, label: z }))), []);
+  const item: SearchableItem | null = TIMEZONES.includes(value)
+    ? { id: value, label: value }
+    : null;
+
   return (
-    <Combobox
-      className="w-full"
-      options={TIMEZONES.map((z) => ({ value: z, label: z }))}
-      value={value || null}
-      onChange={(v) => onChange(v ?? '')}
+    <Typeahead
+      label="Timezone"
+      isLabelHidden
+      searchSource={source}
+      value={item}
+      onChange={(next) => onChange(next?.id ?? '')}
       placeholder="Select timezone"
-      searchPlaceholder="Search timezone…"
-      emptyText="No timezone found."
+      debounceMs={0}
+      hasEntriesOnFocus
+      hasClear
     />
   );
 }
