@@ -100,12 +100,7 @@ jobs:
             -t "${{ steps.ctx.outputs.image_uri }}" .
           docker push "${{ steps.ctx.outputs.image_uri }}"
 
-      # Phase 1: create everything the migrate needs (cluster, task defs, network,
-      # RDS, secrets) but NOT the services. The server refuses to boot against an
-      # un-migrated DB (assertCaughtUpOnly -> process.exit), so services must be
-      # created only after migrate — otherwise they crash-loop and trip the
-      # deployment circuit breaker.
-      - name: Terraform apply (pre-migrate, no services)
+      - name: Terraform apply (full)
         if: env.MODE != 'plan' && env.MODE != 'destroy'
         working-directory: ${{ env.TF_DIR }}
         env:
@@ -113,13 +108,7 @@ jobs:
           TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
           TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
           TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
-        run: |
-          terraform apply -input=false -auto-approve \
-            -target=module.app.aws_ecs_cluster.main \
-            -target=module.app.aws_ecs_task_definition.api \
-            -target=module.app.aws_ecs_task_definition.worker \
-            -target=module.app.aws_security_group.tasks \
-            -target=module.app.aws_subnet.public
+        run: terraform apply -input=false -auto-approve
 
       - name: Migrate (one-off task)
         if: env.MODE != 'plan' && env.MODE != 'destroy'
@@ -149,25 +138,19 @@ jobs:
             --limit 200 --query 'events[].message' --output text 2>/dev/null || echo "(no logs)"
           test "$CODE" = "0"
 
-      # Phase 2: now that the DB is migrated, create the services. Their tasks
-      # boot healthy on the first try (image present, schema present, secrets set).
-      - name: Terraform apply (full — creates services)
-        if: env.MODE != 'plan' && env.MODE != 'destroy'
-        working-directory: ${{ env.TF_DIR }}
-        env:
-          TF_VAR_db_master_password: ${{ secrets.SANDBOX_DB_PASSWORD }}
-          TF_VAR_better_auth_secret: ${{ secrets.SANDBOX_BETTER_AUTH_SECRET }}
-          TF_VAR_crypto_local_master_key: ${{ secrets.SANDBOX_CRYPTO_MASTER_KEY }}
-          TF_VAR_image_uri: ${{ steps.ctx.outputs.image_uri }}
-        run: terraform apply -input=false -auto-approve
-
-      - name: Wait for services stable
+      # The services were created during the full apply, before migrate, so their
+      # first tasks crash-loop (server exits on an un-migrated DB). Now that the
+      # schema exists, force a fresh deployment: the new tasks boot healthy. This
+      # is the normal migrate-then-deploy order for steady-state prod too.
+      - name: Deploy (post-migrate) & wait stable
         if: env.MODE != 'plan' && env.MODE != 'destroy'
         working-directory: ${{ env.TF_DIR }}
         run: |
           CLUSTER=$(terraform output -raw cluster_name)
           API=$(terraform output -raw api_service_name)
           WORKER=$(terraform output -raw worker_service_name)
+          aws ecs update-service --cluster "$CLUSTER" --service "$API" --force-new-deployment >/dev/null
+          aws ecs update-service --cluster "$CLUSTER" --service "$WORKER" --force-new-deployment >/dev/null
           aws ecs wait services-stable --cluster "$CLUSTER" --services "$API" "$WORKER"
 
       - name: Install session-manager-plugin
