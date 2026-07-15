@@ -1,4 +1,4 @@
-import { DropdownMenu, DropdownMenuContent } from '@seta/shared-ui';
+import { DropdownMenu } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -29,8 +29,8 @@ function wrap(node: React.ReactNode) {
   });
   return render(
     <QueryClientProvider client={qc}>
-      <DropdownMenu open>
-        <DropdownMenuContent>{node}</DropdownMenuContent>
+      <DropdownMenu isMenuOpen button={{ label: 'Menu' }}>
+        {node}
       </DropdownMenu>
     </QueryClientProvider>,
   );

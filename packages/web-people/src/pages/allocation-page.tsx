@@ -5,12 +5,6 @@ import {
   cn,
   createStaticSource,
   DataTable,
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   EmptyState,
   Input,
   PageChrome,
@@ -22,7 +16,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import type { ColumnDef, Row, VisibilityState } from '@tanstack/react-table';
 import { BarChart3, Settings2, User, X } from 'lucide-react';
-import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type AllocationBucket,
   type AllocationGrid,
@@ -153,6 +147,23 @@ export const ALLOCATION_HIDEABLE_COLUMNS = [
 export function AllocationPage() {
   const navigate = useNavigate();
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
+  const columnsMenuRef = useRef<HTMLDivElement>(null);
+
+  // Column visibility is a persistent multi-toggle menu — it must stay open across
+  // clicks. Astryx's DropdownMenuItem always closes the menu on click (no
+  // checkbox-item equivalent), so this stays a bespoke popover until the D2 batch
+  // rebuilds it on Astryx Popover + Checkbox.
+  useEffect(() => {
+    if (!columnsMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (columnsMenuRef.current && !columnsMenuRef.current.contains(e.target as Node)) {
+        setColumnsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [columnsMenuOpen]);
 
   // Every filter lives in the URL, so refresh / back / share restores the exact view.
   const raw = useSearch({ strict: false }) as Partial<AllocationSearch>;
@@ -404,39 +415,50 @@ export function AllocationPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:bg-surface-2 focus:outline-none"
+                  <div ref={columnsMenuRef} className="relative">
+                    <button
+                      type="button"
+                      className="inline-flex h-7 items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:bg-surface-2 focus:outline-none"
+                      onClick={() => setColumnsMenuOpen((v) => !v)}
+                    >
+                      <Settings2 className="size-3.5" />
+                      Columns
+                    </button>
+                    {columnsMenuOpen && (
+                      <div
+                        role="menu"
+                        aria-label="Toggle columns"
+                        className="absolute right-0 z-50 mt-1 min-w-[180px] rounded-md border border-hairline bg-surface-3 p-1 text-ink shadow-lg"
                       >
-                        <Settings2 className="size-3.5" />
-                        Columns
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {ALLOCATION_HIDEABLE_COLUMNS.map((col) => {
-                        const isVisible = columnVisibility[col.id] ?? true;
-                        return (
-                          <DropdownMenuCheckboxItem
-                            key={col.id}
-                            checked={isVisible}
-                            onSelect={(e) => e.preventDefault()}
-                            onCheckedChange={(checked) => {
-                              setColumnVisibility((prev) => ({
-                                ...prev,
-                                [col.id]: checked,
-                              }));
-                            }}
-                          >
-                            {col.label}
-                          </DropdownMenuCheckboxItem>
-                        );
-                      })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <div className="px-2 py-1.5 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                          Toggle columns
+                        </div>
+                        <div className="-mx-1 my-1 h-px bg-hairline" />
+                        {ALLOCATION_HIDEABLE_COLUMNS.map((col) => {
+                          const isVisible = columnVisibility[col.id] ?? true;
+                          return (
+                            <label
+                              key={col.id}
+                              className="flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-body-sm text-ink hover:bg-surface-4"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isVisible}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setColumnVisibility((prev) => ({
+                                    ...prev,
+                                    [col.id]: checked,
+                                  }));
+                                }}
+                              />
+                              {col.label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

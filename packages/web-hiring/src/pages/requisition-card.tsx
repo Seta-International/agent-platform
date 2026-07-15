@@ -2,15 +2,12 @@ import {
   Button,
   DisabledActionTooltip,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Calendar, Check, ExternalLink, MoreHorizontal, Users } from 'lucide-react';
-import { useState } from 'react';
 import {
   holdRequisition,
   type RequisitionListRow,
@@ -52,7 +49,6 @@ export function RequisitionCard({
   onRequestMarkFilled: () => void;
   onRequestCancel: () => void;
 }) {
-  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const invalidate = () =>
@@ -131,53 +127,45 @@ export function RequisitionCard({
               disabled={!canManage && !canClose}
               reason={PERMISSION_DENIED.requisition.edit}
             >
-              <DropdownMenu open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    isIconOnly
-                    icon={<MoreHorizontal className="size-4" />}
-                    label="Requisition actions"
-                    isDisabled={!canManage && !canClose}
+              <DropdownMenu
+                placement="below"
+                button={{
+                  variant: 'ghost',
+                  size: 'sm',
+                  isIconOnly: true,
+                  icon: <MoreHorizontal className="size-4" />,
+                  label: 'Requisition actions',
+                  isDisabled: !canManage && !canClose,
+                }}
+              >
+                {r.status === 'open' && (
+                  <DropdownMenuItem
+                    label="Pause"
+                    isDisabled={!canManage}
+                    onClick={() => pause.mutate()}
                   />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {r.status === 'open' && (
-                    <DropdownMenuItem disabled={!canManage} onSelect={() => pause.mutate()}>
-                      Pause
-                    </DropdownMenuItem>
-                  )}
-                  {r.status === 'on_hold' && (
-                    <DropdownMenuItem disabled={!canManage} onSelect={() => resume.mutate()}>
-                      Resume
-                    </DropdownMenuItem>
-                  )}
+                )}
+                {r.status === 'on_hold' && (
                   <DropdownMenuItem
-                    disabled={!canClose}
-                    // Defer past the menu's own close/focus-return — opening a Dialog
-                    // synchronously from onSelect races two Radix focus-traps and can leave
-                    // body pointer-events stuck off (page looks frozen until a refresh).
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setMoreActionsOpen(false);
-                      setTimeout(onRequestMarkFilled, 150);
-                    }}
-                  >
-                    Mark filled
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={!canClose}
-                    className="text-danger-ink"
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setMoreActionsOpen(false);
-                      setTimeout(onRequestCancel, 150);
-                    }}
-                  >
-                    Cancel
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+                    label="Resume"
+                    isDisabled={!canManage}
+                    onClick={() => resume.mutate()}
+                  />
+                )}
+                <DropdownMenuItem
+                  label="Mark filled"
+                  isDisabled={!canClose}
+                  // Defer past the menu's own close/focus-return — opening a Dialog
+                  // synchronously from onClick races two focus-traps and can leave
+                  // body pointer-events stuck off (page looks frozen until a refresh).
+                  onClick={() => setTimeout(onRequestMarkFilled, 0)}
+                />
+                <DropdownMenuItem
+                  label="Cancel"
+                  isDisabled={!canClose}
+                  style={{ color: 'var(--color-danger-ink)' }}
+                  onClick={() => setTimeout(onRequestCancel, 0)}
+                />
               </DropdownMenu>
             </DisabledActionTooltip>
           )}

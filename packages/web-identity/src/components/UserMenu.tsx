@@ -2,20 +2,12 @@ import {
   Avatar,
   AvatarFallback,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
   useThemeOptional,
 } from '@seta/shared-ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { Monitor, Moon, Sun } from 'lucide-react';
+import { Check, Monitor, Moon, Sun } from 'lucide-react';
 import { authClient } from '../auth-client.ts';
 import { useSession } from './SessionProvider.tsx';
 
@@ -31,63 +23,88 @@ const APPEARANCE = [
   { value: 'system', label: 'System', Icon: Monitor },
 ] as const;
 
+// Astryx's compound DropdownMenuItem has no divider sub-component (data-driven only)
+// and no submenu/radio-group support — the appearance picker is flattened into the
+// main list (with a heading + active check) rather than a nested submenu.
+function MenuDivider() {
+  return (
+    <hr
+      aria-hidden
+      style={{
+        height: 1,
+        margin: '4px 6px',
+        border: 'none',
+        backgroundColor: 'var(--color-hairline)',
+      }}
+    />
+  );
+}
+
 export function UserMenu({ onSignOut }: { onSignOut?: () => void } = {}) {
   const session = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const theme = useThemeOptional();
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
-        <Avatar className="size-7">
-          <AvatarFallback className="text-[11px] font-semibold">
-            {initials(session.display_name || session.email)}
-          </AvatarFallback>
-        </Avatar>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <div className="px-2 py-1.5 text-sm">
-          <div className="truncate font-medium" title={session.display_name}>
-            {session.display_name}
-          </div>
-          <div className="truncate text-muted-foreground text-xs font-mono" title={session.email}>
-            {session.email}
-          </div>
+    <DropdownMenu
+      placement="below"
+      hasChevron={false}
+      menuWidth={256}
+      button={{
+        label: 'Account menu',
+        variant: 'ghost',
+        className: 'rounded-full',
+        children: (
+          <Avatar className="size-7">
+            <AvatarFallback className="text-[11px] font-semibold">
+              {initials(session.display_name || session.email)}
+            </AvatarFallback>
+          </Avatar>
+        ),
+      }}
+    >
+      <div className="px-2 py-1.5 text-sm">
+        <div className="truncate font-medium" title={session.display_name}>
+          {session.display_name}
         </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => navigate({ to: '/settings/profile' as '/' })}>
-          Settings
-        </DropdownMenuItem>
-        {theme && (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>Appearance</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuRadioGroup
-                value={theme.theme}
-                onValueChange={(v) => theme.setTheme(v as 'light' | 'dark' | 'system')}
-              >
-                {APPEARANCE.map(({ value, label, Icon }) => (
-                  <DropdownMenuRadioItem key={value} value={value}>
-                    <Icon className="mr-2 size-3.5 text-ink-muted" aria-hidden />
-                    {label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={async () => {
-            await authClient.signOut();
-            queryClient.clear();
-            onSignOut?.();
-            void navigate({ to: '/login', search: { redirect: undefined, reason: undefined } });
-          }}
-        >
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
+        <div className="truncate text-muted-foreground text-xs font-mono" title={session.email}>
+          {session.email}
+        </div>
+      </div>
+      <MenuDivider />
+      <DropdownMenuItem
+        label="Settings"
+        onClick={() => navigate({ to: '/settings/profile' as '/' })}
+      />
+      {theme && (
+        <>
+          <MenuDivider />
+          <div className="px-2 py-1.5 text-caption uppercase tracking-wide text-ink-subtle">
+            Appearance
+          </div>
+          {APPEARANCE.map(({ value, label, Icon }) => (
+            <DropdownMenuItem
+              key={value}
+              icon={<Icon className="size-3.5 text-ink-muted" aria-hidden />}
+              label={label}
+              endContent={
+                theme.theme === value ? <Check className="size-3.5" aria-hidden /> : undefined
+              }
+              onClick={() => theme.setTheme(value)}
+            />
+          ))}
+        </>
+      )}
+      <MenuDivider />
+      <DropdownMenuItem
+        label="Sign out"
+        onClick={async () => {
+          await authClient.signOut();
+          queryClient.clear();
+          onSignOut?.();
+          void navigate({ to: '/login', search: { redirect: undefined, reason: undefined } });
+        }}
+      />
     </DropdownMenu>
   );
 }

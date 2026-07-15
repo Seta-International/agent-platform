@@ -2,14 +2,9 @@
 // biome-ignore-all lint/a11y/useFocusableInteractive: rows are non-interactive containers; focus lives on inline-edit controls inside each cell.
 // biome-ignore-all lint/a11y/useAriaPropsSupportedByRole: aria-label on header div is overridden by the implicit row container; kept for axe + RTL queries.
 // biome-ignore-all lint/a11y/noAutofocus: autoFocus is essential UX on inline edit inputs; user invoked the editor and expects keyboard focus.
-import { ChevronDown, Pencil } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../primitives/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem } from '../primitives/dropdown-menu';
 import { AvatarStack } from './avatar-stack';
 import { DisabledActionTooltip } from './disabled-action-tooltip';
 import { LabelChip } from './label-chip';
@@ -444,26 +439,31 @@ function StatusCell({ label, value, disabled, onChange }: StatusCellProps) {
   const current = STATUS_OPTIONS.find((o) => o.value === value) ?? STATUS_OPTIONS[0];
   if (!current) return null;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button type="button" className={CHIP_CLS} aria-label={label} disabled={disabled}>
-          <span className={`status-dot ${current.dotClass}`} aria-hidden />
-          <span className="truncate">{current.label}</span>
-          {!disabled && <ChevronDown className="size-3 shrink-0 text-ink-subtle" aria-hidden />}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[180px]">
-        {STATUS_OPTIONS.map((o) => (
-          <DropdownMenuItem
-            key={o.value}
-            onSelect={() => o.value !== value && onChange(o.value)}
-            className="flex items-center gap-2"
-          >
-            <span className={`status-dot ${o.dotClass}`} aria-hidden />
-            {o.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
+    <DropdownMenu
+      placement="below"
+      menuWidth={180}
+      hasChevron={!disabled}
+      button={{
+        label,
+        variant: 'ghost',
+        size: 'sm',
+        isDisabled: disabled,
+        children: (
+          <>
+            <span className={`status-dot ${current.dotClass}`} aria-hidden />
+            <span className="truncate">{current.label}</span>
+          </>
+        ),
+      }}
+    >
+      {STATUS_OPTIONS.map((o) => (
+        <DropdownMenuItem
+          key={o.value}
+          icon={<span className={`status-dot ${o.dotClass}`} aria-hidden />}
+          label={o.label}
+          onClick={() => o.value !== value && onChange(o.value)}
+        />
+      ))}
     </DropdownMenu>
   );
 }
@@ -479,26 +479,31 @@ function PriorityCell({ label, value, disabled, onChange }: PriorityCellProps) {
   const current = PRIORITY_OPTIONS.find((o) => o.value === value) ?? PRIORITY_OPTIONS[2];
   if (!current) return null;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button type="button" className={CHIP_CLS} aria-label={label} disabled={disabled}>
-          <PriorityIcon level={value} />
-          <span className="truncate">{current.label}</span>
-          {!disabled && <ChevronDown className="size-3 shrink-0 text-ink-subtle" aria-hidden />}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[180px]">
-        {PRIORITY_OPTIONS.map((o) => (
-          <DropdownMenuItem
-            key={o.value}
-            onSelect={() => o.value !== value && onChange(o.value)}
-            className="flex items-center gap-2"
-          >
-            <PriorityIcon level={o.value} />
-            {o.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
+    <DropdownMenu
+      placement="below"
+      menuWidth={180}
+      hasChevron={!disabled}
+      button={{
+        label,
+        variant: 'ghost',
+        size: 'sm',
+        isDisabled: disabled,
+        children: (
+          <>
+            <PriorityIcon level={value} />
+            <span className="truncate">{current.label}</span>
+          </>
+        ),
+      }}
+    >
+      {PRIORITY_OPTIONS.map((o) => (
+        <DropdownMenuItem
+          key={o.value}
+          icon={<PriorityIcon level={o.value} />}
+          label={o.label}
+          onClick={() => o.value !== value && onChange(o.value)}
+        />
+      ))}
     </DropdownMenu>
   );
 }
@@ -514,36 +519,33 @@ interface BucketCellProps {
 
 function BucketCell({ label, value, bucketName, options, disabled, onChange }: BucketCellProps) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="border-0 bg-transparent p-0"
-          aria-label={label}
-          disabled={disabled}
-        >
-          <BucketPill name={bucketName} />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[200px]">
+    <DropdownMenu
+      placement="below"
+      menuWidth={200}
+      hasChevron={false}
+      button={{
+        label,
+        variant: 'ghost',
+        size: 'sm',
+        isDisabled: disabled,
+        children: <BucketPill name={bucketName} />,
+      }}
+    >
+      <DropdownMenuItem
+        icon={<span className="status-dot status-dot--muted" aria-hidden />}
+        label="No bucket"
+        onClick={() => value !== '' && onChange('')}
+      />
+      {options.map((o) => (
         <DropdownMenuItem
-          onSelect={() => value !== '' && onChange('')}
-          className="flex items-center gap-2"
-        >
-          <span className="status-dot status-dot--muted" aria-hidden />
-          No bucket
-        </DropdownMenuItem>
-        {options.map((o) => (
-          <DropdownMenuItem
-            key={o.id}
-            onSelect={() => o.id !== value && onChange(o.id)}
-            className="flex items-center gap-2"
-          >
+          key={o.id}
+          icon={
             <span className={`status-dot status-dot--${bucketStatusForName(o.name)}`} aria-hidden />
-            {o.name}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
+          }
+          label={o.name}
+          onClick={() => o.id !== value && onChange(o.id)}
+        />
+      ))}
     </DropdownMenu>
   );
 }

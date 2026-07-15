@@ -2,9 +2,7 @@ import {
   Button,
   DisabledActionTooltip,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   KbdHint,
 } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
@@ -162,60 +160,55 @@ export function TaskDetailHeader({
               onClick={onCopyLink}
             />
             {(onDuplicate || onMove || onDelete) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="More actions"
-                    className="inline-flex items-center justify-center rounded p-1 text-ink-subtle hover:bg-surface-1 hover:text-ink"
+              <DropdownMenu
+                placement="below"
+                button={{
+                  isIconOnly: true,
+                  icon: <MoreHorizontal className="size-4" />,
+                  variant: 'ghost',
+                  size: 'sm',
+                  label: 'More actions',
+                }}
+              >
+                {onDuplicate && (
+                  <DisabledActionTooltip
+                    disabled={Boolean(duplicateDisabledReason)}
+                    reason={duplicateDisabledReason}
                   >
-                    <MoreHorizontal className="size-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {onDuplicate && (
-                    <DisabledActionTooltip
-                      disabled={Boolean(duplicateDisabledReason)}
-                      reason={duplicateDisabledReason}
-                    >
-                      <DropdownMenuItem
-                        onSelect={() => onDuplicate()}
-                        disabled={Boolean(duplicateDisabledReason)}
-                      >
-                        <Copy className="size-3.5" />
-                        Duplicate
-                      </DropdownMenuItem>
-                    </DisabledActionTooltip>
-                  )}
-                  {onMove && (
-                    <DisabledActionTooltip
-                      disabled={Boolean(moveDisabledReason)}
-                      reason={moveDisabledReason}
-                    >
-                      <DropdownMenuItem
-                        onSelect={() => onMove()}
-                        disabled={Boolean(moveDisabledReason)}
-                      >
-                        <ArrowRightLeft className="size-3.5" />
-                        Move…
-                      </DropdownMenuItem>
-                    </DisabledActionTooltip>
-                  )}
-                  {onDelete && (
-                    <DisabledActionTooltip
-                      disabled={Boolean(deleteDisabledReason)}
-                      reason={deleteDisabledReason}
-                    >
-                      <DropdownMenuItem
-                        onSelect={() => onDelete()}
-                        disabled={Boolean(deleteDisabledReason)}
-                        className="text-semantic-danger"
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DisabledActionTooltip>
-                  )}
-                </DropdownMenuContent>
+                    <DropdownMenuItem
+                      icon={<Copy className="size-3.5" />}
+                      label="Duplicate"
+                      onClick={() => onDuplicate()}
+                      isDisabled={Boolean(duplicateDisabledReason)}
+                    />
+                  </DisabledActionTooltip>
+                )}
+                {onMove && (
+                  <DisabledActionTooltip
+                    disabled={Boolean(moveDisabledReason)}
+                    reason={moveDisabledReason}
+                  >
+                    <DropdownMenuItem
+                      icon={<ArrowRightLeft className="size-3.5" />}
+                      label="Move…"
+                      onClick={() => onMove()}
+                      isDisabled={Boolean(moveDisabledReason)}
+                    />
+                  </DisabledActionTooltip>
+                )}
+                {onDelete && (
+                  <DisabledActionTooltip
+                    disabled={Boolean(deleteDisabledReason)}
+                    reason={deleteDisabledReason}
+                  >
+                    <DropdownMenuItem
+                      label="Delete"
+                      style={{ color: 'var(--color-danger)' }}
+                      onClick={() => onDelete()}
+                      isDisabled={Boolean(deleteDisabledReason)}
+                    />
+                  </DisabledActionTooltip>
+                )}
               </DropdownMenu>
             )}
             <span aria-hidden="true" className="h-5 w-px bg-hairline" />

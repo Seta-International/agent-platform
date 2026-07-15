@@ -7,9 +7,7 @@ import {
   DialogContent,
   DialogTitle,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   formatRelative,
   toast,
 } from '@seta/shared-ui';
@@ -20,7 +18,6 @@ import {
   Cake,
   CalendarDays,
   Check,
-  ChevronDown,
   Copy,
   FileText,
   Globe,
@@ -234,31 +231,29 @@ export function CandidateDetailDrawer({
               </div>
               <div className="flex flex-none items-center gap-1">
                 {hasMoreActions && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        isIconOnly
-                        icon={<MoreHorizontal className="size-4" />}
-                        label="More actions"
+                  <DropdownMenu
+                    placement="below"
+                    button={{
+                      variant: 'ghost',
+                      size: 'sm',
+                      isIconOnly: true,
+                      icon: <MoreHorizontal className="size-4" />,
+                      label: 'More actions',
+                    }}
+                  >
+                    {canTransfer && !terminal && (
+                      <DropdownMenuItem
+                        label="Move to another role"
+                        onClick={() => setTransferOpen(true)}
                       />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {canTransfer && !terminal && (
-                        <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
-                          Move to another role
-                        </DropdownMenuItem>
-                      )}
-                      {canReject && !terminal && (
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onSelect={() => setRejectOpen(true)}
-                        >
-                          Reject
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
+                    )}
+                    {canReject && !terminal && (
+                      <DropdownMenuItem
+                        label="Reject"
+                        style={{ color: 'var(--color-destructive)' }}
+                        onClick={() => setRejectOpen(true)}
+                      />
+                    )}
                   </DropdownMenu>
                 )}
                 <Button
@@ -282,28 +277,25 @@ export function CandidateDetailDrawer({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-6 py-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    label="Move stage"
-                    icon={<RefreshCw className="size-3.5" aria-hidden />}
-                    endContent={<ChevronDown className="size-3.5" aria-hidden />}
-                    isDisabled={!canManage || terminal || move.isPending}
+              <DropdownMenu
+                placement="below"
+                hasChevron
+                button={{
+                  variant: 'secondary',
+                  size: 'sm',
+                  label: 'Move stage',
+                  icon: <RefreshCw className="size-3.5" aria-hidden />,
+                  isDisabled: !canManage || terminal || move.isPending,
+                }}
+              >
+                {STAGES.map((s) => (
+                  <DropdownMenuItem
+                    key={s.id}
+                    label={s.label}
+                    isDisabled={app?.stage === s.id}
+                    onClick={() => move.mutate(s.id)}
                   />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {STAGES.map((s) => (
-                    <DropdownMenuItem
-                      key={s.id}
-                      disabled={app?.stage === s.id}
-                      onSelect={() => move.mutate(s.id)}
-                    >
-                      {s.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
+                ))}
               </DropdownMenu>
             </div>
 

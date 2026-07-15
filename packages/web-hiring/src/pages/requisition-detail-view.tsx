@@ -8,9 +8,7 @@ import {
   Calendar as DayPickerCalendar,
   DisabledActionTooltip,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   EmptyState,
   Input,
   Popover,
@@ -273,7 +271,6 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const [editVariant, setEditVariant] = useState<JdVariant>('external');
   const [sections, setSections] = useState<SectionGrid>(emptySections());
   const [skills, setSkills] = useState<PickedSkill[]>([]);
-  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [showFillConfirm, setShowFillConfirm] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -700,49 +697,41 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               disabled={!canManage && !canClose}
               reason={PERMISSION_DENIED.requisition.manage}
             >
-              <DropdownMenu open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    label="More actions"
-                    icon={<MoreHorizontal className="size-4" />}
-                    isDisabled={!canManage && !canClose}
+              <DropdownMenu
+                placement="below"
+                button={{
+                  variant: 'secondary',
+                  size: 'sm',
+                  label: 'More actions',
+                  icon: <MoreHorizontal className="size-4" />,
+                  isDisabled: !canManage && !canClose,
+                }}
+              >
+                {req.status === 'open' && (
+                  <DropdownMenuItem
+                    label="Pause"
+                    isDisabled={!canManage}
+                    onClick={() => pause.mutate()}
                   />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {req.status === 'open' && (
-                    <DropdownMenuItem disabled={!canManage} onSelect={() => pause.mutate()}>
-                      Pause
-                    </DropdownMenuItem>
-                  )}
-                  {req.status === 'on_hold' && (
-                    <DropdownMenuItem disabled={!canManage} onSelect={() => resume.mutate()}>
-                      Resume
-                    </DropdownMenuItem>
-                  )}
+                )}
+                {req.status === 'on_hold' && (
                   <DropdownMenuItem
-                    disabled={!canClose}
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setMoreActionsOpen(false);
-                      setTimeout(() => setShowFillConfirm(true), 150);
-                    }}
-                  >
-                    Mark filled
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={!canClose}
-                    className="text-danger-ink"
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setMoreActionsOpen(false);
-                      setTimeout(() => setShowCancelDialog(true), 150);
-                    }}
-                  >
-                    Cancel
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+                    label="Resume"
+                    isDisabled={!canManage}
+                    onClick={() => resume.mutate()}
+                  />
+                )}
+                <DropdownMenuItem
+                  label="Mark filled"
+                  isDisabled={!canClose}
+                  onClick={() => setTimeout(() => setShowFillConfirm(true), 0)}
+                />
+                <DropdownMenuItem
+                  label="Cancel"
+                  isDisabled={!canClose}
+                  style={{ color: 'var(--color-danger-ink)' }}
+                  onClick={() => setTimeout(() => setShowCancelDialog(true), 0)}
+                />
               </DropdownMenu>
             </DisabledActionTooltip>
           )}
