@@ -8,6 +8,7 @@ export {
   plannerAssignTaskTool,
   plannerFindSimilarTasksTool,
   plannerGetGroupOverviewTool,
+  plannerGetItemActivityTool,
   plannerGetOpenTaskCountTool,
   plannerGetTaskTool,
   plannerListBucketsTool,
