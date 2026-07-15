@@ -8,6 +8,7 @@ export {
   type EvalManifest,
   type EvalSuite,
 } from './dataset.ts';
+export { fakeJudgeModel, type JudgeConfig, type JudgeModel } from './judge.ts';
 export {
   type CaseScore,
   type RunSpecEvalsConfig,
