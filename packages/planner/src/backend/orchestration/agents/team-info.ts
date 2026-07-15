@@ -10,6 +10,8 @@ import type {
 import { buildActorSession } from '@seta/identity';
 import {
   plannerGetGroupOverviewTool,
+  plannerGetUserActivityTool,
+  plannerGetWorkloadTool,
   plannerListBucketsTool,
   plannerListPlansTool,
   plannerSearchGroupMembersBySkillsTool,
@@ -26,6 +28,8 @@ import {
 
 export const TEAM_INFO_TOOL_IDS = [
   'planner_getGroupOverview',
+  'planner_getWorkload',
+  'planner_getUserActivity',
   'planner_listPlans',
   'planner_listBuckets',
   'planner_searchGroupMembersBySkills',
@@ -67,6 +71,8 @@ Tools:
 - planner_getGroupOverview(groupId): group name + members/roles/total count + plans in the group.
 - planner_listPlans(groupId?): plans in a group (or all accessible).
 - planner_listBuckets(planId): buckets in a plan.
+- planner_getWorkload(groupId): per-person open-task counts across a group, busiest first.
+- planner_getUserActivity(userId, since?, limit?): a person's recent activity across visible boards.
 - planner_searchGroupMembersBySkills(groupId, skills): rank members by skill.
 ${resolved}
 Otherwise resolve groupId / planId from the "[Context: ...]" prefix or a prior list result.
@@ -118,6 +124,8 @@ export function makeQnaTeamInfoAgent(deps: QnaTeamInfoDeps): SpecializedAgentSpe
               model: pickModel(ctx, deps.resolveModel),
               tools: {
                 planner_getGroupOverview: deps.getGroupOverviewTool ?? plannerGetGroupOverviewTool,
+                planner_getWorkload: plannerGetWorkloadTool,
+                planner_getUserActivity: plannerGetUserActivityTool,
                 planner_listPlans: deps.listPlansTool ?? plannerListPlansTool,
                 planner_listBuckets: deps.listBucketsTool ?? plannerListBucketsTool,
                 planner_searchGroupMembersBySkills:

@@ -13,6 +13,8 @@ describe('qna taskQueryAgent', () => {
     expect(TASK_QUERY_TOOL_IDS).toEqual([
       'planner_queryTasks',
       'planner_findSimilarTasks',
+      'planner_getBoardSnapshot',
+      'planner_getStats',
       'planner_getOpenTaskCountForUser',
       'planner_resolveMember',
     ]);
