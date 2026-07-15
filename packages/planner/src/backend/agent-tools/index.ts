@@ -6,6 +6,7 @@ import { plannerGetItemActivityTool } from './get-item-activity.ts';
 import { plannerGetStatsTool } from './get-stats.ts';
 import { plannerGetTaskTool } from './get-task.ts';
 import { plannerGetTimelineTool } from './get-timeline.ts';
+import { plannerGetWorkloadTool } from './get-workload.ts';
 import { plannerListBucketsTool } from './list-buckets.ts';
 import { plannerListCommentsTool } from './list-comments.ts';
 import { plannerListPlansTool } from './list-plans.ts';
@@ -26,6 +27,7 @@ export { plannerGetOpenTaskCountTool } from './get-open-task-count.ts';
 export { plannerGetStatsTool } from './get-stats.ts';
 export { plannerGetTaskTool } from './get-task.ts';
 export { plannerGetTimelineTool } from './get-timeline.ts';
+export { plannerGetWorkloadTool } from './get-workload.ts';
 export { plannerListBucketsTool } from './list-buckets.ts';
 export { plannerListCommentsTool } from './list-comments.ts';
 export { plannerListPlansTool } from './list-plans.ts';
@@ -50,6 +52,7 @@ export const plannerAgentTools: AgentTool[] = [
   plannerGetItemActivityTool,
   plannerGetStatsTool,
   plannerGetTimelineTool,
+  plannerGetWorkloadTool,
   plannerListCommentsTool,
   plannerPostCommentTool,
   plannerSearchGroupMembersBySkillsTool,
