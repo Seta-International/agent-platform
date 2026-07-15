@@ -138,15 +138,16 @@ jobs:
             --limit 200 --query 'events[].message' --output text 2>/dev/null || echo "(no logs)"
           test "$CODE" = "0"
 
-      - name: Deploy & wait stable
+      # No force-new-deployment: the image already exists at apply time, so the
+      # services come up on the correct image. Just wait for steady state (apply
+      # returns before tasks are healthy).
+      - name: Wait for services stable
         if: env.MODE != 'plan' && env.MODE != 'destroy'
         working-directory: ${{ env.TF_DIR }}
         run: |
           CLUSTER=$(terraform output -raw cluster_name)
           API=$(terraform output -raw api_service_name)
           WORKER=$(terraform output -raw worker_service_name)
-          aws ecs update-service --cluster "$CLUSTER" --service "$API" --force-new-deployment >/dev/null
-          aws ecs update-service --cluster "$CLUSTER" --service "$WORKER" --force-new-deployment >/dev/null
           aws ecs wait services-stable --cluster "$CLUSTER" --services "$API" "$WORKER"
 
       - name: Install session-manager-plugin
@@ -163,11 +164,28 @@ jobs:
           CLUSTER=$(terraform output -raw cluster_name)
           API=$(terraform output -raw api_service_name)
           TASK=$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$API" \
-            --query 'taskArns[0]' --output text)
-          aws ecs execute-command --cluster "$CLUSTER" --task "$TASK" \
-            --container server --interactive \
-            --command "wget -qO- http://localhost:3000/health/ready" | tee out.txt
-          grep -q '"ok":true' out.txt
+            --desired-status RUNNING --query 'taskArns[0]' --output text)
+          TID=${TASK##*/}
+          echo "verifying task $TASK"
+          ok=""
+          for i in $(seq 1 10); do
+            OUT=$(aws ecs execute-command --cluster "$CLUSTER" --task "$TASK" \
+              --container server --interactive \
+              --command "wget -qO- http://127.0.0.1:3000/health/ready" 2>&1 || true)
+            echo "--- attempt $i ---"; echo "$OUT"
+            if echo "$OUT" | grep -q '"ok":true'; then ok=1; break; fi
+            sleep 6
+          done
+          if [ -z "$ok" ]; then
+            echo "==== server container logs ===="
+            aws logs get-log-events --log-group-name "/ecs/${ECR_REPO}/api" \
+              --log-stream-name "server/server/${TID}" \
+              --limit 200 --query 'events[].message' --output text 2>/dev/null || echo "(no logs)"
+            echo "==== task health ===="
+            aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" \
+              --query 'tasks[0].{last:lastStatus,health:healthStatus,containers:containers[].{name:name,health:healthStatus}}' || true
+            exit 1
+          fi
 
       - name: Terraform destroy
         if: always() && (env.MODE == 'e2e' || env.MODE == 'destroy')
