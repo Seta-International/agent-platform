@@ -23,7 +23,6 @@ import { registerNotificationsContributions } from '@seta/notifications/register
 import { getPeopleVectorStore } from '@seta/people';
 import { registerPeopleContributions } from '@seta/people/register';
 import {
-  buildAssignmentOrchestrationRuntime,
   makeAssign,
   makeAvailability,
   makeSkillSearch,
@@ -122,11 +121,10 @@ const getMailer = (): import('@seta/shared-mailer').Mailer => {
 
 const outboxStore = createOutboxStore({ db: coreDb() });
 
-// Build the assignment orchestration runtime (specialized agents + DAG) and
-// freeze the kernel registries. apps/server is the only layer allowed to bind
-// assignment adapters (planner/identity reads + the agent model) to the engine
-// surface. Run persistence still comes from staffing's local tables — Task 3
-// swaps this repo for an agent-backed implementation.
+// apps/server is the only layer allowed to bind assignment adapters
+// (planner/identity reads + the agent model) to the engine surface. Run
+// persistence still comes from staffing's local tables — Task 3 swaps this
+// repo for an agent-backed implementation.
 const identityEmbeddingProvider: ReturnType<typeof resolveEmbeddingProvider> = {
   // Lazy proxy: defer the OPENAI_API_KEY check to the first embed call (runtime)
   // so the server still boots without a key, matching identity's own lazy use.
@@ -144,35 +142,33 @@ const identityEmbeddingProvider: ReturnType<typeof resolveEmbeddingProvider> = {
 // getPool('worker'), so the orchestrator must share that exact pool.
 const mastraStorage = createAgentMastraStorage({ pool: getPool('worker') });
 
-const assignmentOrchestration = buildAssignmentOrchestrationRuntime({
-  repo: new AgentRunStateRepository(),
-  mastraStorage,
-  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
-  ports: {
-    taskReader: makeTaskReader(),
-    taskSearch: makeTaskSearch(),
-    skillSearch: makeSkillSearch({
-      provider: identityEmbeddingProvider,
-      pgVector: getPeopleVectorStore(env.DATABASE_URL),
-    }),
-    availability: makeAvailability(),
-    userProfileLookup: makeUserProfileLookup(),
-    assign: makeAssign(),
-    taskAssignees: makeTaskAssignees(),
-  },
-});
-
-// Compose the planner QnA + weekly-plan orchestration runtimes (built here so
-// they land before the registries freeze) and freeze SpecializedAgentRegistry,
-// OrchestrationRegistry, and AgentRegistry — the same composition the
-// agent-registry-integrity test drives standalone. Must run after
-// assignmentOrchestration above, whose SpecializedAgentRegistry.register()
-// call needs to land before the freeze inside composeRegistries.
-const { plannerQnaOrchestration, weeklyPlanOrchestration } = composeRegistries({
-  resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
-  embeddingProvider: resolveEmbeddingProvider(),
-  databaseUrl: env.DATABASE_URL,
-});
+// Compose the planner QnA, weekly-plan, and assignment orchestration runtimes
+// (built here so their registrations land before the registries freeze) and
+// freeze SpecializedAgentRegistry, OrchestrationRegistry, and AgentRegistry —
+// the same composition the agent-registry-integrity test drives standalone.
+// The assignment orchestrator's DB-bound ports/repo/store are real adapters
+// here; tests/helpers/compose.ts's testComposeDeps() wires fakes instead, so
+// the eval-coverage and registry-integrity gates see this specialist too.
+const { plannerQnaOrchestration, weeklyPlanOrchestration, assignmentOrchestration } =
+  composeRegistries({
+    resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
+    embeddingProvider: resolveEmbeddingProvider(),
+    databaseUrl: env.DATABASE_URL,
+    assignmentPorts: {
+      taskReader: makeTaskReader(),
+      taskSearch: makeTaskSearch(),
+      skillSearch: makeSkillSearch({
+        provider: identityEmbeddingProvider,
+        pgVector: getPeopleVectorStore(env.DATABASE_URL),
+      }),
+      availability: makeAvailability(),
+      userProfileLookup: makeUserProfileLookup(),
+      assign: makeAssign(),
+      taskAssignees: makeTaskAssignees(),
+    },
+    assignmentRepo: new AgentRunStateRepository(),
+    mastraStorage,
+  });
 
 // Tiered chat router: classify each turn (tier-1 domain hard-coded to planner;
 // tier-2 assignment vs planner_qna) and dispatch to the matching runtime. Composed
