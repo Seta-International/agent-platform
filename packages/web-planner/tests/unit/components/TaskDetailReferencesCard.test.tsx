@@ -1,6 +1,6 @@
 import type { TaskDetailRow, TaskReferenceRow } from '@seta/planner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
@@ -64,8 +64,6 @@ describe('TaskDetailReferencesCard', () => {
   });
 
   it('calls addTaskReference when a URL is pasted and Enter pressed', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
     const captured = vi.fn<(body: Record<string, unknown>) => void>();
     server.use(
       http.post('/api/planner/v1/tasks/t1/references', async ({ request }) => {
@@ -75,8 +73,9 @@ describe('TaskDetailReferencesCard', () => {
     );
     renderWithClient(<TaskDetailReferencesCard task={makeDetail([])} planId="p1" />);
     const input = screen.getByPlaceholderText(/Paste a URL/i);
-    await user.type(input, 'https://added.test/doc{Enter}');
-    expect(captured).toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: 'https://added.test/doc' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(captured).toHaveBeenCalled());
     expect(captured.mock.calls[0]?.[0]).toMatchObject({ url: 'https://added.test/doc' });
   });
 

@@ -1,18 +1,15 @@
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
+  createStaticSource,
   DateInput,
   DisabledActionTooltip,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  type SearchableItem,
+  Typeahead,
 } from '@seta/shared-ui';
-import { useState } from 'react';
-import { useGroupMemberAssigneeSearch } from '../hooks/use-group-member-assignee-search';
+import { useMemo, useState } from 'react';
+import { useGroupMembers } from '../hooks/queries/use-group-members';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 export interface BulkBucketOption {
@@ -128,6 +125,8 @@ function BucketMenu({
   );
 }
 
+type MemberItem = SearchableItem<{ email: string }>;
+
 function AssigneeMenu({
   groupId,
   onPick,
@@ -137,67 +136,50 @@ function AssigneeMenu({
   onPick: (userId: string) => void;
   disabled?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const memberQuery = useGroupMemberAssigneeSearch(groupId, search, open);
+  const { data, isPending: membersPending } = useGroupMembers(groupId);
+  const members = data?.members ?? [];
+  const source = useMemo(
+    () =>
+      createStaticSource<MemberItem>(
+        members.map((m) => ({
+          id: m.user_id,
+          label: m.display_name,
+          auxiliaryData: { email: m.email },
+        })),
+        { keywords: (i) => [i.auxiliaryData?.email ?? ''] },
+      ),
+    [members],
+  );
+  const [value, setValue] = useState<MemberItem | null>(null);
 
-  if (disabled) {
-    return (
-      <DisabledActionTooltip disabled reason={PERMISSION_DENIED.task.assign}>
-        <button type="button" disabled>
-          Assign
-        </button>
-      </DisabledActionTooltip>
-    );
-  }
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setSearch('');
+    <Typeahead<MemberItem>
+      label="Assign to member"
+      isLabelHidden
+      size="sm"
+      placeholder="Assign to…"
+      searchSource={source}
+      debounceMs={0}
+      hasEntriesOnFocus
+      isDisabled={disabled || membersPending}
+      disabledMessage={disabled ? PERMISSION_DENIED.task.assign : 'Loading members…'}
+      value={value}
+      onChange={(item) => {
+        if (item) {
+          onPick(item.id);
+          setValue(null);
+        }
       }}
-    >
-      <PopoverTrigger asChild>
-        <button type="button">Assign</button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-0">
-        <Command shouldFilter={false}>
-          <CommandInput
-            aria-label="Search group members"
-            placeholder="Search group members"
-            value={search}
-            onValueChange={setSearch}
-          />
-          <CommandList>
-            <CommandEmpty>
-              {memberQuery.isPending && search ? 'Searching…' : 'No group members found.'}
-            </CommandEmpty>
-            <CommandGroup>
-              {memberQuery.members.map((m) => (
-                <CommandItem
-                  key={m.user_id}
-                  value={m.user_id}
-                  onSelect={() => {
-                    onPick(m.user_id);
-                    setOpen(false);
-                    setSearch('');
-                  }}
-                  className="flex flex-col items-start gap-0.5"
-                >
-                  <span className="truncate text-body-sm leading-tight text-ink">
-                    {m.display_name}
-                  </span>
-                  <span className="truncate text-caption leading-tight text-ink-subtle">
-                    {m.email}
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+      renderItem={(item) => (
+        <div className="flex flex-col items-start gap-0.5">
+          <span className="truncate text-body-sm leading-tight text-ink">{item.label}</span>
+          <span className="truncate text-caption leading-tight text-ink-subtle">
+            {item.auxiliaryData?.email}
+          </span>
+        </div>
+      )}
+      emptySearchResultsText="No group members found."
+    />
   );
 }
 

@@ -2,50 +2,17 @@ import {
   Button,
   Card,
   CardTitle,
-  createStaticSource,
   Label,
   Layout,
   LayoutContent,
   LayoutHeader,
-  type SearchableItem,
   TimeInput,
-  Typeahead,
 } from '@seta/shared-ui';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../api/client.ts';
-
-const TIMEZONES = ((
-  Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
-).supportedValuesOf?.('timeZone') as string[]) ?? [
-  'UTC',
-  'America/New_York',
-  'Europe/London',
-  'Asia/Singapore',
-  'Asia/Ho_Chi_Minh',
-];
+import { TimezonePicker } from './TimezonePicker';
 
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-function TimezonePicker({ value, onChange }: { value: string; onChange: (next: string) => void }) {
-  const source = useMemo(() => createStaticSource(TIMEZONES.map((z) => ({ id: z, label: z }))), []);
-  const item: SearchableItem | null = TIMEZONES.includes(value)
-    ? { id: value, label: value }
-    : null;
-
-  return (
-    <Typeahead
-      label="Timezone"
-      isLabelHidden
-      searchSource={source}
-      value={item}
-      onChange={(next) => onChange(next?.id ?? '')}
-      placeholder="Select timezone"
-      debounceMs={0}
-      hasEntriesOnFocus
-      hasClear
-    />
-  );
-}
 
 export function ProfileLocaleSection({
   profile,
