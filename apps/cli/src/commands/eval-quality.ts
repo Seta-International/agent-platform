@@ -33,8 +33,11 @@ export async function runEvalQuality(opts: {
   gitSha: string;
   persist: boolean;
 }): Promise<{ runId?: string; results: RunQualityEvalsResult[] }> {
-  const genModel = resolveModel('auto', { tierHint: 'fast' }).model;
-  const judgeModel = resolveModel('auto', { tierHint: 'fast' }).model; // temp 0 configured in AGENT_MODELS
+  // Same resolve reused for gen + judge (temp 0 configured in AGENT_MODELS); `entry.tier`
+  // is the *actual* resolved tier, which may differ from the 'fast' hint if no fast-tier
+  // model is configured (resolveModel falls back to the catalog's first entry).
+  const { model: genModel, entry } = resolveModel('auto', { tierHint: 'fast' });
+  const judgeModel = genModel;
   const scorers = [
     { scorer: answerRelevancyScorer({ model: judgeModel }) },
     { scorer: faithfulnessScorer({ model: judgeModel }) },
@@ -67,7 +70,7 @@ export async function runEvalQuality(opts: {
       {
         gitSha: opts.gitSha,
         harnessVersion: EVALS_HARNESS_VERSION,
-        modelTier: 'fast',
+        modelTier: entry.tier,
         trigger: opts.trigger,
         finishedAt: new Date(),
       },

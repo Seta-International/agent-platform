@@ -11,7 +11,7 @@ try {
 
 import { createCrypto, createKeyProviderFromEnv, parseCryptoEnv } from '@seta/shared-crypto';
 import { closePools, initPools } from '@seta/shared-db';
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import pino from 'pino';
 import { demoSuggestionsCommand } from './commands/demo-suggestions.ts';
 import { runEmbedBackfill } from './commands/embed-backfill.ts';
@@ -313,10 +313,14 @@ program
   .description(
     'Run the real-model quality eval lane across all module manifests, persist scores, and print a summary. Advisory only — a low score never fails the command.',
   )
-  .option('--trigger <trigger>', 'nightly or manual', 'manual')
-  .action(async (opts: { trigger: string }) => {
+  .addOption(
+    new Option('--trigger <trigger>', 'nightly or manual')
+      .choices(['manual', 'nightly'])
+      .default('manual'),
+  )
+  .action(async (opts: { trigger: 'manual' | 'nightly' }) => {
     try {
-      const trigger = opts.trigger === 'nightly' ? 'nightly' : 'manual';
+      const trigger = opts.trigger;
       const gitSha = process.env.GITHUB_SHA ?? 'local';
       const { runId, results } = await runEvalQuality({ trigger, gitSha, persist: true });
       console.table(summarizeQualityResults(results));
