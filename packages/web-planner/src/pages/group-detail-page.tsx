@@ -3,10 +3,11 @@ import {
   Button,
   ComingSoon,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
   DisabledActionTooltip,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   Skeleton,
   Tabs,
   TabsContent,
@@ -381,17 +382,21 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         isPending={deleteGroup.isPending}
         error={deleteError}
       />
-      <Dialog open={archiveM365Open} onOpenChange={setArchiveM365Open}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Archive M365-linked group?</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-body-sm text-ink-subtle">
-              This group is linked to Microsoft 365. Archiving pauses sync here, but the group
-              remains in Microsoft 365.
-            </p>
-            <div className="flex justify-end gap-2">
+      <Dialog isOpen={archiveM365Open} onOpenChange={setArchiveM365Open} purpose="form">
+        <Layout
+          header={
+            <DialogHeader title="Archive M365-linked group?" onOpenChange={setArchiveM365Open} />
+          }
+          content={
+            <LayoutContent>
+              <p className="text-body-sm text-ink-subtle">
+                This group is linked to Microsoft 365. Archiving pauses sync here, but the group
+                remains in Microsoft 365.
+              </p>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
               <Button
                 variant="secondary"
                 label="Cancel"
@@ -404,20 +409,25 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
                   doArchive();
                 }}
               />
-            </div>
-          </div>
-        </DialogContent>
+            </LayoutFooter>
+          }
+        />
       </Dialog>
-      <Dialog open={restorePromptOpen} onOpenChange={setRestorePromptOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>This group is archived</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-body-sm text-ink-subtle">
-              This group has been archived. Would you like to restore it so it becomes active again?
-            </p>
-            <div className="flex justify-end gap-2">
+      <Dialog isOpen={restorePromptOpen} onOpenChange={setRestorePromptOpen} purpose="info">
+        <Layout
+          header={
+            <DialogHeader title="This group is archived" onOpenChange={setRestorePromptOpen} />
+          }
+          content={
+            <LayoutContent>
+              <p className="text-body-sm text-ink-subtle">
+                This group has been archived. Would you like to restore it so it becomes active
+                again?
+              </p>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
               <Button
                 variant="secondary"
                 label="View anyway"
@@ -436,9 +446,9 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
                   isDisabled={!canUpdateGroup || restoreGroup.isPending}
                 />
               </DisabledActionTooltip>
-            </div>
-          </div>
-        </DialogContent>
+            </LayoutFooter>
+          }
+        />
       </Dialog>
       <AddGroupMembersDialog
         groupId={groupId}

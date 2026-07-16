@@ -5,14 +5,13 @@ import {
   Banner,
   Button,
   Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
-  DialogTitle,
   DisabledActionTooltip,
   EmptyState,
   formatRelative,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   PageChrome,
   Skeleton,
   Tabs,
@@ -81,6 +80,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
   const unarchivePlan = useUnarchivePlan();
   const deleteArchivedPlan = useDeleteArchivedPlan();
   const [confirmingPurge, setConfirmingPurge] = useState<TrashRow | null>(null);
+  const closePurgeDialog = () => setConfirmingPurge(null);
 
   const canUpdatePlan = usePermission('planner.plan.update');
   const canDeletePlan = usePermission('planner.plan.delete');
@@ -359,31 +359,38 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
       </Tabs>
 
       <Dialog
-        open={confirmingPurge !== null}
+        isOpen={confirmingPurge !== null}
         onOpenChange={(v) => {
-          if (!v) setConfirmingPurge(null);
+          if (!v) closePurgeDialog();
         }}
+        purpose="required"
       >
-        <DialogContent className="max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>
-              Permanently delete &ldquo;{confirmingPurge?.name ?? ''}&rdquo;?
-            </DialogTitle>
-            <DialogDescription>You won&apos;t be able to get this back.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" label="Cancel" onClick={() => setConfirmingPurge(null)} />
-            <Button
-              variant="destructive"
-              label="Permanently delete"
-              onClick={() => {
-                // The backend's hard-delete endpoint is policy-driven (RETENTION_DAYS sweep, not
-                // a manual API); this dialog confirms intent until that endpoint lands.
-                setConfirmingPurge(null);
+        <Layout
+          header={
+            <DialogHeader
+              title={`Permanently delete "${confirmingPurge?.name ?? ''}"?`}
+              subtitle="You won't be able to get this back."
+              onOpenChange={(v) => {
+                if (!v) closePurgeDialog();
               }}
             />
-          </DialogFooter>
-        </DialogContent>
+          }
+          content={<LayoutContent />}
+          footer={
+            <LayoutFooter hasDivider>
+              <Button variant="ghost" label="Cancel" onClick={closePurgeDialog} />
+              <Button
+                variant="destructive"
+                label="Permanently delete"
+                onClick={() => {
+                  // The backend's hard-delete endpoint is policy-driven (RETENTION_DAYS sweep, not
+                  // a manual API); this dialog confirms intent until that endpoint lands.
+                  setConfirmingPurge(null);
+                }}
+              />
+            </LayoutFooter>
+          }
+        />
       </Dialog>
     </PageChrome>
   );

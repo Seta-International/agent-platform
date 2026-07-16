@@ -6,7 +6,7 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -193,8 +193,11 @@ describe('GroupsPage', () => {
     if (!newGroupBtn) throw new Error('No "New group" button found');
     await user.click(newGroupBtn);
 
-    // Dialog should open
-    expect(await screen.findByRole('dialog', { name: /New group/i })).toBeInTheDocument();
+    // Dialog should open. Astryx's `DialogHeader` wires no `aria-labelledby`, so the dialog
+    // has no computed accessible name — scope with `within()` + a heading query instead of
+    // `getByRole('dialog', { name })` (established precedent from prior FUT-579 sub-tasks).
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'New group' })).toBeInTheDocument();
     expect(screen.getByLabelText(/Group name/i)).toBeInTheDocument();
   });
 
@@ -312,7 +315,13 @@ describe('GroupsPage', () => {
     expect(screen.getByRole('button', { name: /New group/i })).toBeDisabled();
   });
 
-  it('clicking "Sync from IdP" opens the group selector dialog', async () => {
+  // Occlusion smoke test (plan Task 2 Step 6, second candidate): the "Sync from IdP" dialog
+  // hosts an Astryx `Selector` (the group picker) inside the new Astryx `Dialog`. Astryx's
+  // `Dialog` renders a native <dialog> (top-layer); `DialogHeader` wires no aria-labelledby,
+  // so the dialog has no computed accessible name — scope with `within()` + a heading query
+  // instead of `getByRole('dialog', { name })`. This proves the Selector's dropdown still
+  // opens and its options remain reachable when hosted inside the modal.
+  it('clicking "Sync from IdP" opens the group selector dialog, and its Selector opens with reachable options', async () => {
     const groups = [
       makeGroupWithCounts({ id: 'g1', name: 'Engineering', external_source: 'native' }),
     ];
@@ -323,10 +332,12 @@ describe('GroupsPage', () => {
     await screen.findByText('Engineering');
     await user.click(screen.getByRole('button', { name: /Sync from IdP/i }));
 
+    const dialog = await screen.findByRole('dialog');
     expect(
-      await screen.findByRole('dialog', { name: /Select group to link to M365/i }),
+      within(dialog).getByRole('heading', { name: 'Select group to link to M365' }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('combobox', { name: /Select a group/i }));
+
+    await user.click(within(dialog).getByRole('combobox', { name: /Select a group/i }));
     expect(await screen.findByRole('option', { name: 'Engineering' })).toBeInTheDocument();
   });
 });
