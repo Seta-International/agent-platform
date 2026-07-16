@@ -16,7 +16,6 @@
     "@seta/shared-ui": "workspace:^",
     "@seta/web-identity": "workspace:^",
     "@seta/web-notifications": "workspace:^",
-    "@tanstack/react-table": "^8.21.3",
     "lucide-react": "^1.17.0",
     "zod": "^4.4.3"
   },
