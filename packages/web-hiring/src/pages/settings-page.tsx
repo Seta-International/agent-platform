@@ -5,13 +5,11 @@ import {
   Card,
   CardTitle,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   Input,
   Layout,
   LayoutContent,
+  LayoutFooter,
   LayoutHeader,
   PageChrome,
   SegmentedControl,
@@ -69,11 +67,15 @@ function NewTemplateDialog() {
     setError(null);
   }
 
-  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
-  // programmatically must reset explicitly or the next open shows stale data.
+  // Programmatic close must reset explicitly or the next open shows stale data.
   function close() {
     setOpen(false);
     reset();
+  }
+
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
   }
 
   const mutation = useMutation({
@@ -96,72 +98,80 @@ function NewTemplateDialog() {
   });
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" label="New template" />
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New JD template</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-          <div className="space-y-1">
-            <Input
-              label="Name *"
-              value={name}
-              onChange={(value) => setName(value)}
-              placeholder="e.g. Backend role"
-            />
-          </div>
-          <div className="space-y-1">
-            <Selector
-              label="Kind"
-              options={[
-                { value: 'role', label: 'role' },
-                { value: 'intro', label: 'intro' },
-                { value: 'closing', label: 'closing' },
-              ]}
-              value={kind}
-              onChange={(v) => setKind(v as 'role' | 'intro' | 'closing')}
-            />
-          </div>
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-caption font-semibold uppercase text-ink-muted">Sections</div>
-            <SegmentedControl
-              value={variant}
-              onValueChange={(v) => setVariant(v as JdVariant)}
-              options={[
-                { value: 'external', label: 'External' },
-                { value: 'internal', label: 'Internal' },
-              ]}
-            />
-          </div>
-          {SECTIONS.map((s) => (
-            <Textarea
-              key={s.key}
-              label={s.label}
-              value={jd[s.key]}
-              onChange={(value) => setJd((d) => ({ ...d, [s.key]: value }))}
-            />
-          ))}
-          {error && <Banner status="error" title={error} />}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" label="Cancel" onClick={close} />
-            <Button
-              label={mutation.isPending ? 'Creating…' : 'Create template'}
-              onClick={() => mutation.mutate()}
-              isDisabled={mutation.isPending || !name.trim()}
-            />
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button size="sm" label="New template" onClick={() => setOpen(true)} />
+      <Dialog
+        isOpen={open}
+        onOpenChange={handleOpenChange}
+        width={560}
+        maxHeight="70vh"
+        purpose="form"
+      >
+        <Layout
+          header={<DialogHeader title="New JD template" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Input
+                    label="Name *"
+                    value={name}
+                    onChange={(value) => setName(value)}
+                    placeholder="e.g. Backend role"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Selector
+                    label="Kind"
+                    options={[
+                      { value: 'role', label: 'role' },
+                      { value: 'intro', label: 'intro' },
+                      { value: 'closing', label: 'closing' },
+                    ]}
+                    value={kind}
+                    onChange={(v) => setKind(v as 'role' | 'intro' | 'closing')}
+                  />
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <div className="text-caption font-semibold uppercase text-ink-muted">
+                    Sections
+                  </div>
+                  <SegmentedControl
+                    value={variant}
+                    onValueChange={(v) => setVariant(v as JdVariant)}
+                    options={[
+                      { value: 'external', label: 'External' },
+                      { value: 'internal', label: 'Internal' },
+                    ]}
+                  />
+                </div>
+                {SECTIONS.map((s) => (
+                  <Textarea
+                    key={s.key}
+                    label={s.label}
+                    value={jd[s.key]}
+                    onChange={(value) => setJd((d) => ({ ...d, [s.key]: value }))}
+                  />
+                ))}
+                {error && <Banner status="error" title={error} />}
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" label="Cancel" onClick={close} />
+                <Button
+                  label={mutation.isPending ? 'Creating…' : 'Create template'}
+                  onClick={() => mutation.mutate()}
+                  isDisabled={mutation.isPending || !name.trim()}
+                />
+              </div>
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }
 
@@ -176,11 +186,15 @@ function NewCloseReasonDialog() {
     setError(null);
   }
 
-  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
-  // programmatically must reset explicitly or the next open shows stale data.
+  // Programmatic close must reset explicitly or the next open shows stale data.
   function close() {
     setOpen(false);
     reset();
+  }
+
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
   }
 
   const mutation = useMutation({
@@ -194,41 +208,41 @@ function NewCloseReasonDialog() {
   });
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" label="New close reason" />
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New close reason</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Input
-              label="Label *"
-              value={label}
-              onChange={(value) => setLabel(value)}
-              placeholder="e.g. Position cancelled"
-            />
-          </div>
-          {error && <Banner status="error" title={error} />}
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" label="Cancel" onClick={close} />
-            <Button
-              label={mutation.isPending ? 'Creating…' : 'Create'}
-              onClick={() => mutation.mutate()}
-              isDisabled={mutation.isPending || !label.trim()}
-            />
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button size="sm" label="New close reason" onClick={() => setOpen(true)} />
+      <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+        <Layout
+          header={<DialogHeader title="New close reason" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Input
+                    label="Label *"
+                    value={label}
+                    onChange={(value) => setLabel(value)}
+                    placeholder="e.g. Position cancelled"
+                  />
+                </div>
+                {error && <Banner status="error" title={error} />}
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" label="Cancel" onClick={close} />
+                <Button
+                  label={mutation.isPending ? 'Creating…' : 'Create'}
+                  onClick={() => mutation.mutate()}
+                  isDisabled={mutation.isPending || !label.trim()}
+                />
+              </div>
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }
 
@@ -251,11 +265,15 @@ function NewRejectionReasonDialog() {
     setError(null);
   }
 
-  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
-  // programmatically must reset explicitly or the next open shows stale data.
+  // Programmatic close must reset explicitly or the next open shows stale data.
   function close() {
     setOpen(false);
     reset();
+  }
+
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
   }
 
   const mutation = useMutation({
@@ -269,49 +287,49 @@ function NewRejectionReasonDialog() {
   });
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" label="New rejection reason" />
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New rejection reason</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Input
-              label="Label *"
-              value={label}
-              onChange={(value) => setLabel(value)}
-              placeholder="e.g. Lacking required skills"
-            />
-          </div>
-          <div className="space-y-1">
-            <Selector
-              label="Category"
-              options={REJECTION_CATEGORIES}
-              value={category}
-              onChange={(v) => setCategory(v as RejectionCategory)}
-            />
-          </div>
-          {error && <Banner status="error" title={error} />}
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" label="Cancel" onClick={close} />
-            <Button
-              label={mutation.isPending ? 'Creating…' : 'Create'}
-              onClick={() => mutation.mutate()}
-              isDisabled={mutation.isPending || !label.trim()}
-            />
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button size="sm" label="New rejection reason" onClick={() => setOpen(true)} />
+      <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+        <Layout
+          header={<DialogHeader title="New rejection reason" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Input
+                    label="Label *"
+                    value={label}
+                    onChange={(value) => setLabel(value)}
+                    placeholder="e.g. Lacking required skills"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Selector
+                    label="Category"
+                    options={REJECTION_CATEGORIES}
+                    value={category}
+                    onChange={(v) => setCategory(v as RejectionCategory)}
+                  />
+                </div>
+                {error && <Banner status="error" title={error} />}
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" label="Cancel" onClick={close} />
+                <Button
+                  label={mutation.isPending ? 'Creating…' : 'Create'}
+                  onClick={() => mutation.mutate()}
+                  isDisabled={mutation.isPending || !label.trim()}
+                />
+              </div>
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }
 
