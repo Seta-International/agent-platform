@@ -1,13 +1,5 @@
 import type { GroupActivityItem, GroupMemberRow, GroupRow } from '@seta/planner';
-import {
-  Avatar,
-  AvatarFallback,
-  Button,
-  Card,
-  cn,
-  DisabledActionTooltip,
-  formatRelative,
-} from '@seta/shared-ui';
+import { Avatar, Button, Card, cn, DisabledActionTooltip, formatRelative } from '@seta/shared-ui';
 import { Check, ChevronRight, Plus, Shield, Users, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { GroupJoinRequestRow } from '../api/planner-client';
@@ -28,12 +20,6 @@ interface Props {
   pendingRequests?: ReadonlyArray<GroupJoinRequestRow>;
   onApproveRequest?: (userId: string) => void;
   onRejectRequest?: (userId: string) => void;
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
 const shortDateFmt = new Intl.DateTimeFormat('en-US', {
@@ -65,11 +51,7 @@ function ActivityList({ items }: { items: ReadonlyArray<GroupActivityItem> | nul
     <ul className="flex flex-col gap-2">
       {items.map((item) => (
         <li key={item.event_id} className="flex items-start gap-2 text-sm">
-          <Avatar className="size-6 shrink-0">
-            <AvatarFallback className="text-[10px] font-semibold">
-              {item.actor_display_name ? itemInitials(item.actor_display_name) : '?'}
-            </AvatarFallback>
-          </Avatar>
+          <Avatar name={item.actor_display_name ?? undefined} size={24} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm">{buildActivityLabel(item)}</div>
             <div className="text-xs text-ink-subtle" title={absoluteActivityTime(item.occurred_at)}>
@@ -80,12 +62,6 @@ function ActivityList({ items }: { items: ReadonlyArray<GroupActivityItem> | nul
       ))}
     </ul>
   );
-}
-
-function itemInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
 function PropertyRow({ label, value }: PropertyRowProps) {
@@ -145,11 +121,7 @@ export function GroupRail({
                 i < arr.length - 1 && 'border-b border-hairline-tertiary',
               )}
             >
-              <Avatar className="size-7 shrink-0">
-                <AvatarFallback className="text-[10px] font-semibold">
-                  {initials(m.display_name)}
-                </AvatarFallback>
-              </Avatar>
+              <Avatar name={m.display_name} size={32} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{m.display_name}</div>
                 {m.email ? <div className="truncate text-xs text-ink-subtle">{m.email}</div> : null}
@@ -183,11 +155,7 @@ export function GroupRail({
             <ul className="flex flex-col gap-2">
               {pendingRequests.map((req) => (
                 <li key={req.user_id} className="flex items-center gap-2 text-sm">
-                  <Avatar className="size-6 shrink-0">
-                    <AvatarFallback className="text-[10px] font-semibold">
-                      {initials(req.display_name)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <Avatar name={req.display_name} size={24} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{req.display_name}</p>
                     <p className="truncate text-xs text-ink-subtle">{req.email}</p>

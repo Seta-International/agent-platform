@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback, Button, Card, Input, Textarea, TimeInput } from '@seta/shared-ui';
+import { Avatar, Button, Card, Input, Textarea, TimeInput } from '@seta/shared-ui';
 import { Calendar } from 'lucide-react';
 import { useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../../api/client.ts';
@@ -6,14 +6,6 @@ import { TimezonePicker } from '../TimezonePicker';
 
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const BIO_MAX = 500;
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((s) => s[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
 
 function FieldLabel({ label, hint }: { label: string; hint?: string }) {
   return (
@@ -85,11 +77,7 @@ export function ProfileIdentityCard({
     <Card padding={5}>
       <div className="flex items-start gap-5">
         <div className="flex flex-col items-center gap-2 flex-none">
-          <Avatar className="size-16">
-            <AvatarFallback className="text-base font-semibold">
-              {initials(profile.display_name)}
-            </AvatarFallback>
-          </Avatar>
+          <Avatar name={profile.display_name} size={64} />
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col gap-3.5">

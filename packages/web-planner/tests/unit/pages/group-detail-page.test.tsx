@@ -141,10 +141,11 @@ describe('GroupDetailPage', () => {
     expect(await screen.findByRole('heading', { name: 'Engineering' })).toBeInTheDocument();
 
     // Tabs are rendered
-    expect(screen.getByRole('tab', { name: /plans/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /members/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /activity/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /integrations/i })).toBeInTheDocument();
+    const tabs = within(screen.getByRole('navigation', { name: 'Group sections' }));
+    expect(tabs.getByRole('button', { name: /plans/i })).toBeInTheDocument();
+    expect(tabs.getByRole('button', { name: /members/i })).toBeInTheDocument();
+    expect(tabs.getByRole('button', { name: /activity/i })).toBeInTheDocument();
+    expect(tabs.getByRole('button', { name: /integrations/i })).toBeInTheDocument();
   });
 
   it('plans tab renders PlanCards + Rail', async () => {
@@ -215,7 +216,11 @@ describe('GroupDetailPage', () => {
     // Admin can see settings tab
     renderInRouter(<AdminPage tab="plans" />);
     await screen.findByRole('heading', { name: 'Engineering' });
-    expect(screen.getByRole('tab', { name: /settings/i })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Group sections' })).getByRole('button', {
+        name: /settings/i,
+      }),
+    ).toBeInTheDocument();
   });
 
   it('settings tab hidden when user is not admin or owner', async () => {
@@ -225,7 +230,11 @@ describe('GroupDetailPage', () => {
       <GroupDetailPage groupId="g1" tab="plans" onTabChange={() => {}} session={guestSession} />,
     );
     await screen.findByRole('heading', { name: 'Engineering' });
-    expect(screen.queryByRole('tab', { name: /settings/i })).toBeNull();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Group sections' })).queryByRole('button', {
+        name: /settings/i,
+      }),
+    ).toBeNull();
   });
 
   it('tab switch calls onTabChange', async () => {
@@ -236,7 +245,11 @@ describe('GroupDetailPage', () => {
     await screen.findByRole('heading', { name: 'Engineering' });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('tab', { name: /members/i }));
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Group sections' })).getByRole('button', {
+        name: /members/i,
+      }),
+    );
 
     expect(onTabChange).toHaveBeenCalledWith('members');
   });

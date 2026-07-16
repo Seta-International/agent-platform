@@ -1,6 +1,5 @@
 import {
   Avatar,
-  AvatarFallback,
   Card,
   cn,
   createStaticSource,
@@ -45,13 +44,6 @@ function heatStyle(v: number | null | undefined): CSSProperties {
 function formatLoad(pct: number): string {
   const frac = pct / 100;
   return Number.isInteger(frac) ? frac.toFixed(1) : String(frac);
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? '';
-  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
-  return (first + last).toUpperCase();
 }
 
 const HEAT_LEVELS = [
@@ -300,11 +292,7 @@ export function AllocationPage() {
         enableHiding: false,
         cell: ({ row }) => (
           <div className="flex w-44 items-center gap-2.5">
-            <Avatar className="size-7 shrink-0">
-              <AvatarFallback className="text-[10px]">
-                {initials(row.original.full_name)}
-              </AvatarFallback>
-            </Avatar>
+            <Avatar name={row.original.full_name} size={32} />
             <span className="font-medium leading-tight">{row.original.full_name}</span>
           </div>
         ),

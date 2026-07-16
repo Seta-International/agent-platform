@@ -2,13 +2,13 @@ import {
   Button,
   Card,
   CardTitle,
-  Label,
+  Field,
   Layout,
   LayoutContent,
   LayoutHeader,
   TimeInput,
 } from '@seta/shared-ui';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../api/client.ts';
 import { TimezonePicker } from './TimezonePicker';
 
@@ -25,6 +25,7 @@ export function ProfileLocaleSection({
   onUpdate: (p: ProfileDto) => void;
   canEditWorkingHours?: boolean;
 }) {
+  const workingHoursId = useId();
   const [tz, setTz] = useState(profile.timezone);
   const [whStart, setWhStart] = useState(profile.working_hours?.start ?? '');
   const [whEnd, setWhEnd] = useState(profile.working_hours?.end ?? '');
@@ -74,14 +75,21 @@ export function ProfileLocaleSection({
         content={
           <LayoutContent>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="timezone">Timezone</Label>
-                <TimezonePicker value={tz} onChange={setTz} />
-              </div>
+              <TimezonePicker value={tz} onChange={setTz} isLabelHidden={false} />
               {canEditWorkingHours ? (
-                <div className="space-y-2">
-                  <Label>Working hours (Mon–Fri)</Label>
-                  <div className="flex items-center gap-2">
+                <Field
+                  label="Working hours (Mon–Fri)"
+                  inputID={workingHoursId}
+                  labelID={workingHoursId}
+                  isGroupLabel
+                  status={
+                    whInvalid
+                      ? { type: 'error', message: 'Use 24-hour time, like 09:00' }
+                      : undefined
+                  }
+                  statusVariant="detached"
+                >
+                  <fieldset aria-labelledby={workingHoursId} className="flex items-center gap-2">
                     <TimeInput
                       label="Working hours start"
                       isLabelHidden
@@ -108,15 +116,14 @@ export function ProfileLocaleSection({
                         label="Clear"
                       />
                     )}
-                  </div>
-                  {whInvalid && (
-                    <p className="text-xs text-destructive">Use 24-hour time, like 09:00</p>
-                  )}
-                </div>
+                  </fieldset>
+                </Field>
               ) : (
                 wh && (
                   <div className="space-y-2">
-                    <Label>Working hours (Mon–Fri)</Label>
+                    <span className="text-body-sm font-medium text-ink">
+                      Working hours (Mon–Fri)
+                    </span>
                     <p className="text-sm text-ink-muted">
                       {wh.start}–{wh.end} · contact your admin to change
                     </p>

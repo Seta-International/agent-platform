@@ -5,7 +5,6 @@ import {
   Dialog,
   DialogHeader,
   Input,
-  Label,
   Layout,
   LayoutContent,
   LayoutFooter,
@@ -132,7 +131,8 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Selector
-                    label="Account *"
+                    label="Account"
+                    isRequired
                     options={(accounts ?? []).map((a) => ({
                       value: a.account_id,
                       label: a.name,
@@ -145,17 +145,17 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
 
                 <div className="space-y-1">
                   <Input
-                    label="Project name *"
+                    label="Project name"
+                    isRequired
                     value={form.name}
                     onChange={(value) => set({ name: value })}
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <Label>PM *</Label>
                   <Typeahead
                     label="PM"
-                    isLabelHidden
+                    isRequired
                     searchSource={workerSource.source}
                     value={pmWorker}
                     onChange={(item) => {

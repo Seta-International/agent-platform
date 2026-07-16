@@ -1,8 +1,7 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { cn } from '../lib/cn';
-import { initialsOf } from '../lib/initials';
-import { Avatar, AvatarFallback, AvatarImage } from '../primitives/avatar';
+import { Avatar } from '../primitives/avatar';
 
 export type GraphNodeTone = 'surface' | 'solid' | 'primary';
 
@@ -45,12 +44,6 @@ const TONE: Record<GraphNodeTone, { card: string; title: string; subtitle: strin
   },
 };
 
-function hueFromString(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h % 360;
-}
-
 export function GraphNodeCard({
   title,
   subtitle,
@@ -70,7 +63,6 @@ export function GraphNodeCard({
   onToggleCollapse,
 }: GraphNodeCardProps) {
   const t = TONE[tone];
-  const hue = hueFromString(title);
   const shapeCls = avatarShape === 'circle' ? 'rounded-full' : 'rounded-md';
 
   // Compose the box-shadow: a soft base, an optional type accent rail on the left, and the
@@ -81,14 +73,12 @@ export function GraphNodeCard({
   else if (selected) shadows.push('0 0 0 2px var(--color-primary)');
   const ringStyle: CSSProperties = { boxShadow: shadows.join(', ') };
 
-  // Icon nodes (department/account/project) tint the avatar with the type accent; person nodes
-  // keep the deterministic name-hue initials.
-  const avatarStyle: CSSProperties = icon
-    ? {
-        background: accent ? `color-mix(in oklch, ${accent} 16%, transparent)` : undefined,
-        color: accent,
-      }
-    : { background: `hsl(${hue} 60% 88%)`, color: `hsl(${hue} 40% 22%)` };
+  // Icon nodes (department/account/project) tint their type glyph with the accent; person nodes
+  // render an Avatar, which derives its own initials and colors from the name.
+  const avatarStyle: CSSProperties = {
+    background: accent ? `color-mix(in oklch, ${accent} 16%, transparent)` : undefined,
+    color: accent,
+  };
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (!onClick) return;
@@ -114,15 +104,20 @@ export function GraphNodeCard({
         className,
       )}
     >
-      <Avatar className={cn('h-9 w-9', shapeCls)}>
-        {avatarSrc && <AvatarImage src={avatarSrc} alt={title} />}
-        <AvatarFallback
-          className={cn(shapeCls, '[&>svg]:h-[18px] [&>svg]:w-[18px]')}
+      {icon ? (
+        <div
+          className={cn(
+            'flex h-9 w-9 shrink-0 items-center justify-center [&>svg]:h-[18px] [&>svg]:w-[18px]',
+            shapeCls,
+          )}
           style={avatarStyle}
+          aria-hidden
         >
-          {icon ?? initialsOf(title)}
-        </AvatarFallback>
-      </Avatar>
+          {icon}
+        </div>
+      ) : (
+        <Avatar name={title} src={avatarSrc} size={36} />
+      )}
       <div className="min-w-0">
         <div className={cn('truncate text-body-sm font-semibold leading-tight', t.title)}>
           {title}

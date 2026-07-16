@@ -61,22 +61,52 @@ exports[`PreviewCard > renders automatic variant matching snapshot 1`] = `
         Tue
       </span>
     </div>
-    <span
-      class="avatar-stack"
+    <div
+      aria-label="Avatars"
+      class="astryx-avatar-group size-24 x3nfvp2 x6s0dn4"
+      data-size="24"
+      role="group"
+      style="margin-left: auto;"
     >
-      <span
-        class="avatar-stack__avatar"
-        title="Jane Doe"
+      <div
+        aria-label="Jane Doe"
+        class="astryx-avatar size-24 x1n2onr6 x3nfvp2 x2lah0s xjspbzw xdh2fpr x1y0btm7 x1touxvs x10xzikg x1afcbsf x1sik18w xlz5hwt"
+        data-size="24"
+        role="img"
+        style="--x---_avatar-group-overlap: -6px;"
       >
-        JD
-      </span>
-      <span
-        class="avatar-stack__avatar"
-        title="Mark Lee"
+        <div
+          class="x78zum5 x6s0dn4 xl56j7k xjspbzw xb3r6kr x87ps6o x5lhr3w x16ye13r"
+          style="--x-width: 24px; --x-height: 24px;"
+        >
+          <div
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
+            style="--x-fontSize: 9.600000000000001px;"
+          >
+            JD
+          </div>
+        </div>
+      </div>
+      <div
+        aria-label="Mark Lee"
+        class="astryx-avatar size-24 x1n2onr6 x3nfvp2 x2lah0s xjspbzw xdh2fpr x1y0btm7 x1touxvs x10xzikg x1afcbsf x1sik18w xlz5hwt"
+        data-size="24"
+        role="img"
+        style="--x---_avatar-group-overlap: -6px;"
       >
-        ML
-      </span>
-    </span>
+        <div
+          class="x78zum5 x6s0dn4 xl56j7k xjspbzw xb3r6kr x87ps6o x5lhr3w x16ye13r"
+          style="--x-width: 24px; --x-height: 24px;"
+        >
+          <div
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
+            style="--x-fontSize: 9.600000000000001px;"
+          >
+            ML
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 `;
@@ -168,22 +198,52 @@ exports[`PreviewCard > renders checklist variant matching snapshot 1`] = `
         Tue
       </span>
     </div>
-    <span
-      class="avatar-stack"
+    <div
+      aria-label="Avatars"
+      class="astryx-avatar-group size-24 x3nfvp2 x6s0dn4"
+      data-size="24"
+      role="group"
+      style="margin-left: auto;"
     >
-      <span
-        class="avatar-stack__avatar"
-        title="Jane Doe"
+      <div
+        aria-label="Jane Doe"
+        class="astryx-avatar size-24 x1n2onr6 x3nfvp2 x2lah0s xjspbzw xdh2fpr x1y0btm7 x1touxvs x10xzikg x1afcbsf x1sik18w xlz5hwt"
+        data-size="24"
+        role="img"
+        style="--x---_avatar-group-overlap: -6px;"
       >
-        JD
-      </span>
-      <span
-        class="avatar-stack__avatar"
-        title="Mark Lee"
+        <div
+          class="x78zum5 x6s0dn4 xl56j7k xjspbzw xb3r6kr x87ps6o x5lhr3w x16ye13r"
+          style="--x-width: 24px; --x-height: 24px;"
+        >
+          <div
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
+            style="--x-fontSize: 9.600000000000001px;"
+          >
+            JD
+          </div>
+        </div>
+      </div>
+      <div
+        aria-label="Mark Lee"
+        class="astryx-avatar size-24 x1n2onr6 x3nfvp2 x2lah0s xjspbzw xdh2fpr x1y0btm7 x1touxvs x10xzikg x1afcbsf x1sik18w xlz5hwt"
+        data-size="24"
+        role="img"
+        style="--x---_avatar-group-overlap: -6px;"
       >
-        ML
-      </span>
-    </span>
+        <div
+          class="x78zum5 x6s0dn4 xl56j7k xjspbzw xb3r6kr x87ps6o x5lhr3w x16ye13r"
+          style="--x-width: 24px; --x-height: 24px;"
+        >
+          <div
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
+            style="--x-fontSize: 9.600000000000001px;"
+          >
+            ML
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 `;
@@ -231,22 +291,52 @@ exports[`PreviewCard > renders description variant matching snapshot 1`] = `
         Tue
       </span>
     </div>
-    <span
-      class="avatar-stack"
+    <div
+      aria-label="Avatars"
+      class="astryx-avatar-group size-24 x3nfvp2 x6s0dn4"
+      data-size="24"
+      role="group"
+      style="margin-left: auto;"
     >
-      <span
-        class="avatar-stack__avatar"
-        title="Jane Doe"
+      <div
+        aria-label="Jane Doe"
+        class="astryx-avatar size-24 x1n2onr6 x3nfvp2 x2lah0s xjspbzw xdh2fpr x1y0btm7 x1touxvs x10xzikg x1afcbsf x1sik18w xlz5hwt"
+        data-size="24"
+        role="img"
+        style="--x---_avatar-group-overlap: -6px;"
       >
-        JD
-      </span>
-      <span
-        class="avatar-stack__avatar"
-        title="Mark Lee"
+        <div
+          class="x78zum5 x6s0dn4 xl56j7k xjspbzw xb3r6kr x87ps6o x5lhr3w x16ye13r"
+          style="--x-width: 24px; --x-height: 24px;"
+        >
+          <div
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
+            style="--x-fontSize: 9.600000000000001px;"
+          >
+            JD
+          </div>
+        </div>
+      </div>
+      <div
+        aria-label="Mark Lee"
+        class="astryx-avatar size-24 x1n2onr6 x3nfvp2 x2lah0s xjspbzw xdh2fpr x1y0btm7 x1touxvs x10xzikg x1afcbsf x1sik18w xlz5hwt"
+        data-size="24"
+        role="img"
+        style="--x---_avatar-group-overlap: -6px;"
       >
-        ML
-      </span>
-    </span>
+        <div
+          class="x78zum5 x6s0dn4 xl56j7k xjspbzw xb3r6kr x87ps6o x5lhr3w x16ye13r"
+          style="--x-width: 24px; --x-height: 24px;"
+        >
+          <div
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
+            style="--x-fontSize: 9.600000000000001px;"
+          >
+            ML
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 `;
@@ -282,22 +372,52 @@ exports[`PreviewCard > renders noPreview variant matching snapshot 1`] = `
         Tue
       </span>
     </div>
-    <span
-      class="avatar-stack"
+    <div
+      aria-label="Avatars"
+      class="astryx-avatar-group size-24 x3nfvp2 x6s0dn4"
+      data-size="24"
+      role="group"
+      style="margin-left: auto;"
     >
-      <span
-        class="avatar-stack__avatar"
-        title="Jane Doe"
+      <div
+        aria-label="Jane Doe"
+        class="astryx-avatar size-24 x1n2onr6 x3nfvp2 x2lah0s xjspbzw xdh2fpr x1y0btm7 x1touxvs x10xzikg x1afcbsf x1sik18w xlz5hwt"
+        data-size="24"
+        role="img"
+        style="--x---_avatar-group-overlap: -6px;"
       >
-        JD
-      </span>
-      <span
-        class="avatar-stack__avatar"
-        title="Mark Lee"
+        <div
+          class="x78zum5 x6s0dn4 xl56j7k xjspbzw xb3r6kr x87ps6o x5lhr3w x16ye13r"
+          style="--x-width: 24px; --x-height: 24px;"
+        >
+          <div
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
+            style="--x-fontSize: 9.600000000000001px;"
+          >
+            JD
+          </div>
+        </div>
+      </div>
+      <div
+        aria-label="Mark Lee"
+        class="astryx-avatar size-24 x1n2onr6 x3nfvp2 x2lah0s xjspbzw xdh2fpr x1y0btm7 x1touxvs x10xzikg x1afcbsf x1sik18w xlz5hwt"
+        data-size="24"
+        role="img"
+        style="--x---_avatar-group-overlap: -6px;"
       >
-        ML
-      </span>
-    </span>
+        <div
+          class="x78zum5 x6s0dn4 xl56j7k xjspbzw xb3r6kr x87ps6o x5lhr3w x16ye13r"
+          style="--x-width: 24px; --x-height: 24px;"
+        >
+          <div
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
+            style="--x-fontSize: 9.600000000000001px;"
+          >
+            ML
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 `;
@@ -356,22 +476,52 @@ exports[`PreviewCard > renders reference variant matching snapshot 1`] = `
         Tue
       </span>
     </div>
-    <span
-      class="avatar-stack"
+    <div
+      aria-label="Avatars"
+      class="astryx-avatar-group size-24 x3nfvp2 x6s0dn4"
+      data-size="24"
+      role="group"
+      style="margin-left: auto;"
     >
-      <span
-        class="avatar-stack__avatar"
-        title="Jane Doe"
+      <div
+        aria-label="Jane Doe"
+        class="astryx-avatar size-24 x1n2onr6 x3nfvp2 x2lah0s xjspbzw xdh2fpr x1y0btm7 x1touxvs x10xzikg x1afcbsf x1sik18w xlz5hwt"
+        data-size="24"
+        role="img"
+        style="--x---_avatar-group-overlap: -6px;"
       >
-        JD
-      </span>
-      <span
-        class="avatar-stack__avatar"
-        title="Mark Lee"
+        <div
+          class="x78zum5 x6s0dn4 xl56j7k xjspbzw xb3r6kr x87ps6o x5lhr3w x16ye13r"
+          style="--x-width: 24px; --x-height: 24px;"
+        >
+          <div
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
+            style="--x-fontSize: 9.600000000000001px;"
+          >
+            JD
+          </div>
+        </div>
+      </div>
+      <div
+        aria-label="Mark Lee"
+        class="astryx-avatar size-24 x1n2onr6 x3nfvp2 x2lah0s xjspbzw xdh2fpr x1y0btm7 x1touxvs x10xzikg x1afcbsf x1sik18w xlz5hwt"
+        data-size="24"
+        role="img"
+        style="--x---_avatar-group-overlap: -6px;"
       >
-        ML
-      </span>
-    </span>
+        <div
+          class="x78zum5 x6s0dn4 xl56j7k xjspbzw xb3r6kr x87ps6o x5lhr3w x16ye13r"
+          style="--x-width: 24px; --x-height: 24px;"
+        >
+          <div
+            class="x78zum5 x6s0dn4 xl56j7k xh8yej3 x5yr21d x17x4s8c xv1l7n4 x9ynric x1e4wzip xtvhhri xdmh292"
+            style="--x-fontSize: 9.600000000000001px;"
+          >
+            ML
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 `;

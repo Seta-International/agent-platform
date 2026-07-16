@@ -95,8 +95,8 @@ describe('RerunSideSheet', () => {
       ),
     );
 
-    await waitFor(() => expect(screen.getByLabelText('taskRef › taskId')).toBeInTheDocument());
-    expect((screen.getByLabelText('taskRef › taskId') as HTMLInputElement).value).toBe(
+    await waitFor(() => expect(screen.getByLabelText(/^taskRef › taskId/)).toBeInTheDocument());
+    expect((screen.getByLabelText(/^taskRef › taskId/) as HTMLInputElement).value).toBe(
       '11111111-1111-1111-1111-111111111111',
     );
     expect(screen.getByRole('heading', { name: /re-run workflow/i })).toBeInTheDocument();

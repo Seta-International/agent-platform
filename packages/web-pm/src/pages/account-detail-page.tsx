@@ -4,7 +4,6 @@ import {
   Card,
   CardTitle,
   Input,
-  Label,
   LabelChip,
   Layout,
   LayoutContent,
@@ -243,7 +242,8 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                   <div className="space-y-4">
                     <div className="space-y-1">
                       <Input
-                        label="Name *"
+                        label="Name"
+                        isRequired
                         value={draft.name ?? ''}
                         onChange={(value) => setDraft((d) => ({ ...d, name: value }))}
                       />
@@ -256,10 +256,8 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label>Account Manager</Label>
                       <Typeahead
                         label="Account Manager"
-                        isLabelHidden
                         searchSource={workerSource.source}
                         value={amWorkerItem}
                         onChange={(item) => {

@@ -5,9 +5,9 @@ import {
   cn,
   Dialog,
   DialogHeader,
+  Field,
   GroupTile,
   Input,
-  Label,
   Layout,
   LayoutContent,
   LayoutFooter,
@@ -15,7 +15,7 @@ import {
 } from '@seta/shared-ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link2, Shield, Users } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { plannerClient } from '../api/planner-client';
 import { LinkToM365Dialog } from '../components/LinkToM365Dialog';
 import { useCreateGroup } from '../hooks/mutations/create-group';
@@ -34,6 +34,8 @@ interface Props {
 export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
   const createGroup = useCreateGroup();
   const qc = useQueryClient();
+  const colorId = useId();
+  const visibilityId = useId();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -153,8 +155,11 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <Label htmlFor="cg-desc">Description (optional)</Label>
+                <Field
+                  label="Description (optional)"
+                  inputID="cg-desc"
+                  description="Shown on the group page and in plan lists."
+                >
                   <textarea
                     id="cg-desc"
                     value={description}
@@ -162,15 +167,11 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                     placeholder="What does this group work on?"
                     className="block w-full min-h-[52px] resize-y rounded-md border border-hairline bg-canvas px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                   />
-                  <p className="text-xs text-ink-subtle">
-                    Shown on the group page and in plan lists.
-                  </p>
-                </div>
+                </Field>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Color</Label>
-                    <div className="flex gap-2">
+                  <Field label="Color" inputID={colorId} labelID={colorId} isGroupLabel>
+                    <fieldset aria-labelledby={colorId} className="flex gap-2">
                       {(['teal', 'purple', 'green', 'blue', 'pink', 'orange', 'red'] as const).map(
                         (c) => (
                           <button
@@ -189,8 +190,8 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                           />
                         ),
                       )}
-                    </div>
-                  </div>
+                    </fieldset>
+                  </Field>
 
                   <div className="space-y-1">
                     <Selector
@@ -205,9 +206,17 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Visibility</Label>
-                  <div className="grid grid-cols-2 gap-2">
+                <Field
+                  label="Visibility"
+                  inputID={visibilityId}
+                  labelID={visibilityId}
+                  isGroupLabel
+                >
+                  <div
+                    role="radiogroup"
+                    aria-labelledby={visibilityId}
+                    className="grid grid-cols-2 gap-2"
+                  >
                     {(
                       [
                         {
@@ -253,7 +262,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                       );
                     })}
                   </div>
-                </div>
+                </Field>
 
                 {/* IdP callout — "Link…" only picks an M365 group; the group is created
                   (and then linked) when "Create group" is pressed. */}

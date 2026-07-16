@@ -51,7 +51,7 @@ describe('CreateWorkerDialog', () => {
     await user.click(screen.getByRole('button', { name: 'New worker' }));
     const dialog = await screen.findByRole('dialog');
 
-    await user.type(within(dialog).getByLabelText('Full name *'), 'Ada Lovelace');
+    await user.type(within(dialog).getByLabelText(/^Full name/), 'Ada Lovelace');
     await user.click(within(dialog).getByRole('button', { name: 'Create' }));
 
     await vi.waitFor(() => {
@@ -70,7 +70,7 @@ describe('CreateWorkerDialog', () => {
     await user.click(screen.getByRole('button', { name: 'New worker' }));
     const dialog = await screen.findByRole('dialog');
 
-    await user.type(within(dialog).getByLabelText('Full name *'), 'Grace Hopper');
+    await user.type(within(dialog).getByLabelText(/^Full name/), 'Grace Hopper');
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

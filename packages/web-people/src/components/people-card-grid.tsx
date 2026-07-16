@@ -1,14 +1,6 @@
-import { Avatar, AvatarFallback, Badge, Button, Card, EmptyState, Skeleton } from '@seta/shared-ui';
+import { Avatar, Badge, Button, Card, EmptyState, Skeleton } from '@seta/shared-ui';
 import { Users } from 'lucide-react';
 import type { WorkerListRow, WorkersQuery } from '../api/people-client.ts';
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((s) => s[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
 
 function LifecycleBadge({ stage }: { stage: string | null }) {
   const variantMap: Record<string, 'neutral' | 'error'> = {
@@ -102,9 +94,7 @@ export function PeopleCardGrid({
           >
             {/* Header: avatar + name + title */}
             <div className="flex items-start gap-3 min-w-0">
-              <Avatar className="size-9 shrink-0 mt-0.5">
-                <AvatarFallback>{initials(row.full_name)}</AvatarFallback>
-              </Avatar>
+              <Avatar name={row.full_name} size={36} />
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-sm truncate">{row.full_name}</div>
                 {row.job_title && (

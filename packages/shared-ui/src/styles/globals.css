@@ -89,11 +89,6 @@ select:focus-visible,
 .kanban-card__checklist-chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; font-variant-numeric: tabular-nums; color: var(--color-ink-muted); background: var(--color-surface-2); border-radius: 999px; font-size: var(--font-size-xs); }
 .kanban-card__checklist-chip--complete { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 12%, transparent); }
 
-.avatar-stack               { display: inline-flex; margin-left: auto; }
-.avatar-stack__avatar       { width: 22px; height: 22px; border-radius: 50%; font-size: 10px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--color-canvas); }
-.avatar-stack__avatar + .avatar-stack__avatar { margin-left: -6px; }
-.avatar-stack__avatar--more { background: var(--color-surface-2); color: var(--color-ink-subtle); border: 1px solid var(--color-hairline); }
-
 @media (prefers-reduced-motion: reduce) {
   .kanban-card--recently-moved { animation: none; border-color: var(--color-primary); }
 }

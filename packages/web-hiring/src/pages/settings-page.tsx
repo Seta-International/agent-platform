@@ -114,7 +114,8 @@ function NewTemplateDialog() {
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Input
-                    label="Name *"
+                    label="Name"
+                    isRequired
                     value={name}
                     onChange={(value) => setName(value)}
                     placeholder="e.g. Backend role"
@@ -218,7 +219,8 @@ function NewCloseReasonDialog() {
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Input
-                    label="Label *"
+                    label="Label"
+                    isRequired
                     value={label}
                     onChange={(value) => setLabel(value)}
                     placeholder="e.g. Position cancelled"
@@ -297,7 +299,8 @@ function NewRejectionReasonDialog() {
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Input
-                    label="Label *"
+                    label="Label"
+                    isRequired
                     value={label}
                     onChange={(value) => setLabel(value)}
                     placeholder="e.g. Lacking required skills"

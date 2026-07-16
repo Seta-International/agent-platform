@@ -1,4 +1,4 @@
-import { Banner, Button, Input, Label, SetaMark } from '@seta/shared-ui';
+import { Banner, Button, Input, SetaMark } from '@seta/shared-ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 import { discoverProvider } from '../api/client.ts';
@@ -238,8 +238,7 @@ function PasswordStep({
       >
         <EmailChip email={email} onEdit={onEdit} />
 
-        <Field
-          id="password"
+        <FieldRow
           label="Password"
           trailing={
             <a
@@ -259,7 +258,7 @@ function PasswordStep({
             size="lg"
             isRequired
           />
-        </Field>
+        </FieldRow>
 
         {error ? <Banner status="error" title={error} /> : null}
 
@@ -347,20 +346,22 @@ function SsoStep({
   );
 }
 
-interface FieldProps {
-  id: string;
+interface FieldRowProps {
   label: string;
   trailing?: React.ReactNode;
   children: React.ReactNode;
 }
 
-function Field({ id, label, trailing, children }: FieldProps) {
+/**
+ * Label row with a trailing action. The heading is a plain span, not a <label>: Astryx
+ * inputs mint their own input id internally, so nothing here can target it — the control
+ * carries its own (hidden) label for the accessible name.
+ */
+function FieldRow({ label, trailing, children }: FieldRowProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between">
-        <Label htmlFor={id} className="text-caption font-medium text-ink-muted">
-          {label}
-        </Label>
+        <span className="text-caption font-medium text-ink-muted">{label}</span>
         {trailing}
       </div>
       {children}

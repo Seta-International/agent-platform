@@ -1,13 +1,5 @@
 import type { GroupMemberRow, GroupRow } from '@seta/planner';
-import {
-  Avatar,
-  AvatarFallback,
-  Button,
-  cn,
-  DataTable,
-  HoverCard,
-  Selector,
-} from '@seta/shared-ui';
+import { Avatar, Button, cn, DataTable, HoverCard, Selector } from '@seta/shared-ui';
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 
@@ -19,12 +11,6 @@ interface Props {
   onRoleChange: (input: { user_id: string; role: 'owner' | 'member' }) => void;
   onRemoveMember: (member: GroupMemberRow) => void;
   onRemoveMembers: (userIds: string[]) => void;
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
 const shortDateFmt = new Intl.DateTimeFormat('en-US', {
@@ -135,11 +121,7 @@ export function GroupMembersTable({
         header: 'Member',
         cell: ({ row }) => (
           <div className="flex items-center gap-2.5">
-            <Avatar className="size-8 shrink-0">
-              <AvatarFallback className="text-[11px] font-semibold">
-                {initials(row.original.display_name)}
-              </AvatarFallback>
-            </Avatar>
+            <Avatar name={row.original.display_name} size={32} />
             <span className="font-medium text-ink">{row.original.display_name}</span>
           </div>
         ),

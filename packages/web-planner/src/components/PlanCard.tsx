@@ -1,5 +1,5 @@
 import type { PlanRow } from '@seta/planner';
-import { Avatar, AvatarFallback, Tooltip } from '@seta/shared-ui';
+import { Avatar, Tooltip } from '@seta/shared-ui';
 
 interface PlanCardProps {
   plan: PlanRow;
@@ -17,12 +17,6 @@ interface PlanCardProps {
   ownerDisplayName?: string | null;
   themeColor?: string;
   onClick?: () => void;
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
 const shortDateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
@@ -191,11 +185,7 @@ export function PlanCard({
         {/* Owner row */}
         {ownerDisplayName != null && (
           <div className="mt-3 flex items-center gap-1.5">
-            <Avatar className="size-5 shrink-0">
-              <AvatarFallback className="text-[9px] font-semibold">
-                {initials(ownerDisplayName)}
-              </AvatarFallback>
-            </Avatar>
+            <Avatar name={ownerDisplayName} size={20} />
             <span className="text-[11px] text-ink-subtle truncate">{ownerDisplayName}</span>
           </div>
         )}
