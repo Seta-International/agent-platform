@@ -24,7 +24,6 @@ const REQUIRED = [
   'Selector',
   'SetaLogo',
   'SetaMark',
-  'Sheet',
   'SidePanel',
   'Skeleton',
   'Switch',
