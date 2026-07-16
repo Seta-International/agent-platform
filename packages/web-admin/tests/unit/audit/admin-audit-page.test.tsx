@@ -123,4 +123,23 @@ describe('AdminAudit page', () => {
     // The h1 still carries the page's real heading semantics.
     expect(screen.getByRole('heading', { level: 1, name: 'Audit log' })).toBeInTheDocument();
   });
+
+  it('keeps the filter toolbar pinned outside the scrollable content region', async () => {
+    await setup({ rows: mockRows, total: 2 });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(<Harness />, { wrapper: wrap(qc) });
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Audit log filters' });
+    // `.astryx-layout-content` is the Astryx `LayoutContent` component's own stable,
+    // documented base class (see `themeProps()` in the vendor package) — not a StyleX
+    // atomic-class hash, so it's safe to assert on. The page also nests a second,
+    // drawer-scoped `LayoutContent` inside the (always-mounted) payload-diff detail
+    // drawer; that one is a descendant of this outer one, so it sorts after it in
+    // document order and `querySelector` (which returns the first match) reliably
+    // picks the outer, page-level scroll region here.
+    const content = container.querySelector('.astryx-layout-content');
+    expect(content).not.toBeNull();
+    // The toolbar must be pinned in the header, never scrolled away with the table.
+    expect(content?.contains(toolbar)).toBe(false);
+  });
 });
