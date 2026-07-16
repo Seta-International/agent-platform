@@ -12,8 +12,8 @@ import {
   Skeleton,
   Textarea,
   Typeahead,
-  toast,
   useSeededItem,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -48,6 +48,7 @@ export function ProjectDetailPage() {
   const { projectId } = useParams({ from: '/_authed/pm/projects/$projectId' });
   const queryClient = useQueryClient();
   const canManage = usePermission('pm.project.manage');
+  const toast = useToast();
 
   const {
     data: p,
@@ -82,38 +83,38 @@ export function ProjectDetailPage() {
   const save = useMutation({
     mutationFn: () => editProject(projectId, { expected_version: p?.version, patch }),
     onSuccess: () => {
-      toast.success('Project saved');
+      toast({ body: 'Project saved' });
       setPatch({});
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const close = useMutation({
     mutationFn: () => closeProject(projectId, p?.version),
     onSuccess: () => {
-      toast.success('Project closed');
+      toast({ body: 'Project closed' });
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const reopen = useMutation({
     mutationFn: () => reopenProject(projectId, p?.version),
     onSuccess: () => {
-      toast.success('Project reopened');
+      toast({ body: 'Project reopened' });
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const link = useMutation({
     mutationFn: () => linkPlannerGroup(projectId, selectedGroupId || null, p?.version),
     onSuccess: () => {
-      toast.success('Planner board linked');
+      toast({ body: 'Planner board linked' });
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const createBoard = useMutation({
@@ -122,11 +123,11 @@ export function ProjectDetailPage() {
       return linkPlannerGroup(projectId, g.id, p?.version);
     },
     onSuccess: () => {
-      toast.success('Board created & linked');
+      toast({ body: 'Board created & linked' });
       invalidate();
       void queryClient.invalidateQueries({ queryKey: ['planner', 'groups'] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const backLink = (

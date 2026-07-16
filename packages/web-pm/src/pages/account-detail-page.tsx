@@ -12,9 +12,9 @@ import {
   Skeleton,
   Tokenizer,
   Typeahead,
-  toast,
   useSeededItem,
   useSeededItems,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -42,6 +42,7 @@ function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
 export function AccountDetailPage({ accountId }: { accountId: string }) {
   const queryClient = useQueryClient();
   const canManage = usePermission('pm.account.manage');
+  const toast = useToast();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<AccountPatch>({});
@@ -75,7 +76,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
       return editAccount(accountId, { expected_version: account.version, patch });
     },
     onSuccess: () => {
-      toast.success('Changes saved');
+      toast({ body: 'Changes saved' });
       setEditing(false);
       setDraft({});
       setEditError(null);
@@ -95,7 +96,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
   const saveRecruitersMutation = useMutation({
     mutationFn: (ids: string[]) => setAccountRecruiters(accountId, ids),
     onSuccess: (r) => {
-      toast.success(`Recruiters updated (${r.added} added, ${r.removed} removed)`);
+      toast({ body: `Recruiters updated (${r.added} added, ${r.removed} removed)` });
       setEditingRecruiters(false);
       setRecruiterError(null);
       void queryClient.invalidateQueries({ queryKey: pmKeys.account(accountId) });

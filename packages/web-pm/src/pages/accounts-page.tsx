@@ -10,7 +10,7 @@ import {
   LayoutContent,
   LayoutFooter,
   PageChrome,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,6 +21,7 @@ import { type AccountListRow, createAccount, fetchAccounts } from '../api/pm-cli
 import { pmKeys } from '../state/query-keys.ts';
 
 function CreateAccountDialog({ onCreated }: { onCreated: () => void }) {
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [industry, setIndustry] = useState('');
@@ -33,7 +34,7 @@ function CreateAccountDialog({ onCreated }: { onCreated: () => void }) {
         industry: industry.trim() || undefined,
       }),
     onSuccess: () => {
-      toast.success('Account created');
+      toast({ body: 'Account created' });
       onCreated();
       setOpen(false);
       reset();

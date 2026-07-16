@@ -20,7 +20,7 @@ import {
   Selector,
   type SortingState,
   Typeahead,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -178,6 +178,7 @@ function SplitAllocationDialog({
   onClose: () => void;
   onSplit: () => void;
 }) {
+  const toast = useToast();
   const [newEndDate, setNewEndDate] = useState('');
   const [continuationPct, setContinuationPct] = useState('100');
   const [continuationBucket, setContinuationBucket] = useState<Bucket>('billable');
@@ -207,11 +208,11 @@ function SplitAllocationDialog({
       }),
     onSuccess: (result) => {
       if (result.warning) {
-        toast.warning(
-          `Saved — but this now allocates ${target?.worker_name ?? 'this person'} to ${result.warning.peak_pct}% at the busiest point.`,
-        );
+        toast({
+          body: `Saved — but this now allocates ${target?.worker_name ?? 'this person'} to ${result.warning.peak_pct}% at the busiest point.`,
+        });
       } else {
-        toast.success('Allocation split');
+        toast({ body: 'Allocation split' });
       }
       onSplit();
       onClose();
