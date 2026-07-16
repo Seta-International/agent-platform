@@ -17,9 +17,9 @@ const noopDrop = {
 };
 
 // In the error state there are two role="alert" elements (our inline error
-// `<Text role="alert">` plus TextInput's own FieldStatus announcer), so
-// `findByRole('alert')` fails with "Found multiple elements" — filter by
-// text content instead.
+// `<Text role="alert">` plus the Due DateInput's always-mounted VisuallyHidden
+// announcer), so `findByRole('alert')` fails with "Found multiple elements" —
+// filter by text content instead.
 async function findAlertWithText(text: string) {
   return waitFor(() => {
     const alert = screen.getAllByRole('alert').find((el) => el.textContent === text);
