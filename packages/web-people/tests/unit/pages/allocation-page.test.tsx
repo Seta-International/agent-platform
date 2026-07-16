@@ -110,6 +110,32 @@ describe('AllocationPage (Astryx Table migration)', () => {
     await waitFor(() => expect(within(table).getByText('Worker 25')).toBeInTheDocument());
   });
 
+  it('resets to page 1 when the sort order changes while on page 2', async () => {
+    // Matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on
+    // `sorting` state changes too, not just filters (getSortedRowModel unconditionally calls
+    // `table._autoResetPageIndex()`).
+    const user = userEvent.setup();
+    const manyRows = Array.from({ length: 30 }, (_, i) =>
+      makeRow({ worker_id: `w${i}`, full_name: `Worker ${i}`, total_mm: i }),
+    );
+    mockFetchAllocationGrid.mockResolvedValue({ ...baseGrid, rows: manyRows });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: /go to page 2/i }));
+    await waitFor(() => expect(within(table).getByText('Worker 25')).toBeInTheDocument());
+
+    await user.click(within(table).getByRole('button', { name: /sort by mm/i }));
+
+    expect(within(pager).getByRole('button', { name: 'Go to page 1' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(table).getByText('Worker 0')).toBeInTheDocument();
+    expect(within(table).queryByText('Worker 25')).not.toBeInTheDocument();
+  });
+
   it('renders the empty state when there are no allocations', async () => {
     mockFetchAllocationGrid.mockResolvedValue({ ...baseGrid, rows: [] });
     renderPage();

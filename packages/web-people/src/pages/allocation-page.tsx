@@ -210,15 +210,24 @@ export function AllocationPage() {
     placeholderData: keepPreviousData,
   });
 
+  const { sortedData, sort, sortConfig } = useTableSortableState<AllocationRow>({
+    data: (data?.rows ?? []) as AllocationRow[],
+    comparators: { total_mm: (a, b) => a.total_mm - b.total_mm },
+  });
+  const sortable = useTableSortable<AllocationRow>(sortConfig);
+
   // Client-side pagination over the (server-)filtered rows. Reset to page 1
-  // whenever the filters change so a narrower result set never strands the
-  // pager on an out-of-range page.
+  // whenever the filters change, or the sort order changes — matches the deleted
+  // DataTable's TanStack `autoResetPageIndex` default, which fired on both
+  // `columnFilters`/`globalFilter` AND `sorting` state changes (getSortedRowModel
+  // calls `table._autoResetPageIndex()` unconditionally; `manualPagination` was
+  // never set here).
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: filters is the intentional reset trigger, unread in the body.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: filters and sort are the intentional reset triggers, unread in the body.
   useEffect(() => {
     setPage(1);
-  }, [filters]);
+  }, [filters, sort]);
 
   const accountItems = useMemo<SearchableItem[]>(
     () => (data?.facets.accounts ?? []).map((a) => ({ id: a.id, label: a.name })),
@@ -345,12 +354,6 @@ export function AllocationPage() {
       },
     ];
   }, [overByWorkerMonth, totalsByWorker]);
-
-  const { sortedData, sortConfig } = useTableSortableState<AllocationRow>({
-    data: (data?.rows ?? []) as AllocationRow[],
-    comparators: { total_mm: (a, b) => a.total_mm - b.total_mm },
-  });
-  const sortable = useTableSortable<AllocationRow>(sortConfig);
 
   const pageRows = useMemo(
     () => paginateData(sortedData, page, pageSize),
