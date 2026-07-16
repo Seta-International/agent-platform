@@ -6,7 +6,13 @@ import {
   usePanelUI,
   useResolveAgentNotification,
 } from '@seta/web-agent';
-import { fetchMe, SessionProvider, UserMenu, useRefreshSession } from '@seta/web-identity';
+import {
+  ensureSession,
+  SessionProvider,
+  UserMenu,
+  useRefreshSession,
+  useSession,
+} from '@seta/web-identity';
 import { NotificationPopoverContainer, useNotificationStream } from '@seta/web-notifications';
 import { useResolvePlannerNotification } from '@seta/web-planner';
 import { useQuery } from '@tanstack/react-query';
@@ -32,8 +38,10 @@ function ShellLink({ href, ...rest }: ShellLinkProps) {
 }
 
 export const Route = createFileRoute('/_authed')({
-  beforeLoad: async ({ location }) => {
-    const session = await fetchMe();
+  beforeLoad: async ({ context, location }) => {
+    // Resolved through the shared query cache: navigations and hover preloads re-run
+    // beforeLoad constantly, and must not each hit /identity/v1/me (FUT-648).
+    const session = await ensureSession(context.queryClient);
     if (!session)
       throw redirect({ to: '/login', search: { redirect: location.href, reason: undefined } });
     return { session };
@@ -55,7 +63,9 @@ function AuthedLayout() {
 }
 
 function ShellWithPanel({ children }: { children: React.ReactNode }) {
-  const { session } = Route.useRouteContext();
+  // Subscribe via useSession (not route context) so SSE-driven session refreshes
+  // re-derive nav visibility without waiting for the next navigation.
+  const session = useSession();
   const refreshSession = useRefreshSession();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { panelOpen, setPanelOpen } = usePanelUI();
