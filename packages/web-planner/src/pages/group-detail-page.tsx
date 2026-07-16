@@ -12,7 +12,7 @@ import {
   Skeleton,
   Tab,
   TabList,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { type SessionScopeProjection, usePermission } from '@seta/web-identity';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -88,6 +88,7 @@ function ErrorState({ onRetry }: ErrorStateProps) {
 }
 
 export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
+  const toast = useToast();
   const groupQuery = useGroup(groupId);
   const membersQuery = useGroupMembers(groupId);
   const plansQuery = useGroupPlans(groupId);
@@ -163,7 +164,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
     const err = groupQuery.error as { status?: number } | null;
     if (err?.status === 403) {
       void navigate({ to: '/planner/groups' });
-      toast.error("You don't have access to this group anymore.");
+      toast({ body: "You don't have access to this group anymore.", type: 'error' });
       return null;
     }
     return <ErrorState onRetry={() => void groupQuery.refetch()} />;
@@ -197,10 +198,14 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
       { expected_version: group.version },
       {
         onSuccess: () => {
-          toast('Group archived. You can restore it from the Archived filter.');
+          toast({ body: 'Group archived. You can restore it from the Archived filter.' });
           void navigate({ to: '/planner/groups' });
         },
-        onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't archive the group."),
+        onError: (e) =>
+          toast({
+            body: e instanceof Error ? e.message : "Couldn't archive the group.",
+            type: 'error',
+          }),
       },
     );
   }
@@ -212,7 +217,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
       {
         onSuccess: () => {
           setDeleteOpen(false);
-          toast('Group archived. You can restore it from the Archived filter.');
+          toast({ body: 'Group archived. You can restore it from the Archived filter.' });
           void navigate({ to: '/planner/groups' });
         },
         onError: (e) => {
@@ -226,8 +231,12 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
     restoreGroup.mutate(
       { group_id: groupId },
       {
-        onSuccess: () => toast('Group restored'),
-        onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't restore the group."),
+        onSuccess: () => toast({ body: 'Group restored' }),
+        onError: (e) =>
+          toast({
+            body: e instanceof Error ? e.message : "Couldn't restore the group.",
+            type: 'error',
+          }),
       },
     );
   }

@@ -1,4 +1,4 @@
-import { CategoryDescriptionEditor, Skeleton, toast } from '@seta/shared-ui';
+import { CategoryDescriptionEditor, Skeleton, useToast } from '@seta/shared-ui';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect } from 'react';
@@ -29,13 +29,14 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
   const q = usePlanCategories(planId);
   const boardQ = usePlanBoard(planId);
   const m = useSetCategoryDescriptions(planId);
+  const toast = useToast();
 
   const isForbidden = q.error instanceof PlannerClientError && q.error.status === 403;
   useEffect(() => {
     if (!isForbidden) return;
-    toast.error("You can't edit categories for this plan anymore.");
+    toast({ body: "You can't edit categories for this plan anymore.", type: 'error' });
     void navigate({ to: '/planner/groups' });
-  }, [isForbidden, navigate]);
+  }, [isForbidden, navigate, toast]);
 
   const onTabChange = (next: PlanSettingsTab) => {
     if (next === 'categories') return;
@@ -140,9 +141,12 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
               }
               void m
                 .mutateAsync({ slots })
-                .then(() => toast.success('Categories saved'))
+                .then(() => toast({ body: 'Categories saved' }))
                 .catch((err) => {
-                  toast.error(err instanceof Error ? err.message : "Couldn't save categories");
+                  toast({
+                    body: err instanceof Error ? err.message : "Couldn't save categories",
+                    type: 'error',
+                  });
                 });
             }}
           />

@@ -4,7 +4,7 @@ import {
   DropdownMenuItem,
   formatRelative,
   Skeleton,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useAgentContext } from '@seta/web-agent';
 import { usePermission, useSession } from '@seta/web-identity';
@@ -85,6 +85,7 @@ export function TaskDetailPage({
   onDeleted,
 }: Props) {
   const navigate = useNavigate();
+  const toast = useToast();
   const session = useSession();
   const currentUserId = session.user_id;
   const taskQ = useTaskDetail(taskId);
@@ -130,9 +131,9 @@ export function TaskDetailPage({
   const isForbidden = taskErr instanceof PlannerClientError && taskErr.status === 403;
   useEffect(() => {
     if (!isForbidden) return;
-    toast.error("You don't have access to this task anymore.");
+    toast({ body: "You don't have access to this task anymore.", type: 'error' });
     void navigate({ to: '/planner/groups' });
-  }, [isForbidden, navigate]);
+  }, [isForbidden, navigate, toast]);
 
   useAgentContext({
     kind: 'planner.task',
@@ -175,7 +176,7 @@ export function TaskDetailPage({
       {
         onSuccess: () => {
           setDeleteOpen(false);
-          toast.success('Task moved to Trash.');
+          toast({ body: 'Task moved to Trash.' });
           if (variant === 'modal') {
             onDeleted?.();
           } else {
@@ -202,7 +203,7 @@ export function TaskDetailPage({
       {
         onSuccess: () => {
           setMoveOpen(false);
-          toast(`Task moved to ${args.targetPlanName}.`);
+          toast({ body: `Task moved to ${args.targetPlanName}.` });
           if (variant === 'modal') {
             // Modal: close the dialog and bring the user to the target board
             // with the task pre-selected so context is preserved.
@@ -230,7 +231,7 @@ export function TaskDetailPage({
       {
         onSuccess: (created) => {
           setDuplicateOpen(false);
-          toast('Task duplicated.');
+          toast({ body: 'Task duplicated.' });
           if (variant === 'modal') {
             // Modal variant lives under a route that opens the dialog via the
             // `selectedTask` search param; swap it to the new task so the user
@@ -263,10 +264,10 @@ export function TaskDetailPage({
           bucketName={bucketName}
           titleSlot={<TaskTitleEditor task={task} planId={planId} />}
           onBack={() => void navigate({ to: '/planner/plans/$planId', params: { planId } })}
-          onAskAgent={() => toast('Agent is coming soon.')}
+          onAskAgent={() => toast({ body: 'Agent is coming soon.' })}
           onCopyLink={() => {
             void navigator.clipboard.writeText(window.location.href);
-            toast('Link copied.');
+            toast({ body: 'Link copied.' });
           }}
           onPrevious={() => prevTaskId && goToTask(prevTaskId)}
           onNext={() => nextTaskId && goToTask(nextTaskId)}
