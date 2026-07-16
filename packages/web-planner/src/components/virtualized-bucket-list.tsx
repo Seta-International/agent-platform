@@ -48,9 +48,7 @@ export function VirtualizedBucketList({ bucketId, cards, onOpen }: Props) {
           }}
           {...dp.droppableProps}
           data-testid="virtualized-bucket-list"
-          className={
-            ds.isDraggingOver ? 'is-over virtualized-bucket-list' : 'virtualized-bucket-list'
-          }
+          data-dragging-over={ds.isDraggingOver ? 'true' : undefined}
           // fixed scroll viewport — TanStack virtualizer needs a definite scroll-container height to compute the visible window
           style={{ maxHeight: '70vh', height: '100%', overflow: 'auto', position: 'relative' }}
         >

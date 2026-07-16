@@ -10,11 +10,11 @@ test('drag-reorder persists order_hint across reload', async ({ page, request })
   await page.goto(`/planner/plans/${planId}`);
 
   // Pick the first column with at least 3 cards so the drag has somewhere to go.
-  const columns = page.locator('section[aria-label^="Bucket: "]');
+  const columns = page.locator('[role="region"][aria-label^="Bucket: "]');
   const columnCount = await columns.count();
   let targetColumn = -1;
   for (let i = 0; i < columnCount; i++) {
-    const c = columns.nth(i).locator('.kanban-card');
+    const c = columns.nth(i).locator('[role="button"][aria-label^="Task: "]');
     if ((await c.count()) >= 3) {
       targetColumn = i;
       break;
@@ -23,7 +23,7 @@ test('drag-reorder persists order_hint across reload', async ({ page, request })
   test.skip(targetColumn === -1, 'no column has ≥3 cards in seed data');
 
   const column = columns.nth(targetColumn);
-  const cards = column.locator('.kanban-card');
+  const cards = column.locator('[role="button"][aria-label^="Task: "]');
 
   const initialTitles: string[] = [];
   const initialCount = await cards.count();
@@ -48,8 +48,8 @@ test('drag-reorder persists order_hint across reload', async ({ page, request })
   await page.reload();
   await page.waitForLoadState('networkidle');
 
-  const reloadedColumn = page.locator('section[aria-label^="Bucket: "]').nth(targetColumn);
-  const reloadedCards = reloadedColumn.locator('.kanban-card');
+  const reloadedColumn = page.locator('[role="region"][aria-label^="Bucket: "]').nth(targetColumn);
+  const reloadedCards = reloadedColumn.locator('[role="button"][aria-label^="Task: "]');
   const lastIdx = (await reloadedCards.count()) - 1;
   const lastAria = await reloadedCards.nth(lastIdx).getAttribute('aria-label');
   expect((lastAria ?? '').replace(/^Task:\s*/, '')).toBe(firstTitle);
