@@ -32,6 +32,26 @@ const ACTION_RE =
 const QUESTION_RE =
   /\b(what|which|how many|how much|when|where|who is|who's|whose|list|show me|do i have|are there|count)\b/i;
 
+// Short confirmations / negations that are follow-ups to the previous turn.
+// When matched, re-use the previous turn's intent so the same orchestrator
+// handles the continuation (e.g. "yes" after "Would you like me to recommend?").
+const CONFIRM_RE =
+  /^\s*(yes|yeah|yep|yup|ok|okay|sure|go ahead|do it|please|please do|confirm|approved?|no|nope|nah|cancel|never\s*mind|có|ừ|ờ|uh|vâng|được|đồng ý|làm đi|không|thôi|hủy)\s*[.!?]*\s*$/i;
+
+function inferIntentFromHistory(history?: ClassifierHistory): ChatIntent | undefined {
+  if (!history?.length) return undefined;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const m = history[i];
+    if (m?.role !== 'user') continue;
+    const text = typeof m.content === 'string' ? m.content : '';
+    if (WEEKLY_RE.test(text)) return 'weekly_planner';
+    if (ACTION_RE.test(text)) return 'assignment';
+    if (QUESTION_RE.test(text)) return 'planner_qna';
+    break;
+  }
+  return undefined;
+}
+
 async function llmFallback(
   deps: IntentClassifierDeps,
   userText: string,
@@ -83,6 +103,13 @@ export function makeIntentClassifier(deps: IntentClassifierDeps) {
     if (WEEKLY_RE.test(userText)) return 'weekly_planner';
     if (ACTION_RE.test(userText)) return 'assignment';
     if (QUESTION_RE.test(userText)) return 'planner_qna';
+    // Short confirmation/negation ("yes", "ok", "không") → stay on the same
+    // orchestrator that handled the previous turn so conversational follow-ups
+    // don't lose context by routing to a different agent.
+    if (CONFIRM_RE.test(userText)) {
+      const prev = inferIntentFromHistory(history);
+      if (prev) return prev;
+    }
     if (deps.classifyLlm) return deps.classifyLlm(userText, history);
     return llmFallback(deps, userText, history);
   };
