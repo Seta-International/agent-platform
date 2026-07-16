@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogTitle } from '@seta/shared-ui';
+import { Dialog, Layout, LayoutContent } from '@seta/shared-ui';
 import { Maximize2, X } from 'lucide-react';
 import { TaskDetailPage } from '../pages/task-detail-page';
 
@@ -17,51 +17,62 @@ interface Props {
  * The dialog supplies the dimmed-board overlay; `TaskDetailPage` in `variant="modal"`
  * renders its own compact header (breadcrumb + title) and receives our action buttons
  * via `modalHeaderActions` so they sit alongside the title rather than overlapping it.
+ *
+ * Special case (no visible header/footer): `TaskDetailPage` renders its own visible header
+ * (breadcrumb + title + the close/expand buttons below), so this shell must NOT render a
+ * second `DialogHeader` — that would stack two header bars. Instead the dialog's accessible
+ * name is set directly via `aria-label`, mirroring the original's screen-reader-only
+ * `DialogTitle` without a visible duplicate. There's no footer either — `TaskDetailPage`'s
+ * own header already hosts the close/expand actions.
  */
 export function TaskDetailDialog({ planId, taskId, onClose, onOpenFullPage }: Props) {
   return (
     <Dialog
-      open
+      isOpen
       onOpenChange={(next) => {
         if (!next) onClose();
       }}
+      purpose="info"
+      width={1080}
+      maxHeight="88vh"
+      padding={0}
+      aria-label="Task"
     >
-      <DialogContent
-        hideClose
-        unstyled
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        className="flex max-h-[88vh] w-[min(1080px,92vw)] flex-col overflow-hidden rounded-xl"
-      >
-        <DialogTitle className="sr-only">Task</DialogTitle>
-        <TaskDetailPage
-          planId={planId}
-          taskId={taskId}
-          variant="modal"
-          onDeleted={onClose}
-          modalHeaderActions={
-            <>
-              <button
-                type="button"
-                onClick={onOpenFullPage}
-                title="Open as full page"
-                aria-label="Open as full page"
-                className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-              >
-                <Maximize2 className="size-4" />
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                title="Close"
-                aria-label="Close"
-                className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-              >
-                <X className="size-4" />
-              </button>
-            </>
-          }
-        />
-      </DialogContent>
+      <Layout
+        padding={0}
+        content={
+          <LayoutContent padding={0} isScrollable={false}>
+            <TaskDetailPage
+              planId={planId}
+              taskId={taskId}
+              variant="modal"
+              onDeleted={onClose}
+              modalHeaderActions={
+                <>
+                  <button
+                    type="button"
+                    onClick={onOpenFullPage}
+                    title="Open as full page"
+                    aria-label="Open as full page"
+                    className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                  >
+                    <Maximize2 className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    title="Close"
+                    aria-label="Close"
+                    className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </>
+              }
+            />
+          </LayoutContent>
+        }
+      />
     </Dialog>
   );
 }
