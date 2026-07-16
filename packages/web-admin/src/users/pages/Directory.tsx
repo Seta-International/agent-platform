@@ -3,15 +3,12 @@ import {
   Button,
   DataTable,
   Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuItem,
   Input,
+  Layout,
+  LayoutFooter,
   PageChrome,
   PageChromeToolbar,
   type RowSelectionState,
@@ -467,35 +464,40 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         />
       </div>
 
-      {/* Suspend confirm dialog */}
+      {/* Suspend confirm dialog. "form" purpose, not "required": the copy explicitly states
+          the action is reversible ("You can reactivate at any time"), same reasoning as the
+          plan's "archive M365 group" precedent. */}
       <Dialog
-        open={suspendTarget !== null}
+        isOpen={suspendTarget !== null}
         onOpenChange={(o) => {
           if (!o) setSuspendTarget(null);
         }}
+        purpose="form"
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Suspend account?</DialogTitle>
-            <DialogDescription>
-              {suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at
-              any time.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary" label="Cancel" />
-            </DialogClose>
-            <Button
-              variant="destructive"
-              label="Suspend"
-              onClick={() => {
-                if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
-                setSuspendTarget(null);
+        <Layout
+          header={
+            <DialogHeader
+              title="Suspend account?"
+              subtitle={`${suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at any time.`}
+              onOpenChange={(o) => {
+                if (!o) setSuspendTarget(null);
               }}
             />
-          </DialogFooter>
-        </DialogContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <Button variant="secondary" label="Cancel" onClick={() => setSuspendTarget(null)} />
+              <Button
+                variant="destructive"
+                label="Suspend"
+                onClick={() => {
+                  if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
+                  setSuspendTarget(null);
+                }}
+              />
+            </LayoutFooter>
+          }
+        />
       </Dialog>
 
       {/* Detail sheet */}
