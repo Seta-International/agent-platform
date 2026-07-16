@@ -549,7 +549,7 @@ export const plannerAppManifest: AppManifest = {
 
 ## 15. Deployment
 
-The production target is AWS ECS Fargate (HTTP service + dispatcher/worker service), RDS Postgres Multi-AZ with pgvector, S3 + CloudFront for the web bundle, Secrets Manager for environment secrets. A single multi-stage Dockerfile produces both `platform-server` and `platform-web` images; the same image runs self-hosted via `docker compose`. Mode-selectable runtime via `PLATFORM_MODULES` supports per-module deployment. Full topology, sizing, hardening, observability, runbooks, and FinOps in [`hosting/aws.md`](../hosting/aws.md); single-VM self-host in [`hosting/docker-compose.md`](../hosting/docker-compose.md).
+The production target is AWS ECS Fargate (HTTP service + dispatcher/worker service), RDS Postgres single-AZ with pgvector (a deliberate cost trade-off with 7-day PITR as the safety net; Multi-AZ is a one-flag upgrade to be decided before payroll-grade data lands — FUT-640), S3 + CloudFront for the web bundle, Secrets Manager for environment secrets. A single multi-stage Dockerfile produces both `platform-server` and `platform-web` images; the same image runs self-hosted via `docker compose`. Mode-selectable runtime via `PLATFORM_MODULES` supports per-module deployment. Full topology, sizing, hardening, observability, runbooks, and FinOps in [`hosting/aws.md`](../hosting/aws.md); single-VM self-host in [`hosting/docker-compose.md`](../hosting/docker-compose.md).
 
 Full topology, sizing, security, runbooks, FinOps: [`hosting/aws.md`](../hosting/aws.md).
 
