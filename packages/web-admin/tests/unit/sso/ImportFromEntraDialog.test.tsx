@@ -11,11 +11,23 @@ const listEntraUsersMock = vi.fn(async () => [
     account_enabled: true,
     already_in_seta: false,
   },
+  {
+    entra_oid: 'oid-2',
+    email: 'grace@acme.com',
+    display_name: 'Grace Hopper',
+    account_enabled: false,
+    already_in_seta: false,
+  },
 ]);
+
+const importEntraUsersMock = vi.fn(async (oids: string[]) => ({
+  imported: oids,
+  skipped: [],
+}));
 
 vi.mock('../../../src/sso/api/sso-client.ts', () => ({
   listEntraUsers: () => listEntraUsersMock(),
-  importEntraUsers: vi.fn(async () => ({ imported: [], skipped: [] })),
+  importEntraUsers: (oids: string[]) => importEntraUsersMock(oids),
 }));
 
 // The "Import from Entra" Button is now a plain sibling of Astryx's `Dialog` (no more
@@ -24,6 +36,42 @@ vi.mock('../../../src/sso/api/sso-client.ts', () => ({
 describe('ImportFromEntraDialog', () => {
   beforeEach(() => {
     listEntraUsersMock.mockClear();
+    importEntraUsersMock.mockClear();
+  });
+
+  // Row selection keys must be Entra OIDs, not TanStack's default row indices — `selectedOids`
+  // matches them against `entra_oid`, so with indices nothing is ever selectable and the import
+  // can never be submitted.
+  it('selects a row by OID and submits that OID to the import API', async () => {
+    const user = userEvent.setup();
+    const onImported = vi.fn();
+    render(<ImportFromEntraDialog enabled onImported={onImported} />);
+
+    await user.click(screen.getByRole('button', { name: 'Import from Entra' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByText('ada@acme.com')).toBeInTheDocument());
+
+    // One checkbox per row, plus the header's "Select all" — no duplicate selection column.
+    expect(within(dialog).getAllByRole('checkbox', { name: 'Select row' })).toHaveLength(2);
+
+    await user.click(within(dialog).getAllByRole('checkbox', { name: 'Select row' })[0]);
+    const submitButton = await within(dialog).findByRole('button', { name: 'Add 1 person' });
+
+    await user.click(submitButton);
+    await waitFor(() => expect(importEntraUsersMock).toHaveBeenCalledWith(['oid-1']));
+    await waitFor(() => expect(onImported).toHaveBeenCalled());
+  });
+
+  it('cannot select a row whose Entra account is disabled', async () => {
+    const user = userEvent.setup();
+    render(<ImportFromEntraDialog enabled onImported={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Import from Entra' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByText('grace@acme.com')).toBeInTheDocument());
+
+    // Grace's account_enabled is false → her row checkbox stays disabled.
+    expect(within(dialog).getAllByRole('checkbox', { name: 'Select row' })[1]).toBeDisabled();
   });
 
   it('is not exposed as a dialog until the trigger is clicked', () => {

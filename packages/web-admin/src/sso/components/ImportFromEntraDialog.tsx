@@ -2,7 +2,6 @@ import {
   Badge,
   Banner,
   Button,
-  Checkbox,
   DataTable,
   Dialog,
   DialogHeader,
@@ -24,28 +23,12 @@ interface ImportResult {
   skipped: { entra_oid: string; reason: string }[];
 }
 
+/** A person can be imported only if their Entra account is on and they aren't already here. */
+function canImport(u: EntraImportableUserDto): boolean {
+  return u.account_enabled && !u.already_in_seta;
+}
+
 const columns: ColumnDef<EntraImportableUserDto>[] = [
-  {
-    id: '__select_entra',
-    header: '',
-    cell: ({ row }) => {
-      const u = row.original;
-      const selectable = u.account_enabled && !u.already_in_seta;
-      return (
-        <Checkbox
-          label="Select row"
-          isLabelHidden
-          value={row.getIsSelected()}
-          isDisabled={!selectable}
-          onChange={(v) => {
-            if (selectable) row.toggleSelected(v);
-          }}
-        />
-      );
-    },
-    enableSorting: false,
-    enableHiding: false,
-  },
   {
     accessorKey: 'email',
     header: 'Email',
@@ -226,7 +209,10 @@ export function ImportFromEntraDialog({
                       <DataTable
                         data={users}
                         columns={columns}
-                        enableRowSelection
+                        // Key selection by OID: `selectedOids` reads these keys back as
+                        // `entra_oid`, which TanStack's default row-index ids never match.
+                        getRowId={(u) => u.entra_oid}
+                        enableRowSelection={(row) => canImport(row.original)}
                         rowSelection={rowSelection}
                         onRowSelectionChange={setRowSelection}
                         pagination={false}
