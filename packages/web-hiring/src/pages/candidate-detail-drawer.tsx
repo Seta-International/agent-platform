@@ -36,6 +36,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import {
   type CandStage,
+  type CandStatus,
   editCandidate,
   fetchCandidate,
   getCandidateCvDownloadUrl,
@@ -55,6 +56,13 @@ const STAGES: { id: CandStage; label: string }[] = [
   { id: 'screening', label: 'Screening' },
   { id: 'interview', label: 'Interview' },
   { id: 'offer', label: 'Offer' },
+];
+
+// The stepper also shows the terminal "Hired" outcome after Offer. It's an application
+// *status*, not a stage — you get there by filling the requisition, not via Move stage.
+const PIPELINE_STEPS: { id: CandStage | 'hired'; label: string }[] = [
+  ...STAGES,
+  { id: 'hired', label: 'Hired' },
 ];
 
 function appliedLabel(appliedAt: string): string {
@@ -116,17 +124,28 @@ function DetailRow({
   );
 }
 
-function PipelineStepper({ stage }: { stage: CandStage | undefined }) {
-  const curIdx = stage ? STAGES.findIndex((s) => s.id === stage) : -1;
+function PipelineStepper({
+  stage,
+  status,
+}: {
+  stage: CandStage | undefined;
+  status: CandStatus | undefined;
+}) {
+  const curIdx =
+    status === 'hired'
+      ? PIPELINE_STEPS.length - 1
+      : stage
+        ? PIPELINE_STEPS.findIndex((s) => s.id === stage)
+        : -1;
   return (
     <div className="relative">
-      <div className="absolute inset-x-[12.5%] top-[9px] h-px bg-hairline-strong" />
+      <div className="absolute inset-x-[10%] top-[9px] h-px bg-hairline-strong" />
       <div
-        className="absolute inset-y-0 left-[12.5%] top-[9px] h-px bg-primary transition-[width]"
-        style={{ width: curIdx <= 0 ? 0 : `${(curIdx / (STAGES.length - 1)) * 75}%` }}
+        className="absolute inset-y-0 left-[10%] top-[9px] h-px bg-primary transition-[width]"
+        style={{ width: curIdx <= 0 ? 0 : `${(curIdx / (PIPELINE_STEPS.length - 1)) * 80}%` }}
       />
       <div className="relative flex justify-between">
-        {STAGES.map((s, i) => {
+        {PIPELINE_STEPS.map((s, i) => {
           const reached = i <= curIdx;
           return (
             <div key={s.id} className="flex flex-col items-center gap-1.5">
@@ -264,7 +283,7 @@ export function CandidateDetailDrawer({
             </div>
 
             <div className="border-b border-hairline px-6 py-4">
-              <PipelineStepper stage={app?.stage} />
+              <PipelineStepper stage={app?.stage} status={app?.status} />
               {terminal && (
                 <p className="mt-3 text-caption text-ink-muted">
                   This candidate is {app?.status} and can no longer be moved.
