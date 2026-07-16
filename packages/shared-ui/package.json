@@ -42,7 +42,6 @@
     "date-fns": "^4.4.0",
     "dompurify": "^3.4.9",
     "lucide-react": "^1.17.0",
-    "react-day-picker": "^10.0.1",
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",

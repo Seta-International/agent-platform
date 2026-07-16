@@ -3,8 +3,8 @@ import {
   Badge,
   Banner,
   Button,
+  Calendar,
   DateInput,
-  Calendar as DayPickerCalendar,
   DisabledActionTooltip,
   DropdownMenu,
   DropdownMenuItem,
@@ -82,15 +82,6 @@ const APPLICANT_STAGE_LABEL: Record<string, string> = {
   interview: 'Interview',
   offer: 'Offer',
 };
-
-// The `date` column (and editRequisition's patch) wants a plain 'YYYY-MM-DD' string —
-// toISOString() shifts by the local UTC offset and can silently land on the wrong day.
-function toDateInputValue(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
 
 function daysSince(dateStr: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000));
@@ -177,15 +168,13 @@ function DateField({
               alignment="start"
               label="Set date"
               content={
-                <DayPickerCalendar
+                <Calendar
                   mode="single"
-                  selected={value ? new Date(value) : undefined}
-                  onSelect={(date) => {
-                    if (!date) return;
-                    onChange(toDateInputValue(date));
+                  value={value ?? undefined}
+                  onChange={(v) => {
+                    onChange(v);
                     setOpen(false);
                   }}
-                  className="w-[280px]"
                 />
               }
             >
