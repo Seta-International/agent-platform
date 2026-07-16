@@ -5,8 +5,10 @@ resource "aws_db_subnet_group" "main" {
 }
 
 resource "aws_security_group" "db" {
-  name        = "${var.name}-db-sg"
-  description = "Postgres access for ${var.name}"
+  name = "${var.name}-db-sg"
+  # description is immutable on security groups — any mismatch with an adopted
+  # SG forces destroy/replace, so imports must pass the live string.
+  description = coalesce(var.db_sg_description, "Postgres access for ${var.name}")
   vpc_id      = aws_vpc.main.id
   tags        = { Name = "${var.name}-db-sg" }
 }

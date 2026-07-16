@@ -47,6 +47,11 @@ variable "db_deletion_protection" {
   type    = bool
   default = true
 }
+variable "db_sg_description" {
+  description = "DB security-group description. Immutable in AWS — when adopting an existing SG, set this to the live description or the plan will destroy/replace it. null => \"Postgres access for <name>\"."
+  type        = string
+  default     = null
+}
 variable "db_publicly_accessible" {
   type    = bool
   default = true

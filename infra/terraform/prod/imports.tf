@@ -4,12 +4,14 @@
 # (separate ticket).
 #
 # DO NOT APPLY this config in this ticket. `terraform plan` is expected to show:
-#   - adopt (no change) of VPC / subnets / IGW / routes / DB / S3 / ECR
+#   - adopt (no change) of VPC / subnets / IGW / routes / DB SG + its egress rule /
+#     S3 / ECR; DB updated in-place (apply_immediately only)
 #   - CREATE of all ECS resources (cluster, services, task defs, IAM task roles,
-#     Secrets Manager entries, autoscaling, log groups)
-#   - REPLACE of the DB security-group rules: the old office-IP + app-box ingress
-#     rules are gone from the module (which models only a tasks->DB rule). That
-#     delta is correct for the ECS target and is one reason prod is plan-only here.
+#     Secrets Manager entries, autoscaling, log groups) plus the tasks->DB
+#     ingress rule
+#   - ZERO destroys. The old office-IP + app-box DB ingress rules are not modeled
+#     by the module; they stay live-but-unmanaged (the live EC2 app keeps DB
+#     access) and are revoked out-of-band at the EC2->ECS cutover.
 
 import {
   to = module.app.aws_vpc.main
@@ -62,6 +64,12 @@ import {
 import {
   to = module.app.aws_security_group.db
   id = "sg-011f7437a3dc43691"
+}
+import {
+  # The module's all-outbound egress rule already exists on the live SG —
+  # adopt it; creating a duplicate rule would fail the apply.
+  to = module.app.aws_vpc_security_group_egress_rule.db_all
+  id = "sgr-012dd70ecabdf1986"
 }
 import {
   to = module.app.aws_db_subnet_group.main

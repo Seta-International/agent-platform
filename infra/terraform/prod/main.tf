@@ -8,6 +8,9 @@ module "app" {
   db_deletion_protection = false # matches the real instance; prevent_destroy guard dropped with the EC2 rewrite
   db_instance_class      = "db.t3.micro"
   db_engine_version      = "18.3"
+  # Live description of adopted sg-011f7437a3dc43691 — must match exactly:
+  # SG descriptions are immutable, a mismatch destroys/replaces the live SG.
+  db_sg_description = "RDS future-app-prod-db - chi allow IP cong ty toi cong Postgres"
 
   s3_bucket_name = "future-app-bucket-prod-seta"
   ecr_repo_name  = "future-app"
