@@ -86,6 +86,29 @@ async function renderListView(rows: RequisitionListRow[]) {
 }
 
 describe('RequisitionsPage', () => {
+  // The old `PageChrome` rendered `breadcrumb={['Hiring management', 'Open positions']}` — two
+  // inert, non-navigable strings. That collapses to the standard Astryx trail below (a spec'd
+  // improvement: the root crumb is now a real link), so this test also proves the old strings
+  // are gone, not just that the new ones are present.
+  it('renders the breadcrumb trail and page heading', async () => {
+    fetchOpenRequisitions.mockResolvedValue(board([row()]));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<RequisitionsPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Backend Engineer')).toBeInTheDocument());
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Hiring Management' });
+    expect(rootCrumb).toHaveAttribute('href', '/hiring');
+    expect(within(nav).getByText('Requisitions').closest('a')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Requisitions' })).toBeInTheDocument();
+
+    // "Open positions" also legitimately appears as a stat-tile label elsewhere on this page, so
+    // scope to the nav to prove specifically that the old breadcrumb strings are gone from the
+    // trail, not that they're absent from the page entirely.
+    expect(within(nav).queryByText('Hiring management')).not.toBeInTheDocument();
+    expect(within(nav).queryByText('Open positions')).not.toBeInTheDocument();
+  });
+
   it('switches to list view', async () => {
     const { table } = await renderListView([row()]);
     expect(within(table).getByRole('columnheader', { name: /position/i })).toBeInTheDocument();

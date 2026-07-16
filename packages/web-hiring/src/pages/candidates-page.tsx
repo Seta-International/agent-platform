@@ -1,14 +1,19 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import {
   Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Checkbox,
   type ColumnSettingsOption,
   EmptyState,
+  HStack,
   Input,
   KanbanBoard,
   KanbanColumn,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   Popover,
   paginateData,
   SegmentedControl,
@@ -16,12 +21,14 @@ import {
   Skeleton,
   Table,
   type TableColumn,
+  Text,
   useTableColumnSettings,
   useTableColumnSettingsState,
   useTablePagination,
   useTableSortable,
   useTableSortableState,
   useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -313,240 +320,261 @@ export function CandidatesPage() {
   );
 
   return (
-    <PageChrome
-      title="Candidates"
-      subtitle="Every applicant tracked from CV to offer — open a card to move it through the pipeline, schedule interviews, and keep the funnel moving."
-      actions={
-        <>
-          <Button
-            variant="secondary"
-            size="sm"
-            label="Export"
-            icon={<Download className="size-4" />}
-            isDisabled={rows.length === 0}
-            onClick={() => exportCandidatesCsv(rows)}
-          />
-          {canCreate ? <NewCandidateDialog /> : undefined}
-        </>
-      }
-    >
-      <div className="space-y-4 p-6">
-        <div className="grid grid-cols-3 divide-x divide-hairline rounded-lg border border-hairline bg-surface-1 sm:grid-cols-6">
-          {STAGE_COUNT_SEGMENTS.map((seg) => (
-            <div key={seg.key} className="px-4 py-3">
-              <div className="text-headline font-bold" style={{ color: STAGE_COLOR[seg.key] }}>
-                {stageCounts?.[seg.key] ?? 0}
-              </div>
-              <div className="text-caption text-ink-muted">{seg.label}</div>
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Input
-            label="Search candidates"
-            isLabelHidden
-            startIcon={<Search className="size-3.5" aria-hidden />}
-            value={q}
-            onChange={(value) => setQ(value)}
-            placeholder="Search by name, skill, seniority…"
-            className="max-w-xs flex-1"
-          />
-          <Selector
-            label="Filter by role"
-            isLabelHidden
-            options={[
-              { value: NONE, label: 'All roles' },
-              ...reqOptions.map(([id, title]) => ({ value: id, label: title })),
-            ]}
-            value={reqFilter || NONE}
-            onChange={(v) => setReqFilter(v === NONE ? '' : v)}
-            placeholder="All roles"
-          />
-          <Selector
-            label="Filter by seniority"
-            isLabelHidden
-            options={[
-              { value: NONE, label: 'All seniority' },
-              ...seniorityOptions.map((s) => ({ value: s, label: s })),
-            ]}
-            value={seniorityFilter || NONE}
-            onChange={(v) => setSeniorityFilter(v === NONE ? '' : v)}
-            placeholder="Seniority"
-          />
-          <Selector
-            label="Filter by source"
-            isLabelHidden
-            options={[
-              { value: NONE, label: 'All sources' },
-              ...sourceOptions.map((s) => ({ value: s, label: s })),
-            ]}
-            value={sourceFilter || NONE}
-            onChange={(v) => setSourceFilter(v === NONE ? '' : v)}
-            placeholder="Source"
-          />
-          <div className="ml-auto">
-            <SegmentedControl
-              value={view}
-              onValueChange={(v) => setView(v as 'board' | 'list')}
-              options={[
-                { value: 'board', label: 'Board' },
-                { value: 'list', label: 'List' },
-              ]}
-            />
-          </div>
-        </div>
-
-        {error ? (
-          <Banner status="error" title={(error as Error).message} />
-        ) : view === 'list' ? (
-          <div className="space-y-3">
-            <div className="flex justify-end">
-              <Popover
-                placement="below"
-                alignment="end"
-                label="Toggle columns"
-                content={
-                  <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
-                      Toggle columns
-                    </div>
-                    {CANDIDATE_COLUMN_OPTIONS.map((col) => (
-                      <Checkbox
-                        key={col.key}
-                        label={col.label}
-                        value={columnSettingsState.isColumnActive(col.key)}
-                        onChange={() => columnSettingsState.toggleColumn(col.key)}
-                      />
-                    ))}
-                  </div>
-                }
-              >
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/hiring">Hiring Management</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Candidates</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Candidates
+                </Text>
+                <Text color="secondary">
+                  Every applicant tracked from CV to offer — open a card to move it through the
+                  pipeline, schedule interviews, and keep the funnel moving.
+                </Text>
+              </HStack>
+              <HStack gap={2} vAlign="center">
                 <Button
                   variant="secondary"
                   size="sm"
-                  icon={<Settings2 className="size-3.5" />}
-                  label="Columns"
+                  label="Export"
+                  icon={<Download className="size-4" />}
+                  isDisabled={rows.length === 0}
+                  onClick={() => exportCandidatesCsv(rows)}
                 />
-              </Popover>
+                {canCreate ? <NewCandidateDialog /> : undefined}
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="space-y-4 p-6">
+            <div className="grid grid-cols-3 divide-x divide-hairline rounded-lg border border-hairline bg-surface-1 sm:grid-cols-6">
+              {STAGE_COUNT_SEGMENTS.map((seg) => (
+                <div key={seg.key} className="px-4 py-3">
+                  <div className="text-headline font-bold" style={{ color: STAGE_COLOR[seg.key] }}>
+                    {stageCounts?.[seg.key] ?? 0}
+                  </div>
+                  <div className="text-caption text-ink-muted">{seg.label}</div>
+                </div>
+              ))}
             </div>
-            {isLoading ? (
-              <div className="space-y-2">
-                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
-                  <Skeleton key={id} height={40} />
+            <div className="flex flex-wrap items-center gap-3">
+              <Input
+                label="Search candidates"
+                isLabelHidden
+                startIcon={<Search className="size-3.5" aria-hidden />}
+                value={q}
+                onChange={(value) => setQ(value)}
+                placeholder="Search by name, skill, seniority…"
+                className="max-w-xs flex-1"
+              />
+              <Selector
+                label="Filter by role"
+                isLabelHidden
+                options={[
+                  { value: NONE, label: 'All roles' },
+                  ...reqOptions.map(([id, title]) => ({ value: id, label: title })),
+                ]}
+                value={reqFilter || NONE}
+                onChange={(v) => setReqFilter(v === NONE ? '' : v)}
+                placeholder="All roles"
+              />
+              <Selector
+                label="Filter by seniority"
+                isLabelHidden
+                options={[
+                  { value: NONE, label: 'All seniority' },
+                  ...seniorityOptions.map((s) => ({ value: s, label: s })),
+                ]}
+                value={seniorityFilter || NONE}
+                onChange={(v) => setSeniorityFilter(v === NONE ? '' : v)}
+                placeholder="Seniority"
+              />
+              <Selector
+                label="Filter by source"
+                isLabelHidden
+                options={[
+                  { value: NONE, label: 'All sources' },
+                  ...sourceOptions.map((s) => ({ value: s, label: s })),
+                ]}
+                value={sourceFilter || NONE}
+                onChange={(v) => setSourceFilter(v === NONE ? '' : v)}
+                placeholder="Source"
+              />
+              <div className="ml-auto">
+                <SegmentedControl
+                  value={view}
+                  onValueChange={(v) => setView(v as 'board' | 'list')}
+                  options={[
+                    { value: 'board', label: 'Board' },
+                    { value: 'list', label: 'List' },
+                  ]}
+                />
+              </div>
+            </div>
+
+            {error ? (
+              <Banner status="error" title={(error as Error).message} />
+            ) : view === 'list' ? (
+              <div className="space-y-3">
+                <div className="flex justify-end">
+                  <Popover
+                    placement="below"
+                    alignment="end"
+                    label="Toggle columns"
+                    content={
+                      <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
+                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                          Toggle columns
+                        </div>
+                        {CANDIDATE_COLUMN_OPTIONS.map((col) => (
+                          <Checkbox
+                            key={col.key}
+                            label={col.label}
+                            value={columnSettingsState.isColumnActive(col.key)}
+                            onChange={() => columnSettingsState.toggleColumn(col.key)}
+                          />
+                        ))}
+                      </div>
+                    }
+                  >
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Settings2 className="size-3.5" />}
+                      label="Columns"
+                    />
+                  </Popover>
+                </div>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                      <Skeleton key={id} height={40} />
+                    ))}
+                  </div>
+                ) : (
+                  <Table
+                    data={pageRows}
+                    columns={columns}
+                    idKey="application_id"
+                    plugins={{
+                      pagination,
+                      sortable,
+                      columnSettings,
+                      rowClick: {
+                        transformBodyRow: (props, item) => ({
+                          ...props,
+                          htmlProps: {
+                            ...props.htmlProps,
+                            style: { ...props.htmlProps.style, cursor: 'pointer' },
+                            onClick: () => setSelected(item.candidate_id),
+                          },
+                        }),
+                      },
+                    }}
+                    emptyState={
+                      <EmptyState
+                        icon={<Users className="size-6" />}
+                        title="No candidates yet"
+                        description="Add a candidate to get started."
+                      />
+                    }
+                  />
+                )}
+              </div>
+            ) : isLoading ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
+                  />
                 ))}
               </div>
+            ) : (data ?? []).length === 0 ? (
+              <EmptyState
+                icon={<Users className="size-6" />}
+                title="No candidates yet"
+                description="Add a candidate to get started."
+              />
             ) : (
-              <Table
-                data={pageRows}
-                columns={columns}
-                idKey="application_id"
-                plugins={{
-                  pagination,
-                  sortable,
-                  columnSettings,
-                  rowClick: {
-                    transformBodyRow: (props, item) => ({
-                      ...props,
-                      htmlProps: {
-                        ...props.htmlProps,
-                        style: { ...props.htmlProps.style, cursor: 'pointer' },
-                        onClick: () => setSelected(item.candidate_id),
-                      },
-                    }),
-                  },
-                }}
-                emptyState={
-                  <EmptyState
-                    icon={<Users className="size-6" />}
-                    title="No candidates yet"
-                    description="Add a candidate to get started."
-                  />
-                }
-              />
-            )}
-          </div>
-        ) : isLoading ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
-              />
-            ))}
-          </div>
-        ) : (data ?? []).length === 0 ? (
-          <EmptyState
-            icon={<Users className="size-6" />}
-            title="No candidates yet"
-            description="Add a candidate to get started."
-          />
-        ) : (
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <KanbanBoard>
-              {BOARD_COLUMNS.map((col) => (
-                <Droppable
-                  key={col.id}
-                  droppableId={col.id}
-                  isDropDisabled={col.id === 'hired' || !canManage}
-                >
-                  {(provided, snapshot) => (
-                    <KanbanColumn
-                      name={col.label}
-                      count={groups[col.id].length}
-                      color={STAGE_COLOR[col.id]}
-                      // Why: narrows each column below the shared default (280px) so all
-                      // 4 stages fit one screen without horizontal scrolling.
-                      width={220}
-                      droppable={{
-                        ref: provided.innerRef,
-                        // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
-                        rootProps:
-                          provided.droppableProps as unknown as HTMLAttributes<HTMLElement>,
-                        isDraggingOver: snapshot.isDraggingOver,
-                        placeholder: provided.placeholder,
-                      }}
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <KanbanBoard>
+                  {BOARD_COLUMNS.map((col) => (
+                    <Droppable
+                      key={col.id}
+                      droppableId={col.id}
+                      isDropDisabled={col.id === 'hired' || !canManage}
                     >
-                      {groups[col.id].length === 0 ? (
-                        <EmptyState
-                          className="py-4"
-                          icon={COLUMN_EMPTY_ICON[col.id]}
-                          title={COLUMN_EMPTY_COPY[col.id].title}
-                          description={COLUMN_EMPTY_COPY[col.id].description}
-                        />
-                      ) : (
-                        groups[col.id].map((item, idx) => (
-                          <Draggable
-                            key={item.application_id}
-                            draggableId={item.application_id}
-                            index={idx}
-                            isDragDisabled={!canManage}
-                          >
-                            {(dp, ds) => (
-                              <CandidateCard
-                                item={item}
-                                onSelect={setSelected}
-                                draggable={{
-                                  ref: dp.innerRef,
-                                  rootProps: dp.draggableProps,
-                                  handleProps: dp.dragHandleProps ?? undefined,
-                                  isDragging: ds.isDragging,
-                                  extraStyle: dp.draggableProps.style,
-                                }}
-                              />
-                            )}
-                          </Draggable>
-                        ))
+                      {(provided, snapshot) => (
+                        <KanbanColumn
+                          name={col.label}
+                          count={groups[col.id].length}
+                          color={STAGE_COLOR[col.id]}
+                          // Why: narrows each column below the shared default (280px) so all
+                          // 4 stages fit one screen without horizontal scrolling.
+                          width={220}
+                          droppable={{
+                            ref: provided.innerRef,
+                            // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
+                            rootProps:
+                              provided.droppableProps as unknown as HTMLAttributes<HTMLElement>,
+                            isDraggingOver: snapshot.isDraggingOver,
+                            placeholder: provided.placeholder,
+                          }}
+                        >
+                          {groups[col.id].length === 0 ? (
+                            <EmptyState
+                              className="py-4"
+                              icon={COLUMN_EMPTY_ICON[col.id]}
+                              title={COLUMN_EMPTY_COPY[col.id].title}
+                              description={COLUMN_EMPTY_COPY[col.id].description}
+                            />
+                          ) : (
+                            groups[col.id].map((item, idx) => (
+                              <Draggable
+                                key={item.application_id}
+                                draggableId={item.application_id}
+                                index={idx}
+                                isDragDisabled={!canManage}
+                              >
+                                {(dp, ds) => (
+                                  <CandidateCard
+                                    item={item}
+                                    onSelect={setSelected}
+                                    draggable={{
+                                      ref: dp.innerRef,
+                                      rootProps: dp.draggableProps,
+                                      handleProps: dp.dragHandleProps ?? undefined,
+                                      isDragging: ds.isDragging,
+                                      extraStyle: dp.draggableProps.style,
+                                    }}
+                                  />
+                                )}
+                              </Draggable>
+                            ))
+                          )}
+                        </KanbanColumn>
                       )}
-                    </KanbanColumn>
-                  )}
-                </Droppable>
-              ))}
-            </KanbanBoard>
-          </DragDropContext>
-        )}
-        <TalentPoolCard onOpenCandidate={setSelected} />
-      </div>
-      <CandidateDetailDrawer candidateId={selected} onClose={() => setSelected(null)} />
-    </PageChrome>
+                    </Droppable>
+                  ))}
+                </KanbanBoard>
+              </DragDropContext>
+            )}
+            <TalentPoolCard onOpenCandidate={setSelected} />
+          </div>
+          <CandidateDetailDrawer candidateId={selected} onClose={() => setSelected(null)} />
+        </LayoutContent>
+      }
+    />
   );
 }
