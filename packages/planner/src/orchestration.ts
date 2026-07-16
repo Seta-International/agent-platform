@@ -15,7 +15,11 @@ export {
   type AssignmentPorts,
   buildAssignmentOrchestrationRuntime,
 } from './backend/orchestration/assignment/register.ts';
-
+// Eval-target factory for @seta/shared-agent-evals consumption.
+export {
+  buildPlannerQueryEvalTarget,
+  type PlannerQueryEvalTarget,
+} from './backend/orchestration/eval-target.ts';
 // Public surface for composing the planner Query runtime at the app tier.
 export {
   buildPlannerQueryRuntime,
