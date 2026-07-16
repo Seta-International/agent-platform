@@ -16,3 +16,13 @@ services:
     tmpfs: [/tmp, /var/cache/nginx, /var/run]
     volumes:
       - e2e-reports:/usr/share/nginx/html:ro
+
+volumes:
+  # Bind to the host dir the e2e.yml workflow's "Publish report" step writes
+  # into directly — a plain named volume would be Docker-managed storage the
+  # CI step can't see, and the report route would 404.
+  e2e-reports:
+    driver_opts:
+      type: none
+      o: bind
+      device: ${E2E_REPORTS_DIR}
