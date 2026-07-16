@@ -1,9 +1,10 @@
-import { installPopoverShim } from '@seta/shared-ui/testing';
+import { installDialogShim, installPopoverShim } from '@seta/shared-ui/testing';
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
 installPopoverShim();
+installDialogShim();
 
 if (typeof localStorage === 'undefined') {
   const _store: Record<string, string> = {};

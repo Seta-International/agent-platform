@@ -1,6 +1,9 @@
+import { installDialogShim } from '@seta/shared-ui/testing';
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
+
+installDialogShim();
 
 // Radix (Popover) relies on pointer-capture and scrollIntoView, which happy-dom lacks.
 const proto = window.HTMLElement.prototype;
