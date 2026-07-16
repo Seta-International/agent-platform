@@ -3,7 +3,6 @@ import {
   Dialog,
   DialogHeader,
   Input,
-  Label,
   Layout,
   LayoutContent,
   LayoutFooter,
@@ -80,7 +79,6 @@ export function CancelRequisitionDialog({
           <LayoutContent>
             <div className="space-y-3">
               <div className="space-y-1">
-                <Label>Reason</Label>
                 {!reasonsLoading && active.length === 0 ? (
                   <div className="space-y-2">
                     <p className="text-body-sm text-ink-muted">
@@ -89,7 +87,6 @@ export function CancelRequisitionDialog({
                     <div className="flex gap-2">
                       <Input
                         label="Reason"
-                        isLabelHidden
                         placeholder="e.g. Position no longer needed"
                         value={newReasonLabel}
                         onChange={(value) => setNewReasonLabel(value)}
@@ -106,7 +103,6 @@ export function CancelRequisitionDialog({
                 ) : (
                   <Selector
                     label="Reason"
-                    isLabelHidden
                     options={active.map((r) => ({ value: r.id, label: r.label }))}
                     value={effectiveReason}
                     onChange={(v) => setReasonId(v)}

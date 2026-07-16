@@ -5,7 +5,6 @@ import {
   Dialog,
   DialogHeader,
   Input,
-  Label,
   Layout,
   LayoutContent,
   LayoutFooter,
@@ -152,10 +151,8 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
                 </div>
 
                 <div className="space-y-1">
-                  <Label>PM *</Label>
                   <Typeahead
-                    label="PM"
-                    isLabelHidden
+                    label="PM *"
                     searchSource={workerSource.source}
                     value={pmWorker}
                     onChange={(item) => {

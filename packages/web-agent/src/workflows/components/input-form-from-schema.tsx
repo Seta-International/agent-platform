@@ -1,4 +1,4 @@
-import { Button, Input, Label, NumberInput, Selector } from '@seta/shared-ui';
+import { Button, Input, NumberInput, Selector } from '@seta/shared-ui';
 import { dequal } from 'dequal';
 import { useState } from 'react';
 
@@ -185,19 +185,12 @@ export function InputFormFromSchema({
           !dequal(priorValue, raw);
         return (
           <div key={id} className="space-y-1.5">
-            <Label htmlFor={id}>
-              {labelFor(leaf)}
-              {leaf.required ? <span className="text-[var(--color-danger)]"> *</span> : null}
-              {showDiff ? (
-                <span className="ml-2 text-xs text-[var(--color-ink-subtle)] line-through">
-                  was: {formatPriorValue(priorValue)}
-                </span>
-              ) : null}
-            </Label>
             {leaf.enumValues ? (
               <Selector
                 label={labelFor(leaf)}
-                isLabelHidden
+                isRequired={leaf.required}
+                description={showDiff ? `was: ${formatPriorValue(priorValue)}` : undefined}
+                status={error ? { type: 'error', message: error } : undefined}
                 options={leaf.enumValues.map((v) => ({ value: v, label: v }))}
                 value={rawStr || undefined}
                 onChange={(v) => handleChange(leaf, v)}
@@ -206,7 +199,9 @@ export function InputFormFromSchema({
             ) : leaf.type === 'boolean' ? (
               <Selector
                 label={labelFor(leaf)}
-                isLabelHidden
+                isRequired={leaf.required}
+                description={showDiff ? `was: ${formatPriorValue(priorValue)}` : undefined}
+                status={error ? { type: 'error', message: error } : undefined}
                 options={[
                   { value: 'false', label: 'false' },
                   { value: 'true', label: 'true' },
@@ -217,7 +212,9 @@ export function InputFormFromSchema({
             ) : leaf.type === 'number' || leaf.type === 'integer' ? (
               <NumberInput
                 label={labelFor(leaf)}
-                isLabelHidden
+                isRequired={leaf.required}
+                description={showDiff ? `was: ${formatPriorValue(priorValue)}` : undefined}
+                status={error ? { type: 'error', message: error } : undefined}
                 isIntegerOnly={leaf.type === 'integer'}
                 hasClear
                 value={typeof raw === 'number' ? raw : null}
@@ -226,16 +223,13 @@ export function InputFormFromSchema({
             ) : (
               <Input
                 label={labelFor(leaf)}
-                isLabelHidden
+                isRequired={leaf.required}
+                description={showDiff ? `was: ${formatPriorValue(priorValue)}` : undefined}
+                status={error ? { type: 'error', message: error } : undefined}
                 value={rawStr}
                 onChange={(value) => handleChange(leaf, value)}
               />
             )}
-            {error ? (
-              <p className="text-xs text-[var(--color-danger)]" role="alert">
-                {error}
-              </p>
-            ) : null}
           </div>
         );
       })}

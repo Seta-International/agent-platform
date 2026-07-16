@@ -8,7 +8,6 @@ import {
   DialogHeader,
   Dropzone,
   Input,
-  Label,
   Layout,
   LayoutContent,
   LayoutFooter,
@@ -48,23 +47,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div className="space-y-2">
       <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">{title}</span>
-      {children}
-    </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-  className,
-}: {
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`space-y-1 ${className ?? ''}`}>
-      <Label className="text-body-sm">{label}</Label>
       {children}
     </div>
   );
@@ -205,16 +187,13 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                       value={form.dob || undefined}
                       onChange={(v) => set('dob')(v ?? '')}
                     />
-                    <Field label="Gender">
-                      <Selector
-                        label="Gender"
-                        isLabelHidden
-                        options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: g.label }))}
-                        value={form.gender || undefined}
-                        onChange={set('gender')}
-                        placeholder="—"
-                      />
-                    </Field>
+                    <Selector
+                      label="Gender"
+                      options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: g.label }))}
+                      value={form.gender || undefined}
+                      onChange={set('gender')}
+                      placeholder="—"
+                    />
                   </div>
                 </Section>
 
@@ -249,19 +228,16 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                       value={form.job_title}
                       onChange={(value) => set('job_title')(value)}
                     />
-                    <Field label="Employment type">
-                      <Selector
-                        label="Employment type"
-                        isLabelHidden
-                        options={EMPLOYMENT_TYPES.map((t) => ({
-                          value: t,
-                          label: t.replace('_', ' '),
-                        }))}
-                        value={form.employment_type || undefined}
-                        onChange={set('employment_type')}
-                        placeholder="—"
-                      />
-                    </Field>
+                    <Selector
+                      label="Employment type"
+                      options={EMPLOYMENT_TYPES.map((t) => ({
+                        value: t,
+                        label: t.replace('_', ' '),
+                      }))}
+                      value={form.employment_type || undefined}
+                      onChange={set('employment_type')}
+                      placeholder="—"
+                    />
                     <DateInput
                       label="Start date"
                       value={form.start_date || undefined}
@@ -272,10 +248,9 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                       value={form.employee_no}
                       onChange={(value) => set('employee_no')(value)}
                     />
-                    <Field label="Department" className="col-span-2">
+                    <div className="col-span-2">
                       <Typeahead
                         label="Department"
-                        isLabelHidden
                         searchSource={orgSource}
                         debounceMs={0}
                         hasEntriesOnFocus
@@ -283,7 +258,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                         onChange={(item) => set('org_unit_id')(item?.id ?? '')}
                         placeholder="No department"
                       />
-                    </Field>
+                    </div>
                   </div>
                 </Section>
 

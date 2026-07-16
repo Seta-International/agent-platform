@@ -2,7 +2,6 @@ import {
   Button,
   Card,
   CardTitle,
-  Label,
   Layout,
   LayoutContent,
   LayoutHeader,
@@ -35,14 +34,16 @@ type AccessLevel = ProjectAccessRow['level'];
 function LevelSelect({
   value,
   onChange,
+  isLabelHidden = true,
 }: {
   value: AccessLevel;
   onChange: (v: AccessLevel) => void;
+  isLabelHidden?: boolean;
 }) {
   return (
     <Selector
-      label="Access level"
-      isLabelHidden
+      label="Access"
+      isLabelHidden={isLabelHidden}
       size="sm"
       options={[
         { value: 'owner', label: 'Owner' },
@@ -55,11 +56,19 @@ function LevelSelect({
   );
 }
 
-function RoleSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function RoleSelect({
+  value,
+  onChange,
+  isLabelHidden = true,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  isLabelHidden?: boolean;
+}) {
   return (
     <Selector
       label="Role"
-      isLabelHidden
+      isLabelHidden={isLabelHidden}
       size="sm"
       options={ROLES.map((r) => ({ value: r, label: r }))}
       value={value}
@@ -336,10 +345,8 @@ export function CharterStaffingEditor({
               {canManage && (
                 <div className="flex flex-wrap items-end gap-2 border-t border-hairline pt-4">
                   <div className="min-w-[200px] flex-1 space-y-1">
-                    <Label>Add member</Label>
                     <Typeahead
                       label="Add member"
-                      isLabelHidden
                       searchSource={workerSource.source}
                       value={worker}
                       onChange={setWorker}
@@ -347,8 +354,7 @@ export function CharterStaffingEditor({
                     />
                   </div>
                   <div className="w-36 space-y-1">
-                    <Label>Role</Label>
-                    <RoleSelect value={role} onChange={setRole} />
+                    <RoleSelect value={role} onChange={setRole} isLabelHidden={false} />
                   </div>
                   <NumberInput
                     label="RA %"
@@ -360,8 +366,7 @@ export function CharterStaffingEditor({
                     onChange={(v) => setPct(v)}
                   />
                   <div className="w-28 space-y-1">
-                    <Label>Access</Label>
-                    <LevelSelect value={level} onChange={setLevel} />
+                    <LevelSelect value={level} onChange={setLevel} isLabelHidden={false} />
                   </div>
                   <Button
                     label={add.isPending ? 'Adding…' : 'Add'}

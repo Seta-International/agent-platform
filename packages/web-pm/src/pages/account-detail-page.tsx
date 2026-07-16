@@ -4,7 +4,6 @@ import {
   Card,
   CardTitle,
   Input,
-  Label,
   LabelChip,
   Layout,
   LayoutContent,
@@ -256,10 +255,8 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label>Account Manager</Label>
                       <Typeahead
                         label="Account Manager"
-                        isLabelHidden
                         searchSource={workerSource.source}
                         value={amWorkerItem}
                         onChange={(item) => {

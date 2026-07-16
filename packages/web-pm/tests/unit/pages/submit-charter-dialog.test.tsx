@@ -92,7 +92,7 @@ describe('SubmitCharterDialog (Astryx migration smoke test)', () => {
 
     await user.type(within(dialog).getByLabelText('Project name *'), 'Watchtower');
 
-    const pmField = within(dialog).getByLabelText('PM');
+    const pmField = within(dialog).getByLabelText('PM *');
     await user.click(pmField);
     await user.type(pmField, 'Jane');
     await user.click(await screen.findByRole('option', { name: 'Jane PM' }));

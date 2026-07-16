@@ -5,8 +5,8 @@ import {
   Dialog,
   DialogHeader,
   DisabledActionTooltip,
+  Field,
   Input,
-  Label,
   Layout,
   LayoutContent,
   LayoutFooter,
@@ -15,7 +15,7 @@ import {
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useUpdateGroup } from '../hooks/mutations/update-group';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { THEME_HEX } from './GroupPlansSection';
@@ -79,6 +79,9 @@ function EditGroupFields({
   error,
   onSubmit,
 }: EditGroupFieldsProps) {
+  const themeId = useId();
+  const visibilityId = useId();
+  const defaultRoleId = useId();
   return (
     <div className="space-y-4">
       <div className="space-y-1">
@@ -106,9 +109,8 @@ function EditGroupFields({
         </p>
       )}
 
-      <div className="space-y-1.5">
-        <Label>Theme</Label>
-        <div className="flex gap-2">
+      <Field label="Theme" inputID={themeId} labelID={themeId} isGroupLabel>
+        <fieldset aria-labelledby={themeId} className="flex gap-2">
           {THEME_KEYS.map((t) => (
             <button
               key={t}
@@ -120,11 +122,10 @@ function EditGroupFields({
               style={{ background: THEME_HEX[t] }}
             />
           ))}
-        </div>
-      </div>
+        </fieldset>
+      </Field>
 
-      <div className="flex items-center gap-1.5">
-        <Label>Visibility</Label>
+      <Field label="Visibility" inputID={visibilityId} isGroupLabel>
         <SegmentedControl
           aria-label="Visibility"
           value={visibility}
@@ -132,10 +133,9 @@ function EditGroupFields({
           options={VISIBILITY_OPTIONS}
           size="md"
         />
-      </div>
+      </Field>
 
-      <div className="flex items-center gap-1.5">
-        <Label>Default role for new members</Label>
+      <Field label="Default role for new members" inputID={defaultRoleId} isGroupLabel>
         <SegmentedControl
           aria-label="Default role"
           value={defaultRole}
@@ -143,7 +143,7 @@ function EditGroupFields({
           options={DEFAULT_ROLE_OPTIONS}
           size="md"
         />
-      </div>
+      </Field>
 
       {error && <Banner status="error" title={error} />}
     </div>

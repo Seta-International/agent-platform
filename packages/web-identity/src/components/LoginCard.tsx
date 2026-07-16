@@ -1,4 +1,4 @@
-import { Banner, Button, Input, Label, SetaMark } from '@seta/shared-ui';
+import { Banner, Button, FieldLabel, Input, SetaMark } from '@seta/shared-ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 import { discoverProvider } from '../api/client.ts';
@@ -358,9 +358,7 @@ function Field({ id, label, trailing, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between">
-        <Label htmlFor={id} className="text-caption font-medium text-ink-muted">
-          {label}
-        </Label>
+        <FieldLabel label={label} inputID={id} />
         {trailing}
       </div>
       {children}

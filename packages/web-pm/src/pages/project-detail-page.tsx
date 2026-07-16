@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   CardTitle,
-  Label,
   Layout,
   LayoutContent,
   LayoutHeader,
@@ -259,10 +258,8 @@ export function ProjectDetailPage() {
                   />
 
                   <div className="space-y-1">
-                    <Label>Org unit</Label>
                     <Typeahead
                       label="Org unit"
-                      isLabelHidden
                       searchSource={orgUnitSearch.source}
                       value={orgUnitItem}
                       onChange={(item) => {

@@ -6,8 +6,8 @@ import {
   Dialog,
   DialogHeader,
   Dropzone,
+  Field,
   Input,
-  Label,
   Layout,
   LayoutContent,
   LayoutFooter,
@@ -17,7 +17,7 @@ import {
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import {
   addCandidate,
   editCandidate,
@@ -36,6 +36,7 @@ const PHONE_RE = /^\+?[0-9()\-.\s]{7,20}$/;
 
 export function NewCandidateDialog() {
   const queryClient = useQueryClient();
+  const skillsId = useId();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -314,10 +315,9 @@ export function NewCandidateDialog() {
                     placeholder="Select a position"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label>Skills</Label>
+                <Field label="Skills" inputID={skillsId} labelID={skillsId} isGroupLabel>
                   <SkillPicker value={skills} onChange={setSkills} />
-                </div>
+                </Field>
                 <Textarea label="Notes" value={note} onChange={(value) => setNote(value)} />
                 {suggestions.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">

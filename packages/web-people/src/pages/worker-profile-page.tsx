@@ -9,7 +9,6 @@ import {
   EmptyState,
   formatRelative,
   Input,
-  Label,
   Layout,
   LayoutContent,
   LayoutHeader,
@@ -334,10 +333,8 @@ export function WorkerProfilePage() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label>Org unit</Label>
                         <Typeahead
                           label="Org unit"
-                          isLabelHidden
                           searchSource={searchOrgUnits.source}
                           hasEntriesOnFocus
                           value={orgUnitItem}
@@ -348,10 +345,7 @@ export function WorkerProfilePage() {
                           placeholder="Search org units…"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <Label>Manager</Label>
-                        <p className="text-body-sm text-ink py-2">{worker.manager_name ?? '—'}</p>
-                      </div>
+                      <FieldRow label="Manager" value={worker.manager_name ?? '—'} />
                       <div className="space-y-1">
                         <Input
                           type="email"
