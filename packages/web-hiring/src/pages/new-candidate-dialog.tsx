@@ -4,12 +4,13 @@ import {
   Button,
   DateInput,
   Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
+  DialogHeader,
   Dropzone,
   Input,
   Label,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   Selector,
   Textarea,
   toast,
@@ -107,6 +108,11 @@ export function NewCandidateDialog() {
     reset();
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
+  }
+
   const effectiveReq = reqId || openReqs[0]?.id || '';
   const missingRequired = !name.trim() || !effectiveReq;
   const requiredError =
@@ -191,164 +197,159 @@ export function NewCandidateDialog() {
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" label="New candidate" />
-      </DialogTrigger>
-      <DialogContent
-        unstyled
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        className="w-full max-w-lg"
+    <>
+      <Button size="sm" label="New candidate" onClick={() => setOpen(true)} />
+      <Dialog
+        isOpen={open}
+        onOpenChange={handleOpenChange}
+        width={560}
+        maxHeight="85vh"
+        purpose="form"
       >
-        <DialogTitle className="sr-only">New candidate</DialogTitle>
-        <div className="flex max-h-[85vh] flex-col overflow-hidden rounded-lg">
-          <header className="border-b border-hairline bg-canvas px-6 py-4">
-            <h1 className="text-card-title font-semibold leading-none tracking-tight text-ink">
-              New candidate
-            </h1>
-          </header>
-          <div className="min-h-0 flex-1 overflow-auto">
-            <div className="space-y-3 px-6 py-4">
-              {cvFile ? (
-                <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-1 px-3 py-2 text-body-sm">
-                  <FileText className="size-4 flex-none text-ink-subtle" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
-                  {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    isIconOnly
-                    icon={<X className="size-3.5" />}
-                    label="Remove CV"
-                    className="size-6"
-                    onClick={() => {
-                      setCvFile(null);
-                      setSuggestions([]);
+        <Layout
+          header={<DialogHeader title="New candidate" onOpenChange={handleOpenChange} hasDivider />}
+          content={
+            <LayoutContent>
+              <div className="space-y-3">
+                {cvFile ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-1 px-3 py-2 text-body-sm">
+                    <FileText className="size-4 flex-none text-ink-subtle" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
+                    {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      isIconOnly
+                      icon={<X className="size-3.5" />}
+                      label="Remove CV"
+                      className="size-6"
+                      onClick={() => {
+                        setCvFile(null);
+                        setSuggestions([]);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <Dropzone
+                    accept=".pdf,.docx"
+                    maxBytes={10 * 1024 * 1024}
+                    label="Upload CV to auto-fill"
+                    hint="PDF or DOCX, up to 10MB — parsed fields stay editable"
+                    pendingLabel="Parsing CV…"
+                    isPending={parse.isPending}
+                    onFile={(f) => {
+                      setCvFile(f);
+                      parse.mutate(f);
                     }}
                   />
-                </div>
-              ) : (
-                <Dropzone
-                  accept=".pdf,.docx"
-                  maxBytes={10 * 1024 * 1024}
-                  label="Upload CV to auto-fill"
-                  hint="PDF or DOCX, up to 10MB — parsed fields stay editable"
-                  pendingLabel="Parsing CV…"
-                  isPending={parse.isPending}
-                  onFile={(f) => {
-                    setCvFile(f);
-                    parse.mutate(f);
-                  }}
-                />
-              )}
-              <div className="space-y-1">
-                <Input label="Full name *" value={name} onChange={(value) => setName(value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+                )}
                 <div className="space-y-1">
-                  <Input
-                    type="email"
-                    label="Email"
-                    value={email}
-                    onChange={(value) => setEmail(value)}
-                  />
-                  {emailError && <p className="text-caption text-danger-ink">{emailError}</p>}
+                  <Input label="Full name *" value={name} onChange={(value) => setName(value)} />
                 </div>
-                <div className="space-y-1">
-                  <Input label="Phone" value={phone} onChange={(value) => setPhone(value)} />
-                  {phoneError && <p className="text-caption text-danger-ink">{phoneError}</p>}
-                </div>
-                <div className="space-y-1">
-                  <DateInput
-                    label="Date of birth"
-                    value={dob || undefined}
-                    onChange={(v) => setDob(v ?? '')}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Input
+                      type="email"
+                      label="Email"
+                      value={email}
+                      onChange={(value) => setEmail(value)}
+                    />
+                    {emailError && <p className="text-caption text-danger-ink">{emailError}</p>}
+                  </div>
+                  <div className="space-y-1">
+                    <Input label="Phone" value={phone} onChange={(value) => setPhone(value)} />
+                    {phoneError && <p className="text-caption text-danger-ink">{phoneError}</p>}
+                  </div>
+                  <div className="space-y-1">
+                    <DateInput
+                      label="Date of birth"
+                      value={dob || undefined}
+                      onChange={(v) => setDob(v ?? '')}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Selector
+                      label="Gender"
+                      options={[
+                        { value: NONE, label: '—' },
+                        { value: 'male', label: 'Male' },
+                        { value: 'female', label: 'Female' },
+                        { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+                      ]}
+                      value={gender || NONE}
+                      onChange={(v) => setGender(v === NONE ? '' : v)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Selector
+                      label="Seniority"
+                      options={[
+                        { value: NONE, label: '—' },
+                        ...seniorityOptions.map((s) => ({ value: s, label: s })),
+                      ]}
+                      value={seniority || NONE}
+                      onChange={(v) => setSeniority(v === NONE ? '' : v)}
+                      placeholder="Select seniority"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Selector
+                      label="Source"
+                      options={[
+                        { value: NONE, label: '—' },
+                        ...sourceOptions.map((s) => ({ value: s, label: s })),
+                      ]}
+                      value={source || NONE}
+                      onChange={(v) => setSource(v === NONE ? '' : v)}
+                      placeholder="Select source"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <Selector
-                    label="Gender"
-                    options={[
-                      { value: NONE, label: '—' },
-                      { value: 'male', label: 'Male' },
-                      { value: 'female', label: 'Female' },
-                      { value: 'prefer_not_to_say', label: 'Prefer not to say' },
-                    ]}
-                    value={gender || NONE}
-                    onChange={(v) => setGender(v === NONE ? '' : v)}
+                    label="Position applied *"
+                    options={openReqs.map((r) => ({ value: r.id, label: r.title }))}
+                    value={effectiveReq}
+                    onChange={(v) => setReqId(v)}
+                    placeholder="Select a position"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Selector
-                    label="Seniority"
-                    options={[
-                      { value: NONE, label: '—' },
-                      ...seniorityOptions.map((s) => ({ value: s, label: s })),
-                    ]}
-                    value={seniority || NONE}
-                    onChange={(v) => setSeniority(v === NONE ? '' : v)}
-                    placeholder="Select seniority"
-                  />
+                  <Label>Skills</Label>
+                  <SkillPicker value={skills} onChange={setSkills} />
                 </div>
-                <div className="space-y-1">
-                  <Selector
-                    label="Source"
-                    options={[
-                      { value: NONE, label: '—' },
-                      ...sourceOptions.map((s) => ({ value: s, label: s })),
-                    ]}
-                    value={source || NONE}
-                    onChange={(v) => setSource(v === NONE ? '' : v)}
-                    placeholder="Select source"
-                  />
+                <Textarea label="Notes" value={note} onChange={(value) => setNote(value)} />
+                {suggestions.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
+                    {suggestions.map((sg) => (
+                      <Badge key={sg} variant="neutral" className="border-dashed" label={sg} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <div className="space-y-2">
+                {error && <Banner status="error" title={error} />}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-body-sm text-danger-ink">{requiredError}</p>
+                  <div className="flex shrink-0 gap-2">
+                    <Button variant="secondary" label="Cancel" onClick={close} />
+                    <Button
+                      label={mutation.isPending ? 'Saving…' : 'Save candidate'}
+                      onClick={submit}
+                      isDisabled={mutation.isPending || parse.isPending}
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="space-y-1">
-                <Selector
-                  label="Position applied *"
-                  options={openReqs.map((r) => ({ value: r.id, label: r.title }))}
-                  value={effectiveReq}
-                  onChange={(v) => setReqId(v)}
-                  placeholder="Select a position"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Skills</Label>
-                <SkillPicker value={skills} onChange={setSkills} />
-              </div>
-              <Textarea label="Notes" value={note} onChange={(value) => setNote(value)} />
-              {suggestions.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
-                  {suggestions.map((sg) => (
-                    <Badge key={sg} variant="neutral" className="border-dashed" label={sg} />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <footer className="space-y-2 border-t border-hairline bg-canvas px-6 py-3">
-            {error && <Banner status="error" title={error} />}
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-body-sm text-danger-ink">{requiredError}</p>
-              <div className="flex shrink-0 gap-2">
-                <Button variant="secondary" label="Cancel" onClick={close} />
-                <Button
-                  label={mutation.isPending ? 'Saving…' : 'Save candidate'}
-                  onClick={submit}
-                  isDisabled={mutation.isPending || parse.isPending}
-                />
-              </div>
-            </div>
-          </footer>
-        </div>
-      </DialogContent>
-    </Dialog>
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }

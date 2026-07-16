@@ -3,11 +3,12 @@ import {
   Button,
   DateInput,
   Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
+  DialogHeader,
   DisabledActionTooltip,
   Input,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   NumberInput,
   RichTextEditor,
   SegmentedControl,
@@ -112,6 +113,11 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     reset();
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
+  }
+
   const mutation = useMutation({
     mutationFn: () => {
       const jd_sections = SECTIONS.filter((s) => !isRichTextEmpty(jd[s.key])).map((s) => ({
@@ -154,185 +160,191 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
+    <>
       <DisabledActionTooltip disabled={disabled} reason={PERMISSION_DENIED.requisition.create}>
-        <DialogTrigger asChild>
-          <Button size="sm" label="New requisition" isDisabled={disabled} />
-        </DialogTrigger>
+        <Button
+          size="sm"
+          label="New requisition"
+          isDisabled={disabled}
+          onClick={() => setOpen(true)}
+        />
       </DisabledActionTooltip>
-      <DialogContent
-        unstyled
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        className="w-[min(760px,94vw)]"
+      <Dialog
+        isOpen={open}
+        onOpenChange={handleOpenChange}
+        width={720}
+        maxHeight="88vh"
+        purpose="form"
       >
-        <DialogTitle className="sr-only">New requisition</DialogTitle>
-        <div className="flex max-h-[88vh] flex-col overflow-hidden rounded-xl">
-          <header className="border-b border-hairline bg-canvas px-6 py-3">
-            <h1 className="text-section-title font-semibold text-ink">New requisition</h1>
-          </header>
-          <div className="min-h-0 flex-1 overflow-auto">
-            <div className="space-y-5 px-6 pb-5 pt-3">
-              <div className="space-y-1">
-                <Input
-                  label="Job title *"
-                  value={title}
-                  onChange={(value) => setTitle(value)}
-                  placeholder="e.g. Senior Backend Engineer"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+        <Layout
+          header={
+            <DialogHeader title="New requisition" onOpenChange={handleOpenChange} hasDivider />
+          }
+          content={
+            <LayoutContent>
+              <div className="space-y-5">
                 <div className="space-y-1">
-                  <Selector
-                    label="Grade"
-                    options={GRADES.map((g) => ({ value: g, label: g }))}
-                    value={grade}
-                    onChange={setGrade}
+                  <Input
+                    label="Job title *"
+                    value={title}
+                    onChange={(value) => setTitle(value)}
+                    placeholder="e.g. Senior Backend Engineer"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Selector
-                    label="Type"
-                    options={[
-                      { value: 'new', label: 'New' },
-                      { value: 'replacement', label: 'Replacement' },
-                    ]}
-                    value={kind}
-                    onChange={(v) => setKind(v as 'new' | 'replacement')}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Selector
-                    label="Account"
-                    options={(accounts ?? []).map((a) => ({
-                      value: a.account_id,
-                      label: a.name,
-                    }))}
-                    value={accountId}
-                    onChange={(v) => {
-                      setAccountId(v);
-                      setProjectId('');
-                    }}
-                    placeholder="No account"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Selector
-                    label="Project"
-                    options={(projects ?? []).map((p) => ({
-                      value: p.project_id,
-                      label: p.name,
-                    }))}
-                    value={projectId}
-                    onChange={setProjectId}
-                    isDisabled={!accountId}
-                    placeholder={accountId ? 'No project' : 'Pick an account first'}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Selector
-                    label="Interview mode"
-                    options={[
-                      { value: 'online', label: 'Online (Teams)' },
-                      { value: 'onsite', label: 'Onsite' },
-                      { value: 'either', label: 'Either' },
-                    ]}
-                    value={mode}
-                    onChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
-                  />
-                </div>
-                <NumberInput
-                  label="Headcount (openings)"
-                  min={1}
-                  isIntegerOnly
-                  value={headcount}
-                  onChange={(v) => setHeadcount(Math.max(1, v || 1))}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <DateInput
-                    label="Start date"
-                    value={start || undefined}
-                    max={due || undefined}
-                    onChange={(v) => setStart(v ?? '')}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <DateInput
-                    label="Due date"
-                    value={due || undefined}
-                    min={start || undefined}
-                    onChange={(v) => setDue(v ?? '')}
-                  />
-                </div>
-              </div>
-              {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
-
-              <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
-
-              <div className="flex items-center justify-between">
-                <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
-                <SegmentedControl
-                  value={variant}
-                  onValueChange={(v) => setVariant(v as JdVariant)}
-                  options={[
-                    { value: 'external', label: 'External' },
-                    { value: 'internal', label: 'Internal' },
-                  ]}
-                />
-              </div>
-
-              {SECTIONS.map((s) => (
-                <div key={s.key}>
-                  <div
-                    className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
-                  >
-                    {s.key === 'about' ? 'About the role *' : s.label}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Selector
+                      label="Grade"
+                      options={GRADES.map((g) => ({ value: g, label: g }))}
+                      value={grade}
+                      onChange={setGrade}
+                    />
                   </div>
-                  <RichTextEditor
-                    value={jd[s.key]}
-                    onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
-                    placeholder={
-                      s.key === 'about'
-                        ? 'Write the about section…'
-                        : `Write the ${s.label.toLowerCase()}…`
-                    }
+                  <div className="space-y-1">
+                    <Selector
+                      label="Type"
+                      options={[
+                        { value: 'new', label: 'New' },
+                        { value: 'replacement', label: 'Replacement' },
+                      ]}
+                      value={kind}
+                      onChange={(v) => setKind(v as 'new' | 'replacement')}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Selector
+                      label="Account"
+                      options={(accounts ?? []).map((a) => ({
+                        value: a.account_id,
+                        label: a.name,
+                      }))}
+                      value={accountId}
+                      onChange={(v) => {
+                        setAccountId(v);
+                        setProjectId('');
+                      }}
+                      placeholder="No account"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Selector
+                      label="Project"
+                      options={(projects ?? []).map((p) => ({
+                        value: p.project_id,
+                        label: p.name,
+                      }))}
+                      value={projectId}
+                      onChange={setProjectId}
+                      isDisabled={!accountId}
+                      placeholder={accountId ? 'No project' : 'Pick an account first'}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Selector
+                      label="Interview mode"
+                      options={[
+                        { value: 'online', label: 'Online (Teams)' },
+                        { value: 'onsite', label: 'Onsite' },
+                        { value: 'either', label: 'Either' },
+                      ]}
+                      value={mode}
+                      onChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
+                    />
+                  </div>
+                  <NumberInput
+                    label="Headcount (openings)"
+                    min={1}
+                    isIntegerOnly
+                    value={headcount}
+                    onChange={(v) => setHeadcount(Math.max(1, v || 1))}
                   />
                 </div>
-              ))}
-            </div>
-          </div>
-          <footer className="space-y-2 border-t border-hairline bg-canvas px-6 py-3">
-            {error && <Banner status="error" title={error} />}
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-body-sm text-danger-ink">{requiredError}</p>
-              <div className="flex shrink-0 gap-2">
-                <Button
-                  variant="secondary"
-                  label="Cancel"
-                  onClick={close}
-                  isDisabled={mutation.isPending}
-                />
-                <Button
-                  label={mutation.isPending ? 'Creating…' : 'Create'}
-                  onClick={submit}
-                  isDisabled={mutation.isPending}
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <DateInput
+                      label="Start date"
+                      value={start || undefined}
+                      max={due || undefined}
+                      onChange={(v) => setStart(v ?? '')}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <DateInput
+                      label="Due date"
+                      value={due || undefined}
+                      min={start || undefined}
+                      onChange={(v) => setDue(v ?? '')}
+                    />
+                  </div>
+                </div>
+                {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
+
+                <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
+
+                <div className="flex items-center justify-between">
+                  <div className="text-caption font-semibold uppercase text-ink-muted">
+                    JD detail
+                  </div>
+                  <SegmentedControl
+                    value={variant}
+                    onValueChange={(v) => setVariant(v as JdVariant)}
+                    options={[
+                      { value: 'external', label: 'External' },
+                      { value: 'internal', label: 'Internal' },
+                    ]}
+                  />
+                </div>
+
+                {SECTIONS.map((s) => (
+                  <div key={s.key}>
+                    <div
+                      className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                    >
+                      {s.key === 'about' ? 'About the role *' : s.label}
+                    </div>
+                    <RichTextEditor
+                      value={jd[s.key]}
+                      onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
+                      placeholder={
+                        s.key === 'about'
+                          ? 'Write the about section…'
+                          : `Write the ${s.label.toLowerCase()}…`
+                      }
+                    />
+                  </div>
+                ))}
               </div>
-            </div>
-          </footer>
-        </div>
-      </DialogContent>
-    </Dialog>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <div className="space-y-2">
+                {error && <Banner status="error" title={error} />}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-body-sm text-danger-ink">{requiredError}</p>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      variant="secondary"
+                      label="Cancel"
+                      onClick={close}
+                      isDisabled={mutation.isPending}
+                    />
+                    <Button
+                      label={mutation.isPending ? 'Creating…' : 'Create'}
+                      onClick={submit}
+                      isDisabled={mutation.isPending}
+                    />
+                  </div>
+                </div>
+              </div>
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }
