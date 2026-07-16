@@ -352,9 +352,22 @@ export function RequestsPage() {
     );
   }, [tableRows, tableSearch]);
 
-  const { sortedData: tableSorted, sortConfig: tableSortConfig } =
-    useTableSortableState<RequestRow>({ data: tableFiltered });
+  const {
+    sortedData: tableSorted,
+    sort: tableSort,
+    sortConfig: tableSortConfig,
+  } = useTableSortableState<RequestRow>({ data: tableFiltered });
   const tableSortable = useTableSortable<RequestRow>(tableSortConfig);
+
+  // Reset the inner table's page to 1 whenever its sort order changes — matches the
+  // deleted DataTable's TanStack `autoResetPageIndex` default, which fired on `sorting`
+  // state changes (getSortedRowModel unconditionally calls `table._autoResetPageIndex()`;
+  // `manualPagination` was never set here). The inner search box already resets
+  // `tablePage` inline in its own onChange handler below.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tableSort is the intentional reset trigger, unread in the body.
+  useEffect(() => {
+    setTablePage(1);
+  }, [tableSort]);
 
   const tablePageRows = useMemo(
     () => paginateData(tableSorted, tablePage, tablePageSize),

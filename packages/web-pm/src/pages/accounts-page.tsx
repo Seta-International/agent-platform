@@ -29,7 +29,7 @@ import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { FolderKanban, Settings2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { type AccountListRow, createAccount, fetchAccounts } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
 
@@ -162,7 +162,7 @@ export function AccountsPage() {
     );
   }, [rows, search]);
 
-  const { sortedData, sortConfig } = useTableSortableState<AccountRow>({
+  const { sortedData, sort, sortConfig } = useTableSortableState<AccountRow>({
     data: filtered,
     comparators: {
       recruiter_count: (a, b) => a.recruiter_count - b.recruiter_count,
@@ -170,6 +170,16 @@ export function AccountsPage() {
     },
   });
   const sortable = useTableSortable<AccountRow>(sortConfig);
+
+  // Reset to page 1 whenever the sort order changes — matches the deleted DataTable's
+  // TanStack `autoResetPageIndex` default, which fired on `sorting` state changes
+  // (getSortedRowModel unconditionally calls `table._autoResetPageIndex()`;
+  // `manualPagination` was never set here). The search filter already resets page
+  // inline in its own onChange handler below.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sort is the intentional reset trigger, unread in the body.
+  useEffect(() => {
+    setPage(1);
+  }, [sort]);
 
   const pageRows = useMemo(
     () => paginateData(sortedData, page, pageSize),
