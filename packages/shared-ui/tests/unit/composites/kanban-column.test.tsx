@@ -1,3 +1,4 @@
+import { LayoutContent } from '@astryxdesign/core/Layout';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -505,6 +506,53 @@ describe('<KanbanColumn> opt-in affordances', () => {
       </KanbanColumn>,
     );
     expect(screen.queryByRole('button', { name: 'More options' })).not.toBeInTheDocument();
+  });
+});
+
+describe('<KanbanColumn> scroll containment', () => {
+  // @hello-pangea/dnd resolves a droppable's scroll parent to the FIRST ancestor whose
+  // computed overflow is auto/scroll — whether or not it actually overflows. If anything
+  // inside the column is a scroll container it shadows `.kanban-board`, which kills board
+  // autoscroll during a card drag and lets droppable rects go stale (cards land in the
+  // wrong bucket). vitest runs with `css: false`, so computed styles are meaningless here;
+  // we compare against the vendor's own class instead.
+  //
+  // Derive the overflow-scroll class from LayoutContent itself rather than hardcoding the
+  // StyleX hash, so an @astryxdesign/core bump re-derives it instead of silently passing.
+  function scrollableOnlyClasses() {
+    const on = render(<LayoutContent padding={2}>x</LayoutContent>);
+    const onClasses = (on.container.firstElementChild as HTMLElement).className.split(/\s+/);
+    on.unmount();
+
+    const off = render(
+      <LayoutContent padding={2} isScrollable={false}>
+        x
+      </LayoutContent>,
+    );
+    const offClasses = new Set(
+      (off.container.firstElementChild as HTMLElement).className.split(/\s+/),
+    );
+    off.unmount();
+
+    return onClasses.filter((c) => c && !offClasses.has(c));
+  }
+
+  it('renders no overflow scroll container inside the column, so the board stays pangea’s scroll parent', () => {
+    const scrollClasses = scrollableOnlyClasses();
+    // Guards the guard: if the vendor stops distinguishing the two, this test would
+    // otherwise pass vacuously against an empty class list.
+    expect(scrollClasses.length).toBeGreaterThan(0);
+
+    const { container } = render(
+      <KanbanColumn name="Todo" count={3} droppable={{}} draggableHandle={{}}>
+        <div data-testid="child" />
+      </KanbanColumn>,
+    );
+
+    const offenders = Array.from(container.querySelectorAll('*')).filter((el) =>
+      scrollClasses.some((c) => el.classList.contains(c)),
+    );
+    expect(offenders.map((el) => el.className)).toEqual([]);
   });
 });
 

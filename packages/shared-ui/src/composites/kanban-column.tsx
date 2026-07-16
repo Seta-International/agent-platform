@@ -311,7 +311,10 @@ export function KanbanColumn({
           </LayoutHeader>
         }
         content={
-          <LayoutContent padding={2}>
+          // isScrollable={false} keeps overflow:clip here: pangea resolves a droppable's
+          // scroll parent to the first ancestor with overflow auto/scroll, so a scrollable
+          // LayoutContent would shadow .kanban-board and break board autoscroll during drag.
+          <LayoutContent padding={2} isScrollable={false}>
             <VStack gap={1.5}>
               {!composing && onCreateTask && (
                 <DisabledActionTooltip
