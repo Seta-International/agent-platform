@@ -13,11 +13,12 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const createAccount = vi.fn();
+const fetchAccountsMock = vi.fn(() => Promise.resolve<unknown[]>([]));
 vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/api/pm-client.ts')>();
   return {
     ...actual,
-    fetchAccounts: () => Promise.resolve([]),
+    fetchAccounts: () => fetchAccountsMock(),
     createAccount: (input: unknown) => createAccount(input),
   };
 });
@@ -73,5 +74,64 @@ describe('AccountsPage — CreateAccountDialog (Astryx migration smoke test)', (
       expect(createAccount).toHaveBeenCalledWith({ name: 'Aeris', industry: 'Fintech' }),
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+});
+
+describe('AccountsPage — table (filter · sort · previously undiscovered defaults)', () => {
+  const rows = [
+    {
+      account_id: 'a1',
+      name: 'Aeris',
+      industry: 'Fintech',
+      am_worker_id: null,
+      recruiter_count: 2,
+      project_count: 1,
+    },
+    {
+      account_id: 'a2',
+      name: 'Borealis',
+      industry: 'Retail',
+      am_worker_id: null,
+      recruiter_count: 5,
+      project_count: 3,
+    },
+  ];
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fetchAccountsMock.mockReset();
+    fetchAccountsMock.mockResolvedValue([]);
+  });
+
+  it('the search box (default enableGlobalFilter, undiscovered by the plan matrix) narrows rows', async () => {
+    const user = userEvent.setup();
+    fetchAccountsMock.mockResolvedValue(rows);
+    renderPage();
+
+    await screen.findByText('Aeris');
+    expect(screen.getByText('Borealis')).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText('Search accounts…'), 'Aer');
+
+    expect(screen.getByText('Aeris')).toBeInTheDocument();
+    expect(screen.queryByText('Borealis')).not.toBeInTheDocument();
+  });
+
+  it('clicking "Sort by Recruiters" reorders rows by the real accessor (default TanStack sort)', async () => {
+    const user = userEvent.setup();
+    fetchAccountsMock.mockResolvedValue(rows);
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    // Fetch order: Aeris (2 recruiters) before Borealis (5).
+    expect(screen.getAllByText(/Aeris|Borealis/)[0]).toHaveTextContent('Aeris');
+
+    await user.click(within(table).getByRole('button', { name: /sort by recruiters/i }));
+
+    expect(screen.getAllByText(/Aeris|Borealis/)[0]).toHaveTextContent('Aeris');
+
+    await user.click(within(table).getByRole('button', { name: /sort by recruiters/i }));
+    // Second click flips to descending — Borealis (5) now first.
+    expect(screen.getAllByText(/Aeris|Borealis/)[0]).toHaveTextContent('Borealis');
   });
 });

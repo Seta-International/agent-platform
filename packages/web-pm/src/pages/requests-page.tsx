@@ -3,13 +3,25 @@ import {
   Banner,
   Button,
   Card,
-  DataTable,
+  Checkbox,
+  type ColumnSettingsOption,
   EmptyState,
   Input,
   PageChrome,
+  Popover,
+  paginateData,
+  pixel,
+  proportional,
   SegmentedControl,
   Selector,
+  Table,
+  type TableColumn,
   useSeededItems,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
+  useTableSortableState,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -25,6 +37,7 @@ import {
   FileText,
   Gavel,
   type LucideIcon,
+  Settings2,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -51,6 +64,32 @@ export interface RequestsSearch {
 }
 
 const PAGE_SIZE = 25;
+
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO
+// lacks an index signature, so alias locally (do not touch the shared DTO).
+type RequestRow = CharterListRow & Record<string, unknown>;
+
+// The deleted DataTable's own client-side filter/sort/pagination operated on
+// whatever `data` it was given — here, the already server-paginated (≤25-row)
+// `rows` for the current outer page. It was never disabled
+// (`enableGlobalFilter`/`enableColumnVisibility` default `true`; no
+// `pagination={false}`), so this table-view render had its own inner
+// search/columns/pager stacked on top of the page's own server-driven
+// search/sort/pager below. Preserved as-is per the parity gate — flagged in
+// the task report as a candidate for a follow-up simplification, not silently
+// dropped here.
+const TABLE_PAGE_SIZE = 25;
+const TABLE_PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
+const TABLE_COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'name', label: 'Project' },
+  { key: 'account', label: 'Account' },
+  { key: 'pm', label: 'PM' },
+  { key: 'budget', label: 'Budget' },
+  { key: 'status', label: 'Status' },
+  { key: 'submitted', label: 'Submitted' },
+];
+const DEFAULT_TABLE_COLUMN_KEYS = TABLE_COLUMN_OPTIONS.map((c) => c.key);
 
 const STATUS_META: Record<
   CharterListRow['status'],
@@ -258,7 +297,7 @@ export function RequestsPage() {
     offset: (page - 1) * PAGE_SIZE,
   };
 
-  const { data, isLoading, error } = useQuery({
+  const { data, error } = useQuery({
     queryKey: pmKeys.chartersList(params as Record<string, unknown>),
     queryFn: () => fetchCharters(params),
   });
@@ -291,60 +330,109 @@ export function RequestsPage() {
   const open = (charterId: string) =>
     void navigate({ to: '/pm/requests/$charterId', params: { charterId } });
 
-  const columns = useMemo(() => {
-    type CellCtx = { row: { original: CharterListRow } };
-    return [
+  // Inner table-view controls (search/columns/pager) — see the block comment
+  // above `TABLE_PAGE_SIZE`: these operate on the current server page's rows,
+  // distinct from the outer `search`/`page` URL state above.
+  const [tableSearch, setTableSearch] = useState('');
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePageSize, setTablePageSize] = useState(TABLE_PAGE_SIZE);
+  const [tableActiveColumnKeys, setTableActiveColumnKeys] =
+    useState<string[]>(DEFAULT_TABLE_COLUMN_KEYS);
+
+  const tableRows = rows as RequestRow[];
+  // The deleted DataTable's global filter matched accessor-backed columns
+  // only (`name`, `status`) — `account`/`pm`/`budget`/`submitted` had no
+  // accessor (render-only `cell`), so were never part of the filtered value
+  // set even though their cells display derived text.
+  const tableFiltered = useMemo(() => {
+    const q = tableSearch.trim().toLowerCase();
+    if (!q) return tableRows;
+    return tableRows.filter((r) =>
+      [r.name, r.status].some((v) => (v ?? '').toLowerCase().includes(q)),
+    );
+  }, [tableRows, tableSearch]);
+
+  const { sortedData: tableSorted, sortConfig: tableSortConfig } =
+    useTableSortableState<RequestRow>({ data: tableFiltered });
+  const tableSortable = useTableSortable<RequestRow>(tableSortConfig);
+
+  const tablePageRows = useMemo(
+    () => paginateData(tableSorted, tablePage, tablePageSize),
+    [tableSorted, tablePage, tablePageSize],
+  );
+  const tablePagination = useTablePagination<RequestRow>({
+    page: tablePage,
+    onPageChange: setTablePage,
+    totalItems: tableSorted.length,
+    pageSize: tablePageSize,
+    onPageSizeChange: (ps) => {
+      setTablePageSize(ps);
+      setTablePage(1);
+    },
+    pageSizeOptions: TABLE_PAGE_SIZE_OPTIONS,
+  });
+
+  const tableColumnSettingsState = useTableColumnSettingsState({
+    columns: TABLE_COLUMN_OPTIONS,
+    activeColumnKeys: tableActiveColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setTableActiveColumnKeys([...keys]),
+  });
+  const tableColumnSettings = useTableColumnSettings<RequestRow>(
+    tableColumnSettingsState.columnSettingsConfig,
+  );
+
+  const columns = useMemo<TableColumn<RequestRow>[]>(
+    () => [
       {
-        id: 'name',
-        accessorKey: 'name',
+        key: 'name',
         header: 'Project',
-        cell: ({ row }: CellCtx) => (
-          <span className="font-medium text-ink">{row.original.name}</span>
-        ),
+        width: proportional(2),
+        sortable: true,
+        renderCell: (r) => <span className="font-medium text-ink">{r.name}</span>,
       },
       {
-        id: 'account',
+        key: 'account',
         header: 'Account',
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted">{accountName(row.original.account_id)}</span>
-        ),
+        width: proportional(1),
+        renderCell: (r) => <span className="text-ink-muted">{accountName(r.account_id)}</span>,
       },
       {
-        id: 'pm',
+        key: 'pm',
         header: 'PM',
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted">{pmName(row.original.pm_worker_id)}</span>
-        ),
+        width: proportional(1),
+        renderCell: (r) => <span className="text-ink-muted">{pmName(r.pm_worker_id)}</span>,
       },
       {
-        id: 'budget',
+        key: 'budget',
         header: 'Budget',
-        cell: ({ row }: CellCtx) => (
+        width: pixel(110),
+        renderCell: (r) => (
           <span className="font-mono text-caption text-ink-muted">
-            {row.original.budget_bmm != null ? `${Number(row.original.budget_bmm)} BMM` : '—'}
+            {r.budget_bmm != null ? `${Number(r.budget_bmm)} BMM` : '—'}
           </span>
         ),
       },
       {
-        id: 'status',
-        accessorKey: 'status',
+        key: 'status',
         header: 'Status',
-        cell: ({ row }: CellCtx) => {
-          const meta = STATUS_META[row.original.status];
+        width: pixel(150),
+        sortable: true,
+        renderCell: (r) => {
+          const meta = STATUS_META[r.status];
           return <Badge variant={meta.variant} label={meta.label} />;
         },
       },
       {
-        id: 'submitted',
+        key: 'submitted',
         header: 'Submitted',
-        cell: ({ row }: CellCtx) => (
-          <span className="font-mono text-caption text-ink-muted">
-            {row.original.created_at.slice(0, 10)}
-          </span>
+        width: pixel(110),
+        renderCell: (r) => (
+          <span className="font-mono text-caption text-ink-muted">{r.created_at.slice(0, 10)}</span>
         ),
       },
-    ];
-  }, [accountName, pmName]);
+    ],
+    [accountName, pmName],
+  );
 
   const actions = canSubmit ? (
     <SubmitCharterDialog
@@ -478,13 +566,77 @@ export function RequestsPage() {
             }
           />
         ) : view === 'table' ? (
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            getRowId={(r: CharterListRow) => r.charter_id}
-            onRowClick={(row) => open(row.original.charter_id)}
-          />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <Input
+                label="Search this page"
+                isLabelHidden
+                className="max-w-sm"
+                placeholder="Search…"
+                value={tableSearch}
+                onChange={(value) => {
+                  setTableSearch(value);
+                  setTablePage(1);
+                }}
+              />
+              <Popover
+                placement="below"
+                alignment="end"
+                label="Toggle columns"
+                content={
+                  <div className="flex min-w-[180px] flex-col gap-1 p-2">
+                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                      Toggle columns
+                    </div>
+                    {TABLE_COLUMN_OPTIONS.map((col) => (
+                      <Checkbox
+                        key={col.key}
+                        label={col.label}
+                        value={tableColumnSettingsState.isColumnActive(col.key)}
+                        onChange={() => tableColumnSettingsState.toggleColumn(col.key)}
+                      />
+                    ))}
+                  </div>
+                }
+              >
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Settings2 className="size-3.5" />}
+                  label="Columns"
+                />
+              </Popover>
+            </div>
+            <Table
+              data={tablePageRows}
+              columns={columns}
+              idKey="charter_id"
+              plugins={{
+                pagination: tablePagination,
+                sortable: tableSortable,
+                columnSettings: tableColumnSettings,
+                rowClick: {
+                  transformBodyRow: (props, item) => ({
+                    ...props,
+                    htmlProps: {
+                      ...props.htmlProps,
+                      style: { ...props.htmlProps.style, cursor: 'pointer' },
+                      onClick: () => open(item.charter_id),
+                    },
+                  }),
+                },
+              }}
+              emptyState={
+                tableSearch.trim() ? (
+                  <EmptyState
+                    title="No results match these filters"
+                    description="Try removing a filter or clearing your search."
+                    action={{ label: 'Clear filters', onClick: () => setTableSearch('') }}
+                  />
+                ) : undefined
+              }
+            />
+          </div>
         ) : (
           <div className="space-y-3">
             {rows.map((r) => (
