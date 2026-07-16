@@ -154,10 +154,7 @@ export function RequisitionsPage() {
   });
   const sortable = useTableSortable<Row>(sortConfig);
 
-  // Reset to page 1 whenever a filter narrows/widens the result set, or the sort order changes —
-  // matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on both
-  // `columnFilters`/`globalFilter` AND `sorting` state changes (getSortedRowModel calls
-  // `table._autoResetPageIndex()` unconditionally; `manualPagination` was never set here).
+  // Reset to page 1 on filter/sort change — old TanStack autoResetPageIndex parity (see candidates-page).
   // biome-ignore lint/correctness/useExhaustiveDependencies: the filters and sort are the intentional reset triggers, unread in the body.
   useEffect(() => {
     setPage(1);

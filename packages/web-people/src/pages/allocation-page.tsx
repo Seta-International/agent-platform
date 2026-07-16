@@ -216,12 +216,8 @@ export function AllocationPage() {
   });
   const sortable = useTableSortable<AllocationRow>(sortConfig);
 
-  // Client-side pagination over the (server-)filtered rows. Reset to page 1
-  // whenever the filters change, or the sort order changes — matches the deleted
-  // DataTable's TanStack `autoResetPageIndex` default, which fired on both
-  // `columnFilters`/`globalFilter` AND `sorting` state changes (getSortedRowModel
-  // calls `table._autoResetPageIndex()` unconditionally; `manualPagination` was
-  // never set here).
+  // Client-side pagination over the (server-)filtered rows.
+  // Reset to page 1 on filter/sort change — old TanStack autoResetPageIndex parity (see candidates-page).
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   // biome-ignore lint/correctness/useExhaustiveDependencies: filters and sort are the intentional reset triggers, unread in the body.

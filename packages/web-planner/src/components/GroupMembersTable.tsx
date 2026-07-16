@@ -151,11 +151,8 @@ export function GroupMembersTable({
   const { sortedData, sort, sortConfig } = useTableSortableState<Row>({ data: filtered });
   const sortable = useTableSortable<Row>(sortConfig);
 
-  // Reset to page 1 whenever the sort order changes — matches the deleted DataTable's
-  // TanStack `autoResetPageIndex` default, which fired on `sorting` state changes
-  // (getSortedRowModel unconditionally calls `table._autoResetPageIndex()`;
-  // `manualPagination` was never set here). The search filter already resets page
-  // inline in its own onChange handler above.
+  // Reset to page 1 on sort change — old TanStack autoResetPageIndex parity (see candidates-page).
+  // The search filter already resets page inline in its own onChange handler above.
   // biome-ignore lint/correctness/useExhaustiveDependencies: sort is the intentional reset trigger, unread in the body.
   useEffect(() => {
     setPage(1);
