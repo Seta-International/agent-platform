@@ -1,0 +1,132 @@
+name: Terraform prod
+
+# Plan/apply infra/terraform/prod through the gated `prod` GitHub Environment.
+# Never automatic: manual dispatch + repo-admin check + environment required
+# reviewers. Plan is the default; apply additionally requires the S3 state
+# backend to be enabled (local state in CI would be lost with the runner).
+#
+# Credentials (set in the `prod` environment; the workflow prefers OIDC):
+#   AWS_TERRAFORM_ROLE_ARN                 — OIDC role carrying the
+#                                            TerraformFutureAppProvisioner policy (preferred)
+#   AWS_TERRAFORM_ACCESS_KEY_ID /
+#   AWS_TERRAFORM_SECRET_ACCESS_KEY        — fallback: static keys for the provisioner
+#                                            IAM user, pushed by IT to GitHub secrets
+# Terraform inputs (environment secrets / vars):
+#   secrets: DATABASE_PASSWORD, BETTER_AUTH_SECRET, CRYPTO_LOCAL_MASTER_KEY, OPENAI_API_KEY
+#   vars:    AWS_REGION, TF_IMAGE_URI, CLOUDFLARED_TOKEN_SECRET_ARN
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action'
+        required: true
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+concurrency:
+  group: terraform-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # OIDC for AWS (no-op on the static-key path)
+
+jobs:
+  authorize:
+    name: Authorize (repo admins only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify triggering actor is a repo admin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          perm=$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" --jq '.permission')
+          echo "actor=${ACTOR} permission=${perm}"
+          if [ "$perm" != "admin" ]; then
+            echo "::error::Terraform prod runs are restricted to repo admins. '${ACTOR}' has '${perm}' permission."
+            exit 1
+          fi
+
+  terraform:
+    name: Terraform ${{ inputs.action }} (prod)
+    needs: authorize
+    runs-on: ubuntu-latest
+    environment: prod
+    defaults:
+      run:
+        working-directory: infra/terraform/prod
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Pick credential mode (OIDC preferred, static keys fallback)
+        id: creds
+        env:
+          ROLE_ARN: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          if [ -n "$ROLE_ARN" ]; then
+            echo "mode=oidc" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=keys" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        if: steps.creds.outputs.mode == 'oidc'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Configure AWS credentials (static keys)
+        if: steps.creds.outputs.mode == 'keys'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_TERRAFORM_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_TERRAFORM_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Guard — apply requires the S3 state backend
+        if: inputs.action == 'apply'
+        run: |
+          set -euo pipefail
+          if ! grep -qE '^\s*backend "s3"' backend.tf; then
+            echo "::error::backend.tf has no active S3 backend — CI state would be lost with the runner. Enable the seta-tfstate-prod-apse1 backend (first import/adopt apply is a manual step) before CI applies."
+            exit 1
+          fi
+
+      - name: Terraform init + validate
+        run: |
+          set -euo pipefail
+          terraform init -input=false
+          terraform validate
+
+      - name: Terraform plan
+        env:
+          TF_VAR_db_master_password: ${{ secrets.DATABASE_PASSWORD }}
+          TF_VAR_better_auth_secret: ${{ secrets.BETTER_AUTH_SECRET }}
+          TF_VAR_crypto_local_master_key: ${{ secrets.CRYPTO_LOCAL_MASTER_KEY }}
+          TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          TF_VAR_image_uri: ${{ vars.TF_IMAGE_URI }}
+          TF_VAR_cloudflared_token_secret_arn: ${{ vars.CLOUDFLARED_TOKEN_SECRET_ARN }}
+        run: |
+          set -euo pipefail
+          terraform plan -input=false -no-color -out=prod.tfplan | tee plan.txt
+          {
+            echo '## Terraform plan (prod)'
+            echo '```'
+            grep -E '^(Plan:|No changes|  #|Changes to Outputs)' plan.txt || tail -5 plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Terraform apply
+        if: inputs.action == 'apply'
+        run: |
+          set -euo pipefail
+          terraform apply -input=false -no-color prod.tfplan

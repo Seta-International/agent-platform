@@ -72,7 +72,11 @@ flowchart TB
 
 ## 4. Provision
 
-Two-stage Terraform; apply is a gated human step, never CI.
+Two-stage Terraform; applies are never automatic. Steady-state plan/apply runs through
+`terraform-prod.yml` (manual dispatch → repo-admin check → `prod` environment approval; credentials from
+environment secrets — OIDC role preferred, static provisioner keys as fallback). The **first**
+import/adopt apply and the EC2→ECS cutover are manual human steps; CI applies are blocked until the S3
+state backend is enabled after that pass.
 
 - `infra/terraform/bootstrap/` — once per account. Creates `seta-tfstate-prod-apse1` (versioned,
   KMS-encrypted, PAB, `prevent_destroy`), local state.
