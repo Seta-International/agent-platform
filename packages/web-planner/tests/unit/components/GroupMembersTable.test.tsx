@@ -270,4 +270,42 @@ describe('GroupMembersTable', () => {
     expect(screen.getByText('Member 20')).toBeInTheDocument();
     expect(screen.queryByText('Member 00')).not.toBeInTheDocument();
   });
+
+  it('resets to page 1 when the sort order changes while on page 2', async () => {
+    // Matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on
+    // `sorting` state changes too, not just filters (getSortedRowModel unconditionally calls
+    // `table._autoResetPageIndex()`).
+    const user = userEvent.setup();
+    const members = Array.from({ length: 21 }, (_, i) =>
+      member({
+        user_id: `u${i}`,
+        display_name: `Member ${String(i).padStart(2, '0')}`,
+      }),
+    );
+    render(
+      <GroupMembersTable
+        group={nativeGroup}
+        members={members}
+        canManageRoles={false}
+        canRemoveMembers={false}
+        onRoleChange={vi.fn()}
+        onRemoveMember={vi.fn()}
+        onRemoveMembers={vi.fn()}
+      />,
+    );
+
+    const table = screen.getByRole('table');
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: /go to page 2/i }));
+    expect(screen.getByText('Member 20')).toBeInTheDocument();
+
+    await user.click(within(table).getByRole('button', { name: /sort by member/i }));
+
+    expect(within(pager).getByRole('button', { name: 'Go to page 1' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByText('Member 00')).toBeInTheDocument();
+    expect(screen.queryByText('Member 20')).not.toBeInTheDocument();
+  });
 });
