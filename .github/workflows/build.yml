@@ -57,7 +57,8 @@ jobs:
         with:
           image: seta-server
           dockerfile: infra/docker/server.Dockerfile
-          platforms: linux/amd64
+          # amd64 for the compose boxes, arm64 for ECS Fargate Graviton (FUT-620).
+          platforms: linux/amd64,linux/arm64
           push: 'true'
           ecr-registry: ${{ vars.ECR_REGISTRY }}
           cache-ref: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:buildcache-server

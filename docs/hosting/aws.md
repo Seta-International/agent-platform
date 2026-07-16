@@ -119,8 +119,9 @@ up the GitHub→AWS OIDC role for deploys (no on-box runner — Fargate has no p
 
 Build-once → ECR → ECS rolling, on GitHub-hosted runners via the OIDC role.
 
-1. `build.yml` builds `linux/arm64` `server` + `web` images (`server-git-<sha>` / `web-git-<sha>` +
-   `-latest`). The web-bundle S3 sync + CloudFront invalidation step is added at cutover.
+1. `build.yml` builds the `server` image multi-arch (`linux/amd64` for the compose boxes,
+   `linux/arm64` for Fargate Graviton) and `web` amd64-only (it never runs on ECS — the SPA ships
+   to S3 at cutover, when the sync + CloudFront invalidation step is added).
 2. `deploy.yml` (`environment=prod`, gated): pre-migration RDS snapshot → migrator via
    `aws ecs run-task` → register new task-def revision + `update-service` (rolling) for both services →
    wait `services-stable` → smoke `/health/ready` → record `PROD_LAST_GOOD_TAG`.
