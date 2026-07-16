@@ -3,12 +3,12 @@ import {
   Badge,
   cn,
   createStaticSource,
+  Dialog,
+  DialogHeader,
+  Layout,
+  LayoutContent,
   type SearchableItem,
   Selector,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
   Tokenizer,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -245,59 +245,73 @@ function ProductsSection({ userId }: { userId: string }) {
 
 export function UserDetailSheet({ row, open, onOpenChange }: Props) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[27rem] overflow-y-auto sm:max-w-[27rem]">
-        <SheetHeader className="mb-6">
-          <div className="flex items-center gap-3">
-            <PersonAvatar
-              name={row?.full_name ?? '?'}
-              className="size-10 text-body-sm font-semibold"
-            />
-            <div className="min-w-0">
-              <SheetTitle className="truncate">{row?.full_name ?? '—'}</SheetTitle>
-              {row?.work_email && (
-                <p className="truncate text-caption text-ink-subtle">{row.work_email}</p>
-              )}
-            </div>
-          </div>
-        </SheetHeader>
-
-        {row && (
-          <div className="flex flex-col gap-5">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Employment">
-                <Badge
-                  variant={EMPLOYMENT_BADGE[row.employment_status]}
-                  label={EMPLOYMENT_LABEL[row.employment_status]}
-                />
-              </Field>
-              <Field label="Account">
-                <Badge
-                  variant={ACCOUNT_STATUS_BADGE[row.account_status]}
-                  label={ACCOUNT_STATUS_LABEL[row.account_status]}
-                />
-              </Field>
-            </div>
-
-            <WorkSection workerId={row.person_id} employmentStatus={row.employment_status} />
-
-            {row.user_id && (
-              <div className="mt-1 flex flex-col gap-4">
-                <SectionTitle icon={<UsersRound className="size-4" />}>Access</SectionTitle>
-
-                <GroupsSection userId={row.user_id} />
-
-                <RolesSection userId={row.user_id} />
-
-                <div className="flex flex-col gap-3">
-                  <SectionTitle icon={<Boxes className="size-4" />}>Product overrides</SectionTitle>
-                  <ProductsSection userId={row.user_id} />
+    <Dialog
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      purpose="info"
+      position={{ top: 0, right: 0, bottom: 0 }}
+      width={432}
+      maxHeight="100dvh"
+      // Astryx's Dialog does not label itself from DialogHeader (only AlertDialog does),
+      // so name it explicitly to keep the accessible name the drawer has always had.
+      aria-label={row?.full_name ?? 'User details'}
+    >
+      <Layout
+        header={
+          <DialogHeader
+            title={row?.full_name ?? '—'}
+            subtitle={row?.work_email ?? undefined}
+            startContent={
+              <PersonAvatar
+                name={row?.full_name ?? '?'}
+                className="size-10 text-body-sm font-semibold"
+              />
+            }
+            onOpenChange={onOpenChange}
+          />
+        }
+        content={
+          <LayoutContent>
+            {row && (
+              <div className="flex flex-col gap-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Employment">
+                    <Badge
+                      variant={EMPLOYMENT_BADGE[row.employment_status]}
+                      label={EMPLOYMENT_LABEL[row.employment_status]}
+                    />
+                  </Field>
+                  <Field label="Account">
+                    <Badge
+                      variant={ACCOUNT_STATUS_BADGE[row.account_status]}
+                      label={ACCOUNT_STATUS_LABEL[row.account_status]}
+                    />
+                  </Field>
                 </div>
+
+                <WorkSection workerId={row.person_id} employmentStatus={row.employment_status} />
+
+                {row.user_id && (
+                  <div className="mt-1 flex flex-col gap-4">
+                    <SectionTitle icon={<UsersRound className="size-4" />}>Access</SectionTitle>
+
+                    <GroupsSection userId={row.user_id} />
+
+                    <RolesSection userId={row.user_id} />
+
+                    <div className="flex flex-col gap-3">
+                      <SectionTitle icon={<Boxes className="size-4" />}>
+                        Product overrides
+                      </SectionTitle>
+                      <ProductsSection userId={row.user_id} />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
-      </SheetContent>
-    </Sheet>
+          </LayoutContent>
+        }
+      />
+    </Dialog>
   );
 }

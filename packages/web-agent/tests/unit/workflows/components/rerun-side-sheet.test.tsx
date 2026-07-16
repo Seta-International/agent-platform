@@ -25,7 +25,9 @@ function withQuery(children: React.ReactNode) {
 }
 
 describe('RerunSideSheet', () => {
-  it('renders nothing when closed', () => {
+  // Astryx's Dialog always mounts <dialog> + children regardless of `isOpen`; a closed one is
+  // simply not exposed as `role="dialog"`. Assert on the role rather than the title text.
+  it('is not exposed as a dialog when closed', () => {
     render(
       withQuery(
         <RerunSideSheet
@@ -37,7 +39,36 @@ describe('RerunSideSheet', () => {
         />,
       ),
     );
-    expect(screen.queryByText(/re-run workflow/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('opens as a labeled drawer and closes via the header close button', async () => {
+    const onClose = vi.fn();
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify(SCHEMA), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    ) as unknown as typeof globalThis.fetch;
+
+    render(
+      withQuery(
+        <RerunSideSheet
+          open
+          runId="r1"
+          workflowId="agent.x"
+          priorInputSummary={{}}
+          onClose={onClose}
+        />,
+      ),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole('dialog', { name: /re-run workflow/i })).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('renders the form once schema loads and pre-fills defaults from priorInputSummary', async () => {

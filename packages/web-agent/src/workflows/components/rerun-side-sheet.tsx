@@ -1,4 +1,4 @@
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@seta/shared-ui';
+import { Dialog, DialogHeader, Layout, LayoutContent } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { workflowsApi } from '../api/workflows.ts';
@@ -69,43 +69,64 @@ export function RerunSideSheet({
       : (rerunDefaults as Record<string, unknown>);
 
   return (
-    <Sheet open={open} onOpenChange={(v) => (v ? null : onClose())}>
-      <SheetContent side="right" className="w-[480px] sm:max-w-none">
-        <SheetHeader>
-          <SheetTitle>{title}</SheetTitle>
-        </SheetHeader>
-        {isReplay && replayContext ? (
-          <div className="mt-3 rounded border border-[var(--color-hairline)] bg-[var(--color-surface-1)] px-3 py-2 text-xs text-[var(--color-ink-muted)]">
-            Replaying from step <span className="font-mono">{replayContext.stepId}</span>. Earlier
-            steps' outputs are reused; this step receives the input below.
-          </div>
-        ) : null}
-        <div className="mt-4">
-          {schemaQ.isLoading ? (
-            <div className="text-sm text-[var(--color-ink-subtle)]">Loading input schema…</div>
-          ) : null}
-          {schemaQ.isError ? (
-            <div className="text-sm text-[var(--color-danger)]">
-              Failed to load input schema for this workflow.
+    <Dialog
+      isOpen={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+      purpose="form"
+      position={{ top: 0, right: 0, bottom: 0 }}
+      width={480}
+      maxHeight="100dvh"
+      // Astryx's Dialog does not label itself from DialogHeader (only AlertDialog does),
+      // so name it explicitly to keep the accessible name the drawer has always had.
+      aria-label={title}
+    >
+      <Layout
+        header={
+          <DialogHeader
+            title={title}
+            onOpenChange={(v) => {
+              if (!v) onClose();
+            }}
+          />
+        }
+        content={
+          <LayoutContent>
+            {isReplay && replayContext ? (
+              <div className="mt-3 rounded border border-[var(--color-hairline)] bg-[var(--color-surface-1)] px-3 py-2 text-xs text-[var(--color-ink-muted)]">
+                Replaying from step <span className="font-mono">{replayContext.stepId}</span>.
+                Earlier steps' outputs are reused; this step receives the input below.
+              </div>
+            ) : null}
+            <div className="mt-4">
+              {schemaQ.isLoading ? (
+                <div className="text-sm text-[var(--color-ink-subtle)]">Loading input schema…</div>
+              ) : null}
+              {schemaQ.isError ? (
+                <div className="text-sm text-[var(--color-danger)]">
+                  Failed to load input schema for this workflow.
+                </div>
+              ) : null}
+              {schemaQ.data ? (
+                <InputFormFromSchema
+                  schema={schemaQ.data}
+                  defaults={defaults}
+                  original={original}
+                  onSubmit={(v) => submit.mutate(v)}
+                  submitting={submit.isPending}
+                  submitLabel={submitLabel}
+                />
+              ) : null}
+              {submit.isError ? (
+                <p className="mt-3 text-xs text-[var(--color-danger)]">
+                  {isReplay ? 'Replay failed.' : 'Re-run failed.'} Adjust inputs and try again.
+                </p>
+              ) : null}
             </div>
-          ) : null}
-          {schemaQ.data ? (
-            <InputFormFromSchema
-              schema={schemaQ.data}
-              defaults={defaults}
-              original={original}
-              onSubmit={(v) => submit.mutate(v)}
-              submitting={submit.isPending}
-              submitLabel={submitLabel}
-            />
-          ) : null}
-          {submit.isError ? (
-            <p className="mt-3 text-xs text-[var(--color-danger)]">
-              {isReplay ? 'Replay failed.' : 'Re-run failed.'} Adjust inputs and try again.
-            </p>
-          ) : null}
-        </div>
-      </SheetContent>
-    </Sheet>
+          </LayoutContent>
+        }
+      />
+    </Dialog>
   );
 }
