@@ -1,21 +1,26 @@
 import {
   Badge,
   Button,
-  DataTable,
   Dialog,
   DialogHeader,
   DropdownMenu,
   DropdownMenuItem,
+  EmptyState,
   Input,
   Layout,
   LayoutFooter,
   PageChrome,
   PageChromeToolbar,
-  type RowSelectionState,
+  pixel,
+  proportional,
   Selector,
+  Skeleton,
+  Table,
+  type TableColumn,
+  useTablePagination,
+  useTableSelection,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import type { ColumnDef, OnChangeFn, PaginationState, Row } from '@tanstack/react-table';
 import { MoreHorizontal, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PersonAvatar } from '../../components/person-avatar.tsx';
@@ -90,6 +95,10 @@ const EMPLOYMENT_LABEL: Record<DirectoryRow['employment_status'], string> = {
 
 const DEFAULT_PAGE_SIZE = 25;
 
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO
+// lacks an index signature, so alias locally (do not touch the shared DTO).
+type DirectoryTableRow = DirectoryRow & Record<string, unknown>;
+
 /** Compact chip list for name collections (groups, accounts, projects) with +N overflow. */
 function ChipList({ items }: { items: string[] }) {
   if (items.length === 0) return <span className="text-ink-tertiary">{'—'}</span>;
@@ -113,7 +122,6 @@ interface DirectoryProps {
 export function Directory({ search, onSearch }: DirectoryProps) {
   const [selectedRow, setSelectedRow] = useState<DirectoryRow | null>(null);
   const [suspendTarget, setSuspendTarget] = useState<DirectoryRow | null>(null);
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const canWrite = usePermission('identity.user.update');
 
@@ -173,46 +181,55 @@ export function Directory({ search, onSearch }: DirectoryProps) {
   const suspend = useSuspend();
   const reactivate = useReactivate();
 
-  const rows = data?.rows ?? [];
+  const rows = (data?.rows ?? []) as DirectoryTableRow[];
 
   // Work enrichment (department, accounts, projects) joins people projections onto the page rows.
   const personIds = useMemo(() => rows.map((r) => r.person_id), [rows]);
   const { data: briefs = [] } = useWorkersBrief(personIds);
   const briefById = useMemo(() => new Map(briefs.map((b) => [b.worker_id, b])), [briefs]);
 
-  // Accumulator: person_id → user_id, surviving pagination. rowSelection drives
-  // the table checkboxes per page; selectedUsers is the durable cross-page set.
+  // Only account-holding rows are selectable (a 'none' row has no user_id).
+  const selectableRows = useMemo(() => rows.filter((r) => r.account_status !== 'none'), [rows]);
+
+  // Accumulator: person_id → user_id, surviving pagination. This durable
+  // cross-page map is the single source of truth for the checkboxes; the
+  // selection plugin reads it via getIsItemSelected.
   const [selectedUsers, setSelectedUsers] = useState<Record<string, string>>({});
 
-  const handleRowSelectionChange = useCallback<OnChangeFn<RowSelectionState>>(
-    (updater) => {
-      setRowSelection((prev) => {
-        const next = typeof updater === 'function' ? updater(prev) : updater;
-        setSelectedUsers((acc) => {
-          const merged = { ...acc };
-          // Newly selected on this page → resolve user_id from the visible rows.
-          for (const personId of Object.keys(next)) {
-            if (next[personId] && !prev[personId]) {
-              const userId = rows.find((r) => r.person_id === personId)?.user_id;
-              if (userId) merged[personId] = userId;
-            }
+  // Select adds person_id→user_id, deselect removes it.
+  const handleRowToggle = useCallback((row: DirectoryTableRow, isSelected: boolean) => {
+    setSelectedUsers((acc) => {
+      const next = { ...acc };
+      if (isSelected) {
+        if (row.user_id) next[row.person_id] = row.user_id;
+      } else {
+        delete next[row.person_id];
+      }
+      return next;
+    });
+  }, []);
+
+  // Select-all operates on the current page's selectable rows only.
+  const handleSelectAllOnPage = useCallback(
+    (selectAll: boolean) => {
+      setSelectedUsers((acc) => {
+        const next = { ...acc };
+        for (const r of selectableRows) {
+          if (selectAll) {
+            if (r.user_id) next[r.person_id] = r.user_id;
+          } else {
+            delete next[r.person_id];
           }
-          // Newly deselected on this page → drop from accumulator.
-          for (const personId of Object.keys(prev)) {
-            if (prev[personId] && !next[personId]) delete merged[personId];
-          }
-          return merged;
-        });
+        }
         return next;
       });
     },
-    [rows],
+    [selectableRows],
   );
 
   const selectedUserIds = useMemo(() => Object.values(selectedUsers), [selectedUsers]);
 
   function clearSelection() {
-    setRowSelection({});
     setSelectedUsers({});
   }
 
@@ -221,38 +238,35 @@ export function Directory({ search, onSearch }: DirectoryProps) {
   }
 
   const rowCount = data?.total ?? 0;
-  const pageCount = Math.max(1, Math.ceil(rowCount / pageSize));
 
-  const columns = useMemo<ColumnDef<DirectoryRow>[]>(
+  const columns = useMemo<TableColumn<DirectoryTableRow>[]>(
     () => [
       {
-        id: 'full_name',
-        accessorKey: 'full_name',
+        key: 'full_name',
         header: 'Name',
-        cell: ({ row }) => (
+        width: proportional(2),
+        renderCell: (r) => (
           <div className="flex items-center gap-2.5">
-            <PersonAvatar name={row.original.full_name} />
+            <PersonAvatar name={r.full_name} />
             <div className="flex min-w-0 flex-col">
-              <span className="truncate font-medium text-ink">{row.original.full_name}</span>
-              {row.original.work_email && (
-                <span className="truncate text-caption text-ink-tertiary">
-                  {row.original.work_email}
-                </span>
+              <span className="truncate font-medium text-ink">{r.full_name}</span>
+              {r.work_email && (
+                <span className="truncate text-caption text-ink-tertiary">{r.work_email}</span>
               )}
             </div>
           </div>
         ),
       },
       {
-        id: 'job_title',
-        accessorKey: 'job_title',
+        key: 'job_title',
         header: 'Position',
-        cell: ({ row }) => {
-          const department = briefById.get(row.original.person_id)?.org_unit_name;
+        width: proportional(2),
+        renderCell: (r) => {
+          const department = briefById.get(r.person_id)?.org_unit_name;
           return (
             <div className="flex min-w-0 flex-col">
-              {row.original.job_title ? (
-                <span className="truncate">{row.original.job_title}</span>
+              {r.job_title ? (
+                <span className="truncate">{r.job_title}</span>
               ) : (
                 <span className="text-ink-tertiary">{'—'}</span>
               )}
@@ -264,94 +278,84 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         },
       },
       {
-        id: 'employment_status',
+        key: 'employment_status',
         header: 'Employment',
-        enableSorting: false,
-        cell: ({ row }) => (
+        width: pixel(140),
+        renderCell: (r) => (
           <Badge
-            variant={EMPLOYMENT_BADGE[row.original.employment_status]}
-            label={EMPLOYMENT_LABEL[row.original.employment_status]}
+            variant={EMPLOYMENT_BADGE[r.employment_status]}
+            label={EMPLOYMENT_LABEL[r.employment_status]}
           />
         ),
       },
       {
-        id: 'account_status',
+        key: 'account_status',
         header: 'Account status',
-        enableSorting: false,
-        cell: ({ row }) => (
+        width: pixel(140),
+        renderCell: (r) => (
           <Badge
-            variant={ACCOUNT_STATUS_BADGE[row.original.account_status]}
-            label={ACCOUNT_STATUS_LABEL[row.original.account_status]}
+            variant={ACCOUNT_STATUS_BADGE[r.account_status]}
+            label={ACCOUNT_STATUS_LABEL[r.account_status]}
           />
         ),
       },
       {
-        id: 'accounts',
+        key: 'accounts',
         header: 'Accounts',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <ChipList
-            items={(briefById.get(row.original.person_id)?.accounts ?? []).map((a) => a.name)}
-          />
+        width: proportional(1),
+        renderCell: (r) => (
+          <ChipList items={(briefById.get(r.person_id)?.accounts ?? []).map((a) => a.name)} />
         ),
       },
       {
-        id: 'projects',
+        key: 'projects',
         header: 'Projects',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <ChipList
-            items={(briefById.get(row.original.person_id)?.projects ?? []).map((p) => p.name)}
-          />
+        width: proportional(1),
+        renderCell: (r) => (
+          <ChipList items={(briefById.get(r.person_id)?.projects ?? []).map((p) => p.name)} />
         ),
       },
       {
-        id: 'groups',
+        key: 'groups',
         header: 'Groups',
-        enableSorting: false,
-        cell: ({ row }) => <ChipList items={row.original.groups ?? []} />,
+        width: proportional(1),
+        renderCell: (r) => <ChipList items={r.groups ?? []} />,
       },
       {
-        id: 'actions',
+        key: 'actions',
         header: '',
-        enableSorting: false,
-        cell: ({ row }) => {
+        width: pixel(56),
+        align: 'end',
+        renderCell: (r) => {
           if (!canWrite) return null;
-          const r = row.original;
           return (
-            // biome-ignore lint/a11y/noStaticElementInteractions: swallows clicks so the trigger doesn't bubble to the row's onClick; the real interactive control is the DropdownMenu's own Button.
-            <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-              <DropdownMenu
-                placement="below"
-                button={{
-                  variant: 'ghost',
-                  size: 'sm',
-                  isIconOnly: true,
-                  label: `Row actions for ${r.full_name}`,
-                  icon: <MoreHorizontal className="size-4" />,
-                }}
-              >
-                {r.account_status === 'none' && (
-                  <DropdownMenuItem
-                    label="Provision"
-                    onClick={() => provision.mutate(r.person_id)}
-                  />
-                )}
-                {r.account_status === 'active' && r.user_id && (
-                  <DropdownMenuItem
-                    label="Suspend"
-                    style={{ color: 'var(--color-destructive)' }}
-                    onClick={() => setSuspendTarget(r)}
-                  />
-                )}
-                {r.account_status === 'suspended' && r.user_id && (
-                  <DropdownMenuItem
-                    label="Reactivate"
-                    onClick={() => reactivate.mutate(r.user_id ?? '')}
-                  />
-                )}
-              </DropdownMenu>
-            </div>
+            <DropdownMenu
+              placement="below"
+              button={{
+                variant: 'ghost',
+                size: 'sm',
+                isIconOnly: true,
+                label: `Row actions for ${r.full_name}`,
+                icon: <MoreHorizontal className="size-4" />,
+              }}
+            >
+              {r.account_status === 'none' && (
+                <DropdownMenuItem label="Provision" onClick={() => provision.mutate(r.person_id)} />
+              )}
+              {r.account_status === 'active' && r.user_id && (
+                <DropdownMenuItem
+                  label="Suspend"
+                  style={{ color: 'var(--color-destructive)' }}
+                  onClick={() => setSuspendTarget(r)}
+                />
+              )}
+              {r.account_status === 'suspended' && r.user_id && (
+                <DropdownMenuItem
+                  label="Reactivate"
+                  onClick={() => reactivate.mutate(r.user_id ?? '')}
+                />
+              )}
+            </DropdownMenu>
           );
         },
       },
@@ -359,13 +363,32 @@ export function Directory({ search, onSearch }: DirectoryProps) {
     [canWrite, provision, reactivate, briefById],
   );
 
+  const pagination = useTablePagination<DirectoryTableRow>({
+    page: page + 1, // URL state is 0-based; the Astryx pager is 1-based.
+    onPageChange: (p) => setPage(p - 1),
+    totalItems: rowCount,
+    pageSize,
+    onPageSizeChange: setPageSize,
+    pageSizeOptions: [10, 25, 50, 100],
+  });
+
+  const selection = useTableSelection<DirectoryTableRow>({
+    getIsItemSelected: (r) => !!selectedUsers[r.person_id],
+    onSelectItem: ({ item, isSelected }) => handleRowToggle(item, isSelected),
+    onSelectAll: ({ isAllSelected }) => handleSelectAllOnPage(isAllSelected),
+    getIsAllSelected: () =>
+      selectableRows.length > 0 && selectableRows.every((r) => !!selectedUsers[r.person_id]),
+    getIsIndeterminate: () =>
+      selectableRows.some((r) => !!selectedUsers[r.person_id]) &&
+      !selectableRows.every((r) => !!selectedUsers[r.person_id]),
+    getIsItemEnabled: (r) => r.account_status !== 'none',
+  });
+
   const subtitle = isLoading
     ? 'Loading…'
     : data
       ? `${rowCount.toLocaleString()} ${rowCount === 1 ? 'person' : 'people'}`
       : undefined;
-
-  const pagination: PaginationState = { pageIndex: page, pageSize };
 
   return (
     <PageChrome
@@ -439,33 +462,47 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         <BulkGroupBar selectedUserIds={selectedUserIds} onClearSelection={clearSelection} />
       )}
       <div className="px-6 py-4">
-        <DataTable
-          mode="server"
-          data={rows}
-          columns={columns}
-          isLoading={isLoading}
-          enableRowSelection={(row: Row<DirectoryRow>) => row.original.account_status !== 'none'}
-          rowSelection={rowSelection}
-          onRowSelectionChange={handleRowSelectionChange}
-          enableGlobalFilter={false}
-          enableColumnVisibility={false}
-          sorting={[]}
-          onSortingChange={() => undefined}
-          columnFilters={[]}
-          onColumnFiltersChange={() => undefined}
-          globalFilter=""
-          onGlobalFilterChange={() => undefined}
-          pagination={pagination}
-          onPaginationChange={(updater) => {
-            const next = typeof updater === 'function' ? updater(pagination) : updater;
-            if (next.pageSize !== pageSize) setPageSize(next.pageSize);
-            else setPage(next.pageIndex);
-          }}
-          pageCount={pageCount}
-          rowCount={rowCount}
-          getRowId={(r) => r.person_id}
-          onRowClick={(row) => setSelectedRow(row.original)}
-        />
+        {isLoading ? (
+          <div className="space-y-2">
+            {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+              <Skeleton key={id} height={44} />
+            ))}
+          </div>
+        ) : (
+          <Table
+            data={rows}
+            columns={columns}
+            idKey="person_id"
+            emptyState={<EmptyState title="No results" />}
+            plugins={{
+              selection,
+              pagination,
+              // Row click opens the detail sheet. Guard against clicks that
+              // originate from the row's own interactive controls (selection
+              // checkbox, the actions menu trigger) so they don't also
+              // navigate — the deleted DataTable did this via stopPropagation.
+              rowClick: {
+                transformBodyRow: (props, item) => ({
+                  ...props,
+                  htmlProps: {
+                    ...props.htmlProps,
+                    style: { ...props.htmlProps.style, cursor: 'pointer' },
+                    onClick: (e) => {
+                      const target = e.target as HTMLElement;
+                      if (
+                        target.closest(
+                          'button, a, input, label, [role="checkbox"], [role="menuitem"]',
+                        )
+                      )
+                        return;
+                      setSelectedRow(item);
+                    },
+                  },
+                }),
+              },
+            }}
+          />
+        )}
       </div>
 
       {/* Suspend confirm dialog. "form" purpose, not "required": this action is recoverable, not

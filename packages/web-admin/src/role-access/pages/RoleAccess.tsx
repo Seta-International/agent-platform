@@ -9,8 +9,8 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
+  TableHeaderCell,
   TableRow,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -219,30 +219,30 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
   const cellOf = (role: MatrixRole, key: string) =>
     role.cells.find((c) => c.permission_key === key);
 
+  // Astryx owns density padding and dividers; this matrix draws its own column
+  // separators and row rules (hairline-tertiary), so disable Astryx dividers to
+  // avoid doubling. hasHover restores the row highlight the shadcn table had.
   return (
-    <Table>
-      <TableHeader className="bg-surface-1 [&_tr]:border-b [&_tr]:border-hairline">
-        <TableRow className="hover:bg-transparent">
-          <TableHead className="sticky left-0 z-10 bg-surface-1 align-bottom">
+    <Table dividers="none" hasHover>
+      <TableHeader>
+        <TableRow isHeaderRow>
+          <TableHeaderCell className="sticky left-0 z-10 bg-surface-1 align-bottom">
             <span className="text-eyebrow uppercase text-ink-tertiary">Permission</span>
-          </TableHead>
+          </TableHeaderCell>
           {roles.map((role) => (
-            <TableHead
+            <TableHeaderCell
               key={role.slug}
-              className="min-w-44 border-l border-hairline-tertiary py-3 align-bottom"
+              className="min-w-44 border-l border-hairline-tertiary bg-surface-1 align-bottom"
             >
               <RoleColumnHeader role={role} canWrite={canWrite} />
-            </TableHead>
+            </TableHeaderCell>
           ))}
         </TableRow>
       </TableHeader>
       <TableBody>
         {keys.map(({ key, description }) => (
-          <TableRow
-            key={key}
-            className="border-b border-hairline-tertiary transition-colors hover:bg-surface-2"
-          >
-            <TableCell className="sticky left-0 z-10 bg-canvas py-2.5">
+          <TableRow key={key} className="border-b border-hairline-tertiary">
+            <TableCell className="sticky left-0 z-10 bg-canvas">
               <div className="flex flex-col">
                 <span className="text-body-sm text-ink">{description}</span>
                 {description !== key && (
@@ -260,7 +260,7 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
                   />
                 );
               return (
-                <TableCell key={role.slug} className="border-l border-hairline-tertiary py-2.5">
+                <TableCell key={role.slug} className="border-l border-hairline-tertiary">
                   <div className="relative inline-flex">
                     <Checkbox
                       label={`${roleShort(role.slug)} — ${key}`}
