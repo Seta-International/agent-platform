@@ -15,7 +15,7 @@ import {
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useUpdateGroup } from '../hooks/mutations/update-group';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { THEME_HEX } from './GroupPlansSection';
@@ -165,16 +165,25 @@ export function EditGroupDialog({ group, open, onOpenChange }: EditGroupDialogPr
   // Astryx's `Dialog` always mounts its children regardless of `isOpen` — unlike the old
   // Radix `{open && <EditForm .../>}` conditional mount, the fields no longer remount (and
   // thus no longer reset) on every open. Reproduce the same "always fresh on open" behavior
-  // explicitly instead.
+  // explicitly instead — but only on the closed→open transition, not on every render where
+  // `group` gets a new object reference while the dialog is already open. `group` comes from
+  // a react-query cache with default `refetchOnWindowFocus`; a background refetch that returns
+  // content-different data produces a new reference (structural sharing), and resetting on
+  // every such reference change would silently wipe an in-progress, unsaved edit. Track the
+  // previous `open` value in a ref so the reset only fires exactly once per open.
+  const wasOpen = useRef(open);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally excludes `group` — reset must fire only on the open transition, not on every `group` reference change while already open (see comment above).
   useEffect(() => {
-    if (!open) return;
+    const justOpened = open && !wasOpen.current;
+    wasOpen.current = open;
+    if (!justOpened) return;
     setName(group.name);
     setDescription(group.description ?? '');
     setTheme(group.theme);
     setVisibility(group.visibility);
     setDefaultRole(group.default_role);
     setError(null);
-  }, [open, group]);
+  }, [open]);
 
   const trimmedName = name.trim();
   const trimmedDesc = description.trim() || null;
