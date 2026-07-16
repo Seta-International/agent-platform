@@ -185,7 +185,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               <div className="space-y-5">
                 <div className="space-y-1">
                   <Input
-                    label="Job title *"
+                    label="Job title"
+                    isRequired
                     value={title}
                     onChange={(value) => setTitle(value)}
                     placeholder="e.g. Senior Backend Engineer"

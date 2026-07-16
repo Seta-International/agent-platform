@@ -245,7 +245,12 @@ export function NewCandidateDialog() {
                   />
                 )}
                 <div className="space-y-1">
-                  <Input label="Full name *" value={name} onChange={(value) => setName(value)} />
+                  <Input
+                    label="Full name"
+                    isRequired
+                    value={name}
+                    onChange={(value) => setName(value)}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -308,7 +313,8 @@ export function NewCandidateDialog() {
                 </div>
                 <div className="space-y-1">
                   <Selector
-                    label="Position applied *"
+                    label="Position applied"
+                    isRequired
                     options={openReqs.map((r) => ({ value: r.id, label: r.title }))}
                     value={effectiveReq}
                     onChange={(v) => setReqId(v)}

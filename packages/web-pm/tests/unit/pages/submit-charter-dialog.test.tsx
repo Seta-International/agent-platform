@@ -87,12 +87,12 @@ describe('SubmitCharterDialog (Astryx migration smoke test)', () => {
     await user.click(screen.getByRole('button', { name: 'New request' }));
     const dialog = screen.getByRole('dialog');
 
-    await user.click(within(dialog).getByRole('combobox', { name: 'Account *' }));
+    await user.click(within(dialog).getByRole('combobox', { name: /^Account/ }));
     await user.click(await screen.findByRole('option', { name: 'Aeris' }));
 
-    await user.type(within(dialog).getByLabelText('Project name *'), 'Watchtower');
+    await user.type(within(dialog).getByLabelText(/^Project name/), 'Watchtower');
 
-    const pmField = within(dialog).getByLabelText('PM *');
+    const pmField = within(dialog).getByLabelText(/^PM/);
     await user.click(pmField);
     await user.type(pmField, 'Jane');
     await user.click(await screen.findByRole('option', { name: 'Jane PM' }));

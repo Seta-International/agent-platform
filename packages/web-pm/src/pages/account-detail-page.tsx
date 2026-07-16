@@ -242,7 +242,8 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                   <div className="space-y-4">
                     <div className="space-y-1">
                       <Input
-                        label="Name *"
+                        label="Name"
+                        isRequired
                         value={draft.name ?? ''}
                         onChange={(value) => setDraft((d) => ({ ...d, name: value }))}
                       />

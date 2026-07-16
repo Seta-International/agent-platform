@@ -177,7 +177,8 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                 <Section title="Identity">
                   <div className="grid grid-cols-2 gap-3">
                     <Input
-                      label="Full name *"
+                      label="Full name"
+                      isRequired
                       value={form.full_name}
                       onChange={(value) => set('full_name')(value)}
                       className="col-span-2"
