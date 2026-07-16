@@ -97,7 +97,6 @@ export * from './primitives/layout';
 export * from './primitives/number-input';
 export * from './primitives/popover';
 export * from './primitives/radio-group';
-export * from './primitives/scroll-area';
 export * from './primitives/selector';
 export * from './primitives/skeleton';
 export * from './primitives/switch';

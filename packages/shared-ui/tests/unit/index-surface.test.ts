@@ -20,7 +20,6 @@ const REQUIRED = [
   'Label',
   'NumberInput',
   'Popover',
-  'ScrollArea',
   'Selector',
   'SetaLogo',
   'SetaMark',
