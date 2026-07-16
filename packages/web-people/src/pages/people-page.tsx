@@ -2,17 +2,29 @@ import {
   Avatar,
   Badge,
   Banner,
+  Button,
+  Checkbox,
+  type ColumnSettingsOption,
   CounterBadgePopover,
-  DataTable,
   EmptyState,
   Input,
   PageChrome,
+  Popover,
+  pixel,
+  proportional,
   SegmentedControl,
+  Skeleton,
+  Table,
+  type TableColumn,
+  type TableSortState,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { OnChangeFn, PaginationState, SortingState } from '@tanstack/react-table';
 import { LayoutGrid, List, Settings2, User, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -26,6 +38,10 @@ import { PeopleCardGrid } from '../components/people-card-grid.tsx';
 import { PeopleFilterBar } from '../components/people-filter-bar.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
 
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO
+// lacks an index signature, so alias locally (do not touch the shared DTO).
+type WorkerRow = WorkerListRow & Record<string, unknown>;
+
 function LifecycleBadge({ stage }: { stage: string | null }) {
   const variantMap: Record<string, 'neutral' | 'error'> = {
     active: 'neutral',
@@ -38,25 +54,28 @@ function LifecycleBadge({ stage }: { stage: string | null }) {
   return <Badge variant={variant} className="capitalize" label={stage} />;
 }
 
-const HIDEABLE_COLUMNS = [
-  { id: 'accounts', label: 'Account' },
-  { id: 'work_email', label: 'Work email' },
-  { id: 'manager_name', label: 'Direct manager' },
-  { id: 'lifecycle_stage', label: 'Status' },
-  { id: 'onboarding_date', label: 'Onboarding' },
-  { id: 'offboarding_date', label: 'Offboarding' },
-  { id: 'phone', label: 'Phone' },
-  { id: 'gender', label: 'Gender' },
-  { id: 'skills', label: 'Techstack' },
+// Universe of columns for the column-settings picker. 'full_name' is the only
+// always-visible one (matches the old bespoke popover, which never listed it).
+const COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'full_name', label: 'Employee', isAlwaysVisible: true },
+  { key: 'accounts', label: 'Account' },
+  { key: 'work_email', label: 'Work email' },
+  { key: 'manager_name', label: 'Direct manager' },
+  { key: 'lifecycle_stage', label: 'Status' },
+  { key: 'onboarding_date', label: 'Onboarding' },
+  { key: 'offboarding_date', label: 'Offboarding' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'gender', label: 'Gender' },
+  { key: 'skills', label: 'Techstack' },
 ];
+const HIDEABLE_COLUMN_KEYS = COLUMN_OPTIONS.filter((c) => !c.isAlwaysVisible);
+const DEFAULT_COLUMN_KEYS = COLUMN_OPTIONS.map((c) => c.key);
 
 export function PeoplePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canProvision = usePermission('people.worker.create');
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
-  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
-  const columnsMenuRef = useRef<HTMLDivElement>(null);
+  const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_COLUMN_KEYS);
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
   const [view, setView] = useState<'list' | 'cards'>('list');
 
@@ -84,21 +103,6 @@ export function PeoplePage() {
     setSearchText(query.search ?? '');
   }, [query.search]);
 
-  // Column visibility is a persistent multi-toggle menu — it must stay open across
-  // clicks. Astryx's DropdownMenuItem always closes the menu on click (no
-  // checkbox-item equivalent), so this stays a bespoke popover until the D2 batch
-  // rebuilds it on Astryx Popover + Checkbox.
-  useEffect(() => {
-    if (!columnsMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (columnsMenuRef.current && !columnsMenuRef.current.contains(e.target as Node)) {
-        setColumnsMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [columnsMenuOpen]);
-
   const handleSearchChange = useCallback((value: string) => {
     setSearchText(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -118,45 +122,67 @@ export function PeoplePage() {
     placeholderData: keepPreviousData,
   });
 
-  const rows = data?.rows ?? [];
+  const rows = (data?.rows ?? []) as WorkerRow[];
   const total = data?.total ?? 0;
   const pageSize = query.pageSize ?? 25;
-  const pagination: PaginationState = { pageIndex: (query.page ?? 1) - 1, pageSize };
-  const sorting: SortingState = query.sort
-    ? [{ id: query.sort.field, desc: query.sort.dir === 'desc' }]
+
+  // Sort-state mapping: existing {field, dir} query state <-> Astryx's
+  // [{ sortKey, direction }] shape.
+  const sortState: TableSortState = query.sort
+    ? [
+        {
+          sortKey: query.sort.field,
+          direction: query.sort.dir === 'desc' ? 'descending' : 'ascending',
+        },
+      ]
     : [];
+  const sortable = useTableSortable<WorkerRow>({
+    sort: sortState,
+    onSortChange: (s) => {
+      const entry = s[0];
+      setQuery((q) => ({
+        ...q,
+        sort: entry
+          ? { field: entry.sortKey, dir: entry.direction === 'descending' ? 'desc' : 'asc' }
+          : undefined,
+      }));
+    },
+  });
 
-  const onPaginationChange: OnChangeFn<PaginationState> = (u) =>
-    setQuery((q) => {
-      const cur = { pageIndex: (q.page ?? 1) - 1, pageSize: q.pageSize ?? 25 };
-      const next = typeof u === 'function' ? u(cur) : u;
-      return { ...q, page: next.pageIndex + 1, pageSize: next.pageSize };
-    });
+  // query.page is already 1-based, matching the Astryx pager's contract directly.
+  const pagination = useTablePagination<WorkerRow>({
+    page: query.page ?? 1,
+    onPageChange: (p) => setQuery((q) => ({ ...q, page: p })),
+    totalItems: total,
+    pageSize,
+    onPageSizeChange: (ps) => setQuery((q) => ({ ...q, pageSize: ps })),
+    pageSizeOptions: [25, 50, 100],
+  });
 
-  const onSortingChange: OnChangeFn<SortingState> = (u) =>
-    setQuery((q) => {
-      const cur = q.sort ? [{ id: q.sort.field, desc: q.sort.dir === 'desc' }] : [];
-      const next = typeof u === 'function' ? u(cur) : u;
-      const s = next[0];
-      return { ...q, sort: s ? { field: s.id, dir: s.desc ? 'desc' : 'asc' } : undefined };
-    });
+  const columnSettingsState = useTableColumnSettingsState({
+    columns: COLUMN_OPTIONS,
+    activeColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+  });
+  const columnSettings = useTableColumnSettings<WorkerRow>(
+    columnSettingsState.columnSettingsConfig,
+  );
 
-  const columns = useMemo(() => {
-    type CellCtx = { row: { original: WorkerListRow } };
-    return [
+  const columns = useMemo<TableColumn<WorkerRow>[]>(
+    () => [
       {
-        id: 'full_name',
-        accessorKey: 'full_name',
+        key: 'full_name',
         header: 'Employee',
-        enableSorting: true,
-        cell: ({ row }: CellCtx) => (
+        width: proportional(2),
+        sortable: true,
+        renderCell: (r) => (
           <div className="flex items-center gap-2.5 min-w-0">
-            <Avatar name={row.original.full_name} size={32} />
+            <Avatar name={r.full_name} size={32} />
             <div className="min-w-0">
-              <div className="truncate font-medium">{row.original.full_name}</div>
-              {row.original.job_title && (
+              <div className="truncate font-medium">{r.full_name}</div>
+              {r.job_title && (
                 <div className="truncate text-[11px] text-ink-muted leading-tight">
-                  {row.original.job_title}
+                  {r.job_title}
                 </div>
               )}
             </div>
@@ -164,13 +190,13 @@ export function PeoplePage() {
         ),
       },
       {
-        id: 'accounts',
+        key: 'accounts',
         header: 'Account',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) =>
-          row.original.accounts.length > 0 ? (
+        width: proportional(1),
+        renderCell: (r) =>
+          r.accounts.length > 0 ? (
             <div className="flex items-center gap-1 overflow-hidden h-5 max-w-[200px]">
-              {row.original.accounts.map((a) => (
+              {r.accounts.map((a) => (
                 <Badge
                   key={a.id}
                   variant="neutral"
@@ -184,75 +210,66 @@ export function PeoplePage() {
           ),
       },
       {
-        id: 'work_email',
-        accessorKey: 'work_email',
+        key: 'work_email',
         header: 'Work email',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
+        width: proportional(2),
+        renderCell: (r) => (
           <span className="font-mono text-[12.5px] text-ink-muted truncate block">
-            {row.original.work_email || '—'}
+            {r.work_email || '—'}
           </span>
         ),
       },
       {
-        id: 'manager_name',
+        key: 'manager_name',
         header: 'Direct manager',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted whitespace-nowrap">
-            {row.original.manager_name || '—'}
-          </span>
+        width: proportional(1),
+        renderCell: (r) => (
+          <span className="text-ink-muted whitespace-nowrap">{r.manager_name || '—'}</span>
         ),
       },
       {
-        id: 'lifecycle_stage',
+        key: 'lifecycle_stage',
         header: 'Status',
-        enableSorting: true,
-        cell: ({ row }: CellCtx) => <LifecycleBadge stage={row.original.lifecycle_stage} />,
+        width: pixel(110),
+        sortable: true,
+        renderCell: (r) => <LifecycleBadge stage={r.lifecycle_stage} />,
       },
       {
-        id: 'onboarding_date',
+        key: 'onboarding_date',
         header: 'Onboarding',
-        enableSorting: true,
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted">{row.original.onboarding_date || '—'}</span>
-        ),
+        width: pixel(110),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{r.onboarding_date || '—'}</span>,
       },
       {
-        id: 'offboarding_date',
+        key: 'offboarding_date',
         header: 'Offboarding',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted">{row.original.offboarding_date || '—'}</span>
-        ),
+        width: pixel(110),
+        renderCell: (r) => <span className="text-ink-muted">{r.offboarding_date || '—'}</span>,
       },
       {
-        id: 'phone',
+        key: 'phone',
         header: 'Phone',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted tabular-nums whitespace-nowrap">
-            {row.original.phone || '—'}
-          </span>
+        width: pixel(120),
+        renderCell: (r) => (
+          <span className="text-ink-muted tabular-nums whitespace-nowrap">{r.phone || '—'}</span>
         ),
       },
       {
-        id: 'gender',
+        key: 'gender',
         header: 'Gender',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted whitespace-nowrap">
-            {genderLabel(row.original.gender)}
-          </span>
+        width: pixel(90),
+        renderCell: (r) => (
+          <span className="text-ink-muted whitespace-nowrap">{genderLabel(r.gender)}</span>
         ),
       },
       {
-        id: 'skills',
+        key: 'skills',
         header: 'Techstack',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
+        width: proportional(1),
+        renderCell: (r) => (
           <CounterBadgePopover
-            items={row.original.skills}
+            items={r.skills}
             title="Techstack"
             limit={2}
             type="badge"
@@ -260,8 +277,9 @@ export function PeoplePage() {
           />
         ),
       },
-    ];
-  }, []);
+    ],
+    [],
+  );
 
   const actions = canProvision ? (
     <CreateWorkerDialog
@@ -312,50 +330,33 @@ export function PeoplePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {view === 'list' && (
-                    <div ref={columnsMenuRef} className="relative">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface-2 transition-colors h-7 focus:outline-none"
-                        onClick={() => setColumnsMenuOpen((v) => !v)}
-                      >
-                        <Settings2 className="size-3.5" />
-                        Columns
-                      </button>
-                      {columnsMenuOpen && (
-                        <div
-                          role="menu"
-                          aria-label="Toggle columns"
-                          className="absolute right-0 z-50 mt-1 min-w-[180px] rounded-md border border-hairline bg-surface-3 p-1 text-ink shadow-lg"
-                        >
-                          <div className="px-2 py-1.5 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                    <Popover
+                      placement="below"
+                      alignment="end"
+                      label="Toggle columns"
+                      content={
+                        <div className="flex min-w-[180px] flex-col gap-1 p-2">
+                          <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
                             Toggle columns
                           </div>
-                          <div className="-mx-1 my-1 h-px bg-hairline" />
-                          {HIDEABLE_COLUMNS.map((col) => {
-                            const isVisible = columnVisibility[col.id] ?? true;
-                            return (
-                              <label
-                                key={col.id}
-                                className="flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-body-sm text-ink hover:bg-surface-4"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isVisible}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setColumnVisibility((prev) => ({
-                                      ...prev,
-                                      [col.id]: checked,
-                                    }));
-                                  }}
-                                />
-                                {col.label}
-                              </label>
-                            );
-                          })}
+                          {HIDEABLE_COLUMN_KEYS.map((col) => (
+                            <Checkbox
+                              key={col.key}
+                              label={col.label}
+                              value={columnSettingsState.isColumnActive(col.key)}
+                              onChange={() => columnSettingsState.toggleColumn(col.key)}
+                            />
+                          ))}
                         </div>
-                      )}
-                    </div>
+                      }
+                    >
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<Settings2 className="size-3.5" />}
+                        label="Columns"
+                      />
+                    </Popover>
                   )}
                   <SegmentedControl
                     aria-label="Directory view"
@@ -373,52 +374,54 @@ export function PeoplePage() {
               <PeopleFilterBar query={query} onChange={patchQuery} />
             </div>
             {view === 'list' ? (
-              <DataTable
-                mode="server"
-                columns={columns}
-                data={rows}
-                isLoading={isLoading}
-                density="compact"
-                sorting={sorting}
-                onSortingChange={onSortingChange}
-                globalFilter=""
-                onGlobalFilterChange={() => {}}
-                enableGlobalFilter={false}
-                enableColumnVisibility={false}
-                columnVisibility={columnVisibility}
-                onColumnVisibilityChange={setColumnVisibility}
-                columnFilters={[]}
-                onColumnFiltersChange={() => {}}
-                pagination={pagination}
-                onPaginationChange={onPaginationChange}
-                pageCount={Math.max(1, Math.ceil(total / pageSize))}
-                rowCount={total}
-                getRowId={(r: WorkerListRow) => r.worker_id}
-                getRowClassName={() => 'h-12'}
-                enableRowSelection={false}
-                rowSelection={{}}
-                onRowSelectionChange={() => {}}
-                emptyState={
-                  <EmptyState
-                    icon={<Users className="size-6" />}
-                    title="No workers yet"
-                    description="Add a worker to get started."
-                  />
-                }
-                noResultsState={
-                  <EmptyState
-                    icon={<Users className="size-6" />}
-                    title="No matching people"
-                    description="Try adjusting your search or filters."
-                  />
-                }
-                onRowClick={(row) =>
-                  void navigate({
-                    to: '/people/employees/$workerId',
-                    params: { workerId: row.original.worker_id },
-                  })
-                }
-              />
+              isLoading ? (
+                <div className="space-y-2">
+                  {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                    <Skeleton key={id} height={44} />
+                  ))}
+                </div>
+              ) : (
+                <Table
+                  data={rows}
+                  columns={columns}
+                  idKey="worker_id"
+                  density="compact"
+                  plugins={{
+                    pagination,
+                    sortable,
+                    columnSettings,
+                    rowClick: {
+                      transformBodyRow: (props, item) => ({
+                        ...props,
+                        htmlProps: {
+                          ...props.htmlProps,
+                          style: { ...props.htmlProps.style, cursor: 'pointer' },
+                          onClick: () =>
+                            void navigate({
+                              to: '/people/employees/$workerId',
+                              params: { workerId: item.worker_id },
+                            }),
+                        },
+                      }),
+                    },
+                  }}
+                  emptyState={
+                    searchText || activeFiltersCount > 0 ? (
+                      <EmptyState
+                        icon={<Users className="size-6" />}
+                        title="No matching people"
+                        description="Try adjusting your search or filters."
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={<Users className="size-6" />}
+                        title="No workers yet"
+                        description="Add a worker to get started."
+                      />
+                    )
+                  }
+                />
+              )
             ) : (
               <PeopleCardGrid
                 rows={rows}
