@@ -25,7 +25,7 @@ export function AdminNotificationPrefs() {
           <VStack gap={1}>
             <Breadcrumbs variant="supporting">
               <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-              <BreadcrumbItem isCurrent>Notification prefs</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Notifications</BreadcrumbItem>
             </Breadcrumbs>
             <HStack hAlign="between" vAlign="center" gap={2}>
               <HStack gap={2} vAlign="center">
@@ -39,7 +39,7 @@ export function AdminNotificationPrefs() {
         </LayoutHeader>
       }
       content={
-        <LayoutContent>
+        <LayoutContent padding={0}>
           <div className="page-container space-y-4">
             {error && (
               <Banner

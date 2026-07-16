@@ -98,7 +98,7 @@ export function AdminSso({ status, error }: AdminSsoProps) {
         </LayoutHeader>
       }
       content={
-        <LayoutContent>
+        <LayoutContent padding={0}>
           <div className="page-container space-y-4">
             {status === 'consent_granted' && (
               <Banner

@@ -161,7 +161,7 @@ export function MailTransport() {
           <VStack gap={1}>
             <Breadcrumbs variant="supporting">
               <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-              <BreadcrumbItem isCurrent>Mail</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Mail transport</BreadcrumbItem>
             </Breadcrumbs>
             <HStack hAlign="between" vAlign="center" gap={2}>
               <HStack gap={2} vAlign="center">
@@ -175,7 +175,7 @@ export function MailTransport() {
         </LayoutHeader>
       }
       content={
-        <LayoutContent>
+        <LayoutContent padding={0}>
           <div className="page-container space-y-4">
             {error && <Banner status="error" title={(error as Error).message} />}
 

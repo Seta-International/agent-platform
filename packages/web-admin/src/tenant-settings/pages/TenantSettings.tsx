@@ -69,7 +69,7 @@ export function TenantSettings() {
         </LayoutHeader>
       }
       content={
-        <LayoutContent>
+        <LayoutContent padding={0}>
           <div className="page-container space-y-4">
             {error && <Banner status="error" title={(error as Error).message} />}
             <Card padding={5}>

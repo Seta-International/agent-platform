@@ -314,60 +314,64 @@ export function AdminAudit({
     <Layout
       height="fill"
       header={
-        <LayoutHeader hasDivider padding={4}>
-          <VStack gap={1}>
-            <Breadcrumbs variant="supporting">
-              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-              <BreadcrumbItem isCurrent>Audit log</BreadcrumbItem>
-            </Breadcrumbs>
-            <HStack hAlign="between" vAlign="center" gap={2}>
-              <HStack gap={2} vAlign="center">
-                <Text as="h1" size="lg" weight="semibold">
-                  Audit log
-                </Text>
-                {subtitle && <Text color="secondary">{subtitle}</Text>}
+        <>
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Audit log</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Audit log
+                  </Text>
+                  {subtitle && <Text color="secondary">{subtitle}</Text>}
+                </HStack>
               </HStack>
-            </HStack>
-          </VStack>
-        </LayoutHeader>
+            </VStack>
+          </LayoutHeader>
+          <LayoutHeader padding={0}>
+            <Toolbar
+              label="Audit log filters"
+              size="sm"
+              dividers={['bottom']}
+              startContent={
+                <>
+                  <FilterPill
+                    label="Event"
+                    value={search.event_type ?? null}
+                    options={EVENT_TYPE_OPTIONS}
+                    onChange={setEventType}
+                    anyLabel="All events"
+                  />
+                  <FilterPill<DateRange>
+                    label="Range"
+                    value={rangeSelected}
+                    options={DATE_RANGE_OPTIONS}
+                    onChange={setRange}
+                    anyLabel="All time"
+                  />
+                </>
+              }
+              endContent={
+                <Input
+                  label="Search trace id (coming soon)"
+                  isLabelHidden
+                  startIcon={<Search className="size-3.5" aria-hidden />}
+                  placeholder="Search trace id…"
+                  value=""
+                  onChange={() => {}}
+                  isDisabled
+                  className="w-72"
+                />
+              }
+            />
+          </LayoutHeader>
+        </>
       }
       content={
         <LayoutContent padding={0}>
-          <Toolbar
-            label="Audit log filters"
-            size="sm"
-            dividers={['bottom']}
-            startContent={
-              <>
-                <FilterPill
-                  label="Event"
-                  value={search.event_type ?? null}
-                  options={EVENT_TYPE_OPTIONS}
-                  onChange={setEventType}
-                  anyLabel="All events"
-                />
-                <FilterPill<DateRange>
-                  label="Range"
-                  value={rangeSelected}
-                  options={DATE_RANGE_OPTIONS}
-                  onChange={setRange}
-                  anyLabel="All time"
-                />
-              </>
-            }
-            endContent={
-              <Input
-                label="Search trace id (coming soon)"
-                isLabelHidden
-                startIcon={<Search className="size-3.5" aria-hidden />}
-                placeholder="Search trace id…"
-                value=""
-                onChange={() => {}}
-                isDisabled
-                className="w-72"
-              />
-            }
-          />
           <div className="px-6 py-4">
             {isLoading ? (
               <div className="space-y-2">

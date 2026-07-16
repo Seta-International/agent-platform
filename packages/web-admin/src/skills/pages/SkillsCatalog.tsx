@@ -181,7 +181,7 @@ export function SkillsCatalog() {
         </LayoutHeader>
       }
       content={
-        <LayoutContent>
+        <LayoutContent padding={0}>
           <div className="page-container space-y-5">
             {categoriesQ.error && (
               <Banner

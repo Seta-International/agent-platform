@@ -70,7 +70,7 @@ describe('AdminNotificationPrefs', () => {
     });
   });
 
-  it('renders the Admin → Notification prefs breadcrumb trail with a navigable root crumb', async () => {
+  it('renders the Admin → Notifications breadcrumb trail with a navigable root crumb', async () => {
     listPrefs.mockResolvedValueOnce(makeMatrix());
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<AdminNotificationPrefs />, { wrapper: wrap(qc) });
@@ -78,11 +78,13 @@ describe('AdminNotificationPrefs', () => {
     const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
     const rootCrumb = within(nav).getByRole('link', { name: 'Admin' });
     expect(rootCrumb).toHaveAttribute('href', '/admin');
-    // The current crumb follows the brief's matrix label, which differs from
-    // the page's own h1 text ("Notifications") — both are valid at once.
-    expect(within(nav).getByText('Notification prefs').closest('a')).toBeNull();
+    // Per the app manifest + the plan's derivation footnote, the current crumb
+    // follows the manifest nav label ("Notifications"), which now matches the
+    // page's own h1 text — scoped to `nav` so this doesn't also match the h1.
+    expect(within(nav).getByText('Notifications').closest('a')).toBeNull();
 
-    // The h1 still carries the page's real heading semantics.
+    // The h1 still carries the page's real heading semantics (queried outside
+    // `nav`, so it can't accidentally match the crumb span sharing the same text).
     expect(screen.getByRole('heading', { level: 1, name: 'Notifications' })).toBeInTheDocument();
   });
 });
