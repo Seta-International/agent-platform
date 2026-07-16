@@ -240,7 +240,7 @@ export function RequisitionsPage() {
         accessorKey: 'due_date',
         header: 'Due',
         cell: ({ row }: Ctx) => (
-          <span className="font-mono text-caption text-ink-muted">
+          <span className="whitespace-nowrap font-mono text-caption text-ink-muted">
             {row.original.due_date ?? '—'}
           </span>
         ),
@@ -248,10 +248,11 @@ export function RequisitionsPage() {
     ];
   }, []);
 
-  // The board only carries non-filled requisitions (status open | on_hold).
-  const openCount = rows.filter((r) => r.status === 'open').length;
-  const onHold = rows.filter((r) => r.status === 'on_hold').length;
-  const totalApplicants = rows.reduce((n, r) => n + r.applicants_count, 0);
+  // The board only carries non-filled requisitions (status open | on_hold). Stats follow the
+  // active search/filters so the tiles describe what the user is looking at, not the whole board.
+  const openCount = filteredRows.filter((r) => r.status === 'open').length;
+  const onHold = filteredRows.filter((r) => r.status === 'on_hold').length;
+  const totalApplicants = filteredRows.reduce((n, r) => n + r.applicants_count, 0);
 
   return (
     <PageChrome
@@ -288,7 +289,7 @@ export function RequisitionsPage() {
           )}
           {stat(
             'Total open',
-            rows.length,
+            filteredRows.length,
             <Layers className="size-5" aria-hidden />,
             'bg-primary/12 text-primary',
           )}
@@ -382,6 +383,9 @@ export function RequisitionsPage() {
             data={filteredRows}
             isLoading={isLoading}
             getRowId={(r: RequisitionListRow) => r.id}
+            // Fixed floor of two text lines (2×19.5px + 20px padding) so rows keep a uniform
+            // height whether or not the Position cell wraps.
+            getRowClassName={() => 'h-15'}
             enableGlobalFilter={false}
             pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
             emptyState={

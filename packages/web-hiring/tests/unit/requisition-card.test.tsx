@@ -72,21 +72,16 @@ describe('RequisitionCard', () => {
     vi.clearAllMocks();
   });
 
-  it('clicking a stage step while open patches the stage directly, without resuming', async () => {
-    editRequisition.mockResolvedValueOnce({ version: 2 });
+  it('renders the stage track read-only — no stage-step buttons, no direct stage patch', () => {
     render(<RequisitionCard r={row()} canManage canClose />, { wrapper: wrap(newClient()) });
 
-    await userEvent.click(screen.getByRole('button', { name: /Screening/ }));
-    await waitFor(() =>
-      expect(editRequisition).toHaveBeenCalledWith('r1', {
-        expected_version: 1,
-        patch: { stage: 'screening' },
-      }),
-    );
+    expect(screen.getByText('Screening')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Screening/ })).not.toBeInTheDocument();
+    expect(editRequisition).not.toHaveBeenCalled();
     expect(resumeRequisition).not.toHaveBeenCalled();
   });
 
-  it('locks the stage track while on_hold and shows a Paused summary — no implicit resume-on-click', async () => {
+  it('shows a Paused summary while on_hold, with no stage-step click target', () => {
     render(
       <RequisitionCard
         r={row({ status: 'on_hold', version: 2, updated_at: '2026-07-10T00:00:00Z' })}
@@ -96,10 +91,7 @@ describe('RequisitionCard', () => {
       { wrapper: wrap(newClient()) },
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /Interview/ }));
-    expect(editRequisition).not.toHaveBeenCalled();
-    expect(resumeRequisition).not.toHaveBeenCalled();
-
+    expect(screen.queryByRole('button', { name: /Interview/ })).not.toBeInTheDocument();
     expect(screen.getByText('Paused')).toBeInTheDocument();
     expect(screen.getByText('Since 10 Jul 2026')).toBeInTheDocument();
   });
