@@ -9,7 +9,6 @@ const REQUIRED = [
   'Calendar',
   'Card',
   'Checkbox',
-  'DataTable',
   'DateInput',
   'Dialog',
   'DropdownMenu',
