@@ -1,5 +1,5 @@
 import type { GroupMemberRow } from '@seta/planner';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { GroupMembersTable } from '../../../src/components/GroupMembersTable';
@@ -120,7 +120,11 @@ describe('GroupMembersTable', () => {
         onRemoveMembers={vi.fn()}
       />,
     );
-    const trigger = document.querySelector('[tabindex="0"]');
+    // Scope to the <table> itself — Astryx's Table wraps the table in a
+    // keyboard-scrollable group div that also carries tabindex="0", so an
+    // unscoped document query would match that wrapper instead of this
+    // component's HoverCard trigger span.
+    const trigger = screen.getByRole('table').querySelector('[tabindex="0"]');
     expect(trigger).not.toBeNull();
     if (trigger) await user.hover(trigger as Element);
     await waitFor(() => {
@@ -193,5 +197,115 @@ describe('GroupMembersTable', () => {
     // Click "Remove selected"
     await userEvent.click(screen.getByRole('button', { name: /Remove selected/i }));
     expect(onRemoveMembers).toHaveBeenCalledWith(['u1']);
+  });
+
+  it('filters rows case-insensitively via the search box', async () => {
+    const m1 = member({ user_id: 'u1', display_name: 'Alice' });
+    const m2 = member({ user_id: 'u2', display_name: 'Bob' });
+    render(
+      <GroupMembersTable
+        group={nativeGroup}
+        members={[m1, m2]}
+        canManageRoles={false}
+        canRemoveMembers={false}
+        onRoleChange={vi.fn()}
+        onRemoveMember={vi.fn()}
+        onRemoveMembers={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Bob')).toBeInTheDocument();
+    await userEvent.type(screen.getByRole('textbox', { name: /search members/i }), 'ALI');
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.queryByText('Bob')).not.toBeInTheDocument();
+  });
+
+  it('sorts rows by clicking the Member column header', async () => {
+    const m1 = member({ user_id: 'u1', display_name: 'Bob' });
+    const m2 = member({ user_id: 'u2', display_name: 'Alice' });
+    render(
+      <GroupMembersTable
+        group={nativeGroup}
+        members={[m1, m2]}
+        canManageRoles={false}
+        canRemoveMembers={false}
+        onRoleChange={vi.fn()}
+        onRemoveMember={vi.fn()}
+        onRemoveMembers={vi.fn()}
+      />,
+    );
+    // Unsorted: insertion order (Bob, then Alice).
+    const rowsBefore = screen.getAllByRole('row');
+    expect(rowsBefore[1]?.textContent).toContain('Bob');
+    expect(rowsBefore[2]?.textContent).toContain('Alice');
+
+    await userEvent.click(screen.getByRole('button', { name: /Sort by Member/i }));
+
+    const rowsAfter = screen.getAllByRole('row');
+    expect(rowsAfter[1]?.textContent).toContain('Alice');
+    expect(rowsAfter[2]?.textContent).toContain('Bob');
+  });
+
+  it('paginates client-side at the default 20-row page size', async () => {
+    const members = Array.from({ length: 21 }, (_, i) =>
+      member({
+        user_id: `u${i}`,
+        display_name: `Member ${String(i).padStart(2, '0')}`,
+      }),
+    );
+    render(
+      <GroupMembersTable
+        group={nativeGroup}
+        members={members}
+        canManageRoles={false}
+        canRemoveMembers={false}
+        onRoleChange={vi.fn()}
+        onRemoveMember={vi.fn()}
+        onRemoveMembers={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Member 00')).toBeInTheDocument();
+    expect(screen.queryByText('Member 20')).not.toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: /table pagination/i });
+    await userEvent.click(within(nav).getByRole('button', { name: /go to page 2/i }));
+    expect(screen.getByText('Member 20')).toBeInTheDocument();
+    expect(screen.queryByText('Member 00')).not.toBeInTheDocument();
+  });
+
+  it('resets to page 1 when the sort order changes while on page 2', async () => {
+    // Matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on
+    // `sorting` state changes too, not just filters (getSortedRowModel unconditionally calls
+    // `table._autoResetPageIndex()`).
+    const user = userEvent.setup();
+    const members = Array.from({ length: 21 }, (_, i) =>
+      member({
+        user_id: `u${i}`,
+        display_name: `Member ${String(i).padStart(2, '0')}`,
+      }),
+    );
+    render(
+      <GroupMembersTable
+        group={nativeGroup}
+        members={members}
+        canManageRoles={false}
+        canRemoveMembers={false}
+        onRoleChange={vi.fn()}
+        onRemoveMember={vi.fn()}
+        onRemoveMembers={vi.fn()}
+      />,
+    );
+
+    const table = screen.getByRole('table');
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: /go to page 2/i }));
+    expect(screen.getByText('Member 20')).toBeInTheDocument();
+
+    await user.click(within(table).getByRole('button', { name: /sort by member/i }));
+
+    expect(within(pager).getByRole('button', { name: 'Go to page 1' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByText('Member 00')).toBeInTheDocument();
+    expect(screen.queryByText('Member 20')).not.toBeInTheDocument();
   });
 });

@@ -1,18 +1,30 @@
 import {
   Banner,
-  DataTable,
+  Button,
+  Checkbox,
+  type ColumnSettingsOption,
   EmptyState,
   Input,
   PageChrome,
+  Popover,
+  paginateData,
   SegmentedControl,
   Selector,
+  Skeleton,
+  Table,
+  type TableColumn,
   Tooltip,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
+  useTableSortableState,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { Briefcase, Layers, Pause, Search, Users } from 'lucide-react';
-import { type ReactNode, useMemo, useState } from 'react';
+import { Briefcase, Layers, Pause, Search, Settings2, Users } from 'lucide-react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   fetchOpenRequisitions,
   type OpenRequisitionsBoard,
@@ -37,6 +49,27 @@ const STATUS_LABEL: Record<string, string> = {
   filled: 'Filled',
   cancelled: 'Cancelled',
 };
+
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO lacks an index
+// signature, so alias locally (do not touch the shared DTO).
+type Row = RequisitionListRow & Record<string, unknown>;
+
+// Universe of columns for the column-settings picker. The deleted DataTable never disabled
+// `enableColumnVisibility` here (and no column set `enableHiding: false`), so every column —
+// including "Position" — was genuinely hideable; preserved as-is (no `isAlwaysVisible`).
+const REQ_COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'title', label: 'Position' },
+  { key: 'account_name', label: 'Account' },
+  { key: 'project_name', label: 'Project' },
+  { key: 'grade', label: 'Grade' },
+  { key: 'kind', label: 'Type' },
+  { key: 'stage', label: 'Stage' },
+  { key: 'applicants_count', label: 'Applicants' },
+  { key: 'status', label: 'Status' },
+  { key: 'due_date', label: 'Due' },
+];
+const DEFAULT_REQ_COLUMN_KEYS = REQ_COLUMN_OPTIONS.map((c) => c.key);
+const REQ_PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 export function RequisitionsPage() {
   const navigate = useNavigate();
@@ -64,6 +97,9 @@ export function RequisitionsPage() {
   const [accountFilter, setAccountFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [kindFilter, setKindFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_REQ_COLUMN_KEYS);
 
   const { data, isLoading, error } = useQuery<OpenRequisitionsBoard>({
     queryKey: hiringKeys.requisitions(),
@@ -113,6 +149,40 @@ export function RequisitionsPage() {
     });
   }, [rows, query, statusFilter, accountFilter, projectFilter, kindFilter]);
 
+  const { sortedData, sort, sortConfig } = useTableSortableState<Row>({
+    data: filteredRows as Row[],
+  });
+  const sortable = useTableSortable<Row>(sortConfig);
+
+  // Reset to page 1 on filter/sort change — old TanStack autoResetPageIndex parity (see candidates-page).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the filters and sort are the intentional reset triggers, unread in the body.
+  useEffect(() => {
+    setPage(1);
+  }, [query, statusFilter, accountFilter, projectFilter, kindFilter, sort]);
+
+  const pageRows = useMemo(
+    () => paginateData(sortedData, page, pageSize),
+    [sortedData, page, pageSize],
+  );
+  const pagination = useTablePagination<Row>({
+    page,
+    onPageChange: setPage,
+    totalItems: sortedData.length,
+    pageSize,
+    onPageSizeChange: (ps) => {
+      setPageSize(ps);
+      setPage(1);
+    },
+    pageSizeOptions: REQ_PAGE_SIZE_OPTIONS,
+  });
+
+  const columnSettingsState = useTableColumnSettingsState({
+    columns: REQ_COLUMN_OPTIONS,
+    activeColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+  });
+  const columnSettings = useTableColumnSettings<Row>(columnSettingsState.columnSettingsConfig);
+
   const stat = (
     label: string,
     value: number,
@@ -133,52 +203,45 @@ export function RequisitionsPage() {
     </div>
   );
 
-  const columns = useMemo(() => {
-    type Ctx = { row: { original: RequisitionListRow } };
-    return [
+  const columns = useMemo<TableColumn<Row>[]>(
+    () => [
       {
-        id: 'title',
-        accessorKey: 'title',
+        key: 'title',
         header: 'Position',
-        cell: ({ row }: Ctx) => (
+        sortable: true,
+        renderCell: (r) => (
           <div className="min-w-[240px] max-w-[420px]">
-            <Tooltip content={row.original.title} hasHoverIndication={false}>
-              <div className="line-clamp-2 break-words font-medium text-ink">
-                {row.original.title}
-              </div>
+            <Tooltip content={r.title} hasHoverIndication={false}>
+              <div className="line-clamp-2 break-words font-medium text-ink">{r.title}</div>
             </Tooltip>
           </div>
         ),
       },
       {
-        id: 'account_name',
-        accessorKey: 'account_name',
+        key: 'account_name',
         header: 'Account',
-        cell: ({ row }: Ctx) => (
-          <span className="whitespace-nowrap text-ink-muted">
-            {row.original.account_name ?? '—'}
-          </span>
+        sortable: true,
+        renderCell: (r) => (
+          <span className="whitespace-nowrap text-ink-muted">{r.account_name ?? '—'}</span>
         ),
       },
       {
-        id: 'project_name',
-        accessorKey: 'project_name',
+        key: 'project_name',
         header: 'Project',
-        cell: ({ row }: Ctx) => (
-          <span className="whitespace-nowrap text-ink-muted">
-            {row.original.project_name ?? '—'}
-          </span>
+        sortable: true,
+        renderCell: (r) => (
+          <span className="whitespace-nowrap text-ink-muted">{r.project_name ?? '—'}</span>
         ),
       },
       {
-        id: 'grade',
-        accessorKey: 'grade',
+        key: 'grade',
         header: 'Grade',
-        cell: ({ row }: Ctx) =>
-          row.original.grade ? (
+        sortable: true,
+        renderCell: (r) =>
+          r.grade ? (
             <div className="max-w-[160px]">
-              <Tooltip content={row.original.grade} hasHoverIndication={false}>
-                <div className="truncate text-ink-muted">{row.original.grade}</div>
+              <Tooltip content={r.grade} hasHoverIndication={false}>
+                <div className="truncate text-ink-muted">{r.grade}</div>
               </Tooltip>
             </div>
           ) : (
@@ -186,49 +249,40 @@ export function RequisitionsPage() {
           ),
       },
       {
-        id: 'kind',
-        accessorKey: 'kind',
+        key: 'kind',
         header: 'Type',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted capitalize">{row.original.kind}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted capitalize">{r.kind}</span>,
       },
       {
-        id: 'stage',
-        accessorKey: 'stage',
+        key: 'stage',
         header: 'Stage',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{STAGE_LABEL[row.original.stage]}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{STAGE_LABEL[r.stage]}</span>,
       },
       {
-        id: 'applicants',
-        accessorKey: 'applicants_count',
+        key: 'applicants_count',
         header: 'Applicants',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.applicants_count}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{r.applicants_count}</span>,
       },
       {
-        id: 'status',
-        accessorKey: 'status',
+        key: 'status',
         header: 'Status',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{STATUS_LABEL[row.original.status]}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{STATUS_LABEL[r.status]}</span>,
       },
       {
-        id: 'due_date',
-        accessorKey: 'due_date',
+        key: 'due_date',
         header: 'Due',
-        cell: ({ row }: Ctx) => (
-          <span className="font-mono text-caption text-ink-muted">
-            {row.original.due_date ?? '—'}
-          </span>
+        sortable: true,
+        renderCell: (r) => (
+          <span className="font-mono text-caption text-ink-muted">{r.due_date ?? '—'}</span>
         ),
       },
-    ];
-  }, []);
+    ],
+    [],
+  );
 
   // The board only carries non-filled requisitions (status open | on_hold).
   const openCount = rows.filter((r) => r.status === 'open').length;
@@ -344,34 +398,83 @@ export function RequisitionsPage() {
         {error ? (
           <Banner status="error" title={(error as Error).message} />
         ) : view === 'list' ? (
-          <DataTable
-            columns={columns}
-            data={filteredRows}
-            isLoading={isLoading}
-            getRowId={(r: RequisitionListRow) => r.id}
-            enableGlobalFilter={false}
-            pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
-            emptyState={
-              <EmptyState
-                icon={<Briefcase className="size-6" />}
-                title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
-                description={
-                  rows.length === 0
-                    ? 'Open a requisition to get started.'
-                    : 'Try different filters.'
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <Popover
+                placement="below"
+                alignment="end"
+                label="Toggle columns"
+                content={
+                  <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
+                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                      Toggle columns
+                    </div>
+                    {REQ_COLUMN_OPTIONS.map((col) => (
+                      <Checkbox
+                        key={col.key}
+                        label={col.label}
+                        value={columnSettingsState.isColumnActive(col.key)}
+                        onChange={() => columnSettingsState.toggleColumn(col.key)}
+                      />
+                    ))}
+                  </div>
+                }
+              >
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Settings2 className="size-3.5" />}
+                  label="Columns"
+                />
+              </Popover>
+            </div>
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                  <Skeleton key={id} height={40} />
+                ))}
+              </div>
+            ) : (
+              <Table
+                data={pageRows}
+                columns={columns}
+                idKey="id"
+                plugins={{
+                  pagination,
+                  sortable,
+                  columnSettings,
+                  rowClick: {
+                    transformBodyRow: (props, item) => ({
+                      ...props,
+                      htmlProps: {
+                        ...props.htmlProps,
+                        style: { ...props.htmlProps.style, cursor: 'pointer' },
+                        onClick: () =>
+                          void navigate({
+                            to: '/hiring/requisitions',
+                            search: (prev: Record<string, unknown>) => ({
+                              ...prev,
+                              selectedRequisitionId: item.id,
+                            }),
+                          }),
+                      },
+                    }),
+                  },
+                }}
+                emptyState={
+                  <EmptyState
+                    icon={<Briefcase className="size-6" />}
+                    title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
+                    description={
+                      rows.length === 0
+                        ? 'Open a requisition to get started.'
+                        : 'Try different filters.'
+                    }
+                  />
                 }
               />
-            }
-            onRowClick={(row) =>
-              void navigate({
-                to: '/hiring/requisitions',
-                search: (prev: Record<string, unknown>) => ({
-                  ...prev,
-                  selectedRequisitionId: row.original.id,
-                }),
-              })
-            }
-          />
+            )}
+          </div>
         ) : isLoading ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {[0, 1, 2, 3].map((i) => (

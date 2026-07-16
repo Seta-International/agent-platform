@@ -184,7 +184,7 @@ test('pagination controls are present for the seeded roster', async ({ page }) =
   await page.goto('/people/employees');
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
 
-  // The DataTablePagination renders "Showing X–Y of Z" text and Previous/Next buttons.
+  // The Astryx Table pager renders "Showing X–Y of Z" text and Previous/Next buttons.
   // We assert the pager renders; if only 1 page exists the "Next" button will be disabled.
   await expect(page.getByText(/showing \d+/i)).toBeVisible({ timeout: 8_000 });
   await expect(page.getByRole('button', { name: 'Previous' })).toBeVisible();

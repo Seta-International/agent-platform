@@ -1,16 +1,8 @@
 import type { MyTasksResult, TaskWithPlan } from '@seta/planner';
 import { AvatarStack, CounterBadgePopover } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
-import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  type SortingState,
-  useReactTable,
-} from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ChevronsUpDown, Layout } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { deriveTaskStatus } from '../../lib/derive-task-status';
 import type { MyTasksRowTask } from './mt-task-row';
 import { PriorityChip } from './priority-chip';
@@ -31,11 +23,43 @@ function flatten(data: MyTasksResult): MyTasksRowTask[] {
   return all.map((t) => t as MyTasksRowTask);
 }
 
-const col = createColumnHelper<MyTasksRowTask>();
+type SortDir = 'asc' | 'desc';
+type SortState = { key: string; dir: SortDir } | null;
+type SortValue = string | number | null;
+
+interface GridColumn {
+  id: string;
+  header: string;
+  // Present => column is sortable; extracts the client-side sort key for a row.
+  sortValue?: (r: MyTasksRowTask) => SortValue;
+  renderCell: (r: MyTasksRowTask) => ReactNode;
+}
+
+// Mirror TanStack's default `auto` sorting fn: numeric compare for numbers,
+// case-insensitive alphanumeric for strings. Per table-core's `toString`, a null value
+// collapses to '' (so nulls sort FIRST under asc, last under desc) — table-core's
+// `sortUndefined` special-case fires only for `undefined`, never `null`.
+function compareValues(a: SortValue, b: SortValue): number {
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  const sa = a === null ? '' : String(a);
+  const sb = b === null ? '' : String(b);
+  return sa.localeCompare(sb, undefined, { sensitivity: 'base', numeric: true });
+}
+
+function formatDueShort(v: string | null): ReactNode {
+  if (!v) return <span className="text-ink-tertiary">—</span>;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return <span className="text-ink-tertiary">—</span>;
+  return (
+    <span className="text-ink-muted text-[12.5px]">
+      {d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+    </span>
+  );
+}
 
 export function MyTasksGrid({ data }: Props) {
   const rows = useMemo(() => flatten(data), [data]);
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sort, setSort] = useState<SortState>(null);
   const [selection, setSelection] = useState<ReadonlySet<string>>(() => new Set());
 
   function toggle(id: string) {
@@ -52,143 +76,148 @@ export function MyTasksGrid({ data }: Props) {
   const allChecked = rows.length > 0 && selection.size === rows.length;
   const someChecked = selection.size > 0 && selection.size < rows.length;
 
-  const columns = useMemo(
+  const columns = useMemo<GridColumn[]>(
     () => [
-      col.accessor('title', {
+      {
+        id: 'title',
         header: 'Task',
-        cell: ({ row }) => (
+        sortValue: (r) => r.title,
+        renderCell: (r) => (
           <Link
             to="/planner/plans/$planId/tasks/$taskId"
-            params={{ planId: row.original.plan_id, taskId: row.original.id }}
+            params={{ planId: r.plan_id, taskId: r.id }}
             className="text-ink hover:text-primary no-underline font-medium truncate block"
           >
-            {row.original.title}
+            {r.title}
           </Link>
         ),
-      }),
-      col.accessor((r) => r.plan.name, {
+      },
+      {
         id: 'plan',
         header: 'Plan',
-        cell: ({ row }) => (
+        sortValue: (r) => r.plan.name,
+        renderCell: (r) => (
           <span className="inline-flex items-center gap-1.5 text-ink-muted text-[12.5px] truncate">
             <Layout size={11} className="text-primary shrink-0" />
-            <span className="truncate">{row.original.plan.name}</span>
+            <span className="truncate">{r.plan.name}</span>
           </span>
         ),
-      }),
-      col.accessor('priority_number', {
+      },
+      {
+        id: 'priority_number',
         header: 'Priority',
-        cell: ({ row }) => <PriorityChip prio={row.original.priority_number} />,
-      }),
-      col.accessor('percent_complete', {
+        sortValue: (r) => r.priority_number,
+        renderCell: (r) => <PriorityChip prio={r.priority_number} />,
+      },
+      {
+        id: 'percent_complete',
         header: 'Progress',
-        cell: ({ row }) => {
-          const status = deriveTaskStatus(row.original);
-          return <ProgressBar pct={row.original.percent_complete} status={status} />;
-        },
-      }),
-      col.accessor('due_at', {
+        sortValue: (r) => r.percent_complete,
+        renderCell: (r) => <ProgressBar pct={r.percent_complete} status={deriveTaskStatus(r)} />,
+      },
+      {
+        id: 'due_at',
         header: 'Due',
-        cell: (info) => {
-          const v = info.getValue() as string | null;
-          if (!v) return <span className="text-ink-tertiary">—</span>;
-          const d = new Date(v);
-          if (Number.isNaN(d.getTime())) return <span className="text-ink-tertiary">—</span>;
-          return (
-            <span className="text-ink-muted text-[12.5px]">
-              {d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </span>
-          );
-        },
-      }),
-      col.display({
+        sortValue: (r) => r.due_at ?? null,
+        renderCell: (r) => formatDueShort(r.due_at),
+      },
+      {
         id: 'labels',
         header: 'Labels',
-        cell: ({ row }) => (
-          <CounterBadgePopover
-            items={row.original.labels}
-            title="Labels"
-            limit={2}
-            type="label-chip"
-          />
+        renderCell: (r) => (
+          <CounterBadgePopover items={r.labels} title="Labels" limit={2} type="label-chip" />
         ),
-      }),
-      col.display({
+      },
+      {
         id: 'assignees',
         header: 'Assignees',
-        cell: ({ row }) => <AvatarStack assignees={row.original.assignees} max={2} />,
-      }),
+        renderCell: (r) => <AvatarStack assignees={r.assignees} max={2} />,
+      },
     ],
     [],
   );
 
-  // TanStack Table returns functions that can't be safely memoized — React Compiler skips this hook
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
-    data: rows,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+  const sortedRows = useMemo(() => {
+    if (!sort) return rows;
+    const column = columns.find((c) => c.id === sort.key);
+    if (!column?.sortValue) return rows;
+    const get = column.sortValue;
+    const factor = sort.dir === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => compareValues(get(a), get(b)) * factor);
+  }, [rows, sort, columns]);
+
+  // First-click direction, reproducing table-core's getAutoSortDir/getFirstSortDir:
+  // no `sortDescFirst` set, so it falls back to the first (pre-sort) row's value type —
+  // `string` sorts asc-first, everything else (numbers, null) desc-first.
+  function firstSortDir(column: GridColumn): SortDir {
+    const first = rows[0];
+    const value = first !== undefined ? column.sortValue?.(first) : undefined;
+    return typeof value === 'string' ? 'asc' : 'desc';
+  }
+
+  // Cycle firstDir -> opposite -> unsorted, matching table-core's getNextSortingOrder
+  // with the default enableSortingRemoval=true.
+  function toggleSort(column: GridColumn) {
+    const first = firstSortDir(column);
+    const opposite: SortDir = first === 'asc' ? 'desc' : 'asc';
+    setSort((prev) => {
+      if (prev?.key !== column.id) return { key: column.id, dir: first };
+      if (prev.dir === first) return { key: column.id, dir: opposite };
+      return null;
+    });
+  }
 
   return (
     <table data-testid="my-tasks-grid" className="w-full text-[13px] border-collapse">
       <thead className="sticky top-0 z-10 bg-canvas">
-        {table.getHeaderGroups().map((hg) => (
-          <tr
-            key={hg.id}
-            className="border-b border-hairline text-[10.5px] uppercase tracking-[0.06em] text-ink-subtle"
-          >
-            <th className="w-10 px-7 py-2.5 text-left">
-              <input
-                type="checkbox"
-                aria-label="Select all"
-                checked={allChecked}
-                ref={(el) => {
-                  if (el) el.indeterminate = someChecked;
-                }}
-                onChange={toggleAll}
-                className="align-middle cursor-pointer"
-              />
-            </th>
-            {hg.headers.map((h) => {
-              const canSort = h.column.getCanSort();
-              const sortDir = h.column.getIsSorted();
-              return (
-                <th
-                  key={h.id}
-                  onClick={canSort ? h.column.getToggleSortingHandler() : undefined}
-                  className={
-                    'text-left font-medium px-3 py-2.5 select-none ' +
-                    (canSort ? 'cursor-pointer hover:text-ink' : '')
-                  }
-                >
-                  <span className="inline-flex items-center gap-1">
-                    {flexRender(h.column.columnDef.header, h.getContext())}
-                    {canSort &&
-                      (sortDir === 'asc' ? (
-                        <ArrowUp size={10} aria-hidden />
-                      ) : sortDir === 'desc' ? (
-                        <ArrowDown size={10} aria-hidden />
-                      ) : (
-                        <ChevronsUpDown size={10} className="opacity-30" aria-hidden />
-                      ))}
-                  </span>
-                </th>
-              );
-            })}
-          </tr>
-        ))}
+        <tr className="border-b border-hairline text-[10.5px] uppercase tracking-[0.06em] text-ink-subtle">
+          <th className="w-10 px-7 py-2.5 text-left">
+            <input
+              type="checkbox"
+              aria-label="Select all"
+              checked={allChecked}
+              ref={(el) => {
+                if (el) el.indeterminate = someChecked;
+              }}
+              onChange={toggleAll}
+              className="align-middle cursor-pointer"
+            />
+          </th>
+          {columns.map((c) => {
+            const canSort = c.sortValue !== undefined;
+            const sortDir = sort?.key === c.id ? sort.dir : false;
+            return (
+              <th
+                key={c.id}
+                onClick={canSort ? () => toggleSort(c) : undefined}
+                className={
+                  'text-left font-medium px-3 py-2.5 select-none ' +
+                  (canSort ? 'cursor-pointer hover:text-ink' : '')
+                }
+              >
+                <span className="inline-flex items-center gap-1">
+                  {c.header}
+                  {canSort &&
+                    (sortDir === 'asc' ? (
+                      <ArrowUp size={10} aria-hidden />
+                    ) : sortDir === 'desc' ? (
+                      <ArrowDown size={10} aria-hidden />
+                    ) : (
+                      <ChevronsUpDown size={10} className="opacity-30" aria-hidden />
+                    ))}
+                </span>
+              </th>
+            );
+          })}
+        </tr>
       </thead>
       <tbody>
-        {table.getRowModel().rows.map((r) => {
-          const isSelected = selection.has(r.original.id);
+        {sortedRows.map((r) => {
+          const isSelected = selection.has(r.id);
           return (
             <tr
               key={r.id}
-              data-task-id={r.original.id}
+              data-task-id={r.id}
               data-selected={isSelected ? 'true' : undefined}
               className={
                 'border-b border-hairline-tertiary hover:bg-surface-1 transition-colors ' +
@@ -198,15 +227,15 @@ export function MyTasksGrid({ data }: Props) {
               <td className="px-7 py-2.5 align-middle">
                 <input
                   type="checkbox"
-                  aria-label={`Select ${r.original.title}`}
+                  aria-label={`Select ${r.title}`}
                   checked={isSelected}
-                  onChange={() => toggle(r.original.id)}
+                  onChange={() => toggle(r.id)}
                   className="align-middle cursor-pointer"
                 />
               </td>
-              {r.getVisibleCells().map((c) => (
+              {columns.map((c) => (
                 <td key={c.id} className="px-3 py-2.5 align-middle">
-                  {flexRender(c.column.columnDef.cell, c.getContext())}
+                  {c.renderCell(r)}
                 </td>
               ))}
             </tr>

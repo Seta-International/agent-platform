@@ -1,21 +1,34 @@
 import {
   Avatar,
+  Button,
   Card,
+  Checkbox,
+  type ColumnSettingsOption,
   cn,
   createStaticSource,
-  DataTable,
   EmptyState,
   Input,
   PageChrome,
+  Popover,
+  paginateData,
+  pixel,
+  proportional,
   type SearchableItem,
   SegmentedControl,
+  Skeleton,
+  Table,
+  type TableColumn,
   Typeahead,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
+  useTableSortableState,
 } from '@seta/shared-ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import type { ColumnDef, Row, VisibilityState } from '@tanstack/react-table';
 import { BarChart3, Settings2, User, X } from 'lucide-react';
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type AllocationBucket,
   type AllocationGrid,
@@ -28,6 +41,10 @@ import { UtilizationPanel } from '../components/utilization-panel.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO
+// lacks an index signature, so alias locally (do not touch the shared DTO).
+type AllocationRow = AllocationGridRow & Record<string, unknown>;
 
 // Heatmap fill by planned-allocation level (matches the design prototype): green = fully loaded,
 // blue = high, amber = mid, red = light. Empty/zero months stay uncolored.
@@ -127,35 +144,29 @@ const BUCKET_OPTIONS = [
   { value: 'bench', label: 'Bench' },
 ];
 
-/** Human labels for the custom Columns menu — not derived from columnDef.header (month cols use JSX). */
-export const ALLOCATION_HIDEABLE_COLUMNS = [
-  { id: 'employee_no', label: 'Employee ID' },
-  { id: 'account', label: 'Account' },
-  { id: 'project', label: 'Project' },
-  ...MONTHS.map((label, mi) => ({ id: `m${mi}`, label })),
-  { id: 'total_mm', label: 'MM' },
-] as const;
+/** Human labels for the column-settings picker — not derived from column.header (month cols use JSX). */
+export const ALLOCATION_HIDEABLE_COLUMNS: ColumnSettingsOption[] = [
+  { key: 'employee_no', label: 'Employee ID' },
+  { key: 'account', label: 'Account' },
+  { key: 'project', label: 'Project' },
+  ...MONTHS.map((label, mi) => ({ key: `m${mi}`, label })),
+  { key: 'total_mm', label: 'MM' },
+];
+// Universe of columns for the column-settings state hook. 'name' is the only
+// always-visible column (matches the old bespoke popover, which never listed it).
+const ALLOCATION_COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'name', label: 'Name', isAlwaysVisible: true },
+  ...ALLOCATION_HIDEABLE_COLUMNS,
+];
+const DEFAULT_ALLOCATION_COLUMN_KEYS = ALLOCATION_COLUMN_OPTIONS.map((c) => c.key);
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 export function AllocationPage() {
   const navigate = useNavigate();
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
-  const columnsMenuRef = useRef<HTMLDivElement>(null);
-
-  // Column visibility is a persistent multi-toggle menu — it must stay open across
-  // clicks. Astryx's DropdownMenuItem always closes the menu on click (no
-  // checkbox-item equivalent), so this stays a bespoke popover until the D2 batch
-  // rebuilds it on Astryx Popover + Checkbox.
-  useEffect(() => {
-    if (!columnsMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (columnsMenuRef.current && !columnsMenuRef.current.contains(e.target as Node)) {
-        setColumnsMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [columnsMenuOpen]);
+  const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(
+    DEFAULT_ALLOCATION_COLUMN_KEYS,
+  );
 
   // Every filter lives in the URL, so refresh / back / share restores the exact view.
   const raw = useSearch({ strict: false }) as Partial<AllocationSearch>;
@@ -198,6 +209,21 @@ export function AllocationPage() {
     queryFn: () => fetchAllocationGrid(filters),
     placeholderData: keepPreviousData,
   });
+
+  const { sortedData, sort, sortConfig } = useTableSortableState<AllocationRow>({
+    data: (data?.rows ?? []) as AllocationRow[],
+    comparators: { total_mm: (a, b) => a.total_mm - b.total_mm },
+  });
+  const sortable = useTableSortable<AllocationRow>(sortConfig);
+
+  // Client-side pagination over the (server-)filtered rows.
+  // Reset to page 1 on filter/sort change — old TanStack autoResetPageIndex parity (see candidates-page).
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: filters and sort are the intentional reset triggers, unread in the body.
+  useEffect(() => {
+    setPage(1);
+  }, [filters, sort]);
 
   const accountItems = useMemo<SearchableItem[]>(
     () => (data?.facets.accounts ?? []).map((a) => ({ id: a.id, label: a.name })),
@@ -243,19 +269,13 @@ export function AllocationPage() {
     return m;
   }, [data]);
 
-  const rowClassName = useCallback(
-    (row: Row<AllocationGridRow>) =>
-      cn((workerBand.get(row.original.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1'),
-    [workerBand],
-  );
-
-  const columns = useMemo<ColumnDef<AllocationGridRow>[]>(() => {
-    const monthCols: ColumnDef<AllocationGridRow>[] = MONTHS.map((label, mi) => ({
-      id: `m${mi}`,
-      header: () => <div className="text-center">{label}</div>,
-      enableSorting: false,
-      cell: ({ row }) => {
-        const r = row.original;
+  const columns = useMemo<TableColumn<AllocationRow>[]>(() => {
+    const monthCols: TableColumn<AllocationRow>[] = MONTHS.map((label, mi) => ({
+      key: `m${mi}`,
+      header: label,
+      width: pixel(48),
+      align: 'center',
+      renderCell: (r) => {
         const v = r.months[mi];
         const isOver = v != null && (overByWorkerMonth.get(r.worker_id)?.has(mi) ?? false);
         const total = totalsByWorker.get(r.worker_id)?.[mi];
@@ -278,55 +298,83 @@ export function AllocationPage() {
     }));
     return [
       {
-        id: 'employee_no',
+        key: 'employee_no',
         header: 'Employee ID',
-        cell: ({ row }) => (
-          <span className="font-mono text-[11px] text-ink-muted">
-            {row.original.employee_no ?? '—'}
-          </span>
+        width: pixel(100),
+        renderCell: (r) => (
+          <span className="font-mono text-[11px] text-ink-muted">{r.employee_no ?? '—'}</span>
         ),
       },
       {
-        id: 'name',
+        key: 'name',
         header: 'Name',
-        enableHiding: false,
-        cell: ({ row }) => (
+        width: proportional(2),
+        renderCell: (r) => (
           <div className="flex w-44 items-center gap-2.5">
-            <Avatar name={row.original.full_name} size={32} />
-            <span className="font-medium leading-tight">{row.original.full_name}</span>
+            <Avatar name={r.full_name} size={32} />
+            <span className="font-medium leading-tight">{r.full_name}</span>
           </div>
         ),
       },
       {
-        id: 'account',
+        key: 'account',
         header: 'Account',
-        cell: ({ row }) => (
-          <div className="max-w-[160px] truncate">{row.original.account_name || '—'}</div>
-        ),
+        width: proportional(1),
+        renderCell: (r) => <div className="max-w-[160px] truncate">{r.account_name || '—'}</div>,
       },
       {
-        id: 'project',
+        key: 'project',
         header: 'Project',
-        cell: ({ row }) =>
+        width: proportional(1),
+        renderCell: (r) =>
           // AMs manage the whole account, not a single project — show that instead of a sub-project.
-          row.original.is_account_am ? (
+          r.is_account_am ? (
             <span className="text-[12px] text-ink-subtle italic">Account management</span>
           ) : (
-            <div className="max-w-[200px] truncate">{row.original.project_name ?? '—'}</div>
+            <div className="max-w-[200px] truncate">{r.project_name ?? '—'}</div>
           ),
       },
       ...monthCols,
       {
-        accessorKey: 'total_mm',
-        header: () => <div className="text-center">MM</div>,
-        cell: ({ row }) => (
-          <div className="text-center font-mono text-[12px]">
-            {row.original.total_mm.toFixed(2)}
-          </div>
+        key: 'total_mm',
+        header: 'MM',
+        width: pixel(70),
+        align: 'center',
+        // The only column with a real accessor in the old TanStack config (the others were
+        // `id`-only display columns whose "sort" button never actually reordered anything) —
+        // preserved as the one genuinely-functioning sort; see task-2c report for detail.
+        sortable: true,
+        renderCell: (r) => (
+          <div className="text-center font-mono text-[12px]">{r.total_mm.toFixed(2)}</div>
         ),
       },
     ];
   }, [overByWorkerMonth, totalsByWorker]);
+
+  const pageRows = useMemo(
+    () => paginateData(sortedData, page, pageSize),
+    [sortedData, page, pageSize],
+  );
+  const pagination = useTablePagination<AllocationRow>({
+    page,
+    onPageChange: setPage,
+    totalItems: sortedData.length,
+    pageSize,
+    onPageSizeChange: (ps) => {
+      setPageSize(ps);
+      setPage(1);
+    },
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+  });
+
+  const columnSettingsState = useTableColumnSettingsState({
+    columns: ALLOCATION_COLUMN_OPTIONS,
+    activeColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+  });
+  const columnSettings = useTableColumnSettings<AllocationRow>(
+    columnSettingsState.columnSettingsConfig,
+  );
 
   const kpis = data?.kpis;
   const rowCount = data?.rows.length ?? 0;
@@ -403,50 +451,33 @@ export function AllocationPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div ref={columnsMenuRef} className="relative">
-                    <button
-                      type="button"
-                      className="inline-flex h-7 items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:bg-surface-2 focus:outline-none"
-                      onClick={() => setColumnsMenuOpen((v) => !v)}
-                    >
-                      <Settings2 className="size-3.5" />
-                      Columns
-                    </button>
-                    {columnsMenuOpen && (
-                      <div
-                        role="menu"
-                        aria-label="Toggle columns"
-                        className="absolute right-0 z-50 mt-1 min-w-[180px] rounded-md border border-hairline bg-surface-3 p-1 text-ink shadow-lg"
-                      >
-                        <div className="px-2 py-1.5 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                  <Popover
+                    placement="below"
+                    alignment="end"
+                    label="Toggle columns"
+                    content={
+                      <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
+                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
                           Toggle columns
                         </div>
-                        <div className="-mx-1 my-1 h-px bg-hairline" />
-                        {ALLOCATION_HIDEABLE_COLUMNS.map((col) => {
-                          const isVisible = columnVisibility[col.id] ?? true;
-                          return (
-                            <label
-                              key={col.id}
-                              className="flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-body-sm text-ink hover:bg-surface-4"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isVisible}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setColumnVisibility((prev) => ({
-                                    ...prev,
-                                    [col.id]: checked,
-                                  }));
-                                }}
-                              />
-                              {col.label}
-                            </label>
-                          );
-                        })}
+                        {ALLOCATION_HIDEABLE_COLUMNS.map((col) => (
+                          <Checkbox
+                            key={col.key}
+                            label={col.label}
+                            value={columnSettingsState.isColumnActive(col.key)}
+                            onChange={() => columnSettingsState.toggleColumn(col.key)}
+                          />
+                        ))}
                       </div>
-                    )}
-                  </div>
+                    }
+                  >
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Settings2 className="size-3.5" />}
+                      label="Columns"
+                    />
+                  </Popover>
                 </div>
               </div>
 
@@ -501,31 +532,49 @@ export function AllocationPage() {
               </div>
             </div>
 
-            <DataTable
-              columns={columns}
-              data={data?.rows ?? []}
-              isLoading={isLoading}
-              density="compact"
-              getRowClassName={rowClassName}
-              enableGlobalFilter={false}
-              enableColumnVisibility={false}
-              columnVisibility={columnVisibility}
-              onColumnVisibilityChange={setColumnVisibility}
-              pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
-              emptyState={
-                <EmptyState
-                  icon={<BarChart3 className="size-6" />}
-                  title="No allocations"
-                  description="No one is allocated in your view for this year."
-                />
-              }
-              onRowClick={(row) =>
-                void navigate({
-                  to: '/people/employees/$workerId',
-                  params: { workerId: row.original.worker_id },
-                })
-              }
-            />
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                  <Skeleton key={id} height={44} />
+                ))}
+              </div>
+            ) : (
+              <Table
+                data={pageRows}
+                columns={columns}
+                density="compact"
+                plugins={{
+                  pagination,
+                  sortable,
+                  columnSettings,
+                  rowStyling: {
+                    transformBodyRow: (props, item) => ({
+                      ...props,
+                      htmlProps: {
+                        ...props.htmlProps,
+                        className: cn(
+                          props.htmlProps.className,
+                          (workerBand.get(item.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1',
+                        ),
+                        style: { ...props.htmlProps.style, cursor: 'pointer' },
+                        onClick: () =>
+                          void navigate({
+                            to: '/people/employees/$workerId',
+                            params: { workerId: item.worker_id },
+                          }),
+                      },
+                    }),
+                  },
+                }}
+                emptyState={
+                  <EmptyState
+                    icon={<BarChart3 className="size-6" />}
+                    title="No allocations"
+                    description="No one is allocated in your view for this year."
+                  />
+                }
+              />
+            )}
             <p className="text-[11px] text-ink-muted">
               Solid red = that person is over 100% allocated that month.
             </p>
