@@ -3,7 +3,7 @@ import {
   PLANNER_403_LIMIT_MESSAGES,
   type PlanConflictDecision,
   ResolvePlanConflictsDialog,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission, useSession } from '@seta/web-identity';
 import { useNavigate } from '@tanstack/react-router';
@@ -83,6 +83,7 @@ export function PlanBoardShell({
   onChartPatch,
 }: Props) {
   const session = useSession();
+  const toast = useToast();
 
   const filters = parseFiltersFromSearch(search as Record<string, string | undefined>);
   const view = parseViewMode(search.view);
@@ -176,7 +177,7 @@ export function PlanBoardShell({
 
   function handleCopyShareLink() {
     void navigator.clipboard.writeText(window.location.href).then(() => {
-      toast('Link copied to clipboard');
+      toast({ body: 'Link copied to clipboard' });
     });
   }
 

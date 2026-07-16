@@ -1,4 +1,4 @@
-import { Button, DataTable, EmptyState, Input, NumberInput, toast } from '@seta/shared-ui';
+import { Button, DataTable, EmptyState, Input, NumberInput, useToast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -18,6 +18,7 @@ export function StaffingPlanSection({
   canManage: boolean;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const { data, isLoading } = useQuery({
     queryKey: pmKeys.staffingPlan(projectId),
     queryFn: () => fetchStaffingPlan(projectId),
@@ -36,12 +37,12 @@ export function StaffingPlanSection({
         effort_mm: effort ? Number(effort) : undefined,
       }),
     onSuccess: () => {
-      toast.success('Line added');
+      toast({ body: 'Line added' });
       setRole('');
       setEffort('');
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const remove = useMutation({
@@ -52,10 +53,10 @@ export function StaffingPlanSection({
     },
     onError: (e: Error & { status?: number }) => {
       if (e.status === 409) {
-        toast.error('Line was modified concurrently — refreshing');
+        toast({ body: 'Line was modified concurrently — refreshing', type: 'error' });
         invalidate();
       } else {
-        toast.error(e.message);
+        toast({ body: e.message, type: 'error' });
       }
     },
   });

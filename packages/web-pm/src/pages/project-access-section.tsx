@@ -5,8 +5,8 @@ import {
   type SearchableItem,
   Selector,
   Typeahead,
-  toast,
   useSeededItems,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck } from 'lucide-react';
@@ -23,6 +23,7 @@ export function ProjectAccessSection({
   canManage: boolean;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const { data, isLoading } = useQuery({
     queryKey: pmKeys.projectAccess(projectId),
     queryFn: () => fetchProjectAccess(projectId),
@@ -43,12 +44,12 @@ export function ProjectAccessSection({
   const save = useMutation({
     mutationFn: (grants: ProjectAccessRow[]) => setProjectAccess(projectId, grants),
     onSuccess: () => {
-      toast.success('Access updated');
+      toast({ body: 'Access updated' });
       setWorker(null);
       invalidate();
     },
     onError: (e: Error & { status?: number }) => {
-      toast.error(e.message);
+      toast({ body: e.message, type: 'error' });
     },
   });
 

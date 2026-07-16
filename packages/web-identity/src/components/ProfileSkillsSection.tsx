@@ -5,7 +5,7 @@ import {
   type SearchSource,
   SkillLevelRating,
   Typeahead,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -38,6 +38,7 @@ export function ProfileSkillsSection({
   onSave: SaveProfile;
   onUpdate: (p: ProfileDto) => void;
 }) {
+  const toast = useToast();
   const [draft, setDraft] = useState<DraftSkill[]>(() => profile.skills.map((s) => ({ ...s })));
   const [saving, setSaving] = useState(false);
 
@@ -112,9 +113,9 @@ export function ProfileSkillsSection({
         return d ? { ...s, level: d.level } : s;
       });
       onUpdate({ ...afterMembership, skills: finalSkills });
-      toast.success('Skills saved');
+      toast({ body: 'Skills saved' });
     } catch {
-      toast.error('Could not save skills');
+      toast({ body: 'Could not save skills', type: 'error' });
     } finally {
       setSaving(false);
     }

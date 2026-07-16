@@ -13,7 +13,7 @@ import {
   type SearchableItem,
   Selector,
   Typeahead,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation } from '@tanstack/react-query';
 import {
@@ -85,6 +85,7 @@ export function ReassignWizardDialog({
   onClose: () => void;
   onReassigned: () => void;
 }) {
+  const toast = useToast();
   const accountSource = useMemo(() => createStaticSource(accountOptions), [accountOptions]);
   const [step, setStep] = useState<Step>(1);
   const [targetRows, setTargetRows] = useState<ReassignTargetRow[]>([]);
@@ -180,7 +181,7 @@ export function ReassignWizardDialog({
         expected_version: vars.expectedVersion,
       }),
     onSuccess: (_, vars) => {
-      toast.success('Allocation updated');
+      toast({ body: 'Allocation updated' });
       setSavedOverrides((m) => ({
         ...m,
         [vars.allocationId]: {
@@ -196,13 +197,13 @@ export function ReassignWizardDialog({
       }));
       onReassigned();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const removeMutation = useMutation({
     mutationFn: (allocationId: string) => removeAllocation(allocationId),
     onSuccess: (_, allocationId) => {
-      toast.success('Allocation removed');
+      toast({ body: 'Allocation removed' });
       setRowDrafts((m) => {
         const next = { ...m };
         delete next[allocationId];
@@ -211,7 +212,7 @@ export function ReassignWizardDialog({
       setConfirmTarget(null);
       onReassigned();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const previewMutation = useMutation({
@@ -247,13 +248,13 @@ export function ReassignWizardDialog({
       }),
     onSuccess: (result) => {
       if (result.warnings.length > 0) {
-        toast.warning(
-          `Saved — but this now exceeds 100% at: ${result.warnings
+        toast({
+          body: `Saved — but this now exceeds 100% at: ${result.warnings
             .map((w) => `${w.project_name} (${w.peak_pct}%)`)
             .join(', ')}`,
-        );
+        });
       } else {
-        toast.success('Reassigned');
+        toast({ body: 'Reassigned' });
       }
       onReassigned();
       onClose();

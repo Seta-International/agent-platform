@@ -6,7 +6,7 @@ import {
   LabelChip,
   type SearchableItem,
   Tokenizer,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
@@ -46,6 +46,7 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
   const unapply = useUnapplyLabel(planId);
   const create = useCreateLabel(planId);
   const canUpdate = usePermission('planner.task.update');
+  const toast = useToast();
   const planLabelsQuery = useQuery({
     queryKey: plannerKeys.planLabels(planId),
     queryFn: () => plannerClient.listLabels(planId),
@@ -101,7 +102,7 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
         label_color: created.color,
       });
     } catch {
-      toast.error("Couldn't create label.");
+      toast({ body: "Couldn't create label.", type: 'error' });
     }
   };
 

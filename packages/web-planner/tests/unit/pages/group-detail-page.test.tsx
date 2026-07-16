@@ -1,3 +1,4 @@
+import { ToastViewport } from '@seta/shared-ui';
 import type { SessionScopeProjection } from '@seta/web-identity';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -11,7 +12,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import type { ReactNode } from 'react';
+import { type ReactNode, StrictMode } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GroupDetailPage, type GroupTab } from '../../../src/pages/group-detail-page';
 import { makeGroup, makePlanWithRollups } from '../../../src/testing/fixtures';
@@ -133,6 +134,27 @@ function AdminPage({ tab, onTabChange }: { tab: GroupTab; onTabChange?: (t: Grou
 }
 
 describe('GroupDetailPage', () => {
+  // StrictMode double-invokes render, so this also pins the toast to an effect: raising it
+  // inline in the 403 render branch fires once per render pass and shows the user duplicates.
+  it('toasts once and redirects to the groups list when the group returns 403', async () => {
+    server.use(
+      http.get('*/api/planner/v1/groups/g1', () => new HttpResponse(null, { status: 403 })),
+      ...defaultHandlers().slice(1),
+    );
+    renderInRouter(
+      <StrictMode>
+        <ToastViewport>
+          <AdminPage tab="plans" />
+        </ToastViewport>
+      </StrictMode>,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "You don't have access to this group anymore.",
+    );
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
+
   it('renders header + stat row + tabs', async () => {
     server.use(...defaultHandlers());
     renderInRouter(<AdminPage tab="plans" />);

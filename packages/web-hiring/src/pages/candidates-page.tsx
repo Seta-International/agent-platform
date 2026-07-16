@@ -10,7 +10,7 @@ import {
   PageChrome,
   SegmentedControl,
   Selector,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -124,6 +124,7 @@ export function onBoardDragEnd(
 }
 
 export function CandidatesPage() {
+  const toast = useToast();
   const canCreate = usePermission('hiring.candidate.create');
   const [view, setView] = useState<'board' | 'list'>('board');
   const [q, setQ] = useState('');
@@ -180,11 +181,11 @@ export function CandidatesPage() {
     }) =>
       moveApplicationStage(m.application_id, { expected_version: m.expected_version, to: m.to }),
     onSuccess: () => {
-      toast.success('Stage updated');
+      toast({ body: 'Stage updated' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidateStageCounts() });
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.candidates()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.candidates()),
   });
   const handleDragEnd = onBoardDragEnd(rows, (m) => stageMove.mutate(m));
 

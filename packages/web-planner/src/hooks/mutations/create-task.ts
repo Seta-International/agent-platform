@@ -1,4 +1,4 @@
-import { toast } from '@seta/shared-ui';
+import { useToast } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { errorFromPlannerResponse, PlannerValidationError } from '../../lib/planner-api-errors';
 import { plannerKeys } from '../../state/query-keys';
@@ -26,6 +26,7 @@ interface TaskResponse {
  */
 export function useCreateTask(planId: string) {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: async (v: CreateVars): Promise<{ task: TaskResponse; runId?: string }> => {
       // Step 1: Create the task immediately
@@ -73,9 +74,7 @@ export function useCreateTask(planId: string) {
       return { task, runId };
     },
     onSuccess: () => {
-      toast.success('Task created', {
-        description: 'Checking for duplicates in background…',
-      });
+      toast({ body: 'Task created — checking for duplicates in background…' });
       qc.invalidateQueries({ queryKey: [...plannerKeys.plan(planId), 'tasks'] });
       qc.invalidateQueries({ queryKey: plannerKeys.planCalendar(planId) });
     },
@@ -83,8 +82,9 @@ export function useCreateTask(planId: string) {
       if (err instanceof PlannerValidationError && err.fieldErrors.title?.length) {
         return;
       }
-      toast.error("Couldn't create task", {
-        description: err instanceof Error ? err.message : String(err),
+      toast({
+        body: `Couldn't create task — ${err instanceof Error ? err.message : String(err)}`,
+        type: 'error',
       });
     },
   });

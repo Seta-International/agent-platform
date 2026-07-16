@@ -18,8 +18,8 @@ import {
   Skeleton,
   SkillLevelRating,
   Typeahead,
-  toast,
   useSeededItem,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -75,6 +75,7 @@ export function WorkerProfilePage() {
   const params = useParams({ strict: false });
   const workerId = params.workerId as string;
   const queryClient = useQueryClient();
+  const toast = useToast();
   const canEdit = usePermission('people.worker.update');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<WorkerPatch>({});
@@ -147,7 +148,7 @@ export function WorkerProfilePage() {
       ]);
     },
     onSuccess: () => {
-      toast.success('Changes saved');
+      toast({ body: 'Changes saved' });
       setEditing(false);
       setDraft({});
       setSkillDraft([]);
@@ -593,11 +594,12 @@ export function WorkerProfilePage() {
 
 function WorkerCvActions({ worker, canEdit }: { worker: WorkerDetail; canEdit: boolean }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const download = useMutation({
     mutationFn: () => getWorkerCvDownloadUrl(worker.worker_id),
     onSuccess: (url) => window.open(url, '_blank', 'noopener'),
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const replace = useMutation({
@@ -614,10 +616,10 @@ function WorkerCvActions({ worker, canEdit }: { worker: WorkerDetail; canEdit: b
       });
     },
     onSuccess: () => {
-      toast.success('CV updated');
+      toast({ body: 'CV updated' });
       void queryClient.invalidateQueries({ queryKey: peopleKeys.worker(worker.worker_id) });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   return (

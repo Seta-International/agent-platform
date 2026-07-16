@@ -1,3 +1,4 @@
+import { useToast } from '@seta/shared-ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { applyPlannerEvent, type StreamEvent } from '../state/apply-planner-event';
@@ -42,6 +43,7 @@ const EVENT_TYPES: readonly string[] = [
 
 export function useBoardStream(accessibleGroupIds: string[]): void {
   const qc = useQueryClient();
+  const toast = useToast();
   const setStatus = useConnectionStatus((s) => s.set);
   const joined = accessibleGroupIds.join(',');
 
@@ -61,7 +63,7 @@ export function useBoardStream(accessibleGroupIds: string[]): void {
     const handleMessage = (e: MessageEvent) => {
       try {
         const raw = JSON.parse(e.data) as StreamEvent;
-        applyPlannerEvent(qc, raw);
+        applyPlannerEvent(qc, raw, toast);
       } catch {
         // Malformed frames are ignored; server is the only producer.
       }
@@ -80,5 +82,5 @@ export function useBoardStream(accessibleGroupIds: string[]): void {
       es.close();
       setStatus('idle');
     };
-  }, [joined, qc, setStatus]);
+  }, [joined, qc, setStatus, toast]);
 }

@@ -15,7 +15,7 @@ import {
   SegmentedControl,
   Selector,
   Textarea,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -46,6 +46,7 @@ const SECTIONS: { key: JdSectionKey; label: string }[] = [
 ];
 
 function NewTemplateDialog() {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -90,7 +91,7 @@ function NewTemplateDialog() {
         })),
       }),
     onSuccess: () => {
-      toast.success('Template created');
+      toast({ body: 'Template created' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.jdTemplates() });
       close();
     },
@@ -177,6 +178,7 @@ function NewTemplateDialog() {
 }
 
 function NewCloseReasonDialog() {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('');
@@ -201,7 +203,7 @@ function NewCloseReasonDialog() {
   const mutation = useMutation({
     mutationFn: () => createCloseReason({ label }),
     onSuccess: () => {
-      toast.success('Close reason created');
+      toast({ body: 'Close reason created' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.closeReasons() });
       close();
     },
@@ -255,6 +257,7 @@ const REJECTION_CATEGORIES: { value: RejectionCategory; label: string }[] = [
 ];
 
 function NewRejectionReasonDialog() {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('');
@@ -281,7 +284,7 @@ function NewRejectionReasonDialog() {
   const mutation = useMutation({
     mutationFn: () => createRejectionReason({ label, category }),
     onSuccess: () => {
-      toast.success('Rejection reason created');
+      toast({ body: 'Rejection reason created' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.rejectionReasons() });
       close();
     },
@@ -337,6 +340,7 @@ function NewRejectionReasonDialog() {
 }
 
 export function SettingsPage() {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const canManage = usePermission('hiring.jd_template.manage');
   const templates = useQuery({ queryKey: hiringKeys.jdTemplates(), queryFn: fetchJdTemplates });
@@ -345,19 +349,19 @@ export function SettingsPage() {
   const del = useMutation({
     mutationFn: (id: string) => deleteJdTemplate(id),
     onSuccess: () => {
-      toast.success('Template deleted');
+      toast({ body: 'Template deleted' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.jdTemplates() });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
   const archive = useMutation({
     mutationFn: (vars: { id: string; version: number }) =>
       archiveCloseReason(vars.id, { expected_version: vars.version }),
     onSuccess: () => {
-      toast.success('Close reason archived');
+      toast({ body: 'Close reason archived' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.closeReasons() });
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.closeReasons()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.closeReasons()),
   });
 
   const canManageRejections = usePermission('hiring.rejection_reason.manage');
@@ -369,10 +373,10 @@ export function SettingsPage() {
     mutationFn: (vars: { id: string; version: number }) =>
       archiveRejectionReason(vars.id, { expected_version: vars.version }),
     onSuccess: () => {
-      toast.success('Rejection reason archived');
+      toast({ body: 'Rejection reason archived' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.rejectionReasons() });
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.rejectionReasons()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.rejectionReasons()),
   });
 
   return (

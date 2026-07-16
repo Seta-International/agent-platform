@@ -13,8 +13,8 @@ import {
   PageChrome,
   Skeleton,
   Textarea,
-  toast,
   useSeededItems,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission, useSession } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -77,6 +77,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
   const canSubmit = usePermission('pm.charter.submit');
   const canManageProject = usePermission('pm.project.manage');
   const { user_id: currentUserId } = useSession();
+  const toast = useToast();
 
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
@@ -108,40 +109,40 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
   const pmoMutation = useMutation({
     mutationFn: () => pmoSignOffCharter(charterId, c?.version),
     onSuccess: () => {
-      toast.success('PMO sign-off recorded — sent to BoD');
+      toast({ body: 'PMO sign-off recorded — sent to BoD' });
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const bodMutation = useMutation({
     mutationFn: () => bodApproveCharter(charterId, c?.version),
     onSuccess: (r) => {
-      toast.success('Approved — project created');
+      toast({ body: 'Approved — project created' });
       invalidate();
       void navigate({ to: '/pm/projects/$projectId', params: { projectId: r.project_id } });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const rejectMutation = useMutation({
     mutationFn: () => rejectCharter(charterId, reason, c?.version),
     onSuccess: () => {
-      toast.success('Charter rejected');
+      toast({ body: 'Charter rejected' });
       setRejecting(false);
       setReason('');
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const withdrawMutation = useMutation({
     mutationFn: () => withdrawCharter(charterId, c?.version),
     onSuccess: () => {
-      toast.success('Charter withdrawn');
+      toast({ body: 'Charter withdrawn' });
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const backLink = (

@@ -1,4 +1,4 @@
-import { Button, toast } from '@seta/shared-ui';
+import { Button, useToast } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { type RequisitionDetail, setRequisitionSkills } from '../api/hiring-client.ts';
@@ -13,6 +13,7 @@ export function SkillsTab({
   detail: RequisitionDetail;
   canManage: boolean;
 }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const id = detail.requisition.id;
   const [skills, setSkills] = useState<PickedSkill[]>(
@@ -36,10 +37,10 @@ export function SkillsTab({
         })),
       }),
     onSuccess: () => {
-      toast.success('Skills saved');
+      toast({ body: 'Skills saved' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.requisition(id) });
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisition(id)),
   });
 
   if (!canManage) {

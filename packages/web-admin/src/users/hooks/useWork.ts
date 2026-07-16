@@ -1,4 +1,4 @@
-import { toast } from '@seta/shared-ui';
+import { useToast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createWorkerAllocation,
@@ -57,6 +57,7 @@ export function useOrgUnits() {
 
 export function useWorkMutations(workerId: string) {
   const qc = useQueryClient();
+  const toast = useToast();
   // The directory list re-reads people projections; the drawer re-reads pm live.
   // Invalidate the whole work subtree plus the directory list (it carries job_title)
   // so the sheet and the table converge after any write. The table's sources
@@ -79,8 +80,8 @@ export function useWorkMutations(workerId: string) {
       expectedVersion: number;
       patch: { job_title?: string | null; org_unit_id?: string | null };
     }) => patchWorker(workerId, expectedVersion, patch),
-    onSuccess: () => toast.success('Profile updated'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Profile updated' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: invalidate,
   });
 
@@ -98,15 +99,15 @@ export function useWorkMutations(workerId: string) {
         status: 'tentative',
         date_from: body.date_from ?? localToday(),
       }),
-    onSuccess: () => toast.success('Project added'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Project added' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: invalidate,
   });
 
   const removeAllocation = useMutation({
     mutationFn: (allocationId: string) => deleteWorkerAllocation(allocationId),
-    onSuccess: () => toast.success('Project removed'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Project removed' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: invalidate,
   });
 

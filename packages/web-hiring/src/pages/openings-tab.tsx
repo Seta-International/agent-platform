@@ -1,4 +1,4 @@
-import { Badge, Button, Selector, toast } from '@seta/shared-ui';
+import { Badge, Button, Selector, useToast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -19,6 +19,7 @@ export function OpeningsTab({
   detail: RequisitionDetail;
   canManage: boolean;
 }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const id = detail.requisition.id;
   const reasons = useQuery({ queryKey: hiringKeys.closeReasons(), queryFn: fetchCloseReasons });
@@ -29,10 +30,10 @@ export function OpeningsTab({
   const add = useMutation({
     mutationFn: () => addOpening(id, {}),
     onSuccess: () => {
-      toast.success('Opening added');
+      toast({ body: 'Opening added' });
       invalidate();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisition(id)),
   });
   const close = useMutation({
     mutationFn: (vars: { openingId: string; version: number; status: 'closed' | 'cancelled' }) =>
@@ -42,10 +43,10 @@ export function OpeningsTab({
         close_reason_id: reasonByOpening[vars.openingId] || undefined,
       }),
     onSuccess: () => {
-      toast.success('Opening updated');
+      toast({ body: 'Opening updated' });
       invalidate();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisition(id)),
   });
 
   return (

@@ -12,7 +12,7 @@ import {
   PageChrome,
   Selector,
   Skeleton,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Cloud, Plus, Search } from 'lucide-react';
@@ -42,16 +42,21 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   const q = useGroupsWithCounts({ includeDeleted: status !== 'active' });
   const memberSummary = useGroupMemberSummary();
   const restoreGroup = useRestoreGroup();
+  const toast = useToast();
 
   function handleRestore(groupId: string) {
     restoreGroup.mutate(
       { group_id: groupId },
       {
         onSuccess: () => {
-          toast('Group restored');
+          toast({ body: 'Group restored' });
           void q.refetch();
         },
-        onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't restore the group."),
+        onError: (e) =>
+          toast({
+            body: e instanceof Error ? e.message : "Couldn't restore the group.",
+            type: 'error',
+          }),
       },
     );
   }

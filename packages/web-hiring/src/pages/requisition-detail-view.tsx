@@ -15,7 +15,7 @@ import {
   RichTextEditor,
   SegmentedControl,
   Selector,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -243,6 +243,7 @@ interface Props {
 }
 
 export function RequisitionDetailView({ requisitionId, variant, onClose }: Props) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const canManage = usePermission('hiring.requisition.manage');
   const canClose = usePermission('hiring.requisition.close');
@@ -295,7 +296,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   };
 
   function onError(e: Error) {
-    on409(e, queryClient, hiringKeys.requisition(requisitionId));
+    on409(toast, e, queryClient, hiringKeys.requisition(requisitionId));
   }
 
   const pause = useMutation({
@@ -304,7 +305,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         expected_version: data?.requisition.version,
       }),
     onSuccess: () => {
-      toast.success('Requisition paused');
+      toast({ body: 'Requisition paused' });
       refresh();
     },
     onError,
@@ -315,7 +316,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         expected_version: data?.requisition.version,
       }),
     onSuccess: () => {
-      toast.success('Requisition resumed');
+      toast({ body: 'Requisition resumed' });
       refresh();
     },
     onError,
@@ -401,11 +402,11 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       }
     },
     onSuccess: () => {
-      toast.success('Saved');
+      toast({ body: 'Saved' });
       setEditing(false);
       refresh();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(requisitionId)),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisition(requisitionId)),
   });
 
   function startEditing() {
@@ -454,7 +455,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   function shareJob() {
     const url = `${window.location.origin}/hiring/requisitions?selectedRequisitionId=${requisitionId}`;
     void navigator.clipboard.writeText(url);
-    toast.success('Link copied to clipboard');
+    toast({ body: 'Link copied to clipboard' });
   }
 
   if (isLoading) {

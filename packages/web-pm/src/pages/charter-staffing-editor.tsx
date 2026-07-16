@@ -9,8 +9,8 @@ import {
   type SearchableItem,
   Selector,
   Typeahead,
-  toast,
   useSeededItems,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
@@ -96,6 +96,7 @@ export function CharterStaffingEditor({
 }) {
   const queryClient = useQueryClient();
   const workerSource = useWorkerSource();
+  const toast = useToast();
 
   const allocations = useQuery({
     queryKey: pmKeys.projectAllocations(projectId),
@@ -145,14 +146,14 @@ export function CharterStaffingEditor({
       await setProjectAccess(projectId, next);
     },
     onSuccess: () => {
-      toast.success('Staffed & access granted');
+      toast({ body: 'Staffed & access granted' });
       setWorker(null);
       setRole('Developer');
       setPct(100);
       setLevel('edit');
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   // ── inline edit ──────────────────────────────────────────────────────────
@@ -179,11 +180,11 @@ export function CharterStaffingEditor({
       }
     },
     onSuccess: () => {
-      toast.success('Member updated');
+      toast({ body: 'Member updated' });
       setEditId(null);
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const remove = useMutation({
@@ -197,10 +198,10 @@ export function CharterStaffingEditor({
       }
     },
     onSuccess: () => {
-      toast.success('Member removed');
+      toast({ body: 'Member removed' });
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const rows = allocations.data ?? [];
