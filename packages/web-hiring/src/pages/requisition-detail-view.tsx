@@ -493,6 +493,9 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
   const req = data.requisition;
   const isTerminal = req.status === 'filled' || req.status === 'cancelled';
+  const isOnHold = req.status === 'on_hold';
+  const onHoldReason =
+    'This requisition is on hold — resume it from the Requisitions board to make changes.';
   // Same "on hold/terminal freezes everything" rule the board card uses — dates only move
   // while the requisition is actively open.
   const datesEditable = canManage && req.status === 'open';
@@ -732,12 +735,16 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         <div className="flex shrink-0 items-center gap-2">
           {!isTerminal && (
             <DisabledActionTooltip
-              disabled={!canManage && !canClose}
-              reason={PERMISSION_DENIED.requisition.manage}
+              disabled={(!canManage && !canClose) || isOnHold}
+              reason={!canManage && !canClose ? PERMISSION_DENIED.requisition.manage : onHoldReason}
             >
               <DropdownMenu open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="sm" disabled={!canManage && !canClose}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={(!canManage && !canClose) || isOnHold}
+                  >
                     <MoreHorizontal className="mr-1.5 size-4" />
                     More actions
                   </Button>
@@ -937,22 +944,25 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               <h2 className="mb-3 font-semibold text-ink">Quick actions</h2>
               <div className="grid grid-cols-2 gap-2">
                 <DisabledActionTooltip
-                  disabled={!canManage}
-                  reason={PERMISSION_DENIED.requisition.edit}
+                  disabled={!canManage || isOnHold}
+                  reason={!canManage ? PERMISSION_DENIED.requisition.edit : onHoldReason}
                   className="w-full"
                 >
                   <QuickAction
                     icon={<Pencil className="size-4" aria-hidden />}
                     label="Edit JD"
                     onClick={startEditing}
-                    disabled={!canManage}
+                    disabled={!canManage || isOnHold}
                   />
                 </DisabledActionTooltip>
-                <QuickAction
-                  icon={<Share2 className="size-4" aria-hidden />}
-                  label="Share Job"
-                  onClick={shareJob}
-                />
+                <DisabledActionTooltip disabled={isOnHold} reason={onHoldReason} className="w-full">
+                  <QuickAction
+                    icon={<Share2 className="size-4" aria-hidden />}
+                    label="Share Job"
+                    onClick={shareJob}
+                    disabled={isOnHold}
+                  />
+                </DisabledActionTooltip>
               </div>
             </section>
           </div>
