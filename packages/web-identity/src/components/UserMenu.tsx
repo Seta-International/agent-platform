@@ -1,21 +1,9 @@
-import {
-  Avatar,
-  AvatarFallback,
-  DropdownMenu,
-  DropdownMenuItem,
-  useThemeOptional,
-} from '@seta/shared-ui';
+import { Avatar, DropdownMenu, DropdownMenuItem, useThemeOptional } from '@seta/shared-ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Check, Monitor, Moon, Sun } from 'lucide-react';
 import { authClient } from '../auth-client.ts';
 import { useSession } from './SessionProvider.tsx';
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
-}
 
 const APPEARANCE = [
   { value: 'light', label: 'Light', Icon: Sun },
@@ -54,13 +42,7 @@ export function UserMenu({ onSignOut }: { onSignOut?: () => void } = {}) {
         label: 'Account menu',
         variant: 'ghost',
         className: 'rounded-full',
-        children: (
-          <Avatar className="size-7">
-            <AvatarFallback className="text-[11px] font-semibold">
-              {initials(session.display_name || session.email)}
-            </AvatarFallback>
-          </Avatar>
-        ),
+        children: <Avatar name={session.display_name || session.email} size={32} />,
       }}
     >
       <div className="px-2 py-1.5 text-sm">

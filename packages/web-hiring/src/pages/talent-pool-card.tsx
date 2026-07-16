@@ -1,6 +1,5 @@
 import {
   Avatar,
-  AvatarFallback,
   Badge,
   Banner,
   Button,
@@ -14,17 +13,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fetchTalentPool } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
-
-function initials(name: string): string {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase() ?? '')
-      .join('') || '?'
-  );
-}
 
 export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: string) => void }) {
   const [show, setShow] = useState(false);
@@ -73,9 +61,7 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                         className="flex items-center gap-2 text-left"
                         onClick={() => onOpenCandidate(c.candidate_id)}
                       >
-                        <Avatar className="size-8">
-                          <AvatarFallback>{initials(c.name)}</AvatarFallback>
-                        </Avatar>
+                        <Avatar name={c.name} size={32} />
                         <span>
                           <span className="block font-semibold text-ink">{c.name}</span>
                           <span className="block text-caption text-ink-muted">

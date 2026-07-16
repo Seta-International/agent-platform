@@ -1,6 +1,5 @@
 import {
   Avatar,
-  AvatarFallback,
   Badge,
   Banner,
   Button,
@@ -46,14 +45,6 @@ import {
   type WorkerPatch,
 } from '../api/people-client.ts';
 import { peopleKeys } from '../state/query-keys.ts';
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((s) => s[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
 
 function LifecycleBadge({ stage }: { stage: string | null }) {
   const variantMap: Record<string, 'neutral' | 'error'> = {
@@ -307,11 +298,7 @@ export function WorkerProfilePage() {
               header={
                 <LayoutHeader hasDivider>
                   <div className="flex items-center gap-4">
-                    <Avatar className="size-14">
-                      <AvatarFallback className="text-lg">
-                        {initials(worker.full_name)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <Avatar name={worker.full_name} size={60} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-card-title font-semibold truncate">

@@ -1,6 +1,5 @@
 import {
   Avatar,
-  AvatarFallback,
   Badge,
   Banner,
   CounterBadgePopover,
@@ -26,14 +25,6 @@ import { CreateWorkerDialog } from '../components/create-worker-dialog.tsx';
 import { PeopleCardGrid } from '../components/people-card-grid.tsx';
 import { PeopleFilterBar } from '../components/people-filter-bar.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((s) => s[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
 
 function LifecycleBadge({ stage }: { stage: string | null }) {
   const variantMap: Record<string, 'neutral' | 'error'> = {
@@ -160,9 +151,7 @@ export function PeoplePage() {
         enableSorting: true,
         cell: ({ row }: CellCtx) => (
           <div className="flex items-center gap-2.5 min-w-0">
-            <Avatar className="size-7 shrink-0">
-              <AvatarFallback>{initials(row.original.full_name)}</AvatarFallback>
-            </Avatar>
+            <Avatar name={row.original.full_name} size={32} />
             <div className="min-w-0">
               <div className="truncate font-medium">{row.original.full_name}</div>
               {row.original.job_title && (

@@ -1,7 +1,6 @@
 import type { GroupWithCountsRow } from '@seta/planner';
 import {
   Avatar,
-  AvatarFallback,
   AvatarStack,
   Badge,
   Button,
@@ -17,15 +16,6 @@ import { PERMISSION_DENIED } from '../lib/permission-messages';
 interface Props {
   groups: ReadonlyArray<GroupWithCountsRow>;
   onRestore?: (groupId: string) => void;
-}
-
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .flatMap((p) => (p ? [p.charAt(0)] : []))
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
 }
 
 export function GroupsTable({ groups, onRestore }: Props) {
@@ -90,11 +80,7 @@ export function GroupsTable({ groups, onRestore }: Props) {
 
             {/* Owner */}
             <div className="flex min-w-0 items-center gap-2 pr-4">
-              <Avatar className="size-6 shrink-0 text-[10px]">
-                <AvatarFallback>
-                  {group.owner_display_name ? initialsOf(group.owner_display_name) : '—'}
-                </AvatarFallback>
-              </Avatar>
+              <Avatar name={group.owner_display_name ?? undefined} size={24} />
               <span className="truncate text-xs text-ink-subtle">
                 {group.owner_display_name ?? '—'}
               </span>

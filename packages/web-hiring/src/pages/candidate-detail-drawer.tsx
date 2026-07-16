@@ -1,6 +1,5 @@
 import {
   Avatar,
-  AvatarFallback,
   Badge,
   Button,
   Dialog,
@@ -24,7 +23,6 @@ import {
   MoreHorizontal,
   Phone,
   RefreshCw,
-  User,
   VenusAndMars,
   X,
 } from 'lucide-react';
@@ -216,11 +214,7 @@ export function CandidateDetailDrawer({
                 <>
                   <div className="flex items-start justify-between gap-4 border-b border-hairline px-6 py-5">
                     <div className="flex items-start gap-3">
-                      <Avatar className="size-14">
-                        <AvatarFallback>
-                          <User className="size-6" />
-                        </AvatarFallback>
-                      </Avatar>
+                      <Avatar name={data.candidate.name} size={60} />
                       <div>
                         <div className="text-card-title font-semibold text-ink">
                           {data.candidate.name}

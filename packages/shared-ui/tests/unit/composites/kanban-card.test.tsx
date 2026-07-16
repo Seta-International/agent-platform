@@ -24,7 +24,7 @@ describe('KanbanCard', () => {
     expect(screen.getByRole('img', { name: 'Urgent priority' })).toBeInTheDocument();
     expect(screen.getByText('2d')).toBeInTheDocument();
     expect(screen.getByText('api')).toBeInTheDocument();
-    expect(screen.getByTitle('Jane Doe')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Jane Doe' })).toBeInTheDocument();
   });
 
   it('applies kanban-card--recently-moved class when recentlyMoved is true', () => {
