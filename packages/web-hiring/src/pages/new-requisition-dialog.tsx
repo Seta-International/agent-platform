@@ -19,7 +19,7 @@ import {
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   fetchAccounts,
   fetchProjects,
@@ -67,14 +67,12 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const missingRequired = !title.trim() || isRichTextEmpty(jd.about);
-  const requiredError =
-    submitAttempted && missingRequired
-      ? !title.trim() && isRichTextEmpty(jd.about)
-        ? 'Job title and About the role are required.'
-        : !title.trim()
-          ? 'Job title is required.'
-          : 'About the role is required.'
-      : null;
+  // Required-field feedback is the field itself: red border + scroll-to on Create,
+  // no separate warning text. Typing clears the highlight because these derive live.
+  const titleInvalid = submitAttempted && !title.trim();
+  const aboutInvalid = submitAttempted && isRichTextEmpty(jd.about);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const aboutRef = useRef<HTMLDivElement>(null);
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -153,7 +151,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || dateError) return;
+    if (missingRequired) {
+      const target = !title.trim() ? titleRef.current : aboutRef.current;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (!title.trim()) titleRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    if (dateError) return;
     mutation.mutate();
   }
 
@@ -188,10 +192,16 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                 <Label htmlFor="new-req-title">Job title *</Label>
                 <Input
                   id="new-req-title"
+                  ref={titleRef}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Senior Backend Engineer"
+                  aria-invalid={titleInvalid}
+                  className={titleInvalid ? '!border-danger' : undefined}
                 />
+                {titleInvalid && (
+                  <p className="text-caption text-danger-ink">Job title is required.</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -329,7 +339,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               </div>
 
               {SECTIONS.map((s) => (
-                <div key={s.key}>
+                <div key={s.key} ref={s.key === 'about' ? aboutRef : undefined}>
                   <div
                     className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
                   >
@@ -338,12 +348,16 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                   <RichTextEditor
                     value={jd[s.key]}
                     onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
+                    className={s.key === 'about' && aboutInvalid ? '!border-danger' : undefined}
                     placeholder={
                       s.key === 'about'
                         ? 'Write the about section…'
                         : `Write the ${s.label.toLowerCase()}…`
                     }
                   />
+                  {s.key === 'about' && aboutInvalid && (
+                    <p className="mt-1 text-caption text-danger-ink">About the role is required.</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -354,16 +368,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-body-sm text-danger-ink">{requiredError}</p>
-              <div className="flex shrink-0 gap-2">
-                <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
-                  Cancel
-                </Button>
-                <Button onClick={submit} disabled={mutation.isPending}>
-                  {mutation.isPending ? 'Creating…' : 'Create'}
-                </Button>
-              </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
+                Cancel
+              </Button>
+              <Button onClick={submit} disabled={mutation.isPending}>
+                {mutation.isPending ? 'Creating…' : 'Create'}
+              </Button>
             </div>
           </footer>
         </div>

@@ -19,7 +19,9 @@ export function RequisitionDetailDialog({ requisitionId, onClose }: Props) {
         hideClose
         unstyled
         onOpenAutoFocus={(e) => e.preventDefault()}
-        className="w-[min(1100px,94vw)]"
+        // Edit mode mirrors the New-requisition dialog exactly (FUT-404), including its
+        // 760px panel — the view flags editing via data-req-editing and :has() shrinks it.
+        className="w-[min(1100px,94vw)] has-[[data-req-editing]]:w-[min(760px,94vw)]"
       >
         <DialogTitle className="sr-only">Job description</DialogTitle>
         {/*

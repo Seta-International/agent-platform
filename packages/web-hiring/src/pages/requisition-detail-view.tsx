@@ -5,7 +5,6 @@ import {
   AvatarFallback,
   Badge,
   Button,
-  Calendar as DayPickerCalendar,
   DisabledActionTooltip,
   DropdownMenu,
   DropdownMenuContent,
@@ -14,9 +13,6 @@ import {
   EmptyState,
   Input,
   Label,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   RichTextDisplay,
   RichTextEditor,
   SegmentedControl,
@@ -30,7 +26,7 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar as CalendarIcon, MoreHorizontal, Pencil, Share2, X } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import {
   editRequisition,
   fetchAccounts,
@@ -110,15 +106,6 @@ const APPLICANT_STATUS_LABEL: Record<string, string> = {
   cancelled: 'Cancelled',
 };
 
-// The `date` column (and editRequisition's patch) wants a plain 'YYYY-MM-DD' string —
-// toISOString() shifts by the local UTC offset and can silently land on the wrong day.
-function toDateInputValue(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
 function daysSince(dateStr: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000));
 }
@@ -177,12 +164,16 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// Same native date input as the New/Update requisition forms — one calendar experience
+// everywhere instead of a separate popover picker here.
 function DateField({
   label,
   value,
   editable,
   canManage,
   onChange,
+  min,
+  max,
   extra,
 }: {
   label: string;
@@ -190,13 +181,14 @@ function DateField({
   editable: boolean;
   canManage: boolean;
   onChange: (value: string) => void;
+  min?: string;
+  max?: string;
   extra?: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
   return (
     <div className="flex items-start gap-3">
       <CalendarIcon className="mt-0.5 size-4 shrink-0 text-ink-subtle" aria-hidden />
-      <div>
+      <div className="min-w-0 flex-1">
         <div className="text-caption text-ink-muted">{label}</div>
         <DisabledActionTooltip
           disabled={!editable}
@@ -207,28 +199,16 @@ function DateField({
           }
         >
           {editable ? (
-            <Popover open={open} onOpenChange={setOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="text-body-sm font-medium text-ink underline decoration-dotted underline-offset-4 hover:text-primary"
-                >
-                  {value ? formatDate(value) : 'Set date'}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <DayPickerCalendar
-                  mode="single"
-                  selected={value ? new Date(value) : undefined}
-                  onSelect={(date) => {
-                    if (!date) return;
-                    onChange(toDateInputValue(date));
-                    setOpen(false);
-                  }}
-                  className="w-[280px] p-3"
-                />
-              </PopoverContent>
-            </Popover>
+            <Input
+              type="date"
+              aria-label={label}
+              value={value ?? ''}
+              min={min}
+              max={max}
+              className="mt-0.5"
+              // Clearing the native input emits '' — keep the stored date instead of wiping it.
+              onChange={(e) => e.target.value && onChange(e.target.value)}
+            />
           ) : (
             <span className="text-body-sm font-medium text-ink">
               {value ? formatDate(value) : '—'}
@@ -301,14 +281,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
   const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
   const missingRequired = !title.trim() || isRichTextEmpty(sections.about);
-  const requiredError =
-    submitAttempted && missingRequired
-      ? !title.trim() && isRichTextEmpty(sections.about)
-        ? 'Job title and About the role are required.'
-        : !title.trim()
-          ? 'Job title is required.'
-          : 'About the role is required.'
-      : null;
+  // Same required-field feedback as NewRequisitionDialog: red border + scroll-to on
+  // Update, no warning text; the highlight clears live as the user types.
+  const titleInvalid = submitAttempted && !title.trim();
+  const aboutInvalid = submitAttempted && isRichTextEmpty(sections.about);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const aboutRef = useRef<HTMLDivElement>(null);
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -471,7 +449,13 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
   function submitEdit() {
     setSubmitAttempted(true);
-    if (missingRequired || dateError) return;
+    if (missingRequired) {
+      const target = !title.trim() ? titleRef.current : aboutRef.current;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (!title.trim()) titleRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    if (dateError) return;
     save.mutate();
   }
 
@@ -545,36 +529,32 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const hasAnyDetail = data.skills.length > 0 || hasJdContent;
 
   if (editing) {
+    // Same chrome as NewRequisitionDialog (FUT-404): title-only header, form column,
+    // footer actions bottom-right. data-req-editing lets the modal wrapper narrow the
+    // panel to the New-requisition width.
     return (
       <div
+        data-req-editing=""
         className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
-          <div className="min-w-0">
-            <h1 className="truncate text-section-title font-semibold text-ink">{title}</h1>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1.5">
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={cancelEditing}
-                disabled={save.isPending}
-              >
-                Cancel
-              </Button>
-              <Button size="sm" onClick={submitEdit} disabled={save.isPending}>
-                {save.isPending ? 'Updating…' : 'Update'}
-              </Button>
-            </div>
-            {requiredError && <p className="text-caption text-danger-ink">{requiredError}</p>}
-          </div>
+        <header className="border-b border-hairline bg-canvas px-6 py-3">
+          <h1 className="truncate text-section-title font-semibold text-ink">{title}</h1>
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
+          <div className="mx-auto w-full max-w-[760px] space-y-5 px-6 pb-5 pt-3">
             <div className="space-y-1">
               <Label htmlFor="jd-title">Job title *</Label>
-              <Input id="jd-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Input
+                id="jd-title"
+                ref={titleRef}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                aria-invalid={titleInvalid}
+                className={titleInvalid ? '!border-danger' : undefined}
+              />
+              {titleInvalid && (
+                <p className="text-caption text-danger-ink">Job title is required.</p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -700,7 +680,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             </div>
 
             {SECTIONS.map((s) => (
-              <div key={s.key}>
+              <div key={s.key} ref={s.key === 'about' ? aboutRef : undefined}>
                 <div
                   className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
                 >
@@ -709,16 +689,30 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 <RichTextEditor
                   value={sections[s.key]}
                   onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
+                  className={s.key === 'about' && aboutInvalid ? '!border-danger' : undefined}
                   placeholder={
                     s.key === 'about'
                       ? 'Write the about section…'
                       : `Write the ${s.label.toLowerCase()}…`
                   }
                 />
+                {s.key === 'about' && aboutInvalid && (
+                  <p className="mt-1 text-caption text-danger-ink">About the role is required.</p>
+                )}
               </div>
             ))}
           </div>
         </div>
+        <footer className="border-t border-hairline bg-canvas px-6 py-3">
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="secondary" onClick={cancelEditing} disabled={save.isPending}>
+              Cancel
+            </Button>
+            <Button onClick={submitEdit} disabled={save.isPending}>
+              {save.isPending ? 'Updating…' : 'Update'}
+            </Button>
+          </div>
+        </footer>
       </div>
     );
   }
@@ -916,6 +910,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   value={req.start_date}
                   editable={datesEditable}
                   canManage={canManage}
+                  max={req.due_date ?? undefined}
                   onChange={(start_date) => setDate.mutate({ start_date })}
                 />
                 <DateField
@@ -923,6 +918,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   value={req.due_date}
                   editable={datesEditable}
                   canManage={canManage}
+                  min={req.start_date ?? undefined}
                   onChange={(due_date) => setDate.mutate({ due_date })}
                   extra={
                     req.due_date && (
