@@ -2,6 +2,7 @@ import { type Runner, run, type Task, type TaskList } from 'graphile-worker';
 import type { Pool } from 'pg';
 import { captureException } from '../../composition/error-capture.ts';
 import { subscriptionDlqAlerter } from './dlq-alerter.ts';
+import { graphileWorkerLogger, type WorkerLogger } from './logger.ts';
 import { partitionManagerTick } from './partition-manager.ts';
 import { retentionTick } from './retention.ts';
 
@@ -21,7 +22,7 @@ export interface StartWorkerPoolOpts {
   jobs?: TaskList;
   crontab?: string;
   extraCrontab?: string;
-  log?: import('./dlq-alerter.ts').DlqAlerterLogger;
+  log?: WorkerLogger;
 }
 
 export interface WorkerHandle {
@@ -67,6 +68,7 @@ export async function startWorkerPool(opts: StartWorkerPoolOpts): Promise<Worker
     taskList,
     crontab,
     concurrency: 5,
+    ...(opts.log ? { logger: graphileWorkerLogger(opts.log) } : {}),
   });
 
   return {

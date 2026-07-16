@@ -92,6 +92,7 @@ const rt = buildRuntime(
   {
     reg,
     pool: getPool('worker'),
+    log: log.child({ subsystem: 'core.runtime' }),
     buildServerApp: () => {
       throw new Error('apps/worker does not build a server app');
     },
