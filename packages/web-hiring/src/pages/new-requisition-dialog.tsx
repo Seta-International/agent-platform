@@ -13,7 +13,7 @@ import {
   RichTextEditor,
   SegmentedControl,
   Selector,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -40,6 +40,7 @@ const SECTIONS: { key: JdSectionKey; label: string }[] = [
 ];
 
 export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -144,7 +145,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
       });
     },
     onSuccess: () => {
-      toast.success('Requisition created');
+      toast({ body: 'Requisition created' });
       void queryClient.invalidateQueries({
         queryKey: hiringKeys.requisitions(),
       });

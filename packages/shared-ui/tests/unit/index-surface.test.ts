@@ -33,7 +33,7 @@ const REQUIRED = [
   'ThemeProvider',
   'ThemeToggle',
   'TimeInput',
-  'Toaster',
+  'ToastViewport',
   'Tokenizer',
   'Tooltip',
   'Typeahead',
@@ -43,6 +43,7 @@ const REQUIRED = [
   'useSeededItem',
   'useSeededItems',
   'useTheme',
+  'useToast',
 ];
 
 describe('@seta/shared-ui public surface', () => {

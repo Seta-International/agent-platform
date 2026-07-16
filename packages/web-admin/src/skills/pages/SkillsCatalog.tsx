@@ -8,7 +8,7 @@ import {
   Input,
   PageChrome,
   Skeleton,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -35,6 +35,7 @@ function isConflict(e: unknown): boolean {
 
 export function SkillsCatalog() {
   const qc = useQueryClient();
+  const toast = useToast();
   const canManage = usePermission('core.skill.manage');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -82,7 +83,7 @@ export function SkillsCatalog() {
       setSelectedId(res.id);
       invalidateCats();
     },
-    onError: (e) => toast.error((e as Error).message),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
   });
 
   const renameCatMut = useMutation({
@@ -90,9 +91,10 @@ export function SkillsCatalog() {
       updateCategory(v.id, { name: v.name, expected_version: v.version }),
     onSuccess: invalidateCats,
     onError: (e) => {
-      toast.error(
-        isConflict(e) ? 'This category changed elsewhere. Refreshing…' : (e as Error).message,
-      );
+      toast({
+        body: isConflict(e) ? 'This category changed elsewhere. Refreshing…' : (e as Error).message,
+        type: 'error',
+      });
       invalidateCats();
     },
   });
@@ -104,9 +106,10 @@ export function SkillsCatalog() {
       invalidateCats();
     },
     onError: (e) => {
-      toast.error(
-        isConflict(e) ? 'This category changed elsewhere. Refreshing…' : (e as Error).message,
-      );
+      toast({
+        body: isConflict(e) ? 'This category changed elsewhere. Refreshing…' : (e as Error).message,
+        type: 'error',
+      });
       invalidateCats();
     },
   });
@@ -117,7 +120,7 @@ export function SkillsCatalog() {
       setNewSkillName('');
       invalidateSkills();
     },
-    onError: (e) => toast.error((e as Error).message),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
   });
 
   const renameSkillMut = useMutation({
@@ -125,9 +128,10 @@ export function SkillsCatalog() {
       updateSkill(v.id, { name: v.name, expected_version: v.version }),
     onSuccess: invalidateSkills,
     onError: (e) => {
-      toast.error(
-        isConflict(e) ? 'This skill changed elsewhere. Refreshing…' : (e as Error).message,
-      );
+      toast({
+        body: isConflict(e) ? 'This skill changed elsewhere. Refreshing…' : (e as Error).message,
+        type: 'error',
+      });
       invalidateSkills();
     },
   });
@@ -136,9 +140,10 @@ export function SkillsCatalog() {
     mutationFn: (v: { id: string; version: number }) => archiveSkill(v.id, v.version),
     onSuccess: invalidateSkills,
     onError: (e) => {
-      toast.error(
-        isConflict(e) ? 'This skill changed elsewhere. Refreshing…' : (e as Error).message,
-      );
+      toast({
+        body: isConflict(e) ? 'This skill changed elsewhere. Refreshing…' : (e as Error).message,
+        type: 'error',
+      });
       invalidateSkills();
     },
   });

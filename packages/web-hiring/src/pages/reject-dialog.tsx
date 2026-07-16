@@ -8,7 +8,7 @@ import {
   LayoutFooter,
   Selector,
   Textarea,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -29,6 +29,7 @@ export function RejectDialog({
   onOpenChange: (v: boolean) => void;
   onDone: () => void;
 }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [reasonId, setReasonId] = useState('');
   const [tags, setTags] = useState('');
@@ -53,12 +54,12 @@ export function RejectDialog({
         note: note.trim() || undefined,
       }),
     onSuccess: () => {
-      toast.success('Candidate rejected');
+      toast({ body: 'Candidate rejected' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
       onOpenChange(false);
       onDone();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.candidates()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.candidates()),
   });
 
   return (

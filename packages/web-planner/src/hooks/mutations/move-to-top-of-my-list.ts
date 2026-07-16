@@ -1,5 +1,5 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { toast } from '@seta/shared-ui';
+import { useToast } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { generateKeyBetween } from 'fractional-indexing';
 import { plannerClient } from '../../api/planner-client';
@@ -21,6 +21,7 @@ function lowestHint(tasks: readonly TaskWithAssigneesRow[]): string | null {
 
 export function useMoveToTopOfMyList() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: (v: MoveToTopVars) => {
       const cached = qc.getQueryData<TaskWithAssigneesRow[]>(plannerKeys.myAssigned()) ?? [];
@@ -30,11 +31,11 @@ export function useMoveToTopOfMyList() {
     onSuccess: (_data, v) => {
       qc.invalidateQueries({ queryKey: plannerKeys.myAssigned() });
       qc.invalidateQueries({ queryKey: plannerKeys.task(v.task_id) });
-      toast.success('Moved to top of your list.');
+      toast({ body: 'Moved to top of your list.' });
     },
     onError: (err) => {
       const message = err instanceof Error ? err.message : 'Could not move task to top.';
-      toast.error(message);
+      toast({ body: message, type: 'error' });
     },
   });
 }

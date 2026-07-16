@@ -6,7 +6,7 @@ import {
   LayoutContent,
   LayoutFooter,
   Selector,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -29,6 +29,7 @@ export function TransferDialog({
   onOpenChange: (v: boolean) => void;
   onDone: () => void;
 }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [targetId, setTargetId] = useState('');
 
@@ -48,12 +49,12 @@ export function TransferDialog({
         target_requisition_id: effectiveTarget,
       }),
     onSuccess: () => {
-      toast.success('Candidate moved');
+      toast({ body: 'Candidate moved' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
       onOpenChange(false);
       onDone();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.candidates()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.candidates()),
   });
 
   return (

@@ -12,7 +12,7 @@ import {
   LayoutFooter,
   SegmentedControl,
   Textarea,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -158,6 +158,7 @@ function EditGroupFields({
 export function EditGroupDialog({ group, open, onOpenChange }: EditGroupDialogProps) {
   const updateGroup = useUpdateGroup(group.id);
   const canUpdateGroup = usePermission('planner.group.update');
+  const toast = useToast();
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description ?? '');
   const [theme, setTheme] = useState<GroupTheme>(group.theme);
@@ -218,7 +219,7 @@ export function EditGroupDialog({ group, open, onOpenChange }: EditGroupDialogPr
       },
       {
         onSuccess: () => {
-          toast('Group updated');
+          toast({ body: 'Group updated' });
           onOpenChange(false);
         },
         onError: (e) => setError(e instanceof Error ? e.message : "Couldn't update the group."),

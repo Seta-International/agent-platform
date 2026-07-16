@@ -1,5 +1,5 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { Button, DisabledActionTooltip, toast } from '@seta/shared-ui';
+import { Button, DisabledActionTooltip, useToast } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useEffect, useMemo, useState } from 'react';
 import { GridSkeleton } from '../components/board-skeleton';
@@ -64,6 +64,7 @@ export function PlanCalendarPage({
   onOpenTask,
   onSwitchToBoard,
 }: PlanCalendarPageProps) {
+  const toast = useToast();
   const hasRange = calFrom !== undefined && calTo !== undefined;
   useEffect(() => {
     if (!hasRange) {
@@ -144,7 +145,7 @@ export function PlanCalendarPage({
       });
     } catch {
       revert();
-      toast.error('Failed to reschedule task. Please try again.');
+      toast({ body: 'Failed to reschedule task. Please try again.', type: 'error' });
     }
   }
 

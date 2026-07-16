@@ -1,5 +1,5 @@
 import type { BucketRow, TaskWithAssigneesRow } from '@seta/planner';
-import { toast } from '@seta/shared-ui';
+import type { ShowToastFn } from '@seta/shared-ui';
 import type { QueryClient } from '@tanstack/react-query';
 import { plannerKeys } from './query-keys';
 import { isOwnEcho } from './recent-mutation-event-ids';
@@ -48,7 +48,7 @@ function payloadField(p: Record<string, unknown>, field: string): string | undef
 const tasksKey = (planId: string) => plannerKeys.planTasks(planId, { plan_id: planId });
 const bucketsKey = (planId: string) => [...plannerKeys.plan(planId), 'buckets'] as const;
 
-export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
+export function applyPlannerEvent(qc: QueryClient, event: StreamEvent, toast: ShowToastFn): void {
   if (isOwnEcho(event.id)) return;
 
   if (event.eventType.startsWith('planner.task.')) {
@@ -412,9 +412,9 @@ export function applyPlannerEvent(qc: QueryClient, event: StreamEvent): void {
         const count = skippedCounters[planId] ?? 0;
         if (count > 0) {
           const noun = count === 1 ? 'user' : 'users';
-          toast(
-            `Synced — ${count} Microsoft 365 ${noun} skipped. Ask an admin to add them here. (Settings → Users)`,
-          );
+          toast({
+            body: `Synced — ${count} Microsoft 365 ${noun} skipped. Ask an admin to add them here. (Settings → Users)`,
+          });
           skippedCounters[planId] = 0;
         }
       }

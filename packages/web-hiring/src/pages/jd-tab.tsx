@@ -1,4 +1,4 @@
-import { Button, RichTextEditor, SegmentedControl, Selector, toast } from '@seta/shared-ui';
+import { Button, RichTextEditor, SegmentedControl, Selector, useToast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -25,6 +25,7 @@ function emptyGrid(): Grid {
 }
 
 export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canManage: boolean }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const id = detail.requisition.id;
   const initial = useMemo(() => {
@@ -51,10 +52,10 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
       return setRequisitionJd(id, { expected_version: detail.requisition.version, sections });
     },
     onSuccess: () => {
-      toast.success('Job description saved');
+      toast({ body: 'Job description saved' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.requisition(id) });
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisition(id)),
   });
 
   function applyTemplate(templateId: string) {
@@ -65,7 +66,7 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
       for (const s of t.sections) next[s.variant][s.section] = s.body;
       return next;
     });
-    toast.success('Template applied — review and save');
+    toast({ body: 'Template applied — review and save' });
   }
 
   return (

@@ -13,7 +13,7 @@ import {
   LayoutFooter,
   Selector,
   Textarea,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, X } from 'lucide-react';
@@ -35,6 +35,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9()\-.\s]{7,20}$/;
 
 export function NewCandidateDialog() {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const skillsId = useId();
   const [open, setOpen] = useState(false);
@@ -141,9 +142,9 @@ export function NewCandidateDialog() {
         return [...prev, ...draft.skills.filter((s) => !have.has(s.skill_id))];
       });
       setSuggestions(draft.skill_suggestions);
-      toast.success('CV parsed — review the pre-filled fields before saving');
+      toast({ body: 'CV parsed — review the pre-filled fields before saving' });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const mutation = useMutation({
@@ -182,8 +183,8 @@ export function NewCandidateDialog() {
       return { cvWarning };
     },
     onSuccess: ({ cvWarning }) => {
-      toast.success('Candidate added');
-      if (cvWarning) toast.error(cvWarning);
+      toast({ body: 'Candidate added' });
+      if (cvWarning) toast({ body: cvWarning, type: 'error' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
       close();
     },

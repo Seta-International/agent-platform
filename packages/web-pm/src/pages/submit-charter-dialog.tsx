@@ -13,7 +13,7 @@ import {
   Selector,
   Textarea,
   Typeahead,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -58,6 +58,7 @@ const EMPTY: FormState = {
 };
 
 export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +92,7 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
       return submitCharter(body);
     },
     onSuccess: () => {
-      toast.success('Charter submitted');
+      toast({ body: 'Charter submitted' });
       onCreated();
       setOpen(false);
       setForm(EMPTY);

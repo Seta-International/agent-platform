@@ -10,7 +10,7 @@ import {
   Layout,
   LayoutContent,
   LayoutFooter,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
@@ -44,6 +44,7 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
   const debouncedSearch = useDebounced(search, 200);
   const addMembers = useAddGroupMembers(groupId);
   const qc = useQueryClient();
+  const toast = useToast();
 
   const candidatesQuery = useQuery({
     queryKey: plannerKeys.groupMemberCandidates(groupId, debouncedSearch),
@@ -73,7 +74,7 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
       {
         onSuccess: (result) => {
           if (result.status === 202) {
-            toast('Adding members in the background — the list will update in a moment.');
+            toast({ body: 'Adding members in the background — the list will update in a moment.' });
             setTimeout(() => {
               void qc.refetchQueries({ queryKey: plannerKeys.groupMembers(groupId) });
             }, 3000);

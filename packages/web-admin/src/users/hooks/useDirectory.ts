@@ -1,4 +1,4 @@
-import { toast } from '@seta/shared-ui';
+import { useToast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   type BulkRoleBody,
@@ -21,36 +21,40 @@ export function useDirectory(params: DirectoryFilters = {}) {
 
 export function useProvision() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: (personId: string) => provisionAccount(personId),
-    onSuccess: () => toast.success('Account provisioned'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Account provisioned' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: () => qc.invalidateQueries({ queryKey: directoryKeys.all }),
   });
 }
 
 export function useSuspend() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: (userId: string) => suspendAccount(userId),
-    onSuccess: () => toast.success('Account suspended'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Account suspended' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: () => qc.invalidateQueries({ queryKey: directoryKeys.all }),
   });
 }
 
 export function useReactivate() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: (userId: string) => reactivateAccount(userId),
-    onSuccess: () => toast.success('Account reactivated'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Account reactivated' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: () => qc.invalidateQueries({ queryKey: directoryKeys.all }),
   });
 }
 
 export function useBulkRole() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: (body: BulkRoleBody) => bulkRole(body),
     onSuccess: (result: BulkRoleResult) => {
@@ -58,9 +62,9 @@ export function useBulkRole() {
       const parts: string[] = [`${changed} updated`];
       if (result.skipped > 0) parts.push(`${result.skipped} skipped`);
       if (result.failed.length > 0) parts.push(`${result.failed.length} failed`);
-      toast.success(parts.join(', '));
+      toast({ body: parts.join(', ') });
     },
-    onError: (e) => toast.error((e as Error).message),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: () => qc.invalidateQueries({ queryKey: directoryKeys.all }),
   });
 }

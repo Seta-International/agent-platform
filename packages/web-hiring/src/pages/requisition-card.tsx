@@ -3,7 +3,7 @@ import {
   DisabledActionTooltip,
   DropdownMenu,
   DropdownMenuItem,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -49,19 +49,20 @@ export function RequisitionCard({
   onRequestMarkFilled: () => void;
   onRequestCancel: () => void;
 }) {
+  const toast = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const invalidate = () =>
     void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
 
   function onError(e: Error) {
-    on409(e, queryClient, hiringKeys.requisitions());
+    on409(toast, e, queryClient, hiringKeys.requisitions());
   }
 
   const pause = useMutation({
     mutationFn: () => holdRequisition(r.id, { expected_version: r.version }),
     onSuccess: () => {
-      toast.success('Requisition paused');
+      toast({ body: 'Requisition paused' });
       invalidate();
     },
     onError,
@@ -69,7 +70,7 @@ export function RequisitionCard({
   const resume = useMutation({
     mutationFn: () => resumeRequisition(r.id, { expected_version: r.version }),
     onSuccess: () => {
-      toast.success('Requisition resumed');
+      toast({ body: 'Requisition resumed' });
       invalidate();
     },
     onError,

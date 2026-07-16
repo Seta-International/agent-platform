@@ -1,4 +1,4 @@
-import { toast } from '@seta/shared-ui';
+import { useToast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   addMembers,
@@ -30,27 +30,30 @@ export function useGroupsQuery() {
 
 export function useUpdateGroup() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: ({ id, name, description }: { id: string; name?: string; description?: string }) =>
       updateGroup(id, { name, description }),
-    onSuccess: () => toast.success('Group updated'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Group updated' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: () => qc.invalidateQueries({ queryKey: groupKeys.all }),
   });
 }
 
 export function useDeleteGroup() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: (id: string) => deleteGroup(id),
-    onSuccess: () => toast.success('Group deleted'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Group deleted' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: () => qc.invalidateQueries({ queryKey: groupKeys.all }),
   });
 }
 
 export function useCreateGroup() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: (body: {
       slug: string;
@@ -59,36 +62,38 @@ export function useCreateGroup() {
       kind?: 'default' | 'custom';
       is_base?: boolean;
     }) => createGroup(body),
-    onSuccess: () => toast.success('Group created'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Group created' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: () => qc.invalidateQueries({ queryKey: groupKeys.all }),
   });
 }
 
 export function useSetGroupRoles() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: ({ id, roles }: { id: string; roles: GroupRole[] }) => setGroupRoles(id, roles),
-    onSuccess: () => toast.success('Roles updated'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Roles updated' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: () => qc.invalidateQueries({ queryKey: groupKeys.all }),
   });
 }
 
 export function useGroupMembersMutations() {
   const qc = useQueryClient();
+  const toast = useToast();
 
   const add = useMutation({
     mutationFn: ({ id, user_ids }: { id: string; user_ids: string[] }) => addMembers(id, user_ids),
-    onSuccess: () => toast.success('Members added'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Members added' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: () => qc.invalidateQueries({ queryKey: groupKeys.all }),
   });
 
   const remove = useMutation({
     mutationFn: ({ id, userId }: { id: string; userId: string }) => removeMember(id, userId),
-    onSuccess: () => toast.success('Member removed'),
-    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => toast({ body: 'Member removed' }),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
     onSettled: (_data, _err, vars) => {
       void qc.invalidateQueries({ queryKey: groupKeys.all });
       void qc.invalidateQueries({ queryKey: groupKeys.userGroups(vars.userId) });

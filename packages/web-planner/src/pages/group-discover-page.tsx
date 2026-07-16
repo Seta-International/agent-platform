@@ -1,4 +1,4 @@
-import { Badge, Button, Input, PageChrome, Skeleton, toast } from '@seta/shared-ui';
+import { Badge, Button, Input, PageChrome, Skeleton, useToast } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Search } from 'lucide-react';
@@ -9,6 +9,7 @@ export function GroupDiscoverPage() {
   const [q, setQ] = useState('');
   const [submittedQ, setSubmittedQ] = useState('');
   const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
+  const toast = useToast();
 
   const searchQuery = useQuery({
     queryKey: ['planner', 'groups', 'discover', submittedQ],
@@ -20,10 +21,13 @@ export function GroupDiscoverPage() {
     mutationFn: (groupId: string) => createJoinRequest(groupId),
     onSuccess: (_data, groupId) => {
       setRequestedIds((prev) => new Set(prev).add(groupId));
-      toast('Request sent');
+      toast({ body: 'Request sent' });
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : "Couldn't send the join request.");
+      toast({
+        body: err instanceof Error ? err.message : "Couldn't send the join request.",
+        type: 'error',
+      });
     },
   });
 

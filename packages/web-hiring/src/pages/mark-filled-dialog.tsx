@@ -1,4 +1,4 @@
-import { AlertDialog, toast } from '@seta/shared-ui';
+import { AlertDialog, useToast } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { closeRequisition } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
@@ -17,17 +17,18 @@ export function MarkFilledDialog({
   onOpenChange: (v: boolean) => void;
   onDone: () => void;
 }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: () =>
       closeRequisition(requisitionId, { expected_version: version, status: 'filled' }),
     onSuccess: () => {
-      toast.success('Requisition marked as filled');
+      toast({ body: 'Requisition marked as filled' });
       onOpenChange(false);
       onDone();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisitions()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisitions()),
   });
 
   return (
