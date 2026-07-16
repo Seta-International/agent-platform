@@ -2,6 +2,7 @@ import {
   Calendar as AstryxCalendar,
   type CalendarProps as AstryxCalendarProps,
 } from '@astryxdesign/core/Calendar';
+import type { Ref } from 'react';
 
 // Astryx types dates as a branded `ISODateString` template-literal type (and range values as
 // `DateRange` of the same). Widen to plain `string` here, at the one file allowed to import
@@ -10,10 +11,18 @@ import {
 type AstryxRangeProps = Extract<AstryxCalendarProps, { mode: 'range' }>;
 type AstryxSingleProps = Exclude<AstryxCalendarProps, AstryxRangeProps>;
 
-type WidenShared<T> = Omit<T, 'min' | 'max' | 'focusDate'> & {
+// `navigateTo` takes the brand in an *input* position too, so the handle is widened
+// alongside the props — otherwise the one boundary this file exists to seal has a hole.
+export interface CalendarHandle {
+  /** Navigate the calendar to show the month containing the given 'YYYY-MM-DD' date. */
+  navigateTo: (date: string) => void;
+}
+
+type WidenShared<T> = Omit<T, 'min' | 'max' | 'focusDate' | 'handleRef'> & {
   min?: string;
   max?: string;
   focusDate?: string;
+  handleRef?: Ref<CalendarHandle>;
 };
 
 export type CalendarProps =
@@ -29,5 +38,3 @@ export type CalendarProps =
 export function Calendar(props: CalendarProps) {
   return <AstryxCalendar {...(props as AstryxCalendarProps)} />;
 }
-
-export type { CalendarHandle } from '@astryxdesign/core/Calendar';
