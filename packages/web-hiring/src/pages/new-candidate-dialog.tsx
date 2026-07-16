@@ -322,7 +322,9 @@ export function NewCandidateDialog() {
                   />
                 </div>
                 <Field label="Skills" inputID={skillsId} labelID={skillsId} isGroupLabel>
-                  <SkillPicker value={skills} onChange={setSkills} />
+                  <fieldset aria-labelledby={skillsId}>
+                    <SkillPicker value={skills} onChange={setSkills} />
+                  </fieldset>
                 </Field>
                 <Textarea label="Notes" value={note} onChange={(value) => setNote(value)} />
                 {suggestions.length > 0 && (

@@ -1,8 +1,2 @@
-export type {
-  TabListProps,
-  TabListSize,
-  TabMenuOption,
-  TabMenuProps,
-  TabProps,
-} from '@astryxdesign/core/TabList';
-export { Tab, TabList, TabMenu } from '@astryxdesign/core/TabList';
+export type { TabListProps, TabListSize, TabProps } from '@astryxdesign/core/TabList';
+export { Tab, TabList } from '@astryxdesign/core/TabList';

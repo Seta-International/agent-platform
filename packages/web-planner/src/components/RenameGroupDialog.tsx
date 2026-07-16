@@ -125,9 +125,9 @@ function EditGroupFields({
         </fieldset>
       </Field>
 
-      <Field label="Visibility" inputID={visibilityId} isGroupLabel>
+      <Field label="Visibility" inputID={visibilityId} labelID={visibilityId} isGroupLabel>
         <SegmentedControl
-          aria-label="Visibility"
+          aria-labelledby={visibilityId}
           value={visibility}
           onValueChange={(v) => onVisibilityChange(v as GroupVisibility)}
           options={VISIBILITY_OPTIONS}
@@ -135,9 +135,14 @@ function EditGroupFields({
         />
       </Field>
 
-      <Field label="Default role for new members" inputID={defaultRoleId} isGroupLabel>
+      <Field
+        label="Default role for new members"
+        inputID={defaultRoleId}
+        labelID={defaultRoleId}
+        isGroupLabel
+      >
         <SegmentedControl
-          aria-label="Default role"
+          aria-labelledby={defaultRoleId}
           value={defaultRole}
           onValueChange={(v) => onDefaultRoleChange(v as GroupDefaultRole)}
           options={DEFAULT_ROLE_OPTIONS}

@@ -1,2 +1,2 @@
-export type { FieldLabelProps, FieldProps } from '@astryxdesign/core/Field';
-export { Field, FieldLabel } from '@astryxdesign/core/Field';
+export type { FieldProps } from '@astryxdesign/core/Field';
+export { Field } from '@astryxdesign/core/Field';

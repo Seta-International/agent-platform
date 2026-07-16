@@ -18,6 +18,8 @@ interface Props<T extends string> {
   options: ReadonlyArray<SegmentedControlOption<T>>;
   size?: 'sm' | 'md';
   'aria-label'?: string;
+  /** Names the control from a visible label element (e.g. a Field group label). */
+  'aria-labelledby'?: string;
 }
 
 export function SegmentedControl<T extends string>({
@@ -26,11 +28,13 @@ export function SegmentedControl<T extends string>({
   options,
   size = 'sm',
   'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
 }: Props<T>) {
   return (
     <div
       role="tablist"
       aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledBy}
       className="inline-flex items-center gap-0.5 rounded-md border border-hairline bg-surface-1 p-0.5"
     >
       {options.map((option) => {
