@@ -174,4 +174,46 @@ describe('CandidatesPage', () => {
     expect(screen.getByText('Candidate 25')).toBeInTheDocument();
     expect(screen.queryByText('Candidate 00')).not.toBeInTheDocument();
   });
+
+  it('resets to page 1 when the sort order changes while on page 2', async () => {
+    // Matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on
+    // `sorting` state changes too, not just filters (getSortedRowModel unconditionally calls
+    // `table._autoResetPageIndex()`).
+    const user = userEvent.setup();
+    const manyCandidates: CandidateListItem[] = Array.from({ length: 26 }, (_, i) => ({
+      application_id: `a${i}`,
+      candidate_id: `c${i}`,
+      name: `Candidate ${String(i).padStart(2, '0')}`,
+      seniority: 'Senior',
+      source: 'Referral',
+      requisition_id: 'r1',
+      requisition_title: 'Backend Eng',
+      stage: 'new',
+      status: 'active',
+      rating: 0,
+      version: 1,
+      applied_at: '2024-01-01T00:00:00.000Z',
+      skills: [],
+      fit: { met: 1, required: 2, score: 0.5, strong: false },
+    }));
+    fetchCandidates.mockResolvedValue(manyCandidates);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Candidate 00')).toBeInTheDocument());
+    await user.click(screen.getByRole('tab', { name: 'List' }));
+
+    const table = await screen.findByRole('table');
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: 'Go to page 2' }));
+    expect(screen.getByText('Candidate 25')).toBeInTheDocument();
+
+    await user.click(within(table).getByRole('button', { name: /sort by candidate/i }));
+
+    expect(within(pager).getByRole('button', { name: 'Go to page 1' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByText('Candidate 00')).toBeInTheDocument();
+    expect(screen.queryByText('Candidate 25')).not.toBeInTheDocument();
+  });
 });

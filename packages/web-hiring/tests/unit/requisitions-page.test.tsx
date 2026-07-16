@@ -145,4 +145,27 @@ describe('RequisitionsPage', () => {
     expect(within(table).getAllByText('Requisition 25')).toHaveLength(2);
     expect(within(table).queryAllByText('Requisition 00')).toHaveLength(0);
   });
+
+  it('resets to page 1 when the sort order changes while on page 2', async () => {
+    // Matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on
+    // `sorting` state changes too, not just filters (getSortedRowModel unconditionally calls
+    // `table._autoResetPageIndex()`).
+    const manyRows = Array.from({ length: 26 }, (_, i) =>
+      row({ id: `r${i}`, title: `Requisition ${String(i).padStart(2, '0')}` }),
+    );
+    const { user, table } = await renderListView(manyRows);
+
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: 'Go to page 2' }));
+    expect(within(table).getAllByText('Requisition 25')).toHaveLength(2);
+
+    await user.click(within(table).getByRole('button', { name: /sort by position/i }));
+
+    expect(within(pager).getByRole('button', { name: 'Go to page 1' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(table).getAllByText('Requisition 00')).toHaveLength(2);
+    expect(within(table).queryAllByText('Requisition 25')).toHaveLength(0);
+  });
 });

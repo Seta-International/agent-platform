@@ -149,15 +149,19 @@ export function RequisitionsPage() {
     });
   }, [rows, query, statusFilter, accountFilter, projectFilter, kindFilter]);
 
-  // Reset to page 1 whenever a filter narrows/widens the result set — matches the deleted
-  // DataTable's TanStack `autoResetPageIndex` default (page resets on filter changes).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the filters are the intentional reset triggers, unread in the body.
+  const { sortedData, sort, sortConfig } = useTableSortableState<Row>({
+    data: filteredRows as Row[],
+  });
+  const sortable = useTableSortable<Row>(sortConfig);
+
+  // Reset to page 1 whenever a filter narrows/widens the result set, or the sort order changes —
+  // matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on both
+  // `columnFilters`/`globalFilter` AND `sorting` state changes (getSortedRowModel calls
+  // `table._autoResetPageIndex()` unconditionally; `manualPagination` was never set here).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the filters and sort are the intentional reset triggers, unread in the body.
   useEffect(() => {
     setPage(1);
-  }, [query, statusFilter, accountFilter, projectFilter, kindFilter]);
-
-  const { sortedData, sortConfig } = useTableSortableState<Row>({ data: filteredRows as Row[] });
-  const sortable = useTableSortable<Row>(sortConfig);
+  }, [query, statusFilter, accountFilter, projectFilter, kindFilter, sort]);
 
   const pageRows = useMemo(
     () => paginateData(sortedData, page, pageSize),

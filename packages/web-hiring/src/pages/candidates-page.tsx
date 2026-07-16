@@ -190,15 +190,17 @@ export function CandidatesPage() {
     return r;
   }, [data, q, reqFilter, seniorityFilter, sourceFilter]);
 
-  // Reset to page 1 whenever a filter narrows/widens the result set — matches the deleted
-  // DataTable's TanStack `autoResetPageIndex` default (page resets on filter changes).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the filters are the intentional reset triggers, unread in the body.
+  const { sortedData, sort, sortConfig } = useTableSortableState<Row>({ data: rows as Row[] });
+  const sortable = useTableSortable<Row>(sortConfig);
+
+  // Reset to page 1 whenever a filter narrows/widens the result set, or the sort order changes —
+  // matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on both
+  // `columnFilters`/`globalFilter` AND `sorting` state changes (getSortedRowModel calls
+  // `table._autoResetPageIndex()` unconditionally; `manualPagination` was never set here).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the filters and sort are the intentional reset triggers, unread in the body.
   useEffect(() => {
     setPage(1);
-  }, [q, reqFilter, seniorityFilter, sourceFilter]);
-
-  const { sortedData, sortConfig } = useTableSortableState<Row>({ data: rows as Row[] });
-  const sortable = useTableSortable<Row>(sortConfig);
+  }, [q, reqFilter, seniorityFilter, sourceFilter, sort]);
 
   const pageRows = useMemo(
     () => paginateData(sortedData, page, pageSize),
