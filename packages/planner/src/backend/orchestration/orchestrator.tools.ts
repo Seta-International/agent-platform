@@ -4,11 +4,11 @@ import {
   type SpecializedAgentSpec,
 } from '@seta/agent-sdk';
 import { z } from 'zod';
-import type { QnaSubAgentInput, QnaSubAgentOutput } from './schemas.ts';
+import type { QuerySubAgentInput, QuerySubAgentOutput } from './schemas.ts';
 
-type SubAgent = SpecializedAgentSpec<QnaSubAgentInput, QnaSubAgentOutput>;
+type SubAgent = SpecializedAgentSpec<QuerySubAgentInput, QuerySubAgentOutput>;
 
-export interface QnaOrchestratorToolDeps {
+export interface QueryOrchestratorToolDeps {
   taskQuery: SubAgent;
   taskDetail: SubAgent;
   teamInfo: SubAgent;
@@ -17,7 +17,7 @@ export interface QnaOrchestratorToolDeps {
   ctx: SpecializedAgentRunCtx;
 }
 
-export function makeQnaOrchestratorTools(deps: QnaOrchestratorToolDeps) {
+export function makeQueryOrchestratorTools(deps: QueryOrchestratorToolDeps) {
   const { ctx } = deps;
   const subCtx: SpecializedAgentRunCtx = {
     tenantId: ctx.tenantId,

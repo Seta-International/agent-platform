@@ -148,14 +148,14 @@ const identityEmbeddingProvider: ReturnType<typeof resolveEmbeddingProvider> = {
 // getPool('worker'), so the orchestrator must share that exact pool.
 const mastraStorage = createAgentMastraStorage({ pool: getPool('worker') });
 
-// Compose the planner QnA, weekly-plan, and assignment orchestration runtimes
+// Compose the planner Query, weekly-plan, and assignment orchestration runtimes
 // (built here so their registrations land before the registries freeze) and
 // freeze SpecializedAgentRegistry, OrchestrationRegistry, and AgentRegistry —
 // the same composition the agent-registry-integrity test drives standalone.
 // The assignment orchestrator's DB-bound ports/repo/store are real adapters
 // here; tests/helpers/compose.ts's testComposeDeps() wires fakes instead, so
 // the eval-coverage and registry-integrity gates see this specialist too.
-const { plannerQnaOrchestration, weeklyPlanOrchestration, assignmentOrchestration } =
+const { plannerQueryOrchestration, weeklyPlanOrchestration, assignmentOrchestration } =
   composeRegistries({
     resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
     embeddingProvider: resolveEmbeddingProvider(),
@@ -185,7 +185,7 @@ const chatRouter = makeChatRouter({
     resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
   }),
   assignment: assignmentOrchestration.runStream,
-  plannerQna: plannerQnaOrchestration.runStream,
+  plannerQna: plannerQueryOrchestration.runStream,
   weeklyPlanner: weeklyPlanOrchestration.runStream,
 });
 

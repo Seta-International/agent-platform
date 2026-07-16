@@ -15,9 +15,9 @@ import {
   type AssignmentOrchestrationRuntime,
   type AssignmentPorts,
   buildAssignmentOrchestrationRuntime,
-  buildPlannerQnaRuntime,
+  buildPlannerQueryRuntime,
   buildWeeklyPlanRuntime,
-  type PlannerQnaRuntime,
+  type PlannerQueryRuntime,
   type WeeklyPlanRuntime,
 } from '@seta/planner/orchestration';
 import type { EmbeddingProvider } from '@seta/shared-embeddings';
@@ -27,7 +27,7 @@ export interface ComposeDeps {
   /** Shared model resolver for every orchestration runtime composed here. */
   resolveModel: () => MastraModelConfig;
   /**
-   * Embedding provider for the planner QnA runtime's find-similar-tasks tool.
+   * Embedding provider for the planner Query runtime's find-similar-tasks tool.
    * Only read lazily inside the tool's `execute()` — never at composition
    * time — so a stub is safe wherever this runs without a live provider.
    */
@@ -50,7 +50,7 @@ export interface ComposeDeps {
 }
 
 export interface ComposedOrchestrationRuntimes {
-  plannerQnaOrchestration: PlannerQnaRuntime;
+  plannerQueryOrchestration: PlannerQueryRuntime;
   weeklyPlanOrchestration: WeeklyPlanRuntime;
   assignmentOrchestration: AssignmentOrchestrationRuntime;
 }
@@ -58,7 +58,7 @@ export interface ComposedOrchestrationRuntimes {
 /**
  * Composition root for the process-global agent registries.
  *
- * Builds the planner QnA, weekly-plan, and assignment orchestration runtimes
+ * Builds the planner Query, weekly-plan, and assignment orchestration runtimes
  * and freezes SpecializedAgentRegistry, OrchestrationRegistry, and
  * AgentRegistry once every module's contribution has landed. Registers +
  * freezes only; never binds HTTP listeners or worker handles.
@@ -82,7 +82,7 @@ export function composeRegistries(deps: ComposeDeps): ComposedOrchestrationRunti
     provider: deps.embeddingProvider,
     databaseUrl: deps.databaseUrl,
   });
-  const plannerQnaOrchestration = buildPlannerQnaRuntime({
+  const plannerQueryOrchestration = buildPlannerQueryRuntime({
     resolveModel: deps.resolveModel,
     findSimilarTasksTool: plannerFindSimilar,
   });
@@ -102,5 +102,5 @@ export function composeRegistries(deps: ComposeDeps): ComposedOrchestrationRunti
   OrchestrationRegistry.freeze();
   AgentRegistry.freeze();
 
-  return { plannerQnaOrchestration, weeklyPlanOrchestration, assignmentOrchestration };
+  return { plannerQueryOrchestration, weeklyPlanOrchestration, assignmentOrchestration };
 }

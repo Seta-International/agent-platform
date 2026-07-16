@@ -9,7 +9,7 @@ type RunStream = (
 export interface ChatRouterDeps {
   classify: (userText: string, history?: ClassifierHistory) => Promise<ChatIntent>;
   assignment: RunStream;
-  plannerQna: RunStream;
+  plannerQuery: RunStream;
   weeklyPlanner: RunStream;
 }
 
@@ -21,6 +21,6 @@ export function makeChatRouter(deps: ChatRouterDeps): RunStream {
     const intent = await deps.classify(runInput.userText, classifierHistory);
     if (intent === 'assignment') return deps.assignment(runInput, ctx);
     if (intent === 'weekly_planner') return deps.weeklyPlanner(runInput, ctx);
-    return deps.plannerQna(runInput, ctx);
+    return deps.plannerQuery(runInput, ctx);
   };
 }

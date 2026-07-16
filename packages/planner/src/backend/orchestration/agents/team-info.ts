@@ -20,10 +20,10 @@ import { listPlans } from '../../domain/list-plans.ts';
 import { listMemberGroupIds } from '../../read-helpers.ts';
 import { pickModel } from '../model.ts';
 import {
-  type QnaSubAgentInput as In,
-  type QnaSubAgentOutput as Out,
-  QnaSubAgentInputSchema,
-  QnaSubAgentOutputSchema,
+  type QuerySubAgentInput as In,
+  type QuerySubAgentOutput as Out,
+  QuerySubAgentInputSchema,
+  QuerySubAgentOutputSchema,
 } from '../schemas.ts';
 
 export const TEAM_INFO_TOOL_IDS = [
@@ -35,7 +35,7 @@ export const TEAM_INFO_TOOL_IDS = [
   'planner_searchGroupMembersBySkills',
 ] as const;
 
-export interface QnaTeamInfoDeps {
+export interface QueryTeamInfoDeps {
   resolveModel: () => MastraModelConfig;
   /** Optional tool overrides for eval mocking; default to the real module tools. */
   getGroupOverviewTool?: AgentTool;
@@ -83,12 +83,12 @@ via a tool call first if you don't already have it.
 Read-only.`;
 }
 
-export function makeQnaTeamInfoAgent(deps: QnaTeamInfoDeps): SpecializedAgentSpec<In, Out> {
+export function makeQueryTeamInfoAgent(deps: QueryTeamInfoDeps): SpecializedAgentSpec<In, Out> {
   return {
-    id: 'planner.qna.teamInfo',
+    id: 'planner.query.teamInfo',
     description: 'Answers group/plan/member structure and skill questions in prose.',
-    inputSchema: QnaSubAgentInputSchema,
-    outputSchema: QnaSubAgentOutputSchema,
+    inputSchema: QuerySubAgentInputSchema,
+    outputSchema: QuerySubAgentOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
       const rc = new RequestContext();
       rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
@@ -118,7 +118,7 @@ export function makeQnaTeamInfoAgent(deps: QnaTeamInfoDeps): SpecializedAgentSpe
             );
 
             const agent = new Agent({
-              id: 'planner.qna.teamInfo',
+              id: 'planner.query.teamInfo',
               name: 'Planner Team Info',
               instructions: buildInstructions,
               model: pickModel(ctx, deps.resolveModel),

@@ -7,15 +7,15 @@ import {
   type EvalSuite,
   requireMockTool,
 } from '@seta/shared-agent-evals';
-import { makeQnaGeneralAnswerAgent } from './agents/general-answer.ts';
-import { makeQnaTaskDetailAgent } from './agents/task-detail.ts';
-import { makeQnaTaskQueryAgent } from './agents/task-query.ts';
-import { makeQnaTeamInfoAgent } from './agents/team-info.ts';
+import { makeQueryGeneralAnswerAgent } from './agents/general-answer.ts';
+import { makeQueryTaskDetailAgent } from './agents/task-detail.ts';
+import { makeQueryTaskSearchAgent } from './agents/task-search.ts';
+import { makeQueryTeamInfoAgent } from './agents/team-info.ts';
 import { makeAvaiCheckerAgent } from './assignment/agents/avai-checker.ts';
 import { makeRecommenderAgent } from './assignment/agents/recommender.ts';
 import { makeOrchestratorAgent } from './assignment/orchestrator.ts';
 import type { AvailabilityPort } from './assignment/ports.ts';
-import { makeQnaOrchestrator } from './orchestrator.ts';
+import { makeQueryOrchestrator } from './orchestrator.ts';
 import { makeWeeklyPlanOrchestrator } from './weekly-plan/orchestrator.ts';
 
 // The discovery tool is injected as a stub — the deterministic gate never
@@ -23,9 +23,9 @@ import { makeWeeklyPlanOrchestrator } from './weekly-plan/orchestrator.ts';
 const stubFindSimilar = { id: 'planner_findSimilarTasks' } as unknown as AgentTool;
 
 export const taskQueryEvalSuite = defineEvalSuite({
-  specId: 'planner.qna.taskQuery',
+  specId: 'planner.query.taskSearch',
   buildSpec: () =>
-    makeQnaTaskQueryAgent({
+    makeQueryTaskSearchAgent({
       resolveModel: () => ({}) as never,
       findSimilarTasksTool: stubFindSimilar,
       // Canned, deterministic "LLM" output — no network, no model.
@@ -165,14 +165,14 @@ const stubSubAgent = (id: string) =>
     run: async () => ({ result: {} as never, trust: STUB_SUB_AGENT_TRUST }),
   }) as never;
 
-export const qnaOrchestratorEvalSuite = defineEvalSuite({
-  specId: 'planner.qna.orchestrator',
+export const queryOrchestratorEvalSuite = defineEvalSuite({
+  specId: 'planner.query.orchestrator',
   buildSpec: () =>
-    makeQnaOrchestrator({
-      taskQuery: stubSubAgent('planner.qna.taskQuery'),
-      taskDetail: stubSubAgent('planner.qna.taskDetail'),
-      teamInfo: stubSubAgent('planner.qna.teamInfo'),
-      generalAnswer: stubSubAgent('planner.qna.generalAnswer'),
+    makeQueryOrchestrator({
+      taskQuery: stubSubAgent('planner.query.taskSearch'),
+      taskDetail: stubSubAgent('planner.query.taskDetail'),
+      teamInfo: stubSubAgent('planner.query.teamInfo'),
+      generalAnswer: stubSubAgent('planner.query.generalAnswer'),
       resolveModel: () => ({}) as never,
       // Test seam — replaces agent.stream()/the model call outright, so the
       // tool loop (and thus the stub sub-agents above) is never invoked.
@@ -255,11 +255,11 @@ export const assignmentOrchestratorEvalSuite = defineEvalSuite({
   ],
 });
 
-export const taskQueryQualitySuite = defineEvalSuite({
-  specId: 'planner.qna.taskQuery',
+export const taskSearchQualitySuite = defineEvalSuite({
+  specId: 'planner.query.taskSearch',
   // Deterministic build kept for type-completeness (canned seam, LLM-free).
   buildSpec: () =>
-    makeQnaTaskQueryAgent({
+    makeQueryTaskSearchAgent({
       resolveModel: () => ({}) as never,
       findSimilarTasksTool: stubFindSimilar,
       runAgent: async ({ input }) => ({ text: `re: ${input.query}` }),
@@ -268,7 +268,7 @@ export const taskQueryQualitySuite = defineEvalSuite({
   // tool is a per-case mock so nothing hits the DB. runQualityEvals sets ctx.model.
   buildQualitySpec: (mocks) => {
     const tool = (id: string) => requireMockTool(mocks, id);
-    return makeQnaTaskQueryAgent({
+    return makeQueryTaskSearchAgent({
       resolveModel: () => ({}) as never,
       findSimilarTasksTool: tool('planner_findSimilarTasks'),
       queryTasksTool: tool('planner_queryTasks'),
@@ -298,10 +298,10 @@ export const taskQueryQualitySuite = defineEvalSuite({
 });
 
 export const taskDetailQualitySuite = defineEvalSuite({
-  specId: 'planner.qna.taskDetail',
+  specId: 'planner.query.taskDetail',
   // Deterministic build kept for type-completeness (canned seam, LLM-free).
   buildSpec: () =>
-    makeQnaTaskDetailAgent({
+    makeQueryTaskDetailAgent({
       resolveModel: () => ({}) as never,
       runAgent: async ({ input }) => ({ text: `re: ${input.query}` }),
     }),
@@ -309,7 +309,7 @@ export const taskDetailQualitySuite = defineEvalSuite({
   // tool is a per-case mock so nothing hits the DB. runQualityEvals sets ctx.model.
   buildQualitySpec: (mocks) => {
     const tool = (id: string) => requireMockTool(mocks, id);
-    return makeQnaTaskDetailAgent({
+    return makeQueryTaskDetailAgent({
       resolveModel: () => ({}) as never,
       getTaskTool: tool('planner_getTask'),
       listCommentsTool: tool('planner_listComments'),
@@ -340,10 +340,10 @@ export const taskDetailQualitySuite = defineEvalSuite({
 });
 
 export const teamInfoQualitySuite = defineEvalSuite({
-  specId: 'planner.qna.teamInfo',
+  specId: 'planner.query.teamInfo',
   // Deterministic build kept for type-completeness (canned seam, LLM-free).
   buildSpec: () =>
-    makeQnaTeamInfoAgent({
+    makeQueryTeamInfoAgent({
       resolveModel: () => ({}) as never,
       runAgent: async ({ input }) => ({ text: `re: ${input.query}` }),
     }),
@@ -353,7 +353,7 @@ export const teamInfoQualitySuite = defineEvalSuite({
   // caller-group/plan pre-resolution stays offline. runQualityEvals sets ctx.model.
   buildQualitySpec: (mocks) => {
     const tool = (id: string) => requireMockTool(mocks, id);
-    return makeQnaTeamInfoAgent({
+    return makeQueryTeamInfoAgent({
       resolveModel: () => ({}) as never,
       getGroupOverviewTool: tool('planner_getGroupOverview'),
       listPlansTool: tool('planner_listPlans'),
@@ -392,18 +392,18 @@ export const teamInfoQualitySuite = defineEvalSuite({
 });
 
 export const generalAnswerQualitySuite = defineEvalSuite({
-  specId: 'planner.qna.generalAnswer',
+  specId: 'planner.query.generalAnswer',
   // Deterministic build is unused for this quality-only suite, but the type
   // requires it; a canned-seam build keeps it LLM-free if ever run.
   buildSpec: () =>
-    makeQnaGeneralAnswerAgent({
+    makeQueryGeneralAnswerAgent({
       resolveModel: () => ({}) as never,
       runAgent: async ({ input }) => ({ text: `re: ${input.query}` }),
     }),
   // Quality build: NO runAgent seam ⇒ the real Mastra Agent + model path runs.
   // resolveModel is a safety fallback; runQualityEvals sets ctx.model, which wins.
   buildQualitySpec: () =>
-    makeQnaGeneralAnswerAgent({
+    makeQueryGeneralAnswerAgent({
       resolveModel: () => ({}) as never,
     }),
   cases: [
@@ -433,11 +433,11 @@ export const plannerEvalManifest: EvalManifest = {
     taskQueryEvalSuite as EvalSuite,
     avaiCheckerEvalSuite as EvalSuite,
     recommenderEvalSuite as EvalSuite,
-    qnaOrchestratorEvalSuite as EvalSuite,
+    queryOrchestratorEvalSuite as EvalSuite,
     weeklyPlanOrchestratorEvalSuite as EvalSuite,
     assignmentOrchestratorEvalSuite as EvalSuite,
     generalAnswerQualitySuite as EvalSuite,
-    taskQueryQualitySuite as EvalSuite,
+    taskSearchQualitySuite as EvalSuite,
     taskDetailQualitySuite as EvalSuite,
     teamInfoQualitySuite as EvalSuite,
   ],

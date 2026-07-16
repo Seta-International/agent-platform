@@ -16,10 +16,10 @@ import {
 } from '@seta/planner/agent-tools';
 import { pickModel } from '../model.ts';
 import {
-  type QnaSubAgentInput as In,
-  type QnaSubAgentOutput as Out,
-  QnaSubAgentInputSchema,
-  QnaSubAgentOutputSchema,
+  type QuerySubAgentInput as In,
+  type QuerySubAgentOutput as Out,
+  QuerySubAgentInputSchema,
+  QuerySubAgentOutputSchema,
 } from '../schemas.ts';
 
 export const TASK_DETAIL_TOOL_IDS = [
@@ -30,7 +30,7 @@ export const TASK_DETAIL_TOOL_IDS = [
   'planner_queryTasks',
 ] as const;
 
-export interface QnaTaskDetailDeps {
+export interface QueryTaskDetailDeps {
   resolveModel: () => MastraModelConfig;
   /** Optional tool overrides for eval mocking; default to the real module tools. */
   getTaskTool?: AgentTool;
@@ -67,12 +67,12 @@ planner_listComments only if the user asks about comments/discussion. If no task
 can be identified and no name is given, ask the user which task they mean — do not
 guess. Read-only: never claim to have changed anything.`;
 
-export function makeQnaTaskDetailAgent(deps: QnaTaskDetailDeps): SpecializedAgentSpec<In, Out> {
+export function makeQueryTaskDetailAgent(deps: QueryTaskDetailDeps): SpecializedAgentSpec<In, Out> {
   return {
-    id: 'planner.qna.taskDetail',
+    id: 'planner.query.taskDetail',
     description: 'Deep-dives one known task (details, checklist, assignees, comments) in prose.',
-    inputSchema: QnaSubAgentInputSchema,
-    outputSchema: QnaSubAgentOutputSchema,
+    inputSchema: QuerySubAgentInputSchema,
+    outputSchema: QuerySubAgentOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
       const rc = new RequestContext();
       rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
@@ -83,7 +83,7 @@ export function makeQnaTaskDetailAgent(deps: QnaTaskDetailDeps): SpecializedAgen
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
             const agent = new Agent({
-              id: 'planner.qna.taskDetail',
+              id: 'planner.query.taskDetail',
               name: 'Planner Task Detail',
               instructions: INSTRUCTIONS,
               model: pickModel(ctx, deps.resolveModel),
