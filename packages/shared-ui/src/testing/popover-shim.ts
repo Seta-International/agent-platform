@@ -7,12 +7,17 @@
  * that fallback starts consistent. A narrow, low-specificity `[popover]` rule keeps
  * Astryx's own inline `style.display` toggle on open winning and never re-clobbered.
  *
+ * The toast viewport is excluded: it is always mounted and always visible (only
+ * individual toasts come and go), and it drives the top layer through
+ * `showPopover()` alone with no inline-display fallback — so the initial-hidden
+ * state would never be lifted and every toast would be invisible to queries.
+ *
  * Idempotent: safe to call from multiple test setups in the same environment.
  */
 export function installPopoverShim(): void {
   if (document.getElementById('astryx-popover-shim')) return;
   const style = document.createElement('style');
   style.id = 'astryx-popover-shim';
-  style.textContent = '[popover] { display: none; }';
+  style.textContent = '[popover]:not([aria-label="Notifications"]) { display: none; }';
   document.head.appendChild(style);
 }
