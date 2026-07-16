@@ -21,7 +21,6 @@
     "@seta/shared-ui": "workspace:^",
     "@seta/web-agent": "workspace:*",
     "@seta/web-identity": "workspace:*",
-    "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.14.2",
     "date-fns": "^4.4.0",
     "fractional-indexing": "^3.2.0",
