@@ -1,12 +1,5 @@
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   Banner,
   Button,
   createStaticSource,
@@ -640,37 +633,24 @@ export function ReassignWizardDialog({
       </Dialog>
 
       <AlertDialog
-        open={confirmTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirmTarget(null);
+        isOpen={confirmTarget !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setConfirmTarget(null);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove allocation?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmTarget
-                ? `This removes ${
-                    confirmTarget.worker_name ?? 'this unfilled seat'
-                  } from ${confirmTarget.project_name}. The allocation is ended for People's view; this can't be undone.`
-                : ''}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-on-destructive hover:bg-destructive/90"
-              disabled={removeMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault();
-                if (confirmTarget) removeMutation.mutate(confirmTarget.allocation_id);
-              }}
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Remove allocation?"
+        description={
+          confirmTarget
+            ? `This removes ${
+                confirmTarget.worker_name ?? 'this unfilled seat'
+              } from ${confirmTarget.project_name}. The allocation is ended for People's view; this can't be undone.`
+            : ''
+        }
+        actionLabel="Remove"
+        isActionLoading={removeMutation.isPending}
+        onAction={() => {
+          if (confirmTarget) removeMutation.mutate(confirmTarget.allocation_id);
+        }}
+      />
     </>
   );
 }

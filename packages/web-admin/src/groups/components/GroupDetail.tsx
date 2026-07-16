@@ -1,14 +1,6 @@
 import { ASSIGNABLE_ROLES, PRODUCTS, productForNamespace } from '@seta/shared-rbac';
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
   Badge,
   Button,
   Checkbox,
@@ -212,35 +204,27 @@ function RoleScopeControl({
 
 function DeleteGroupButton({ group, onDeleted }: { group: Group; onDeleted: () => void }) {
   const del = useDeleteGroup();
+  const [isOpen, setIsOpen] = useState(false);
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-ink-tertiary hover:text-destructive"
-          label="Delete"
-          icon={<Trash2 className="size-3.5" aria-hidden />}
-        />
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete “{group.name}”?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Members lose the roles and product access this group grants. This can’t be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            className="bg-destructive text-on-primary hover:bg-destructive/90"
-            onClick={() => del.mutate(group.group_id, { onSuccess: onDeleted })}
-          >
-            Delete group
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-ink-tertiary hover:text-destructive"
+        label="Delete"
+        icon={<Trash2 className="size-3.5" aria-hidden />}
+        onClick={() => setIsOpen(true)}
+      />
+      <AlertDialog
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}
+        title={`Delete “${group.name}”?`}
+        description="Members lose the roles and product access this group grants. This can’t be undone."
+        actionLabel="Delete group"
+        isActionLoading={del.isPending}
+        onAction={() => del.mutate(group.group_id, { onSuccess: onDeleted })}
+      />
+    </>
   );
 }
 
