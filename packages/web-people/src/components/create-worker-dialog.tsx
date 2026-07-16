@@ -15,8 +15,8 @@ import {
   Selector,
   Tokenizer,
   Typeahead,
-  toast,
   useSeededItems,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { FileText, X } from 'lucide-react';
@@ -53,6 +53,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<WorkerFormValues>(EMPTY_WORKER_FORM);
   const [skillIds, setSkillIds] = useState<string[]>([]);
@@ -83,9 +84,9 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
       setForm((prev) => applyDraftToForm(draft, prev));
       setSkillIds((prev) => [...new Set([...prev, ...draft.skills.map((s) => s.skill_id)])]);
       setSuggestions(draft.skill_suggestions);
-      toast.success('CV parsed — review the pre-filled fields before saving');
+      toast({ body: 'CV parsed — review the pre-filled fields before saving' });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const save = useMutation({
@@ -101,8 +102,8 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
         { form, skillIds, cvFile },
       ),
     onSuccess: ({ warnings }) => {
-      toast.success('Worker created');
-      for (const w of warnings) toast.error(w);
+      toast({ body: 'Worker created' });
+      for (const w of warnings) toast({ body: w, type: 'error' });
       onCreated();
       setOpen(false);
       reset();
