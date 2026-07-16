@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -21,6 +21,20 @@ function renderPage() {
 }
 
 describe('TrashPage', () => {
+  it('renders the Planner → Trash breadcrumb trail and a single h1', async () => {
+    server.use(
+      http.get('*/api/planner/v1/groups', () => HttpResponse.json({ groups: [] })),
+      http.get('*/api/planner/v1/plans', () => HttpResponse.json({ plans: [] })),
+      http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
+    );
+    renderPage();
+    await screen.findByText(/No deleted items/i);
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).getByRole('link', { name: 'Planner' })).toHaveAttribute('href', '/planner');
+    expect(within(nav).getByText('Trash')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { level: 1, name: 'Trash' })).toBeInTheDocument();
+  });
+
   it('shows empty state when trash is empty', async () => {
     server.use(
       http.get('*/api/planner/v1/groups', () => HttpResponse.json({ groups: [] })),

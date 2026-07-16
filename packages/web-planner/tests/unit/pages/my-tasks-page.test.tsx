@@ -8,7 +8,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -212,6 +212,15 @@ describe('findNeighbors', () => {
 });
 
 describe('MyTasksPage', () => {
+  it('renders the Planner → My tasks breadcrumb trail and a single h1', async () => {
+    server.use(http.get('*/api/planner/v1/my-tasks', () => HttpResponse.json(emptyResult())));
+    renderPage();
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).getByRole('link', { name: 'Planner' })).toHaveAttribute('href', '/planner');
+    expect(within(nav).getByText('My tasks')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { level: 1, name: 'My tasks' })).toBeInTheDocument();
+  });
+
   it('renders the loading skeleton while data is in-flight', async () => {
     server.use(
       http.get('*/api/planner/v1/my-tasks', async () => {

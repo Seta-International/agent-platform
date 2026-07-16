@@ -5,7 +5,7 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { TaskDetailHeader } from '../../../src/components/TaskDetailHeader';
@@ -53,18 +53,36 @@ const baseProps = {
 };
 
 describe('TaskDetailHeader', () => {
-  it('renders the back button, breadcrumb, T-ID badge, and titleSlot', async () => {
+  it('renders the breadcrumb, T-ID badge, and titleSlot', async () => {
     renderInRouter(<TaskDetailHeader {...baseProps} />);
-    expect(await screen.findByRole('button', { name: /Back to board/i })).toBeInTheDocument();
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    // Without groupId/planId the group and plan crumbs fall back to plain text (no href,
+    // no onClick), so only the root "Planner" crumb is a link here.
+    expect(within(nav).getByRole('link', { name: 'Planner' })).toHaveAttribute('href', '/planner');
     expect(screen.getByText('Engineering')).toBeInTheDocument();
     expect(screen.getByText('Q3 Launch')).toBeInTheDocument();
     expect(screen.getByText('In progress')).toBeInTheDocument();
-    expect(screen.getByText('T-42')).toBeInTheDocument();
+    expect(within(nav).getByText('T-42')).toHaveAttribute('aria-current', 'page');
     // Title is owned by the slot — the page passes TaskTitleEditor; tests pass a static h1.
     expect(screen.getByRole('heading', { name: 'Wire telemetry plumbing' })).toBeInTheDocument();
     // Created/updated metadata no longer lives in the header — it moved to the aside footer.
     expect(screen.queryByText(/Created/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Last updated/)).not.toBeInTheDocument();
+  });
+
+  it('links the group and plan crumbs to their real routes when ids are known', async () => {
+    renderInRouter(<TaskDetailHeader {...baseProps} groupId="g-1" planId="p-1" />);
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).getByRole('link', { name: 'Engineering' })).toHaveAttribute(
+      'href',
+      '/planner/groups/g-1',
+    );
+    // The plan crumb keeps an honest href even though its click is intercepted (see below),
+    // so middle-click / "open in new tab" still reach the board.
+    expect(within(nav).getByRole('link', { name: 'Q3 Launch' })).toHaveAttribute(
+      'href',
+      '/planner/plans/p-1',
+    );
   });
 
   it('renders the Ask agent, Copy link, and prev/next action group', async () => {
@@ -75,12 +93,15 @@ describe('TaskDetailHeader', () => {
     expect(screen.getByRole('button', { name: /Next task/i })).toBeInTheDocument();
   });
 
-  it('calls onBack when the back button is clicked', async () => {
+  // Replaces the old "Back to board" button test: that affordance is gone, and the plan
+  // crumb now carries its behavior (return to the board in-place, without a navigation).
+  it('calls onBack when the plan breadcrumb is clicked', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
     const onBack = vi.fn();
-    renderInRouter(<TaskDetailHeader {...baseProps} onBack={onBack} />);
-    await user.click(await screen.findByRole('button', { name: /Back to board/i }));
+    renderInRouter(<TaskDetailHeader {...baseProps} planId="p-1" onBack={onBack} />);
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    await user.click(within(nav).getByRole('link', { name: 'Q3 Launch' }));
     expect(onBack).toHaveBeenCalled();
   });
 

@@ -350,4 +350,55 @@ describe('TaskDetailPage', () => {
       expect(onDeleted).toHaveBeenCalledTimes(1);
     });
   });
+
+  // The modal's plan crumb is behavior-carrying: it keeps an honest href (so middle-click
+  // still opens the board) but its click just closes the dialog, since the board is already
+  // mounted behind it and a navigation would lose its scroll/selection state.
+  it('modal variant: clicking the plan breadcrumb calls onClose instead of navigating', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    server.use(
+      http.get('/api/planner/v1/tasks/t9', () =>
+        HttpResponse.json(buildTaskDetail({ id: 't9', title: 'Ship it', version: 2 })),
+      ),
+      http.get('/api/planner/v1/plans/p1', () => HttpResponse.json(makePlan({ id: 'p1' }))),
+      http.get('/api/planner/v1/plans/p1/buckets', () => HttpResponse.json({ buckets: [] })),
+      http.get('/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
+    );
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const rootRoute = createRootRoute({ component: () => <Outlet /> });
+    const detailRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/planner/plans/$planId/tasks/$taskId',
+      component: () => <TaskDetailPage planId="p1" taskId="t9" variant="modal" onClose={onClose} />,
+    });
+    const routeTree = rootRoute.addChildren([detailRoute]);
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ['/planner/plans/p1/tasks/t9'] }),
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SessionProvider session={fxSession}>
+          <RouterProvider router={router} />
+        </SessionProvider>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByLabelText('Task title');
+
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    const planCrumb = within(nav).getByRole('link', { name: 'Q3 Launch' });
+    expect(planCrumb).toHaveAttribute('href', '/planner/plans/p1');
+
+    await user.click(planCrumb);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // The click is intercepted — the router must not have left the task route.
+    expect(router.state.location.pathname).toBe('/planner/plans/p1/tasks/t9');
+  });
 });

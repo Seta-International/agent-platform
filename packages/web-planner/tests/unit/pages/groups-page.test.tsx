@@ -89,6 +89,15 @@ function renderWithRouter(node: ReactNode) {
 }
 
 describe('GroupsPage', () => {
+  it('renders the Planner → Groups breadcrumb trail and a single h1', async () => {
+    server.use(makeGroupsHandler([makeGroupWithCounts({ id: 'g1', name: 'Engineering' })]));
+    renderWithRouter(<GroupsPage />);
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).getByRole('link', { name: 'Planner' })).toHaveAttribute('href', '/planner');
+    expect(within(nav).getByText('Groups')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { level: 1, name: 'Groups' })).toBeInTheDocument();
+  });
+
   it('renders skeleton while loading', async () => {
     server.use(makeGroupsHandlerWithDelay([]));
     renderWithRouter(<GroupsPage />);

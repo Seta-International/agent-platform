@@ -7,7 +7,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -109,6 +109,32 @@ describe('PlanCategoriesSettingsPage', () => {
     const subhead = await screen.findByTestId('categories-sync-subhead');
     // Default native fixture: subhead shows "Just for this plan".
     expect(subhead.textContent).toMatch(/Just for this plan/);
+  });
+
+  // The old hand-rolled nav carried a "Back to board" link; the plan crumb now holds that
+  // same /planner/plans/p1 destination, so nothing became unreachable.
+  it('renders the breadcrumb trail with the plan crumb linking back to the board', async () => {
+    server.use(
+      http.get('/api/planner/v1/plans/p1/categories', () => HttpResponse.json(CATEGORIES_RESPONSE)),
+      // The plan crumb only renders once usePlanBoard resolves — the other tests in this file
+      // don't need the board, so these four handlers are local to this test.
+      http.get('/api/planner/v1/plans/p1', () => HttpResponse.json(makePlan({ id: 'p1' }))),
+      http.get('/api/planner/v1/plans/p1/buckets', () => HttpResponse.json({ buckets: [] })),
+      http.get('/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
+    );
+    renderPage('p1');
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).getByRole('link', { name: 'Planner' })).toHaveAttribute('href', '/planner');
+    await waitFor(() => {
+      expect(within(nav).getByRole('link', { name: 'Q3 Launch' })).toHaveAttribute(
+        'href',
+        '/planner/plans/p1',
+      );
+    });
+    // "Settings" is a plain non-link crumb; "Categories" is the current page.
+    expect(within(nav).getByText('Settings').closest('a')).toBeNull();
+    expect(within(nav).getByText('Categories')).toHaveAttribute('aria-current', 'page');
   });
 
   it('renders the "Heads up" helper card', async () => {
