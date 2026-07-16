@@ -31,7 +31,7 @@ describe('CandidateCard', () => {
     render(<CandidateCard item={item} onSelect={onSelect} draggable={{}} />);
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
     expect(screen.getByText('Backend Eng')).toBeInTheDocument();
-    expect(screen.getByText('50%')).toBeInTheDocument();
+    expect(screen.getByText('Fit 50%')).toBeInTheDocument();
     expect(screen.getByText(/ago$/)).toBeInTheDocument();
     expect(screen.getByText('React')).toBeInTheDocument();
     expect(screen.getByText('Node')).toBeInTheDocument();

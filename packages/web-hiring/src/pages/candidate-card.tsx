@@ -5,6 +5,10 @@ import {
   formatRelative,
   KanbanCardShell,
   type KanbanCardShellProps,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@seta/shared-ui';
 import { User } from 'lucide-react';
 import type { CandidateListItem } from '../api/hiring-client.ts';
@@ -48,9 +52,20 @@ export function CandidateCard({
             {item.source ?? '—'} · {appliedLabel(item.applied_at)}
           </div>
         </div>
-        <Badge variant={fit.variant} className="flex-none">
-          {fit.text}
-        </Badge>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant={fit.variant} className="flex-none">
+                {fit.text === '—' ? fit.text : `Fit ${fit.text}`}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              {item.fit.required === 0
+                ? 'No required skills defined for this role'
+                : `Skill fit — meets ${item.fit.met} of ${item.fit.required} required skills`}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {item.skills.length > 0 && (

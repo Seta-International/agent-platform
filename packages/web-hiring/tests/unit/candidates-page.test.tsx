@@ -52,9 +52,28 @@ describe('CandidatesPage', () => {
     // "New"/"Screening"/"Hired" each appear twice (stat segment label + board column name).
     expect(screen.getAllByText('New').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('Screening').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText('Interview')).toBeInTheDocument();
-    expect(screen.getByText('Offer')).toBeInTheDocument();
+    expect(screen.getAllByText('Interview').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('Offer').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('Hired').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('search narrows by skill name (FUT-333)', async () => {
+    fetchCandidates.mockResolvedValue([
+      rows[0],
+      {
+        ...rows[0],
+        application_id: 'a2',
+        candidate_id: 'c2',
+        name: 'Grace Hopper',
+        skills: [{ skill_id: 's1', skill_name: 'Terraform', level: 3 }],
+      },
+    ]);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Grace Hopper')).toBeInTheDocument());
+    await userEvent.type(screen.getByPlaceholderText(/search by name/i), 'terraform');
+    expect(screen.getByText('Grace Hopper')).toBeInTheDocument();
+    expect(screen.queryByText('Ada Lovelace')).not.toBeInTheDocument();
   });
 
   it('switches to list view', async () => {

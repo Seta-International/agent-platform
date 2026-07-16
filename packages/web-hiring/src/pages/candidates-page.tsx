@@ -65,8 +65,8 @@ const COLUMN_EMPTY_ICON: Record<string, ReactNode> = {
 const STAGE_COUNT_SEGMENTS: { key: keyof CandidateStageCounts; label: string }[] = [
   { key: 'new', label: 'New' },
   { key: 'screening', label: 'Screening' },
-  { key: 'interview', label: 'Interviewing' },
-  { key: 'offer', label: 'Offering' },
+  { key: 'interview', label: 'Interview' },
+  { key: 'offer', label: 'Offer' },
   { key: 'hired', label: 'Hired' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
@@ -154,7 +154,10 @@ export function CandidatesPage() {
     if (q.trim()) {
       const needle = q.toLowerCase();
       r = r.filter((c) =>
-        `${c.name} ${c.requisition_title} ${c.seniority ?? ''}`.toLowerCase().includes(needle),
+        [c.name, c.requisition_title, c.seniority ?? '', ...c.skills.map((s) => s.skill_name)]
+          .join(' ')
+          .toLowerCase()
+          .includes(needle),
       );
     }
     return r;
@@ -279,7 +282,10 @@ export function CandidatesPage() {
           {STAGE_COUNT_SEGMENTS.map((seg) => (
             <div key={seg.key} className="px-4 py-3">
               <div className="text-headline font-bold" style={{ color: STAGE_COLOR[seg.key] }}>
-                {stageCounts?.[seg.key] ?? 0}
+                {/* Stage tiles follow the active search/filters (same as the requisitions page).
+                    Cancelled (rejected/transferred) applications never reach this list — see
+                    listCandidates — so that tile keeps the server-side total. */}
+                {seg.key === 'cancelled' ? (stageCounts?.cancelled ?? 0) : groups[seg.key].length}
               </div>
               <div className="text-caption text-ink-muted">{seg.label}</div>
             </div>
@@ -433,7 +439,7 @@ export function CandidatesPage() {
                               key={item.application_id}
                               draggableId={item.application_id}
                               index={idx}
-                              isDragDisabled={!canManage}
+                              isDragDisabled={!canManage || item.requisition_status === 'on_hold'}
                             >
                               {(dp, ds) => (
                                 <CandidateCard
@@ -459,7 +465,7 @@ export function CandidatesPage() {
             </DragDropContext>
           </div>
         )}
-        <TalentPoolCard onOpenCandidate={setSelected} />
+        <TalentPoolCard onOpenCandidate={setSelected} search={q} />
       </div>
       <CandidateDetailDrawer candidateId={selected} onClose={() => setSelected(null)} />
     </PageChrome>
