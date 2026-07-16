@@ -1,5 +1,5 @@
 import { Mastra } from '@mastra/core';
-import { Agent } from '@mastra/core/agent';
+import { Agent, type MastraDBMessage } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
 import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { TokenLimiterProcessor } from '@mastra/core/processors';
@@ -243,7 +243,7 @@ interface BuiltOrchestrator {
    *  buildOrchestrator and calls built.agent.resumeStream against this handle. */
   mastra: Mastra;
   rc: RequestContext;
-  message: string;
+  message: string | (MastraDBMessage | string)[];
   /** Shared run options for generate()/stream(): memory wiring, maxSteps, abort. */
   runOptions: Record<string, unknown>;
   /** Exposed for the runAgent test seam (asserts wiring without an LLM). */
@@ -319,10 +319,17 @@ async function buildOrchestrator(
   });
   const boundAgent = mastra.getAgent('planner.assignment-orchestrator');
 
-  const message = [
+  const currentMessage = [
     `User message: ${input.userText}`,
     `Current taskId: ${input.taskId ?? '(none)'}`,
   ].join('\n');
+
+  // Prepend session history into the message array so the LLM sees prior turns.
+  // Previously passed as `{ messages }` in runOptions, which Mastra silently
+  // ignored (AgentExecutionOptionsBase has no `messages` field).
+  const message: string | (MastraDBMessage | string)[] = ctx.sessionHistory?.length
+    ? [...ctx.sessionHistory, currentMessage]
+    : currentMessage;
 
   const runOptions: Record<string, unknown> = {
     requestContext: rc,
@@ -332,7 +339,6 @@ async function buildOrchestrator(
     // this the `reasoning` parts arrive empty. Provider-namespaced, so non-OpenAI
     // models ignore it. Forwarded by Mastra to the AI SDK model call.
     providerOptions: { openai: { reasoningSummary: 'auto' } },
-    ...(ctx.sessionHistory?.length ? { messages: ctx.sessionHistory } : {}),
   };
 
   return { agent: boundAgent, mastra, rc, message, runOptions, instructions, tools };
