@@ -42,6 +42,17 @@ variable "cloudflared_token_secret_arn" {
   default = null
 }
 
+variable "monitoring_username" {
+  description = "Basic-auth username for the central monitoring ingest (GH prod env var REMOTE_WRITE_USERNAME)."
+  type        = string
+}
+
+variable "monitoring_password" {
+  description = "Basic-auth password for the central monitoring ingest (GH prod env secret REMOTE_WRITE_PASSWORD)."
+  type        = string
+  sensitive   = true
+}
+
 variable "public_domain" {
   description = "Externally-visible hostname (better-auth baseURL/cookies + CORS allowlist)."
   type        = string

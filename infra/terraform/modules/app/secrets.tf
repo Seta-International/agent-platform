@@ -44,6 +44,17 @@ resource "aws_secretsmanager_secret_version" "openai_api_key" {
   secret_string = var.openai_api_key
 }
 
+# Central-ingest basic-auth password. Injected only into the log_router and
+# alloy sidecars — never the app, so it stays out of app_secret_arns below.
+resource "aws_secretsmanager_secret" "monitoring_password" {
+  name                    = "${var.name}/MONITORING_PASSWORD"
+  recovery_window_in_days = var.secret_recovery_window_days
+}
+resource "aws_secretsmanager_secret_version" "monitoring_password" {
+  secret_id     = aws_secretsmanager_secret.monitoring_password.id
+  secret_string = var.monitoring_password
+}
+
 locals {
   # name → Secrets Manager ARN, injected as container `secrets`.
   app_secret_arns = {
@@ -53,10 +64,11 @@ locals {
     OPENAI_API_KEY          = aws_secretsmanager_secret.openai_api_key.arn
   }
   # ARNs the execution role may read (app secrets + caller-supplied extras +
-  # optional cloudflared token).
+  # the sidecars' monitoring password + optional cloudflared token).
   readable_secret_arns = concat(
     values(local.app_secret_arns),
     values(var.extra_secret_arns),
+    [aws_secretsmanager_secret.monitoring_password.arn],
     var.cloudflared_token_secret_arn == null ? [] : [var.cloudflared_token_secret_arn],
   )
 }

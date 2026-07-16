@@ -3,23 +3,16 @@ data "aws_region" "current" {}
 resource "aws_ecs_cluster" "main" {
   name = var.name
   setting {
+    # Off: Container Insights writes to CloudWatch Logs, and nothing may land
+    # there (docs/hosting/aws.md §7). Basic ECS metrics exist regardless.
     name  = "containerInsights"
-    value = "enabled"
+    value = "disabled"
   }
 }
 
-resource "aws_cloudwatch_log_group" "api" {
-  name              = "/ecs/${var.name}/api"
-  retention_in_days = 30
-}
-
-resource "aws_cloudwatch_log_group" "worker" {
-  name              = "/ecs/${var.name}/worker"
-  retention_in_days = 30
-}
-
 # Egress-only SG for all tasks. Zero inbound: nothing can reach the tasks;
-# they reach OUT (ECR, Secrets Manager, RDS, CloudWatch, Cloudflare) over the IGW.
+# they reach OUT (ECR, Secrets Manager, RDS, the central Loki/Prometheus
+# ingest, Cloudflare) over the IGW.
 resource "aws_security_group" "tasks" {
   name        = "${var.name}-tasks-sg"
   description = "ECS tasks - egress only"
@@ -58,22 +51,71 @@ locals {
     [for k in sort(keys(var.extra_secret_arns)) : { name = k, valueFrom = var.extra_secret_arns[k] }],
   )
 
-  server_container = {
-    name         = "server"
-    image        = var.image_uri
-    essential    = true
-    command      = ["serve"]
-    environment  = concat(local.base_env, [{ name = "PORT", value = "3000" }])
-    secrets      = local.secret_defs
-    portMappings = [{ containerPort = 3000, protocol = "tcp" }]
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        "awslogs-group"         = aws_cloudwatch_log_group.api.name
-        "awslogs-region"        = local.region
-        "awslogs-stream-prefix" = "server"
-      }
+  # No CloudWatch Logs (docs/hosting/aws.md §7): FireLens pushes every container
+  # to the central Loki, labeled like the compose obs-agent (env + container).
+  loki_log_config = { for c in ["server", "worker", "cloudflared"] : c => {
+    logDriver = "awsfirelens"
+    options = {
+      Name         = "loki"
+      host         = var.loki_host
+      port         = "443"
+      tls          = "on"
+      "tls.verify" = "on"
+      http_user    = var.monitoring_username
+      labels       = "env=${var.monitoring_env},container=${c}"
+      # Strip the FireLens wrapper keys → push the bare app line, matching
+      # what loki.source.docker ships from the compose boxes.
+      remove_keys     = "container_id,container_name,source"
+      drop_single_key = "raw"
     }
+    secretOptions = [{ name = "http_passwd", valueFrom = aws_secretsmanager_secret.monitoring_password.arn }]
+  } }
+
+  # FireLens router. essential (a task that logs nowhere must fail loud); hard
+  # memory cap so buffering through a Loki outage can't eat the app's headroom;
+  # no logConfiguration (its own stdout must not land in CloudWatch).
+  log_router_container = {
+    name              = "log_router"
+    image             = var.fluentbit_image
+    essential         = true
+    memoryReservation = 50
+    memory            = 128
+    firelensConfiguration = {
+      type    = "fluentbit"
+      options = { enable-ecs-log-metadata = "false" }
+    }
+  }
+
+  # Metrics: Alloy scrapes the app's :9464 over the task loopback and pushes to
+  # central Prometheus (task SG is zero-inbound — central can't scrape in).
+  # Non-essential: metrics loss must not take the app down. The image has no
+  # config-from-env flag, so the entrypoint writes $ALLOY_CONFIG to a file.
+  alloy_container = { for c in ["server", "worker"] : c => {
+    name              = "alloy"
+    image             = var.alloy_image
+    essential         = false
+    memoryReservation = 128
+    memory            = 256
+    entryPoint        = ["/bin/sh", "-c"]
+    command           = ["printf '%s' \"$ALLOY_CONFIG\" > /tmp/ecs.alloy && exec /bin/alloy run --storage.path=/tmp/alloy /tmp/ecs.alloy"]
+    environment = [
+      { name = "ALLOY_CONFIG", value = templatefile("${path.module}/alloy-ecs.alloy.tpl", { container = c }) },
+      { name = "MONITORING_ENV", value = var.monitoring_env },
+      { name = "REMOTE_WRITE_URL", value = var.remote_write_url },
+      { name = "REMOTE_WRITE_USERNAME", value = var.monitoring_username },
+    ]
+    secrets = [{ name = "REMOTE_WRITE_PASSWORD", valueFrom = aws_secretsmanager_secret.monitoring_password.arn }]
+  } }
+
+  server_container = {
+    name             = "server"
+    image            = var.image_uri
+    essential        = true
+    command          = ["serve"]
+    environment      = concat(local.base_env, [{ name = "PORT", value = "3000" }])
+    secrets          = local.secret_defs
+    portMappings     = [{ containerPort = 3000, protocol = "tcp" }]
+    logConfiguration = local.loki_log_config["server"]
     healthCheck = {
       command  = ["CMD-SHELL", "wget -qO- http://localhost:3000/health/live || exit 1"]
       interval = 30
@@ -85,25 +127,20 @@ locals {
   }
 
   cloudflared_container = {
-    name      = "cloudflared"
-    image     = "cloudflare/cloudflared:latest"
-    essential = true
-    command   = ["tunnel", "--no-autoupdate", "run"]
-    secrets   = [{ name = "TUNNEL_TOKEN", valueFrom = var.cloudflared_token_secret_arn }]
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        "awslogs-group"         = aws_cloudwatch_log_group.api.name
-        "awslogs-region"        = local.region
-        "awslogs-stream-prefix" = "cloudflared"
-      }
-    }
+    name             = "cloudflared"
+    image            = "cloudflare/cloudflared:latest"
+    essential        = true
+    command          = ["tunnel", "--no-autoupdate", "run"]
+    secrets          = [{ name = "TUNNEL_TOKEN", valueFrom = var.cloudflared_token_secret_arn }]
+    logConfiguration = local.loki_log_config["cloudflared"]
   }
 
   api_containers = [
     for c in [
       local.server_container,
       var.enable_cloudflared ? local.cloudflared_container : null,
+      local.log_router_container,
+      local.alloy_container["server"],
     ] : c if c != null
   ]
 
@@ -114,18 +151,17 @@ locals {
     command   = ["worker"]
     # Give in-flight jobs time to drain on SIGTERM (deploy / scale-in) before ECS
     # SIGKILLs the container. graphile-worker stops claiming new jobs on SIGTERM.
-    stopTimeout = 120
-    environment = local.base_env
-    secrets     = local.secret_defs
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        "awslogs-group"         = aws_cloudwatch_log_group.worker.name
-        "awslogs-region"        = local.region
-        "awslogs-stream-prefix" = "worker"
-      }
-    }
+    stopTimeout      = 120
+    environment      = local.base_env
+    secrets          = local.secret_defs
+    logConfiguration = local.loki_log_config["worker"]
   }
+
+  worker_containers = [
+    local.worker_container,
+    local.log_router_container,
+    local.alloy_container["worker"],
+  ]
 }
 
 resource "aws_ecs_task_definition" "api" {
@@ -151,6 +187,7 @@ resource "aws_ecs_task_definition" "api" {
     aws_secretsmanager_secret_version.better_auth_secret,
     aws_secretsmanager_secret_version.crypto_local_master_key,
     aws_secretsmanager_secret_version.openai_api_key,
+    aws_secretsmanager_secret_version.monitoring_password,
   ]
 }
 
@@ -166,7 +203,7 @@ resource "aws_ecs_task_definition" "worker" {
     operating_system_family = "LINUX"
     cpu_architecture        = var.cpu_architecture
   }
-  container_definitions = jsonencode([local.worker_container])
+  container_definitions = jsonencode(local.worker_containers)
 
   # See api task def: don't launch worker tasks until secret values exist.
   depends_on = [
@@ -174,6 +211,7 @@ resource "aws_ecs_task_definition" "worker" {
     aws_secretsmanager_secret_version.better_auth_secret,
     aws_secretsmanager_secret_version.crypto_local_master_key,
     aws_secretsmanager_secret_version.openai_api_key,
+    aws_secretsmanager_secret_version.monitoring_password,
   ]
 }
 

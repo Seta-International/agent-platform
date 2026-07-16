@@ -147,11 +147,22 @@ forced → update the Secrets Manager value → force a new ECS deployment on bo
 
 ## 7. Observability
 
-No CloudWatch Logs or app-state alarms — alerting lives in the central Prometheus/Loki/Grafana stack on
-a separate VPS. Run Grafana Alloy (or ADOT) as a sidecar to scrape `:9464` and ship logs, tagged
-`MONITORING_ENV=prod`. Use ECS/task metrics for CPU/mem/running-count (no host `node-exporter`). RDS
-infra metrics (storage, connections) come from CloudWatch. Alerts: `api`/`worker` running-count < 1,
-RDS storage-fill, queue-depth backlog.
+No CloudWatch Logs — telemetry pushes to the central Prometheus/Loki/Grafana stack on the self-hosted
+monitoring box (`future-ingest.seta-international.com`, same ingest + basic-auth creds the compose
+boxes use). Fargate has no docker.sock, so instead of the compose `obs-agent` pattern each task
+carries two sidecars (wired in `modules/app/ecs.tf`):
+
+- **`log_router`** (FireLens / fluent-bit): every container's stdout (`server`, `worker`,
+  `cloudflared`) goes to Loki as the raw NDJSON line, labeled `env=<monitoring_env>,
+  container=<name>` to match what the compose Alloy ships. The router has no log driver of its own
+  (diagnose via ECS Exec), and Container Insights is off — nothing lands in CloudWatch Logs.
+- **`alloy`**: scrapes the app exporter on `localhost:9464` and remote_writes to the central
+  Prometheus. Tasks are zero-inbound, so central can never scrape in — push is the only shape.
+
+CPU/mem/running-count come from standard ECS CloudWatch *metrics*; RDS infra metrics (storage,
+connections) come from CloudWatch via the central `cloudwatch-exporter`. Alerts: `api`/`worker`
+running-count < 1, RDS storage-fill, queue-depth backlog, plus absent-series on the pushed metrics
+(the alloy sidecar is non-essential — its death must page, not kill the task).
 
 ## 8. Cost
 
@@ -165,6 +176,9 @@ RDS storage-fill, queue-depth backlog.
 | web — S3 + CloudFront | ~$3 |
 | RDS single-AZ (`db.t3.micro`) | ~$19 |
 | **Total** | **~$106** |
+
+The observability sidecars run inside the existing task sizes (hard-capped at 384 MB combined), so
+they add no Fargate cost.
 
 Autoscaling bills per-second only while scaled. Compute runs on a 1-yr Compute Savings Plan (~20–30%
 off the rates above).

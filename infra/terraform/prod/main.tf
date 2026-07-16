@@ -28,6 +28,14 @@ module "app" {
   enable_cloudflared           = true
   cloudflared_token_secret_arn = var.cloudflared_token_secret_arn
 
+  # Central observability on the self-hosted monitoring box — ECS only pushes.
+  # Same ingest + creds the compose boxes use (GH prod env REMOTE_WRITE_* vars).
+  monitoring_env      = "prod"
+  loki_host           = "future-ingest.seta-international.com"
+  remote_write_url    = "https://future-ingest.seta-international.com/api/v1/write"
+  monitoring_username = var.monitoring_username
+  monitoring_password = var.monitoring_password
+
   # Runtime app config beyond the module's boot set — see .env.example for the
   # full contract. Values that are secrets go through extra_secret_arns.
   # Still to wire at cutover (values are operator decisions, not infra):

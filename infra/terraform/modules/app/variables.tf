@@ -102,6 +102,8 @@ variable "cpu_architecture" {
 # graph on boot — a large transient memory/CPU spike well above steady state
 # (prod server idles ~425 MB but the box has no per-container limit to absorb the
 # boot spike). 0.5 vCPU / 1 GB OOM-kills the api mid-boot; 1 vCPU / 2 GB boots it.
+# The observability sidecars share task memory but are hard-capped at 384 MB
+# combined (see ecs.tf); bump these if the boot spike ever OOMs beside them.
 variable "api_cpu" {
   type    = number
   default = 1024
@@ -163,6 +165,41 @@ variable "worker_queue_target" {
   description = "Target backlog jobs per task for queue-depth scaling."
   type        = number
   default     = 50
+}
+
+# --- central observability (self-hosted Grafana stack; docs/hosting/aws.md §7) ---
+# No CloudWatch Logs: FireLens → Loki for logs, Alloy sidecar → remote_write for
+# metrics. Fargate has no docker.sock, so the compose obs-agent can't run here.
+variable "monitoring_env" {
+  description = "env label stamped on logs/metrics pushed to the central stack (e.g. prod / sandbox)."
+  type        = string
+}
+variable "loki_host" {
+  description = "Central Loki push hostname, e.g. future-ingest.seta-international.com (TLS :443, path /loki/api/v1/push)."
+  type        = string
+}
+variable "remote_write_url" {
+  description = "Full Prometheus remote_write URL on the central stack, e.g. https://<ingest>/api/v1/write."
+  type        = string
+}
+variable "monitoring_username" {
+  description = "Basic-auth username for the central ingest (Loki push + remote_write) — GH env var REMOTE_WRITE_USERNAME."
+  type        = string
+}
+variable "monitoring_password" {
+  description = "Basic-auth password for the central ingest — GH secret REMOTE_WRITE_PASSWORD. Injected only into the sidecars, never the app."
+  type        = string
+  sensitive   = true
+}
+variable "fluentbit_image" {
+  description = "FireLens log-router image."
+  type        = string
+  default     = "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
+}
+variable "alloy_image" {
+  description = "Alloy metrics-sidecar image. Keep in step with the alloy service in compose.yaml."
+  type        = string
+  default     = "grafana/alloy:v1.10.0"
 }
 
 # --- app secrets (Secrets Manager) ---

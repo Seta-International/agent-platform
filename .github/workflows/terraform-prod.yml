@@ -12,8 +12,9 @@ name: Terraform prod
 #   AWS_TERRAFORM_SECRET_ACCESS_KEY        — fallback: static keys for the provisioner
 #                                            IAM user, pushed by IT to GitHub secrets
 # Terraform inputs (environment secrets / vars):
-#   secrets: DATABASE_PASSWORD, BETTER_AUTH_SECRET, CRYPTO_LOCAL_MASTER_KEY, OPENAI_API_KEY
-#   vars:    AWS_REGION, TF_IMAGE_URI, CLOUDFLARED_TOKEN_SECRET_ARN
+#   secrets: DATABASE_PASSWORD, BETTER_AUTH_SECRET, CRYPTO_LOCAL_MASTER_KEY, OPENAI_API_KEY,
+#            REMOTE_WRITE_PASSWORD
+#   vars:    AWS_REGION, TF_IMAGE_URI, CLOUDFLARED_TOKEN_SECRET_ARN, REMOTE_WRITE_USERNAME
 
 on:
   workflow_dispatch:
@@ -115,6 +116,9 @@ jobs:
           TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           TF_VAR_image_uri: ${{ vars.TF_IMAGE_URI }}
           TF_VAR_cloudflared_token_secret_arn: ${{ vars.CLOUDFLARED_TOKEN_SECRET_ARN }}
+          # Central-ingest creds — same values the compose deploys use (obs-agent).
+          TF_VAR_monitoring_username: ${{ vars.REMOTE_WRITE_USERNAME }}
+          TF_VAR_monitoring_password: ${{ secrets.REMOTE_WRITE_PASSWORD }}
         run: |
           set -euo pipefail
           terraform plan -input=false -no-color -out=prod.tfplan | tee plan.txt
