@@ -159,22 +159,18 @@ forced → update the Secrets Manager value → force a new ECS deployment on bo
 
 ## 7. Observability
 
-No CloudWatch Logs — telemetry pushes to the central Prometheus/Loki/Grafana stack on the self-hosted
-monitoring box (`future-ingest.seta-international.com`, same ingest + basic-auth creds the compose
-boxes use). Fargate has no docker.sock, so instead of the compose `obs-agent` pattern each task
-carries two sidecars (wired in `modules/app/ecs.tf`):
+No CloudWatch Logs — everything pushes to the central Grafana stack on the self-hosted monitoring
+box, same ingest and creds as dev/uat (`future-ingest.seta-international.com`). Two sidecars per
+task, wired in `modules/app/ecs.tf`:
 
-- **`log_router`** (FireLens / fluent-bit): every container's stdout (`server`, `worker`,
-  `cloudflared`) goes to Loki as the raw NDJSON line, labeled `env=<monitoring_env>,
-  container=<name>` to match what the compose Alloy ships. The router has no log driver of its own
-  (diagnose via ECS Exec), and Container Insights is off — nothing lands in CloudWatch Logs.
-- **`alloy`**: scrapes the app exporter on `localhost:9464` and remote_writes to the central
-  Prometheus. Tasks are zero-inbound, so central can never scrape in — push is the only shape.
+- **Logs:** container stdout → `log_router` (fluent-bit) → Loki, labeled `env` + `container` —
+  read them in Grafana exactly like the dev/uat streams.
+- **Metrics:** `alloy` scrapes the app's `:9464` → Prometheus remote_write (tasks accept no
+  inbound, so central can't scrape them).
 
-CPU/mem/running-count come from standard ECS CloudWatch *metrics*; RDS infra metrics (storage,
-connections) come from CloudWatch via the central `cloudwatch-exporter`. Alerts: `api`/`worker`
-running-count < 1, RDS storage-fill, queue-depth backlog, plus absent-series on the pushed metrics
-(the alloy sidecar is non-essential — its death must page, not kill the task).
+CPU/mem/running-count come from basic ECS metrics; RDS metrics via the central
+`cloudwatch-exporter`. Alerts unchanged (running-count < 1, RDS storage-fill, queue backlog),
+plus absent-series on the pushed data.
 
 ## 8. Cost
 
