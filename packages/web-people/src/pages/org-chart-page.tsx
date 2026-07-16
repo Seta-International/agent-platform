@@ -154,6 +154,13 @@ export function OrgChartPage() {
       : view === 'department'
         ? structureQ.isLoading
         : deliveryQ.isLoading;
+
+  const isRedirecting =
+    (view === 'account' && !account && accountItems.length > 0) ||
+    (view === 'project' && !project && projectItems.length > 0) ||
+    (view === 'department' && !department && departmentItems.length > 0);
+
+  const showLoading = isLoading || isRedirecting;
   const isEmpty = graph.nodes.length === 0;
 
   return (
@@ -235,7 +242,7 @@ export function OrgChartPage() {
               <ChartLegend />
             </div>
             <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border">
-              {isLoading ? (
+              {showLoading ? (
                 <div className="grid h-full place-items-center text-sm text-secondary">
                   Loading…
                 </div>
