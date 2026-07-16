@@ -64,4 +64,27 @@ describe('NewCandidateDialog', () => {
       expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
     );
   });
+
+  it('shows inline validation errors and highlights invalid fields on submit failure, then scrolls to first invalid field', async () => {
+    const scrollMock = vi.fn();
+    Element.prototype.scrollIntoView = scrollMock;
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+
+    // Open dialog
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+
+    // Submit form (Full name is empty, requisition has default r1 so not empty)
+    await userEvent.click(screen.getByRole('button', { name: /save candidate/i }));
+
+    // Check inline validation messages
+    expect(screen.getByText('Full name is required.')).toBeInTheDocument();
+
+    // Check highlight classes
+    expect(screen.getByLabelText(/full name/i)).toHaveClass('border-danger');
+
+    // Should have scrolled to the first invalid field (Full name)
+    expect(scrollMock).toHaveBeenCalledTimes(1);
+  });
 });

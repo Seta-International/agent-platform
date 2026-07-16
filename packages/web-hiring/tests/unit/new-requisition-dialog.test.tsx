@@ -54,4 +54,28 @@ describe('NewRequisitionDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
     expect(screen.getByLabelText(/job title/i)).toHaveValue('');
   });
+
+  it('shows inline validation errors and highlights invalid fields on submit failure, then scrolls to first invalid field', async () => {
+    const scrollMock = vi.fn();
+    Element.prototype.scrollIntoView = scrollMock;
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewRequisitionDialog />, { wrapper: wrap(qc) });
+
+    // Open dialog
+    await userEvent.click(screen.getByRole('button', { name: /new requisition/i }));
+
+    // Click submit
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }));
+
+    // Check inline validation messages
+    expect(screen.getByText('Job title is required.')).toBeInTheDocument();
+    expect(screen.getByText('About the role is required.')).toBeInTheDocument();
+
+    // Check highlight classes
+    expect(screen.getByLabelText(/job title/i)).toHaveClass('border-danger');
+
+    // Should have scrolled to the first invalid field (Job Title)
+    expect(scrollMock).toHaveBeenCalledTimes(1);
+  });
 });

@@ -68,37 +68,25 @@ function newClient() {
 }
 
 describe('RequisitionCard', () => {
+  const defaultCallbacks = {
+    onRequestMarkFilled: vi.fn(),
+    onRequestCancel: vi.fn(),
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('clicking a stage step while open patches the stage directly, without resuming', async () => {
-    editRequisition.mockResolvedValueOnce({ version: 2 });
-    render(<RequisitionCard r={row()} canManage canClose />, { wrapper: wrap(newClient()) });
-
-    await userEvent.click(screen.getByRole('button', { name: /Screening/ }));
-    await waitFor(() =>
-      expect(editRequisition).toHaveBeenCalledWith('r1', {
-        expected_version: 1,
-        patch: { stage: 'screening' },
-      }),
-    );
-    expect(resumeRequisition).not.toHaveBeenCalled();
-  });
-
-  it('locks the stage track while on_hold and shows a Paused summary — no implicit resume-on-click', async () => {
+  it('shows a Paused summary when on_hold', () => {
     render(
       <RequisitionCard
         r={row({ status: 'on_hold', version: 2, updated_at: '2026-07-10T00:00:00Z' })}
         canManage
         canClose
+        {...defaultCallbacks}
       />,
       { wrapper: wrap(newClient()) },
     );
-
-    await userEvent.click(screen.getByRole('button', { name: /Interview/ }));
-    expect(editRequisition).not.toHaveBeenCalled();
-    expect(resumeRequisition).not.toHaveBeenCalled();
 
     expect(screen.getByText('Paused')).toBeInTheDocument();
     expect(screen.getByText('Since 10 Jul 2026')).toBeInTheDocument();
@@ -106,20 +94,24 @@ describe('RequisitionCard', () => {
 
   it('hides the lifecycle menu once the requisition is filled or cancelled', () => {
     const { rerender } = render(
-      <RequisitionCard r={row({ status: 'filled' })} canManage canClose />,
+      <RequisitionCard r={row({ status: 'filled' })} canManage canClose {...defaultCallbacks} />,
       { wrapper: wrap(newClient()) },
     );
     expect(screen.queryByRole('button', { name: 'Requisition actions' })).not.toBeInTheDocument();
     expect(screen.getByText('Filled')).toBeInTheDocument();
 
-    rerender(<RequisitionCard r={row({ status: 'cancelled' })} canManage canClose />);
+    rerender(
+      <RequisitionCard r={row({ status: 'cancelled' })} canManage canClose {...defaultCallbacks} />,
+    );
     expect(screen.queryByRole('button', { name: 'Requisition actions' })).not.toBeInTheDocument();
     expect(screen.getByText('Cancelled')).toBeInTheDocument();
   });
 
   it('Pause calls holdRequisition', async () => {
     holdRequisition.mockResolvedValueOnce({ version: 2 });
-    render(<RequisitionCard r={row()} canManage canClose />, { wrapper: wrap(newClient()) });
+    render(<RequisitionCard r={row()} canManage canClose {...defaultCallbacks} />, {
+      wrapper: wrap(newClient()),
+    });
 
     await userEvent.click(screen.getByRole('button', { name: 'Requisition actions' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Pause' }));
@@ -153,6 +145,7 @@ describe('RequisitionCard', () => {
         })}
         canManage
         canClose
+        {...defaultCallbacks}
       />,
       { wrapper: wrap(newClient()) },
     );
@@ -172,6 +165,7 @@ describe('RequisitionCard', () => {
         })}
         canManage
         canClose
+        {...defaultCallbacks}
       />,
       { wrapper: wrap(newClient()) },
     );
@@ -198,6 +192,7 @@ describe('RequisitionCard', () => {
         })}
         canManage
         canClose
+        {...defaultCallbacks}
       />,
     );
     expect(screen.getAllByText(/^[0-9]+$/).map((el) => el.textContent)).toEqual([

@@ -2,6 +2,7 @@ import {
   Alert,
   AlertDescription,
   Button,
+  cn,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -67,14 +68,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const missingRequired = !title.trim() || isRichTextEmpty(jd.about);
-  const requiredError =
-    submitAttempted && missingRequired
-      ? !title.trim() && isRichTextEmpty(jd.about)
-        ? 'Job title and About the role are required.'
-        : !title.trim()
-          ? 'Job title is required.'
-          : 'About the role is required.'
-      : null;
+  const isTitleInvalid = submitAttempted && !title.trim();
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -153,7 +147,16 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || dateError) return;
+    if (missingRequired || dateError) {
+      if (!title.trim()) {
+        const el = document.getElementById('new-req-title');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (isRichTextEmpty(jd.about)) {
+        const el = document.getElementById('new-req-about');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
     mutation.mutate();
   }
 
@@ -191,7 +194,14 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Senior Backend Engineer"
+                  className={cn(
+                    isTitleInvalid &&
+                      'border-danger focus-visible:border-danger focus-visible:shadow-[0_0_0_3px_var(--color-danger-tint)]',
+                  )}
                 />
+                {isTitleInvalid && (
+                  <p className="text-caption text-danger-ink">Job title is required.</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -328,24 +338,33 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                 />
               </div>
 
-              {SECTIONS.map((s) => (
-                <div key={s.key}>
-                  <div
-                    className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
-                  >
-                    {s.key === 'about' ? 'About the role *' : s.label}
+              {SECTIONS.map((s) => {
+                const isAbout = s.key === 'about';
+                const isInvalid = submitAttempted && isAbout && isRichTextEmpty(jd.about);
+                return (
+                  <div key={s.key} id={isAbout ? 'new-req-about' : undefined} className="space-y-1">
+                    <div
+                      className={`font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                    >
+                      {isAbout ? 'About the role *' : s.label}
+                    </div>
+                    <RichTextEditor
+                      value={jd[s.key]}
+                      onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
+                      className={cn(
+                        isInvalid &&
+                          'border-danger focus-within:border-danger focus-within:shadow-[0_0_0_3px_var(--color-danger-tint)]',
+                      )}
+                      placeholder={
+                        isAbout ? 'Write the about section…' : `Write the ${s.label.toLowerCase()}…`
+                      }
+                    />
+                    {isInvalid && (
+                      <p className="text-caption text-danger-ink">About the role is required.</p>
+                    )}
                   </div>
-                  <RichTextEditor
-                    value={jd[s.key]}
-                    onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
-                    placeholder={
-                      s.key === 'about'
-                        ? 'Write the about section…'
-                        : `Write the ${s.label.toLowerCase()}…`
-                    }
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
           <footer className="space-y-2 border-t border-hairline bg-canvas px-6 py-3">
@@ -354,16 +373,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-body-sm text-danger-ink">{requiredError}</p>
-              <div className="flex shrink-0 gap-2">
-                <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
-                  Cancel
-                </Button>
-                <Button onClick={submit} disabled={mutation.isPending}>
-                  {mutation.isPending ? 'Creating…' : 'Create'}
-                </Button>
-              </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
+                Cancel
+              </Button>
+              <Button onClick={submit} disabled={mutation.isPending}>
+                {mutation.isPending ? 'Creating…' : 'Create'}
+              </Button>
             </div>
           </footer>
         </div>

@@ -5,6 +5,7 @@ import {
   AvatarFallback,
   Badge,
   Button,
+  cn,
   Calendar as DayPickerCalendar,
   DisabledActionTooltip,
   DropdownMenu,
@@ -283,14 +284,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
   const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
   const missingRequired = !title.trim() || isRichTextEmpty(sections.about);
-  const requiredError =
-    submitAttempted && missingRequired
-      ? !title.trim() && isRichTextEmpty(sections.about)
-        ? 'Job title and About the role are required.'
-        : !title.trim()
-          ? 'Job title is required.'
-          : 'About the role is required.'
-      : null;
+  const isTitleInvalid = submitAttempted && !title.trim();
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -453,7 +447,16 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
   function submitEdit() {
     setSubmitAttempted(true);
-    if (missingRequired || dateError) return;
+    if (missingRequired || dateError) {
+      if (!title.trim()) {
+        const el = document.getElementById('jd-title');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (isRichTextEmpty(sections.about)) {
+        const el = document.getElementById('jd-about');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
     save.mutate();
   }
 
@@ -546,14 +549,24 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 {save.isPending ? 'Updating…' : 'Update'}
               </Button>
             </div>
-            {requiredError && <p className="text-caption text-danger-ink">{requiredError}</p>}
           </div>
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
           <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
             <div className="space-y-1">
               <Label htmlFor="jd-title">Job title *</Label>
-              <Input id="jd-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Input
+                id="jd-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={cn(
+                  isTitleInvalid &&
+                    'border-danger focus-visible:border-danger focus-visible:shadow-[0_0_0_3px_var(--color-danger-tint)]',
+                )}
+              />
+              {isTitleInvalid && (
+                <p className="text-caption text-danger-ink">Job title is required.</p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -678,24 +691,33 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               />
             </div>
 
-            {SECTIONS.map((s) => (
-              <div key={s.key}>
-                <div
-                  className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
-                >
-                  {s.key === 'about' ? 'About the role *' : s.label}
+            {SECTIONS.map((s) => {
+              const isAbout = s.key === 'about';
+              const isInvalid = submitAttempted && isAbout && isRichTextEmpty(sections.about);
+              return (
+                <div key={s.key} id={isAbout ? 'jd-about' : undefined} className="space-y-1">
+                  <div
+                    className={`font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                  >
+                    {isAbout ? 'About the role *' : s.label}
+                  </div>
+                  <RichTextEditor
+                    value={sections[s.key]}
+                    onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
+                    className={cn(
+                      isInvalid &&
+                        'border-danger focus-within:border-danger focus-within:shadow-[0_0_0_3px_var(--color-danger-tint)]',
+                    )}
+                    placeholder={
+                      isAbout ? 'Write the about section…' : `Write the ${s.label.toLowerCase()}…`
+                    }
+                  />
+                  {isInvalid && (
+                    <p className="text-caption text-danger-ink">About the role is required.</p>
+                  )}
                 </div>
-                <RichTextEditor
-                  value={sections[s.key]}
-                  onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
-                  placeholder={
-                    s.key === 'about'
-                      ? 'Write the about section…'
-                      : `Write the ${s.label.toLowerCase()}…`
-                  }
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

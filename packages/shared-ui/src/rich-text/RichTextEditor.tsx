@@ -2,6 +2,7 @@ import { Link } from '@tiptap/extension-link';
 import { Underline } from '@tiptap/extension-underline';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
+import { cn } from '../lib/cn';
 import { RichTextToolbar } from './RichTextToolbar';
 
 interface Props {
@@ -44,7 +45,7 @@ export function RichTextEditor({ value, onChange, onSave, onCancel, className }:
 
   return (
     <div
-      className={`overflow-hidden rounded-md border border-hairline bg-surface-1 ${className ?? ''}`}
+      className={cn('overflow-hidden rounded-md border border-hairline bg-surface-1', className)}
     >
       <RichTextToolbar editor={editor} />
       <EditorContent editor={editor} />

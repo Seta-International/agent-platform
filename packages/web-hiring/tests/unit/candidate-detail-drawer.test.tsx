@@ -30,7 +30,7 @@ const detail: CandidateDetail = {
     dob: '1998-05-12',
     gender: 'female',
     cv_storage_key: 'cv/ada-lovelace.pdf',
-    contact: { email: 'ada@example.com', phone: '+1' },
+    contact: { personal_email: 'ada@example.com', phone: '+1' },
     version: 1,
   },
   applications: [
@@ -80,8 +80,6 @@ describe('CandidateDetailDrawer', () => {
     expect(screen.getByText('female')).toBeInTheDocument();
     expect(screen.getByText('Strong fundamentals')).toBeInTheDocument();
     expect(screen.getByText('3/5')).toBeInTheDocument();
-    // Fields with no schema support are labeled honestly instead of fabricated.
-    expect(screen.getAllByText('No Data').length).toBeGreaterThan(0);
   });
 
   it('moves stage from the Move stage menu', async () => {

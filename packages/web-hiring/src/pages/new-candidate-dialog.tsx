@@ -3,6 +3,7 @@ import {
   AlertDescription,
   Badge,
   Button,
+  cn,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -113,14 +114,8 @@ export function NewCandidateDialog() {
 
   const effectiveReq = reqId || openReqs[0]?.id || '';
   const missingRequired = !name.trim() || !effectiveReq;
-  const requiredError =
-    submitAttempted && missingRequired
-      ? !name.trim() && !effectiveReq
-        ? 'Full name and position applied are required.'
-        : !name.trim()
-          ? 'Full name is required.'
-          : 'Position applied is required.'
-      : null;
+  const isNameInvalid = submitAttempted && !name.trim();
+  const isReqInvalid = submitAttempted && !effectiveReq;
 
   // Fill-only-empty: a parse never overwrites what the recruiter already typed.
   const parse = useMutation({
@@ -189,7 +184,16 @@ export function NewCandidateDialog() {
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || emailError || phoneError) return;
+    if (missingRequired || emailError || phoneError) {
+      if (!name.trim()) {
+        const el = document.getElementById('cand-name');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (!effectiveReq) {
+        const el = document.getElementById('cand-req');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
     setError(null);
     mutation.mutate();
   }
@@ -253,7 +257,18 @@ export function NewCandidateDialog() {
               )}
               <div className="space-y-1">
                 <Label htmlFor="cand-name">Full name *</Label>
-                <Input id="cand-name" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input
+                  id="cand-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={cn(
+                    isNameInvalid &&
+                      'border-danger focus-visible:border-danger focus-visible:shadow-[0_0_0_3px_var(--color-danger-tint)]',
+                  )}
+                />
+                {isNameInvalid && (
+                  <p className="text-caption text-danger-ink">Full name is required.</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -334,7 +349,14 @@ export function NewCandidateDialog() {
               <div className="space-y-1">
                 <Label htmlFor="cand-req">Position applied *</Label>
                 <Select value={effectiveReq} onValueChange={(v) => setReqId(v)}>
-                  <SelectTrigger id="cand-req" className="w-full">
+                  <SelectTrigger
+                    id="cand-req"
+                    className={cn(
+                      'w-full',
+                      isReqInvalid &&
+                        'border-danger focus-visible:border-danger focus-visible:shadow-[0_0_0_3px_var(--color-danger-tint)]',
+                    )}
+                  >
                     <SelectValue placeholder="Select a position" />
                   </SelectTrigger>
                   <SelectContent>
@@ -345,6 +367,9 @@ export function NewCandidateDialog() {
                     ))}
                   </SelectContent>
                 </Select>
+                {isReqInvalid && (
+                  <p className="text-caption text-danger-ink">Position applied is required.</p>
+                )}
               </div>
               <div className="space-y-1">
                 <Label>Skills</Label>
@@ -372,16 +397,13 @@ export function NewCandidateDialog() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-body-sm text-danger-ink">{requiredError}</p>
-              <div className="flex shrink-0 gap-2">
-                <Button variant="secondary" onClick={close}>
-                  Cancel
-                </Button>
-                <Button onClick={submit} disabled={mutation.isPending || parse.isPending}>
-                  {mutation.isPending ? 'Saving…' : 'Save candidate'}
-                </Button>
-              </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={close}>
+                Cancel
+              </Button>
+              <Button onClick={submit} disabled={mutation.isPending || parse.isPending}>
+                {mutation.isPending ? 'Saving…' : 'Save candidate'}
+              </Button>
             </div>
           </footer>
         </div>
