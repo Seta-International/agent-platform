@@ -1,16 +1,28 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { RaSearch } from '../../../src/pages/ra-monitoring-page.tsx';
 import { RaMonitoringPage } from '../../../src/pages/ra-monitoring-page.tsx';
 
 vi.mock('@seta/web-identity', () => ({
   usePermission: () => true,
 }));
 
+// Stateful router mock: `navigate({ search })` mutates a module-level "URL",
+// and `useSearch` always reads the latest value — lets the sort/column tests
+// below observe how table interactions rewrite the query params, the same
+// harness pattern as admin-audit-page.test.tsx.
+let latestSearch: Partial<RaSearch> = {};
+let forceRerender: () => void = () => {};
+
 vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => vi.fn(),
-  useSearch: () => ({}),
+  useNavigate: () => (opts: { search: Partial<RaSearch> }) => {
+    latestSearch = opts.search;
+    forceRerender();
+  },
+  useSearch: () => latestSearch,
 }));
 
 // SelectEmployeeDialog's Typeahead goes through useWorkerSource; stub it with an in-memory
@@ -25,6 +37,8 @@ vi.mock('../../../src/api/worker-search.ts', () => ({
     seed: () => Promise.resolve([]),
   }),
 }));
+
+const fetchAllocationsMock = vi.fn((_params?: unknown) => Promise.resolve<unknown[]>([]));
 
 vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/api/pm-client.ts')>();
@@ -53,7 +67,7 @@ vi.mock('../../../src/api/pm-client.ts', async (importOriginal) => {
           can_manage: true,
         },
       ]),
-    fetchAllocations: () => Promise.resolve([]),
+    fetchAllocations: (params: unknown) => fetchAllocationsMock(params),
   };
 });
 
@@ -62,6 +76,23 @@ function renderPage() {
   return render(
     <QueryClientProvider client={qc}>
       <RaMonitoringPage />
+    </QueryClientProvider>,
+  );
+}
+
+// Re-mounts the page under a real `useState` so the stateful router mock's
+// `forceRerender()` actually triggers a React re-render.
+function Harness() {
+  const [, bump] = useState(0);
+  forceRerender = () => bump((n) => n + 1);
+  return <RaMonitoringPage />;
+}
+
+function renderTableHarness() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <Harness />
     </QueryClientProvider>,
   );
 }
@@ -121,17 +152,133 @@ describe('RaMonitoringPage — SelectEmployeeDialog (Astryx migration smoke test
 });
 
 // SplitAllocationDialog is deliberately NOT covered here. It's a parent-controlled dialog
-// (`splitTarget`/`setSplitTarget`) with a fully-wired `RaTableMeta.onSplit` callback — but no
-// rendered control in the current RA Monitoring UI ever calls it. The table's "actions" column
-// (ra-monitoring-page.tsx) renders only a "Reassign" button; there is no "Split"/"End early"
-// affordance anywhere in the row, toolbar, or elsewhere on the page (confirmed via full-file
-// review, a repo-wide grep for `SplitAllocationDialog`/`splitAllocation(`, and `git log` on this
-// file — `onSplit`/`splitTarget` have exactly their definition/plumbing sites and zero UI
-// callers). The component also isn't exported, so it can't be unit-tested directly either.
-// This looks like a pre-existing gap unrelated to the Astryx Dialog migration (the migration
-// only swapped the Dialog primitive, it didn't remove a trigger) — flagged in the Task 2d2 fix
+// (`splitTarget`/`setSplitTarget`) — but no rendered control in the current RA Monitoring UI ever
+// calls `setSplitTarget`. The table's "actions" column (ra-monitoring-page.tsx) renders only a
+// "Reassign" button; there is no "Split"/"End early" affordance anywhere in the row, toolbar, or
+// elsewhere on the page (confirmed via full-file review, a repo-wide grep for
+// `SplitAllocationDialog`/`splitAllocation(`, and `git log` on this file — `setSplitTarget`/
+// `splitTarget` have exactly their definition/plumbing sites and zero UI callers, unchanged by the
+// Astryx Table migration, which only replaced the table's meta-prop plumbing with direct
+// closures). The component also isn't exported, so it can't be unit-tested directly either.
+// This looks like a pre-existing gap unrelated to either migration — flagged in the Task 2d2 fix
 // report rather than worked around with a fabricated interaction or an out-of-scope production
 // change (exporting the component / wiring a trigger) that this test-only fix isn't meant to make.
 describe.todo(
   'RaMonitoringPage — SplitAllocationDialog: unreachable from the shipped UI, see comment above',
 );
+
+describe('RaMonitoringPage — table (Astryx Table + plugins)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    latestSearch = {};
+    fetchAllocationsMock.mockReset();
+    fetchAllocationsMock.mockResolvedValue([]);
+  });
+
+  // One worker with two allocations across two accounts so the secondary
+  // (within-person) sort actually has something to reorder — `groupByPerson`
+  // groups by person first, and this fixture has only one person.
+  const allocations = [
+    {
+      allocation_id: 'a1',
+      worker_id: 'w1',
+      worker_name: 'Jane Doe',
+      worker_title: 'Engineer',
+      account_name: 'Zeta Corp',
+      project_name: 'P1',
+      planned_pct: 50,
+      date_from: '2026-01-01',
+      date_to: '2026-06-01',
+      bucket: 'billable',
+      status: 'committed',
+      can_manage: true,
+      note: null,
+      version: 1,
+    },
+    {
+      allocation_id: 'a2',
+      worker_id: 'w1',
+      worker_name: 'Jane Doe',
+      worker_title: 'Engineer',
+      account_name: 'Alpha Inc',
+      project_name: 'P2',
+      planned_pct: 50,
+      // Later start date than a1, so the default secondary sort (`start`,
+      // ascending) orders a1 (Zeta) before a2 (Alpha) — reverse-alphabetical
+      // by account, so a click on "Sort by Account" has something to prove.
+      date_from: '2026-02-01',
+      date_to: '2026-06-01',
+      bucket: 'billable',
+      status: 'committed',
+      can_manage: true,
+      note: null,
+      version: 1,
+    },
+  ];
+
+  it('clicking "Sort by Account" updates the URL sort state and reorders the group', async () => {
+    const user = userEvent.setup();
+    fetchAllocationsMock.mockResolvedValue(allocations);
+    renderTableHarness();
+
+    const table = await screen.findByRole('table');
+    // Default order (secondaryField 'start', ascending): Zeta (a1) before Alpha (a2).
+    expect(screen.getAllByText(/Zeta Corp|Alpha Inc/)[0]).toHaveTextContent('Zeta Corp');
+
+    await user.click(within(table).getByRole('button', { name: /sort by account/i }));
+
+    expect(latestSearch).toMatchObject({ sort: 'account', dir: 'asc' });
+    // Re-grouped ascending by account within Jane's group: Alpha before Zeta.
+    expect(screen.getAllByText(/Zeta Corp|Alpha Inc/)[0]).toHaveTextContent('Alpha Inc');
+  });
+
+  it('hiding the Account column via the Columns toggle removes it from the table', async () => {
+    const user = userEvent.setup();
+    fetchAllocationsMock.mockResolvedValue(allocations);
+    renderTableHarness();
+
+    await screen.findByRole('table');
+    expect(screen.getByText('Zeta Corp')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Account' }));
+
+    expect(screen.queryByText('Zeta Corp')).not.toBeInTheDocument();
+    expect(screen.queryByText('Alpha Inc')).not.toBeInTheDocument();
+  });
+
+  it('paginates client-side at 25/page (default pagination, previously undiscovered)', async () => {
+    const user = userEvent.setup();
+    // Astryx's pagination plugin doesn't render the nav at all for a single
+    // page (unlike the old DataTablePagination, which always rendered a —
+    // sanctioned — bar) — 26 single-row groups forces a genuine second page.
+    const manyAllocations = Array.from({ length: 26 }, (_, i) => ({
+      allocation_id: `m${i}`,
+      worker_id: `w${i}`,
+      worker_name: `Worker ${String(i).padStart(2, '0')}`,
+      worker_title: 'Engineer',
+      account_name: 'Zeta Corp',
+      project_name: 'P1',
+      planned_pct: 50,
+      date_from: '2026-01-01',
+      date_to: '2026-06-01',
+      bucket: 'billable',
+      status: 'committed',
+      can_manage: true,
+      note: null,
+      version: 1,
+    }));
+    fetchAllocationsMock.mockResolvedValue(manyAllocations);
+    renderTableHarness();
+
+    await screen.findByRole('table');
+    expect(screen.getByText('Worker 00')).toBeInTheDocument();
+    expect(screen.queryByText('Worker 25')).not.toBeInTheDocument();
+
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: 'Go to page 2' }));
+
+    expect(screen.getByText('Worker 25')).toBeInTheDocument();
+    expect(screen.queryByText('Worker 00')).not.toBeInTheDocument();
+  });
+});

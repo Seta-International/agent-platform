@@ -1,7 +1,8 @@
 import {
   Banner,
   Button,
-  DataTable,
+  Checkbox,
+  type ColumnSettingsOption,
   Dialog,
   DialogHeader,
   EmptyState,
@@ -10,15 +11,45 @@ import {
   LayoutContent,
   LayoutFooter,
   PageChrome,
+  Popover,
+  paginateData,
+  pixel,
+  proportional,
+  Skeleton,
+  Table,
+  type TableColumn,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
+  useTableSortableState,
   useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { FolderKanban } from 'lucide-react';
+import { FolderKanban, Settings2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type AccountListRow, createAccount, fetchAccounts } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
+
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO
+// lacks an index signature, so alias locally (do not touch the shared DTO).
+type AccountRow = AccountListRow & Record<string, unknown>;
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
+
+// Universe of columns for the column-settings picker — the deleted DataTable
+// never disabled `enableColumnVisibility`/`enableHiding`, so all 5 columns
+// were genuinely hideable; preserved as-is.
+const COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'industry', label: 'Industry' },
+  { key: 'am_worker_id', label: 'Account Manager' },
+  { key: 'recruiter_count', label: 'Recruiters' },
+  { key: 'project_count', label: 'Projects' },
+];
+const DEFAULT_COLUMN_KEYS = COLUMN_OPTIONS.map((c) => c.key);
 
 function CreateAccountDialog({ onCreated }: { onCreated: () => void }) {
   const toast = useToast();
@@ -111,53 +142,106 @@ export function AccountsPage() {
     queryFn: fetchAccounts,
   });
 
-  const columns = useMemo(() => {
-    type CellCtx = { row: { original: AccountListRow } };
-    return [
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_COLUMN_KEYS);
+
+  const rows = (accounts ?? []) as AccountRow[];
+
+  // The deleted DataTable defaulted `enableGlobalFilter` to `true` (this file
+  // never disabled it) — its global filter matched every accessor-backed
+  // column's raw value, which for this table is exactly what's displayed.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) =>
+      [r.name, r.industry, r.am_worker_id, String(r.recruiter_count), String(r.project_count)].some(
+        (v) => (v ?? '').toLowerCase().includes(q),
+      ),
+    );
+  }, [rows, search]);
+
+  const { sortedData, sortConfig } = useTableSortableState<AccountRow>({
+    data: filtered,
+    comparators: {
+      recruiter_count: (a, b) => a.recruiter_count - b.recruiter_count,
+      project_count: (a, b) => a.project_count - b.project_count,
+    },
+  });
+  const sortable = useTableSortable<AccountRow>(sortConfig);
+
+  const pageRows = useMemo(
+    () => paginateData(sortedData, page, pageSize),
+    [sortedData, page, pageSize],
+  );
+  const pagination = useTablePagination<AccountRow>({
+    page,
+    onPageChange: setPage,
+    totalItems: sortedData.length,
+    pageSize,
+    onPageSizeChange: (ps) => {
+      setPageSize(ps);
+      setPage(1);
+    },
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+  });
+
+  const columnSettingsState = useTableColumnSettingsState({
+    columns: COLUMN_OPTIONS,
+    activeColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+  });
+  const columnSettings = useTableColumnSettings<AccountRow>(
+    columnSettingsState.columnSettingsConfig,
+  );
+
+  const columns = useMemo<TableColumn<AccountRow>[]>(
+    () => [
       {
-        id: 'name',
-        accessorKey: 'name',
+        key: 'name',
         header: 'Name',
-        cell: ({ row }: CellCtx) => (
-          <span className="font-medium text-ink">{row.original.name}</span>
-        ),
+        width: proportional(2),
+        sortable: true,
+        renderCell: (r) => <span className="font-medium text-ink">{r.name}</span>,
       },
       {
-        id: 'industry',
-        accessorKey: 'industry',
+        key: 'industry',
         header: 'Industry',
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted">{row.original.industry ?? '—'}</span>
-        ),
+        width: proportional(1),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{r.industry ?? '—'}</span>,
       },
       {
-        id: 'am_worker_id',
-        accessorKey: 'am_worker_id',
+        key: 'am_worker_id',
         header: 'Account Manager',
-        cell: ({ row }: CellCtx) => (
+        width: proportional(1),
+        sortable: true,
+        renderCell: (r) => (
           <span className="font-mono text-caption text-ink-muted truncate block">
-            {row.original.am_worker_id ?? '—'}
+            {r.am_worker_id ?? '—'}
           </span>
         ),
       },
       {
-        id: 'recruiter_count',
-        accessorKey: 'recruiter_count',
+        key: 'recruiter_count',
         header: 'Recruiters',
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted">{row.original.recruiter_count}</span>
-        ),
+        width: pixel(110),
+        align: 'end',
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{r.recruiter_count}</span>,
       },
       {
-        id: 'project_count',
-        accessorKey: 'project_count',
+        key: 'project_count',
         header: 'Projects',
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted">{row.original.project_count}</span>
-        ),
+        width: pixel(100),
+        align: 'end',
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{r.project_count}</span>,
       },
-    ];
-  }, []);
+    ],
+    [],
+  );
 
   const actions = canManage ? (
     <CreateAccountDialog
@@ -171,27 +255,95 @@ export function AccountsPage() {
         {error ? (
           <Banner status="error" title={(error as Error).message} />
         ) : (
-          <DataTable
-            columns={columns}
-            data={accounts ?? []}
-            isLoading={isLoading}
-            pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
-            getRowId={(r: AccountListRow) => r.account_id}
-            globalFilterPlaceholder="Search accounts…"
-            emptyState={
-              <EmptyState
-                icon={<FolderKanban className="size-6" />}
-                title="No accounts yet"
-                description="Create an account to get started."
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <Input
+                label="Search accounts"
+                isLabelHidden
+                className="max-w-sm"
+                placeholder="Search accounts…"
+                value={search}
+                onChange={(value) => {
+                  setSearch(value);
+                  setPage(1);
+                }}
               />
-            }
-            onRowClick={(row) =>
-              void navigate({
-                to: '/pm/accounts/$accountId',
-                params: { accountId: row.original.account_id },
-              })
-            }
-          />
+              <Popover
+                placement="below"
+                alignment="end"
+                label="Toggle columns"
+                content={
+                  <div className="flex min-w-[180px] flex-col gap-1 p-2">
+                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                      Toggle columns
+                    </div>
+                    {COLUMN_OPTIONS.map((col) => (
+                      <Checkbox
+                        key={col.key}
+                        label={col.label}
+                        value={columnSettingsState.isColumnActive(col.key)}
+                        onChange={() => columnSettingsState.toggleColumn(col.key)}
+                      />
+                    ))}
+                  </div>
+                }
+              >
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Settings2 className="size-3.5" />}
+                  label="Columns"
+                />
+              </Popover>
+            </div>
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                  <Skeleton key={id} height={40} />
+                ))}
+              </div>
+            ) : (
+              <Table
+                data={pageRows}
+                columns={columns}
+                idKey="account_id"
+                plugins={{
+                  pagination,
+                  sortable,
+                  columnSettings,
+                  rowClick: {
+                    transformBodyRow: (props, item) => ({
+                      ...props,
+                      htmlProps: {
+                        ...props.htmlProps,
+                        style: { ...props.htmlProps.style, cursor: 'pointer' },
+                        onClick: () =>
+                          void navigate({
+                            to: '/pm/accounts/$accountId',
+                            params: { accountId: item.account_id },
+                          }),
+                      },
+                    }),
+                  },
+                }}
+                emptyState={
+                  search.trim() ? (
+                    <EmptyState
+                      title="No results match these filters"
+                      description="Try removing a filter or clearing your search."
+                      action={{ label: 'Clear filters', onClick: () => setSearch('') }}
+                    />
+                  ) : (
+                    <EmptyState
+                      icon={<FolderKanban className="size-6" />}
+                      title="No accounts yet"
+                      description="Create an account to get started."
+                    />
+                  )
+                }
+              />
+            )}
+          </>
         )}
       </div>
     </PageChrome>

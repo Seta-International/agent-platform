@@ -3,8 +3,10 @@ import {
   Banner,
   Button,
   Card,
+  Checkbox,
+  type ColumnSettingsOption,
+  cn,
   createStaticSource,
-  DataTable,
   DateInput,
   Dialog,
   DialogHeader,
@@ -14,18 +16,28 @@ import {
   LayoutContent,
   LayoutFooter,
   NumberInput,
-  type OnChangeFn,
   PageChrome,
+  Popover,
+  paginateData,
+  pixel,
+  proportional,
   type SearchableItem,
   Selector,
-  type SortingState,
+  Skeleton,
+  Table,
+  type TableColumn,
+  type TableSortState,
   Typeahead,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
   useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { ArrowRightLeft, Plus, Users, X } from 'lucide-react';
+import { ArrowRightLeft, Plus, Settings2, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchAccounts,
@@ -61,19 +73,31 @@ export interface RaSearch {
   dir?: 'asc' | 'desc';
 }
 
-/** Volatile per-row edit state passed via the table `meta` so column defs stay
- *  stable across keystrokes — otherwise editable inputs remount and lose focus. */
-interface RaTableMeta {
-  canManage: boolean;
-  overWorkers: Set<string>;
-  /** Allocation ids that are the first row of their person's group — only
-   *  these show the Person/Seniority cell content; the rest render blank. */
-  firstInGroup: Set<string>;
-  onSplit: (r: RaMonitoringAllocation) => void;
-  /** Opens the group-level Reassign wizard for this row's whole person — only
-   *  rendered on a group's first row (see `firstInGroup`). */
-  onReassignGroup: (r: RaMonitoringAllocation) => void;
-}
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO
+// lacks an index signature, so alias locally (do not touch the shared DTO).
+type RaRow = RaMonitoringAllocation & Record<string, unknown>;
+
+// Universe of columns for the column-settings picker — the deleted DataTable
+// never disabled `enableColumnVisibility`/`enableHiding` here, so all 11
+// columns (including Person and Actions) were genuinely hideable; preserved
+// as-is. "Actions" carries a real label here (old toolbar used the empty
+// `header` string verbatim, rendering an unlabeled checkbox — not
+// reproduced, since an unlabeled control is an accessibility bug, not a
+// feature).
+const RA_COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'account', label: 'Account' },
+  { key: 'project', label: 'Project' },
+  { key: 'name', label: 'Person' },
+  { key: 'seniority', label: 'Seniority' },
+  { key: 'planned', label: 'Allocation' },
+  { key: 'start', label: 'Start' },
+  { key: 'end', label: 'End' },
+  { key: 'effort', label: 'Calendar effort' },
+  { key: 'bucket', label: 'Type' },
+  { key: 'note', label: 'Note' },
+  { key: 'actions', label: 'Actions' },
+];
+const DEFAULT_RA_COLUMN_KEYS = RA_COLUMN_OPTIONS.map((c) => c.key);
 
 function Kpi({
   label,
@@ -318,18 +342,24 @@ export function RaMonitoringPage() {
     });
   };
 
-  const sorting = useMemo<SortingState>(
-    () => (search.sort ? [{ id: search.sort, desc: search.dir !== 'asc' }] : []),
-    [search.sort, search.dir],
-  );
-  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
-    const next = typeof updater === 'function' ? updater(sorting) : updater;
-    const first = next[0];
-    update({
-      sort: first ? (first.id as RaSearch['sort']) : undefined,
-      dir: first ? (first.desc ? 'desc' : 'asc') : undefined,
-    });
-  };
+  // Sort-state mapping: existing {field, dir} query state <-> Astryx's
+  // [{ sortKey, direction }] shape. The actual reorder happens externally via
+  // `groupByPerson` below — Astryx's sortable plugin (like the old
+  // `sortingFn: () => 0` columns) never resorts `data` itself, it only owns
+  // the header button UI/interaction.
+  const sortState: TableSortState = search.sort
+    ? [{ sortKey: search.sort, direction: search.dir === 'asc' ? 'ascending' : 'descending' }]
+    : [];
+  const sortable = useTableSortable<RaRow>({
+    sort: sortState,
+    onSortChange: (s) => {
+      const first = s[0];
+      update({
+        sort: first ? (first.sortKey as RaSearch['sort']) : undefined,
+        dir: first ? (first.direction === 'descending' ? 'desc' : 'asc') : undefined,
+      });
+    },
+  });
 
   const win = useMemo<EffortWindow>(
     () => ({ from: activeFrom || undefined, to: activeTo || undefined }),
@@ -388,9 +418,8 @@ export function RaMonitoringPage() {
   );
   const firstInGroup = useMemo(() => firstInGroupIds(groupedRows), [groupedRows]);
   const rowClassName = useCallback(
-    (row: { original: RaMonitoringAllocation }) =>
-      firstInGroup.has(row.original.allocation_id) &&
-      row.original.allocation_id !== groupedRows[0]?.allocation_id
+    (item: RaMonitoringAllocation) =>
+      firstInGroup.has(item.allocation_id) && item.allocation_id !== groupedRows[0]?.allocation_id
         ? 'border-t-2 border-t-hairline-strong'
         : undefined,
     [firstInGroup, groupedRows],
@@ -428,60 +457,81 @@ export function RaMonitoringPage() {
   const [splitTarget, setSplitTarget] = useState<RaMonitoringAllocation | null>(null);
   const [wizardTarget, setWizardTarget] = useState<ReassignWizardTarget | null>(null);
 
-  const tableMeta = useMemo<RaTableMeta>(
-    () => ({
-      canManage,
-      overWorkers,
-      firstInGroup,
-      onSplit: (r) => setSplitTarget(r),
-      onReassignGroup: (r) =>
-        setWizardTarget({
-          worker_id: r.worker_id as string,
-          worker_name: r.worker_name,
-          worker_title: r.worker_title,
-        }),
-    }),
-    [canManage, overWorkers, firstInGroup],
+  // The deleted DataTable defaulted `enableColumnVisibility` to `true` (this
+  // file never disabled it) and, since no `pagination={false}` was passed
+  // either, `getPaginationRowModel` paginated `groupedRows` client-side at the
+  // default page size (25) — both were genuinely live, if undiscovered by the
+  // plan's matrix. Preserved here; global filter stays dead (explicit
+  // `enableGlobalFilter={false}` in the old code — the search Input above is
+  // a separate, server-driving control, untouched).
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_RA_COLUMN_KEYS);
+
+  // Matches TanStack's `autoResetPageIndex` default: a new fetch or a sort
+  // change resets to page 1.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: groupedRows is the intentional reset trigger
+  useEffect(() => {
+    setPage(1);
+  }, [groupedRows]);
+
+  const pageRows = useMemo(
+    () => paginateData(groupedRows, page, pageSize) as RaRow[],
+    [groupedRows, page, pageSize],
   );
+  const pagination = useTablePagination<RaRow>({
+    page,
+    onPageChange: setPage,
+    totalItems: groupedRows.length,
+    pageSize,
+    onPageSizeChange: (ps) => {
+      setPageSize(ps);
+      setPage(1);
+    },
+    pageSizeOptions: [10, 25, 50, 100],
+  });
 
-  // Column defs are static — Calendar effort is computed from each row's own dates against
-  // today, and all volatile edit state is read from `table.options.meta`, so typing in a cell
-  // never rebuilds the column defs (which would remount the inputs and drop focus).
-  const columns = useMemo(() => {
-    type Ctx = {
-      row: { original: RaMonitoringAllocation };
-      table: { options: { meta?: unknown } };
-    };
+  const columnSettingsState = useTableColumnSettingsState({
+    columns: RA_COLUMN_OPTIONS,
+    activeColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+  });
+  const columnSettings = useTableColumnSettings<RaRow>(columnSettingsState.columnSettingsConfig);
 
-    return [
+  const openReassignGroup = useCallback((r: RaMonitoringAllocation) => {
+    setWizardTarget({
+      worker_id: r.worker_id as string,
+      worker_name: r.worker_name,
+      worker_title: r.worker_title,
+    });
+  }, []);
+
+  // Column defs depend directly on the closures they read (canManage,
+  // overWorkers, firstInGroup, openReassignGroup) — no `table.options.meta`
+  // indirection needed: none of these cells contain a live-editable input, so
+  // there's no keystroke-remount concern the old `meta` plumbing guarded against.
+  const columns = useMemo<TableColumn<RaRow>[]>(
+    () => [
       {
-        id: 'account',
+        key: 'account',
         header: 'Account',
-        accessorFn: (r: RaMonitoringAllocation) => r.account_name,
-        enableSorting: true,
-        // Row order is pre-computed (grouped by person, then by the active
-        // sort field) — this just neutralizes the table's own re-sort so it
-        // doesn't undo that grouping while still driving the header's arrow.
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => <span className="text-ink-muted">{row.original.account_name}</span>,
+        width: proportional(1),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{r.account_name}</span>,
       },
       {
-        id: 'project',
+        key: 'project',
         header: 'Project',
-        accessorFn: (r: RaMonitoringAllocation) => r.project_name,
-        enableSorting: true,
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => <span className="text-ink">{row.original.project_name}</span>,
+        width: proportional(1),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink">{r.project_name}</span>,
       },
       {
-        id: 'name',
+        key: 'name',
         header: 'Person',
-        accessorFn: (r: RaMonitoringAllocation) => r.worker_name ?? '',
-        enableSorting: false,
-        cell: ({ row, table }: Ctx) => {
-          const r = row.original;
-          const m = table.options.meta as RaTableMeta;
-          if (!m.firstInGroup.has(r.allocation_id)) return null;
+        width: proportional(2),
+        renderCell: (r) => {
+          if (!firstInGroup.has(r.allocation_id)) return null;
           return (
             <div className="flex items-center gap-2">
               {r.worker_name ? (
@@ -498,7 +548,7 @@ export function RaMonitoringPage() {
                   label={r.status}
                 />
               ) : null}
-              {r.worker_id && m.overWorkers.has(r.worker_id) ? (
+              {r.worker_id && overWorkers.has(r.worker_id) ? (
                 <Badge variant="warning" className="font-normal" label="Over-allocated" />
               ) : null}
             </div>
@@ -506,90 +556,81 @@ export function RaMonitoringPage() {
         },
       },
       {
-        id: 'seniority',
+        key: 'seniority',
         header: 'Seniority',
-        accessorFn: (r: RaMonitoringAllocation) => r.worker_title ?? '',
-        enableSorting: false,
-        cell: ({ row, table }: Ctx) => {
-          const r = row.original;
-          const m = table.options.meta as RaTableMeta;
-          if (!m.firstInGroup.has(r.allocation_id)) return null;
+        width: proportional(1),
+        renderCell: (r) => {
+          if (!firstInGroup.has(r.allocation_id)) return null;
           return <span className="text-ink-muted">{r.worker_title ?? '—'}</span>;
         },
       },
       {
-        id: 'planned',
+        key: 'planned',
         header: 'Allocation',
-        accessorFn: (r: RaMonitoringAllocation) => r.planned_pct ?? 0,
-        enableSorting: true,
-        sortingFn: () => 0,
+        width: pixel(100),
+        sortable: true,
         // Shown as a 0–1 fraction (e.g. 100% → 1.0, 40% → 0.4); stored value stays a percentage.
-        cell: ({ row }: Ctx) => (
+        renderCell: (r) => (
           <span className="font-mono tabular-nums text-ink">
-            {((row.original.planned_pct ?? 0) / 100).toFixed(1)}
+            {((r.planned_pct ?? 0) / 100).toFixed(1)}
           </span>
         ),
       },
       {
-        id: 'start',
+        key: 'start',
         header: 'Start',
-        accessorFn: (r: RaMonitoringAllocation) => r.date_from ?? '',
-        enableSorting: true,
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => (
+        width: pixel(100),
+        sortable: true,
+        renderCell: (r) => (
           <span className="whitespace-nowrap font-mono text-caption text-ink-muted">
-            {row.original.date_from ? formatDisplayDate(row.original.date_from) : '—'}
+            {r.date_from ? formatDisplayDate(r.date_from) : '—'}
           </span>
         ),
       },
       {
-        id: 'end',
+        key: 'end',
         header: 'End',
-        accessorFn: (r: RaMonitoringAllocation) => r.date_to ?? '',
-        enableSorting: true,
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => (
+        width: pixel(100),
+        sortable: true,
+        renderCell: (r) => (
           <span className="whitespace-nowrap font-mono text-caption text-ink-muted">
-            {row.original.date_to ? formatDisplayDate(row.original.date_to) : '—'}
+            {r.date_to ? formatDisplayDate(r.date_to) : '—'}
           </span>
         ),
       },
       {
-        id: 'effort',
+        key: 'effort',
         header: 'Calendar effort',
-        accessorFn: (r: RaMonitoringAllocation) => rowCalendarEffort(r),
-        enableSorting: true,
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => (
+        width: pixel(130),
+        sortable: true,
+        renderCell: (r) => (
           <span className="font-mono font-semibold tabular-nums text-ink">
-            {rowCalendarEffort(row.original).toFixed(2)}
+            {rowCalendarEffort(r).toFixed(2)}
           </span>
         ),
       },
       {
-        id: 'bucket',
+        key: 'bucket',
         header: 'Type',
-        accessorFn: (r: RaMonitoringAllocation) => r.bucket,
-        enableSorting: true,
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => bucketBadge(row.original.bucket),
+        width: pixel(100),
+        sortable: true,
+        renderCell: (r) => bucketBadge(r.bucket),
       },
       {
-        id: 'note',
+        key: 'note',
         header: 'Note',
-        cell: ({ row }: Ctx) => (
-          <span className="text-caption text-ink-muted">{row.original.note ?? '—'}</span>
-        ),
+        width: proportional(1),
+        renderCell: (r) => <span className="text-caption text-ink-muted">{r.note ?? '—'}</span>,
       },
       {
-        id: 'actions',
+        key: 'actions',
         header: '',
-        cell: ({ row, table }: Ctx) => {
-          const r = row.original;
-          const m = table.options.meta as RaTableMeta;
+        width: pixel(90),
+        align: 'end',
+        renderCell: (r) => {
           // Row-scoped (FUT-353): only projects the caller manages get edit actions; rows
           // visible through wider read scope stay read-only.
-          if (!r.can_manage || !m.firstInGroup.has(r.allocation_id)) return null;
+          if (!r.can_manage || !firstInGroup.has(r.allocation_id)) return null;
           return (
             <div className="flex justify-end gap-1">
               <Button
@@ -597,15 +638,16 @@ export function RaMonitoringPage() {
                 variant="secondary"
                 isIconOnly
                 label="Reassign"
-                onClick={() => m.onReassignGroup(r)}
+                onClick={() => openReassignGroup(r)}
                 icon={<ArrowRightLeft className="size-4" />}
               />
             </div>
           );
         },
       },
-    ];
-  }, []);
+    ],
+    [firstInGroup, overWorkers, openReassignGroup],
+  );
 
   const scopeLabel = projectId
     ? (visibleProjects.find((p) => p.project_id === projectId)?.name ?? '1 project')
@@ -723,29 +765,75 @@ export function RaMonitoringPage() {
           ) : null}
         </div>
 
-        <DataTable
-          columns={columns}
-          data={groupedRows}
-          meta={tableMeta}
-          sorting={sorting}
-          onSortingChange={onSortingChange}
-          getRowClassName={rowClassName}
-          isLoading={isLoading}
-          enableGlobalFilter={false}
-          density="compact"
-          getRowId={(r: RaMonitoringAllocation) => r.allocation_id}
-          emptyState={
-            <EmptyState
-              icon={<Users className="size-6" />}
-              title="No allocations in view"
-              description={
-                canManage
-                  ? 'Adjust the filters, or add an allocation to staff someone onto a project.'
-                  : 'Adjust the account, project, or active-period filters.'
-              }
+        <div className="flex justify-end">
+          <Popover
+            placement="below"
+            alignment="end"
+            label="Toggle columns"
+            content={
+              <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
+                <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                  Toggle columns
+                </div>
+                {RA_COLUMN_OPTIONS.map((col) => (
+                  <Checkbox
+                    key={col.key}
+                    label={col.label}
+                    value={columnSettingsState.isColumnActive(col.key)}
+                    onChange={() => columnSettingsState.toggleColumn(col.key)}
+                  />
+                ))}
+              </div>
+            }
+          >
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Settings2 className="size-3.5" />}
+              label="Columns"
             />
-          }
-        />
+          </Popover>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+              <Skeleton key={id} height={40} />
+            ))}
+          </div>
+        ) : (
+          <Table
+            data={pageRows}
+            columns={columns}
+            idKey="allocation_id"
+            density="compact"
+            plugins={{
+              pagination,
+              sortable,
+              columnSettings,
+              rowStyling: {
+                transformBodyRow: (props, item) => ({
+                  ...props,
+                  htmlProps: {
+                    ...props.htmlProps,
+                    className: cn(props.htmlProps.className, rowClassName(item)),
+                  },
+                }),
+              },
+            }}
+            emptyState={
+              <EmptyState
+                icon={<Users className="size-6" />}
+                title="No allocations in view"
+                description={
+                  canManage
+                    ? 'Adjust the filters, or add an allocation to staff someone onto a project.'
+                    : 'Adjust the account, project, or active-period filters.'
+                }
+              />
+            }
+          />
+        )}
       </div>
 
       <SplitAllocationDialog
