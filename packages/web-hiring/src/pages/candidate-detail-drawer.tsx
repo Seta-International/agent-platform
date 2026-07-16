@@ -6,9 +6,11 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  DisabledActionTooltip,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   formatRelative,
   toast,
@@ -40,6 +42,7 @@ import {
   editCandidate,
   fetchCandidate,
   getCandidateCvDownloadUrl,
+  hireApplication,
   moveApplicationStage,
   putCvToS3,
   requestCandidateCvUpload,
@@ -207,7 +210,22 @@ export function CandidateDetailDrawer({
     },
     onError: (e: Error) => on409(e, queryClient, hiringKeys.candidate(candidateId ?? '')),
   });
+  const hire = useMutation({
+    mutationFn: () => {
+      if (!app) throw new Error('no active application');
+      return hireApplication(app.application_id, { expected_version: app.version });
+    },
+    onSuccess: () => {
+      toast.success('Candidate hired');
+      refresh();
+    },
+    onError: (e: Error) => on409(e, queryClient, hiringKeys.candidate(candidateId ?? '')),
+  });
   const terminal = app ? app.status !== 'active' : true;
+  // FUT-559: an on-hold requisition freezes its pipeline — the backend rejects every
+  // mutation, so the drawer locks the same actions up front with the reason.
+  const reqOnHold = !terminal && app?.requisition_status === 'on_hold';
+  const onHoldReason = 'This requisition is on hold — resume it before updating its candidates.';
   const fit = app ? fitLabel(app.fit) : null;
   const hasMoreActions = (canTransfer && !terminal) || (canReject && !terminal);
 
@@ -254,11 +272,18 @@ export function CandidateDetailDrawer({
               <div className="flex flex-none items-center gap-1">
                 {hasMoreActions && (
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="More actions">
-                        <MoreHorizontal className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
+                    <DisabledActionTooltip disabled={reqOnHold} reason={onHoldReason}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="More actions"
+                          disabled={reqOnHold}
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </DisabledActionTooltip>
                     <DropdownMenuContent align="end">
                       {canTransfer && !terminal && (
                         <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
@@ -286,24 +311,36 @@ export function CandidateDetailDrawer({
               <PipelineStepper stage={app?.stage} status={app?.status} />
               {terminal && (
                 <p className="mt-3 text-caption text-ink-muted">
-                  This candidate is {app?.status} and can no longer be moved.
+                  {app?.status === 'cancelled'
+                    ? 'This application was closed because its requisition was cancelled.'
+                    : `This candidate is ${app?.status} and can no longer be moved.`}
+                </p>
+              )}
+              {reqOnHold && (
+                <p className="mt-3 text-caption text-warning-ink">
+                  This requisition is on hold — candidate actions are locked until it&apos;s
+                  resumed.
                 </p>
               )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-6 py-3">
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={!canManage || terminal || move.isPending}
-                  >
-                    <RefreshCw className="size-3.5" aria-hidden />
-                    Move stage
-                    <ChevronDown className="size-3.5" aria-hidden />
-                  </Button>
-                </DropdownMenuTrigger>
+                <DisabledActionTooltip disabled={reqOnHold} reason={onHoldReason}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={
+                        !canManage || terminal || reqOnHold || move.isPending || hire.isPending
+                      }
+                    >
+                      <RefreshCw className="size-3.5" aria-hidden />
+                      Move stage
+                      <ChevronDown className="size-3.5" aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </DisabledActionTooltip>
                 <DropdownMenuContent align="start">
                   {STAGES.map((s) => (
                     <DropdownMenuItem
@@ -314,6 +351,8 @@ export function CandidateDetailDrawer({
                       {s.label}
                     </DropdownMenuItem>
                   ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => hire.mutate()}>Hired</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

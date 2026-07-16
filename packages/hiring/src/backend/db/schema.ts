@@ -42,13 +42,22 @@ export const APPLICATION_KINDS = ['external', 'internal'] as const;
 
 export const APPLICATION_STAGES = ['new', 'screening', 'interview', 'offer'] as const;
 
-export const APPLICATION_STATUS = ['active', 'hired', 'rejected', 'transferred'] as const;
+export const APPLICATION_STATUS = [
+  'active',
+  'hired',
+  'rejected',
+  'transferred',
+  // Terminal: the requisition was cancelled while this application was still active.
+  'cancelled',
+] as const;
 
 export const REJECTION_CATEGORIES = ['rejected_by_us', 'withdrew', 'other'] as const;
 
 export const CANDIDATE_EVENT_KINDS = [
   'created',
   'stage_changed',
+  'hired',
+  'cancelled',
   'rejected',
   'transferred',
   'rating_changed',

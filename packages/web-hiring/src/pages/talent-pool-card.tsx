@@ -26,13 +26,30 @@ function initials(name: string): string {
   );
 }
 
-export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: string) => void }) {
+export function TalentPoolCard({
+  onOpenCandidate,
+  search = '',
+}: {
+  onOpenCandidate: (id: string) => void;
+  /** The page's search box also narrows the pool (name, seniority, recommended role). */
+  search?: string;
+}) {
   const [show, setShow] = useState(false);
   const pool = useQuery({
     queryKey: hiringKeys.talentPool(),
     queryFn: fetchTalentPool,
     enabled: show,
   });
+
+  const needle = search.trim().toLowerCase();
+  const rows = needle
+    ? (pool.data ?? []).filter((c) =>
+        [c.name, c.seniority ?? '', ...c.recommended.map((r) => r.title)]
+          .join(' ')
+          .toLowerCase()
+          .includes(needle),
+      )
+    : (pool.data ?? []);
 
   return (
     <Card className="mt-6">
@@ -57,11 +74,15 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                 />
               ))}
             </div>
-          ) : (pool.data?.length ?? 0) === 0 ? (
-            <div className="text-ink-muted">No past candidates to re-match yet.</div>
+          ) : rows.length === 0 ? (
+            <div className="text-ink-muted">
+              {(pool.data?.length ?? 0) === 0
+                ? 'No past candidates to re-match yet.'
+                : 'No talent pool candidates match your search.'}
+            </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {pool.data?.map((c) => (
+              {rows.map((c) => (
                 <div key={c.candidate_id} className="rounded-lg border border-hairline p-3">
                   <button
                     type="button"
@@ -81,7 +102,9 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                             ? ' · transferred'
                             : c.last_status === 'rejected'
                               ? ' · rejected'
-                              : ' · past candidate'}
+                              : c.last_status === 'cancelled'
+                                ? ' · role cancelled'
+                                : ' · past candidate'}
                       </span>
                     </span>
                   </button>

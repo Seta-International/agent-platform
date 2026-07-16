@@ -1,4 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
 import {
+  BadgeCheck,
+  Ban,
   CircleUserRound,
   FileText,
   type LucideIcon,
@@ -8,10 +11,14 @@ import {
   Users,
 } from 'lucide-react';
 import type { CandidateEvent } from '../api/hiring-client.ts';
+import { fetchDirectoryUsersByIds } from '../api/identity-directory.ts';
+import { hiringKeys } from '../state/query-keys.ts';
 
 const KIND_LABEL: Record<string, string> = {
   created: 'Candidate created',
   stage_changed: 'Stage changed',
+  hired: 'Hired',
+  cancelled: 'Application closed',
   rejected: 'Rejected',
   transferred: 'Transferred to another role',
   rating_changed: 'Rating updated',
@@ -23,6 +30,8 @@ const KIND_LABEL: Record<string, string> = {
 const KIND_ICON: Record<string, LucideIcon> = {
   created: Users,
   stage_changed: Ticket,
+  hired: BadgeCheck,
+  cancelled: Ban,
   rejected: Ticket,
   transferred: Ticket,
   rating_changed: Star,
@@ -36,11 +45,25 @@ function fmt(ts: string): string {
   return Number.isNaN(d.getTime()) ? ts : d.toLocaleString();
 }
 
-// candidate_event.actor_user_id has no local name projection in the hiring module (would need
-// a cross-module identity lookup) — null reliably means a system-triggered event, but a real
-// user id can't be resolved to a display name here, so it's labeled honestly instead of guessed.
-function actorLabel(actorUserId: string | null): string {
-  return actorUserId === null ? 'System' : 'No Data';
+// candidate_event stores only actor_user_id (no name — hiring can't join identity's schema),
+// so display names come from the identity directory's batch-resolve endpoint. null means a
+// system-triggered event; an id the directory can't return (e.g. hard-deleted) shows a dash.
+function useActorNames(events: CandidateEvent[]): Map<string, string> {
+  const ids = [
+    ...new Set(events.map((e) => e.actor_user_id).filter((id): id is string => !!id)),
+  ].sort();
+  const { data } = useQuery({
+    queryKey: hiringKeys.actorNames(ids),
+    queryFn: () => fetchDirectoryUsersByIds(ids),
+    enabled: ids.length > 0,
+    staleTime: 5 * 60_000,
+  });
+  return new Map((data ?? []).map((u) => [u.user_id, u.name]));
+}
+
+function actorLabel(actorUserId: string | null, names: Map<string, string>): string {
+  if (actorUserId === null) return 'System';
+  return names.get(actorUserId) ?? '—';
 }
 
 export function CandidateTimeline({
@@ -50,6 +73,7 @@ export function CandidateTimeline({
   events: CandidateEvent[];
   loading?: boolean;
 }) {
+  const actorNames = useActorNames(events);
   if (loading) {
     return (
       <div className="space-y-2">
@@ -79,7 +103,7 @@ export function CandidateTimeline({
                 <div className="text-caption text-ink-muted">{e.summary}</div>
               )}
               <div className="text-caption text-ink-subtle">
-                by {actorLabel(e.actor_user_id)} · {fmt(e.created_at)}
+                by {actorLabel(e.actor_user_id, actorNames)} · {fmt(e.created_at)}
               </div>
             </div>
           </li>

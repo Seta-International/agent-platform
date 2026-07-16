@@ -18,6 +18,7 @@ export interface CandidateApplication {
   application_id: string;
   requisition_id: string;
   requisition_title: string;
+  requisition_status: string;
   account_id: string | null;
   stage: string;
   status: string;
@@ -43,6 +44,7 @@ export interface CandidateListRow {
   source: string | null;
   requisition_id: string;
   requisition_title: string;
+  requisition_status: string;
   stage: string;
   status: string;
   rating: number | null;
@@ -125,6 +127,7 @@ export async function listCandidates(session: SessionScope): Promise<CandidateLi
       source: candidate.source,
       requisition_id: application.requisition_id,
       requisition_title: requisition.title,
+      requisition_status: requisition.status,
       stage: application.stage,
       status: application.status,
       rating: application.rating,
@@ -201,7 +204,8 @@ export async function getCandidateStageCounts(
   for (const r of rows) {
     if (r.status === 'active') counts[r.stage as keyof typeof counts] += r.count;
     else if (r.status === 'hired') counts.hired += r.count;
-    else if (r.status === 'rejected' || r.status === 'transferred') counts.cancelled += r.count;
+    else if (r.status === 'rejected' || r.status === 'transferred' || r.status === 'cancelled')
+      counts.cancelled += r.count;
   }
   return counts;
 }
@@ -258,6 +262,7 @@ export async function getCandidate(input: {
         id: application.id,
         requisition_id: application.requisition_id,
         requisition_title: requisition.title,
+        requisition_status: requisition.status,
         account_id: requisition.account_id,
         stage: application.stage,
         status: application.status,
@@ -293,6 +298,7 @@ export async function getCandidate(input: {
     application_id: a.id,
     requisition_id: a.requisition_id,
     requisition_title: a.requisition_title,
+    requisition_status: a.requisition_status,
     account_id: a.account_id,
     stage: a.stage,
     status: a.status,

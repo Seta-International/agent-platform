@@ -20,6 +20,7 @@ export {
 export { openRequisition } from './backend/domain/open-requisition.ts';
 export { addOpening, closeOpening } from './backend/domain/openings.ts';
 export {
+  hireApplication,
   moveApplicationStage,
   rejectApplication,
   transferApplication,

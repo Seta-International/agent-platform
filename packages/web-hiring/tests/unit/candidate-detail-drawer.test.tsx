@@ -99,8 +99,9 @@ describe('CandidateDetailDrawer', () => {
     expect(screen.getByText('female')).toBeInTheDocument();
     expect(screen.getByText('Strong fundamentals')).toBeInTheDocument();
     expect(screen.getByText('3/5')).toBeInTheDocument();
-    // Fields with no schema support are labeled honestly instead of fabricated.
-    expect(screen.getAllByText('No Data').length).toBeGreaterThan(0);
+    // A null actor_user_id means a system-triggered event; real ids resolve via the
+    // identity directory (see useActorNames) instead of the old "No Data" placeholder.
+    expect(screen.getByText(/by System/)).toBeInTheDocument();
   });
 
   it('shows CV file card when cv_storage_key exists', async () => {

@@ -68,6 +68,17 @@ export const applicationTransferredPayload = z.object({
   target_requisition_id: uuid,
   tenant_id: uuid,
 });
+export const applicationHiredPayload = z.object({
+  application_id: uuid,
+  tenant_id: uuid,
+  from_stage: z.string(),
+});
+export const applicationCancelledPayload = z.object({
+  application_id: uuid,
+  tenant_id: uuid,
+  requisition_id: uuid,
+  from_stage: z.string(),
+});
 
 export const HIRING_CANDIDATE_ADDED = 'hiring.candidate.added';
 export const HIRING_CANDIDATE_UPDATED = 'hiring.candidate.updated';
@@ -76,6 +87,8 @@ export const HIRING_APPLICATION_UPDATED = 'hiring.application.updated';
 export const HIRING_APPLICATION_STAGE_CHANGED = 'hiring.application.stage_changed';
 export const HIRING_APPLICATION_REJECTED = 'hiring.application.rejected';
 export const HIRING_APPLICATION_TRANSFERRED = 'hiring.application.transferred';
+export const HIRING_APPLICATION_HIRED = 'hiring.application.hired';
+export const HIRING_APPLICATION_CANCELLED = 'hiring.application.cancelled';
 
 export const HIRING_EVENTS = {
   [HIRING_REQUISITION_OPENED]: requisitionOpenedPayload,
@@ -90,4 +103,6 @@ export const HIRING_EVENTS = {
   [HIRING_APPLICATION_STAGE_CHANGED]: applicationStageChangedPayload,
   [HIRING_APPLICATION_REJECTED]: applicationRejectedPayload,
   [HIRING_APPLICATION_TRANSFERRED]: applicationTransferredPayload,
+  [HIRING_APPLICATION_HIRED]: applicationHiredPayload,
+  [HIRING_APPLICATION_CANCELLED]: applicationCancelledPayload,
 } as const satisfies Record<string, z.ZodSchema>;

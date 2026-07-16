@@ -25,6 +25,9 @@ export interface RequisitionApplicantSummary {
   applied_date: string;
   stage: string;
   kind: string;
+  // Application status (active/hired/rejected/transferred/cancelled) — without it the UI
+  // renders a terminal applicant's last stage chip as if they were still in the pipeline.
+  status: string;
 }
 
 export interface RequisitionListRow {
@@ -89,7 +92,7 @@ const REQUISITION_LIST_COLUMNS = {
   // schema, so this join stays module-local.
   applicants: sql<
     RequisitionApplicantSummary[]
-  >`(SELECT COALESCE(json_agg(json_build_object('name', c.name, 'role', c.seniority, 'applied_date', a.created_at, 'stage', a.stage, 'kind', a.kind) ORDER BY a.created_at), '[]'::json) FROM hiring.application a JOIN hiring.candidate c ON c.id = a.candidate_id WHERE a.requisition_id = "hiring"."requisition"."id")`,
+  >`(SELECT COALESCE(json_agg(json_build_object('name', c.name, 'role', c.seniority, 'applied_date', a.created_at, 'stage', a.stage, 'kind', a.kind, 'status', a.status) ORDER BY a.created_at), '[]'::json) FROM hiring.application a JOIN hiring.candidate c ON c.id = a.candidate_id WHERE a.requisition_id = "hiring"."requisition"."id")`,
   version: requisition.version,
 };
 

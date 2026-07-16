@@ -4,6 +4,13 @@ import { identityDb } from '../db/index.ts';
 export interface SearchDirectoryOpts {
   search?: string;
   sign_in_method?: 'credential' | 'microsoft' | 'both';
+  /**
+   * Batch id→name resolution (e.g. "by <actor>" attribution on activity feeds).
+   * When set, `search`/`sign_in_method` are ignored and — unlike picker search —
+   * deactivated users ARE included: past actions keep their author's name after
+   * offboarding. Rows stay tenant-scoped, so foreign ids simply return nothing.
+   */
+  ids?: string[];
   limit: number;
   offset: number;
 }
@@ -33,7 +40,15 @@ export async function searchDirectory(
   const search = opts.search ? `%${opts.search.toLowerCase()}%` : null;
   const m = opts.sign_in_method;
 
-  const whereClause = sql`
+  const whereClause = opts.ids?.length
+    ? sql`
+    WHERE u.tenant_id = ${tenantId}
+      AND u.id = ANY(ARRAY[${sql.join(
+        opts.ids.map((id) => sql`${id}`),
+        sql`, `,
+      )}]::uuid[])
+  `
+    : sql`
     WHERE u.tenant_id = ${tenantId}
       AND u.deactivated_at IS NULL
       ${search ? sql`AND (lower(u.email) LIKE ${search} OR lower(u.name) LIKE ${search})` : sql``}

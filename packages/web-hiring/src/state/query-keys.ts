@@ -16,5 +16,7 @@ export const hiringKeys = {
   skillCatalog: () => [...hiringKeys.all, 'skill-catalog'] as const,
   talentPool: () => [...hiringKeys.all, 'talent-pool'] as const,
   accounts: () => [...hiringKeys.all, 'accounts'] as const,
+  // id→name resolution for timeline attribution; keyed by the sorted id set.
+  actorNames: (ids: string[]) => [...hiringKeys.all, 'actor-names', ...ids] as const,
   projects: (accountId?: string) => [...hiringKeys.all, 'projects', accountId ?? null] as const,
 };

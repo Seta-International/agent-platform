@@ -28,13 +28,24 @@ export function registerDirectoryRoutes(app: Hono<SessionEnv>): void {
     const sign_in_method =
       (c.req.query('sign_in_method') as 'credential' | 'microsoft' | 'both' | undefined) ??
       undefined;
+    // `ids` switches the endpoint into batch id→name resolution (activity-feed
+    // attribution); see SearchDirectoryOpts.ids for the semantics.
+    const idsRaw = c.req.query('ids');
+    const ids = idsRaw ? idsRaw.split(',').filter(Boolean) : undefined;
+    if (ids) {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (ids.length > 50 || ids.some((id) => !uuidRe.test(id))) {
+        throw new IdentityError('VALIDATION', 'ids must be up to 50 comma-separated uuids');
+      }
+    }
     const limit = Math.min(parseInt(c.req.query('limit') ?? '8', 10), 50);
     const offset = parseInt(c.req.query('offset') ?? '0', 10);
     const result = await searchDirectory(scope.tenant_id, {
       search,
       sign_in_method,
-      limit,
-      offset,
+      ids,
+      limit: ids ? ids.length : limit,
+      offset: ids ? 0 : offset,
     });
     return c.json(result);
   });

@@ -40,9 +40,9 @@ export function TransferDialog({
     queryKey: hiringKeys.requisitionOptions(),
     queryFn: fetchRequisitions,
   });
-  const targets = (reqs ?? []).filter(
-    (r) => (r.status === 'open' || r.status === 'on_hold') && r.id !== currentRequisitionId,
-  );
+  // FUT-559: only actively-hiring roles receive transfers — on-hold (and closed) requisitions
+  // are excluded here, and the backend rejects them too.
+  const targets = (reqs ?? []).filter((r) => r.status === 'open' && r.id !== currentRequisitionId);
   const effectiveTarget = targetId || targets[0]?.id || '';
 
   const mutation = useMutation({

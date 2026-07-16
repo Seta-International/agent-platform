@@ -1,0 +1,2 @@
+ALTER TABLE "hiring"."candidate_event" DROP CONSTRAINT "candidate_event_kind_check";--> statement-breakpoint
+ALTER TABLE "hiring"."candidate_event" ADD CONSTRAINT "candidate_event_kind_check" CHECK (kind IN ('created', 'stage_changed', 'hired', 'rejected', 'transferred', 'rating_changed', 'note_changed', 'skills_changed', 'profile_changed'));

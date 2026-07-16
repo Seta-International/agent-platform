@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import type { RejectApplicationInput, TransferApplicationInput } from '../../contracts.ts';
 import {
   HIRING_APPLICATION_CREATED,
+  HIRING_APPLICATION_HIRED,
   HIRING_APPLICATION_REJECTED,
   HIRING_APPLICATION_STAGE_CHANGED,
   HIRING_APPLICATION_TRANSFERRED,
@@ -12,7 +13,7 @@ import {
 import { hiringDb } from '../db/client.ts';
 import { application, reason, requisition } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
-import { recordCandidateEvent } from './candidates.ts';
+import { assertApplicationRequisitionNotOnHold, recordCandidateEvent } from './candidates.ts';
 
 export async function moveApplicationStage(input: {
   application_id: string;
@@ -40,6 +41,7 @@ export async function moveApplicationStage(input: {
       'CONFLICT',
       `cannot move a ${cur.status} application — only active applications may advance`,
     );
+  await assertApplicationRequisitionNotOnHold(application_id, session);
   const next = cur.version + 1;
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
@@ -80,6 +82,72 @@ export async function moveApplicationStage(input: {
   return { version: next };
 }
 
+export async function hireApplication(input: {
+  application_id: string;
+  expected_version?: number;
+  session: SessionScope;
+}): Promise<{ version: number }> {
+  const { session, application_id } = input;
+  requirePermission(session, 'hiring.candidate.manage');
+  const [cur] = await hiringDb()
+    .select({
+      version: application.version,
+      stage: application.stage,
+      status: application.status,
+      candidate_id: application.candidate_id,
+    })
+    .from(application)
+    .where(and(eq(application.id, application_id), tenantScoped(application.tenant_id, session)))
+    .limit(1);
+  if (!cur) throw new HiringError('NOT_FOUND', 'application not found');
+  if (input.expected_version !== undefined && input.expected_version !== cur.version)
+    throw new HiringError('CONFLICT', 'version mismatch');
+  if (cur.status !== 'active')
+    throw new HiringError(
+      'CONFLICT',
+      `cannot hire a ${cur.status} application — only active applications may be hired`,
+    );
+  await assertApplicationRequisitionNotOnHold(application_id, session);
+  const next = cur.version + 1;
+  await withEmit(
+    { actor: { userId: session.user_id, tenantId: session.tenant_id } },
+    async (tx) => {
+      const updated = await tx
+        .update(application)
+        .set({ status: 'hired', closed_at: new Date(), version: next, updated_at: new Date() })
+        .where(
+          and(
+            eq(application.id, application_id),
+            eq(application.version, cur.version),
+            eq(application.status, 'active'),
+          ),
+        )
+        .returning({ id: application.id });
+      if (updated.length === 0)
+        throw new HiringError('CONFLICT', 'application was modified concurrently');
+      if (cur.candidate_id) {
+        await recordCandidateEvent(tx, {
+          session,
+          candidate_id: cur.candidate_id,
+          application_id,
+          kind: 'hired',
+          summary: `Hired — from ${cur.stage}`,
+          detail: { from_stage: cur.stage },
+        });
+      }
+      await emit({
+        tenantId: session.tenant_id,
+        aggregateType: 'hiring.application',
+        aggregateId: application_id,
+        eventType: HIRING_APPLICATION_HIRED,
+        eventVersion: 1,
+        payload: { application_id, tenant_id: session.tenant_id, from_stage: cur.stage },
+      });
+    },
+  );
+  return { version: next };
+}
+
 export async function rejectApplication(input: {
   application_id: string;
   expected_version?: number;
@@ -105,6 +173,7 @@ export async function rejectApplication(input: {
       'CONFLICT',
       `cannot reject a ${cur.status} application — only active applications may be rejected`,
     );
+  await assertApplicationRequisitionNotOnHold(application_id, session);
   const [reasonRow] = await hiringDb()
     .select({ category: reason.category })
     .from(reason)
@@ -195,13 +264,18 @@ export async function transferApplication(input: {
     throw new HiringError('CONFLICT', 'version mismatch');
   if (cur.status !== 'active')
     throw new HiringError('CONFLICT', `cannot transfer a ${cur.status} application`);
+  await assertApplicationRequisitionNotOnHold(application_id, session);
 
   const [req] = await hiringDb()
-    .select({ id: requisition.id })
+    .select({ id: requisition.id, status: requisition.status })
     .from(requisition)
     .where(and(eq(requisition.id, target), tenantScoped(requisition.tenant_id, session)))
     .limit(1);
   if (!req) throw new HiringError('NOT_FOUND', 'target requisition not found');
+  // FUT-559: a role that isn't actively hiring (on hold, filled, cancelled) never receives
+  // transfers — otherwise candidates pile up on positions nobody is working.
+  if (req.status !== 'open')
+    throw new HiringError('VALIDATION', 'target requisition is not open for applications');
 
   const dup = await hiringDb()
     .select({ id: application.id })

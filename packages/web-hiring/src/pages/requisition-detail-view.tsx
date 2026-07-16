@@ -93,6 +93,23 @@ const APPLICANT_STAGE_LABEL: Record<string, string> = {
   offer: 'Offer',
 };
 
+// Terminal applications show their outcome instead of the stage they died at — otherwise a
+// rejected applicant reads as still "Screening" and the count disagrees with the Candidates
+// board (which lists only active + hired).
+const APPLICANT_STATUS_BADGE: Record<string, string> = {
+  hired: 'bg-success-tint text-success-ink',
+  rejected: 'bg-danger-tint text-danger-ink',
+  transferred: 'bg-surface-2 text-ink-muted',
+  cancelled: 'bg-surface-2 text-ink-muted',
+};
+
+const APPLICANT_STATUS_LABEL: Record<string, string> = {
+  hired: 'Hired',
+  rejected: 'Rejected',
+  transferred: 'Transferred',
+  cancelled: 'Cancelled',
+};
+
 // The `date` column (and editRequisition's patch) wants a plain 'YYYY-MM-DD' string —
 // toISOString() shifts by the local UTC offset and can silently land on the wrong day.
 function toDateInputValue(date: Date): string {
@@ -735,16 +752,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         <div className="flex shrink-0 items-center gap-2">
           {!isTerminal && (
             <DisabledActionTooltip
-              disabled={(!canManage && !canClose) || isOnHold}
-              reason={!canManage && !canClose ? PERMISSION_DENIED.requisition.manage : onHoldReason}
+              disabled={!canManage && !canClose}
+              reason={PERMISSION_DENIED.requisition.manage}
             >
               <DropdownMenu open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={(!canManage && !canClose) || isOnHold}
-                  >
+                  <Button variant="secondary" size="sm" disabled={!canManage && !canClose}>
                     <MoreHorizontal className="mr-1.5 size-4" />
                     More actions
                   </Button>
@@ -877,10 +890,14 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                       </div>
                       <span
                         className={`shrink-0 rounded-full px-2.5 py-1 text-caption font-medium ${
-                          APPLICANT_STAGE_BADGE[a.stage] ?? 'bg-surface-2 text-ink-muted'
+                          (a.status !== 'active'
+                            ? APPLICANT_STATUS_BADGE[a.status]
+                            : APPLICANT_STAGE_BADGE[a.stage]) ?? 'bg-surface-2 text-ink-muted'
                         }`}
                       >
-                        {APPLICANT_STAGE_LABEL[a.stage] ?? a.stage}
+                        {a.status !== 'active'
+                          ? (APPLICANT_STATUS_LABEL[a.status] ?? a.status)
+                          : (APPLICANT_STAGE_LABEL[a.stage] ?? a.stage)}
                       </span>
                     </div>
                   ))}

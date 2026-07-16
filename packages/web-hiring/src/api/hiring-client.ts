@@ -51,6 +51,7 @@ export interface RequisitionApplicantSummary {
   applied_date: string;
   stage: string;
   kind: string;
+  status: string;
 }
 
 export interface RequisitionListRow {
@@ -336,7 +337,7 @@ export async function archiveCloseReason(
 
 // ---- Candidates (mirror PR2; web must not import backend) ----
 export type CandStage = 'new' | 'screening' | 'interview' | 'offer';
-export type CandStatus = 'active' | 'hired' | 'rejected' | 'transferred';
+export type CandStatus = 'active' | 'hired' | 'rejected' | 'transferred' | 'cancelled';
 
 export interface Fit {
   met: number;
@@ -353,6 +354,7 @@ export interface CandidateListItem {
   source: string | null;
   requisition_id: string;
   requisition_title: string;
+  requisition_status: string;
   stage: CandStage;
   status: CandStatus;
   rating: number | null;
@@ -378,6 +380,7 @@ export interface CandidateApplication {
   application_id: string;
   requisition_id: string;
   requisition_title: string;
+  requisition_status: string;
   account_id: string | null;
   stage: CandStage;
   status: CandStatus;
@@ -529,6 +532,14 @@ export async function moveApplicationStage(
 ): Promise<{ version: number }> {
   return handleResponse(
     await fetch(`/api/hiring/v1/applications/${applicationId}/stage`, json('POST', input)),
+  );
+}
+export async function hireApplication(
+  applicationId: string,
+  input: { expected_version?: number },
+): Promise<{ version: number }> {
+  return handleResponse(
+    await fetch(`/api/hiring/v1/applications/${applicationId}/hire`, json('POST', input)),
   );
 }
 export async function setApplicationRating(
