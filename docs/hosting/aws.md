@@ -19,10 +19,10 @@ flowchart TB
     s3web[("S3 · web bundle")]
 
     subgraph vpc["VPC ap-southeast-1 · ECS Fargate (arm64)"]
-        subgraph apisvc["api service — desired 1, autoscale to 4 (CPU)"]
+        subgraph apisvc["api service — desired 1, autoscale to 2 (CPU)"]
             api["server 1 vCPU / 2 GB<br/>+ cloudflared sidecar<br/>tasks across 2 AZ"]
         end
-        subgraph wsvc["worker service — desired 1, autoscale to N (queue depth)"]
+        subgraph wsvc["worker service — desired 1, autoscale to 2 (CPU)"]
             wrk["worker 1 vCPU / 3 GB<br/>no HTTP · tasks across 2 AZ"]
         end
     end
@@ -60,11 +60,15 @@ flowchart TB
 
 ## 3. Autoscaling
 
-- **api:** target-tracking on `ECSServiceAverageCPUUtilization` ~60%, `min=1 max=4`. Each added task
-  brings its own tunnel connector.
-- **worker:** target-tracking / step policy on a `PendingJobs` CloudWatch metric (a worker or scheduled
-  Lambda publishes `graphile_worker.jobs` depth), `min=1 max=N`. Falls back to CPU if the metric isn't
-  wired yet. graphile-worker uses advisory locks, so concurrent workers are safe.
+- **api:** target-tracking on `ECSServiceAverageCPUUtilization` ~60%, `min=1 max=2`. Each added task
+  brings its own tunnel connector. Raising `max` past 2 first needs the DB connection budget fixed
+  (static ~40 conns/task vs `db.t3.micro`'s ~112 `max_connections` — FUT-639) and the instance
+  sized/alarmed for it (FUT-636).
+- **worker:** target-tracking on CPU ~65%, `min=1 max=2`, **today**. The intended trigger — queue-depth
+  via a `JobQueueBacklogPerTask` CloudWatch metric — is scaffolded in the module behind
+  `enable_worker_queue_scaling` but OFF: nothing publishes the metric yet (FUT-637). CPU is a poor
+  proxy for network-bound embedding backlogs, so wire that before relying on worker scale-out.
+  graphile-worker uses advisory locks, so concurrent workers are safe.
 
 ## 4. Provision
 
