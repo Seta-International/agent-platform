@@ -1,3 +1,7 @@
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
+import { describe, expect, it } from 'vitest';
 import {
   Table,
   type TableColumn,
@@ -6,16 +10,7 @@ import {
   useTableSelection,
   useTableSelectionState,
   useTableSortable,
-  // Import ambiguity in the plan (controller-resolved): the brief's starter code imports
-  // from '../../../src/primitives/table', a wrapper Task 2a creates. That file doesn't
-  // exist yet, so this smoke test imports the vendor package directly — shared-ui is the
-  // one package allowed to import @astryxdesign/core. Task 2a switches this one line to
-  // the wrapper; everything else here is the pinned contract those 16 migrations rely on.
-} from '@astryxdesign/core/Table';
-import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+} from '../../../src/primitives/table';
 
 type Row = { id: string; name: string; age: number } & Record<string, unknown>;
 const DATA: Row[] = [
