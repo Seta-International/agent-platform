@@ -53,6 +53,28 @@ describe('ImportFromEntraDialog', () => {
     await waitFor(() => expect(within(dialog).getByText('ada@acme.com')).toBeInTheDocument());
   });
 
+  // `purpose="form"` removes backdrop-dismiss, so the in-drawer Cancel button is now a dominant
+  // exit path: it must run the same reset as Escape and the header close button, or state
+  // survives into the next open.
+  it('resets row selection when closed via the in-drawer Cancel button', async () => {
+    const user = userEvent.setup();
+    render(<ImportFromEntraDialog enabled onImported={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Import from Entra' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByText('ada@acme.com')).toBeInTheDocument());
+
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Select all' }));
+    expect(within(dialog).getByRole('checkbox', { name: 'Select all' })).toBeChecked();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Import from Entra' }));
+    const reopened = await screen.findByRole('dialog');
+    expect(within(reopened).getByRole('checkbox', { name: 'Select all' })).not.toBeChecked();
+  });
+
   it('keeps the drawer closed when Entra is disabled', async () => {
     const user = userEvent.setup();
     render(<ImportFromEntraDialog enabled={false} onImported={vi.fn()} />);

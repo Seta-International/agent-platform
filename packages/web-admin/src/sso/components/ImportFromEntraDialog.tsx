@@ -205,7 +205,11 @@ export function ImportFromEntraDialog({
                           void loadUsers();
                         }}
                       />
-                      <Button variant="ghost" label="Close" onClick={() => setOpen(false)} />
+                      <Button
+                        variant="ghost"
+                        label="Close"
+                        onClick={() => handleOpenChange(false)}
+                      />
                     </div>
                   </div>
                 ) : (
@@ -234,7 +238,11 @@ export function ImportFromEntraDialog({
                     {submitError && <Banner status="error" title={submitError} />}
 
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" label="Cancel" onClick={() => setOpen(false)} />
+                      <Button
+                        variant="ghost"
+                        label="Cancel"
+                        onClick={() => handleOpenChange(false)}
+                      />
                       <Button
                         label={
                           submitting

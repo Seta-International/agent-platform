@@ -34,16 +34,21 @@ export function AgentMobileSheet() {
         maxHeight="85dvh"
         padding={0}
         aria-label="Agent panel"
+        // Only the bottom edge is anchored, so height would collapse to content. Astryx has no
+        // `height` prop; this restores the old sheet's fixed `h-[85vh]`, which AgentSidePanel's
+        // `h-full` needs to resolve against so its transcript scrolls instead of the whole panel.
+        style={{ height: '85dvh' }}
       >
         {/*
          * Headerless: AgentSidePanel renders its own header with a close control, so a
          * `DialogHeader` here would stack two header bars. The accessible name comes from
-         * the Dialog's `aria-label` above.
+         * the Dialog's `aria-label` above. The panel owns its scrolling, so LayoutContent
+         * must not add a second scroll container.
          */}
         <Layout
           padding={0}
           content={
-            <LayoutContent padding={0}>
+            <LayoutContent padding={0} isScrollable={false}>
               <AgentSidePanel onClose={() => setPanelOpen(false)} showThreadSwitcher={false} />
             </LayoutContent>
           }
