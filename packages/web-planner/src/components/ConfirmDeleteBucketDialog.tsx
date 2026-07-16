@@ -1,12 +1,4 @@
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@seta/shared-ui';
+import { Button, Dialog, DialogHeader, Layout, LayoutFooter } from '@seta/shared-ui';
 
 interface Props {
   open: boolean;
@@ -24,22 +16,27 @@ export function ConfirmDeleteBucketDialog({
   pending = false,
 }: Props) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[420px]">
-        <DialogHeader>
-          <DialogTitle>Delete "{bucketName}"?</DialogTitle>
-          <DialogDescription>All tasks in this bucket will also be deleted.</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            variant="ghost"
-            label="Cancel"
-            onClick={() => onOpenChange(false)}
-            isDisabled={pending}
+    <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="required">
+      <Layout
+        header={
+          <DialogHeader
+            title={`Delete "${bucketName}"?`}
+            subtitle="All tasks in this bucket will also be deleted."
+            onOpenChange={onOpenChange}
           />
-          <Button variant="destructive" label="Delete" onClick={onConfirm} isDisabled={pending} />
-        </DialogFooter>
-      </DialogContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
+            <Button
+              variant="ghost"
+              label="Cancel"
+              onClick={() => onOpenChange(false)}
+              isDisabled={pending}
+            />
+            <Button variant="destructive" label="Delete" onClick={onConfirm} isDisabled={pending} />
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }
