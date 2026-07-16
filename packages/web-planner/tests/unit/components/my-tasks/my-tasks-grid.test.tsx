@@ -162,4 +162,87 @@ describe('MyTasksGrid', () => {
     );
     expect(cells).toEqual(['Alpha', 'Beta']);
   });
+
+  // Row order is read via the title links (role="link"), which render in DOM/body order.
+  const rowOrder = () => screen.getAllByRole('link').map((l) => l.textContent);
+
+  it('first click on a numeric column (Progress) orders rows highest-first (desc-first parity)', async () => {
+    renderInRouter(
+      <MyTasksGrid
+        data={emptyResult({
+          late: [
+            fxTask({ id: 'A', title: 'Alpha', percent_complete: 10 }),
+            fxTask({ id: 'B', title: 'Beta', percent_complete: 90 }),
+          ],
+        })}
+      />,
+    );
+    await screen.findByText('Alpha');
+    expect(rowOrder()).toEqual(['Alpha', 'Beta']);
+    // No sortDescFirst => table-core's getAutoSortDir returns 'desc' for numbers.
+    await userEvent.click(screen.getByText('Progress'));
+    expect(rowOrder()).toEqual(['Beta', 'Alpha']);
+  });
+
+  it('numeric column cycles desc -> asc -> unsorted (restores original order)', async () => {
+    renderInRouter(
+      <MyTasksGrid
+        data={emptyResult({
+          late: [
+            fxTask({ id: 'A', title: 'Mid', percent_complete: 50 }),
+            fxTask({ id: 'B', title: 'High', percent_complete: 90 }),
+            fxTask({ id: 'C', title: 'Low', percent_complete: 10 }),
+          ],
+        })}
+      />,
+    );
+    await screen.findByText('Mid');
+    expect(rowOrder()).toEqual(['Mid', 'High', 'Low']); // original insertion order
+    await userEvent.click(screen.getByText('Progress'));
+    expect(rowOrder()).toEqual(['High', 'Mid', 'Low']); // first click => desc (90,50,10)
+    await userEvent.click(screen.getByText('Progress'));
+    expect(rowOrder()).toEqual(['Low', 'Mid', 'High']); // second click => asc (10,50,90)
+    await userEvent.click(screen.getByText('Progress'));
+    expect(rowOrder()).toEqual(['Mid', 'High', 'Low']); // third click => unsorted (original)
+  });
+
+  it('string column (Task) cycles asc -> desc -> unsorted (restores original order)', async () => {
+    renderInRouter(
+      <MyTasksGrid
+        data={emptyResult({
+          late: [
+            fxTask({ id: 'A', title: 'Beta' }),
+            fxTask({ id: 'B', title: 'Alpha' }),
+            fxTask({ id: 'C', title: 'Gamma' }),
+          ],
+        })}
+      />,
+    );
+    await screen.findByText('Beta');
+    expect(rowOrder()).toEqual(['Beta', 'Alpha', 'Gamma']); // original insertion order
+    await userEvent.click(screen.getByText('Task'));
+    expect(rowOrder()).toEqual(['Alpha', 'Beta', 'Gamma']); // first click => asc
+    await userEvent.click(screen.getByText('Task'));
+    expect(rowOrder()).toEqual(['Gamma', 'Beta', 'Alpha']); // second click => desc
+    await userEvent.click(screen.getByText('Task'));
+    expect(rowOrder()).toEqual(['Beta', 'Alpha', 'Gamma']); // third click => unsorted (original)
+  });
+
+  it('sorts null due_at first under ascending (table-core toString(null) -> "" parity)', async () => {
+    renderInRouter(
+      <MyTasksGrid
+        data={emptyResult({
+          // First row has a string date => getAutoSortDir picks asc as first-click dir.
+          late: [
+            fxTask({ id: 'A', title: 'HasDate', due_at: '2024-06-01T00:00:00.000Z' }),
+            fxTask({ id: 'B', title: 'NoDate', due_at: null }),
+          ],
+        })}
+      />,
+    );
+    await screen.findByText('HasDate');
+    await userEvent.click(screen.getByText('Due'));
+    // null collapses to '' and sorts before any real date under asc.
+    expect(rowOrder()).toEqual(['NoDate', 'HasDate']);
+  });
 });
