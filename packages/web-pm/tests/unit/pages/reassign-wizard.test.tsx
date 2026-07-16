@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -371,5 +371,39 @@ describe('ReassignWizardDialog', () => {
       screen.getByText(/aeris - watchtower: start date cannot be in the past/i),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save aeris - watchtower/i })).toBeDisabled();
+  });
+
+  // Occlusion smoke test (plan Task 2 Step 5): the wizard is now an Astryx `Dialog` rendered
+  // via the native <dialog> element (top-layer). It's the most float-dense migrated dialog in
+  // this plan — every allocation row has 2 Typeahead comboboxes — so this proves a float still
+  // opens and its options are reachable when hosted inside the new modal, not clipped by
+  // `LayoutContent`'s own scroll container regardless of how deep the row grid nests it.
+  it('occlusion: the "Add project" row Typeahead opens and its options are reachable inside the modal', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWizard(
+      [allocation({ date_to: '2026-12-23' })],
+      [{ id: 'acc1', label: 'Aeris' }],
+      [
+        {
+          project_id: 'p2',
+          account_id: 'acc1',
+          name: 'Aeris - Finch Mobile',
+          phase: 'build',
+          status: 'active',
+          pm_worker_id: null,
+          can_manage: true,
+        },
+      ],
+    );
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'An Đình Luận' })).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Add project' }));
+    await user.click(within(dialog).getByRole('combobox', { name: 'Account' }));
+
+    // The popover shim renders the popup content, but it isn't necessarily a DOM descendant
+    // of the <dialog> element, so assert against the document rather than `within(dialog)`.
+    expect(await screen.findByRole('option', { name: 'Aeris' })).toBeInTheDocument();
   });
 });

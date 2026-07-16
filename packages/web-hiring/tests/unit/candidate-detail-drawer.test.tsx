@@ -87,6 +87,24 @@ const wrap =
   );
 
 describe('CandidateDetailDrawer', () => {
+  // No `DialogHeader` is rendered here (special case — the drawer's own content renders its own
+  // visible header), so the dialog's accessible name comes directly from a dynamic `aria-label`
+  // ("Candidate: {name}") rather than a heading. Astryx's real Dialog always mounts <dialog> +
+  // children regardless of `isOpen`; `candidateId={null}` maps to `isOpen={false}`.
+  it('is not exposed as a dialog when candidateId is null, then opens labeled with the candidate name once loaded', async () => {
+    fetchCandidate.mockResolvedValue(detail);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { rerender } = render(<CandidateDetailDrawer candidateId={null} onClose={() => {}} />, {
+      wrapper: wrap(qc),
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    rerender(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />);
+    await waitFor(() =>
+      expect(screen.getByRole('dialog', { name: 'Candidate: Ada Lovelace' })).toBeInTheDocument(),
+    );
+  });
+
   it('shows profile, skills, fit, note, and the activity timeline', async () => {
     fetchCandidate.mockResolvedValue(detail);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

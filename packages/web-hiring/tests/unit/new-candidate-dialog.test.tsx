@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -25,6 +25,22 @@ const wrap =
   );
 
 describe('NewCandidateDialog', () => {
+  // Astryx's real Dialog always mounts <dialog> + children regardless of `isOpen`. purpose="form"
+  // renders role="dialog" only once open; DialogHeader doesn't wire aria-labelledby, so assert the
+  // title via its heading rather than the dialog's accessible name — matching this batch's
+  // established pattern.
+  it('is not exposed as a dialog until the trigger is clicked, then opens with the create-form heading', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'New candidate' })).toBeInTheDocument();
+  });
+
   it('submits addCandidate with the entered name and selected role', async () => {
     addCandidate.mockResolvedValueOnce({ candidate_id: 'c1', application_id: 'a1' });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

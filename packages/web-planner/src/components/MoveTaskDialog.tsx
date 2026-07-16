@@ -3,11 +3,10 @@ import {
   Banner,
   Button,
   Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
-  DialogTitle,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   Selector,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
@@ -153,11 +152,11 @@ export function MoveTaskDialog({
   const submitDisabled = !planId || !bucketId || pending;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>Move task</DialogTitle>
-          <DialogDescription asChild>
+    <Dialog isOpen={open} onOpenChange={handleOpenChange} width={560} purpose="form">
+      <Layout
+        header={<DialogHeader title="Move task" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
             <div className="space-y-2 text-body-sm text-ink-subtle">
               <p>
                 Move <span className="text-ink">&ldquo;{taskTitle}&rdquo;</span> to a different
@@ -165,64 +164,65 @@ export function MoveTaskDialog({
                 over.
               </p>
             </div>
-          </DialogDescription>
-        </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {plansQ.isError && <Banner status="error" title="Couldn’t load plans. Try again." />}
+            <div className="space-y-4 py-2">
+              {plansQ.isError && <Banner status="error" title="Couldn’t load plans. Try again." />}
 
-          <div className="space-y-1.5">
-            <Selector
-              label="Target plan"
-              options={planOptions}
-              value={planId ?? ''}
-              onChange={(v) => {
-                setPlanId(v || null);
-                setBucketId(null);
-              }}
-              placeholder={plansQ.isPending ? 'Loading plans…' : 'Pick a plan…'}
-              isDisabled={plansQ.isPending}
-              hasSearch
+              <div className="space-y-1.5">
+                <Selector
+                  label="Target plan"
+                  options={planOptions}
+                  value={planId ?? ''}
+                  onChange={(v) => {
+                    setPlanId(v || null);
+                    setBucketId(null);
+                  }}
+                  placeholder={plansQ.isPending ? 'Loading plans…' : 'Pick a plan…'}
+                  isDisabled={plansQ.isPending}
+                  hasSearch
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Selector
+                  label="Target bucket"
+                  options={bucketOptions}
+                  value={bucketId ?? ''}
+                  onChange={(v) => setBucketId(v || null)}
+                  placeholder={
+                    !planId
+                      ? 'Pick a plan first'
+                      : bucketsQ.isPending
+                        ? 'Loading buckets…'
+                        : orderedBuckets.length === 0
+                          ? 'No buckets in this plan'
+                          : 'Pick a bucket…'
+                  }
+                  isDisabled={!planId || bucketsQ.isPending}
+                  hasSearch
+                />
+              </div>
+
+              {hasLabels && (
+                <p className="text-caption text-semantic-warning">
+                  Labels on this task will be removed because they belong to the current plan.
+                </p>
+              )}
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
+            <Button
+              variant="ghost"
+              label="Cancel"
+              onClick={() => handleOpenChange(false)}
+              isDisabled={pending}
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Selector
-              label="Target bucket"
-              options={bucketOptions}
-              value={bucketId ?? ''}
-              onChange={(v) => setBucketId(v || null)}
-              placeholder={
-                !planId
-                  ? 'Pick a plan first'
-                  : bucketsQ.isPending
-                    ? 'Loading buckets…'
-                    : orderedBuckets.length === 0
-                      ? 'No buckets in this plan'
-                      : 'Pick a bucket…'
-              }
-              isDisabled={!planId || bucketsQ.isPending}
-              hasSearch
-            />
-          </div>
-
-          {hasLabels && (
-            <p className="text-caption text-semantic-warning">
-              Labels on this task will be removed because they belong to the current plan.
-            </p>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="ghost"
-            label="Cancel"
-            onClick={() => handleOpenChange(false)}
-            isDisabled={pending}
-          />
-          <Button label="Move" onClick={handleSubmit} isDisabled={submitDisabled} />
-        </DialogFooter>
-      </DialogContent>
+            <Button label="Move" onClick={handleSubmit} isDisabled={submitDisabled} />
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }

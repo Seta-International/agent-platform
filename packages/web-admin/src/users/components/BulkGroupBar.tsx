@@ -2,12 +2,9 @@ import {
   Button,
   createStaticSource,
   Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
-  DialogTitle,
+  Layout,
+  LayoutFooter,
   type SearchableItem,
   Typeahead,
 } from '@seta/shared-ui';
@@ -93,26 +90,28 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
         </div>
       </div>
 
-      <Dialog open={confirming} onOpenChange={setConfirming}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add to group?</DialogTitle>
-            <DialogDescription>
-              Add {count} {count === 1 ? 'person' : 'people'} to “{groupName}”. They inherit the
-              group’s roles and product access immediately.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary" label="Cancel" />
-            </DialogClose>
-            <Button
-              label={add.isPending ? 'Adding…' : 'Add to group'}
-              isDisabled={add.isPending}
-              onClick={handleConfirm}
+      {/* Reversible action (people can be removed from the group afterward) — "form" purpose,
+          not "required": mirrors the plan's "archive M365 group" precedent. */}
+      <Dialog isOpen={confirming} onOpenChange={setConfirming} purpose="form">
+        <Layout
+          header={
+            <DialogHeader
+              title="Add to group?"
+              subtitle={`Add ${count} ${count === 1 ? 'person' : 'people'} to “${groupName}”. They inherit the group’s roles and product access immediately.`}
+              onOpenChange={setConfirming}
             />
-          </DialogFooter>
-        </DialogContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <Button variant="secondary" label="Cancel" onClick={() => setConfirming(false)} />
+              <Button
+                label={add.isPending ? 'Adding…' : 'Add to group'}
+                isDisabled={add.isPending}
+                onClick={handleConfirm}
+              />
+            </LayoutFooter>
+          }
+        />
       </Dialog>
     </>
   );

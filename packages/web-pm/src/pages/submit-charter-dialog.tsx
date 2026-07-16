@@ -3,12 +3,12 @@ import {
   Button,
   DateInput,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   Input,
   Label,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   NumberInput,
   type SearchableItem,
   Selector,
@@ -112,159 +112,168 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
     form.account_id !== '' &&
     form.pm_worker_id.trim() !== '';
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) {
+      setForm(EMPTY);
+      setPmWorker(null);
+      setError(null);
+    }
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) {
-          setForm(EMPTY);
-          setPmWorker(null);
-          setError(null);
-        }
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" label="New request" />
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Submit project charter</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Selector
-              label="Account *"
-              options={(accounts ?? []).map((a) => ({ value: a.account_id, label: a.name }))}
-              value={form.account_id || undefined}
-              onChange={(v) => set({ account_id: v })}
-              placeholder="Select account"
-            />
-          </div>
+    <>
+      <Button size="sm" label="New request" onClick={() => setOpen(true)} />
+      <Dialog isOpen={open} onOpenChange={handleOpenChange} width={560} purpose="form">
+        <Layout
+          header={<DialogHeader title="Submit project charter" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Selector
+                    label="Account *"
+                    options={(accounts ?? []).map((a) => ({
+                      value: a.account_id,
+                      label: a.name,
+                    }))}
+                    value={form.account_id || undefined}
+                    onChange={(v) => set({ account_id: v })}
+                    placeholder="Select account"
+                  />
+                </div>
 
-          <div className="space-y-1">
-            <Input
-              label="Project name *"
-              value={form.name}
-              onChange={(value) => set({ name: value })}
-            />
-          </div>
+                <div className="space-y-1">
+                  <Input
+                    label="Project name *"
+                    value={form.name}
+                    onChange={(value) => set({ name: value })}
+                  />
+                </div>
 
-          <div className="space-y-1">
-            <Label>PM *</Label>
-            <Typeahead
-              label="PM"
-              isLabelHidden
-              searchSource={workerSource.source}
-              value={pmWorker}
-              onChange={(item) => {
-                setPmWorker(item);
-                set({ pm_worker_id: item?.id ?? '' });
-              }}
-              placeholder="Search workers…"
-            />
-          </div>
+                <div className="space-y-1">
+                  <Label>PM *</Label>
+                  <Typeahead
+                    label="PM"
+                    isLabelHidden
+                    searchSource={workerSource.source}
+                    value={pmWorker}
+                    onChange={(item) => {
+                      setPmWorker(item);
+                      set({ pm_worker_id: item?.id ?? '' });
+                    }}
+                    placeholder="Search workers…"
+                  />
+                </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Selector
-                label="Methodology"
-                options={[
-                  { value: NONE, label: '—' },
-                  { value: 'scrum', label: 'Scrum' },
-                  { value: 'kanban', label: 'Kanban' },
-                ]}
-                value={form.methodology || NONE}
-                onChange={(v) =>
-                  set({
-                    methodology: (v === NONE ? '' : v) as SubmitCharterBody['methodology'] | '',
-                  })
-                }
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Selector
+                      label="Methodology"
+                      options={[
+                        { value: NONE, label: '—' },
+                        { value: 'scrum', label: 'Scrum' },
+                        { value: 'kanban', label: 'Kanban' },
+                      ]}
+                      value={form.methodology || NONE}
+                      onChange={(v) =>
+                        set({
+                          methodology: (v === NONE ? '' : v) as
+                            | SubmitCharterBody['methodology']
+                            | '',
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Selector
+                      label="Pricing"
+                      options={[
+                        { value: NONE, label: '—' },
+                        { value: 'fixed_price', label: 'Fixed-price' },
+                        { value: 'time_materials', label: 'Time & materials' },
+                      ]}
+                      value={form.pricing_model || NONE}
+                      onChange={(v) =>
+                        set({
+                          pricing_model: (v === NONE ? '' : v) as
+                            | SubmitCharterBody['pricing_model']
+                            | '',
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <NumberInput
+                    label="Team size"
+                    min={0}
+                    isIntegerOnly
+                    value={form.team_size === '' ? null : Number(form.team_size)}
+                    onChange={(v) => set({ team_size: String(v) })}
+                  />
+                  <NumberInput
+                    label="Budget (BMM)"
+                    min={0}
+                    step={0.25}
+                    value={form.budget_bmm === '' ? null : Number(form.budget_bmm)}
+                    onChange={(v) => set({ budget_bmm: String(v) })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <DateInput
+                      label="Date from"
+                      value={form.date_from || undefined}
+                      onChange={(v) => set({ date_from: v ?? '' })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <DateInput
+                      label="Date to"
+                      value={form.date_to || undefined}
+                      onChange={(v) => set({ date_to: v ?? '' })}
+                    />
+                  </div>
+                </div>
+
+                <Textarea
+                  label="Objective"
+                  value={form.objective}
+                  onChange={(value) => set({ objective: value })}
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Textarea
+                    label="Scope (in)"
+                    value={form.scope_in}
+                    onChange={(value) => set({ scope_in: value })}
+                  />
+                  <Textarea
+                    label="Scope (out)"
+                    value={form.scope_out}
+                    onChange={(value) => set({ scope_out: value })}
+                  />
+                </div>
+
+                {error && <Banner status="error" title={error} />}
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
+              <Button
+                label={mutation.isPending ? 'Submitting…' : 'Submit'}
+                onClick={() => mutation.mutate()}
+                isDisabled={!canSubmit}
               />
-            </div>
-            <div className="space-y-1">
-              <Selector
-                label="Pricing"
-                options={[
-                  { value: NONE, label: '—' },
-                  { value: 'fixed_price', label: 'Fixed-price' },
-                  { value: 'time_materials', label: 'Time & materials' },
-                ]}
-                value={form.pricing_model || NONE}
-                onChange={(v) =>
-                  set({
-                    pricing_model: (v === NONE ? '' : v) as SubmitCharterBody['pricing_model'] | '',
-                  })
-                }
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <NumberInput
-              label="Team size"
-              min={0}
-              isIntegerOnly
-              value={form.team_size === '' ? null : Number(form.team_size)}
-              onChange={(v) => set({ team_size: String(v) })}
-            />
-            <NumberInput
-              label="Budget (BMM)"
-              min={0}
-              step={0.25}
-              value={form.budget_bmm === '' ? null : Number(form.budget_bmm)}
-              onChange={(v) => set({ budget_bmm: String(v) })}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <DateInput
-                label="Date from"
-                value={form.date_from || undefined}
-                onChange={(v) => set({ date_from: v ?? '' })}
-              />
-            </div>
-            <div className="space-y-1">
-              <DateInput
-                label="Date to"
-                value={form.date_to || undefined}
-                onChange={(v) => set({ date_to: v ?? '' })}
-              />
-            </div>
-          </div>
-
-          <Textarea
-            label="Objective"
-            value={form.objective}
-            onChange={(value) => set({ objective: value })}
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <Textarea
-              label="Scope (in)"
-              value={form.scope_in}
-              onChange={(value) => set({ scope_in: value })}
-            />
-            <Textarea
-              label="Scope (out)"
-              value={form.scope_out}
-              onChange={(value) => set({ scope_out: value })}
-            />
-          </div>
-
-          {error && <Banner status="error" title={error} />}
-
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
-            <Button
-              label={mutation.isPending ? 'Submitting…' : 'Submit'}
-              onClick={() => mutation.mutate()}
-              isDisabled={!canSubmit}
-            />
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }

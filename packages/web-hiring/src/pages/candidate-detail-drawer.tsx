@@ -4,11 +4,11 @@ import {
   Badge,
   Button,
   Dialog,
-  DialogContent,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuItem,
   formatRelative,
+  Layout,
+  LayoutContent,
   toast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -188,245 +188,265 @@ export function CandidateDetailDrawer({
   const terminal = app ? app.status !== 'active' : true;
   const fit = app ? fitLabel(app.fit) : null;
   const hasMoreActions = (canTransfer && !terminal) || (canReject && !terminal);
+  const dialogLabel = `Candidate: ${data?.candidate.name ?? 'Loading'}`;
 
   return (
-    <Dialog open={!!candidateId} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent
-        hideClose
-        unstyled
-        className="flex max-h-[90vh] w-[min(1040px,94vw)] flex-col overflow-hidden rounded-xl p-0"
-      >
-        <DialogTitle className="sr-only">
-          Candidate: {data?.candidate.name ?? 'Loading'}
-        </DialogTitle>
-        {isLoading || !data ? (
-          <div className="p-6 text-ink-muted">Loading…</div>
-        ) : (
-          <>
-            <div className="flex items-start justify-between gap-4 border-b border-hairline px-6 py-5">
-              <div className="flex items-start gap-3">
-                <Avatar className="size-14">
-                  <AvatarFallback>
-                    <User className="size-6" />
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="text-card-title font-semibold text-ink">
-                    {data.candidate.name}
-                  </div>
-                  <div className="text-body-sm text-ink-muted">
-                    {data.candidate.seniority ?? '—'} · applying for {app?.requisition_title ?? '—'}
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-3 text-caption text-ink-subtle">
-                    <span className="inline-flex items-center gap-1">
-                      <Building2 className="size-3.5" aria-hidden />
-                      {data.candidate.source ?? '—'}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <CalendarDays className="size-3.5" aria-hidden />
-                      {app ? `Applied ${appliedLabel(app.applied_at)}` : '—'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-none items-center gap-1">
-                {hasMoreActions && (
-                  <DropdownMenu
-                    placement="below"
-                    button={{
-                      variant: 'ghost',
-                      size: 'sm',
-                      isIconOnly: true,
-                      icon: <MoreHorizontal className="size-4" />,
-                      label: 'More actions',
-                    }}
-                  >
-                    {canTransfer && !terminal && (
-                      <DropdownMenuItem
-                        label="Move to another role"
-                        onClick={() => setTransferOpen(true)}
+    <Dialog
+      isOpen={!!candidateId}
+      onOpenChange={(v) => !v && onClose()}
+      purpose="info"
+      width={1040}
+      maxHeight="90vh"
+      padding={0}
+      aria-label={dialogLabel}
+    >
+      {/*
+       * Special case (no visible header/footer): the content below renders its own visible
+       * header (avatar/name/close button), so this shell must NOT render a `DialogHeader` —
+       * that would stack two header bars. The dialog's accessible name is set directly via
+       * `aria-label` above, mirroring the original's screen-reader-only `DialogTitle`.
+       */}
+      <Layout
+        padding={0}
+        content={
+          <LayoutContent padding={0} isScrollable={false}>
+            <div className="flex max-h-[90vh] flex-col">
+              {isLoading || !data ? (
+                <div className="p-6 text-ink-muted">Loading…</div>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between gap-4 border-b border-hairline px-6 py-5">
+                    <div className="flex items-start gap-3">
+                      <Avatar className="size-14">
+                        <AvatarFallback>
+                          <User className="size-6" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="text-card-title font-semibold text-ink">
+                          {data.candidate.name}
+                        </div>
+                        <div className="text-body-sm text-ink-muted">
+                          {data.candidate.seniority ?? '—'} · applying for{' '}
+                          {app?.requisition_title ?? '—'}
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-caption text-ink-subtle">
+                          <span className="inline-flex items-center gap-1">
+                            <Building2 className="size-3.5" aria-hidden />
+                            {data.candidate.source ?? '—'}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <CalendarDays className="size-3.5" aria-hidden />
+                            {app ? `Applied ${appliedLabel(app.applied_at)}` : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-none items-center gap-1">
+                      {hasMoreActions && (
+                        <DropdownMenu
+                          placement="below"
+                          button={{
+                            variant: 'ghost',
+                            size: 'sm',
+                            isIconOnly: true,
+                            icon: <MoreHorizontal className="size-4" />,
+                            label: 'More actions',
+                          }}
+                        >
+                          {canTransfer && !terminal && (
+                            <DropdownMenuItem
+                              label="Move to another role"
+                              onClick={() => setTransferOpen(true)}
+                            />
+                          )}
+                          {canReject && !terminal && (
+                            <DropdownMenuItem
+                              label="Reject"
+                              style={{ color: 'var(--color-destructive)' }}
+                              onClick={() => setRejectOpen(true)}
+                            />
+                          )}
+                        </DropdownMenu>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        isIconOnly
+                        icon={<X className="size-4" />}
+                        label="Close"
+                        onClick={onClose}
                       />
+                    </div>
+                  </div>
+
+                  <div className="border-b border-hairline px-6 py-4">
+                    <PipelineStepper stage={app?.stage} />
+                    {terminal && (
+                      <p className="mt-3 text-caption text-ink-muted">
+                        This candidate is {app?.status} and can no longer be moved.
+                      </p>
                     )}
-                    {canReject && !terminal && (
-                      <DropdownMenuItem
-                        label="Reject"
-                        style={{ color: 'var(--color-destructive)' }}
-                        onClick={() => setRejectOpen(true)}
-                      />
-                    )}
-                  </DropdownMenu>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  isIconOnly
-                  icon={<X className="size-4" />}
-                  label="Close"
-                  onClick={onClose}
-                />
-              </div>
-            </div>
+                  </div>
 
-            <div className="border-b border-hairline px-6 py-4">
-              <PipelineStepper stage={app?.stage} />
-              {terminal && (
-                <p className="mt-3 text-caption text-ink-muted">
-                  This candidate is {app?.status} and can no longer be moved.
-                </p>
-              )}
-            </div>
+                  <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-6 py-3">
+                    <DropdownMenu
+                      placement="below"
+                      hasChevron
+                      button={{
+                        variant: 'secondary',
+                        size: 'sm',
+                        label: 'Move stage',
+                        icon: <RefreshCw className="size-3.5" aria-hidden />,
+                        isDisabled: !canManage || terminal || move.isPending,
+                      }}
+                    >
+                      {STAGES.map((s) => (
+                        <DropdownMenuItem
+                          key={s.id}
+                          label={s.label}
+                          isDisabled={app?.stage === s.id}
+                          onClick={() => move.mutate(s.id)}
+                        />
+                      ))}
+                    </DropdownMenu>
+                  </div>
 
-            <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-6 py-3">
-              <DropdownMenu
-                placement="below"
-                hasChevron
-                button={{
-                  variant: 'secondary',
-                  size: 'sm',
-                  label: 'Move stage',
-                  icon: <RefreshCw className="size-3.5" aria-hidden />,
-                  isDisabled: !canManage || terminal || move.isPending,
-                }}
-              >
-                {STAGES.map((s) => (
-                  <DropdownMenuItem
-                    key={s.id}
-                    label={s.label}
-                    isDisabled={app?.stage === s.id}
-                    onClick={() => move.mutate(s.id)}
-                  />
-                ))}
-              </DropdownMenu>
-            </div>
-
-            <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto px-6 py-4 lg:grid-cols-[1.4fr_1fr]">
-              <div className="space-y-4">
-                <DetailCard title="Contact">
-                  <DetailRow
-                    icon={<Mail className="size-3.5" aria-hidden />}
-                    label="Personal email"
-                    value={data.candidate.contact?.personal_email ?? '—'}
-                    onCopy={
-                      data.candidate.contact?.personal_email
-                        ? () =>
-                            void navigator.clipboard.writeText(
-                              data.candidate.contact?.personal_email ?? '',
-                            )
-                        : undefined
-                    }
-                  />
-                  <DetailRow
-                    icon={<Phone className="size-3.5" aria-hidden />}
-                    label="Phone"
-                    value={data.candidate.contact?.phone ?? '—'}
-                    onCopy={
-                      data.candidate.contact?.phone
-                        ? () =>
-                            void navigator.clipboard.writeText(data.candidate.contact?.phone ?? '')
-                        : undefined
-                    }
-                  />
-                  <DetailRow
-                    icon={<Globe className="size-3.5" aria-hidden />}
-                    label="Source"
-                    value={data.candidate.source ?? '—'}
-                  />
-                  <DetailRow
-                    icon={<Cake className="size-3.5" aria-hidden />}
-                    label="Date of birth"
-                    value={data.candidate.dob ?? '—'}
-                  />
-                  <DetailRow
-                    icon={<VenusAndMars className="size-3.5" aria-hidden />}
-                    label="Gender"
-                    value={data.candidate.gender ?? '—'}
-                  />
-                </DetailCard>
-
-                <DetailCard
-                  title="Skills"
-                  action={
-                    fit && <Badge variant={fit.strong ? 'success' : 'neutral'} label={fit.text} />
-                  }
-                >
-                  <div className="flex flex-wrap gap-1.5">
-                    {data.skills.length === 0 ? (
-                      <span className="text-caption text-ink-muted">No skills recorded.</span>
-                    ) : (
-                      data.skills.map((s) => (
-                        <Badge
-                          key={s.skill_id}
-                          variant="neutral"
-                          label={
-                            <>
-                              <span>{s.skill_name}</span>
-                              {s.level ? <span>{` · L${s.level}`}</span> : null}
-                            </>
+                  <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto px-6 py-4 lg:grid-cols-[1.4fr_1fr]">
+                    <div className="space-y-4">
+                      <DetailCard title="Contact">
+                        <DetailRow
+                          icon={<Mail className="size-3.5" aria-hidden />}
+                          label="Personal email"
+                          value={data.candidate.contact?.personal_email ?? '—'}
+                          onCopy={
+                            data.candidate.contact?.personal_email
+                              ? () =>
+                                  void navigator.clipboard.writeText(
+                                    data.candidate.contact?.personal_email ?? '',
+                                  )
+                              : undefined
                           }
                         />
-                      ))
-                    )}
+                        <DetailRow
+                          icon={<Phone className="size-3.5" aria-hidden />}
+                          label="Phone"
+                          value={data.candidate.contact?.phone ?? '—'}
+                          onCopy={
+                            data.candidate.contact?.phone
+                              ? () =>
+                                  void navigator.clipboard.writeText(
+                                    data.candidate.contact?.phone ?? '',
+                                  )
+                              : undefined
+                          }
+                        />
+                        <DetailRow
+                          icon={<Globe className="size-3.5" aria-hidden />}
+                          label="Source"
+                          value={data.candidate.source ?? '—'}
+                        />
+                        <DetailRow
+                          icon={<Cake className="size-3.5" aria-hidden />}
+                          label="Date of birth"
+                          value={data.candidate.dob ?? '—'}
+                        />
+                        <DetailRow
+                          icon={<VenusAndMars className="size-3.5" aria-hidden />}
+                          label="Gender"
+                          value={data.candidate.gender ?? '—'}
+                        />
+                      </DetailCard>
+
+                      <DetailCard
+                        title="Skills"
+                        action={
+                          fit && (
+                            <Badge variant={fit.strong ? 'success' : 'neutral'} label={fit.text} />
+                          )
+                        }
+                      >
+                        <div className="flex flex-wrap gap-1.5">
+                          {data.skills.length === 0 ? (
+                            <span className="text-caption text-ink-muted">No skills recorded.</span>
+                          ) : (
+                            data.skills.map((s) => (
+                              <Badge
+                                key={s.skill_id}
+                                variant="neutral"
+                                label={
+                                  <>
+                                    <span>{s.skill_name}</span>
+                                    {s.level ? <span>{` · L${s.level}`}</span> : null}
+                                  </>
+                                }
+                              />
+                            ))
+                          )}
+                        </div>
+                      </DetailCard>
+
+                      <DetailCard title="CV">
+                        <CandidateCvActions
+                          candidateId={data.candidate.id}
+                          hasCv={Boolean(data.candidate.cv_storage_key)}
+                          cvStorageKey={data.candidate.cv_storage_key}
+                          canManage={canManage}
+                          onChanged={() =>
+                            void queryClient.invalidateQueries({
+                              queryKey: hiringKeys.candidate(data.candidate.id),
+                            })
+                          }
+                        />
+                      </DetailCard>
+
+                      <DetailCard title="Notes">
+                        {app?.note ? (
+                          <p className="text-body-sm text-ink">{app.note}</p>
+                        ) : (
+                          <p className="text-caption text-ink-muted">No notes yet.</p>
+                        )}
+                      </DetailCard>
+                    </div>
+
+                    <div className="space-y-4">
+                      <DetailCard title="Application details">
+                        <DetailRow label="Requisition" value={app?.requisition_title ?? '—'} />
+                        <DetailRow
+                          label="Requisition ID"
+                          value={
+                            app ? (
+                              <span className="font-mono text-caption">{app.requisition_id}</span>
+                            ) : (
+                              '—'
+                            )
+                          }
+                        />
+                        <DetailRow
+                          label="Applied date"
+                          value={app ? new Date(app.applied_at).toLocaleString() : '—'}
+                        />
+                        <DetailRow
+                          label="Current stage"
+                          value={app ? STAGES.find((s) => s.id === app.stage)?.label : '—'}
+                        />
+                        <DetailRow
+                          label="Rating"
+                          value={app?.rating != null ? `${app.rating}/5` : 'Not rated'}
+                        />
+                      </DetailCard>
+
+                      <DetailCard title="Activity timeline">
+                        <CandidateTimeline events={data.timeline} />
+                      </DetailCard>
+                    </div>
                   </div>
-                </DetailCard>
-
-                <DetailCard title="CV">
-                  <CandidateCvActions
-                    candidateId={data.candidate.id}
-                    hasCv={Boolean(data.candidate.cv_storage_key)}
-                    cvStorageKey={data.candidate.cv_storage_key}
-                    canManage={canManage}
-                    onChanged={() =>
-                      void queryClient.invalidateQueries({
-                        queryKey: hiringKeys.candidate(data.candidate.id),
-                      })
-                    }
-                  />
-                </DetailCard>
-
-                <DetailCard title="Notes">
-                  {app?.note ? (
-                    <p className="text-body-sm text-ink">{app.note}</p>
-                  ) : (
-                    <p className="text-caption text-ink-muted">No notes yet.</p>
-                  )}
-                </DetailCard>
-              </div>
-
-              <div className="space-y-4">
-                <DetailCard title="Application details">
-                  <DetailRow label="Requisition" value={app?.requisition_title ?? '—'} />
-                  <DetailRow
-                    label="Requisition ID"
-                    value={
-                      app ? (
-                        <span className="font-mono text-caption">{app.requisition_id}</span>
-                      ) : (
-                        '—'
-                      )
-                    }
-                  />
-                  <DetailRow
-                    label="Applied date"
-                    value={app ? new Date(app.applied_at).toLocaleString() : '—'}
-                  />
-                  <DetailRow
-                    label="Current stage"
-                    value={app ? STAGES.find((s) => s.id === app.stage)?.label : '—'}
-                  />
-                  <DetailRow
-                    label="Rating"
-                    value={app?.rating != null ? `${app.rating}/5` : 'Not rated'}
-                  />
-                </DetailCard>
-
-                <DetailCard title="Activity timeline">
-                  <CandidateTimeline events={data.timeline} />
-                </DetailCard>
-              </div>
+                </>
+              )}
             </div>
-          </>
-        )}
-      </DialogContent>
+          </LayoutContent>
+        }
+      />
 
       {app && (
         <>

@@ -2,11 +2,10 @@ import {
   Button,
   Checkbox,
   Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
-  DialogTitle,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import type { DuplicateOptions } from '../hooks/mutations/duplicate-task';
@@ -66,45 +65,46 @@ export function DuplicateTaskDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle>Duplicate task</DialogTitle>
-          <DialogDescription asChild>
+    <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+      <Layout
+        header={<DialogHeader title="Duplicate task" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
             <div className="space-y-2 text-body-sm text-ink-subtle">
               <p>
                 A copy of <span className="text-ink">&ldquo;{taskTitle}&rdquo;</span> will be added
                 to the same bucket. Pick what to carry over:
               </p>
             </div>
-          </DialogDescription>
-        </DialogHeader>
 
-        <div className="space-y-3 py-2">
-          {FIELDS.map((f) => {
-            const checked = options[f.key] ?? false;
-            return (
-              <Checkbox
-                key={f.key}
-                label={f.label}
-                description={f.description}
-                value={checked}
-                onChange={(next) => setOptions((prev) => ({ ...prev, [f.key]: next }))}
-              />
-            );
-          })}
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="ghost"
-            label="Cancel"
-            onClick={() => onOpenChange(false)}
-            isDisabled={pending}
-          />
-          <Button label="Duplicate" onClick={() => onConfirm(options)} isDisabled={pending} />
-        </DialogFooter>
-      </DialogContent>
+            <div className="space-y-3 py-2">
+              {FIELDS.map((f) => {
+                const checked = options[f.key] ?? false;
+                return (
+                  <Checkbox
+                    key={f.key}
+                    label={f.label}
+                    description={f.description}
+                    value={checked}
+                    onChange={(next) => setOptions((prev) => ({ ...prev, [f.key]: next }))}
+                  />
+                );
+              })}
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
+            <Button
+              variant="ghost"
+              label="Cancel"
+              onClick={() => onOpenChange(false)}
+              isDisabled={pending}
+            />
+            <Button label="Duplicate" onClick={() => onConfirm(options)} isDisabled={pending} />
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }

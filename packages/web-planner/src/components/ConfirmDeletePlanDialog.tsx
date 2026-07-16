@@ -2,12 +2,11 @@ import {
   Button,
   Checkbox,
   Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
-  DialogTitle,
   DisabledActionTooltip,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useState } from 'react';
@@ -40,11 +39,11 @@ export function ConfirmDeletePlanDialog({
   const deleteDisabled = pending || !canDeletePlan || (isLinked && !acknowledged);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle>Delete this plan?</DialogTitle>
-          <DialogDescription asChild>
+    <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="required">
+      <Layout
+        header={<DialogHeader title="Delete this plan?" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
             <div className="space-y-2 text-body-sm text-ink-subtle">
               <p>The plan is gone for good. Its tasks move to Trash.</p>
               {isLinked && (
@@ -53,34 +52,34 @@ export function ConfirmDeletePlanDialog({
                 </p>
               )}
             </div>
-          </DialogDescription>
-        </DialogHeader>
-
-        {isLinked && (
-          <Checkbox
-            label="I understand this also deletes the matching Microsoft Planner plan."
-            value={acknowledged}
-            onChange={(v) => setAcknowledged(v)}
-          />
-        )}
-
-        <DialogFooter>
-          <Button
-            variant="ghost"
-            label="Cancel"
-            onClick={() => handleOpenChange(false)}
-            isDisabled={pending}
-          />
-          <DisabledActionTooltip disabled={!canDeletePlan} reason={PERMISSION_DENIED.plan.delete}>
+            {isLinked && (
+              <Checkbox
+                label="I understand this also deletes the matching Microsoft Planner plan."
+                value={acknowledged}
+                onChange={(v) => setAcknowledged(v)}
+              />
+            )}
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
             <Button
-              variant="destructive"
-              label="Delete"
-              onClick={onConfirm}
-              isDisabled={deleteDisabled}
+              variant="ghost"
+              label="Cancel"
+              onClick={() => handleOpenChange(false)}
+              isDisabled={pending}
             />
-          </DisabledActionTooltip>
-        </DialogFooter>
-      </DialogContent>
+            <DisabledActionTooltip disabled={!canDeletePlan} reason={PERMISSION_DENIED.plan.delete}>
+              <Button
+                variant="destructive"
+                label="Delete"
+                onClick={onConfirm}
+                isDisabled={deleteDisabled}
+              />
+            </DisabledActionTooltip>
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }

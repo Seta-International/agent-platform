@@ -1,12 +1,4 @@
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@seta/shared-ui';
+import { Button, Dialog, DialogHeader, Layout, LayoutContent, LayoutFooter } from '@seta/shared-ui';
 
 interface Props {
   open: boolean;
@@ -24,35 +16,36 @@ export function ConfirmDeleteTaskDialog({
   pending = false,
 }: Props) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle>Delete this task?</DialogTitle>
-          <DialogDescription asChild>
+    <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="required">
+      <Layout
+        header={<DialogHeader title="Delete this task?" onOpenChange={onOpenChange} />}
+        content={
+          <LayoutContent>
             <div className="space-y-2 text-body-sm text-ink-subtle">
               <p>
                 <span className="text-ink">&ldquo;{taskTitle}&rdquo;</span> moves to Trash. You can
                 restore it within 30 days; after that, it is gone for good.
               </p>
             </div>
-          </DialogDescription>
-        </DialogHeader>
-
-        <DialogFooter>
-          <Button
-            variant="ghost"
-            label="Cancel"
-            onClick={() => onOpenChange(false)}
-            isDisabled={pending}
-          />
-          <Button
-            variant="destructive"
-            label="Delete task"
-            onClick={onConfirm}
-            isDisabled={pending}
-          />
-        </DialogFooter>
-      </DialogContent>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
+            <Button
+              variant="ghost"
+              label="Cancel"
+              onClick={() => onOpenChange(false)}
+              isDisabled={pending}
+            />
+            <Button
+              variant="destructive"
+              label="Delete task"
+              onClick={onConfirm}
+              isDisabled={pending}
+            />
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }

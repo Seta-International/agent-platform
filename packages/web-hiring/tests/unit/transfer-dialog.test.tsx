@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -24,6 +24,10 @@ const wrap =
   );
 
 describe('TransferDialog', () => {
+  // purpose="form" (transferring a candidate is a reversible workflow action, not a destructive
+  // terminal one) makes Astryx's Dialog render plain role="dialog" — verified precedent from the
+  // web-planner batch. Astryx's Dialog/DialogHeader don't wire aria-labelledby, so scope with
+  // within() and query the heading for the title instead of `{ name }`.
   it('excludes the current role and transfers to the chosen target', async () => {
     transferApplication.mockResolvedValueOnce({ to_application_id: 'a2', version: 1 });
     const onDone = vi.fn();
@@ -39,17 +43,21 @@ describe('TransferDialog', () => {
       />,
       { wrapper: wrap(qc) },
     );
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog).getByRole('heading', { name: 'Move to another role' }),
+    ).toBeInTheDocument();
     // Wait for query to load so effectiveTarget resolves to r2 (excludes current r1)
     await waitFor(() =>
       expect(qc.getQueryState(['hiring', 'requisition-options'])?.status).toBe('success'),
     );
     // The trigger shows the selected value (Frontend Eng = r2, since r1 is excluded)
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: /target role/i })).toBeInTheDocument(),
+      expect(within(dialog).getByRole('combobox', { name: /target role/i })).toBeInTheDocument(),
     );
     // effectiveTarget = r2 (Frontend Eng) because r1 is filtered out as currentRequisitionId
     // Clicking submit verifies r2 is selected
-    await userEvent.click(screen.getByRole('button', { name: /move candidate/i }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /move candidate/i }));
     await waitFor(() =>
       expect(transferApplication).toHaveBeenCalledWith('a1', {
         expected_version: 3,
@@ -78,8 +86,25 @@ describe('TransferDialog', () => {
       />,
       { wrapper: wrap(qc) },
     );
+    const dialog = screen.getByRole('dialog');
     await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: /target role/i })).toBeInTheDocument(),
+      expect(within(dialog).getByRole('combobox', { name: /target role/i })).toBeInTheDocument(),
     );
+  });
+
+  it('is not exposed as a dialog when closed', () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <TransferDialog
+        applicationId="a1"
+        version={3}
+        currentRequisitionId="r1"
+        open={false}
+        onOpenChange={() => {}}
+        onDone={vi.fn()}
+      />,
+      { wrapper: wrap(qc) },
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

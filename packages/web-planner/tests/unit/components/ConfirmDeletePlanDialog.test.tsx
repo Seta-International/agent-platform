@@ -1,10 +1,15 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ConfirmDeletePlanDialog } from '../../../src/components/ConfirmDeletePlanDialog';
 
 describe('ConfirmDeletePlanDialog', () => {
-  it('renders with title "Delete this plan?" when open', () => {
+  // purpose="required" (mandatory destructive confirm) makes Astryx's Dialog render
+  // role="alertdialog", not "dialog" — verified against @astryxdesign/core Dialog.tsx
+  // (`role={purpose === 'required' ? 'alertdialog' : undefined}`) and empirically here.
+  // Astryx's Dialog/DialogHeader do not wire aria-labelledby, so the alertdialog has no
+  // computed accessible name — assert the title via its heading instead of `{ name }`.
+  it('exposes an accessible alertdialog with heading "Delete this plan?" when open', () => {
     render(
       <ConfirmDeletePlanDialog
         open
@@ -13,7 +18,20 @@ describe('ConfirmDeletePlanDialog', () => {
         onConfirm={() => {}}
       />,
     );
-    expect(screen.getByRole('heading', { name: 'Delete this plan?' })).toBeInTheDocument();
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByRole('heading', { name: 'Delete this plan?' })).toBeInTheDocument();
+  });
+
+  it('is not exposed as an alertdialog when closed', () => {
+    render(
+      <ConfirmDeletePlanDialog
+        open={false}
+        onOpenChange={() => {}}
+        externalSource="native"
+        onConfirm={() => {}}
+      />,
+    );
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
   it('native plan: shows trash body, no checkbox, Delete enabled immediately', () => {
@@ -25,11 +43,12 @@ describe('ConfirmDeletePlanDialog', () => {
         onConfirm={() => {}}
       />,
     );
-    expect(screen.getByText(/Its tasks move to Trash/i)).toBeInTheDocument();
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText(/Its tasks move to Trash/i)).toBeInTheDocument();
     expect(
-      screen.queryByRole('checkbox', { name: /I understand this also deletes/i }),
+      within(dialog).queryByRole('checkbox', { name: /I understand this also deletes/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete' })).not.toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Delete' })).not.toBeDisabled();
   });
 
   it('linked plan: shows M365 warning, checkbox visible, Delete disabled until checked', async () => {
@@ -42,17 +61,18 @@ describe('ConfirmDeletePlanDialog', () => {
         onConfirm={() => {}}
       />,
     );
+    const dialog = screen.getByRole('alertdialog');
     expect(
-      screen.getByText(/This also deletes the matching plan in Microsoft Planner/i),
+      within(dialog).getByText(/This also deletes the matching plan in Microsoft Planner/i),
     ).toBeInTheDocument();
-    const checkbox = screen.getByRole('checkbox', {
+    const checkbox = within(dialog).getByRole('checkbox', {
       name: /I understand this also deletes the matching Microsoft Planner plan/i,
     });
     expect(checkbox).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Delete' })).toBeDisabled();
 
     await user.click(checkbox);
-    expect(screen.getByRole('button', { name: 'Delete' })).not.toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Delete' })).not.toBeDisabled();
   });
 
   it('Cancel calls onOpenChange(false) and does NOT call onConfirm', async () => {

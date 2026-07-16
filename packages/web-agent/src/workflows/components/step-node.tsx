@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@seta/shared-ui';
+import { Dialog, DialogHeader, Layout, LayoutContent } from '@seta/shared-ui';
 import type { Node } from '@xyflow/react';
 import { Handle, type NodeProps, Position } from '@xyflow/react';
 import { Ban, Check, CircleDashed, Loader2, PauseCircle, ShieldAlert, X } from 'lucide-react';
@@ -30,15 +30,17 @@ function StepJsonDialog({ title, value, open, onClose }: StepJsonDialogProps) {
   }, [value]);
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl w-full p-0 overflow-hidden">
-        <DialogHeader className="px-4 pt-4 pb-2">
-          <DialogTitle className="font-mono text-sm">{title}</DialogTitle>
-        </DialogHeader>
-        <pre className="m-0 max-h-[60vh] overflow-auto whitespace-pre-wrap break-all bg-surface-1 px-4 py-3 font-mono text-[11.5px] leading-[1.55] text-ink border-t border-hairline">
-          {pretty}
-        </pre>
-      </DialogContent>
+    <Dialog isOpen={open} onOpenChange={onClose} width={720} purpose="info">
+      <Layout
+        header={<DialogHeader title={title} onOpenChange={onClose} />}
+        content={
+          <LayoutContent padding={0}>
+            <pre className="m-0 max-h-[60vh] overflow-auto whitespace-pre-wrap break-all bg-surface-1 px-4 py-3 font-mono text-[11.5px] leading-[1.55] text-ink border-t border-hairline">
+              {pretty}
+            </pre>
+          </LayoutContent>
+        }
+      />
     </Dialog>
   );
 }

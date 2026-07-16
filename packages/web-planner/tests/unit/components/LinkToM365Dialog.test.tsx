@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -26,10 +26,30 @@ const FAKE_M365_GROUPS = [
 ];
 
 describe('LinkToM365Dialog', () => {
-  it('renders with title and search input', () => {
+  // Astryx's real Dialog always mounts <dialog> + children regardless of `isOpen` — it does
+  // not unmount on close. purpose="form" renders role="dialog" (only purpose="required" maps
+  // to role="alertdialog"). DialogHeader doesn't wire aria-labelledby, so the dialog has no
+  // computed accessible name — assert the title via its heading instead.
+  it('exposes an accessible dialog with title and search input when open', () => {
     wrap(<LinkToM365Dialog groupId={GROUP_ID} open onOpenChange={() => {}} />);
-    expect(screen.getByText('Link with a Microsoft 365 group')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Search Microsoft 365 groups…')).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog).getByRole('heading', { name: 'Link with a Microsoft 365 group' }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByPlaceholderText('Search Microsoft 365 groups…')).toBeInTheDocument();
+  });
+
+  it('is not exposed as a dialog when closed', () => {
+    wrap(<LinkToM365Dialog groupId={GROUP_ID} open={false} onOpenChange={() => {}} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('closes via the header close button', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    wrap(<LinkToM365Dialog groupId={GROUP_ID} open onOpenChange={onOpenChange} />);
+    await user.click(screen.getByRole('button', { name: /close/i }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('typing in search triggers searchM365Groups call', async () => {

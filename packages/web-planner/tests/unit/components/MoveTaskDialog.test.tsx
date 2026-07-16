@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { MoveTaskDialog } from '../../../src/components/MoveTaskDialog';
@@ -81,5 +81,27 @@ describe('MoveTaskDialog', () => {
       targetBucketId: 'bk2',
       targetPlanName: 'Gamma',
     });
+  });
+
+  // Occlusion smoke test (plan Task 2 Step 6): MoveTaskDialog is now an Astryx `Dialog`
+  // rendered via the native <dialog> element (top-layer). The "Target plan" field is an
+  // Astryx `Selector` — its dropdown is itself a floating element. This proves the float
+  // still opens and its options remain reachable when hosted inside the new modal (rather
+  // than being clipped/occluded by the dialog's own top-layer stacking).
+  it('occlusion: the "Target plan" Selector opens and its options are reachable inside the modal', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Move task' })).toBeInTheDocument();
+
+    // Open the float from inside the dialog's accessible subtree...
+    await user.click(within(dialog).getByRole('button', { name: /target plan/i }));
+
+    // ...and confirm its options are reachable via role queries — the popover shim renders
+    // the popup content, but it isn't necessarily a DOM descendant of the <dialog> element,
+    // so we assert against the document rather than re-scoping to `within(dialog)`.
+    expect(await screen.findByRole('option', { name: /Beta/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Gamma/ })).toBeInTheDocument();
   });
 });
