@@ -2,21 +2,32 @@ import {
   Badge,
   Banner,
   Button,
-  DataTable,
   Dialog,
   DialogHeader,
+  EmptyState,
+  Input,
   Layout,
   LayoutContent,
+  pixel,
+  proportional,
   Skeleton,
+  Table,
+  type TableColumn,
   Tooltip,
+  useTableSelection,
+  useTableSelectionState,
 } from '@seta/shared-ui';
-import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
-import { useState } from 'react';
+import { Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import {
   type EntraImportableUserDto,
   importEntraUsers,
   listEntraUsers,
 } from '../api/sso-client.ts';
+
+// Astryx Table columns require `T extends Record<string, unknown>`; alias the
+// DTO locally instead of touching the shared type.
+type EntraRow = EntraImportableUserDto & Record<string, unknown>;
 
 interface ImportResult {
   imported: string[];
@@ -28,20 +39,14 @@ function canImport(u: EntraImportableUserDto): boolean {
   return u.account_enabled && !u.already_in_seta;
 }
 
-const columns: ColumnDef<EntraImportableUserDto>[] = [
+const columns: TableColumn<EntraRow>[] = [
+  { key: 'email', header: 'Email', width: proportional(2) },
+  { key: 'display_name', header: 'Name', width: proportional(2) },
   {
-    accessorKey: 'email',
-    header: 'Email',
-  },
-  {
-    accessorKey: 'display_name',
-    header: 'Name',
-  },
-  {
-    id: 'status',
+    key: 'status',
     header: 'Status',
-    cell: ({ row }) => {
-      const u = row.original;
+    width: pixel(140),
+    renderCell: (u) => {
       if (!u.account_enabled)
         return <Badge variant="neutral" className="text-xs" label="Disabled" />;
       if (u.already_in_seta)
@@ -59,18 +64,40 @@ export function ImportFromEntraDialog({
   onImported: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [users, setUsers] = useState<EntraImportableUserDto[] | null>(null);
+  const [users, setUsers] = useState<EntraRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
 
+  // Client-side text filter over the displayed fields; select-all must operate
+  // on the visible rows, so selection reads this filtered list.
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    const q = filter.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter(
+      (u) => u.email.toLowerCase().includes(q) || u.display_name.toLowerCase().includes(q),
+    );
+  }, [users, filter]);
+
+  const { selectionConfig } = useTableSelectionState<EntraRow>({
+    data: filteredUsers,
+    idKey: 'entra_oid',
+    // A person can be imported only if their Entra account is on and they
+    // aren't already here — matches the deleted enableRowSelection predicate,
+    // which rendered a disabled (not absent) checkbox for non-importable rows.
+    getIsItemEnabled: canImport,
+    selectedKeys,
+    setSelectedKeys,
+  });
+  const selection = useTableSelection<EntraRow>(selectionConfig);
+
   const selectedOids = users
-    ? Object.keys(rowSelection).filter(
-        (oid) => rowSelection[oid] && users.find((u) => u.entra_oid === oid),
-      )
+    ? [...selectedKeys].filter((oid) => users.some((u) => u.entra_oid === oid))
     : [];
 
   async function loadUsers() {
@@ -78,7 +105,7 @@ export function ImportFromEntraDialog({
     setLoadError(null);
     try {
       const data = await listEntraUsers();
-      setUsers(data);
+      setUsers(data as EntraRow[]);
     } catch (e) {
       setLoadError((e as Error).message);
     } finally {
@@ -92,7 +119,8 @@ export function ImportFromEntraDialog({
       void loadUsers();
     }
     if (!v) {
-      setRowSelection({});
+      setSelectedKeys(new Set());
+      setFilter('');
       setSubmitError(null);
       setResult(null);
     }
@@ -105,7 +133,7 @@ export function ImportFromEntraDialog({
     try {
       const res = await importEntraUsers(selectedOids);
       setResult(res);
-      setRowSelection({});
+      setSelectedKeys(new Set());
       onImported();
     } catch (e) {
       setSubmitError((e as Error).message);
@@ -206,19 +234,25 @@ export function ImportFromEntraDialog({
                         ))}
                       </div>
                     ) : users !== null ? (
-                      <DataTable
-                        data={users}
-                        columns={columns}
-                        // Key selection by OID: `selectedOids` reads these keys back as
-                        // `entra_oid`, which TanStack's default row-index ids never match.
-                        getRowId={(u) => u.entra_oid}
-                        enableRowSelection={(row) => canImport(row.original)}
-                        rowSelection={rowSelection}
-                        onRowSelectionChange={setRowSelection}
-                        pagination={false}
-                        enableGlobalFilter={true}
-                        globalFilterPlaceholder="Filter users…"
-                      />
+                      <div className="space-y-2">
+                        <Input
+                          label="Filter users"
+                          isLabelHidden
+                          startIcon={<Search className="size-3.5" aria-hidden />}
+                          placeholder="Filter users…"
+                          value={filter}
+                          onChange={setFilter}
+                        />
+                        <Table
+                          data={filteredUsers}
+                          columns={columns}
+                          // Key selection by OID so `selectedOids` reads the keys
+                          // back as `entra_oid`.
+                          idKey="entra_oid"
+                          emptyState={<EmptyState title="No matching users" />}
+                          plugins={{ selection }}
+                        />
+                      </div>
                     ) : null}
 
                     {submitError && <Banner status="error" title={submitError} />}

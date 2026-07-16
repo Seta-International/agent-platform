@@ -112,15 +112,31 @@ describe('ImportFromEntraDialog', () => {
     const dialog = await screen.findByRole('dialog');
     await waitFor(() => expect(within(dialog).getByText('ada@acme.com')).toBeInTheDocument());
 
-    await user.click(within(dialog).getByRole('checkbox', { name: 'Select all' }));
-    expect(within(dialog).getByRole('checkbox', { name: 'Select all' })).toBeChecked();
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Select all rows' }));
+    expect(within(dialog).getByRole('checkbox', { name: 'Select all rows' })).toBeChecked();
 
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Import from Entra' }));
     const reopened = await screen.findByRole('dialog');
-    expect(within(reopened).getByRole('checkbox', { name: 'Select all' })).not.toBeChecked();
+    expect(within(reopened).getByRole('checkbox', { name: 'Select all rows' })).not.toBeChecked();
+  });
+
+  // The global text filter is now consumer-owned (the deleted DataTable's
+  // built-in filter is gone): typing narrows the client-side rows in place.
+  it('filters the user rows by the typed query', async () => {
+    const user = userEvent.setup();
+    render(<ImportFromEntraDialog enabled onImported={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Import from Entra' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByText('ada@acme.com')).toBeInTheDocument());
+
+    await user.type(within(dialog).getByRole('textbox', { name: /filter users/i }), 'grace');
+
+    await waitFor(() => expect(within(dialog).queryByText('ada@acme.com')).not.toBeInTheDocument());
+    expect(within(dialog).getByText('grace@acme.com')).toBeInTheDocument();
   });
 
   it('keeps the drawer closed when Entra is disabled', async () => {
