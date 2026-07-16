@@ -134,4 +134,35 @@ describe('AccountsPage — table (filter · sort · previously undiscovered defa
     // Second click flips to descending — Borealis (5) now first.
     expect(screen.getAllByText(/Aeris|Borealis/)[0]).toHaveTextContent('Borealis');
   });
+
+  it('resets to page 1 when the sort order changes while on page 2', async () => {
+    // Matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on
+    // `sorting` state changes too, not just filters (getSortedRowModel unconditionally calls
+    // `table._autoResetPageIndex()`).
+    const user = userEvent.setup();
+    const manyRows = Array.from({ length: 26 }, (_, i) => ({
+      account_id: `a${i}`,
+      name: `Account ${String(i).padStart(2, '0')}`,
+      industry: 'Fintech',
+      am_worker_id: null,
+      recruiter_count: i,
+      project_count: 1,
+    }));
+    fetchAccountsMock.mockResolvedValue(manyRows);
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: 'Go to page 2' }));
+    expect(within(table).getByText('Account 25')).toBeInTheDocument();
+
+    await user.click(within(table).getByRole('button', { name: /sort by industry/i }));
+
+    expect(within(pager).getByRole('button', { name: 'Go to page 1' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(table).getByText('Account 00')).toBeInTheDocument();
+    expect(within(table).queryByText('Account 25')).not.toBeInTheDocument();
+  });
 });
