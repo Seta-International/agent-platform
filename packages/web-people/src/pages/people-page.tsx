@@ -2,13 +2,18 @@ import {
   Avatar,
   Badge,
   Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Checkbox,
   type ColumnSettingsOption,
   CounterBadgePopover,
   EmptyState,
+  HStack,
   Input,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   Popover,
   pixel,
   proportional,
@@ -17,10 +22,12 @@ import {
   Table,
   type TableColumn,
   type TableSortState,
+  Text,
   useTableColumnSettings,
   useTableColumnSettingsState,
   useTablePagination,
   useTableSortable,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -290,156 +297,183 @@ export function PeoplePage() {
   ) : undefined;
 
   return (
-    <PageChrome title="People" actions={actions}>
-      <div className="w-full space-y-4 p-6">
-        {error ? (
-          <Banner status="error" title={(error as Error).message} />
-        ) : (
-          <>
-            {/* Control & Filter Layout */}
-            <div className="flex flex-col gap-4">
-              {/* Row 1: Search & Controls */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Input
-                    label="Search people"
-                    isLabelHidden
-                    className="w-64"
-                    size="sm"
-                    placeholder="Search people…"
-                    value={searchText}
-                    onChange={(value) => handleSearchChange(value)}
-                  />
-                  <span className="text-ink-tertiary select-none">|</span>
-                  {activeFiltersCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleClearFilters}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
-                    >
-                      <X className="size-3.5" />
-                      Clear filters ({activeFiltersCount})
-                    </button>
-                  )}
-                  <div className="flex items-center gap-2 text-body-sm text-ink-muted">
-                    <span className="font-medium text-ink flex items-center gap-1">
-                      <User className="size-3.5 text-ink-muted" />
-                      {total} {total === 1 ? 'person' : 'people'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {view === 'list' && (
-                    <Popover
-                      placement="below"
-                      alignment="end"
-                      label="Toggle columns"
-                      content={
-                        <div className="flex min-w-[180px] flex-col gap-1 p-2">
-                          <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
-                            Toggle columns
-                          </div>
-                          {HIDEABLE_COLUMN_KEYS.map((col) => (
-                            <Checkbox
-                              key={col.key}
-                              label={col.label}
-                              value={columnSettingsState.isColumnActive(col.key)}
-                              onChange={() => columnSettingsState.toggleColumn(col.key)}
-                            />
-                          ))}
-                        </div>
-                      }
-                    >
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<Settings2 className="size-3.5" />}
-                        label="Columns"
-                      />
-                    </Popover>
-                  )}
-                  <SegmentedControl
-                    aria-label="Directory view"
-                    value={view}
-                    onValueChange={setView}
-                    options={[
-                      { value: 'list', label: 'List', icon: <List className="size-3.5" /> },
-                      { value: 'cards', label: 'Cards', icon: <LayoutGrid className="size-3.5" /> },
-                    ]}
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Dropdown Filters */}
-              <PeopleFilterBar query={query} onChange={patchQuery} />
-            </div>
-            {view === 'list' ? (
-              isLoading ? (
-                <div className="space-y-2">
-                  {['s0', 's1', 's2', 's3', 's4'].map((id) => (
-                    <Skeleton key={id} height={44} />
-                  ))}
-                </div>
-              ) : (
-                <Table
-                  data={rows}
-                  columns={columns}
-                  idKey="worker_id"
-                  density="compact"
-                  plugins={{
-                    pagination,
-                    sortable,
-                    columnSettings,
-                    rowClick: {
-                      transformBodyRow: (props, item) => ({
-                        ...props,
-                        htmlProps: {
-                          ...props.htmlProps,
-                          style: { ...props.htmlProps.style, cursor: 'pointer' },
-                          onClick: () =>
-                            void navigate({
-                              to: '/people/employees/$workerId',
-                              params: { workerId: item.worker_id },
-                            }),
-                        },
-                      }),
-                    },
-                  }}
-                  emptyState={
-                    searchText || activeFiltersCount > 0 ? (
-                      <EmptyState
-                        icon={<Users className="size-6" />}
-                        title="No matching people"
-                        description="Try adjusting your search or filters."
-                      />
-                    ) : (
-                      <EmptyState
-                        icon={<Users className="size-6" />}
-                        title="No workers yet"
-                        description="Add a worker to get started."
-                      />
-                    )
-                  }
-                />
-              )
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/people">People</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>People</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  People
+                </Text>
+              </HStack>
+              {actions}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="w-full space-y-4 p-6">
+            {error ? (
+              <Banner status="error" title={(error as Error).message} />
             ) : (
-              <PeopleCardGrid
-                rows={rows}
-                total={total}
-                isLoading={isLoading}
-                query={query}
-                setQuery={setQuery}
-                onRowClick={(row) =>
-                  void navigate({
-                    to: '/people/employees/$workerId',
-                    params: { workerId: row.worker_id },
-                  })
-                }
-              />
+              <>
+                {/* Control & Filter Layout */}
+                <div className="flex flex-col gap-4">
+                  {/* Row 1: Search & Controls */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Input
+                        label="Search people"
+                        isLabelHidden
+                        className="w-64"
+                        size="sm"
+                        placeholder="Search people…"
+                        value={searchText}
+                        onChange={(value) => handleSearchChange(value)}
+                      />
+                      <span className="text-ink-tertiary select-none">|</span>
+                      {activeFiltersCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearFilters}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
+                        >
+                          <X className="size-3.5" />
+                          Clear filters ({activeFiltersCount})
+                        </button>
+                      )}
+                      <div className="flex items-center gap-2 text-body-sm text-ink-muted">
+                        <span className="font-medium text-ink flex items-center gap-1">
+                          <User className="size-3.5 text-ink-muted" />
+                          {total} {total === 1 ? 'person' : 'people'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {view === 'list' && (
+                        <Popover
+                          placement="below"
+                          alignment="end"
+                          label="Toggle columns"
+                          content={
+                            <div className="flex min-w-[180px] flex-col gap-1 p-2">
+                              <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                                Toggle columns
+                              </div>
+                              {HIDEABLE_COLUMN_KEYS.map((col) => (
+                                <Checkbox
+                                  key={col.key}
+                                  label={col.label}
+                                  value={columnSettingsState.isColumnActive(col.key)}
+                                  onChange={() => columnSettingsState.toggleColumn(col.key)}
+                                />
+                              ))}
+                            </div>
+                          }
+                        >
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<Settings2 className="size-3.5" />}
+                            label="Columns"
+                          />
+                        </Popover>
+                      )}
+                      <SegmentedControl
+                        aria-label="Directory view"
+                        value={view}
+                        onValueChange={setView}
+                        options={[
+                          { value: 'list', label: 'List', icon: <List className="size-3.5" /> },
+                          {
+                            value: 'cards',
+                            label: 'Cards',
+                            icon: <LayoutGrid className="size-3.5" />,
+                          },
+                        ]}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 2: Dropdown Filters */}
+                  <PeopleFilterBar query={query} onChange={patchQuery} />
+                </div>
+                {view === 'list' ? (
+                  isLoading ? (
+                    <div className="space-y-2">
+                      {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                        <Skeleton key={id} height={44} />
+                      ))}
+                    </div>
+                  ) : (
+                    <Table
+                      data={rows}
+                      columns={columns}
+                      idKey="worker_id"
+                      density="compact"
+                      plugins={{
+                        pagination,
+                        sortable,
+                        columnSettings,
+                        rowClick: {
+                          transformBodyRow: (props, item) => ({
+                            ...props,
+                            htmlProps: {
+                              ...props.htmlProps,
+                              style: { ...props.htmlProps.style, cursor: 'pointer' },
+                              onClick: () =>
+                                void navigate({
+                                  to: '/people/employees/$workerId',
+                                  params: { workerId: item.worker_id },
+                                }),
+                            },
+                          }),
+                        },
+                      }}
+                      emptyState={
+                        searchText || activeFiltersCount > 0 ? (
+                          <EmptyState
+                            icon={<Users className="size-6" />}
+                            title="No matching people"
+                            description="Try adjusting your search or filters."
+                          />
+                        ) : (
+                          <EmptyState
+                            icon={<Users className="size-6" />}
+                            title="No workers yet"
+                            description="Add a worker to get started."
+                          />
+                        )
+                      }
+                    />
+                  )
+                ) : (
+                  <PeopleCardGrid
+                    rows={rows}
+                    total={total}
+                    isLoading={isLoading}
+                    query={query}
+                    setQuery={setQuery}
+                    onRowClick={(row) =>
+                      void navigate({
+                        to: '/people/employees/$workerId',
+                        params: { workerId: row.worker_id },
+                      })
+                    }
+                  />
+                )}
+              </>
             )}
-          </>
-        )}
-      </div>
-    </PageChrome>
+          </div>
+        </LayoutContent>
+      }
+    />
   );
 }
