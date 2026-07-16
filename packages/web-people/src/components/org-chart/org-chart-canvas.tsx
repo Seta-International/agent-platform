@@ -71,7 +71,6 @@ function Inner({ nodes: inNodes, edges: inEdges, onNodeClick }: OrgChartCanvasPr
         maxZoom={1.3}
         proOptions={{ hideAttribution: true }}
         nodesConnectable={false}
-        panOnDrag={[1, 2]}
         elementsSelectable
       >
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
