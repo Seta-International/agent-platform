@@ -71,6 +71,10 @@ variable "db_publicly_accessible" {
 variable "s3_bucket_name" {
   type = string
 }
+variable "web_bucket_name" {
+  description = "Globally-unique bucket for the static web bundle (served via CloudFront)."
+  type        = string
+}
 variable "s3_force_destroy" {
   type    = bool
   default = false

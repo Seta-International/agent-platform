@@ -12,8 +12,9 @@ module "app" {
   # SG descriptions are immutable, a mismatch destroys/replaces the live SG.
   db_sg_description = "RDS future-app-prod-db - chi allow IP cong ty toi cong Postgres"
 
-  s3_bucket_name = "future-app-bucket-prod-seta"
-  ecr_repo_name  = "future-app"
+  s3_bucket_name  = "future-app-bucket-prod-seta"
+  web_bucket_name = "future-app-web-prod-seta"
+  ecr_repo_name   = "future-app"
 
   db_master_password      = var.db_master_password
   better_auth_secret      = var.better_auth_secret
