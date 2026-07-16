@@ -53,7 +53,7 @@ locals {
 
   # No CloudWatch Logs (docs/hosting/aws.md §7): FireLens pushes every container
   # to the central Loki, labeled like the compose obs-agent (env + container).
-  loki_log_config = { for c in ["server", "worker", "cloudflared"] : c => {
+  loki_log_config = { for c in ["server", "worker", "cloudflared", "migrator"] : c => {
     logDriver = "awsfirelens"
     options = {
       Name         = "loki"
@@ -162,6 +162,21 @@ locals {
     local.log_router_container,
     local.alloy_container["worker"],
   ]
+
+  # One-off migration task (deploy-prod-ecs.yml run-task). Router is
+  # non-essential here so the task stops when migrate exits.
+  migrator_containers = [
+    {
+      name             = "migrator"
+      image            = var.image_uri
+      essential        = true
+      command          = ["migrate"]
+      environment      = local.base_env
+      secrets          = local.secret_defs
+      logConfiguration = local.loki_log_config["migrator"]
+    },
+    merge(local.log_router_container, { essential = false }),
+  ]
 }
 
 resource "aws_ecs_task_definition" "api" {
@@ -206,6 +221,31 @@ resource "aws_ecs_task_definition" "worker" {
   container_definitions = jsonencode(local.worker_containers)
 
   # See api task def: don't launch worker tasks until secret values exist.
+  depends_on = [
+    aws_secretsmanager_secret_version.database_url,
+    aws_secretsmanager_secret_version.better_auth_secret,
+    aws_secretsmanager_secret_version.crypto_local_master_key,
+    aws_secretsmanager_secret_version.openai_api_key,
+    aws_secretsmanager_secret_version.monitoring_password,
+  ]
+}
+
+# api-sized: migrate runs the CLI through tsx, which compiles the module graph
+# on boot like the server.
+resource "aws_ecs_task_definition" "migrator" {
+  family                   = "${var.name}-migrator"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.api_cpu
+  memory                   = var.api_memory
+  execution_role_arn       = aws_iam_role.task_execution.arn
+  task_role_arn            = aws_iam_role.api_task.arn
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = var.cpu_architecture
+  }
+  container_definitions = jsonencode(local.migrator_containers)
+
   depends_on = [
     aws_secretsmanager_secret_version.database_url,
     aws_secretsmanager_secret_version.better_auth_secret,

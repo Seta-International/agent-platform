@@ -23,12 +23,32 @@ resource "aws_cloudfront_origin_access_control" "web" {
   signing_protocol                  = "sigv4"
 }
 
+# Custom domain: cert must live in us-east-1 for CloudFront. Validation is a
+# CNAME added manually in Cloudflare (see web_acm_validation_records output);
+# the validation resource polls until the cert issues.
+resource "aws_acm_certificate" "web" {
+  count             = var.web_domain == null ? 0 : 1
+  provider          = aws.us_east_1
+  domain_name       = var.web_domain
+  validation_method = "DNS"
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_acm_certificate_validation" "web" {
+  count           = var.web_domain == null ? 0 : 1
+  provider        = aws.us_east_1
+  certificate_arn = aws_acm_certificate.web[0].arn
+}
+
 resource "aws_cloudfront_distribution" "web" {
   enabled             = true
   comment             = "${var.name} web"
   default_root_object = "index.html"
   price_class         = "PriceClass_200" # includes ap-southeast; All adds cost for no users
   is_ipv6_enabled     = true
+  aliases             = var.web_domain == null ? [] : [var.web_domain]
 
   origin {
     domain_name              = aws_s3_bucket.web.bucket_regional_domain_name
@@ -65,7 +85,10 @@ resource "aws_cloudfront_distribution" "web" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = var.web_domain == null
+    acm_certificate_arn            = var.web_domain == null ? null : aws_acm_certificate_validation.web[0].certificate_arn
+    ssl_support_method             = var.web_domain == null ? null : "sni-only"
+    minimum_protocol_version       = var.web_domain == null ? null : "TLSv1.2_2021"
   }
 }
 

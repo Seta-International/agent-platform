@@ -113,7 +113,8 @@ if it is unset — presence is checked, not validity), plus the tunnel token, `M
 and `pg` would fail to verify with `require`).
 
 Out of repo: create the Cloudflare Tunnel + hostname (TLS Full), store the token in Secrets Manager; set
-up the GitHub→AWS OIDC role for deploys (no on-box runner — Fargate has no persistent box).
+up the GitHub→AWS OIDC role for deploys (no on-box runner — Fargate has no persistent box); add the
+web domain's DNS records in Cloudflare (ACM validation CNAME, then the CNAME to CloudFront).
 
 ## 5. Deploy
 
@@ -121,10 +122,18 @@ Build-once → ECR → ECS rolling, on GitHub-hosted runners via the OIDC role.
 
 1. `build.yml` builds the `server` image multi-arch (`linux/amd64` for the compose boxes,
    `linux/arm64` for Fargate Graviton) and `web` amd64-only (it never runs on ECS — the SPA ships
-   to S3 at cutover, when the sync + CloudFront invalidation step is added).
-2. `deploy.yml` (`environment=prod`, gated): pre-migration RDS snapshot → migrator via
-   `aws ecs run-task` → register new task-def revision + `update-service` (rolling) for both services →
-   wait `services-stable` → smoke `/health/ready` → record `PROD_LAST_GOOD_TAG`.
+   to S3 in step 2).
+2. `deploy-prod-ecs.yml` (`environment=prod`, manual dispatch with `image_tag`): ECR image guard →
+   pre-migration RDS snapshot → register api/worker/migrator task-def revisions on the new image →
+   migrator as a one-off `run-task` (network config lifted from the api service; must exit 0) →
+   `update-service` both services → wait `services-stable` → smoke `/health/ready` → build the SPA →
+   `s3 sync` + CloudFront invalidation → record `PROD_LAST_GOOD_TAG` and `TF_IMAGE_URI` (so later
+   terraform plans don't roll the image back). The compose `deploy.yml` keeps serving the box until
+   cutover.
+
+**Custom web domain:** set `web_domain` in prod tfvars → apply creates the ACM cert (us-east-1) and
+outputs the validation CNAME (`web_acm_validation_records`) to add in Cloudflare; the apply completes
+once the cert issues and attaches the alias. Then CNAME the domain to the `web_domain` output.
 
 Migrations must be backward-compatible (expand/contract) — old and new tasks overlap during the roll.
 

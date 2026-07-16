@@ -75,6 +75,11 @@ variable "web_bucket_name" {
   description = "Globally-unique bucket for the static web bundle (served via CloudFront)."
   type        = string
 }
+variable "web_domain" {
+  description = "Custom domain for the web distribution. Creates an ACM cert (us-east-1, DNS-validated — add the CNAME from web_acm_validation_records in Cloudflare). null => default *.cloudfront.net domain."
+  type        = string
+  default     = null
+}
 variable "s3_force_destroy" {
   type    = bool
   default = false

@@ -11,5 +11,13 @@ output "s3_bucket" { value = aws_s3_bucket.app.id }
 output "web_bucket" { value = aws_s3_bucket.web.id }
 output "web_distribution_id" { value = aws_cloudfront_distribution.web.id }
 output "web_domain" { value = aws_cloudfront_distribution.web.domain_name }
+output "migrator_task_family" { value = aws_ecs_task_definition.migrator.family }
+output "web_acm_validation_records" {
+  description = "DNS records to add in Cloudflare to validate the web ACM cert."
+  value = var.web_domain == null ? [] : [
+    for o in aws_acm_certificate.web[0].domain_validation_options :
+    { name = o.resource_record_name, type = o.resource_record_type, value = o.resource_record_value }
+  ]
+}
 output "ecr_repository_url" { value = aws_ecr_repository.app.repository_url }
 output "task_execution_role_arn" { value = aws_iam_role.task_execution.arn }

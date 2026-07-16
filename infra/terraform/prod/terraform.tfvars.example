@@ -8,3 +8,4 @@ image_uri                    = "ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/
 cloudflared_token_secret_arn = "arn:aws:secretsmanager:ap-southeast-1:ACCOUNT_ID:secret:cloudflared-token-XXXX"
 monitoring_username          = "prod-alloy-XXXXXXXX (same as GH prod env var REMOTE_WRITE_USERNAME)"
 monitoring_password          = "CHANGE_ME_same_as_github_REMOTE_WRITE_PASSWORD"
+# web_domain                 = "app.seta-international.com" # set at cutover; creates the ACM cert

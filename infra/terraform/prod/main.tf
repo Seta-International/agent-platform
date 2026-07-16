@@ -1,5 +1,9 @@
 module "app" {
   source = "../modules/app"
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
 
   name = local.name
 
@@ -14,6 +18,7 @@ module "app" {
 
   s3_bucket_name  = "future-app-bucket-prod-seta"
   web_bucket_name = "future-app-web-prod-seta"
+  web_domain      = var.web_domain
   ecr_repo_name   = "future-app"
 
   db_master_password      = var.db_master_password

@@ -12,6 +12,15 @@ provider "aws" {
   }
 }
 
+# CloudFront only accepts ACM certs from us-east-1.
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+  default_tags {
+    tags = local.tags
+  }
+}
+
 # Matches the tag set already applied (ClickOps) to every real future-app
 # resource: Project / Environment / ManagedBy. Individual resources add
 # their own Name (and, for subnets, Tier) tag on top of these.

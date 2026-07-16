@@ -53,6 +53,12 @@ variable "monitoring_password" {
   sensitive   = true
 }
 
+variable "web_domain" {
+  description = "Custom domain for the web CloudFront distribution. Set at cutover; null keeps the default *.cloudfront.net domain."
+  type        = string
+  default     = null
+}
+
 variable "public_domain" {
   description = "Externally-visible hostname (better-auth baseURL/cookies + CORS allowlist)."
   type        = string

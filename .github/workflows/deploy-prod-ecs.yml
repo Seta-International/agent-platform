@@ -1,0 +1,198 @@
+name: Deploy prod (ECS)
+
+# ECS deploy for the Fargate stack (FUT-620). The compose deploy (deploy.yml)
+# keeps serving the EC2 box until cutover; this workflow takes over after it.
+#
+# Flow: guard image in ECR → pre-migration RDS snapshot → register api/worker/
+# migrator task-def revisions on the new image → migrator as a one-off
+# run-task (must exit 0) → roll both services → smoke /health/ready → build
+# the SPA → s3 sync + CloudFront invalidation → record PROD_LAST_GOOD_TAG +
+# TF_IMAGE_URI (so later terraform plans don't roll the image back).
+#
+# Credentials (prod environment; OIDC preferred):
+#   AWS_DEPLOY_ROLE_ARN — OIDC role for ECS deploys (policy in FUT-620 comments)
+#   AWS_DEPLOY_ACCESS_KEY_ID / AWS_DEPLOY_SECRET_ACCESS_KEY — static fallback
+# Vars: AWS_REGION, ECR_REPOSITORY, RDS_INSTANCE_ID (optional), PUBLIC_DOMAIN /
+#   SMOKE_URL, WEB_SMOKE_URL (optional).
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag from build.yml (git-<sha>)'
+        required: true
+
+concurrency:
+  group: deploy-prod-ecs
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  CLUSTER: future-app-prod
+  API_SERVICE: future-app-prod-api
+  WORKER_SERVICE: future-app-prod-worker
+  MIGRATOR_FAMILY: future-app-prod-migrator
+  WEB_BUCKET: future-app-web-prod-seta
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Pick credential mode (OIDC preferred, static keys fallback)
+        id: creds
+        env:
+          ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          if [ -n "$ROLE_ARN" ]; then
+            echo "mode=oidc" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=keys" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        if: steps.creds.outputs.mode == 'oidc'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Configure AWS credentials (static keys)
+        if: steps.creds.outputs.mode == 'keys'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_DEPLOY_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Resolve image and guard it exists in ECR
+        id: image
+        env:
+          REPO: ${{ vars.ECR_REPOSITORY }}
+          TAG: server-${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          registry=$(aws ecr describe-repositories --repository-names "$REPO" \
+            --query 'repositories[0].repositoryUri' --output text | cut -d/ -f1)
+          aws ecr describe-images --repository-name "$REPO" --image-ids "imageTag=$TAG" >/dev/null
+          echo "image=${registry}/${REPO}:${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Pre-migration RDS snapshot
+        if: ${{ vars.RDS_INSTANCE_ID != '' }}
+        env:
+          DB_ID: ${{ vars.RDS_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          SNAP="${DB_ID}-pre-${{ inputs.image_tag }}-$(date +%Y%m%d%H%M%S)"
+          SNAP=$(echo "$SNAP" | tr -c 'a-zA-Z0-9-' '-' | cut -c1-255)
+          aws rds create-db-snapshot --db-instance-identifier "$DB_ID" --db-snapshot-identifier "$SNAP"
+          aws rds wait db-snapshot-available --db-snapshot-identifier "$SNAP"
+          echo "Pre-migration snapshot: $SNAP"
+
+      - name: Register task-def revisions on the new image
+        id: taskdefs
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+        run: |
+          set -euo pipefail
+          register() {
+            local family="$1" out="$2"
+            aws ecs describe-task-definition --task-definition "$family" \
+              --query taskDefinition > td.json
+            jq --arg img "$IMAGE" '
+              .containerDefinitions |= map(
+                if .name == "server" or .name == "worker" or .name == "migrator"
+                then .image = $img else . end)
+              | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                    .compatibilities, .registeredAt, .registeredBy)
+            ' td.json > td-new.json
+            arn=$(aws ecs register-task-definition --cli-input-json file://td-new.json \
+              --query 'taskDefinition.taskDefinitionArn' --output text)
+            echo "${out}=${arn}" >> "$GITHUB_OUTPUT"
+            echo "registered ${arn}"
+          }
+          register "${CLUSTER}-api"    api_arn
+          register "${CLUSTER}-worker" worker_arn
+          register "$MIGRATOR_FAMILY"  migrator_arn
+
+      - name: Run migrator (one-off task, must exit 0)
+        env:
+          MIGRATOR_ARN: ${{ steps.taskdefs.outputs.migrator_arn }}
+        run: |
+          set -euo pipefail
+          netcfg=$(aws ecs describe-services --cluster "$CLUSTER" --services "$API_SERVICE" \
+            --query 'services[0].networkConfiguration' --output json)
+          task=$(aws ecs run-task --cluster "$CLUSTER" --launch-type FARGATE \
+            --task-definition "$MIGRATOR_ARN" --network-configuration "$netcfg" \
+            --query 'tasks[0].taskArn' --output text)
+          echo "migrator task: $task"
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$task"
+          exit_code=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$task" \
+            --query "tasks[0].containers[?name=='migrator'] | [0].exitCode" --output text)
+          stop_reason=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$task" \
+            --query 'tasks[0].stoppedReason' --output text)
+          echo "migrator exit=${exit_code} (${stop_reason})"
+          [ "$exit_code" = "0" ] || exit 1
+
+      - name: Roll api + worker services
+        env:
+          API_ARN: ${{ steps.taskdefs.outputs.api_arn }}
+          WORKER_ARN: ${{ steps.taskdefs.outputs.worker_arn }}
+        run: |
+          set -euo pipefail
+          aws ecs update-service --cluster "$CLUSTER" --service "$API_SERVICE" \
+            --task-definition "$API_ARN" >/dev/null
+          aws ecs update-service --cluster "$CLUSTER" --service "$WORKER_SERVICE" \
+            --task-definition "$WORKER_ARN" >/dev/null
+          aws ecs wait services-stable --cluster "$CLUSTER" \
+            --services "$API_SERVICE" "$WORKER_SERVICE"
+
+      - name: Smoke test (/health/ready)
+        env:
+          PUBLIC_DOMAIN: ${{ vars.PUBLIC_DOMAIN }}
+          SMOKE_URL: ${{ vars.SMOKE_URL }}
+        run: |
+          set -euo pipefail
+          url="${SMOKE_URL:-https://${PUBLIC_DOMAIN}/health/ready}"
+          code=000
+          for i in $(seq 1 12); do
+            code=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 5 "$url" || true)
+            [ "$code" = "200" ] && break
+            echo "  attempt $i/12: HTTP $code — retrying in 5s…"
+            sleep 5
+          done
+          [ "$code" = "200" ] || { echo "smoke failed (last HTTP $code)"; exit 1; }
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Build + publish the web bundle
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm --filter=@seta/web build
+          aws s3 sync apps/web/dist "s3://${WEB_BUCKET}" --delete
+          dist_id=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Comment=='${CLUSTER} web'] | [0].Id" --output text)
+          [ "$dist_id" != "None" ] || { echo "web distribution not found"; exit 1; }
+          aws cloudfront create-invalidation --distribution-id "$dist_id" --paths '/*'
+
+      - name: Record deployed tag (PROD_LAST_GOOD_TAG + TF_IMAGE_URI)
+        # Best-effort (needs variables:write); must never fail a healthy deploy.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE: ${{ steps.image.outputs.image }}
+        run: |
+          gh variable set PROD_LAST_GOOD_TAG --body "${{ inputs.image_tag }}" -R "${{ github.repository }}"
+          gh variable set TF_IMAGE_URI --env prod --body "$IMAGE" -R "${{ github.repository }}"
