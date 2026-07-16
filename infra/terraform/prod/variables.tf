@@ -41,3 +41,15 @@ variable "cloudflared_token_secret_arn" {
   type    = string
   default = null
 }
+
+variable "public_domain" {
+  description = "Externally-visible hostname (better-auth baseURL/cookies + CORS allowlist)."
+  type        = string
+  default     = "future.seta-international.com"
+}
+
+variable "extra_app_secret_arns" {
+  description = "Additional runtime secrets (env name => Secrets Manager ARN), e.g. MAILER_DEFAULT_SMTP_URL, MICROSOFT_CLIENT_SECRET, M365_WEBHOOK_SECRET, DATABASE_APP_URL. Wired at cutover."
+  type        = map(string)
+  default     = {}
+}

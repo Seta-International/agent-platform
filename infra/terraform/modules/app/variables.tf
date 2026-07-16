@@ -47,6 +47,16 @@ variable "db_deletion_protection" {
   type    = bool
   default = true
 }
+variable "extra_env" {
+  description = "Additional plain env vars injected into both app containers (name => value). App-level config (PUBLIC_URL, CORS_ORIGINS, AGENT_MODELS, MAILER_*, ...) belongs here, not in the module."
+  type        = map(string)
+  default     = {}
+}
+variable "extra_secret_arns" {
+  description = "Additional secret env vars for both app containers (name => Secrets Manager ARN). The execution role is granted read on these."
+  type        = map(string)
+  default     = {}
+}
 variable "db_sg_description" {
   description = "DB security-group description. Immutable in AWS — when adopting an existing SG, set this to the live description or the plan will destroy/replace it. null => \"Postgres access for <name>\"."
   type        = string

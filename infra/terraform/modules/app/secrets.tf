@@ -52,9 +52,11 @@ locals {
     CRYPTO_LOCAL_MASTER_KEY = aws_secretsmanager_secret.crypto_local_master_key.arn
     OPENAI_API_KEY          = aws_secretsmanager_secret.openai_api_key.arn
   }
-  # ARNs the execution role may read (app secrets + optional cloudflared token).
+  # ARNs the execution role may read (app secrets + caller-supplied extras +
+  # optional cloudflared token).
   readable_secret_arns = concat(
     values(local.app_secret_arns),
+    values(var.extra_secret_arns),
     var.cloudflared_token_secret_arn == null ? [] : [var.cloudflared_token_secret_arn],
   )
 }

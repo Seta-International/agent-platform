@@ -27,4 +27,16 @@ module "app" {
 
   enable_cloudflared           = true
   cloudflared_token_secret_arn = var.cloudflared_token_secret_arn
+
+  # Runtime app config beyond the module's boot set — see .env.example for the
+  # full contract. Values that are secrets go through extra_secret_arns.
+  # Still to wire at cutover (values are operator decisions, not infra):
+  # AGENT_MODELS, MAILER_* (smtp), MICROSOFT_*/M365_* (SSO + Graph), and a
+  # dedicated RLS-bound DATABASE_APP_URL secret (web pool currently falls back
+  # to the master DATABASE_URL when unset).
+  extra_env = {
+    PUBLIC_URL   = "https://${var.public_domain}"
+    CORS_ORIGINS = "https://${var.public_domain}"
+  }
+  extra_secret_arns = var.extra_app_secret_arns
 }

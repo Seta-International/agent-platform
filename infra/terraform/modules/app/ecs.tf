@@ -37,14 +37,26 @@ resource "aws_vpc_security_group_egress_rule" "tasks_all" {
 locals {
   region = data.aws_region.current.region
 
-  # Plain (non-secret) env shared by server + worker.
-  base_env = [
-    { name = "NODE_ENV", value = "production" },
-    { name = "CRYPTO_KEY_PROVIDER", value = "env" },
-    { name = "AWS_REGION", value = local.region },
-  ]
+  # Plain (non-secret) env shared by server + worker. The module injects only
+  # what it provisions itself (S3 bucket/region, crypto mode); everything
+  # app-level (PUBLIC_URL, CORS_ORIGINS, AGENT_MODELS, MAILER_*, ...) comes
+  # from var.extra_env / var.extra_secret_arns — see .env.example for the
+  # full runtime contract.
+  base_env = concat(
+    [
+      { name = "NODE_ENV", value = "production" },
+      { name = "CRYPTO_KEY_PROVIDER", value = "env" },
+      { name = "AWS_REGION", value = local.region },
+      { name = "S3_REGION", value = local.region },
+      { name = "S3_BUCKET", value = aws_s3_bucket.app.bucket },
+    ],
+    [for k in sort(keys(var.extra_env)) : { name = k, value = var.extra_env[k] }],
+  )
 
-  secret_defs = [for k, arn in local.app_secret_arns : { name = k, valueFrom = arn }]
+  secret_defs = concat(
+    [for k, arn in local.app_secret_arns : { name = k, valueFrom = arn }],
+    [for k in sort(keys(var.extra_secret_arns)) : { name = k, valueFrom = var.extra_secret_arns[k] }],
+  )
 
   server_container = {
     name         = "server"
