@@ -216,6 +216,10 @@ export function Directory({ search, onSearch }: DirectoryProps) {
     setSelectedUsers({});
   }
 
+  function handleSuspendDialogOpenChange(o: boolean) {
+    if (!o) setSuspendTarget(null);
+  }
+
   const rowCount = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(rowCount / pageSize));
 
@@ -464,14 +468,18 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         />
       </div>
 
-      {/* Suspend confirm dialog. "form" purpose, not "required": the copy explicitly states
-          the action is reversible ("You can reactivate at any time"), same reasoning as the
-          plan's "archive M365 group" precedent. */}
+      {/* Suspend confirm dialog. "form" purpose, not "required": this action is recoverable, not
+          terminal, and Astryx's `purpose="form"` already blocks backdrop-click dismissal (only
+          Escape is allowed) — closer to `"required"`'s risk profile than the name suggests, so
+          there's little value in going further. The strongest signal is this file's own history:
+          before this migration it used a plain Radix `Dialog` here, never `AlertDialog`, unlike
+          `GroupDetail.tsx`'s genuinely terminal group-delete flow (irreversible, deletes roles)
+          which *does* use `AlertDialog` in the same package — the original author already judged
+          suspend as non-terminal. The copy ("You can reactivate at any time") corroborates that
+          judgment but isn't the primary evidence. */}
       <Dialog
         isOpen={suspendTarget !== null}
-        onOpenChange={(o) => {
-          if (!o) setSuspendTarget(null);
-        }}
+        onOpenChange={handleSuspendDialogOpenChange}
         purpose="form"
       >
         <Layout
@@ -479,9 +487,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
             <DialogHeader
               title="Suspend account?"
               subtitle={`${suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at any time.`}
-              onOpenChange={(o) => {
-                if (!o) setSuspendTarget(null);
-              }}
+              onOpenChange={handleSuspendDialogOpenChange}
             />
           }
           footer={

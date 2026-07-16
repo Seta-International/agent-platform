@@ -77,7 +77,8 @@ describe('GroupDetail RenameDialog', () => {
     const user = userEvent.setup();
     renderDetail();
     await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(updateGroupMock).not.toHaveBeenCalled();
   });
