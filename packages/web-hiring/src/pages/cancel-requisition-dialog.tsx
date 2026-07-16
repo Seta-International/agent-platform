@@ -1,11 +1,12 @@
 import {
   Button,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
   Input,
   Label,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   Selector,
   toast,
 } from '@seta/shared-ui';
@@ -72,51 +73,55 @@ export function CancelRequisitionDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Cancel requisition</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>Reason</Label>
-            {!reasonsLoading && active.length === 0 ? (
-              <div className="space-y-2">
-                <p className="text-body-sm text-ink-muted">
-                  No close reasons yet — add one to continue.
-                </p>
-                <div className="flex gap-2">
-                  <Input
+    <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="required">
+      <Layout
+        header={<DialogHeader title="Cancel requisition" onOpenChange={onOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label>Reason</Label>
+                {!reasonsLoading && active.length === 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-body-sm text-ink-muted">
+                      No close reasons yet — add one to continue.
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        label="Reason"
+                        isLabelHidden
+                        placeholder="e.g. Position no longer needed"
+                        value={newReasonLabel}
+                        onChange={(value) => setNewReasonLabel(value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        label={createReason.isPending ? 'Adding…' : 'Add reason'}
+                        isDisabled={createReason.isPending || !newReasonLabel.trim()}
+                        onClick={() => createReason.mutate()}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <Selector
                     label="Reason"
                     isLabelHidden
-                    placeholder="e.g. Position no longer needed"
-                    value={newReasonLabel}
-                    onChange={(value) => setNewReasonLabel(value)}
+                    options={active.map((r) => ({ value: r.id, label: r.label }))}
+                    value={effectiveReason}
+                    onChange={(v) => setReasonId(v)}
+                    placeholder="Select a reason"
                   />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    label={createReason.isPending ? 'Adding…' : 'Add reason'}
-                    isDisabled={createReason.isPending || !newReasonLabel.trim()}
-                    onClick={() => createReason.mutate()}
-                  />
-                </div>
+                )}
               </div>
-            ) : (
-              <Selector
-                label="Reason"
-                isLabelHidden
-                options={active.map((r) => ({ value: r.id, label: r.label }))}
-                value={effectiveReason}
-                onChange={(v) => setReasonId(v)}
-                placeholder="Select a reason"
-              />
-            )}
-          </div>
-          <p className="text-body-sm text-ink-muted">
-            This closes the requisition for good — it can&apos;t be reopened afterwards.
-          </p>
-          <div className="flex justify-end gap-2 pt-2">
+              <p className="text-body-sm text-ink-muted">
+                This closes the requisition for good — it can&apos;t be reopened afterwards.
+              </p>
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
             <Button
               variant="secondary"
               label="Back"
@@ -129,9 +134,9 @@ export function CancelRequisitionDialog({
               onClick={() => mutation.mutate()}
               isDisabled={mutation.isPending || !effectiveReason}
             />
-          </div>
-        </div>
-      </DialogContent>
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }
