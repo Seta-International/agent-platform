@@ -4,20 +4,69 @@ variable "region" {
   default     = "ap-southeast-1"
 }
 
-variable "instance_type" {
-  description = "EC2 instance type for the app box."
+# Real prod KMS key ARN for the adopted RDS instance. Kept as a variable rather
+# than inline so the account-specific ARN lives in one labelled place.
+variable "db_kms_key_id" {
+  description = "KMS key ARN for RDS storage (adopted prod key)."
   type        = string
-  default     = "t3.medium"
-}
-
-variable "db_instance_class" {
-  description = "RDS instance class."
-  type        = string
-  default     = "db.t3.micro"
+  default     = "arn:aws:kms:ap-southeast-1:555146423830:key/1256983a-4633-4462-becf-6a7ba114ef5a"
 }
 
 variable "db_master_password" {
-  description = "RDS master password for future_admin. lifecycle.ignore_changes on aws_db_instance.main means this value is write-only on import — any placeholder works; Terraform never diffs or reapplies it afterward."
+  description = "RDS master password for future_admin. ignore_changes on the DB password means this is write-only on import; any placeholder works."
   type        = string
   sensitive   = true
+}
+
+variable "better_auth_secret" {
+  type      = string
+  sensitive = true
+}
+
+variable "crypto_local_master_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "openai_api_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "image_uri" {
+  type = string
+}
+
+variable "cloudflared_token_secret_arn" {
+  type    = string
+  default = null
+}
+
+variable "monitoring_username" {
+  description = "Basic-auth username for the central monitoring ingest (GH prod env var REMOTE_WRITE_USERNAME)."
+  type        = string
+}
+
+variable "monitoring_password" {
+  description = "Basic-auth password for the central monitoring ingest (GH prod env secret REMOTE_WRITE_PASSWORD)."
+  type        = string
+  sensitive   = true
+}
+
+variable "web_domain" {
+  description = "Custom domain for the web CloudFront distribution. Set at cutover; null keeps the default *.cloudfront.net domain."
+  type        = string
+  default     = null
+}
+
+variable "public_domain" {
+  description = "Externally-visible hostname (better-auth baseURL/cookies + CORS allowlist)."
+  type        = string
+  default     = "future.seta-international.com"
+}
+
+variable "extra_app_secret_arns" {
+  description = "Additional runtime secrets (env name => Secrets Manager ARN), e.g. MAILER_DEFAULT_SMTP_URL, MICROSOFT_CLIENT_SECRET, M365_WEBHOOK_SECRET, DATABASE_APP_URL. Wired at cutover."
+  type        = map(string)
+  default     = {}
 }

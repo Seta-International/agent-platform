@@ -64,6 +64,7 @@ infra/traefik/jaeger-auth
 **/terraform.tfstate.d/
 **/*.tfvars
 !**/*.tfvars.example
+**/*.tfplan
 **/.tofu/
 **/crash.log
 **/crash.*.log

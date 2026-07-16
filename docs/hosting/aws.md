@@ -2,8 +2,8 @@
 
 Prod runs on ECS Fargate (Graviton) in `ap-southeast-1`, single region. Baseline is one `api` task and
 one `worker` task, each autoscaling to 2+. Edge is zero-inbound via a Cloudflare Tunnel. RDS is
-single-AZ; the web bundle is served from S3 + CloudFront. Same `platform-server` / `platform-web` images
-as dev/uat (`entrypoint.sh` selects `serve` vs `worker`). Provisioned by Terraform in
+single-AZ; the web bundle is served from S3 + CloudFront (deploy sync + custom domain wired at cutover).
+Same `platform-server` / `platform-web` images as dev/uat (`entrypoint.sh` selects `serve` vs `worker`). Provisioned by Terraform in
 `infra/terraform/prod/`. Matches [`../platform/tech-stack.md §18`](../platform/tech-stack.md#18-ecs-fargate).
 
 ## 1. Topology
@@ -19,28 +19,45 @@ flowchart TB
     s3web[("S3 · web bundle")]
 
     subgraph vpc["VPC ap-southeast-1 · ECS Fargate (arm64)"]
-        subgraph apisvc["api service — desired 1, autoscale to 4 (CPU)"]
-            api["server 0.5 vCPU / 1 GB<br/>+ cloudflared sidecar<br/>tasks across 2 AZ"]
+        subgraph apisvc["api service — desired 1, autoscale to 2 (CPU)"]
+            api["server 1 vCPU / 2 GB<br/>+ cloudflared · log_router · alloy sidecars<br/>tasks across 2 AZ"]
         end
-        subgraph wsvc["worker service — desired 1, autoscale to N (queue depth)"]
-            wrk["worker 1 vCPU / 3 GB<br/>no HTTP · tasks across 2 AZ"]
+        subgraph wsvc["worker service — desired 1, autoscale to 2 (CPU)"]
+            wrk["worker 1 vCPU / 3 GB<br/>+ log_router · alloy sidecars<br/>no HTTP · tasks across 2 AZ"]
         end
     end
 
     rds[("RDS Postgres · single-AZ<br/>pgvector · 7-day PITR")]
+
+    subgraph mon["Self-hosted monitoring box — outside AWS"]
+        ingest["future-ingest<br/>nginx · basic auth"]
+        stack["Grafana · Prometheus · Loki<br/>Alertmanager"]
+    end
 
     users --> cf
     users --> cfront --> s3web
     cf -->|outbound tunnel| api
     api -->|5432| rds
     wrk -->|5432| rds
+    api -.->|"push: logs (FireLens → Loki)<br/>metrics (Alloy remote_write)"| ingest
+    wrk -.->|"push: logs · metrics"| ingest
+    ingest --> stack
 ```
 
 - Single region; multi-region out of scope.
 - No public ALB. Traffic arrives only through the `cloudflared` sidecar's outbound tunnel. Task SGs
   have no ingress except to RDS on 5432.
-- Spreading tasks across the two AZ subnets is free (Fargate bills vCPU/GB, not AZ; no NAT gateway — an
-  S3/ECR VPC endpoint keeps pulls internal). RDS runs single-AZ (§2).
+- Tasks run in the two **public** subnets with a public IP and an **egress-only** security group — zero
+  inbound is preserved (nothing routes in; tasks reach *out* to ECR, Secrets Manager, RDS, Cloudflare,
+  and the monitoring ingest over the IGW). This avoids a NAT gateway (~$32/mo) and VPC endpoints.
+  Spreading across the two AZ subnets is free (Fargate bills vCPU/GB, not AZ). RDS runs single-AZ (§2).
+- **Observability is hosted outside AWS and push-only.** The Grafana/Prometheus/Loki stack lives on the
+  self-hosted monitoring box; each task's `log_router` and `alloy` sidecars push logs and metrics to
+  `future-ingest.seta-international.com`. AWS keeps no logs — no CloudWatch Logs, no Container
+  Insights (§7).
+- **api is sized 1 vCPU / 2 GB** — the app runs TypeScript via `tsx` at runtime, which compiles the whole
+  module graph on boot (a transient spike well above the ~425 MB steady state). 0.5 vCPU / 1 GB is too
+  tight for a reliable boot.
 
 ## 2. Behaviour
 
@@ -55,15 +72,23 @@ flowchart TB
 
 ## 3. Autoscaling
 
-- **api:** target-tracking on `ECSServiceAverageCPUUtilization` ~60%, `min=1 max=4`. Each added task
-  brings its own tunnel connector.
-- **worker:** target-tracking / step policy on a `PendingJobs` CloudWatch metric (a worker or scheduled
-  Lambda publishes `graphile_worker.jobs` depth), `min=1 max=N`. Falls back to CPU if the metric isn't
-  wired yet. graphile-worker uses advisory locks, so concurrent workers are safe.
+- **api:** target-tracking on `ECSServiceAverageCPUUtilization` ~60%, `min=1 max=2`. Each added task
+  brings its own tunnel connector. Raising `max` past 2 first needs the DB connection budget fixed
+  (static ~40 conns/task vs `db.t3.micro`'s ~112 `max_connections` — FUT-639) and the instance
+  sized/alarmed for it (FUT-636).
+- **worker:** target-tracking on CPU ~65%, `min=1 max=2`, **today**. The intended trigger — queue-depth
+  via a `JobQueueBacklogPerTask` CloudWatch metric — is scaffolded in the module behind
+  `enable_worker_queue_scaling` but OFF: nothing publishes the metric yet (FUT-637). CPU is a poor
+  proxy for network-bound embedding backlogs, so wire that before relying on worker scale-out.
+  graphile-worker uses advisory locks, so concurrent workers are safe.
 
 ## 4. Provision
 
-Two-stage Terraform; apply is a gated human step, never CI.
+Two-stage Terraform; applies are never automatic. Steady-state plan/apply runs through
+`terraform-prod.yml` (manual dispatch → repo-admin check → `prod` environment approval; credentials from
+environment secrets — OIDC role preferred, static provisioner keys as fallback). The **first**
+import/adopt apply and the EC2→ECS cutover are manual human steps; CI applies are blocked until the S3
+state backend is enabled after that pass.
 
 - `infra/terraform/bootstrap/` — once per account. Creates `seta-tfstate-prod-apse1` (versioned,
   KMS-encrypted, PAB, `prevent_destroy`), local state.
@@ -76,23 +101,39 @@ terraform init && terraform plan -out=prod.tfplan
 terraform apply prod.tfplan                     # human-reviewed
 ```
 
-Provisions VPC (2 public + 2 private subnets, IGW, S3/ECR endpoints), S3 (app + web) + CloudFront, ECS
-cluster + `api`/`worker` task defs + services + autoscaling, task-execution/task IAM roles, task SGs,
-RDS single-AZ. Secrets (`DATABASE_URL`, tunnel token, `MAILER_*`, `M365_*`, crypto keys) live in Secrets
-Manager, injected by the execution role; S3 uses the task role (no static keys).
+Provisions VPC (2 public + 2 private subnets, IGW), S3 (app uploads bucket + web bucket) + CloudFront
+(OAC, SPA fallback), ECS cluster + `api`/`worker` task defs + services + autoscaling,
+task-execution/task IAM roles, task SGs, RDS single-AZ. The web deploy sync step and the custom domain
+(ACM cert + aliases + Cloudflare DNS) are wired at cutover.
+Secrets live in Secrets Manager, injected into both containers by the execution role; S3 uses the task
+role (no static keys). The boot-required set: `DATABASE_URL`, `BETTER_AUTH_SECRET`,
+`CRYPTO_LOCAL_MASTER_KEY`, and **`OPENAI_API_KEY`** (the embedding provider constructs at boot and throws
+if it is unset — presence is checked, not validity), plus the tunnel token, `MAILER_*`, `M365_*`.
+`DATABASE_URL` uses `sslmode=no-verify` (encrypt in transit; the RDS CA is not in the default trust store,
+and `pg` would fail to verify with `require`).
 
 Out of repo: create the Cloudflare Tunnel + hostname (TLS Full), store the token in Secrets Manager; set
-up the GitHub→AWS OIDC role for deploys (no on-box runner — Fargate has no persistent box).
+up the GitHub→AWS OIDC role for deploys (no on-box runner — Fargate has no persistent box); add the
+web domain's DNS records in Cloudflare (ACM validation CNAME, then the CNAME to CloudFront).
 
 ## 5. Deploy
 
 Build-once → ECR → ECS rolling, on GitHub-hosted runners via the OIDC role.
 
-1. `build.yml` builds `linux/arm64` `server` + `web` images (`server-git-<sha>` / `web-git-<sha>` +
-   `-latest`), syncs the web bundle to S3 + CloudFront invalidation.
-2. `deploy.yml` (`environment=prod`, gated): pre-migration RDS snapshot → migrator via
-   `aws ecs run-task` → register new task-def revision + `update-service` (rolling) for both services →
-   wait `services-stable` → smoke `/health/ready` → record `PROD_LAST_GOOD_TAG`.
+1. `build.yml` builds the `server` image multi-arch (`linux/amd64` for the compose boxes,
+   `linux/arm64` for Fargate Graviton) and `web` amd64-only (it never runs on ECS — the SPA ships
+   to S3 in step 2).
+2. `deploy-prod-ecs.yml` (`environment=prod`, manual dispatch with `image_tag`): ECR image guard →
+   pre-migration RDS snapshot → register api/worker/migrator task-def revisions on the new image →
+   migrator as a one-off `run-task` (network config lifted from the api service; must exit 0) →
+   `update-service` both services → wait `services-stable` → smoke `/health/ready` → build the SPA →
+   `s3 sync` + CloudFront invalidation → record `PROD_LAST_GOOD_TAG` and `TF_IMAGE_URI` (so later
+   terraform plans don't roll the image back). The compose `deploy.yml` keeps serving the box until
+   cutover.
+
+**Custom web domain:** set `web_domain` in prod tfvars → apply creates the ACM cert (us-east-1) and
+outputs the validation CNAME (`web_acm_validation_records`) to add in Cloudflare; the apply completes
+once the cert issues and attaches the alias. Then CNAME the domain to the `web_domain` output.
 
 Migrations must be backward-compatible (expand/contract) — old and new tasks overlap during the roll.
 
@@ -130,11 +171,18 @@ forced → update the Secrets Manager value → force a new ECS deployment on bo
 
 ## 7. Observability
 
-No CloudWatch Logs or app-state alarms — alerting lives in the central Prometheus/Loki/Grafana stack on
-a separate VPS. Run Grafana Alloy (or ADOT) as a sidecar to scrape `:9464` and ship logs, tagged
-`MONITORING_ENV=prod`. Use ECS/task metrics for CPU/mem/running-count (no host `node-exporter`). RDS
-infra metrics (storage, connections) come from CloudWatch. Alerts: `api`/`worker` running-count < 1,
-RDS storage-fill, queue-depth backlog.
+No CloudWatch Logs — everything pushes to the central Grafana stack on the self-hosted monitoring
+box, same ingest and creds as dev/uat (`future-ingest.seta-international.com`). Two sidecars per
+task, wired in `modules/app/ecs.tf`:
+
+- **Logs:** container stdout → `log_router` (fluent-bit) → Loki, labeled `env` + `container` —
+  read them in Grafana exactly like the dev/uat streams.
+- **Metrics:** `alloy` scrapes the app's `:9464` → Prometheus remote_write (tasks accept no
+  inbound, so central can't scrape them).
+
+CPU/mem/running-count come from basic ECS metrics; RDS metrics via the central
+`cloudwatch-exporter`. Alerts unchanged (running-count < 1, RDS storage-fill, queue backlog),
+plus absent-series on the pushed data.
 
 ## 8. Cost
 
@@ -142,12 +190,15 @@ RDS storage-fill, queue-depth backlog.
 
 | Component | Baseline (`desired=1`) |
 |---|---|
-| api — 0.5 vCPU / 1 GB | $18 |
+| api — 1 vCPU / 2 GB | $36 |
 | worker — 1 vCPU / 3 GB | $39 |
 | cloudflared sidecar | ~$9 |
-| web — S3 + CloudFront | ~$3 |
+| web — S3 + CloudFront | ~$1–3 |
 | RDS single-AZ (`db.t3.micro`) | ~$19 |
-| **Total** | **~$88** |
+| **Total** | **~$106** |
+
+The observability sidecars run inside the existing task sizes (hard-capped at 384 MB combined), so
+they add no Fargate cost.
 
 Autoscaling bills per-second only while scaled. Compute runs on a 1-yr Compute Savings Plan (~20–30%
 off the rates above).

@@ -1,0 +1,9 @@
+# terraform.tfvars is gitignored. In CI these come from GitHub sandbox secrets.
+# image_uri: <account-id>.dkr.ecr.<region>.amazonaws.com/future-app-sandbox:<tag>
+db_master_password      = "CHANGE_ME"
+better_auth_secret      = "CHANGE_ME_min_32_chars_................"
+crypto_local_master_key = "CHANGE_ME_64_hex_chars"
+openai_api_key          = "sk-...(dummy ok for sandbox; presence-checked at boot)"
+image_uri               = "ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/future-app-sandbox:latest"
+monitoring_username     = "CHANGE_ME (GH env var REMOTE_WRITE_USERNAME)"
+monitoring_password     = "CHANGE_ME (GH secret REMOTE_WRITE_PASSWORD)"
