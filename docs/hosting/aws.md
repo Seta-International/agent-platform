@@ -20,29 +20,41 @@ flowchart TB
 
     subgraph vpc["VPC ap-southeast-1 · ECS Fargate (arm64)"]
         subgraph apisvc["api service — desired 1, autoscale to 2 (CPU)"]
-            api["server 1 vCPU / 2 GB<br/>+ cloudflared sidecar<br/>tasks across 2 AZ"]
+            api["server 1 vCPU / 2 GB<br/>+ cloudflared · log_router · alloy sidecars<br/>tasks across 2 AZ"]
         end
         subgraph wsvc["worker service — desired 1, autoscale to 2 (CPU)"]
-            wrk["worker 1 vCPU / 3 GB<br/>no HTTP · tasks across 2 AZ"]
+            wrk["worker 1 vCPU / 3 GB<br/>+ log_router · alloy sidecars<br/>no HTTP · tasks across 2 AZ"]
         end
     end
 
     rds[("RDS Postgres · single-AZ<br/>pgvector · 7-day PITR")]
+
+    subgraph mon["Self-hosted monitoring box — outside AWS"]
+        ingest["future-ingest<br/>nginx · basic auth"]
+        stack["Grafana · Prometheus · Loki<br/>Alertmanager"]
+    end
 
     users --> cf
     users --> cfront --> s3web
     cf -->|outbound tunnel| api
     api -->|5432| rds
     wrk -->|5432| rds
+    api -.->|"push: logs (FireLens → Loki)<br/>metrics (Alloy remote_write)"| ingest
+    wrk -.->|"push: logs · metrics"| ingest
+    ingest --> stack
 ```
 
 - Single region; multi-region out of scope.
 - No public ALB. Traffic arrives only through the `cloudflared` sidecar's outbound tunnel. Task SGs
   have no ingress except to RDS on 5432.
 - Tasks run in the two **public** subnets with a public IP and an **egress-only** security group — zero
-  inbound is preserved (nothing routes in; tasks reach *out* to ECR, Secrets Manager, RDS, and Cloudflare
-  over the IGW). This avoids a NAT gateway (~$32/mo) and VPC endpoints. Spreading across the two AZ
-  subnets is free (Fargate bills vCPU/GB, not AZ). RDS runs single-AZ (§2).
+  inbound is preserved (nothing routes in; tasks reach *out* to ECR, Secrets Manager, RDS, Cloudflare,
+  and the monitoring ingest over the IGW). This avoids a NAT gateway (~$32/mo) and VPC endpoints.
+  Spreading across the two AZ subnets is free (Fargate bills vCPU/GB, not AZ). RDS runs single-AZ (§2).
+- **Observability is hosted outside AWS and push-only.** The Grafana/Prometheus/Loki stack lives on the
+  self-hosted monitoring box; each task's `log_router` and `alloy` sidecars push logs and metrics to
+  `future-ingest.seta-international.com`. AWS keeps no logs — no CloudWatch Logs, no Container
+  Insights (§7).
 - **api is sized 1 vCPU / 2 GB** — the app runs TypeScript via `tsx` at runtime, which compiles the whole
   module graph on boot (a transient spike well above the ~425 MB steady state). 0.5 vCPU / 1 GB is too
   tight for a reliable boot.
