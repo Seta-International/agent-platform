@@ -62,6 +62,12 @@ export const RecentTaskSchema = z.object({
   lastSeenAt: z.string().datetime(),
 });
 
+export const RecentDocumentSchema = z.object({
+  documentId: z.string().uuid(),
+  title: z.string().min(1),
+  lastSeenAt: z.string().datetime(),
+});
+
 export const ConversationEntitiesSchema = z.object({
   recentTasks: z.array(RecentTaskSchema).max(10),
   lastDiscussedTaskId: z.string().uuid().nullable(),
@@ -70,6 +76,8 @@ export const ConversationEntitiesSchema = z.object({
   rejectedCandidates: z
     .array(z.object({ taskId: z.string().uuid(), userId: z.string().uuid() }))
     .max(20),
+  recentDocuments: z.array(RecentDocumentSchema).max(10),
+  lastDiscussedDocumentId: z.string().uuid().nullable(),
 });
 
 export type ConversationEntities = z.infer<typeof ConversationEntitiesSchema>;
@@ -81,6 +89,8 @@ export const EMPTY_ENTITIES: ConversationEntities = {
   lastProposedCandidateUserId: null,
   pendingDecision: null,
   rejectedCandidates: [],
+  recentDocuments: [],
+  lastDiscussedDocumentId: null,
 };
 
 export function parseEntities(raw: string | null | undefined): ConversationEntities {

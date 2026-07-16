@@ -9,6 +9,7 @@ import {
 import { agentEnv } from '../env.ts';
 import { recordLlmTurn } from '../llm-metrics.ts';
 import { TenantGuardedMastraStore } from '../mastra-store/tenant-guarded-store.ts';
+import { loadSessionHistory } from '../memory.ts';
 import { ModelNotFoundError, resolveModel } from '../model-registry.ts';
 import { type ApprovalEvent, pumpOrchestrationStream } from '../orchestration-ui-stream.ts';
 import { commitActualTokens, RateLimitError, reserveTurn } from '../rate-limit.ts';
@@ -303,6 +304,11 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
       originalMessages: effectiveMessages,
       execute: async ({ writer }) => {
         const turnStartAtMs = performance.now();
+        const memHandle =
+          deps.userMemory && deps.userMemoryConfig
+            ? { memory: deps.userMemory, memoryConfig: deps.userMemoryConfig }
+            : undefined;
+        const sessionHistory = await loadSessionHistory(memHandle, orchThreadId);
         const run = await orchestrate(
           { userText: effectiveUserText, taskId },
           {
@@ -310,11 +316,9 @@ export function mountChatRoute(app: Hono<AgentRouteEnv>, deps: AgentRouteDeps): 
             actorUserId: session.user_id,
             effectivePermissions: session.effective_permissions,
             threadId: orchThreadId,
-            userMemory:
-              deps.userMemory && deps.userMemoryConfig
-                ? { memory: deps.userMemory, memoryConfig: deps.userMemoryConfig }
-                : undefined,
+            userMemory: memHandle,
             model: modelOverride,
+            sessionHistory,
           },
         );
         const aiParts = toAISdkStream(run.output, {

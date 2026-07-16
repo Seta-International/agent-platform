@@ -46,25 +46,14 @@ export function makeGeneralAnswerAgent(deps: GeneralAnswerDeps): SpecializedAgen
               name: 'General Answer',
               instructions: INSTRUCTIONS,
               model: pickModel(ctx, deps.resolveModel),
-              ...(ctx.userMemory ? { memory: ctx.userMemory.memory } : {}),
             });
-            const r = await agent.generate(input.query, {
-              requestContext: rc,
-              abortSignal: ctx.abortSignal,
-              // Read prior turns (the persisted Context text part) so a follow-up
-              // about an already-consumed file still answers. readOnly: the chat
-              // route owns persistence (userMemory.saveMessages) — never persist
-              // here. workingMemory disabled: this agent injects no userContext.
-              ...(ctx.userMemory && ctx.threadId
-                ? {
-                    memory: {
-                      thread: ctx.threadId,
-                      resource: ctx.actorUserId,
-                      options: { readOnly: true, workingMemory: { enabled: false } },
-                    },
-                  }
-                : {}),
-            });
+            const r = await agent.generate(
+              ctx.sessionHistory?.length ? [...ctx.sessionHistory, input.query] : input.query,
+              {
+                requestContext: rc,
+                abortSignal: ctx.abortSignal,
+              },
+            );
             return { text: r.text };
           })();
 

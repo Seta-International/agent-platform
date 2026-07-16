@@ -8,10 +8,12 @@ export type ChatIntent = 'assignment' | 'planner_qna' | 'weekly_planner';
  *  give that domain its own tier-2 classifier. */
 export const ACTIVE_DOMAIN = 'planner' as const;
 
+export type ClassifierHistory = ReadonlyArray<{ role: string; content: unknown }>;
+
 export interface IntentClassifierDeps {
   resolveModel: () => MastraModelConfig;
   /** Override/seam for the ambiguous-case LLM fallback (used in tests). */
-  classifyLlm?: (userText: string) => Promise<ChatIntent>;
+  classifyLlm?: (userText: string, history?: ClassifierHistory) => Promise<ChatIntent>;
 }
 
 // Weekly-planning intent → weekly_planner. Checked BEFORE ACTION_RE: planning
@@ -30,7 +32,11 @@ const ACTION_RE =
 const QUESTION_RE =
   /\b(what|which|how many|how much|when|where|who is|who's|whose|list|show me|do i have|are there|count)\b/i;
 
-async function llmFallback(deps: IntentClassifierDeps, userText: string): Promise<ChatIntent> {
+async function llmFallback(
+  deps: IntentClassifierDeps,
+  userText: string,
+  history?: ClassifierHistory,
+): Promise<ChatIntent> {
   const agent = new Agent({
     id: 'chat.intentClassifier',
     name: 'Chat Intent Classifier',
@@ -54,10 +60,15 @@ async function llmFallback(deps: IntentClassifierDeps, userText: string): Promis
       '  • check their own task list or workload\n' +
       '  • ask about plans, groups, or team structure\n' +
       '\n' +
-      'The message may be in Vietnamese or English. Output only the single word, nothing else.',
+      'The message may be in Vietnamese or English.\n' +
+      'If conversation history is provided, use it to understand what the user is referring to.\n' +
+      'Output only the single word, nothing else.',
     model: deps.resolveModel(),
   });
-  const r = await agent.generate(userText);
+  const historyPrefix = history?.length
+    ? `Recent conversation:\n${history.map((m) => `${m.role}: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`).join('\n')}\n\nCurrent message: `
+    : '';
+  const r = await agent.generate(`${historyPrefix}${userText}`);
   const t = r.text ?? '';
   if (/weekly_planner/i.test(t)) return 'weekly_planner';
   return /assignment/i.test(t) ? 'assignment' : 'planner_qna';
@@ -65,12 +76,14 @@ async function llmFallback(deps: IntentClassifierDeps, userText: string): Promis
 
 /** Returns the tier-2 intent for a planner-domain chat turn. */
 export function makeIntentClassifier(deps: IntentClassifierDeps) {
-  return async function classify(userText: string): Promise<ChatIntent> {
+  return async function classify(
+    userText: string,
+    history?: ClassifierHistory,
+  ): Promise<ChatIntent> {
     if (WEEKLY_RE.test(userText)) return 'weekly_planner';
     if (ACTION_RE.test(userText)) return 'assignment';
     if (QUESTION_RE.test(userText)) return 'planner_qna';
-    // Ambiguous: ask the LLM; default to the read-only flow if it is unavailable.
-    if (deps.classifyLlm) return deps.classifyLlm(userText);
-    return llmFallback(deps, userText);
+    if (deps.classifyLlm) return deps.classifyLlm(userText, history);
+    return llmFallback(deps, userText, history);
   };
 }

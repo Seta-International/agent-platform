@@ -183,7 +183,7 @@ export function registerAgent(deps: {
   // Working-memory factories (previously built inside the supervisor tree):
   // resource-scoped userContext (GuardedMemory) + thread-scoped conversation
   // entities. The chat route hands both to the orchestration run ctx.
-  const userMem = buildMemory({ mastra, databaseUrl: deps.databaseUrl });
+  const userMem = buildMemory({ mastra });
   const entitiesMem = buildEntitiesMemory({ mastra });
   // The entities memory is a process singleton handed to the SDK recorder/
   // resolver through a module-local holder — NOT via RequestContext, which
