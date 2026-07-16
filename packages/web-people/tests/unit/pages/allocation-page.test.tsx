@@ -1,0 +1,146 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
+import { AllocationPage } from '../../../src/pages/allocation-page.tsx';
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useSearch: () => ({}),
+}));
+
+const mockFetchAllocationGrid = vi.fn();
+vi.mock('../../../src/api/allocation-client.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../src/api/allocation-client.ts')>()),
+  fetchAllocationGrid: (...args: unknown[]) => mockFetchAllocationGrid(...args),
+  // UtilizationPanel (rendered unconditionally below the grid) fetches this on
+  // its own — stub it so tests don't spam real network calls.
+  fetchUtilizationByPerson: () => Promise.resolve({ as_of: '2026-07-16', rows: [] }),
+}));
+
+function makeRow(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    worker_id: 'w1',
+    employee_no: 'E1',
+    full_name: 'Ada Lovelace',
+    account_id: 'a1',
+    account_name: 'Acme',
+    project_id: 'p1',
+    project_name: 'Apollo',
+    is_account_am: false,
+    bucket: 'billable',
+    months: new Array(12).fill(50),
+    ytd_pct: 50,
+    fy_pct: 50,
+    total_mm: 6,
+    ...overrides,
+  };
+}
+
+const baseGrid = {
+  year: 2026,
+  rows: [makeRow(), makeRow({ worker_id: 'w2', full_name: 'Grace Hopper', total_mm: 9 })],
+  worker_totals: [],
+  kpis: { avg_utilization: 80, over_allocated_count: 0, member_count: 2, project_count: 1 },
+  facets: { accounts: [], projects: [] },
+};
+
+function renderPage() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <AllocationPage />
+    </QueryClientProvider>,
+  );
+}
+
+describe('AllocationPage (Astryx Table migration)', () => {
+  it('renders the allocation grid rows', async () => {
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    expect(within(table).getByText('Ada Lovelace')).toBeInTheDocument();
+    expect(within(table).getByText('Grace Hopper')).toBeInTheDocument();
+  });
+
+  it('clicking the MM sort header reorders rows client-side (the one column with a real accessor)', async () => {
+    const user = userEvent.setup();
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    await user.click(within(table).getByRole('button', { name: /sort by mm/i }));
+
+    const rows = within(table).getAllByRole('row');
+    // row[0] is the header row; ascending MM puts Ada (6) before Grace (9).
+    expect(within(rows[1]).getByText('Ada Lovelace')).toBeInTheDocument();
+    expect(within(rows[2]).getByText('Grace Hopper')).toBeInTheDocument();
+  });
+
+  it('toggling a column via the Columns popover hides it from the table', async () => {
+    const user = userEvent.setup();
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    expect(within(table).getByText('Employee ID')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Employee ID' }));
+
+    expect(within(table).queryByText('Employee ID')).not.toBeInTheDocument();
+  });
+
+  it('paginates client-side over the fetched rows', async () => {
+    const user = userEvent.setup();
+    const manyRows = Array.from({ length: 30 }, (_, i) =>
+      makeRow({ worker_id: `w${i}`, full_name: `Worker ${i}`, total_mm: i }),
+    );
+    mockFetchAllocationGrid.mockResolvedValue({ ...baseGrid, rows: manyRows });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    expect(within(table).getByText('Worker 0')).toBeInTheDocument();
+    expect(within(table).queryByText('Worker 25')).not.toBeInTheDocument();
+
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: /go to page 2/i }));
+
+    await waitFor(() => expect(within(table).getByText('Worker 25')).toBeInTheDocument());
+  });
+
+  it('resets to page 1 when the sort order changes while on page 2', async () => {
+    // Matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on
+    // `sorting` state changes too, not just filters (getSortedRowModel unconditionally calls
+    // `table._autoResetPageIndex()`).
+    const user = userEvent.setup();
+    const manyRows = Array.from({ length: 30 }, (_, i) =>
+      makeRow({ worker_id: `w${i}`, full_name: `Worker ${i}`, total_mm: i }),
+    );
+    mockFetchAllocationGrid.mockResolvedValue({ ...baseGrid, rows: manyRows });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: /go to page 2/i }));
+    await waitFor(() => expect(within(table).getByText('Worker 25')).toBeInTheDocument());
+
+    await user.click(within(table).getByRole('button', { name: /sort by mm/i }));
+
+    expect(within(pager).getByRole('button', { name: 'Go to page 1' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(table).getByText('Worker 0')).toBeInTheDocument();
+    expect(within(table).queryByText('Worker 25')).not.toBeInTheDocument();
+  });
+
+  it('renders the empty state when there are no allocations', async () => {
+    mockFetchAllocationGrid.mockResolvedValue({ ...baseGrid, rows: [] });
+    renderPage();
+
+    const table = await screen.findByRole('table');
+    expect(within(table).getByText('No allocations')).toBeInTheDocument();
+  });
+});

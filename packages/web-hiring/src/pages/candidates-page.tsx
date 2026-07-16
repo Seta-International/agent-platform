@@ -2,14 +2,25 @@ import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-p
 import {
   Banner,
   Button,
-  DataTable,
+  Checkbox,
+  type ColumnSettingsOption,
   EmptyState,
   Input,
   KanbanBoard,
   KanbanColumn,
   PageChrome,
+  Popover,
+  paginateData,
   SegmentedControl,
   Selector,
+  Skeleton,
+  Table,
+  type TableColumn,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
+  useTableSortableState,
   useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -21,10 +32,11 @@ import {
   Handshake,
   ListChecks,
   Search,
+  Settings2,
   Users,
 } from 'lucide-react';
 import type { HTMLAttributes, ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   type CandidateListItem,
   type CandidateStageCounts,
@@ -65,6 +77,25 @@ const STAGE_COUNT_SEGMENTS: { key: keyof CandidateStageCounts; label: string }[]
   { key: 'hired', label: 'Hired' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
+
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO lacks an index
+// signature, so alias locally (do not touch the shared DTO).
+type Row = CandidateListItem & Record<string, unknown>;
+
+// Universe of columns for the column-settings picker. The deleted DataTable never disabled
+// `enableColumnVisibility` here (and no column set `enableHiding: false`), so every column —
+// including "Candidate" — was genuinely hideable; preserved as-is (no `isAlwaysVisible`).
+const CANDIDATE_COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'name', label: 'Candidate' },
+  { key: 'requisition_title', label: 'Position' },
+  { key: 'seniority', label: 'Seniority' },
+  { key: 'source', label: 'Source' },
+  { key: 'stage', label: 'Stage' },
+  { key: 'rating', label: 'Rating' },
+  { key: 'fit', label: 'Fit' },
+];
+const DEFAULT_CANDIDATE_COLUMN_KEYS = CANDIDATE_COLUMN_OPTIONS.map((c) => c.key);
+const CANDIDATE_PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 function toCsvCell(value: string | number): string {
   const s = String(value);
@@ -132,6 +163,9 @@ export function CandidatesPage() {
   const [seniorityFilter, setSeniorityFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_CANDIDATE_COLUMN_KEYS);
 
   const { data, isLoading, error } = useQuery({
     queryKey: hiringKeys.candidates(),
@@ -155,6 +189,41 @@ export function CandidatesPage() {
     }
     return r;
   }, [data, q, reqFilter, seniorityFilter, sourceFilter]);
+
+  const { sortedData, sort, sortConfig } = useTableSortableState<Row>({ data: rows as Row[] });
+  const sortable = useTableSortable<Row>(sortConfig);
+
+  // Reset to page 1 whenever a filter narrows/widens the result set, or the sort order changes —
+  // matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on both
+  // `columnFilters`/`globalFilter` AND `sorting` state changes (getSortedRowModel calls
+  // `table._autoResetPageIndex()` unconditionally; `manualPagination` was never set here).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the filters and sort are the intentional reset triggers, unread in the body.
+  useEffect(() => {
+    setPage(1);
+  }, [q, reqFilter, seniorityFilter, sourceFilter, sort]);
+
+  const pageRows = useMemo(
+    () => paginateData(sortedData, page, pageSize),
+    [sortedData, page, pageSize],
+  );
+  const pagination = useTablePagination<Row>({
+    page,
+    onPageChange: setPage,
+    totalItems: sortedData.length,
+    pageSize,
+    onPageSizeChange: (ps) => {
+      setPageSize(ps);
+      setPage(1);
+    },
+    pageSizeOptions: CANDIDATE_PAGE_SIZE_OPTIONS,
+  });
+
+  const columnSettingsState = useTableColumnSettingsState({
+    columns: CANDIDATE_COLUMN_OPTIONS,
+    activeColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+  });
+  const columnSettings = useTableColumnSettings<Row>(columnSettingsState.columnSettingsConfig);
 
   const reqOptions = useMemo(() => {
     const seen = new Map<string, string>();
@@ -191,65 +260,57 @@ export function CandidatesPage() {
 
   const groups = boardColumns(rows);
 
-  const columns = useMemo(() => {
-    type Ctx = { row: { original: CandidateListItem } };
-    return [
+  const columns = useMemo<TableColumn<Row>[]>(
+    () => [
       {
-        id: 'name',
-        accessorKey: 'name',
+        key: 'name',
         header: 'Candidate',
-        cell: ({ row }: Ctx) => <span className="font-medium text-ink">{row.original.name}</span>,
+        sortable: true,
+        renderCell: (r) => <span className="font-medium text-ink">{r.name}</span>,
       },
       {
-        id: 'requisition_title',
-        accessorKey: 'requisition_title',
+        key: 'requisition_title',
         header: 'Position',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.requisition_title}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{r.requisition_title}</span>,
       },
       {
-        id: 'seniority',
-        accessorKey: 'seniority',
+        key: 'seniority',
         header: 'Seniority',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.seniority ?? '—'}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{r.seniority ?? '—'}</span>,
       },
       {
-        id: 'source',
-        accessorKey: 'source',
+        key: 'source',
         header: 'Source',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.source ?? '—'}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{r.source ?? '—'}</span>,
       },
       {
-        id: 'stage',
-        accessorKey: 'stage',
+        key: 'stage',
         header: 'Stage',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted capitalize">{row.original.stage}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted capitalize">{r.stage}</span>,
       },
       {
-        id: 'rating',
-        accessorKey: 'rating',
+        key: 'rating',
         header: 'Rating',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.rating ?? 0}/5</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{r.rating ?? 0}/5</span>,
       },
       {
-        id: 'fit',
-        accessorKey: 'fit',
+        // The old column had accessorKey 'fit' (an object, not a primitive) and never disabled
+        // sorting — reproduced as `sortable: true` for parity, even though the default
+        // string/number comparator treats a non-primitive value as empty and never reorders
+        // (matches the old, equally non-functional, TanStack default sortingFn behavior here).
+        key: 'fit',
         header: 'Fit',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{fitLabel(row.original.fit).text}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-ink-muted">{fitLabel(r.fit).text}</span>,
       },
-    ];
-  }, []);
+    ],
+    [],
+  );
 
   return (
     <PageChrome
@@ -338,22 +399,72 @@ export function CandidatesPage() {
         {error ? (
           <Banner status="error" title={(error as Error).message} />
         ) : view === 'list' ? (
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            getRowId={(r: CandidateListItem) => r.application_id}
-            enableGlobalFilter={false}
-            pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
-            emptyState={
-              <EmptyState
-                icon={<Users className="size-6" />}
-                title="No candidates yet"
-                description="Add a candidate to get started."
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <Popover
+                placement="below"
+                alignment="end"
+                label="Toggle columns"
+                content={
+                  <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
+                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                      Toggle columns
+                    </div>
+                    {CANDIDATE_COLUMN_OPTIONS.map((col) => (
+                      <Checkbox
+                        key={col.key}
+                        label={col.label}
+                        value={columnSettingsState.isColumnActive(col.key)}
+                        onChange={() => columnSettingsState.toggleColumn(col.key)}
+                      />
+                    ))}
+                  </div>
+                }
+              >
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Settings2 className="size-3.5" />}
+                  label="Columns"
+                />
+              </Popover>
+            </div>
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                  <Skeleton key={id} height={40} />
+                ))}
+              </div>
+            ) : (
+              <Table
+                data={pageRows}
+                columns={columns}
+                idKey="application_id"
+                plugins={{
+                  pagination,
+                  sortable,
+                  columnSettings,
+                  rowClick: {
+                    transformBodyRow: (props, item) => ({
+                      ...props,
+                      htmlProps: {
+                        ...props.htmlProps,
+                        style: { ...props.htmlProps.style, cursor: 'pointer' },
+                        onClick: () => setSelected(item.candidate_id),
+                      },
+                    }),
+                  },
+                }}
+                emptyState={
+                  <EmptyState
+                    icon={<Users className="size-6" />}
+                    title="No candidates yet"
+                    description="Add a candidate to get started."
+                  />
+                }
               />
-            }
-            onRowClick={(row) => setSelected(row.original.candidate_id)}
-          />
+            )}
+          </div>
         ) : isLoading ? (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
             {[0, 1, 2, 3, 4].map((i) => (

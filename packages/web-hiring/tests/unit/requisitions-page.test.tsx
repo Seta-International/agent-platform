@@ -1,0 +1,171 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+import type { OpenRequisitionsBoard, RequisitionListRow } from '../../src/api/hiring-client.ts';
+
+vi.mock('@seta/web-identity', () => ({ usePermission: () => true }));
+
+const navigate = vi.fn();
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => navigate,
+}));
+
+const fetchOpenRequisitions = vi.fn();
+vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
+  fetchOpenRequisitions: () => fetchOpenRequisitions(),
+  fetchAccounts: () => Promise.resolve([]),
+  fetchProjects: () => Promise.resolve([]),
+}));
+
+import { RequisitionsPage } from '../../src/pages/requisitions-page.tsx';
+
+function row(over: Partial<RequisitionListRow> = {}): RequisitionListRow {
+  return {
+    id: 'r1',
+    title: 'Backend Engineer',
+    role_title: null,
+    account_id: null,
+    account_name: 'Zeta Corp',
+    project_id: null,
+    project_name: null,
+    grade: null,
+    kind: 'new',
+    approval_status: 'approved',
+    stage: 'sourcing',
+    status: 'open',
+    note: null,
+    start_date: null,
+    due_date: null,
+    created_at: '2024-01-01T00:00:00.000Z',
+    updated_at: '2024-01-01T00:00:00.000Z',
+    skills: [],
+    openings_total: 1,
+    openings_open: 1,
+    applicants_count: 0,
+    applicants_internal: 0,
+    applicants_external: 0,
+    applicants: [],
+    version: 1,
+    ...over,
+  };
+}
+
+// Two requisitions, alphabetically reversed by title — gives "Sort by Position" something to prove.
+const twoRows: RequisitionListRow[] = [
+  row({ id: 'r1', title: 'Zeta Engineer', account_name: 'Zeta Corp' }),
+  row({ id: 'r2', title: 'Ada Engineer', account_name: 'Alpha Inc' }),
+];
+
+function board(requisitions: RequisitionListRow[]): OpenRequisitionsBoard {
+  return {
+    scope: 'all',
+    scoped_account_names: [],
+    scoped_project_names: [],
+    requisitions,
+  };
+}
+
+const wrap =
+  (qc: QueryClient) =>
+  ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+
+async function renderListView(rows: RequisitionListRow[]) {
+  fetchOpenRequisitions.mockResolvedValue(board(rows));
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const user = userEvent.setup();
+  render(<RequisitionsPage />, { wrapper: wrap(qc) });
+  await waitFor(() => expect(screen.getByText(rows[0].title)).toBeInTheDocument());
+  await user.click(screen.getByRole('tab', { name: 'List' }));
+  const table = await screen.findByRole('table');
+  return { user, table };
+}
+
+describe('RequisitionsPage', () => {
+  it('switches to list view', async () => {
+    const { table } = await renderListView([row()]);
+    expect(within(table).getByRole('columnheader', { name: /position/i })).toBeInTheDocument();
+  });
+
+  it('clicking "Sort by Position" reorders the rows', async () => {
+    const { user, table } = await renderListView(twoRows);
+    // Server order: Zeta before Ada.
+    expect(screen.getAllByText(/Zeta Engineer|Ada Engineer/)[0]).toHaveTextContent('Zeta Engineer');
+
+    await user.click(within(table).getByRole('button', { name: /sort by position/i }));
+
+    // Ascending by title: Ada before Zeta.
+    expect(screen.getAllByText(/Zeta Engineer|Ada Engineer/)[0]).toHaveTextContent('Ada Engineer');
+  });
+
+  it('hiding the Account column via the Columns toggle removes it from the table', async () => {
+    const { user, table } = await renderListView(twoRows);
+    expect(within(table).getByRole('columnheader', { name: /account/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Account' }));
+
+    expect(within(table).queryByRole('columnheader', { name: /account/i })).not.toBeInTheDocument();
+  });
+
+  it('clicking a row navigates to the requisition detail', async () => {
+    const { user, table } = await renderListView([row()]);
+    // The Position cell wraps its text in a Tooltip, which mirrors the label into an
+    // aria-describedby node — two text matches for the same row, so click via the row itself.
+    const dataRow = within(table).getAllByRole('row')[1] as HTMLElement;
+    await user.click(dataRow);
+
+    expect(navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: '/hiring/requisitions',
+        search: expect.any(Function),
+      }),
+    );
+    const call = navigate.mock.calls.find((c) => c[0]?.to === '/hiring/requisitions');
+    expect(call?.[0].search({})).toEqual({ selectedRequisitionId: 'r1' });
+  });
+
+  it('paginates client-side at 25/page', async () => {
+    const manyRows = Array.from({ length: 26 }, (_, i) =>
+      row({ id: `r${i}`, title: `Requisition ${String(i).padStart(2, '0')}` }),
+    );
+    const { user, table } = await renderListView(manyRows);
+    // The Position cell's Tooltip mirrors the label, so scope to the table and expect 2 matches
+    // (trigger + aria-describedby mirror) rather than 1.
+    expect(within(table).getAllByText('Requisition 00')).toHaveLength(2);
+    expect(within(table).queryAllByText('Requisition 25')).toHaveLength(0);
+
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: 'Go to page 2' }));
+
+    expect(within(table).getAllByText('Requisition 25')).toHaveLength(2);
+    expect(within(table).queryAllByText('Requisition 00')).toHaveLength(0);
+  });
+
+  it('resets to page 1 when the sort order changes while on page 2', async () => {
+    // Matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on
+    // `sorting` state changes too, not just filters (getSortedRowModel unconditionally calls
+    // `table._autoResetPageIndex()`).
+    const manyRows = Array.from({ length: 26 }, (_, i) =>
+      row({ id: `r${i}`, title: `Requisition ${String(i).padStart(2, '0')}` }),
+    );
+    const { user, table } = await renderListView(manyRows);
+
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: 'Go to page 2' }));
+    expect(within(table).getAllByText('Requisition 25')).toHaveLength(2);
+
+    await user.click(within(table).getByRole('button', { name: /sort by position/i }));
+
+    expect(within(pager).getByRole('button', { name: 'Go to page 1' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(table).getAllByText('Requisition 00')).toHaveLength(2);
+    expect(within(table).queryAllByText('Requisition 25')).toHaveLength(0);
+  });
+});

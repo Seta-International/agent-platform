@@ -14,7 +14,6 @@ import { Route as routes403RouteImport } from './routes/403'
 import { Route as routesAuthedRouteRouteImport } from './routes/_authed/route'
 import { Route as routesAuthedSettingsIndexRouteImport } from './routes/_authed/settings/index'
 import { Route as routesAuthedIndexRouteImport } from './routes/_authed/index'
-import { Route as DevDatatableRouteImport } from './routes/dev/datatable'
 import { Route as PmRouteRouteImport } from './../../../packages/web-pm/src/routes/route'
 import { Route as PlannerRouteRouteImport } from './../../../packages/web-planner/src/routes/route'
 import { Route as PeopleRouteRouteImport } from './../../../packages/web-people/src/routes/route'
@@ -104,11 +103,6 @@ const routesAuthedIndexRoute = routesAuthedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => routesAuthedRouteRoute,
-} as any)
-const DevDatatableRoute = DevDatatableRouteImport.update({
-  id: '/dev/datatable',
-  path: '/dev/datatable',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const PmRouteRoute = PmRouteRouteImport.update({
   id: '/pm',
@@ -450,7 +444,6 @@ export interface FileRoutesByFullPath {
   '/people': typeof PeopleRouteRouteWithChildren
   '/planner': typeof PlannerRouteRouteWithChildren
   '/pm': typeof PmRouteRouteWithChildren
-  '/dev/datatable': typeof DevDatatableRoute
   '/settings': typeof routesAuthedSettingsIndexRoute
   '/agent/workflows': typeof AgentWorkflowsRouteRouteWithChildren
   '/admin/audit': typeof AdminAuditRoute
@@ -514,7 +507,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/403': typeof routes403Route
   '/login': typeof routesLoginRoute
-  '/dev/datatable': typeof DevDatatableRoute
   '/': typeof routesAuthedIndexRoute
   '/settings': typeof routesAuthedSettingsIndexRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -586,7 +578,6 @@ export interface FileRoutesById {
   '/_authed/people': typeof PeopleRouteRouteWithChildren
   '/_authed/planner': typeof PlannerRouteRouteWithChildren
   '/_authed/pm': typeof PmRouteRouteWithChildren
-  '/dev/datatable': typeof DevDatatableRoute
   '/_authed/': typeof routesAuthedIndexRoute
   '/_authed/settings': typeof routesAuthedSettingsIndexRoute
   '/_authed/agent/workflows': typeof AgentWorkflowsRouteRouteWithChildren
@@ -660,7 +651,6 @@ export interface FileRouteTypes {
     | '/people'
     | '/planner'
     | '/pm'
-    | '/dev/datatable'
     | '/settings'
     | '/agent/workflows'
     | '/admin/audit'
@@ -724,7 +714,6 @@ export interface FileRouteTypes {
   to:
     | '/403'
     | '/login'
-    | '/dev/datatable'
     | '/'
     | '/settings'
     | '/admin/audit'
@@ -795,7 +784,6 @@ export interface FileRouteTypes {
     | '/_authed/people'
     | '/_authed/planner'
     | '/_authed/pm'
-    | '/dev/datatable'
     | '/_authed/'
     | '/_authed/settings'
     | '/_authed/agent/workflows'
@@ -862,7 +850,6 @@ export interface RootRouteChildren {
   routesAuthedRouteRoute: typeof routesAuthedRouteRouteWithChildren
   routes403Route: typeof routes403Route
   routesLoginRoute: typeof routesLoginRoute
-  DevDatatableRoute: typeof DevDatatableRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -901,13 +888,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof routesAuthedIndexRouteImport
       parentRoute: typeof routesAuthedRouteRoute
-    }
-    '/dev/datatable': {
-      id: '/dev/datatable'
-      path: '/dev/datatable'
-      fullPath: '/dev/datatable'
-      preLoaderRoute: typeof DevDatatableRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/_authed/pm': {
       id: '/_authed/pm'
@@ -1575,7 +1555,6 @@ const rootRouteChildren: RootRouteChildren = {
   routesAuthedRouteRoute: routesAuthedRouteRouteWithChildren,
   routes403Route: routes403Route,
   routesLoginRoute: routesLoginRoute,
-  DevDatatableRoute: DevDatatableRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
