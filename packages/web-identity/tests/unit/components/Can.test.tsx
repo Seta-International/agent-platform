@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { SessionScopeProjection } from '../../../src/api/client.ts';
@@ -20,25 +21,31 @@ function makeSession(permissions: string[]): SessionScopeProjection {
   };
 }
 
+function renderWithSession(permissions: string[], ui: React.ReactNode) {
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <SessionProvider session={makeSession(permissions)}>{ui}</SessionProvider>
+    </QueryClientProvider>,
+  );
+}
+
 describe('Can', () => {
   it('renders children when the session has the permission', () => {
-    render(
-      <SessionProvider session={makeSession(['identity.user.list'])}>
-        <Can permission="identity.user.list">
-          <span>visible</span>
-        </Can>
-      </SessionProvider>,
+    renderWithSession(
+      ['identity.user.list'],
+      <Can permission="identity.user.list">
+        <span>visible</span>
+      </Can>,
     );
     expect(screen.getByText('visible')).toBeInTheDocument();
   });
 
   it('hides children when the session lacks the permission', () => {
-    render(
-      <SessionProvider session={makeSession([])}>
-        <Can permission="identity.user.list">
-          <span>visible</span>
-        </Can>
-      </SessionProvider>,
+    renderWithSession(
+      [],
+      <Can permission="identity.user.list">
+        <span>visible</span>
+      </Can>,
     );
     expect(screen.queryByText('visible')).not.toBeInTheDocument();
   });
