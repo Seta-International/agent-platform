@@ -27,11 +27,11 @@ describe('KanbanCard', () => {
     expect(screen.getByRole('img', { name: 'Jane Doe' })).toBeInTheDocument();
   });
 
-  it('applies kanban-card--recently-moved class when recentlyMoved is true', () => {
+  it('marks the card data-recently-moved when recentlyMoved is true', () => {
     render(<KanbanCard task={{ ...task, recentlyMoved: true }} draggable={{}} />);
 
     const article = screen.getByRole('button', { name: /Ship M3 spec/ });
-    expect(article.className).toContain('kanban-card--recently-moved');
+    expect(article).toHaveAttribute('data-recently-moved', 'true');
   });
 
   it('renders saving indicator when saving is true', () => {
@@ -53,10 +53,14 @@ describe('KanbanCard', () => {
     const slot = screen.getByTestId('preview-body');
     expect(slot).toBeInTheDocument();
 
-    const children = Array.from(card.children);
-    const titleIdx = children.findIndex((c) => c.classList.contains('kanban-card__title'));
-    const slotIdx = children.indexOf(slot);
-    const metaIdx = children.findIndex((c) => c.classList.contains('kanban-card__meta'));
+    // Shell wraps all children in one flex body div, so descend one level before
+    // locating rows by their actual content (title text / meta's priority icon)
+    // instead of the removed `kanban-card__*` classNames.
+    const body = card.children[0] as HTMLElement;
+    const rows = Array.from(body.children);
+    const titleIdx = rows.findIndex((c) => c.textContent?.includes('Ship M3 spec'));
+    const slotIdx = rows.indexOf(slot);
+    const metaIdx = rows.findIndex((c) => c.querySelector('[aria-label="Urgent priority"]'));
     expect(titleIdx).toBeGreaterThan(-1);
     expect(slotIdx).toBeGreaterThan(titleIdx);
     expect(metaIdx).toBeGreaterThan(slotIdx);

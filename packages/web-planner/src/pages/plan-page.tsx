@@ -3,6 +3,7 @@ import type { BucketRow, PlanRow, TaskWithAssigneesRow } from '@seta/planner';
 import {
   KanbanBoard,
   KanbanCard,
+  KanbanCardList,
   KanbanColumn,
   PreviewBody,
   type PreviewBodyTask,
@@ -41,12 +42,12 @@ interface Props {
 
 const NO_BUCKET_DROPPABLE_ID = '__no_bucket__';
 
-function statusForBucketName(name: string): 'muted' | 'primary' | 'warning' | 'success' {
+function statusForBucketName(name: string): 'neutral' | 'accent' | 'warning' | 'success' {
   const n = name.toLowerCase();
-  if (n.includes('progress')) return 'primary';
+  if (n.includes('progress')) return 'accent';
   if (n.includes('review')) return 'warning';
   if (n.includes('done')) return 'success';
-  return 'muted';
+  return 'neutral';
 }
 
 export function PlanPage({
@@ -369,15 +370,13 @@ export function PlanPage({
                           return (
                             <Droppable droppableId={b.id} type="TASK">
                               {(dp2, ds2) => (
-                                <div
+                                <KanbanCardList
                                   ref={dp2.innerRef}
-                                  {...dp2.droppableProps}
-                                  className={[
-                                    'kanban-column__cards',
-                                    ds2.isDraggingOver && 'is-over',
-                                  ]
-                                    .filter(Boolean)
-                                    .join(' ')}
+                                  // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
+                                  rootProps={
+                                    dp2.droppableProps as unknown as HTMLAttributes<HTMLDivElement>
+                                  }
+                                  isDraggingOver={ds2.isDraggingOver}
                                 >
                                   {list.map((entry, ci) => (
                                     <Draggable
@@ -413,7 +412,7 @@ export function PlanPage({
                                     </Draggable>
                                   ))}
                                   {dp2.placeholder}
-                                </div>
+                                </KanbanCardList>
                               )}
                             </Droppable>
                           );

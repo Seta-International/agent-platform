@@ -5,11 +5,20 @@ const meta = { component: KanbanColumn } satisfies Meta<typeof KanbanColumn>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+// Stand-ins for real KanbanCards — only the column's own layout is under test here.
+const placeholderCard = {
+  background: 'var(--color-canvas)',
+  border: '1px solid var(--color-hairline)',
+  borderRadius: 6,
+  padding: '10px 12px',
+  boxShadow: 'var(--shadow-sm)',
+} as const;
+
 const mockCards = (
   <>
-    <div className="kanban-card">Implement auth flow</div>
-    <div className="kanban-card">Fix pagination bug</div>
-    <div className="kanban-card">Add unit tests for billing module</div>
+    <div style={placeholderCard}>Implement auth flow</div>
+    <div style={placeholderCard}>Fix pagination bug</div>
+    <div style={placeholderCard}>Add unit tests for billing module</div>
   </>
 );
 
@@ -17,7 +26,7 @@ export const Default: Story = {
   args: {
     name: 'In Progress',
     count: 3,
-    status: 'primary',
+    status: 'accent',
     children: mockCards,
     droppable: {},
     draggableHandle: {},
@@ -28,7 +37,7 @@ export const Dragging: Story = {
   args: {
     name: 'In Progress',
     count: 3,
-    status: 'primary',
+    status: 'accent',
     children: mockCards,
     droppable: {},
     draggableHandle: { isDragging: true },
@@ -50,11 +59,11 @@ export const WithQuickCreate: Story = {
   args: {
     name: 'Todo',
     count: 2,
-    status: 'muted',
+    status: 'neutral',
     children: (
       <>
-        <div className="kanban-card">Draft onboarding guide</div>
-        <div className="kanban-card">Review design tokens</div>
+        <div style={placeholderCard}>Draft onboarding guide</div>
+        <div style={placeholderCard}>Review design tokens</div>
       </>
     ),
     onCreateTask: (input) => console.log('create task:', input),

@@ -1,9 +1,10 @@
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
+import { stylexVitePlugin } from './src/testing/vitest-preset';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [stylexVitePlugin(), react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
