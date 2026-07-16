@@ -10,21 +10,21 @@ import type {
 import type { ChatStreamRun } from '@seta/shared-orchestration';
 import { z } from 'zod';
 import { pickModel } from './model.ts';
-import { makeQnaOrchestratorTools } from './orchestrator.tools.ts';
-import type { QnaSubAgentInput, QnaSubAgentOutput } from './schemas.ts';
+import { makeQueryOrchestratorTools } from './orchestrator.tools.ts';
+import type { QuerySubAgentInput, QuerySubAgentOutput } from './schemas.ts';
 
-type SubAgent = SpecializedAgentSpec<QnaSubAgentInput, QnaSubAgentOutput>;
+type SubAgent = SpecializedAgentSpec<QuerySubAgentInput, QuerySubAgentOutput>;
 
-export const QnaOrchestratorInputSchema = z.object({
+export const QueryOrchestratorInputSchema = z.object({
   userText: z.string(),
   taskId: z.string().nullable(),
 });
-export type QnaOrchestratorInput = z.infer<typeof QnaOrchestratorInputSchema>;
+export type QueryOrchestratorInput = z.infer<typeof QueryOrchestratorInputSchema>;
 
-export const QnaOrchestratorResultSchema = z.object({ answer: z.string() });
-export type QnaOrchestratorResult = z.infer<typeof QnaOrchestratorResultSchema>;
+export const QueryOrchestratorResultSchema = z.object({ answer: z.string() });
+export type QueryOrchestratorResult = z.infer<typeof QueryOrchestratorResultSchema>;
 
-export interface QnaOrchestratorDeps {
+export interface QueryOrchestratorDeps {
   taskQuery: SubAgent;
   taskDetail: SubAgent;
   teamInfo: SubAgent;
@@ -60,24 +60,24 @@ anything. The current user's identity is implicit — questions about "me/my/I" 
 an id (the delegates resolve the caller from the session). For a NAMED other person, let the
 delegate resolve them; only ask the user to clarify when a name is genuinely ambiguous.`;
 
-interface BuiltQnaOrchestrator {
+interface BuiltQueryOrchestrator {
   agent: Agent;
   message: string;
   rc: RequestContext;
   tools: Record<string, AgentTool>;
 }
 
-function buildQnaOrchestrator(
-  deps: QnaOrchestratorDeps,
-  input: QnaOrchestratorInput,
+function buildQueryOrchestrator(
+  deps: QueryOrchestratorDeps,
+  input: QueryOrchestratorInput,
   ctx: SpecializedAgentRunCtx,
-): BuiltQnaOrchestrator {
+): BuiltQueryOrchestrator {
   const rc = new RequestContext();
   rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
   rc.set('tenant_id', ctx.tenantId);
   rc.set('effective_permissions', ctx.effectivePermissions ?? new Set<string>());
 
-  const tools = makeQnaOrchestratorTools({
+  const tools = makeQueryOrchestratorTools({
     taskQuery: deps.taskQuery,
     taskDetail: deps.taskDetail,
     teamInfo: deps.teamInfo,
@@ -86,8 +86,8 @@ function buildQnaOrchestrator(
   }) as unknown as Record<string, AgentTool>;
 
   const agent = new Agent({
-    id: 'planner.qna.orchestrator',
-    name: 'Planner QnA Orchestrator',
+    id: 'planner.query.orchestrator',
+    name: 'Planner Query Orchestrator',
     instructions: INSTRUCTIONS,
     model: pickModel(ctx, deps.resolveModel),
     tools: tools as never,
@@ -99,17 +99,17 @@ function buildQnaOrchestrator(
 const EMPTY_TRUST = { reasoningTrace: [], evidenceCitations: [], confidenceScore: 0.6 };
 
 /** Non-streaming spec (queued runner / direct call). */
-export function makeQnaOrchestrator(
-  deps: QnaOrchestratorDeps,
-): SpecializedAgentSpec<QnaOrchestratorInput, QnaOrchestratorResult> {
+export function makeQueryOrchestrator(
+  deps: QueryOrchestratorDeps,
+): SpecializedAgentSpec<QueryOrchestratorInput, QueryOrchestratorResult> {
   return {
-    id: 'planner.qna.orchestrator',
+    id: 'planner.query.orchestrator',
     description:
       'Routes a planner Q&A turn across the task-query/detail/team-info/general sub-agents.',
-    inputSchema: QnaOrchestratorInputSchema,
-    outputSchema: QnaOrchestratorResultSchema,
-    run: async (input, ctx): Promise<AgentResult<QnaOrchestratorResult>> => {
-      const built = buildQnaOrchestrator(deps, input, ctx);
+    inputSchema: QueryOrchestratorInputSchema,
+    outputSchema: QueryOrchestratorResultSchema,
+    run: async (input, ctx): Promise<AgentResult<QueryOrchestratorResult>> => {
+      const built = buildQueryOrchestrator(deps, input, ctx);
       const text = deps.streamAgent
         ? await deps.streamAgent({
             message: built.message,
@@ -133,12 +133,12 @@ export function makeQnaOrchestrator(
 }
 
 /** Streaming entry — the chat route consumes the returned ChatStreamRun. */
-export function makeQnaChatStreamer(deps: QnaOrchestratorDeps) {
-  return async function startQnaChat(
-    input: QnaOrchestratorInput,
+export function makeQueryChatStreamer(deps: QueryOrchestratorDeps) {
+  return async function startQueryChat(
+    input: QueryOrchestratorInput,
     ctx: SpecializedAgentRunCtx,
   ): Promise<ChatStreamRun> {
-    const built = buildQnaOrchestrator(deps, input, ctx);
+    const built = buildQueryOrchestrator(deps, input, ctx);
 
     if (deps.streamAgent) {
       const fake = deps.streamAgent({

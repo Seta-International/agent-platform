@@ -4,13 +4,13 @@ import { RequestContext } from '@mastra/core/request-context';
 import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { pickModel } from '../model.ts';
 import {
-  type QnaSubAgentInput as In,
-  type QnaSubAgentOutput as Out,
-  QnaSubAgentInputSchema,
-  QnaSubAgentOutputSchema,
+  type QuerySubAgentInput as In,
+  type QuerySubAgentOutput as Out,
+  QuerySubAgentInputSchema,
+  QuerySubAgentOutputSchema,
 } from '../schemas.ts';
 
-export interface QnaGeneralAnswerDeps {
+export interface QueryGeneralAnswerDeps {
   resolveModel: () => MastraModelConfig;
   /** Test-only seam; production builds + runs a real Mastra Agent. */
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
@@ -22,14 +22,14 @@ passed to you) plus the user's question. If a question needs data you were not
 given, say what is missing rather than inventing it. Be concise. Never claim to
 have taken an action — this is a read-only question-answering flow.`;
 
-export function makeQnaGeneralAnswerAgent(
-  deps: QnaGeneralAnswerDeps,
+export function makeQueryGeneralAnswerAgent(
+  deps: QueryGeneralAnswerDeps,
 ): SpecializedAgentSpec<In, Out> {
   return {
-    id: 'planner.qna.generalAnswer',
+    id: 'planner.query.generalAnswer',
     description: 'Synthesizes compound/summary/off-topic planner answers in prose (LLM, no tools).',
-    inputSchema: QnaSubAgentInputSchema,
-    outputSchema: QnaSubAgentOutputSchema,
+    inputSchema: QuerySubAgentInputSchema,
+    outputSchema: QuerySubAgentOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
       const rc = new RequestContext();
       rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
@@ -40,7 +40,7 @@ export function makeQnaGeneralAnswerAgent(
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
             const agent = new Agent({
-              id: 'planner.qna.generalAnswer',
+              id: 'planner.query.generalAnswer',
               name: 'Planner General Answer',
               instructions: INSTRUCTIONS,
               model: pickModel(ctx, deps.resolveModel),

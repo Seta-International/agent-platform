@@ -2,15 +2,15 @@ import type { SpecializedAgentSpec } from '@seta/agent-sdk';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
-  makeQnaChatStreamer,
-  type QnaOrchestratorDeps,
+  makeQueryChatStreamer,
+  type QueryOrchestratorDeps,
 } from '../../../src/backend/orchestration/orchestrator.ts';
 import type {
-  QnaSubAgentInput,
-  QnaSubAgentOutput,
+  QuerySubAgentInput,
+  QuerySubAgentOutput,
 } from '../../../src/backend/orchestration/schemas.ts';
 
-const stub = (id: string): SpecializedAgentSpec<QnaSubAgentInput, QnaSubAgentOutput> => ({
+const stub = (id: string): SpecializedAgentSpec<QuerySubAgentInput, QuerySubAgentOutput> => ({
   id,
   description: id,
   inputSchema: z.object({ query: z.string() }),
@@ -21,25 +21,25 @@ const stub = (id: string): SpecializedAgentSpec<QnaSubAgentInput, QnaSubAgentOut
   }),
 });
 
-function makeDeps(streamAgent: QnaOrchestratorDeps['streamAgent']): QnaOrchestratorDeps {
+function makeDeps(streamAgent: QueryOrchestratorDeps['streamAgent']): QueryOrchestratorDeps {
   return {
-    taskQuery: stub('planner.qna.taskQuery'),
-    taskDetail: stub('planner.qna.taskDetail'),
-    teamInfo: stub('planner.qna.teamInfo'),
-    generalAnswer: stub('planner.qna.generalAnswer'),
+    taskQuery: stub('planner.query.taskQuery'),
+    taskDetail: stub('planner.query.taskDetail'),
+    teamInfo: stub('planner.query.teamInfo'),
+    generalAnswer: stub('planner.query.generalAnswer'),
     resolveModel: () => ({}) as never,
     streamAgent,
   };
 }
 
-describe('QnA orchestrator session history', () => {
+describe('Query orchestrator session history', () => {
   it('passes sessionHistory to streamAgent seam', async () => {
     const streamAgent = vi.fn((_args: Record<string, unknown>) => ({
       text: Promise.resolve('answer'),
-    })) as unknown as NonNullable<QnaOrchestratorDeps['streamAgent']>;
+    })) as unknown as NonNullable<QueryOrchestratorDeps['streamAgent']>;
     const spy = vi.fn(streamAgent);
     const deps = makeDeps(spy);
-    const streamer = makeQnaChatStreamer(deps);
+    const streamer = makeQueryChatStreamer(deps);
 
     const history = [
       { id: 'm1', role: 'user', content: 'find tasks about design', createdAt: new Date() },
@@ -58,10 +58,10 @@ describe('QnA orchestrator session history', () => {
   it('passes undefined sessionHistory when not provided', async () => {
     const streamAgent = vi.fn((_args: Record<string, unknown>) => ({
       text: Promise.resolve('answer'),
-    })) as unknown as NonNullable<QnaOrchestratorDeps['streamAgent']>;
+    })) as unknown as NonNullable<QueryOrchestratorDeps['streamAgent']>;
     const spy = vi.fn(streamAgent);
     const deps = makeDeps(spy);
-    const streamer = makeQnaChatStreamer(deps);
+    const streamer = makeQueryChatStreamer(deps);
 
     await streamer(
       { userText: 'what tasks do I have?', taskId: null },

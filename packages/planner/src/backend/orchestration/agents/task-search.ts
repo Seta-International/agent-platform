@@ -17,13 +17,13 @@ import {
 import { dateAnchorsPromptBlock } from '../../agent-tools/date-anchors.ts';
 import { pickModel } from '../model.ts';
 import {
-  type QnaSubAgentInput as In,
-  type QnaSubAgentOutput as Out,
-  QnaSubAgentInputSchema,
-  QnaSubAgentOutputSchema,
+  type QuerySubAgentInput as In,
+  type QuerySubAgentOutput as Out,
+  QuerySubAgentInputSchema,
+  QuerySubAgentOutputSchema,
 } from '../schemas.ts';
 
-export const TASK_QUERY_TOOL_IDS = [
+export const TASK_SEARCH_TOOL_IDS = [
   'planner_queryTasks',
   'planner_findSimilarTasks',
   'planner_getBoardSnapshot',
@@ -32,7 +32,7 @@ export const TASK_QUERY_TOOL_IDS = [
   'planner_resolveMember',
 ] as const;
 
-export interface QnaTaskQueryDeps {
+export interface QueryTaskSearchDeps {
   resolveModel: () => MastraModelConfig;
   /** Built find-similar tool (factory needs provider + databaseUrl), injected by the runtime. */
   findSimilarTasksTool: AgentTool;
@@ -79,13 +79,13 @@ Empty result sets are valid answers — say "you have no matching tasks", don't 
 Read-only.`;
 }
 
-export function makeQnaTaskQueryAgent(deps: QnaTaskQueryDeps): SpecializedAgentSpec<In, Out> {
+export function makeQueryTaskSearchAgent(deps: QueryTaskSearchDeps): SpecializedAgentSpec<In, Out> {
   return {
-    id: 'planner.qna.taskQuery',
+    id: 'planner.query.taskSearch',
     description:
       'Discovers/lists/counts tasks matching criteria (structured + semantic), in prose.',
-    inputSchema: QnaSubAgentInputSchema,
-    outputSchema: QnaSubAgentOutputSchema,
+    inputSchema: QuerySubAgentInputSchema,
+    outputSchema: QuerySubAgentOutputSchema,
     run: async (input, ctx: SpecializedAgentRunCtx): Promise<AgentResult<Out>> => {
       const rc = new RequestContext();
       rc.set('actor', { type: 'user', user_id: ctx.actorUserId });
@@ -96,8 +96,8 @@ export function makeQnaTaskQueryAgent(deps: QnaTaskQueryDeps): SpecializedAgentS
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
             const agent = new Agent({
-              id: 'planner.qna.taskQuery',
-              name: 'Planner Task Query',
+              id: 'planner.query.taskSearch',
+              name: 'Planner Task Search',
               instructions: buildInstructions(),
               model: pickModel(ctx, deps.resolveModel),
               tools: {

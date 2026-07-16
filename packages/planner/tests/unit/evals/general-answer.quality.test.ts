@@ -2,7 +2,7 @@ import type { MastraModelConfig } from '@mastra/core/llm';
 import { answerRelevancyScorer, fakeJudgeModel, runQualityEvals } from '@seta/shared-agent-evals';
 import { MockLanguageModelV3 } from 'ai/test';
 import { describe, expect, it } from 'vitest';
-import { generalAnswerQualitySuite } from '../../../src/backend/orchestration/eval-manifest.ts';
+import { queryGeneralAnswerQualitySuite } from '../../../src/backend/orchestration/eval-manifest.ts';
 
 // A mock generation model returning canned prose — proves the real-model path
 // (no runAgent seam) without an API key. Verified empirically (see
@@ -23,14 +23,14 @@ const genModel = new MockLanguageModelV3({
     }) as never,
 }) as unknown as MastraModelConfig;
 
-describe('quality: planner.qna.generalAnswer', () => {
+describe('quality: planner.query.generalAnswer', () => {
   it('runs the real generation path and scores the answer', async () => {
     const res = await runQualityEvals({
-      suite: generalAnswerQualitySuite,
+      suite: queryGeneralAnswerQualitySuite,
       genModel,
       scorers: [{ scorer: answerRelevancyScorer({ model: fakeJudgeModel([1]) }) }],
     });
-    expect(res.specId).toBe('planner.qna.generalAnswer');
+    expect(res.specId).toBe('planner.query.generalAnswer');
     expect(res.totalCases).toBeGreaterThan(0);
     expect(res.scores['answer-relevancy']).toBeGreaterThanOrEqual(0);
   });
