@@ -6,7 +6,7 @@ test('board card click navigates to /tasks/:taskId', async ({ page, request }) =
 
   await page.goto(`/planner/plans/${planId}`);
   // Board cards expose aria-label `Task: <title>`; the first card is enough.
-  const firstCard = page.locator('.kanban-card').first();
+  const firstCard = page.locator('[role="button"][aria-label^="Task: "]').first();
   await expect(firstCard).toBeVisible();
   const aria = (await firstCard.getAttribute('aria-label')) ?? '';
   const title = aria.replace(/^Task:\s*/, '');
@@ -46,5 +46,5 @@ test('legacy ?task= URL no longer renders a slide-over', async ({ page, request 
   // The route did not redirect into the full-page task surface either.
   await expect(page).toHaveURL(/\/planner\/plans\/[^/]+(\?|$)/);
   // Board itself is visible — at least one Kanban column with a Bucket: prefix.
-  await expect(page.locator('section[aria-label^="Bucket: "]').first()).toBeVisible();
+  await expect(page.locator('[role="region"][aria-label^="Bucket: "]').first()).toBeVisible();
 });
