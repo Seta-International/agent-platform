@@ -234,19 +234,29 @@ describe('ReassignWizardDialog', () => {
     );
   });
 
+  // Astryx's AlertDialog always mounts its <dialog>, so the confirm step is asserted via the
+  // alertdialog role entering/leaving the accessibility tree rather than by page text — its title
+  // stays in the DOM while closed, and the surrounding wizard Dialog has its own Cancel button.
   it('asks for confirmation before deleting an allocation, and only calls removeAllocation once confirmed', async () => {
     const user = userEvent.setup({ delay: null });
     renderWizard([allocation({ project_name: 'Aeris - Watchtower' })]);
 
     await user.click(screen.getByRole('button', { name: /delete aeris - watchtower/i }));
-    expect(await screen.findByText('Remove allocation?')).toBeInTheDocument();
+    const confirm = await screen.findByRole('alertdialog');
+    expect(
+      within(confirm).getByRole('heading', { name: 'Remove allocation?' }),
+    ).toBeInTheDocument();
+    expect(
+      within(confirm).getByText(/This removes An Đình Luận from Aeris - Watchtower\./),
+    ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByText('Remove allocation?')).not.toBeInTheDocument();
+    await user.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(removeAllocation).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: /delete aeris - watchtower/i }));
-    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    const reopened = await screen.findByRole('alertdialog');
+    await user.click(within(reopened).getByRole('button', { name: 'Remove' }));
     expect(removeAllocation).toHaveBeenCalledWith('a1');
   });
 
