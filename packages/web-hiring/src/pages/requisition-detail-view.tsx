@@ -164,25 +164,14 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-// Same native date input as the New/Update requisition forms — one calendar experience
-// everywhere instead of a separate popover picker here.
+// Read-only: dates change only through the full edit form (Edit JD), not inline here.
 function DateField({
   label,
   value,
-  editable,
-  canManage,
-  onChange,
-  min,
-  max,
   extra,
 }: {
   label: string;
   value: string | null;
-  editable: boolean;
-  canManage: boolean;
-  onChange: (value: string) => void;
-  min?: string;
-  max?: string;
   extra?: ReactNode;
 }) {
   return (
@@ -190,31 +179,7 @@ function DateField({
       <CalendarIcon className="mt-0.5 size-4 shrink-0 text-ink-subtle" aria-hidden />
       <div className="min-w-0 flex-1">
         <div className="text-caption text-ink-muted">{label}</div>
-        <DisabledActionTooltip
-          disabled={!editable}
-          reason={
-            !canManage
-              ? PERMISSION_DENIED.requisition.edit
-              : 'Only editable while the requisition is open.'
-          }
-        >
-          {editable ? (
-            <Input
-              type="date"
-              aria-label={label}
-              value={value ?? ''}
-              min={min}
-              max={max}
-              className="mt-0.5"
-              // Clearing the native input emits '' — keep the stored date instead of wiping it.
-              onChange={(e) => e.target.value && onChange(e.target.value)}
-            />
-          ) : (
-            <span className="text-body-sm font-medium text-ink">
-              {value ? formatDate(value) : '—'}
-            </span>
-          )}
-        </DisabledActionTooltip>
+        <span className="text-body-sm font-medium text-ink">{value ? formatDate(value) : '—'}</span>
         {extra}
       </div>
     </div>
@@ -332,16 +297,6 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     },
     onError,
   });
-  const setDate = useMutation({
-    mutationFn: (patch: { start_date?: string; due_date?: string }) =>
-      editRequisition(requisitionId, {
-        expected_version: data?.requisition.version,
-        patch,
-      }),
-    onSuccess: refresh,
-    onError,
-  });
-
   const save = useMutation({
     mutationFn: async () => {
       if (!data) throw new Error('not loaded');
@@ -497,9 +452,6 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const isOnHold = req.status === 'on_hold';
   const onHoldReason =
     'This requisition is on hold — resume it from the Requisitions board to make changes.';
-  // Same "on hold/terminal freezes everything" rule the board card uses — dates only move
-  // while the requisition is actively open.
-  const datesEditable = canManage && req.status === 'open';
 
   // The board list's row (already fetched for the page this modal is opened from) carries
   // candidate name/role/applied-date that the detail endpoint's bare application rows don't
@@ -905,21 +857,10 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             <section className="rounded-xl border border-hairline bg-canvas p-5">
               <h2 className="mb-4 font-semibold text-ink">Timeline</h2>
               <div className="space-y-4">
-                <DateField
-                  label="Start date"
-                  value={req.start_date}
-                  editable={datesEditable}
-                  canManage={canManage}
-                  max={req.due_date ?? undefined}
-                  onChange={(start_date) => setDate.mutate({ start_date })}
-                />
+                <DateField label="Start date" value={req.start_date} />
                 <DateField
                   label="Due date"
                   value={req.due_date}
-                  editable={datesEditable}
-                  canManage={canManage}
-                  min={req.start_date ?? undefined}
-                  onChange={(due_date) => setDate.mutate({ due_date })}
                   extra={
                     req.due_date && (
                       <span
