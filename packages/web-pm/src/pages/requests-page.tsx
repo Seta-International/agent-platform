@@ -14,6 +14,7 @@ import {
   proportional,
   SegmentedControl,
   Selector,
+  Skeleton,
   Table,
   type TableColumn,
   useSeededItems,
@@ -297,7 +298,7 @@ export function RequestsPage() {
     offset: (page - 1) * PAGE_SIZE,
   };
 
-  const { data, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: pmKeys.chartersList(params as Record<string, unknown>),
     queryFn: () => fetchCharters(params),
   });
@@ -620,35 +621,43 @@ export function RequestsPage() {
                 />
               </Popover>
             </div>
-            <Table
-              data={tablePageRows}
-              columns={columns}
-              idKey="charter_id"
-              plugins={{
-                pagination: tablePagination,
-                sortable: tableSortable,
-                columnSettings: tableColumnSettings,
-                rowClick: {
-                  transformBodyRow: (props, item) => ({
-                    ...props,
-                    htmlProps: {
-                      ...props.htmlProps,
-                      style: { ...props.htmlProps.style, cursor: 'pointer' },
-                      onClick: () => open(item.charter_id),
-                    },
-                  }),
-                },
-              }}
-              emptyState={
-                tableSearch.trim() ? (
-                  <EmptyState
-                    title="No results match these filters"
-                    description="Try removing a filter or clearing your search."
-                    action={{ label: 'Clear filters', onClick: () => setTableSearch('') }}
-                  />
-                ) : undefined
-              }
-            />
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                  <Skeleton key={id} height={40} />
+                ))}
+              </div>
+            ) : (
+              <Table
+                data={tablePageRows}
+                columns={columns}
+                idKey="charter_id"
+                plugins={{
+                  pagination: tablePagination,
+                  sortable: tableSortable,
+                  columnSettings: tableColumnSettings,
+                  rowClick: {
+                    transformBodyRow: (props, item) => ({
+                      ...props,
+                      htmlProps: {
+                        ...props.htmlProps,
+                        style: { ...props.htmlProps.style, cursor: 'pointer' },
+                        onClick: () => open(item.charter_id),
+                      },
+                    }),
+                  },
+                }}
+                emptyState={
+                  tableSearch.trim() ? (
+                    <EmptyState
+                      title="No results match these filters"
+                      description="Try removing a filter or clearing your search."
+                      action={{ label: 'Clear filters', onClick: () => setTableSearch('') }}
+                    />
+                  ) : undefined
+                }
+              />
+            )}
           </div>
         ) : (
           <div className="space-y-3">
