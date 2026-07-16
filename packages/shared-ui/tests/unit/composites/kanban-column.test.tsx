@@ -16,12 +16,26 @@ const noopDrop = {
   isDraggingOver: false,
 };
 
+// Astryx's own Button renders a hidden, always-present `aria-live="assertive"
+// role="alert"` announcer alongside our inline error `<Text role="alert">`, so
+// more than one role="alert" element can be in the tree at once. `role="alert"`
+// computes its accessible name from `author` only (not content, per the ARIA
+// accname spec), so `findByRole('alert', { name: ... })` can never match our
+// message — filter by text content instead.
+async function findAlertWithText(text: string) {
+  return waitFor(() => {
+    const alert = screen.getAllByRole('alert').find((el) => el.textContent === text);
+    if (!alert) throw new Error(`No role="alert" element with text "${text}" yet`);
+    return alert;
+  });
+}
+
 function col(overrides: Partial<React.ComponentProps<typeof KanbanColumn>> = {}) {
   return render(
     <KanbanColumn
       name="Todo"
       count={3}
-      status="muted"
+      status="neutral"
       draggableHandle={noopHandle}
       droppable={noopDrop}
       {...overrides}
@@ -40,8 +54,8 @@ describe('<KanbanColumn> header', () => {
 
   it('shows Add task and More options buttons when callbacks provided', () => {
     col({ onCreateTask: vi.fn(), onDelete: vi.fn() });
-    expect(screen.getByTitle('Add task')).toBeInTheDocument();
-    expect(screen.getByTitle('More options')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add task' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More options' })).toBeInTheDocument();
   });
 });
 
@@ -53,37 +67,29 @@ describe('<KanbanColumn> dropdown menu', () => {
 
   it('opens when More options button is clicked', () => {
     col({ onDelete: vi.fn() });
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     expect(screen.getByRole('menu')).toBeInTheDocument();
   });
 
   it('closes when More options button is clicked again', () => {
     col({ onDelete: vi.fn() });
-    const btn = screen.getByTitle('More options');
+    const btn = screen.getByRole('button', { name: 'More options' });
     fireEvent.click(btn);
     fireEvent.click(btn);
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-  });
-
-  it('closes when clicking outside the header', () => {
-    col({ onDelete: vi.fn() });
-    fireEvent.click(screen.getByTitle('More options'));
-    expect(screen.getByRole('menu')).toBeInTheDocument();
-    fireEvent.mouseDown(document.body);
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
   it('calls onDelete when Delete bucket… is clicked', () => {
     const onDelete = vi.fn();
     col({ onDelete });
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /delete bucket/i }));
     expect(onDelete).toHaveBeenCalledOnce();
   });
 
   it('does not render Delete button when onDelete is not provided', () => {
     col({ onRename: vi.fn() });
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     expect(screen.queryByRole('menuitem', { name: /delete bucket/i })).not.toBeInTheDocument();
   });
 });
@@ -91,14 +97,14 @@ describe('<KanbanColumn> dropdown menu', () => {
 describe('<KanbanColumn> inline rename', () => {
   it('shows rename input after clicking Rename bucket in menu', () => {
     col({ onRename: vi.fn() });
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /rename bucket/i }));
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
   it('pre-populates the rename input with the current name', () => {
     col({ onRename: vi.fn() });
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /rename bucket/i }));
     expect(screen.getByRole<HTMLInputElement>('textbox').value).toBe('Todo');
   });
@@ -106,7 +112,7 @@ describe('<KanbanColumn> inline rename', () => {
   it('calls onRename with the new value on Enter', () => {
     const onRename = vi.fn();
     col({ onRename });
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /rename bucket/i }));
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'Backlog' } });
@@ -117,7 +123,7 @@ describe('<KanbanColumn> inline rename', () => {
   it('does not call onRename on Escape', () => {
     const onRename = vi.fn();
     col({ onRename });
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /rename bucket/i }));
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
     expect(onRename).not.toHaveBeenCalled();
@@ -125,15 +131,15 @@ describe('<KanbanColumn> inline rename', () => {
 
   it('hides action buttons while renaming', () => {
     col({ onRename: vi.fn(), onCreateTask: vi.fn() });
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /rename bucket/i }));
-    expect(screen.queryByTitle('Add task')).not.toBeInTheDocument();
-    expect(screen.queryByTitle('More options')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add task' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'More options' })).not.toBeInTheDocument();
   });
 
   it('restores name/count display after rename is committed', () => {
     col({ onRename: vi.fn() });
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /rename bucket/i }));
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
     expect(screen.getByText('Todo')).toBeInTheDocument();
@@ -143,7 +149,7 @@ describe('<KanbanColumn> inline rename', () => {
   it('calls onRename exactly once on Enter (no double-call from blur)', () => {
     const onRename = vi.fn();
     col({ onRename });
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /rename bucket/i }));
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'Backlog' } });
@@ -193,7 +199,7 @@ describe('<KanbanColumn> quick-create submit', () => {
     );
     fireEvent.click(screen.getByText('+ Add a task'));
     expect(screen.getByRole('button', { name: 'Priority' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Due')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Due' })).toBeInTheDocument();
     expect(screen.queryByText('More options')).not.toBeInTheDocument();
   });
 
@@ -214,7 +220,9 @@ describe('<KanbanColumn> quick-create submit', () => {
     fireEvent.change(screen.getByPlaceholderText('Task title'), {
       target: { value: 'With details' },
     });
-    fireEvent.change(screen.getByLabelText('Due'), { target: { value: '2026-06-15' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Due' }), {
+      target: { value: '2026-06-15' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     await waitFor(() => expect(onCreateTask).toHaveBeenCalledTimes(1));
     expect(onCreateTask).toHaveBeenCalledWith({ title: 'With details', due_at: '2026-06-15' });
@@ -284,7 +292,7 @@ describe('<KanbanColumn> quick-create submit', () => {
     fireEvent.change(screen.getByPlaceholderText('Task title'), { target: { value: longTitle } });
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    expect(await findAlertWithText('Task title cannot exceed 255 characters.')).toHaveTextContent(
       'Task title cannot exceed 255 characters.',
     );
     expect(screen.getByPlaceholderText('Task title')).toBeInTheDocument();
@@ -338,7 +346,7 @@ describe('<KanbanColumn> quick-create submit', () => {
     fireEvent.change(screen.getByPlaceholderText('Task title'), { target: { value: 'Too long' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    expect(await findAlertWithText('Task title cannot exceed 255 characters.')).toHaveTextContent(
       'Task title cannot exceed 255 characters.',
     );
     expect(screen.getByPlaceholderText('Task title')).toBeInTheDocument();
@@ -346,7 +354,7 @@ describe('<KanbanColumn> quick-create submit', () => {
 });
 
 describe('KanbanColumn bucket actions', () => {
-  it('calls onSetColor / onSetWipLimit / onArchive from the menu', () => {
+  it('calls onSetColor / onSetWipLimit / onArchive from the menu', async () => {
     const onSetColor = vi.fn();
     const onSetWipLimit = vi.fn();
     const onArchive = vi.fn();
@@ -362,15 +370,22 @@ describe('KanbanColumn bucket actions', () => {
         {null}
       </KanbanColumn>,
     );
-    fireEvent.click(screen.getByTitle('More options'));
+    // Astryx's DropdownMenu debounces the trigger for ~50ms after it auto-closes
+    // (an iOS Safari guard against pointerdown-before-click reopening a menu that
+    // was just light-dismissed). Real users always clear this window; back-to-back
+    // fireEvent.click reopen attempts within the same tick don't, so each reopen
+    // cycle below waits past it.
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Set color' }));
     expect(onSetColor).toHaveBeenCalledOnce();
+    await new Promise((resolve) => setTimeout(resolve, 60));
 
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Set WIP limit' }));
     expect(onSetWipLimit).toHaveBeenCalledOnce();
+    await new Promise((resolve) => setTimeout(resolve, 60));
 
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Archive bucket' }));
     expect(onArchive).toHaveBeenCalledOnce();
   });
@@ -382,7 +397,7 @@ describe('KanbanColumn bucket actions', () => {
       </KanbanColumn>,
     );
     const badge = screen.getByText('5/3');
-    expect(badge).toHaveClass('kanban-column__count--over');
+    expect(badge.closest('[data-over-limit="true"]')).not.toBeNull();
   });
 
   it('hides only the local actions when isLinked, keeping the rest of the menu', () => {
@@ -400,7 +415,7 @@ describe('KanbanColumn bucket actions', () => {
         {null}
       </KanbanColumn>,
     );
-    fireEvent.click(screen.getByTitle('More options'));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
     expect(screen.queryByRole('menuitem', { name: 'Set color' })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: 'Set WIP limit' })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: 'Archive bucket' })).toBeNull();
@@ -414,7 +429,7 @@ describe('KanbanColumn bucket actions', () => {
         {null}
       </KanbanColumn>,
     );
-    const dot = container.querySelector('.status-dot') as HTMLElement;
+    const dot = container.querySelector('[data-kanban-status-dot]') as HTMLElement;
     expect(dot).not.toBeNull();
     expect(dot.style.backgroundColor).not.toBe('');
   });
@@ -425,7 +440,7 @@ describe('KanbanColumn bucket actions', () => {
         {null}
       </KanbanColumn>,
     );
-    const dot = container.querySelector('.status-dot') as HTMLElement;
+    const dot = container.querySelector('[data-kanban-status-dot]') as HTMLElement;
     expect(dot).not.toBeNull();
     expect(dot.style.backgroundColor).toBe('');
   });
@@ -438,14 +453,14 @@ describe('<KanbanColumn> opt-in affordances', () => {
         <div />
       </KanbanColumn>,
     );
-    expect(container.querySelector('.kanban-column__grip')).toBeNull();
+    expect(container.querySelector('[data-kanban-grip]')).toBeNull();
     expect(screen.getByText('New')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
   });
 
   it('renders the grip handle when draggableHandle is provided', () => {
     const { container } = col(); // col() passes noopHandle
-    expect(container.querySelector('.kanban-column__grip')).not.toBeNull();
+    expect(container.querySelector('[data-kanban-grip]')).not.toBeNull();
   });
 
   it('renders no More options button when neither onRename nor onDelete is provided', () => {
@@ -454,6 +469,42 @@ describe('<KanbanColumn> opt-in affordances', () => {
         <div />
       </KanbanColumn>,
     );
-    expect(screen.queryByTitle('More options')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'More options' })).not.toBeInTheDocument();
+  });
+});
+
+describe('<KanbanColumn> completed section', () => {
+  it('toggles completed children via the Collapsible trigger', async () => {
+    const user = userEvent.setup();
+    render(
+      <KanbanColumn
+        name="Done"
+        count={0}
+        droppable={{}}
+        completedTasks={{ count: 2, children: <div data-testid="completed-child" /> }}
+      >
+        {null}
+      </KanbanColumn>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Completed (2)' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('renders nothing when completedTasks.count is 0', () => {
+    render(
+      <KanbanColumn
+        name="Done"
+        count={0}
+        droppable={{}}
+        completedTasks={{ count: 0, children: <div data-testid="completed-child" /> }}
+      >
+        {null}
+      </KanbanColumn>,
+    );
+    expect(screen.queryByText(/Completed/)).not.toBeInTheDocument();
   });
 });

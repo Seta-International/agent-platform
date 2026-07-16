@@ -17,7 +17,7 @@ export const Default: Story = {
   args: {
     name: 'In Progress',
     count: 3,
-    status: 'primary',
+    status: 'accent',
     children: mockCards,
     droppable: {},
     draggableHandle: {},
@@ -28,7 +28,7 @@ export const Dragging: Story = {
   args: {
     name: 'In Progress',
     count: 3,
-    status: 'primary',
+    status: 'accent',
     children: mockCards,
     droppable: {},
     draggableHandle: { isDragging: true },
@@ -50,7 +50,7 @@ export const WithQuickCreate: Story = {
   args: {
     name: 'Todo',
     count: 2,
-    status: 'muted',
+    status: 'neutral',
     children: (
       <>
         <div className="kanban-card">Draft onboarding guide</div>
