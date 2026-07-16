@@ -3,12 +3,12 @@ import {
   Button,
   DataTable,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   EmptyState,
   Input,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   PageChrome,
   toast,
 } from '@seta/shared-ui';
@@ -47,40 +47,47 @@ function CreateAccountDialog({ onCreated }: { onCreated: () => void }) {
     setError(null);
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" label="New account" />
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create account</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Input label="Name *" value={name} onChange={(value) => setName(value)} />
-          </div>
-          <div className="space-y-1">
-            <Input label="Industry" value={industry} onChange={(value) => setIndustry(value)} />
-          </div>
-          {error && <Banner status="error" title={error} />}
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
-            <Button
-              label={mutation.isPending ? 'Creating…' : 'Create'}
-              onClick={() => mutation.mutate()}
-              isDisabled={mutation.isPending || !name.trim()}
-            />
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button size="sm" label="New account" onClick={() => setOpen(true)} />
+      <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+        <Layout
+          header={<DialogHeader title="Create account" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Input label="Name *" value={name} onChange={(value) => setName(value)} />
+                </div>
+                <div className="space-y-1">
+                  <Input
+                    label="Industry"
+                    value={industry}
+                    onChange={(value) => setIndustry(value)}
+                  />
+                </div>
+                {error && <Banner status="error" title={error} />}
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
+              <Button
+                label={mutation.isPending ? 'Creating…' : 'Create'}
+                onClick={() => mutation.mutate()}
+                isDisabled={mutation.isPending || !name.trim()}
+              />
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }
 

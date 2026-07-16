@@ -2,11 +2,12 @@ import {
   Banner,
   Button,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
   DisabledActionTooltip,
   Input,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useState } from 'react';
@@ -51,33 +52,36 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
     );
   }
 
+  function handleOpenChange(v: boolean) {
+    if (!v) reset();
+    onOpenChange(v);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (!v) reset();
-        onOpenChange(v);
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New plan</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-body-sm text-ink-subtle">
-            One plan = one stream of work, with its own buckets and tasks.
-          </p>
-          <div className="space-y-1">
-            <Input
-              label="Name"
-              value={name}
-              onChange={(value) => setName(value)}
-              onEnter={submit}
-              placeholder="e.g. Q3 Launch"
-            />
-          </div>
-          {error && <Banner status="error" title={error} />}
-          <div className="flex justify-end gap-2 pt-2">
+    <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+      <Layout
+        header={<DialogHeader title="New plan" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-3">
+              <p className="text-body-sm text-ink-subtle">
+                One plan = one stream of work, with its own buckets and tasks.
+              </p>
+              <div className="space-y-1">
+                <Input
+                  label="Name"
+                  value={name}
+                  onChange={(value) => setName(value)}
+                  onEnter={submit}
+                  placeholder="e.g. Q3 Launch"
+                />
+              </div>
+              {error && <Banner status="error" title={error} />}
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
             <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <DisabledActionTooltip disabled={!canCreatePlan} reason={PERMISSION_DENIED.plan.create}>
               <Button
@@ -86,9 +90,9 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
                 isDisabled={!canCreatePlan || !name.trim() || createPlan.isPending}
               />
             </DisabledActionTooltip>
-          </div>
-        </div>
-      </DialogContent>
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }

@@ -7,7 +7,7 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -255,6 +255,10 @@ describe('GroupDetailPage', () => {
     const inviteBtn = screen.getByRole('button', { name: /^invite$/i });
     await user.click(inviteBtn);
 
-    expect(screen.getByRole('dialog', { name: /add members/i })).toBeInTheDocument();
+    // Astryx's `DialogHeader` wires no `aria-labelledby`, so the dialog has no computed
+    // accessible name — scope with `within()` + a heading query instead of
+    // `getByRole('dialog', { name })` (established precedent from prior FUT-579 sub-tasks).
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Add members' })).toBeInTheDocument();
   });
 });

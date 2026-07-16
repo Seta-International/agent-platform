@@ -1,12 +1,4 @@
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@seta/shared-ui';
+import { Button, Dialog, DialogHeader, Layout, LayoutContent, LayoutFooter } from '@seta/shared-ui';
 
 interface Props {
   open: boolean;
@@ -24,32 +16,33 @@ export function ConfirmDeleteLabelDialog({
   pending = false,
 }: Props) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[440px]">
-        <DialogHeader>
-          <DialogTitle>Delete &ldquo;{labelName}&rdquo;?</DialogTitle>
-          <DialogDescription asChild>
+    <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="required">
+      <Layout
+        header={<DialogHeader title={`Delete “${labelName}”?`} onOpenChange={onOpenChange} />}
+        content={
+          <LayoutContent>
             <div className="space-y-2 text-body-sm text-ink-subtle">
               <p>This removes the label from every task in this plan. It can&apos;t be undone.</p>
             </div>
-          </DialogDescription>
-        </DialogHeader>
-
-        <DialogFooter>
-          <Button
-            variant="ghost"
-            label="Cancel"
-            onClick={() => onOpenChange(false)}
-            isDisabled={pending}
-          />
-          <Button
-            variant="destructive"
-            label="Delete label"
-            onClick={onConfirm}
-            isDisabled={pending}
-          />
-        </DialogFooter>
-      </DialogContent>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
+            <Button
+              variant="ghost"
+              label="Cancel"
+              onClick={() => onOpenChange(false)}
+              isDisabled={pending}
+            />
+            <Button
+              variant="destructive"
+              label="Delete label"
+              onClick={onConfirm}
+              isDisabled={pending}
+            />
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }

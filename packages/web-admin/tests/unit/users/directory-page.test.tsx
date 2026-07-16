@@ -199,9 +199,69 @@ describe('Directory page', () => {
     expect(mockMutate).toHaveBeenCalledWith('p1');
   });
 
+  it('Suspend action opens the confirm dialog and calls useSuspend().mutate on confirm', async () => {
+    const user = userEvent.setup();
+    const mockSuspend = vi.fn();
+    const hooks = await setupMocks({ canWrite: true });
+    (hooks.useSuspend as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: mockSuspend,
+      isPending: false,
+    });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<Harness />, { wrapper: wrap(qc) });
+
+    // Bob (u2) is the only 'active' account row → the only row with a Suspend action.
+    const trigger = await screen.findByRole('button', { name: /row actions for bob/i });
+    await user.click(trigger);
+    await user.click(await screen.findByRole('menuitem', { name: /suspend/i }));
+
+    // Astryx's real Dialog always mounts <dialog> + children regardless of `isOpen` — assert the
+    // open dialog via its accessible heading (DialogHeader wires no aria-labelledby), scoped with
+    // within() so it can't accidentally match the page's other (closed) bulk-add Dialog.
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Suspend account?' })).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Bob's access will be revoked immediately/),
+    ).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: /^suspend$/i }));
+
+    expect(mockSuspend).toHaveBeenCalledWith('u2');
+    // Confirm succeeds → the dialog closes (no longer in the a11y tree).
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('Suspend confirm dialog closes via Cancel without suspending', async () => {
+    const user = userEvent.setup();
+    const mockSuspend = vi.fn();
+    const hooks = await setupMocks({ canWrite: true });
+    (hooks.useSuspend as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: mockSuspend,
+      isPending: false,
+    });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<Harness />, { wrapper: wrap(qc) });
+
+    const trigger = await screen.findByRole('button', { name: /row actions for bob/i });
+    await user.click(trigger);
+    await user.click(await screen.findByRole('menuitem', { name: /suspend/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /cancel/i }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(mockSuspend).not.toHaveBeenCalled();
+  });
+
   it('bulk bar: shows count, excludes none-account rows, adds selection to a group on confirm', async () => {
     const user = userEvent.setup();
-    const mockAdd = vi.fn();
+    // Invokes onSuccess like the real mutation would, so the dialog's post-confirm close
+    // (driven by BulkGroupBar's onSuccess callback) is actually exercised below.
+    const mockAdd = vi.fn((_vars: unknown, opts?: { onSuccess?: () => void }) =>
+      opts?.onSuccess?.(),
+    );
     await setupMocks({ canWrite: true, addMutate: mockAdd });
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -229,6 +289,10 @@ describe('Directory page', () => {
     // Open + confirm the dialog
     await user.click(screen.getByRole('button', { name: /add to group/i }));
     const dialog = await screen.findByRole('dialog');
+    // Astryx's real Dialog always mounts <dialog> + children regardless of `isOpen` — assert the
+    // open dialog via its accessible heading (DialogHeader wires no aria-labelledby), scoped with
+    // within() so it can't accidentally match the page's other (closed) suspend-confirm Dialog.
+    expect(within(dialog).getByRole('heading', { name: 'Add to group?' })).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: /add to group/i }));
 
     expect(mockAdd).toHaveBeenCalledWith(
@@ -241,6 +305,8 @@ describe('Directory page', () => {
     const [calledBody] = mockAdd.mock.calls[0] as [{ user_ids: string[] }];
     expect(calledBody.user_ids).not.toContain(null);
     expect(calledBody.user_ids).toHaveLength(2);
+    // Confirm succeeds → the dialog closes (no longer in the a11y tree).
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   }, 15_000);
 
   it('bulk bar: selection persists across pagination (accumulator)', async () => {

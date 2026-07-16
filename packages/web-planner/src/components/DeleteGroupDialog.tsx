@@ -1,5 +1,13 @@
 import type { GroupRow } from '@seta/planner';
-import { Banner, Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@seta/shared-ui';
+import {
+  Banner,
+  Button,
+  Dialog,
+  DialogHeader,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
+} from '@seta/shared-ui';
 
 interface Props {
   group: GroupRow;
@@ -21,24 +29,28 @@ export function DeleteGroupDialog({
   const isM365 = group.external_source === 'm365';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete group?</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <p className="text-body-sm text-ink-subtle">
-            This group will be deleted. You can restore it later from the Archived filter.
-            {isM365 && (
-              <>
-                {' '}
-                It is linked to Microsoft 365 — deleting here pauses sync but does not remove the
-                group from Microsoft 365.
-              </>
-            )}
-          </p>
-          {error && <Banner status="error" title={error} />}
-          <div className="flex justify-end gap-2">
+    <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="required">
+      <Layout
+        header={<DialogHeader title="Delete group?" onOpenChange={onOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-4">
+              <p className="text-body-sm text-ink-subtle">
+                This group will be deleted. You can restore it later from the Archived filter.
+                {isM365 && (
+                  <>
+                    {' '}
+                    It is linked to Microsoft 365 — deleting here pauses sync but does not remove
+                    the group from Microsoft 365.
+                  </>
+                )}
+              </p>
+              {error && <Banner status="error" title={error} />}
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
             <Button
               variant="secondary"
               label="Cancel"
@@ -51,9 +63,9 @@ export function DeleteGroupDialog({
               onClick={onConfirm}
               isDisabled={isPending}
             />
-          </div>
-        </div>
-      </DialogContent>
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }

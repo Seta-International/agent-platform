@@ -7,12 +7,12 @@ import {
   DataTable,
   DateInput,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   EmptyState,
   Input,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   NumberInput,
   type OnChangeFn,
   PageChrome,
@@ -127,43 +127,45 @@ function SelectEmployeeDialog({
     setWorker(null);
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (v) setWorker(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (v) setWorker(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button
-          size="sm"
-          className="gap-1.5"
-          label="Add allocation"
-          icon={<Plus className="size-4" />}
+    <>
+      <Button
+        size="sm"
+        className="gap-1.5"
+        label="Add allocation"
+        icon={<Plus className="size-4" />}
+        onClick={() => setOpen(true)}
+      />
+      <Dialog isOpen={open} onOpenChange={handleOpenChange} width={560} purpose="form">
+        <Layout
+          header={<DialogHeader title="Select employee" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-1.5">
+                <Typeahead
+                  label="Employee"
+                  searchSource={workerSource.source}
+                  value={worker}
+                  onChange={setWorker}
+                  placeholder="Search people…"
+                />
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <Button variant="ghost" label="Cancel" onClick={() => setOpen(false)} />
+              <Button label="Next" isDisabled={!worker} onClick={handleNext} />
+            </LayoutFooter>
+          }
         />
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Select employee</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Typeahead
-              label="Employee"
-              searchSource={workerSource.source}
-              value={worker}
-              onChange={setWorker}
-              placeholder="Search people…"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="ghost" label="Cancel" onClick={() => setOpen(false)} />
-            <Button label="Next" isDisabled={!worker} onClick={handleNext} />
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </Dialog>
+    </>
   );
 }
 
@@ -216,75 +218,78 @@ function SplitAllocationDialog({
     },
   });
 
+  function handleOpenChange(open: boolean) {
+    if (!open) onClose();
+  }
+
   return (
-    <Dialog
-      open={target !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>End early & continue</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          {mutation.isError ? <Banner status="error" title={mutation.error.message} /> : null}
-          <div className="space-y-1.5">
-            <DateInput
-              label="New end date for this allocation"
-              min={target?.date_from ?? undefined}
-              max={target?.date_to ?? undefined}
-              value={newEndDate || undefined}
-              onChange={(v) => setNewEndDate(v ?? '')}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <NumberInput
-              label="Continuation allocation %"
-              min={0}
-              max={100}
-              units="%"
-              value={continuationPct === '' ? null : Number(continuationPct)}
-              onChange={(v) => setContinuationPct(String(v))}
-            />
-            <div className="space-y-1.5">
-              <Selector
-                label="Continuation type"
-                options={[
-                  { value: 'billable', label: 'Billable' },
-                  { value: 'internal', label: 'Internal' },
-                  { value: 'bench', label: 'Bench' },
-                ]}
-                value={continuationBucket}
-                onChange={(v) => setContinuationBucket(v as Bucket)}
-              />
+    <Dialog isOpen={target !== null} onOpenChange={handleOpenChange} width={560} purpose="form">
+      <Layout
+        header={<DialogHeader title="End early & continue" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-4">
+              {mutation.isError ? <Banner status="error" title={mutation.error.message} /> : null}
+              <div className="space-y-1.5">
+                <DateInput
+                  label="New end date for this allocation"
+                  min={target?.date_from ?? undefined}
+                  max={target?.date_to ?? undefined}
+                  value={newEndDate || undefined}
+                  onChange={(v) => setNewEndDate(v ?? '')}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <NumberInput
+                  label="Continuation allocation %"
+                  min={0}
+                  max={100}
+                  units="%"
+                  value={continuationPct === '' ? null : Number(continuationPct)}
+                  onChange={(v) => setContinuationPct(String(v))}
+                />
+                <div className="space-y-1.5">
+                  <Selector
+                    label="Continuation type"
+                    options={[
+                      { value: 'billable', label: 'Billable' },
+                      { value: 'internal', label: 'Internal' },
+                      { value: 'bench', label: 'Bench' },
+                    ]}
+                    value={continuationBucket}
+                    onChange={(v) => setContinuationBucket(v as Bucket)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <DateInput
+                  label="Continuation end date"
+                  value={continuationTo || undefined}
+                  onChange={(v) => setContinuationTo(v ?? '')}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Input
+                  label="Note"
+                  value={note}
+                  onChange={(value) => setNote(value)}
+                  placeholder="e.g. plan revised in March"
+                />
+              </div>
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <DateInput
-              label="Continuation end date"
-              value={continuationTo || undefined}
-              onChange={(v) => setContinuationTo(v ?? '')}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Input
-              label="Note"
-              value={note}
-              onChange={(value) => setNote(value)}
-              placeholder="e.g. plan revised in March"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-1">
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
             <Button variant="ghost" label="Cancel" onClick={onClose} />
             <Button
               label="Split"
               isDisabled={!newEndDate || mutation.isPending}
               onClick={() => mutation.mutate()}
             />
-          </div>
-        </div>
-      </DialogContent>
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }

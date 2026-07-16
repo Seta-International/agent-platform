@@ -12,10 +12,11 @@ import {
   createStaticSource,
   DateInput,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
   Input,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   type SearchableItem,
   Selector,
   Typeahead,
@@ -333,288 +334,309 @@ export function ReassignWizardDialog({
   return (
     <>
       <Dialog
-        open={target !== null}
+        isOpen={target !== null}
         onOpenChange={(open) => {
           if (!open) onClose();
         }}
+        width={1152}
+        maxHeight="90vh"
+        purpose="form"
       >
-        {/* Scroll lives on an inner wrapper, not DialogContent itself, so account/project
-            dropdowns (portaled into the dialog) aren't clipped by the scroll container's
-            overflow when they open upward near the bottom of a tall dialog. */}
-        <DialogContent className="sm:max-w-6xl">
-          <div
-            ref={dialogScrollRef}
-            onPointerDownCapture={preserveScrollPosition}
-            className="max-h-[calc(90vh-3rem)] overflow-y-auto"
-          >
-            <DialogHeader className="mb-3">
-              <DialogTitle>{target?.worker_name ?? 'Employee'}</DialogTitle>
-            </DialogHeader>
-
-            {step === 2 ? (
-              <ReviewStep
-                preview={preview}
-                currentAllocations={futureAllocations}
-                previewMutation={previewMutation}
-                mutation={mutation}
-                onBack={() => setStep(1)}
-                onConfirm={() => mutation.mutate()}
-              />
-            ) : (
-              <div className="space-y-4">
-                <div className="overflow-hidden rounded-md border border-hairline">
-                  <div className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] gap-2 bg-surface-1 px-2 py-2 text-caption text-ink-muted">
-                    <div className="text-left font-medium">Account</div>
-                    <div className="text-left font-medium">Project</div>
-                    <div className="text-left font-medium">Allocation</div>
-                    <div className="text-left font-medium">Start date</div>
-                    <div className="text-left font-medium">End date</div>
-                    <div className="text-left font-medium">Type</div>
-                    <div className="text-left font-medium">Note</div>
-                    <div className="text-left font-medium">Action</div>
-                  </div>
-                  {futureAllocations.map((a) => {
-                    const draft = draftFor(a);
-                    // A row that already started (start date in the past) is locked to end-date and
-                    // delete only — you can shorten/extend or remove it, but not rewrite its terms.
-                    const eff = effectiveRow(a);
-                    const startLocked = !!eff.date_from && eff.date_from < todayIso();
-                    // Reassign target must be a project the caller manages (FUT-353) — the
-                    // backend rejects others, so don't offer them. Recomputed per row (not
-                    // memoized — this is a per-iteration render, not a hook-eligible scope)
-                    // since the cascade depends on this row's own selected account.
-                    const rowProjectItems = projects
-                      .filter(
-                        (p) =>
-                          p.can_manage && (!draft.account_id || p.account_id === draft.account_id),
-                      )
-                      .map((p) => ({ id: p.project_id, label: p.name }));
-                    const rowProjectSource = createStaticSource(rowProjectItems);
-                    return (
-                      <div
-                        key={a.allocation_id}
-                        className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] items-center gap-2 border-t border-hairline px-2 py-2 text-body-sm"
-                      >
-                        <div className="relative">
-                          <Building2
-                            aria-hidden="true"
-                            className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
-                          />
-                          <Typeahead
-                            label={`Account for ${a.project_name}`}
-                            isLabelHidden
-                            searchSource={accountSource}
-                            debounceMs={0}
-                            // No hasEntriesOnFocus here: this is the first tabbable field in the
-                            // Dialog, so Radix's open-time auto-focus lands on it — combined with
-                            // hasEntriesOnFocus that silently pops its dropdown open the instant
-                            // the wizard appears (confirmed via focusin firing synchronously
-                            // during the Dialog's mount commit). The "Add project" rows below
-                            // don't exist at mount time, so they're unaffected and keep it.
-                            value={accountOptions.find((o) => o.id === draft.account_id) ?? null}
-                            isDisabled={startLocked}
-                            onChange={(item) =>
-                              updateRowDraft(a, {
-                                account_id: item?.id ?? '',
-                                project_id: '',
-                              })
-                            }
-                            placeholder="Select account…"
-                            className="w-full pl-7"
-                          />
-                        </div>
-                        <div className="relative">
-                          <FolderKanban
-                            aria-hidden="true"
-                            className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
-                          />
-                          <Typeahead
-                            label={`Project for ${a.project_name}`}
-                            isLabelHidden
-                            searchSource={rowProjectSource}
-                            debounceMs={0}
-                            value={rowProjectItems.find((o) => o.id === draft.project_id) ?? null}
-                            isDisabled={startLocked}
-                            onChange={(item) => updateRowDraft(a, { project_id: item?.id ?? '' })}
-                            placeholder={
-                              draft.account_id ? 'Select project…' : 'Pick an account first'
-                            }
-                            className="w-full pl-7"
-                          />
-                        </div>
-                        <AllocationSelect
-                          value={draft.planned_pct}
-                          disabled={startLocked}
-                          ariaLabel={`Allocation for ${a.project_name}`}
-                          onChange={(v) => updateRowDraft(a, { planned_pct: v })}
-                        />
-                        <DateInput
-                          label={`Start date for ${a.project_name}`}
-                          isLabelHidden
-                          size="sm"
-                          isDisabled={startLocked}
-                          value={draft.date_from || undefined}
-                          onChange={(v) => {
-                            const newFrom = v ?? '';
-                            updateRowDraft(a, {
-                              date_from: newFrom,
-                              date_to:
-                                draft.date_to && draft.date_to < newFrom ? newFrom : draft.date_to,
-                            });
-                          }}
-                        />
-                        <DateInput
-                          label={`End date for ${a.project_name}`}
-                          isLabelHidden
-                          size="sm"
-                          min={draft.date_from || undefined}
-                          value={draft.date_to || undefined}
-                          onChange={(v) => updateRowDraft(a, { date_to: v ?? '' })}
-                        />
-                        <Selector
-                          label={`Type for ${a.project_name}`}
-                          isLabelHidden
-                          size="sm"
-                          options={[
-                            { value: 'billable', label: 'Billable' },
-                            { value: 'internal', label: 'Internal' },
-                            { value: 'bench', label: 'Bench' },
-                          ]}
-                          value={draft.bucket}
-                          isDisabled={startLocked}
-                          onChange={(v) => updateRowDraft(a, { bucket: v as Bucket })}
-                        />
-                        <Input
-                          label={`Note for ${a.project_name}`}
-                          isLabelHidden
-                          size="sm"
-                          isDisabled={startLocked}
-                          value={draft.note}
-                          onChange={(value) => updateRowDraft(a, { note: value })}
-                        />
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            isIconOnly
-                            icon={<Check className="size-3.5 text-[var(--color-success)]" />}
-                            label={`Save ${a.project_name}`}
-                            isDisabled={
-                              saveRowMutation.isPending ||
-                              !draft.account_id ||
-                              !draft.project_id ||
-                              existingErrors[a.allocation_id] != null
-                            }
-                            onClick={() =>
-                              saveRowMutation.mutate({
-                                allocationId: a.allocation_id,
-                                draft,
-                                expectedVersion: a.version,
-                              })
-                            }
-                          />
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            isIconOnly
-                            icon={<Trash2 className="size-3.5 text-ink-subtle" />}
-                            label={`Delete ${a.project_name}`}
-                            onClick={() => setConfirmTarget(a)}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {futureAllocations.some((a) => existingErrors[a.allocation_id]) ? (
-                  <div className="space-y-0.5">
-                    {futureAllocations.map((a) =>
-                      existingErrors[a.allocation_id] ? (
-                        <p
-                          key={a.allocation_id}
-                          role="alert"
-                          className="text-caption font-medium text-danger-ink"
-                        >
-                          {a.project_name}: {existingErrors[a.allocation_id]}
-                        </p>
-                      ) : null,
-                    )}
-                  </div>
-                ) : null}
-
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="w-fit gap-1.5 border-primary text-primary hover:bg-primary-tint"
-                  label="Add project"
-                  icon={<Plus className="size-4" />}
-                  onClick={() => setTargetRows((rs) => [...rs, emptyReassignRow(todayIso())])}
+        <Layout
+          header={
+            <DialogHeader
+              title={target?.worker_name ?? 'Employee'}
+              onOpenChange={(open) => {
+                if (!open) onClose();
+              }}
+            />
+          }
+          content={
+            // The account/project Typeahead floats use the native `popover` attribute
+            // (top-layer promotion), so they're never clipped by this scroll container
+            // regardless of nesting — the ref/handler below exist for a separate reason:
+            // preserveScrollPosition cancels out the scroll-into-view jump a focused
+            // combobox input triggers (see that function for details).
+            <LayoutContent ref={dialogScrollRef} onPointerDownCapture={preserveScrollPosition}>
+              {step === 2 ? (
+                <ReviewStep
+                  preview={preview}
+                  currentAllocations={futureAllocations}
+                  previewMutation={previewMutation}
+                  mutation={mutation}
                 />
-
-                {targetRows.length > 0 ? (
+              ) : (
+                <div className="space-y-4">
                   <div className="overflow-hidden rounded-md border border-hairline">
-                    <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] gap-2 bg-surface-1 px-2 py-2 text-caption text-ink-muted">
-                      <div className="text-left font-medium">
-                        Account <span className="text-danger-ink">*</span>
-                      </div>
-                      <div className="text-left font-medium">
-                        Project <span className="text-danger-ink">*</span>
-                      </div>
-                      <div className="text-left font-medium">
-                        Allocation <span className="text-danger-ink">*</span>
-                      </div>
+                    <div className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] gap-2 bg-surface-1 px-2 py-2 text-caption text-ink-muted">
+                      <div className="text-left font-medium">Account</div>
+                      <div className="text-left font-medium">Project</div>
+                      <div className="text-left font-medium">Allocation</div>
                       <div className="text-left font-medium">Start date</div>
                       <div className="text-left font-medium">End date</div>
                       <div className="text-left font-medium">Type</div>
+                      <div className="text-left font-medium">Note</div>
                       <div className="text-left font-medium">Action</div>
                     </div>
-                    {targetRows.map((row, i) => (
-                      <TargetRowFields
-                        key={row.key}
-                        row={row}
-                        error={targetErrors[i] ?? null}
-                        accountOptions={accountOptions}
-                        projects={projects}
-                        onChange={(patch) =>
-                          setTargetRows((rs) =>
-                            rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
-                          )
-                        }
-                        onRemove={() => setTargetRows((rs) => rs.filter((_, idx) => idx !== i))}
-                        canRemove={targetRows.length > 1}
-                      />
-                    ))}
+                    {futureAllocations.map((a) => {
+                      const draft = draftFor(a);
+                      // A row that already started (start date in the past) is locked to end-date and
+                      // delete only — you can shorten/extend or remove it, but not rewrite its terms.
+                      const eff = effectiveRow(a);
+                      const startLocked = !!eff.date_from && eff.date_from < todayIso();
+                      // Reassign target must be a project the caller manages (FUT-353) — the
+                      // backend rejects others, so don't offer them. Recomputed per row (not
+                      // memoized — this is a per-iteration render, not a hook-eligible scope)
+                      // since the cascade depends on this row's own selected account.
+                      const rowProjectItems = projects
+                        .filter(
+                          (p) =>
+                            p.can_manage &&
+                            (!draft.account_id || p.account_id === draft.account_id),
+                        )
+                        .map((p) => ({ id: p.project_id, label: p.name }));
+                      const rowProjectSource = createStaticSource(rowProjectItems);
+                      return (
+                        <div
+                          key={a.allocation_id}
+                          className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] items-center gap-2 border-t border-hairline px-2 py-2 text-body-sm"
+                        >
+                          <div className="relative">
+                            <Building2
+                              aria-hidden="true"
+                              className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
+                            />
+                            <Typeahead
+                              label={`Account for ${a.project_name}`}
+                              isLabelHidden
+                              searchSource={accountSource}
+                              debounceMs={0}
+                              // No hasEntriesOnFocus here: this is the first tabbable field in the
+                              // Dialog, and the native <dialog> element's own showModal()-driven
+                              // auto-focus behavior (HTML living standard, not a Radix-specific
+                              // quirk) can land on it — combined with hasEntriesOnFocus that would
+                              // silently pop its dropdown open the instant the wizard appears
+                              // (confirmed via focusin firing synchronously during the Dialog's
+                              // mount commit). The "Add project" rows below don't exist at mount
+                              // time, so they're unaffected and keep it.
+                              value={accountOptions.find((o) => o.id === draft.account_id) ?? null}
+                              isDisabled={startLocked}
+                              onChange={(item) =>
+                                updateRowDraft(a, {
+                                  account_id: item?.id ?? '',
+                                  project_id: '',
+                                })
+                              }
+                              placeholder="Select account…"
+                              className="w-full pl-7"
+                            />
+                          </div>
+                          <div className="relative">
+                            <FolderKanban
+                              aria-hidden="true"
+                              className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
+                            />
+                            <Typeahead
+                              label={`Project for ${a.project_name}`}
+                              isLabelHidden
+                              searchSource={rowProjectSource}
+                              debounceMs={0}
+                              value={rowProjectItems.find((o) => o.id === draft.project_id) ?? null}
+                              isDisabled={startLocked}
+                              onChange={(item) => updateRowDraft(a, { project_id: item?.id ?? '' })}
+                              placeholder={
+                                draft.account_id ? 'Select project…' : 'Pick an account first'
+                              }
+                              className="w-full pl-7"
+                            />
+                          </div>
+                          <AllocationSelect
+                            value={draft.planned_pct}
+                            disabled={startLocked}
+                            ariaLabel={`Allocation for ${a.project_name}`}
+                            onChange={(v) => updateRowDraft(a, { planned_pct: v })}
+                          />
+                          <DateInput
+                            label={`Start date for ${a.project_name}`}
+                            isLabelHidden
+                            size="sm"
+                            isDisabled={startLocked}
+                            value={draft.date_from || undefined}
+                            onChange={(v) => {
+                              const newFrom = v ?? '';
+                              updateRowDraft(a, {
+                                date_from: newFrom,
+                                date_to:
+                                  draft.date_to && draft.date_to < newFrom
+                                    ? newFrom
+                                    : draft.date_to,
+                              });
+                            }}
+                          />
+                          <DateInput
+                            label={`End date for ${a.project_name}`}
+                            isLabelHidden
+                            size="sm"
+                            min={draft.date_from || undefined}
+                            value={draft.date_to || undefined}
+                            onChange={(v) => updateRowDraft(a, { date_to: v ?? '' })}
+                          />
+                          <Selector
+                            label={`Type for ${a.project_name}`}
+                            isLabelHidden
+                            size="sm"
+                            options={[
+                              { value: 'billable', label: 'Billable' },
+                              { value: 'internal', label: 'Internal' },
+                              { value: 'bench', label: 'Bench' },
+                            ]}
+                            value={draft.bucket}
+                            isDisabled={startLocked}
+                            onChange={(v) => updateRowDraft(a, { bucket: v as Bucket })}
+                          />
+                          <Input
+                            label={`Note for ${a.project_name}`}
+                            isLabelHidden
+                            size="sm"
+                            isDisabled={startLocked}
+                            value={draft.note}
+                            onChange={(value) => updateRowDraft(a, { note: value })}
+                          />
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              isIconOnly
+                              icon={<Check className="size-3.5 text-[var(--color-success)]" />}
+                              label={`Save ${a.project_name}`}
+                              isDisabled={
+                                saveRowMutation.isPending ||
+                                !draft.account_id ||
+                                !draft.project_id ||
+                                existingErrors[a.allocation_id] != null
+                              }
+                              onClick={() =>
+                                saveRowMutation.mutate({
+                                  allocationId: a.allocation_id,
+                                  draft,
+                                  expectedVersion: a.version,
+                                })
+                              }
+                            />
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              isIconOnly
+                              icon={<Trash2 className="size-3.5 text-ink-subtle" />}
+                              label={`Delete ${a.project_name}`}
+                              onClick={() => setConfirmTarget(a)}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ) : null}
 
-                <div
-                  role="alert"
-                  className="flex items-center gap-3 rounded-md bg-primary-tint p-sm text-body-sm text-primary-ink"
-                >
-                  <Info className="size-4 shrink-0 text-primary" />
-                  <div>
-                    <strong className="text-ink">Note:</strong> new allocation(s) added above will
-                    be applied after you review and confirm in the next step.
+                  {futureAllocations.some((a) => existingErrors[a.allocation_id]) ? (
+                    <div className="space-y-0.5">
+                      {futureAllocations.map((a) =>
+                        existingErrors[a.allocation_id] ? (
+                          <p
+                            key={a.allocation_id}
+                            role="alert"
+                            className="text-caption font-medium text-danger-ink"
+                          >
+                            {a.project_name}: {existingErrors[a.allocation_id]}
+                          </p>
+                        ) : null,
+                      )}
+                    </div>
+                  ) : null}
+
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-fit gap-1.5 border-primary text-primary hover:bg-primary-tint"
+                    label="Add project"
+                    icon={<Plus className="size-4" />}
+                    onClick={() => setTargetRows((rs) => [...rs, emptyReassignRow(todayIso())])}
+                  />
+
+                  {targetRows.length > 0 ? (
+                    <div className="overflow-hidden rounded-md border border-hairline">
+                      <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] gap-2 bg-surface-1 px-2 py-2 text-caption text-ink-muted">
+                        <div className="text-left font-medium">
+                          Account <span className="text-danger-ink">*</span>
+                        </div>
+                        <div className="text-left font-medium">
+                          Project <span className="text-danger-ink">*</span>
+                        </div>
+                        <div className="text-left font-medium">
+                          Allocation <span className="text-danger-ink">*</span>
+                        </div>
+                        <div className="text-left font-medium">Start date</div>
+                        <div className="text-left font-medium">End date</div>
+                        <div className="text-left font-medium">Type</div>
+                        <div className="text-left font-medium">Action</div>
+                      </div>
+                      {targetRows.map((row, i) => (
+                        <TargetRowFields
+                          key={row.key}
+                          row={row}
+                          error={targetErrors[i] ?? null}
+                          accountOptions={accountOptions}
+                          projects={projects}
+                          onChange={(patch) =>
+                            setTargetRows((rs) =>
+                              rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
+                            )
+                          }
+                          onRemove={() => setTargetRows((rs) => rs.filter((_, idx) => idx !== i))}
+                          canRemove={targetRows.length > 1}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div
+                    role="alert"
+                    className="flex items-center gap-3 rounded-md bg-primary-tint p-sm text-body-sm text-primary-ink"
+                  >
+                    <Info className="size-4 shrink-0 text-primary" />
+                    <div>
+                      <strong className="text-ink">Note:</strong> new allocation(s) added above will
+                      be applied after you review and confirm in the next step.
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {step === 1 ? (
-              <div className="flex justify-end gap-2 pt-3">
-                <Button variant="ghost" label="Cancel" onClick={onClose} />
-                <Button
-                  isDisabled={!canReview}
-                  className="gap-1.5"
-                  label="Review impact"
-                  endContent={<ArrowRight className="size-4" />}
-                  onClick={goToReview}
-                />
-              </div>
-            ) : null}
-          </div>
-        </DialogContent>
+              )}
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              {step === 1 ? (
+                <>
+                  <Button variant="ghost" label="Cancel" onClick={onClose} />
+                  <Button
+                    isDisabled={!canReview}
+                    label="Review impact"
+                    endContent={<ArrowRight className="size-4" />}
+                    onClick={goToReview}
+                  />
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" label="Back" onClick={() => setStep(1)} />
+                  <Button
+                    isDisabled={mutation.isPending}
+                    label={mutation.isPending ? 'Confirming…' : 'Confirm'}
+                    onClick={() => mutation.mutate()}
+                  />
+                </>
+              )}
+            </LayoutFooter>
+          }
+        />
       </Dialog>
 
       <AlertDialog
@@ -807,8 +829,6 @@ function ReviewStep({
   currentAllocations,
   previewMutation,
   mutation,
-  onBack,
-  onConfirm,
 }: {
   preview: ReassignGroupPreviewResult | null;
   currentAllocations: RaMonitoringAllocation[];
@@ -818,8 +838,6 @@ function ReviewStep({
     error: Error | null;
   };
   mutation: { isPending: boolean; isError: boolean; error: Error | null };
-  onBack: () => void;
-  onConfirm: () => void;
 }) {
   if (previewMutation.isPending) {
     return <p className="py-8 text-center text-caption text-ink-muted">Checking impact…</p>;
@@ -878,15 +896,6 @@ function ReviewStep({
       ) : null}
 
       <AllocationTimeline rows={timelineRows} todayIso={todayIso()} />
-
-      <div className="flex justify-end gap-2 pt-1">
-        <Button variant="ghost" label="Back" onClick={onBack} />
-        <Button
-          isDisabled={mutation.isPending}
-          label={mutation.isPending ? 'Confirming…' : 'Confirm'}
-          onClick={onConfirm}
-        />
-      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -20,6 +20,29 @@ function wrap(node: React.ReactNode) {
 }
 
 describe('CreateGroupDialog', () => {
+  // Astryx's real Dialog always mounts <dialog> + children regardless of `isOpen` — it does
+  // not unmount on close. purpose="form" renders role="dialog" (only purpose="required" maps
+  // to role="alertdialog"). DialogHeader doesn't wire aria-labelledby, so the dialog has no
+  // computed accessible name — assert the title via its heading instead.
+  it('exposes an accessible dialog with heading "New group" when open', () => {
+    wrap(<CreateGroupDialog open onOpenChange={() => {}} />);
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'New group' })).toBeInTheDocument();
+  });
+
+  it('is not exposed as a dialog when closed', () => {
+    wrap(<CreateGroupDialog open={false} onOpenChange={() => {}} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('closes via the header close button', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    wrap(<CreateGroupDialog open onOpenChange={onOpenChange} />);
+    await user.click(screen.getByRole('button', { name: /close/i }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it('renders the live preview tile that updates as name + theme change', async () => {
     const user = userEvent.setup();
     wrap(<CreateGroupDialog open onOpenChange={() => {}} />);
@@ -124,13 +147,22 @@ describe('CreateGroupDialog', () => {
     );
     wrap(<CreateGroupDialog open onOpenChange={() => {}} />);
 
+    // LinkToM365Dialog is a sibling that's always mounted (Astryx Dialog doesn't unmount on
+    // close) — before the click, its dialog role isn't in the accessibility tree yet.
+    expect(screen.queryByRole('heading', { name: 'Link with a Microsoft 365 group' })).toBeNull();
+
     await user.type(screen.getByLabelText(/Group name/i), 'Linked Group');
     await user.click(screen.getByRole('button', { name: /^Link…$/ }));
 
-    // Picker opens…
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText(/Search Microsoft 365 groups/i)).toBeInTheDocument(),
-    );
+    // Picker opens as its own dialog, alongside the still-open CreateGroupDialog…
+    await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(2));
+    const linkDialog = screen
+      .getAllByRole('dialog')
+      .find((d) => within(d).queryByRole('heading', { name: 'Link with a Microsoft 365 group' }));
+    expect(linkDialog).toBeTruthy();
+    expect(
+      within(linkDialog as HTMLElement).getByPlaceholderText('Search Microsoft 365 groups…'),
+    ).toBeInTheDocument();
     // …but nothing is created yet — creation is deferred to "Create group".
     expect(created).toHaveLength(0);
   });

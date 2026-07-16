@@ -2,12 +2,13 @@ import {
   Banner,
   Button,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
   DisabledActionTooltip,
   EmptyState,
   KbdHint,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   PageChrome,
   Selector,
   Skeleton,
@@ -249,23 +250,35 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
         </footer>
       </div>
       <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
-      <Dialog open={syncFromIdPOpen} onOpenChange={setSyncFromIdPOpen}>
-        <DialogContent className="max-w-[440px]">
-          <DialogHeader>
-            <DialogTitle>Select group to link to M365</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Selector
-              label="Select a group"
-              isLabelHidden
-              placeholder="— choose a group —"
-              options={groups
-                .filter((g) => g.external_source === 'native')
-                .map((g) => ({ value: g.id, label: g.name }))}
-              value={groupToLink ?? undefined}
-              onChange={(v) => setGroupToLink(v)}
-            />
-            <div className="flex justify-end gap-2">
+      <Dialog isOpen={syncFromIdPOpen} onOpenChange={setSyncFromIdPOpen} purpose="form">
+        <Layout
+          header={
+            <DialogHeader title="Select group to link to M365" onOpenChange={setSyncFromIdPOpen} />
+          }
+          content={
+            <LayoutContent>
+              {/* Astryx's Dialog always mounts its Layout/LayoutContent children regardless of
+                  `isOpen`, and Selector renders its full option list into the DOM (hidden, but
+                  still text-matchable) as soon as it mounts. Gating the Selector on
+                  `syncFromIdPOpen` keeps group names out of the DOM entirely while this dialog
+                  is closed, so they don't collide with the same names rendered elsewhere on the
+                  page (e.g. the groups table). */}
+              {syncFromIdPOpen && (
+                <Selector
+                  label="Select a group"
+                  isLabelHidden
+                  placeholder="— choose a group —"
+                  options={groups
+                    .filter((g) => g.external_source === 'native')
+                    .map((g) => ({ value: g.id, label: g.name }))}
+                  value={groupToLink ?? undefined}
+                  onChange={(v) => setGroupToLink(v)}
+                />
+              )}
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
               <Button
                 variant="secondary"
                 label="Cancel"
@@ -279,9 +292,9 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
                   setLinkDialogOpen(true);
                 }}
               />
-            </div>
-          </div>
-        </DialogContent>
+            </LayoutFooter>
+          }
+        />
       </Dialog>
       {groupToLink && (
         <LinkToM365Dialog

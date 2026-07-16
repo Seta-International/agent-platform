@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
+import { installDialogShim } from '../src/testing/dialog-shim';
 import { installPopoverShim } from '../src/testing/popover-shim';
 
 // Radix (Popover) relies on pointer-capture and scrollIntoView, which happy-dom lacks.
@@ -10,6 +11,7 @@ proto.setPointerCapture ??= () => {};
 proto.releasePointerCapture ??= () => {};
 proto.scrollIntoView ??= () => {};
 
+installDialogShim();
 installPopoverShim();
 
 // happy-dom's matchMedia evaluates `hover`/`pointer` against navigator.maxTouchPoints

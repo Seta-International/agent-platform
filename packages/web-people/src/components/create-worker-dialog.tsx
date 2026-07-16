@@ -5,13 +5,13 @@ import {
   createStaticSource,
   DateInput,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   Dropzone,
   Input,
   Label,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   type SearchableItem,
   Selector,
   Tokenizer,
@@ -142,174 +142,190 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
     parse.mutate(file);
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" label="New worker" />
-      </DialogTrigger>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Add worker</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-5">
-          {cvFile ? (
-            <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-1 px-3 py-2 text-body-sm">
-              <FileText className="size-4 flex-none text-ink-subtle" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
-              {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
-              <Button
-                variant="ghost"
-                size="sm"
-                isIconOnly
-                icon={<X className="size-3.5" />}
-                label="Remove CV"
-                className="size-6"
-                onClick={() => {
-                  setCvFile(null);
-                  setSuggestions([]);
-                }}
-              />
-            </div>
-          ) : (
-            <Dropzone
-              accept=".pdf,.docx"
-              maxBytes={CV_MAX_BYTES}
-              label="Upload CV to auto-fill"
-              hint="PDF or DOCX, up to 10MB — parsed fields stay editable"
-              pendingLabel="Parsing CV…"
-              isPending={parse.isPending}
-              onFile={onFile}
-            />
-          )}
+    <>
+      <Button size="sm" label="New worker" onClick={() => setOpen(true)} />
+      <Dialog
+        isOpen={open}
+        onOpenChange={handleOpenChange}
+        width={720}
+        maxHeight="85vh"
+        purpose="form"
+      >
+        <Layout
+          header={<DialogHeader title="Add worker" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-5">
+                {cvFile ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-1 px-3 py-2 text-body-sm">
+                    <FileText className="size-4 flex-none text-ink-subtle" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
+                    {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      isIconOnly
+                      icon={<X className="size-3.5" />}
+                      label="Remove CV"
+                      className="size-6"
+                      onClick={() => {
+                        setCvFile(null);
+                        setSuggestions([]);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <Dropzone
+                    accept=".pdf,.docx"
+                    maxBytes={CV_MAX_BYTES}
+                    label="Upload CV to auto-fill"
+                    hint="PDF or DOCX, up to 10MB — parsed fields stay editable"
+                    pendingLabel="Parsing CV…"
+                    isPending={parse.isPending}
+                    onFile={onFile}
+                  />
+                )}
 
-          <Section title="Identity">
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Full name *"
-                value={form.full_name}
-                onChange={(value) => set('full_name')(value)}
-                className="col-span-2"
-              />
-              <DateInput
-                label="Date of birth"
-                value={form.dob || undefined}
-                onChange={(v) => set('dob')(v ?? '')}
-              />
-              <Field label="Gender">
-                <Selector
-                  label="Gender"
-                  isLabelHidden
-                  options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: g.label }))}
-                  value={form.gender || undefined}
-                  onChange={set('gender')}
-                  placeholder="—"
-                />
-              </Field>
-            </div>
-          </Section>
+                <Section title="Identity">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="Full name *"
+                      value={form.full_name}
+                      onChange={(value) => set('full_name')(value)}
+                      className="col-span-2"
+                    />
+                    <DateInput
+                      label="Date of birth"
+                      value={form.dob || undefined}
+                      onChange={(v) => set('dob')(v ?? '')}
+                    />
+                    <Field label="Gender">
+                      <Selector
+                        label="Gender"
+                        isLabelHidden
+                        options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: g.label }))}
+                        value={form.gender || undefined}
+                        onChange={set('gender')}
+                        placeholder="—"
+                      />
+                    </Field>
+                  </div>
+                </Section>
 
-          <Section title="Contact">
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                type="email"
-                label="Personal email"
-                value={form.personal_email}
-                onChange={(value) => set('personal_email')(value)}
-              />
-              <Input label="Phone" value={form.phone} onChange={(value) => set('phone')(value)} />
-              <Input
-                type="email"
-                label="Work email"
-                value={form.work_email}
-                onChange={(value) => set('work_email')(value)}
-                placeholder="Generated from the tenant domain when left empty"
-                className="col-span-2"
-              />
-            </div>
-          </Section>
+                <Section title="Contact">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      type="email"
+                      label="Personal email"
+                      value={form.personal_email}
+                      onChange={(value) => set('personal_email')(value)}
+                    />
+                    <Input
+                      label="Phone"
+                      value={form.phone}
+                      onChange={(value) => set('phone')(value)}
+                    />
+                    <Input
+                      type="email"
+                      label="Work email"
+                      value={form.work_email}
+                      onChange={(value) => set('work_email')(value)}
+                      placeholder="Generated from the tenant domain when left empty"
+                      className="col-span-2"
+                    />
+                  </div>
+                </Section>
 
-          <Section title="Employment">
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Job title"
-                value={form.job_title}
-                onChange={(value) => set('job_title')(value)}
-              />
-              <Field label="Employment type">
-                <Selector
-                  label="Employment type"
-                  isLabelHidden
-                  options={EMPLOYMENT_TYPES.map((t) => ({ value: t, label: t.replace('_', ' ') }))}
-                  value={form.employment_type || undefined}
-                  onChange={set('employment_type')}
-                  placeholder="—"
-                />
-              </Field>
-              <DateInput
-                label="Start date"
-                value={form.start_date || undefined}
-                onChange={(v) => set('start_date')(v ?? '')}
-              />
-              <Input
-                label="Employee no"
-                value={form.employee_no}
-                onChange={(value) => set('employee_no')(value)}
-              />
-              <Field label="Department" className="col-span-2">
-                <Typeahead
-                  label="Department"
-                  isLabelHidden
-                  searchSource={orgSource}
-                  debounceMs={0}
-                  hasEntriesOnFocus
-                  value={orgValue}
-                  onChange={(item) => set('org_unit_id')(item?.id ?? '')}
-                  placeholder="No department"
-                />
-              </Field>
-            </div>
-          </Section>
+                <Section title="Employment">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="Job title"
+                      value={form.job_title}
+                      onChange={(value) => set('job_title')(value)}
+                    />
+                    <Field label="Employment type">
+                      <Selector
+                        label="Employment type"
+                        isLabelHidden
+                        options={EMPLOYMENT_TYPES.map((t) => ({
+                          value: t,
+                          label: t.replace('_', ' '),
+                        }))}
+                        value={form.employment_type || undefined}
+                        onChange={set('employment_type')}
+                        placeholder="—"
+                      />
+                    </Field>
+                    <DateInput
+                      label="Start date"
+                      value={form.start_date || undefined}
+                      onChange={(v) => set('start_date')(v ?? '')}
+                    />
+                    <Input
+                      label="Employee no"
+                      value={form.employee_no}
+                      onChange={(value) => set('employee_no')(value)}
+                    />
+                    <Field label="Department" className="col-span-2">
+                      <Typeahead
+                        label="Department"
+                        isLabelHidden
+                        searchSource={orgSource}
+                        debounceMs={0}
+                        hasEntriesOnFocus
+                        value={orgValue}
+                        onChange={(item) => set('org_unit_id')(item?.id ?? '')}
+                        placeholder="No department"
+                      />
+                    </Field>
+                  </div>
+                </Section>
 
-          <Section title="Skills">
-            <Tokenizer
-              label="Skills"
-              isLabelHidden
-              searchSource={searchSkills.source}
-              hasEntriesOnFocus
-              value={skillItems}
-              onChange={(items) => {
-                setSkillItems(items);
-                setSkillIds(items.map((i) => i.id));
-              }}
-              placeholder="Add skills…"
-            />
-            {suggestions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
-                {suggestions.map((s) => (
-                  <Badge key={s} variant="neutral" className="border-dashed" label={s} />
-                ))}
+                <Section title="Skills">
+                  <Tokenizer
+                    label="Skills"
+                    isLabelHidden
+                    searchSource={searchSkills.source}
+                    hasEntriesOnFocus
+                    value={skillItems}
+                    onChange={(items) => {
+                      setSkillItems(items);
+                      setSkillIds(items.map((i) => i.id));
+                    }}
+                    placeholder="Add skills…"
+                  />
+                  {suggestions.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
+                      {suggestions.map((s) => (
+                        <Badge key={s} variant="neutral" className="border-dashed" label={s} />
+                      ))}
+                    </div>
+                  )}
+                </Section>
+
+                {error && <Banner status="error" title={error} />}
               </div>
-            )}
-          </Section>
-
-          {error && <Banner status="error" title={error} />}
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)} label="Cancel" />
-            <Button
-              onClick={() => save.mutate()}
-              isDisabled={save.isPending || parse.isPending || !form.full_name.trim()}
-              label={save.isPending ? 'Creating…' : 'Create'}
-            />
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <Button variant="secondary" onClick={() => setOpen(false)} label="Cancel" />
+              <Button
+                onClick={() => save.mutate()}
+                isDisabled={save.isPending || parse.isPending || !form.full_name.trim()}
+                label={save.isPending ? 'Creating…' : 'Create'}
+              />
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }

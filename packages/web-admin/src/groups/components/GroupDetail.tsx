@@ -14,11 +14,11 @@ import {
   Checkbox,
   cn,
   Dialog,
-  DialogContent,
-  DialogFooter,
   DialogHeader,
-  DialogTitle,
   Input,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   Selector,
   Textarea,
   Typeahead,
@@ -97,7 +97,7 @@ function RenameDialog({ group }: { group: Group }) {
   }, [open, group.name]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
       <Button
         variant="secondary"
         size="sm"
@@ -105,37 +105,48 @@ function RenameDialog({ group }: { group: Group }) {
         label="Edit"
         icon={<Pencil className="size-3.5" aria-hidden />}
       />
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit group</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 pt-1">
-          <div className="space-y-1.5">
-            <Input label="Name" value={name} onChange={(value) => setName(value)} hasAutoFocus />
-          </div>
-          <Textarea
-            label="Description"
-            value={description}
-            onChange={(value) => setDescription(value)}
-            placeholder="What this group is for (optional)"
-            rows={2}
-          />
-        </div>
-        <DialogFooter>
-          <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
-          <Button
-            label="Save"
-            isDisabled={!name.trim() || update.isPending}
-            onClick={() =>
-              update.mutate(
-                { id: group.group_id, name: name.trim(), description: description.trim() },
-                { onSuccess: () => setOpen(false) },
-              )
-            }
-          />
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <Dialog isOpen={open} onOpenChange={setOpen} purpose="form">
+        <Layout
+          header={<DialogHeader title="Edit group" onOpenChange={setOpen} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-4 pt-1">
+                <div className="space-y-1.5">
+                  <Input
+                    label="Name"
+                    value={name}
+                    onChange={(value) => setName(value)}
+                    hasAutoFocus
+                  />
+                </div>
+                <Textarea
+                  label="Description"
+                  value={description}
+                  onChange={(value) => setDescription(value)}
+                  placeholder="What this group is for (optional)"
+                  rows={2}
+                />
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
+              <Button
+                label="Save"
+                isDisabled={!name.trim() || update.isPending}
+                onClick={() =>
+                  update.mutate(
+                    { id: group.group_id, name: name.trim(), description: description.trim() },
+                    { onSuccess: () => setOpen(false) },
+                  )
+                }
+              />
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }
 

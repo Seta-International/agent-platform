@@ -8,7 +8,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -262,15 +262,18 @@ describe('TaskDetailPage', () => {
     await user.click(screen.getByRole('button', { name: /more actions/i }));
     await user.click(await screen.findByRole('menuitem', { name: /^delete$/i }));
 
-    // Confirm dialog opens with the task title quoted in its body. Query by accessible name
-    // (from ConfirmDeleteTaskDialog's DialogTitle "Delete this task?") — the Schedule card's two
-    // Astryx DateInput fields (Start/Due) each always render their Calendar popover into the DOM
-    // as role="dialog" aria-label="Choose date" (jsdom doesn't implement the Popover API that
-    // keeps it visually/programmatically hidden until opened), so a bare `getByRole('dialog')`
-    // now matches three dialogs instead of one.
-    const dialog = await screen.findByRole('dialog', { name: /delete this task\?/i });
-    expect(await screen.findByRole('heading', { name: /delete this task\?/i })).toBeInTheDocument();
-    const { within } = await import('@testing-library/react');
+    // Confirm dialog opens with the task title quoted in its body. ConfirmDeleteTaskDialog uses
+    // purpose="required" (mandatory destructive confirm), so Astryx's Dialog renders
+    // role="alertdialog" rather than role="dialog" — that already disambiguates it from the
+    // Schedule card's two Astryx DateInput fields (Start/Due), which each always render their
+    // Calendar popover into the DOM as role="dialog" aria-label="Choose date" (jsdom doesn't
+    // implement the Popover API that keeps it visually/programmatically hidden until opened).
+    // Astryx's Dialog/DialogHeader don't wire aria-labelledby, so the alertdialog has no
+    // computed accessible name — assert the title via its heading instead of `{ name }`.
+    const dialog = await screen.findByRole('alertdialog');
+    expect(
+      within(dialog).getByRole('heading', { name: /delete this task\?/i }),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText(/wire telemetry/i)).toBeInTheDocument();
 
     await user.click(within(dialog).getByRole('button', { name: /delete task/i }));

@@ -2,10 +2,11 @@ import {
   Banner,
   Button,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
   FieldConflictRow,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import { useResolveGroupConflict } from '../hooks/mutations/resolve-group-conflict';
@@ -57,48 +58,54 @@ export function ResolveConflictDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle>Pick which version to keep</DialogTitle>
-        </DialogHeader>
+    <Dialog isOpen={open} onOpenChange={handleOpenChange} width={560} purpose="form">
+      <Layout
+        header={<DialogHeader title="Pick which version to keep" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-5">
+              {conflictFields.length === 0 ? (
+                <p className="text-sm text-ink-subtle">
+                  Details aren&apos;t ready yet. Refresh the sync and try again.
+                </p>
+              ) : (
+                conflictFields.map((cf) => (
+                  <FieldConflictRow
+                    key={cf.field}
+                    field={cf.field}
+                    local={cf.localValue}
+                    remote={cf.remoteValue}
+                    choice={decisions[cf.field] ?? null}
+                    onChoose={(c) => setDecisions((prev) => ({ ...prev, [cf.field]: c }))}
+                  />
+                ))
+              )}
+            </div>
 
-        <div className="space-y-5">
-          {conflictFields.length === 0 ? (
-            <p className="text-sm text-ink-subtle">
-              Details aren&apos;t ready yet. Refresh the sync and try again.
-            </p>
-          ) : (
-            conflictFields.map((cf) => (
-              <FieldConflictRow
-                key={cf.field}
-                field={cf.field}
-                local={cf.localValue}
-                remote={cf.remoteValue}
-                choice={decisions[cf.field] ?? null}
-                onChoose={(c) => setDecisions((prev) => ({ ...prev, [cf.field]: c }))}
+            {resolve.isError && (
+              <Banner
+                status="error"
+                title={
+                  resolve.error instanceof Error
+                    ? resolve.error.message
+                    : "Couldn't save your choice."
+                }
               />
-            ))
-          )}
-        </div>
-
-        {resolve.isError && (
-          <Banner
-            status="error"
-            title={
-              resolve.error instanceof Error ? resolve.error.message : "Couldn't save your choice."
-            }
-          />
-        )}
-
-        <div className="flex justify-end pt-2 border-t border-hairline mt-2">
-          <Button
-            label="Save choices"
-            onClick={handleResolve}
-            isDisabled={!allDecided || resolve.isPending}
-          />
-        </div>
-      </DialogContent>
+            )}
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
+            <div className="flex w-full justify-end">
+              <Button
+                label="Save choices"
+                onClick={handleResolve}
+                isDisabled={!allDecided || resolve.isPending}
+              />
+            </div>
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }

@@ -5,11 +5,10 @@ import {
   Card,
   CardTitle,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
   Layout,
   LayoutContent,
+  LayoutFooter,
   LayoutHeader,
   PageChrome,
   Skeleton,
@@ -334,21 +333,23 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
         )}
       </div>
 
-      <Dialog open={rejecting} onOpenChange={setRejecting}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject charter</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              label="Reason"
-              isRequired
-              value={reason}
-              onChange={(value) => setReason(value)}
-              placeholder="Explain the reason for rejection…"
-              rows={4}
-            />
-            <div className="flex justify-end gap-2">
+      <Dialog isOpen={rejecting} onOpenChange={setRejecting} purpose="required">
+        <Layout
+          header={<DialogHeader title="Reject charter" onOpenChange={setRejecting} />}
+          content={
+            <LayoutContent>
+              <Textarea
+                label="Reason"
+                isRequired
+                value={reason}
+                onChange={(value) => setReason(value)}
+                placeholder="Explain the reason for rejection…"
+                rows={4}
+              />
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
               <Button
                 variant="secondary"
                 label="Cancel"
@@ -364,9 +365,9 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
                 onClick={() => rejectMutation.mutate()}
                 isDisabled={rejectMutation.isPending || !reason.trim()}
               />
-            </div>
-          </div>
-        </DialogContent>
+            </LayoutFooter>
+          }
+        />
       </Dialog>
     </PageChrome>
   );

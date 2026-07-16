@@ -1,10 +1,11 @@
 import {
   Button,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
   Input,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   Selector,
   Textarea,
   toast,
@@ -61,30 +62,34 @@ export function RejectDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Reject candidate</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Selector
-              label="Reason"
-              options={active.map((r) => ({ value: r.id, label: r.label }))}
-              value={effectiveReason}
-              onChange={(v) => setReasonId(v)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Input
-              label="Tags — comma-separated"
-              value={tags}
-              onChange={(value) => setTags(value)}
-              placeholder="e.g. frontend, junior"
-            />
-          </div>
-          <Textarea label="Note" value={note} onChange={(value) => setNote(value)} />
-          <div className="flex justify-end gap-2 pt-2">
+    <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="required">
+      <Layout
+        header={<DialogHeader title="Reject candidate" onOpenChange={onOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Selector
+                  label="Reason"
+                  options={active.map((r) => ({ value: r.id, label: r.label }))}
+                  value={effectiveReason}
+                  onChange={(v) => setReasonId(v)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Input
+                  label="Tags — comma-separated"
+                  value={tags}
+                  onChange={(value) => setTags(value)}
+                  placeholder="e.g. frontend, junior"
+                />
+              </div>
+              <Textarea label="Note" value={note} onChange={(value) => setNote(value)} />
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
             <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <Button
               variant="destructive"
@@ -92,9 +97,9 @@ export function RejectDialog({
               onClick={() => mutation.mutate()}
               isDisabled={mutation.isPending || !effectiveReason}
             />
-          </div>
-        </div>
-      </DialogContent>
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }

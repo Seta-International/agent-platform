@@ -3,15 +3,12 @@ import {
   Button,
   DataTable,
   Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuItem,
   Input,
+  Layout,
+  LayoutFooter,
   PageChrome,
   PageChromeToolbar,
   type RowSelectionState,
@@ -217,6 +214,10 @@ export function Directory({ search, onSearch }: DirectoryProps) {
   function clearSelection() {
     setRowSelection({});
     setSelectedUsers({});
+  }
+
+  function handleSuspendDialogOpenChange(o: boolean) {
+    if (!o) setSuspendTarget(null);
   }
 
   const rowCount = data?.total ?? 0;
@@ -467,35 +468,42 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         />
       </div>
 
-      {/* Suspend confirm dialog */}
+      {/* Suspend confirm dialog. "form" purpose, not "required": this action is recoverable, not
+          terminal, and Astryx's `purpose="form"` already blocks backdrop-click dismissal (only
+          Escape is allowed) — closer to `"required"`'s risk profile than the name suggests, so
+          there's little value in going further. The strongest signal is this file's own history:
+          before this migration it used a plain Radix `Dialog` here, never `AlertDialog`, unlike
+          `GroupDetail.tsx`'s genuinely terminal group-delete flow (irreversible, deletes roles)
+          which *does* use `AlertDialog` in the same package — the original author already judged
+          suspend as non-terminal. The copy ("You can reactivate at any time") corroborates that
+          judgment but isn't the primary evidence. */}
       <Dialog
-        open={suspendTarget !== null}
-        onOpenChange={(o) => {
-          if (!o) setSuspendTarget(null);
-        }}
+        isOpen={suspendTarget !== null}
+        onOpenChange={handleSuspendDialogOpenChange}
+        purpose="form"
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Suspend account?</DialogTitle>
-            <DialogDescription>
-              {suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at
-              any time.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary" label="Cancel" />
-            </DialogClose>
-            <Button
-              variant="destructive"
-              label="Suspend"
-              onClick={() => {
-                if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
-                setSuspendTarget(null);
-              }}
+        <Layout
+          header={
+            <DialogHeader
+              title="Suspend account?"
+              subtitle={`${suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at any time.`}
+              onOpenChange={handleSuspendDialogOpenChange}
             />
-          </DialogFooter>
-        </DialogContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <Button variant="secondary" label="Cancel" onClick={() => setSuspendTarget(null)} />
+              <Button
+                variant="destructive"
+                label="Suspend"
+                onClick={() => {
+                  if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
+                  setSuspendTarget(null);
+                }}
+              />
+            </LayoutFooter>
+          }
+        />
       </Dialog>
 
       {/* Detail sheet */}

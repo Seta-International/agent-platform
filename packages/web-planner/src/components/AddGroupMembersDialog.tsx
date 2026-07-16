@@ -6,10 +6,11 @@ import {
   Button,
   Checkbox,
   Dialog,
-  DialogContent,
   DialogHeader,
-  DialogTitle,
   Input,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
   toast,
 } from '@seta/shared-ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -108,105 +109,108 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
       ? 'Add members'
       : `Add ${selected.length} member${selected.length > 1 ? 's' : ''}`;
 
+  function handleOpenChange(v: boolean) {
+    if (!v) reset();
+    onOpenChange(v);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (!v) reset();
-        onOpenChange(v);
-      }}
-    >
-      <DialogContent className="max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle>Add members</DialogTitle>
-        </DialogHeader>
+    <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+      <Layout
+        header={<DialogHeader title="Add members" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
+            {selected.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selected.map((s) => (
+                  <span
+                    key={s.user_id}
+                    className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs"
+                  >
+                    {s.display_name}
+                    <button
+                      type="button"
+                      onClick={() => toggle(s)}
+                      aria-label={`Remove ${s.display_name}`}
+                      className="text-ink-muted hover:text-ink"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
 
-        {selected.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {selected.map((s) => (
-              <span
-                key={s.user_id}
-                className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs"
-              >
-                {s.display_name}
-                <button
-                  type="button"
-                  onClick={() => toggle(s)}
-                  aria-label={`Remove ${s.display_name}`}
-                  className="text-ink-muted hover:text-ink"
-                >
-                  <X className="size-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+            <Input
+              label="Search by name or email"
+              isLabelHidden
+              placeholder="Search by name or email…"
+              value={search}
+              onChange={(value) => setSearch(value)}
+              hasAutoFocus
+            />
 
-        <Input
-          label="Search by name or email"
-          isLabelHidden
-          placeholder="Search by name or email…"
-          value={search}
-          onChange={(value) => setSearch(value)}
-          hasAutoFocus
-        />
+            <div className="max-h-[260px] overflow-y-auto divide-y divide-hairline rounded-md border border-hairline">
+              {candidatesQuery.isPending && (
+                <p className="py-4 text-center text-sm text-ink-subtle">Searching…</p>
+              )}
+              {!candidatesQuery.isPending && candidates.length === 0 && (
+                <p className="py-4 text-center text-sm text-ink-subtle">
+                  {debouncedSearch
+                    ? 'No matching users.'
+                    : 'All workspace members are already in this group.'}
+                </p>
+              )}
+              {candidates.map((c) => {
+                const isSelected = selected.some((s) => s.user_id === c.user_id);
+                return (
+                  <button
+                    key={c.user_id}
+                    type="button"
+                    onClick={() => toggle(c)}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 hover:bg-surface-1 text-left"
+                  >
+                    <Checkbox
+                      label={`Select ${c.display_name}`}
+                      isLabelHidden
+                      value={isSelected}
+                      isReadOnly
+                    />
+                    <Avatar className="size-7 shrink-0">
+                      <AvatarFallback className="text-xs">
+                        {initialsOf(c.display_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{c.display_name}</p>
+                      <p className="text-xs text-ink-subtle truncate">{c.email}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
 
-        <div className="max-h-[260px] overflow-y-auto divide-y divide-hairline rounded-md border border-hairline">
-          {candidatesQuery.isPending && (
-            <p className="py-4 text-center text-sm text-ink-subtle">Searching…</p>
-          )}
-          {!candidatesQuery.isPending && candidates.length === 0 && (
-            <p className="py-4 text-center text-sm text-ink-subtle">
-              {debouncedSearch
-                ? 'No matching users.'
-                : 'All workspace members are already in this group.'}
-            </p>
-          )}
-          {candidates.map((c) => {
-            const isSelected = selected.some((s) => s.user_id === c.user_id);
-            return (
-              <button
-                key={c.user_id}
-                type="button"
-                onClick={() => toggle(c)}
-                className="flex w-full items-center gap-3 px-3 py-2.5 hover:bg-surface-1 text-left"
-              >
-                <Checkbox
-                  label={`Select ${c.display_name}`}
-                  isLabelHidden
-                  value={isSelected}
-                  isReadOnly
-                />
-                <Avatar className="size-7 shrink-0">
-                  <AvatarFallback className="text-xs">{initialsOf(c.display_name)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{c.display_name}</p>
-                  <p className="text-xs text-ink-subtle truncate">{c.email}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {error && <Banner status="error" role="alert" title={error} />}
-
-        <div className="flex justify-end gap-2 pt-2 border-t border-hairline">
-          <Button
-            variant="secondary"
-            label="Cancel"
-            onClick={() => {
-              reset();
-              onOpenChange(false);
-            }}
-          />
-          <Button
-            label={confirmLabel}
-            onClick={handleConfirm}
-            isDisabled={selected.length === 0 || addMembers.isPending}
-          />
-        </div>
-      </DialogContent>
+            {error && <Banner status="error" role="alert" title={error} />}
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
+            <Button
+              variant="secondary"
+              label="Cancel"
+              onClick={() => {
+                reset();
+                onOpenChange(false);
+              }}
+            />
+            <Button
+              label={confirmLabel}
+              onClick={handleConfirm}
+              isDisabled={selected.length === 0 || addMembers.isPending}
+            />
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }
