@@ -75,13 +75,11 @@ describe('PreviewCard', () => {
   });
 
   it('footer renders priority, first label, due day-of-week, and avatar stack', () => {
-    const { getByText, getByRole, getByTitle } = render(
-      <PreviewCard task={baseTask} variant="noPreview" />,
-    );
+    const { getByText, getByRole } = render(<PreviewCard task={baseTask} variant="noPreview" />);
     expect(getByRole('img', { name: 'Urgent priority' })).toBeInTheDocument();
     expect(getByText('api')).toBeInTheDocument();
     expect(getByText('Tue')).toBeInTheDocument();
-    expect(getByTitle('Jane Doe')).toBeInTheDocument();
-    expect(getByTitle('Mark Lee')).toBeInTheDocument();
+    expect(getByRole('img', { name: 'Jane Doe' })).toBeInTheDocument();
+    expect(getByRole('img', { name: 'Mark Lee' })).toBeInTheDocument();
   });
 });

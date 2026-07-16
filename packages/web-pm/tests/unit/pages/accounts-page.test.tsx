@@ -50,7 +50,7 @@ describe('AccountsPage — CreateAccountDialog (Astryx migration smoke test)', (
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByRole('heading', { name: 'Create account' })).toBeInTheDocument();
 
-    await user.type(within(dialog).getByLabelText('Name *'), 'Should not save');
+    await user.type(within(dialog).getByLabelText(/^Name/), 'Should not save');
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -65,7 +65,7 @@ describe('AccountsPage — CreateAccountDialog (Astryx migration smoke test)', (
     await user.click(screen.getByRole('button', { name: 'New account' }));
     const dialog = screen.getByRole('dialog');
 
-    await user.type(within(dialog).getByLabelText('Name *'), 'Aeris');
+    await user.type(within(dialog).getByLabelText(/^Name/), 'Aeris');
     await user.type(within(dialog).getByLabelText('Industry'), 'Fintech');
     await user.click(within(dialog).getByRole('button', { name: 'Create' }));
 

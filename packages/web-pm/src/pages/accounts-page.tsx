@@ -62,7 +62,12 @@ function CreateAccountDialog({ onCreated }: { onCreated: () => void }) {
             <LayoutContent>
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <Input label="Name *" value={name} onChange={(value) => setName(value)} />
+                  <Input
+                    label="Name"
+                    isRequired
+                    value={name}
+                    onChange={(value) => setName(value)}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Input

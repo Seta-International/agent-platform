@@ -1,6 +1,5 @@
 import {
   Avatar,
-  AvatarFallback,
   Badge,
   Banner,
   Button,
@@ -10,7 +9,6 @@ import {
   EmptyState,
   formatRelative,
   Input,
-  Label,
   Layout,
   LayoutContent,
   LayoutHeader,
@@ -46,14 +44,6 @@ import {
   type WorkerPatch,
 } from '../api/people-client.ts';
 import { peopleKeys } from '../state/query-keys.ts';
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((s) => s[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
 
 function LifecycleBadge({ stage }: { stage: string | null }) {
   const variantMap: Record<string, 'neutral' | 'error'> = {
@@ -307,11 +297,7 @@ export function WorkerProfilePage() {
               header={
                 <LayoutHeader hasDivider>
                   <div className="flex items-center gap-4">
-                    <Avatar className="size-14">
-                      <AvatarFallback className="text-lg">
-                        {initials(worker.full_name)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <Avatar name={worker.full_name} size={60} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-card-title font-semibold truncate">
@@ -347,10 +333,8 @@ export function WorkerProfilePage() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label>Org unit</Label>
                         <Typeahead
                           label="Org unit"
-                          isLabelHidden
                           searchSource={searchOrgUnits.source}
                           hasEntriesOnFocus
                           value={orgUnitItem}
@@ -361,10 +345,7 @@ export function WorkerProfilePage() {
                           placeholder="Search org units…"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <Label>Manager</Label>
-                        <p className="text-body-sm text-ink py-2">{worker.manager_name ?? '—'}</p>
-                      </div>
+                      <FieldRow label="Manager" value={worker.manager_name ?? '—'} />
                       <div className="space-y-1">
                         <Input
                           type="email"

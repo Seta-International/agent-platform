@@ -1,6 +1,5 @@
 import type * as React from 'react';
 import { cn } from '../lib/cn';
-import { ScrollArea } from '../primitives/scroll-area';
 
 export interface SidePanelProps {
   header?: React.ReactNode;
@@ -16,9 +15,9 @@ export function SidePanel({ header, children, className }: SidePanelProps) {
           {header}
         </div>
       )}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="p-md">{children}</div>
-      </ScrollArea>
+      </div>
     </aside>
   );
 }

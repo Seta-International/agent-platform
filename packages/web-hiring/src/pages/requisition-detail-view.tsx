@@ -1,6 +1,5 @@
 import {
   Avatar,
-  AvatarFallback,
   Badge,
   Banner,
   Button,
@@ -109,15 +108,6 @@ function openDaysLabel(dateStr: string): string {
   if (days === 0) return 'Open today';
   if (days === 1) return 'Open 1 day';
   return `Open ${days} days`;
-}
-
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? '')
-    .join('');
 }
 
 // FUT-329: there's no variant switcher in the reference design, so this view picks
@@ -546,7 +536,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         <div className="min-h-0 flex-1 overflow-auto">
           <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
             <div className="space-y-1">
-              <Input label="Job title *" value={title} onChange={(value) => setTitle(value)} />
+              <Input
+                label="Job title"
+                isRequired
+                value={title}
+                onChange={(value) => setTitle(value)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -812,11 +807,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                       key={`${a.name}-${a.applied_date}`}
                       className="flex items-center gap-3 py-3"
                     >
-                      <Avatar className="size-9">
-                        <AvatarFallback className="bg-primary/15 text-caption font-semibold text-primary">
-                          {initialsOf(a.name)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <Avatar name={a.name} size={36} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-medium text-ink">{a.name}</div>
                         <div className="truncate text-body-sm text-ink-muted">

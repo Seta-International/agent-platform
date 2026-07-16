@@ -40,15 +40,15 @@ describe('InputFormFromSchema', () => {
       />,
     );
 
-    expect((screen.getByLabelText('taskRef › taskId') as HTMLInputElement).value).toBe(
+    expect((screen.getByLabelText(/^taskRef › taskId/) as HTMLInputElement).value).toBe(
       '11111111-1111-1111-1111-111111111111',
     );
-    expect((screen.getByLabelText('taskRef › groupId') as HTMLInputElement).value).toBe('g1');
-    expect((screen.getByLabelText('initiatedBy › userId') as HTMLInputElement).value).toBe('u1');
-    expect(screen.getByLabelText('initiatedBy › via')).toHaveTextContent('event');
+    expect((screen.getByLabelText(/^taskRef › groupId/) as HTMLInputElement).value).toBe('g1');
+    expect((screen.getByLabelText(/^initiatedBy › userId/) as HTMLInputElement).value).toBe('u1');
+    expect(screen.getByLabelText(/^initiatedBy › via/)).toHaveTextContent('event');
 
     // Open the Radix select and pick 'rerun'
-    fireEvent.click(screen.getByLabelText('initiatedBy › via'));
+    fireEvent.click(screen.getByLabelText(/^initiatedBy › via/));
     fireEvent.click(screen.getByRole('option', { name: 'rerun' }));
     fireEvent.click(screen.getByRole('button', { name: /submit/i }));
 
@@ -114,7 +114,7 @@ describe('InputFormFromSchema', () => {
     );
     expect(screen.queryByText(/was:/i)).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('taskRef › groupId'), { target: { value: 'g2' } });
+    fireEvent.change(screen.getByLabelText(/^taskRef › groupId/), { target: { value: 'g2' } });
     expect(screen.getByText(/was: g1/i)).toBeInTheDocument();
   });
 

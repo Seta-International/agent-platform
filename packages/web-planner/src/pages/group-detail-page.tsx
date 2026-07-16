@@ -1,5 +1,6 @@
 import type { GroupMemberRow } from '@seta/planner';
 import {
+  Badge,
   Button,
   ComingSoon,
   Dialog,
@@ -9,10 +10,8 @@ import {
   LayoutContent,
   LayoutFooter,
   Skeleton,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
+  Tab,
+  TabList,
   toast,
 } from '@seta/shared-ui';
 import { type SessionScopeProjection, usePermission } from '@seta/web-identity';
@@ -260,117 +259,115 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
           </DisabledActionTooltip>
         </div>
       )}
-      <Tabs
-        value={tab}
-        onValueChange={(t) => onTabChange(t as GroupTab)}
-        className="flex flex-1 min-h-0 flex-col"
-      >
-        <TabsList className="flex border-b border-hairline px-6 justify-start gap-1 bg-canvas rounded-none">
-          <TabsTrigger
-            value="plans"
-            className="group gap-2 data-[state=active]:[&>span]:bg-primary-tint data-[state=active]:[&>span]:text-primary-ink"
+      <div className="flex flex-1 min-h-0 flex-col">
+        <div className="border-b border-hairline bg-canvas px-6">
+          <TabList
+            value={tab}
+            onChange={(t) => onTabChange(t as GroupTab)}
+            aria-label="Group sections"
           >
-            Plans
-            <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-[11px] font-medium text-ink-muted transition-colors">
-              {plans.length}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="members"
-            className="group gap-2 data-[state=active]:[&>span]:bg-primary-tint data-[state=active]:[&>span]:text-primary-ink"
-          >
-            Members
-            <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-[11px] font-medium text-ink-muted transition-colors">
-              {memberTotal}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="integrations">Integrations</TabsTrigger>
-          {canManage ? <TabsTrigger value="settings">Settings</TabsTrigger> : null}
-        </TabsList>
+            <Tab
+              value="plans"
+              label="Plans"
+              endContent={<Badge variant="neutral" label={plans.length} />}
+            />
+            <Tab
+              value="members"
+              label="Members"
+              endContent={<Badge variant="neutral" label={memberTotal} />}
+            />
+            <Tab value="activity" label="Activity" />
+            <Tab value="integrations" label="Integrations" />
+            {canManage ? <Tab value="settings" label="Settings" /> : null}
+          </TabList>
+        </div>
 
-        <TabsContent value="plans" className="@container flex-1 overflow-auto bg-surface-1">
-          <div className="page-container grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
-            <GroupPlansSection
-              groupName={group.name}
-              plans={plans}
-              themeColor={themeColor}
-              canCreatePlan={canCreatePlan}
-              onCreatePlan={() => setCreatePlanOpen(true)}
-              onPlanClick={(planId) =>
-                void navigate({
-                  to: '/planner/plans/$planId',
-                  params: { planId },
-                })
-              }
-            />
-            <GroupRail
-              group={group}
-              members={members}
-              totalMemberCount={memberTotal}
-              canManage={canManageMembers}
-              onAddMember={() => setAddMembersOpen(true)}
-              onSeeAllMembers={() => onTabChange('members')}
-              activityItems={
-                activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
-              }
-              pendingRequests={canManageMembers ? (joinRequestsQuery.data ?? []) : undefined}
-              onApproveRequest={(userId) =>
-                resolveRequestMutation.mutate({ userId, action: 'approved' })
-              }
-              onRejectRequest={(userId) =>
-                resolveRequestMutation.mutate({ userId, action: 'rejected' })
-              }
-            />
+        {tab === 'plans' && (
+          <div className="@container flex-1 overflow-auto bg-surface-1">
+            <div className="page-container grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
+              <GroupPlansSection
+                groupName={group.name}
+                plans={plans}
+                themeColor={themeColor}
+                canCreatePlan={canCreatePlan}
+                onCreatePlan={() => setCreatePlanOpen(true)}
+                onPlanClick={(planId) =>
+                  void navigate({
+                    to: '/planner/plans/$planId',
+                    params: { planId },
+                  })
+                }
+              />
+              <GroupRail
+                group={group}
+                members={members}
+                totalMemberCount={memberTotal}
+                canManage={canManageMembers}
+                onAddMember={() => setAddMembersOpen(true)}
+                onSeeAllMembers={() => onTabChange('members')}
+                activityItems={
+                  activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
+                }
+                pendingRequests={canManageMembers ? (joinRequestsQuery.data ?? []) : undefined}
+                onApproveRequest={(userId) =>
+                  resolveRequestMutation.mutate({ userId, action: 'approved' })
+                }
+                onRejectRequest={(userId) =>
+                  resolveRequestMutation.mutate({ userId, action: 'rejected' })
+                }
+              />
+            </div>
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="members" className="@container flex-1 overflow-auto bg-surface-1">
-          <div className="page-container grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
-            <GroupMembersTable
-              group={group}
-              members={members}
-              canManageRoles={canManageRoles}
-              canRemoveMembers={canManageMembers}
-              onRoleChange={(v) => setMemberRoleMutation.mutate(v)}
-              onRemoveMember={(member) => setMemberToRemove(member)}
-              onRemoveMembers={(userIds) => setMembersToRemove(userIds)}
-            />
-            <GroupRail
-              group={group}
-              members={members}
-              totalMemberCount={memberTotal}
-              canManage={canManageMembers}
-              onAddMember={() => setAddMembersOpen(true)}
-              activityItems={
-                activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
-              }
-              pendingRequests={canManageMembers ? (joinRequestsQuery.data ?? []) : undefined}
-              onApproveRequest={(userId) =>
-                resolveRequestMutation.mutate({ userId, action: 'approved' })
-              }
-              onRejectRequest={(userId) =>
-                resolveRequestMutation.mutate({ userId, action: 'rejected' })
-              }
-            />
+        {tab === 'members' && (
+          <div className="@container flex-1 overflow-auto bg-surface-1">
+            <div className="page-container grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
+              <GroupMembersTable
+                group={group}
+                members={members}
+                canManageRoles={canManageRoles}
+                canRemoveMembers={canManageMembers}
+                onRoleChange={(v) => setMemberRoleMutation.mutate(v)}
+                onRemoveMember={(member) => setMemberToRemove(member)}
+                onRemoveMembers={(userIds) => setMembersToRemove(userIds)}
+              />
+              <GroupRail
+                group={group}
+                members={members}
+                totalMemberCount={memberTotal}
+                canManage={canManageMembers}
+                onAddMember={() => setAddMembersOpen(true)}
+                activityItems={
+                  activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
+                }
+                pendingRequests={canManageMembers ? (joinRequestsQuery.data ?? []) : undefined}
+                onApproveRequest={(userId) =>
+                  resolveRequestMutation.mutate({ userId, action: 'approved' })
+                }
+                onRejectRequest={(userId) =>
+                  resolveRequestMutation.mutate({ userId, action: 'rejected' })
+                }
+              />
+            </div>
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="activity" className="flex-1 overflow-auto bg-surface-1">
-          <div className="page-container">
-            <ActivityFeedTab groupId={groupId} />
+        {tab === 'activity' && (
+          <div className="flex-1 overflow-auto bg-surface-1">
+            <div className="page-container">
+              <ActivityFeedTab groupId={groupId} />
+            </div>
           </div>
-        </TabsContent>
-        <TabsContent value="integrations">
-          <ComingSoon feature="Integrations" />
-        </TabsContent>
+        )}
+        {tab === 'integrations' && <ComingSoon feature="Integrations" />}
 
-        {canManage ? (
-          <TabsContent value="settings" className="p-6">
+        {canManage && tab === 'settings' && (
+          <div className="p-6">
             <div className="text-sm text-ink-subtle">Group settings are coming soon.</div>
-          </TabsContent>
-        ) : null}
-      </Tabs>
+          </div>
+        )}
+      </div>
 
       <CreatePlanDialog groupId={groupId} open={createPlanOpen} onOpenChange={setCreatePlanOpen} />
       <EditGroupDialog group={group} open={editOpen} onOpenChange={setEditOpen} />

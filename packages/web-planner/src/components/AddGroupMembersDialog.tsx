@@ -1,7 +1,6 @@
 import type { GroupMemberRow } from '@seta/planner';
 import {
   Avatar,
-  AvatarFallback,
   Banner,
   Button,
   Checkbox,
@@ -28,16 +27,6 @@ interface Props {
 }
 
 type Candidate = { user_id: string; display_name: string; email: string };
-
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p.charAt(0))
-    .join('')
-    .toUpperCase();
-}
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState<T>(value);
@@ -176,11 +165,7 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
                       value={isSelected}
                       isReadOnly
                     />
-                    <Avatar className="size-7 shrink-0">
-                      <AvatarFallback className="text-xs">
-                        {initialsOf(c.display_name)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <Avatar name={c.display_name} size={32} />
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{c.display_name}</p>
                       <p className="text-xs text-ink-subtle truncate">{c.email}</p>

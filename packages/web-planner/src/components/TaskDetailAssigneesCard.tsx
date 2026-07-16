@@ -2,7 +2,6 @@ import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-p
 import type { TaskWithAssigneesRow } from '@seta/planner';
 import {
   Avatar,
-  AvatarFallback,
   createStaticSource,
   DisabledActionTooltip,
   type SearchableItem,
@@ -156,9 +155,7 @@ export function TaskDetailAssigneesCard({
                       >
                         <GripVertical className="size-3.5" />
                       </button>
-                      <Avatar className="size-6">
-                        <AvatarFallback>{initialsOf(a.display_name)}</AvatarFallback>
-                      </Avatar>
+                      <Avatar name={a.display_name} size={24} />
                       <div className="min-w-0 flex-1">
                         <div className="t-sm text-ink">{a.display_name}</div>
                         <div className="t-xs subtle">{idx === 0 ? 'driver' : 'reviewer'}</div>

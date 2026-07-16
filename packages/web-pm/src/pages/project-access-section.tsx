@@ -2,7 +2,6 @@ import {
   Button,
   DataTable,
   EmptyState,
-  Label,
   type SearchableItem,
   Selector,
   Typeahead,
@@ -114,10 +113,8 @@ export function ProjectAccessSection({
       {canManage && (
         <div className="flex items-end gap-2">
           <div className="space-y-1 flex-1">
-            <Label>Worker</Label>
             <Typeahead
               label="Worker"
-              isLabelHidden
               searchSource={workerSource.source}
               value={worker}
               onChange={setWorker}
@@ -125,10 +122,8 @@ export function ProjectAccessSection({
             />
           </div>
           <div className="space-y-1 w-32">
-            <Label>Level</Label>
             <Selector
               label="Level"
-              isLabelHidden
               options={[
                 { value: 'owner', label: 'Owner' },
                 { value: 'edit', label: 'Edit' },

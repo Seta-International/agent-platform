@@ -1,12 +1,4 @@
-import {
-  Badge,
-  Button,
-  EmptyState,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@seta/shared-ui';
+import { Badge, Button, EmptyState, Tab, TabList } from '@seta/shared-ui';
 import { Check, ChevronRight, Copy, FileJson } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { WorkflowRunRow } from '../api/schemas.ts';
@@ -246,28 +238,31 @@ function CurrentRunTab({ run, snapshot }: CurrentRunTabProps) {
 
 export function RunRightPanel({ run, snapshot }: RunRightPanelProps) {
   const snap = (snapshot ?? null) as SnapshotShape | null;
+  const [tab, setTab] = useState('current-run');
   return (
     <aside className="flex w-[380px] shrink-0 flex-col border-l border-hairline bg-canvas">
-      <Tabs defaultValue="current-run" className="flex h-full min-h-0 flex-col">
-        <TabsList className="h-11 flex-none gap-0 px-3">
-          <TabsTrigger value="current-run" className="px-3 py-2 text-xs">
-            Current Run
-          </TabsTrigger>
-          <TabsTrigger value="state" className="px-3 py-2 text-xs">
-            State
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="current-run" className="mt-0 min-h-0 flex-1 overflow-hidden">
-          <CurrentRunTab run={run} snapshot={snap} />
-        </TabsContent>
-        <TabsContent value="state" className="mt-0 min-h-0 flex-1 overflow-hidden">
-          <JsonBlock
-            value={snap?.context ?? null}
-            emptyTitle="No state yet"
-            emptyDescription="The workflow hasn't written any context values yet."
-          />
-        </TabsContent>
-      </Tabs>
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex-none px-3">
+          <TabList value={tab} onChange={setTab} size="sm" hasDivider aria-label="Run details">
+            <Tab value="current-run" label="Current Run" />
+            <Tab value="state" label="State" />
+          </TabList>
+        </div>
+        {tab === 'current-run' && (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <CurrentRunTab run={run} snapshot={snap} />
+          </div>
+        )}
+        {tab === 'state' && (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <JsonBlock
+              value={snap?.context ?? null}
+              emptyTitle="No state yet"
+              emptyDescription="The workflow hasn't written any context values yet."
+            />
+          </div>
+        )}
+      </div>
     </aside>
   );
 }
