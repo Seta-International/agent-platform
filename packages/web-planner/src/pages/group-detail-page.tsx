@@ -128,6 +128,15 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
     }
   }, [groupQuery.data?.deleted_at, canUpdateGroup]);
 
+  // Raising a toast is a state update on the toast viewport, so it has to happen in an
+  // effect rather than inline in the 403 branch below.
+  const isForbidden = (groupQuery.error as { status?: number } | null)?.status === 403;
+  useEffect(() => {
+    if (!isForbidden) return;
+    toast({ body: "You don't have access to this group anymore.", type: 'error' });
+    void navigate({ to: '/planner/groups' });
+  }, [isForbidden, navigate, toast]);
+
   // Capability checks
   const roles = session.role_summary.roles;
   const isAdmin =
@@ -160,11 +169,8 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
   }
 
   if (groupQuery.isError) {
-    // 403 → redirect to groups list
-    const err = groupQuery.error as { status?: number } | null;
-    if (err?.status === 403) {
-      void navigate({ to: '/planner/groups' });
-      toast({ body: "You don't have access to this group anymore.", type: 'error' });
+    // 403 → the effect above toasts and redirects to the groups list.
+    if (isForbidden) {
       return null;
     }
     return <ErrorState onRetry={() => void groupQuery.refetch()} />;
