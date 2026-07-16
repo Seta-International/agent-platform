@@ -129,4 +129,65 @@ describe('chat intent classifier (tier 2: assignment vs planner_qna)', () => {
     await c('hmm');
     expect(llm).toHaveBeenCalledWith('hmm', undefined);
   });
+
+  describe('confirmation follow-ups re-use previous intent', () => {
+    const assignmentHistory = [
+      { role: 'user' as const, content: 'find tasks with label backend' },
+      { role: 'assistant' as const, content: 'Found 3 tasks. Want me to recommend someone?' },
+    ];
+    const qnaHistory = [
+      { role: 'user' as const, content: 'what are my open tasks?' },
+      { role: 'assistant' as const, content: 'You have 5 open tasks.' },
+    ];
+
+    it('"yes" after assignment turn stays assignment (no LLM call)', async () => {
+      const llm = vi.fn(async () => 'planner_qna' as const);
+      const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+      expect(await c('yes', assignmentHistory)).toBe('assignment');
+      expect(llm).not.toHaveBeenCalled();
+    });
+
+    it('"ok" after planner_qna turn stays planner_qna', async () => {
+      const llm = vi.fn(async () => 'assignment' as const);
+      const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+      expect(await c('ok', qnaHistory)).toBe('planner_qna');
+      expect(llm).not.toHaveBeenCalled();
+    });
+
+    it('Vietnamese confirmations work ("có", "được", "đồng ý")', async () => {
+      const llm = vi.fn(async () => 'planner_qna' as const);
+      const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+      for (const word of ['có', 'được', 'đồng ý', 'làm đi']) {
+        expect(await c(word, assignmentHistory), word).toBe('assignment');
+      }
+      expect(llm).not.toHaveBeenCalled();
+    });
+
+    it('negations also stay on the same intent ("no", "không", "cancel")', async () => {
+      const llm = vi.fn(async () => 'planner_qna' as const);
+      const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+      for (const word of ['no', 'không', 'cancel', 'thôi']) {
+        expect(await c(word, assignmentHistory), word).toBe('assignment');
+      }
+      expect(llm).not.toHaveBeenCalled();
+    });
+
+    it('confirmation without history falls through to LLM', async () => {
+      const llm = vi.fn(async () => 'assignment' as const);
+      const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+      await c('yes');
+      expect(llm).toHaveBeenCalledOnce();
+    });
+
+    it('confirmation with non-classifiable history falls through to LLM', async () => {
+      const llm = vi.fn(async () => 'assignment' as const);
+      const c = makeIntentClassifier({ resolveModel: () => ({}) as never, classifyLlm: llm });
+      const ambiguousHistory = [
+        { role: 'user' as const, content: 'hmm interesting' },
+        { role: 'assistant' as const, content: 'Can I help?' },
+      ];
+      await c('yes', ambiguousHistory);
+      expect(llm).toHaveBeenCalledOnce();
+    });
+  });
 });

@@ -1,14 +1,8 @@
 /* eslint-disable react-refresh/only-export-components -- hook and provider co-located; separating them would require an extra file for a single re-export */
-import {
-  createContext,
-  type ReactNode,
-  use,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import { fetchMe, type SessionScopeProjection } from '../api/client.ts';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { createContext, type ReactNode, use, useCallback, useMemo, useRef } from 'react';
+import type { SessionScopeProjection } from '../api/client.ts';
+import { sessionQueryKey, sessionQueryOptions } from '../api/session-query.ts';
 
 interface SessionContextValue {
   session: SessionScopeProjection;
@@ -24,17 +18,21 @@ export function SessionProvider({
   session: SessionScopeProjection;
   children: ReactNode;
 }) {
-  const [session, setSession] = useState(initialSession);
+  const queryClient = useQueryClient();
+  // The shared session query cache is the source of truth; the prop only seeds it
+  // when nothing resolved the session yet (route guards normally already have).
+  const { data } = useQuery({ ...sessionQueryOptions, initialData: initialSession });
 
-  useEffect(() => {
-    setSession(initialSession);
-  }, [initialSession]);
+  // A refresh can come back 401 (session revoked mid-flight); keep serving the last
+  // known session — the next navigation's route guard handles the redirect to /login.
+  const lastSessionRef = useRef(initialSession);
+  if (data) lastSessionRef.current = data;
+  const session = data ?? lastSessionRef.current;
 
   const refreshSession = useCallback(async () => {
-    const next = await fetchMe();
-    if (next) setSession(next);
-    return next;
-  }, []);
+    await queryClient.invalidateQueries({ queryKey: sessionQueryKey });
+    return queryClient.getQueryData<SessionScopeProjection | null>(sessionQueryKey) ?? null;
+  }, [queryClient]);
 
   const value = useMemo(() => ({ session, refreshSession }), [session, refreshSession]);
 
