@@ -35,14 +35,15 @@ interface GridColumn {
   renderCell: (r: MyTasksRowTask) => ReactNode;
 }
 
-// Mirror TanStack's default `auto` sorting: numeric compare for numbers,
-// case-insensitive alphanumeric for strings, nulls pushed to the end.
+// Mirror TanStack's default `auto` sorting fn: numeric compare for numbers,
+// case-insensitive alphanumeric for strings. Per table-core's `toString`, a null value
+// collapses to '' (so nulls sort FIRST under asc, last under desc) — table-core's
+// `sortUndefined` special-case fires only for `undefined`, never `null`.
 function compareValues(a: SortValue, b: SortValue): number {
-  if (a === null && b === null) return 0;
-  if (a === null) return 1; // a null => a after b
-  if (b === null) return -1; // b null => a before b
   if (typeof a === 'number' && typeof b === 'number') return a - b;
-  return String(a).localeCompare(String(b), undefined, { sensitivity: 'base', numeric: true });
+  const sa = a === null ? '' : String(a);
+  const sb = b === null ? '' : String(b);
+  return sa.localeCompare(sb, undefined, { sensitivity: 'base', numeric: true });
 }
 
 function formatDueShort(v: string | null): ReactNode {
@@ -145,11 +146,23 @@ export function MyTasksGrid({ data }: Props) {
     return [...rows].sort((a, b) => compareValues(get(a), get(b)) * factor);
   }, [rows, sort, columns]);
 
-  // Cycle asc -> desc -> unsorted, matching TanStack's default sort toggle with removal.
-  function toggleSort(id: string) {
+  // First-click direction, reproducing table-core's getAutoSortDir/getFirstSortDir:
+  // no `sortDescFirst` set, so it falls back to the first (pre-sort) row's value type —
+  // `string` sorts asc-first, everything else (numbers, null) desc-first.
+  function firstSortDir(column: GridColumn): SortDir {
+    const first = rows[0];
+    const value = first !== undefined ? column.sortValue?.(first) : undefined;
+    return typeof value === 'string' ? 'asc' : 'desc';
+  }
+
+  // Cycle firstDir -> opposite -> unsorted, matching table-core's getNextSortingOrder
+  // with the default enableSortingRemoval=true.
+  function toggleSort(column: GridColumn) {
+    const first = firstSortDir(column);
+    const opposite: SortDir = first === 'asc' ? 'desc' : 'asc';
     setSort((prev) => {
-      if (prev?.key !== id) return { key: id, dir: 'asc' };
-      if (prev.dir === 'asc') return { key: id, dir: 'desc' };
+      if (prev?.key !== column.id) return { key: column.id, dir: first };
+      if (prev.dir === first) return { key: column.id, dir: opposite };
       return null;
     });
   }
@@ -176,7 +189,7 @@ export function MyTasksGrid({ data }: Props) {
             return (
               <th
                 key={c.id}
-                onClick={canSort ? () => toggleSort(c.id) : undefined}
+                onClick={canSort ? () => toggleSort(c) : undefined}
                 className={
                   'text-left font-medium px-3 py-2.5 select-none ' +
                   (canSort ? 'cursor-pointer hover:text-ink' : '')
