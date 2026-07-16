@@ -1,4 +1,4 @@
-import { toast } from '@seta/shared-ui';
+import type { ShowToastFn } from '@seta/shared-ui';
 import { useQuery, type useQueryClient } from '@tanstack/react-query';
 import { fetchRequisition, type OpenRequisitionsBoard } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
@@ -18,14 +18,15 @@ export function useRequisition(id: string) {
 }
 
 export function on409(
+  toast: ShowToastFn,
   e: Error,
   queryClient: ReturnType<typeof useQueryClient>,
   queryKey: readonly unknown[],
 ): void {
   if ((e as { status?: number }).status === 409) {
-    toast.error('This record changed — refreshing.');
+    toast({ body: 'This record changed — refreshing.', type: 'error' });
     void queryClient.invalidateQueries({ queryKey });
   } else {
-    toast.error(e.message);
+    toast({ body: e.message, type: 'error' });
   }
 }

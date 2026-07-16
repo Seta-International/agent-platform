@@ -7,7 +7,7 @@ import {
   LayoutContent,
   LayoutFooter,
   Selector,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -28,6 +28,7 @@ export function CancelRequisitionDialog({
   onOpenChange: (v: boolean) => void;
   onDone: () => void;
 }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [reasonId, setReasonId] = useState('');
   const [newReasonLabel, setNewReasonLabel] = useState('');
@@ -48,7 +49,7 @@ export function CancelRequisitionDialog({
       setReasonId(created.id);
       setNewReasonLabel('');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const mutation = useMutation({
@@ -59,7 +60,7 @@ export function CancelRequisitionDialog({
         close_reason_id: effectiveReason,
       }),
     onSuccess: () => {
-      toast.success('Requisition cancelled');
+      toast({ body: 'Requisition cancelled' });
       onOpenChange(false);
       // Cancelling removes this row from the board query (see OPEN_BOARD_STATUSES) — invalidating
       // immediately can unmount the row (and this dialog with it) mid-close-animation, which can
@@ -68,7 +69,7 @@ export function CancelRequisitionDialog({
       // dialog.tsx) so Radix finishes tearing itself down cleanly first.
       setTimeout(onDone, 250);
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisitions()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisitions()),
   });
 
   return (

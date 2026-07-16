@@ -8,7 +8,7 @@ import {
   formatRelative,
   Layout,
   LayoutContent,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -151,6 +151,7 @@ export function CandidateDetailDrawer({
   candidateId: string | null;
   onClose: () => void;
 }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const canManage = usePermission('hiring.candidate.manage');
   const canReject = usePermission('hiring.candidate.reject');
@@ -177,10 +178,10 @@ export function CandidateDetailDrawer({
       return moveApplicationStage(app.application_id, { expected_version: app.version, to });
     },
     onSuccess: () => {
-      toast.success('Stage updated');
+      toast({ body: 'Stage updated' });
       refresh();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.candidate(candidateId ?? '')),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.candidate(candidateId ?? '')),
   });
   const terminal = app ? app.status !== 'active' : true;
   const fit = app ? fitLabel(app.fit) : null;
@@ -477,10 +478,11 @@ function CandidateCvActions({
   canManage: boolean;
   onChanged: () => void;
 }) {
+  const toast = useToast();
   const download = useMutation({
     mutationFn: () => getCandidateCvDownloadUrl(candidateId),
     onSuccess: (url) => window.open(url, '_blank', 'noopener'),
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const replace = useMutation({
@@ -494,10 +496,10 @@ function CandidateCvActions({
       await editCandidate(candidateId, { patch: { cv_storage_key: s3_key } });
     },
     onSuccess: () => {
-      toast.success('CV updated');
+      toast({ body: 'CV updated' });
       onChanged();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   return (
