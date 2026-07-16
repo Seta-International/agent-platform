@@ -17,7 +17,7 @@ import {
   plannerSearchGroupMembersBySkillsTool,
 } from '@seta/planner/agent-tools';
 import { listPlans } from '../../domain/list-plans.ts';
-import { listMemberGroupIds } from '../../read-helpers.ts';
+import { listMemberGroups } from '../../read-helpers.ts';
 import { pickModel } from '../model.ts';
 import {
   type QuerySubAgentInput as In,
@@ -50,36 +50,38 @@ export interface QueryTeamInfoDeps {
 }
 
 function buildInstructions({ requestContext }: { requestContext: RequestContext }): string {
-  const groupIds = requestContext.get<'caller_group_ids', string[]>('caller_group_ids') ?? [];
-  const planIds = requestContext.get<'caller_plan_ids', string[]>('caller_plan_ids') ?? [];
+  const groups =
+    requestContext.get<'caller_groups', { id: string; name: string }[]>('caller_groups') ?? [];
+  const plans =
+    requestContext.get<'caller_plans', { id: string; name: string }[]>('caller_plans') ?? [];
   const resolved =
-    groupIds.length || planIds.length
-      ? `\n\nThe caller's own group(s)/plan(s), pre-resolved (internal ids, not for the user):\n` +
-        [...groupIds.map((id) => `- group ${id}`), ...planIds.map((id) => `- plan ${id}`)].join(
-          '\n',
-        ) +
-        `\nUse these directly for "my group/team/plan" questions — no need to ask. ` +
-        `If several are listed and the question doesn't say which, call planner_getGroupOverview ` +
-        `/ planner_listPlans to get their names, then ask the user to pick by name — never by id.\n`
+    groups.length || plans.length
+      ? `\n\nThe caller's own group(s)/plan(s), pre-resolved:\n` +
+        [
+          ...groups.map((g) => `- group "${g.name}" (${g.id})`),
+          ...plans.map((p) => `- plan "${p.name}" (${p.id})`),
+        ].join('\n') +
+        `\nUse these for "my group/team/plan" questions. Tools now support groupName/planName ` +
+        `parameters — you can pass the name directly instead of the UUID. ` +
+        `If several groups/plans are listed and the question doesn't say which, ask the user to pick by name — never by id.\n`
       : '';
 
   return `You answer questions about org structure and people in prose:
 group members + roles, the plans in a group, the buckets in a plan, and who has
 which skills.
 
-Tools:
-- planner_getGroupOverview(groupId): group name + members/roles/total count + plans in the group.
+Tools (all support groupName/planName as alternatives to groupId/planId):
+- planner_getGroupOverview(groupId?, groupName?): group name + members/roles/total count + plans.
 - planner_listPlans(groupId?): plans in a group (or all accessible).
-- planner_listBuckets(planId): buckets in a plan.
-- planner_getWorkload(groupId): per-person open-task counts across a group, busiest first.
+- planner_listBuckets(planId?, planName?): buckets in a plan.
+- planner_getWorkload(groupId?, groupName?): per-person open-task counts, busiest first.
 - planner_getUserActivity(userId, since?, limit?): a person's recent activity across visible boards.
-- planner_searchGroupMembersBySkills(groupId, skills): rank members by skill.
+- planner_searchGroupMembersBySkills(groupId?, groupName?, skills): rank members by skill.
 ${resolved}
 Otherwise resolve groupId / planId from the "[Context: ...]" prefix or a prior list result.
-If an id is required and cannot be resolved, ask the user instead of guessing.
+If scope cannot be resolved and the user has multiple groups/plans, ask by name — never by id.
 groupId / planId / userId are internal tool handles only — never print a raw id/UUID
-in your answer. Always refer to groups, plans, and people by name; resolve the name
-via a tool call first if you don't already have it.
+in your answer. Always refer to groups, plans, and people by name.
 Read-only.`;
 }
 
@@ -103,18 +105,13 @@ export function makeQueryTeamInfoAgent(deps: QueryTeamInfoDeps): SpecializedAgen
             // self-resolution (unlike listPlans(groupId?)), so without this the
             // sub-agent has nothing to answer "my group/team/plan" cold and asks
             // the user for an id instead.
-            const groupIds = await (deps.listMemberGroupIds ?? listMemberGroupIds)(
-              ctx.actorUserId,
-              ctx.tenantId,
-            );
-            const session = await (deps.buildActorSession ?? buildActorSession)({
-              user_id: ctx.actorUserId,
-            });
-            const myPlans = await (deps.listPlans ?? listPlans)({ session });
-            rc.set('caller_group_ids', groupIds);
+            const myGroups = await listMemberGroups(ctx.actorUserId, ctx.tenantId);
+            const session = await buildActorSession({ user_id: ctx.actorUserId });
+            const myPlans = await listPlans({ session });
+            rc.set('caller_groups', myGroups);
             rc.set(
-              'caller_plan_ids',
-              myPlans.map((p) => p.id),
+              'caller_plans',
+              myPlans.map((p) => ({ id: p.id, name: p.name })),
             );
 
             const agent = new Agent({

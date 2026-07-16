@@ -3,21 +3,33 @@ import { buildActorSession } from '@seta/identity';
 import { z } from 'zod';
 import { getPlanChartData } from '../domain/get-plan-chart-data.ts';
 import { listGroupPlansWithRollups } from '../domain/list-group-plans-with-rollups.ts';
+import { resolveGroupScope, resolvePlanScope } from './resolve-scope.ts';
 
 export const plannerGetStatsTool = defineAgentTool({
   id: 'planner_getStats',
   name: 'Get Stats',
   description:
-    'Aggregate task metrics for a plan (planId) or a whole group (groupId): ' +
-    'totals and status breakdowns.',
+    'Aggregate task metrics for a plan or a whole group: totals and status breakdowns.\n' +
+    'Supports name-based lookup: pass planName/groupName instead of UUIDs.\n' +
+    'Omit all to auto-resolve when the user has exactly one group.',
   input: z
     .object({
       planId: z.string().uuid().optional(),
+      planName: z.string().optional(),
       groupId: z.string().uuid().optional(),
+      groupName: z.string().optional(),
     })
-    .refine((v) => Boolean(v.planId) !== Boolean(v.groupId), {
-      message: 'Provide exactly one of planId or groupId.',
-    }),
+    .refine(
+      (v) => {
+        const hasPlan = Boolean(v.planId || v.planName);
+        const hasGroup = Boolean(v.groupId || v.groupName);
+        return hasPlan !== hasGroup || (!hasPlan && !hasGroup);
+      },
+      {
+        message:
+          'Provide plan (planId/planName) OR group (groupId/groupName), or omit all to auto-resolve.',
+      },
+    ),
   output: z.object({
     scope: z.enum(['plan', 'group']),
     totalTasks: z.number(),
@@ -31,8 +43,20 @@ export const plannerGetStatsTool = defineAgentTool({
   execute: async (input, ctx) => {
     const session = await buildActorSession(actorFromContext(ctx));
 
-    if (input.planId) {
-      const chart = await getPlanChartData({ plan_id: input.planId }, session);
+    if (input.planId || input.planName) {
+      const resolved = await resolvePlanScope(session, {
+        planId: input.planId,
+        planName: input.planName,
+      });
+      if ('notFound' in resolved) {
+        return { error: 'No accessible plan found matching that criteria.' } as never;
+      }
+      if ('ambiguous' in resolved) {
+        const names = resolved.options.map((o) => o.name).join(', ');
+        return { error: `Multiple plans found: ${names}. Please specify which one.` } as never;
+      }
+
+      const chart = await getPlanChartData({ plan_id: resolved.id }, session);
       const { kpis } = chart;
       return {
         scope: 'plan' as const,
@@ -45,8 +69,20 @@ export const plannerGetStatsTool = defineAgentTool({
       };
     }
 
+    const resolved = await resolveGroupScope(session, {
+      groupId: input.groupId,
+      groupName: input.groupName,
+    });
+    if ('notFound' in resolved) {
+      return { error: 'No accessible group found matching that criteria.' } as never;
+    }
+    if ('ambiguous' in resolved) {
+      const names = resolved.options.map((o) => o.name).join(', ');
+      return { error: `Multiple groups found: ${names}. Please specify which one.` } as never;
+    }
+
     const rollups = await listGroupPlansWithRollups({
-      group_id: input.groupId!,
+      group_id: resolved.id,
       session,
     });
 

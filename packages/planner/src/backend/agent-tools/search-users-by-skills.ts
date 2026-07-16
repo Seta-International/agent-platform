@@ -4,6 +4,7 @@ import { getPersonSkills } from '@seta/people';
 import { z } from 'zod';
 import { getTask } from '../domain/get-task.ts';
 import { listGroupMembers } from '../domain/list-group-members.ts';
+import { resolveGroupScope } from './resolve-scope.ts';
 
 interface SkillCandidate {
   userId: string;
@@ -27,10 +28,15 @@ export const plannerSearchGroupMembersBySkillsTool = defineAgentTool({
     'Use for: building a candidate shortlist for task assignment within a specific group; ' +
     '"who in this group knows docker?"; "find backend developers in group X".\n' +
     'Do NOT use for broad topic or semantic search — use people_matchUsersByTopic instead.\n\n' +
-    'Requires groupId — always resolvable from a task or plan result; call planner_getTask first ' +
-    'if no group is in context.',
+    'Resolves groupId automatically: provide groupName for name-based lookup, or omit both ' +
+    'to auto-resolve when the user belongs to exactly one group.',
   input: z.object({
-    groupId: z.string().uuid().describe('The group ID to search within'),
+    groupId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('Group UUID. Optional if groupName provided or user has exactly one group.'),
+    groupName: z.string().optional().describe('Group name (case-insensitive substring match).'),
     taskId: z
       .string()
       .uuid()
@@ -59,6 +65,20 @@ export const plannerSearchGroupMembersBySkillsTool = defineAgentTool({
   execute: async (input, ctx) => {
     const actor = actorFromContext(ctx);
     const session = await buildActorSession(actor);
+
+    const resolved = await resolveGroupScope(session, {
+      groupId: input.groupId,
+      groupName: input.groupName,
+    });
+    if ('notFound' in resolved) {
+      return { error: 'No accessible group found matching that criteria.' } as never;
+    }
+    if ('ambiguous' in resolved) {
+      const names = resolved.options.map((o) => o.name).join(', ');
+      return { error: `Multiple groups found: ${names}. Please specify which one.` } as never;
+    }
+
+    const groupId = resolved.id;
     const excludeUserIds = new Set<string>([actor.user_id]);
     if (input.taskId) {
       try {
@@ -70,14 +90,14 @@ export const plannerSearchGroupMembersBySkillsTool = defineAgentTool({
     }
 
     const firstPage = await listGroupMembers({
-      group_id: input.groupId,
+      group_id: groupId,
       limit: 100,
       session,
     });
     const members = [...firstPage.members];
     for (let offset = members.length; offset < firstPage.total; offset += 100) {
       const page = await listGroupMembers({
-        group_id: input.groupId,
+        group_id: groupId,
         limit: 100,
         offset,
         session,
