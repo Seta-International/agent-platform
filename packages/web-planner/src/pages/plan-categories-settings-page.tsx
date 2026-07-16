@@ -63,8 +63,6 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
     <div className="flex flex-col h-full">
       <header className="px-7 pt-4 pb-0 border-b border-hairline bg-canvas">
         <div className="mb-2">
-          {/* The plan crumb carries what the deleted "Back to board" link did — the same
-              /planner/plans/$planId destination, so nothing is lost. */}
           <Breadcrumbs variant="supporting">
             <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
             {planForGroup ? (

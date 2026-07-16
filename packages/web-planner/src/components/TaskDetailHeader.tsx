@@ -89,8 +89,8 @@ export function TaskDetailHeader({
               <BreadcrumbItem>{groupName}</BreadcrumbItem>
             )}
             {planId ? (
-              // Keeps the honest href (middle-click / "open in new tab" still work) while the
-              // click itself returns to the board in-place — this replaces "Back to board".
+              // Keep the real href so middle-click / "open in new tab" still work; the
+              // primary click is intercepted to navigate back in-place instead.
               <BreadcrumbItem
                 href={`/planner/plans/${planId}`}
                 onClick={(e) => {

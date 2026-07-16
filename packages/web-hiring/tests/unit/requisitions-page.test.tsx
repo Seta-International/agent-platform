@@ -86,10 +86,6 @@ async function renderListView(rows: RequisitionListRow[]) {
 }
 
 describe('RequisitionsPage', () => {
-  // The old `PageChrome` rendered `breadcrumb={['Hiring management', 'Open positions']}` — two
-  // inert, non-navigable strings. That collapses to the standard Astryx trail below (a spec'd
-  // improvement: the root crumb is now a real link), so this test also proves the old strings
-  // are gone, not just that the new ones are present.
   it('renders the breadcrumb trail and page heading', async () => {
     fetchOpenRequisitions.mockResolvedValue(board([row()]));
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

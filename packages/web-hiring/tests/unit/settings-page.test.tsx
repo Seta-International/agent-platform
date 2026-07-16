@@ -29,11 +29,6 @@ const wrap =
 // title via its heading rather than the dialog's accessible name — matching this batch's
 // established pattern (see NewRequisitionDialog's test).
 describe('SettingsPage', () => {
-  // The old `PageChrome` passed `breadcrumb={[<Link to="/hiring/requisitions">Requisitions</Link>]}`
-  // — a single navigable crumb pointing at an unrelated sibling page (Settings isn't nested under
-  // Requisitions). Per the spec'd collapse, that link is gone; the trail is now the standard
-  // root -> current shape, with the page's own title ("Hiring settings") winning as the current
-  // crumb because it differs from the manifest's nav label ("Settings").
   it('renders the breadcrumb trail and page heading', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<SettingsPage />, { wrapper: wrap(qc) });
