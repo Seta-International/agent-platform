@@ -1,4 +1,17 @@
-import { Banner, Button, Card, PageChrome, Skeleton } from '@seta/shared-ui';
+import {
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
+  Button,
+  Card,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  Skeleton,
+  Text,
+  VStack,
+} from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { DomainsField } from '../../components/DomainsField.tsx';
@@ -36,42 +49,64 @@ export function TenantSettings() {
   });
 
   return (
-    <PageChrome breadcrumb={['Admin']} title="General">
-      <div className="page-container space-y-4">
-        {error && <Banner status="error" title={(error as Error).message} />}
-        <Card padding={5}>
-          <div className="space-y-3">
-            <div>
-              <div className="font-medium text-ink">Email domains</div>
-              <p className="mt-1 text-body-sm text-ink-muted">
-                Used to generate work email addresses for new people.
-              </p>
-            </div>
-            {isLoading ? (
-              <Skeleton height={36} />
-            ) : (
-              <>
-                <DomainsField domains={domains} onChange={setDomains} />
-                {saveDomainsM.error && (
-                  <div className="text-body-sm text-destructive">
-                    {(saveDomainsM.error as Error).message}
-                  </div>
-                )}
-                {domainsSaved && (
-                  <div className="text-body-sm text-success">Email domains saved.</div>
-                )}
-                <div className="flex justify-end">
-                  <Button
-                    label="Save"
-                    onClick={() => saveDomainsM.mutate(domains)}
-                    isDisabled={saveDomainsM.isPending}
-                  />
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>General</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  General
+                </Text>
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent>
+          <div className="page-container space-y-4">
+            {error && <Banner status="error" title={(error as Error).message} />}
+            <Card padding={5}>
+              <div className="space-y-3">
+                <div>
+                  <div className="font-medium text-ink">Email domains</div>
+                  <p className="mt-1 text-body-sm text-ink-muted">
+                    Used to generate work email addresses for new people.
+                  </p>
                 </div>
-              </>
-            )}
+                {isLoading ? (
+                  <Skeleton height={36} />
+                ) : (
+                  <>
+                    <DomainsField domains={domains} onChange={setDomains} />
+                    {saveDomainsM.error && (
+                      <div className="text-body-sm text-destructive">
+                        {(saveDomainsM.error as Error).message}
+                      </div>
+                    )}
+                    {domainsSaved && (
+                      <div className="text-body-sm text-success">Email domains saved.</div>
+                    )}
+                    <div className="flex justify-end">
+                      <Button
+                        label="Save"
+                        onClick={() => saveDomainsM.mutate(domains)}
+                        isDisabled={saveDomainsM.isPending}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </Card>
           </div>
-        </Card>
-      </div>
-    </PageChrome>
+        </LayoutContent>
+      }
+    />
   );
 }

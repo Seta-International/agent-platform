@@ -104,8 +104,23 @@ describe('AdminAudit page', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<Harness />, { wrapper: wrap(qc) });
 
-    // Scope to the table: "No events" also appears in the PageChrome subtitle.
+    // Scope to the table: "No events" also appears in the page header subtitle.
     const table = await screen.findByRole('table');
     expect(within(table).getByText('No events')).toBeInTheDocument();
+  });
+
+  it('renders the Admin → Audit log breadcrumb trail with a navigable root crumb', async () => {
+    await setup({ rows: mockRows, total: 2 });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<Harness />, { wrapper: wrap(qc) });
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Admin' });
+    expect(rootCrumb).toHaveAttribute('href', '/admin');
+    // The terminal crumb reflects the page but is not itself a link.
+    expect(within(nav).getByText('Audit log').closest('a')).toBeNull();
+
+    // The h1 still carries the page's real heading semantics.
+    expect(screen.getByRole('heading', { level: 1, name: 'Audit log' })).toBeInTheDocument();
   });
 });

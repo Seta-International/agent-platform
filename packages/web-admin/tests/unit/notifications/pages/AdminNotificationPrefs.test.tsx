@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -68,5 +68,21 @@ describe('AdminNotificationPrefs', () => {
     await waitFor(() => {
       expect(screen.getByText(/Couldn.t load notification settings/)).toBeInTheDocument();
     });
+  });
+
+  it('renders the Admin → Notification prefs breadcrumb trail with a navigable root crumb', async () => {
+    listPrefs.mockResolvedValueOnce(makeMatrix());
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<AdminNotificationPrefs />, { wrapper: wrap(qc) });
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Admin' });
+    expect(rootCrumb).toHaveAttribute('href', '/admin');
+    // The current crumb follows the brief's matrix label, which differs from
+    // the page's own h1 text ("Notifications") — both are valid at once.
+    expect(within(nav).getByText('Notification prefs').closest('a')).toBeNull();
+
+    // The h1 still carries the page's real heading semantics.
+    expect(screen.getByRole('heading', { level: 1, name: 'Notifications' })).toBeInTheDocument();
   });
 });

@@ -1,24 +1,30 @@
 import {
   Badge,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Dialog,
   DialogHeader,
   DropdownMenu,
   DropdownMenuItem,
   EmptyState,
+  HStack,
   Input,
   Layout,
+  LayoutContent,
   LayoutFooter,
-  PageChrome,
-  PageChromeToolbar,
+  LayoutHeader,
   pixel,
   proportional,
   Selector,
   Skeleton,
   Table,
   type TableColumn,
+  Text,
+  Toolbar,
   useTablePagination,
   useTableSelection,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { MoreHorizontal, Search, X } from 'lucide-react';
@@ -391,121 +397,139 @@ export function Directory({ search, onSearch }: DirectoryProps) {
       : undefined;
 
   return (
-    <PageChrome
-      breadcrumb={['Admin']}
-      title="Directory"
-      subtitle={subtitle}
-      toolbar={
-        <PageChromeToolbar
-          left={
-            <div className="flex flex-wrap items-center gap-2">
-              <FilterSelect
-                ariaLabel="Filter by group"
-                value={group}
-                onChange={(v) => applyFilter({ group: v === 'all' ? undefined : v })}
-                options={groupOptions}
-              />
-              <FilterSelect
-                ariaLabel="Filter by account status"
-                value={status}
-                onChange={(v) =>
-                  applyFilter({
-                    status: v === 'all' ? undefined : (v as DirectorySearch['status']),
-                  })
-                }
-                options={STATUS_OPTIONS}
-              />
-              <FilterSelect
-                ariaLabel="Filter by employment"
-                value={employment}
-                onChange={(v) =>
-                  applyFilter({
-                    employment: v === 'all' ? undefined : (v as DirectorySearch['employment']),
-                  })
-                }
-                options={EMPLOYMENT_OPTIONS}
-              />
-              {hasFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 text-ink-subtle"
-                  onClick={() => {
-                    setQInput('');
-                    onSearch(() => ({}));
-                  }}
-                  icon={<X className="size-3.5" aria-hidden />}
-                  label="Clear"
-                />
-              )}
-            </div>
-          }
-          right={
-            <Input
-              label="Search people"
-              isLabelHidden
-              startIcon={<Search className="size-3.5" aria-hidden />}
-              placeholder="Search people…"
-              value={qInput}
-              onChange={(value) => {
-                setQInput(value);
-                applyFilter({ q: value.trim() || undefined });
-              }}
-              className="w-64"
-              size="sm"
-            />
-          }
-        />
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Directory</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Directory
+                </Text>
+                {subtitle && <Text color="secondary">{subtitle}</Text>}
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
       }
-    >
-      {canWrite && selectedUserIds.length > 0 && (
-        <BulkGroupBar selectedUserIds={selectedUserIds} onClearSelection={clearSelection} />
-      )}
-      <div className="px-6 py-4">
-        {isLoading ? (
-          <div className="space-y-2">
-            {['s0', 's1', 's2', 's3', 's4'].map((id) => (
-              <Skeleton key={id} height={44} />
-            ))}
-          </div>
-        ) : (
-          <Table
-            data={rows}
-            columns={columns}
-            idKey="person_id"
-            emptyState={<EmptyState title="No results" />}
-            plugins={{
-              selection,
-              pagination,
-              // Row click opens the detail sheet. Guard against clicks that
-              // originate from the row's own interactive controls (selection
-              // checkbox, the actions menu trigger) so they don't also
-              // navigate — the deleted DataTable did this via stopPropagation.
-              rowClick: {
-                transformBodyRow: (props, item) => ({
-                  ...props,
-                  htmlProps: {
-                    ...props.htmlProps,
-                    style: { ...props.htmlProps.style, cursor: 'pointer' },
-                    onClick: (e) => {
-                      const target = e.target as HTMLElement;
-                      if (
-                        target.closest(
-                          'button, a, input, label, [role="checkbox"], [role="menuitem"]',
-                        )
-                      )
-                        return;
-                      setSelectedRow(item);
-                    },
-                  },
-                }),
-              },
-            }}
+      content={
+        <LayoutContent padding={0}>
+          <Toolbar
+            label="Directory filters"
+            size="sm"
+            dividers={['bottom']}
+            startContent={
+              <div className="flex flex-wrap items-center gap-2">
+                <FilterSelect
+                  ariaLabel="Filter by group"
+                  value={group}
+                  onChange={(v) => applyFilter({ group: v === 'all' ? undefined : v })}
+                  options={groupOptions}
+                />
+                <FilterSelect
+                  ariaLabel="Filter by account status"
+                  value={status}
+                  onChange={(v) =>
+                    applyFilter({
+                      status: v === 'all' ? undefined : (v as DirectorySearch['status']),
+                    })
+                  }
+                  options={STATUS_OPTIONS}
+                />
+                <FilterSelect
+                  ariaLabel="Filter by employment"
+                  value={employment}
+                  onChange={(v) =>
+                    applyFilter({
+                      employment: v === 'all' ? undefined : (v as DirectorySearch['employment']),
+                    })
+                  }
+                  options={EMPLOYMENT_OPTIONS}
+                />
+                {hasFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-ink-subtle"
+                    onClick={() => {
+                      setQInput('');
+                      onSearch(() => ({}));
+                    }}
+                    icon={<X className="size-3.5" aria-hidden />}
+                    label="Clear"
+                  />
+                )}
+              </div>
+            }
+            endContent={
+              <Input
+                label="Search people"
+                isLabelHidden
+                startIcon={<Search className="size-3.5" aria-hidden />}
+                placeholder="Search people…"
+                value={qInput}
+                onChange={(value) => {
+                  setQInput(value);
+                  applyFilter({ q: value.trim() || undefined });
+                }}
+                className="w-64"
+                size="sm"
+              />
+            }
           />
-        )}
-      </div>
+          {canWrite && selectedUserIds.length > 0 && (
+            <BulkGroupBar selectedUserIds={selectedUserIds} onClearSelection={clearSelection} />
+          )}
+          <div className="px-6 py-4">
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                  <Skeleton key={id} height={44} />
+                ))}
+              </div>
+            ) : (
+              <Table
+                data={rows}
+                columns={columns}
+                idKey="person_id"
+                emptyState={<EmptyState title="No results" />}
+                plugins={{
+                  selection,
+                  pagination,
+                  // Row click opens the detail sheet. Guard against clicks that
+                  // originate from the row's own interactive controls (selection
+                  // checkbox, the actions menu trigger) so they don't also
+                  // navigate — the deleted DataTable did this via stopPropagation.
+                  rowClick: {
+                    transformBodyRow: (props, item) => ({
+                      ...props,
+                      htmlProps: {
+                        ...props.htmlProps,
+                        style: { ...props.htmlProps.style, cursor: 'pointer' },
+                        onClick: (e) => {
+                          const target = e.target as HTMLElement;
+                          if (
+                            target.closest(
+                              'button, a, input, label, [role="checkbox"], [role="menuitem"]',
+                            )
+                          )
+                            return;
+                          setSelectedRow(item);
+                        },
+                      },
+                    }),
+                  },
+                }}
+              />
+            )}
+          </div>
 
-      {/* Suspend confirm dialog. "form" purpose, not "required": this action is recoverable, not
+          {/* Suspend confirm dialog. "form" purpose, not "required": this action is recoverable, not
           terminal, and Astryx's `purpose="form"` already blocks backdrop-click dismissal (only
           Escape is allowed) — closer to `"required"`'s risk profile than the name suggests, so
           there's little value in going further. The strongest signal is this file's own history:
@@ -514,43 +538,49 @@ export function Directory({ search, onSearch }: DirectoryProps) {
           which *does* use `AlertDialog` in the same package — the original author already judged
           suspend as non-terminal. The copy ("You can reactivate at any time") corroborates that
           judgment but isn't the primary evidence. */}
-      <Dialog
-        isOpen={suspendTarget !== null}
-        onOpenChange={handleSuspendDialogOpenChange}
-        purpose="form"
-      >
-        <Layout
-          header={
-            <DialogHeader
-              title="Suspend account?"
-              subtitle={`${suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at any time.`}
-              onOpenChange={handleSuspendDialogOpenChange}
+          <Dialog
+            isOpen={suspendTarget !== null}
+            onOpenChange={handleSuspendDialogOpenChange}
+            purpose="form"
+          >
+            <Layout
+              header={
+                <DialogHeader
+                  title="Suspend account?"
+                  subtitle={`${suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at any time.`}
+                  onOpenChange={handleSuspendDialogOpenChange}
+                />
+              }
+              footer={
+                <LayoutFooter hasDivider>
+                  <Button
+                    variant="secondary"
+                    label="Cancel"
+                    onClick={() => setSuspendTarget(null)}
+                  />
+                  <Button
+                    variant="destructive"
+                    label="Suspend"
+                    onClick={() => {
+                      if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
+                      setSuspendTarget(null);
+                    }}
+                  />
+                </LayoutFooter>
+              }
             />
-          }
-          footer={
-            <LayoutFooter hasDivider>
-              <Button variant="secondary" label="Cancel" onClick={() => setSuspendTarget(null)} />
-              <Button
-                variant="destructive"
-                label="Suspend"
-                onClick={() => {
-                  if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
-                  setSuspendTarget(null);
-                }}
-              />
-            </LayoutFooter>
-          }
-        />
-      </Dialog>
+          </Dialog>
 
-      {/* Detail sheet */}
-      <UserDetailSheet
-        row={selectedRow}
-        open={selectedRow !== null}
-        onOpenChange={(o) => {
-          if (!o) setSelectedRow(null);
-        }}
-      />
-    </PageChrome>
+          {/* Detail sheet */}
+          <UserDetailSheet
+            row={selectedRow}
+            open={selectedRow !== null}
+            onOpenChange={(o) => {
+              if (!o) setSelectedRow(null);
+            }}
+          />
+        </LayoutContent>
+      }
+    />
   );
 }

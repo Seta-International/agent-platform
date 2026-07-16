@@ -1,23 +1,28 @@
 import {
   Badge,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Dialog,
   DialogHeader,
   EmptyState,
   FilterPill,
+  HStack,
   Input,
   Layout,
   LayoutContent,
-  PageChrome,
-  PageChromeToolbar,
+  LayoutHeader,
   pixel,
   proportional,
   Skeleton,
   Table,
   type TableColumn,
   type TableSortState,
+  Text,
+  Toolbar,
   useTablePagination,
   useTableSortable,
+  VStack,
 } from '@seta/shared-ui';
 import { Copy, Search } from 'lucide-react';
 import { useCallback, useState } from 'react';
@@ -306,108 +311,130 @@ export function AdminAudit({
         : 'No events';
 
   return (
-    <PageChrome
-      breadcrumb={['Admin']}
-      title="Audit log"
-      subtitle={subtitle}
-      toolbar={
-        <PageChromeToolbar
-          left={
-            <>
-              <FilterPill
-                label="Event"
-                value={search.event_type ?? null}
-                options={EVENT_TYPE_OPTIONS}
-                onChange={setEventType}
-                anyLabel="All events"
-              />
-              <FilterPill<DateRange>
-                label="Range"
-                value={rangeSelected}
-                options={DATE_RANGE_OPTIONS}
-                onChange={setRange}
-                anyLabel="All time"
-              />
-            </>
-          }
-          right={
-            <Input
-              label="Search trace id (coming soon)"
-              isLabelHidden
-              startIcon={<Search className="size-3.5" aria-hidden />}
-              placeholder="Search trace id…"
-              value=""
-              onChange={() => {}}
-              isDisabled
-              className="w-72"
-            />
-          }
-        />
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Audit log</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Audit log
+                </Text>
+                {subtitle && <Text color="secondary">{subtitle}</Text>}
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
       }
-    >
-      <div className="px-6 py-4">
-        {isLoading ? (
-          <div className="space-y-2">
-            {['s0', 's1', 's2', 's3', 's4'].map((id) => (
-              <Skeleton key={id} height={44} />
-            ))}
-          </div>
-        ) : (
-          <Table
-            data={rows}
-            columns={columns}
-            idKey="event_id"
-            emptyState={<EmptyState title="No events" />}
-            plugins={{
-              sortable,
-              pagination,
-              // Click a row to open its payload-diff detail drawer; ignore
-              // clicks originating from the row's own controls (e.g. the
-              // sortable header lives in <thead>, so only body cells trigger).
-              rowClick: {
-                transformBodyRow: (props, item) => ({
-                  ...props,
-                  htmlProps: {
-                    ...props.htmlProps,
-                    style: { ...props.htmlProps.style, cursor: 'pointer' },
-                    onClick: (e) => {
-                      const target = e.target as HTMLElement;
-                      if (target.closest('button, a, input, label')) return;
-                      setDetailRow(item);
-                    },
-                  },
-                }),
-              },
-            }}
+      content={
+        <LayoutContent padding={0}>
+          <Toolbar
+            label="Audit log filters"
+            size="sm"
+            dividers={['bottom']}
+            startContent={
+              <>
+                <FilterPill
+                  label="Event"
+                  value={search.event_type ?? null}
+                  options={EVENT_TYPE_OPTIONS}
+                  onChange={setEventType}
+                  anyLabel="All events"
+                />
+                <FilterPill<DateRange>
+                  label="Range"
+                  value={rangeSelected}
+                  options={DATE_RANGE_OPTIONS}
+                  onChange={setRange}
+                  anyLabel="All time"
+                />
+              </>
+            }
+            endContent={
+              <Input
+                label="Search trace id (coming soon)"
+                isLabelHidden
+                startIcon={<Search className="size-3.5" aria-hidden />}
+                placeholder="Search trace id…"
+                value=""
+                onChange={() => {}}
+                isDisabled
+                className="w-72"
+              />
+            }
           />
-        )}
-      </div>
+          <div className="px-6 py-4">
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                  <Skeleton key={id} height={44} />
+                ))}
+              </div>
+            ) : (
+              <Table
+                data={rows}
+                columns={columns}
+                idKey="event_id"
+                emptyState={<EmptyState title="No events" />}
+                plugins={{
+                  sortable,
+                  pagination,
+                  // Click a row to open its payload-diff detail drawer; ignore
+                  // clicks originating from the row's own controls (e.g. the
+                  // sortable header lives in <thead>, so only body cells trigger).
+                  rowClick: {
+                    transformBodyRow: (props, item) => ({
+                      ...props,
+                      htmlProps: {
+                        ...props.htmlProps,
+                        style: { ...props.htmlProps.style, cursor: 'pointer' },
+                        onClick: (e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest('button, a, input, label')) return;
+                          setDetailRow(item);
+                        },
+                      },
+                    }),
+                  },
+                }}
+              />
+            )}
+          </div>
 
-      {/* Payload-diff detail drawer — the row-expansion replacement. */}
-      <Dialog
-        isOpen={detailRow !== null}
-        onOpenChange={(o) => {
-          if (!o) setDetailRow(null);
-        }}
-        purpose="info"
-        position={{ top: 0, right: 0, bottom: 0 }}
-        width={640}
-        maxHeight="100dvh"
-        aria-label={detailRow ? `Event detail: ${detailRow.event_type}` : 'Event detail'}
-      >
-        <Layout
-          header={
-            <DialogHeader
-              title="Event detail"
-              subtitle={detailRow?.event_type}
-              onOpenChange={(o) => {
-                if (!o) setDetailRow(null);
-              }}
+          {/* Payload-diff detail drawer — the row-expansion replacement. */}
+          <Dialog
+            isOpen={detailRow !== null}
+            onOpenChange={(o) => {
+              if (!o) setDetailRow(null);
+            }}
+            purpose="info"
+            position={{ top: 0, right: 0, bottom: 0 }}
+            width={640}
+            maxHeight="100dvh"
+            aria-label={detailRow ? `Event detail: ${detailRow.event_type}` : 'Event detail'}
+          >
+            <Layout
+              header={
+                <DialogHeader
+                  title="Event detail"
+                  subtitle={detailRow?.event_type}
+                  onOpenChange={(o) => {
+                    if (!o) setDetailRow(null);
+                  }}
+                />
+              }
+              content={
+                <LayoutContent>{detailRow && <AuditDiffPanel row={detailRow} />}</LayoutContent>
+              }
             />
-          }
-          content={<LayoutContent>{detailRow && <AuditDiffPanel row={detailRow} />}</LayoutContent>}
-        />
-      </Dialog>
-    </PageChrome>
+          </Dialog>
+        </LayoutContent>
+      }
+    />
   );
 }

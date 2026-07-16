@@ -378,4 +378,19 @@ describe('Directory page', () => {
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).getByText('alice@test.com')).toBeInTheDocument();
   });
+
+  it('renders the Admin → Directory breadcrumb trail with a navigable root crumb', async () => {
+    await setupMocks();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<Harness />, { wrapper: wrap(qc) });
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Admin' });
+    expect(rootCrumb).toHaveAttribute('href', '/admin');
+    // The terminal crumb reflects the page but is not itself a link.
+    expect(within(nav).getByText('Directory').closest('a')).toBeNull();
+
+    // The h1 still carries the page's real heading semantics.
+    expect(screen.getByRole('heading', { level: 1, name: 'Directory' })).toBeInTheDocument();
+  });
 });

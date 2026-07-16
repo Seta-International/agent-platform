@@ -2,13 +2,20 @@
 import {
   Badge,
   Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   cn,
   EmptyState,
+  HStack,
   Input,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   Skeleton,
+  Text,
   useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -151,189 +158,214 @@ export function SkillsCatalog() {
   const loading = categoriesQ.isLoading || skillsQ.isLoading;
 
   return (
-    <PageChrome
-      breadcrumb={['Admin']}
-      title="Skills catalog"
-      subtitle="Categories and skills that can be assigned to roles and people."
-    >
-      <div className="page-container space-y-5">
-        {categoriesQ.error && (
-          <Banner
-            status="error"
-            title={
-              <>Couldn&apos;t load the skills catalog: {(categoriesQ.error as Error).message}</>
-            }
-          />
-        )}
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Skills catalog</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Skills catalog
+                </Text>
+                <Text color="secondary">
+                  Categories and skills that can be assigned to roles and people.
+                </Text>
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent>
+          <div className="page-container space-y-5">
+            {categoriesQ.error && (
+              <Banner
+                status="error"
+                title={
+                  <>Couldn&apos;t load the skills catalog: {(categoriesQ.error as Error).message}</>
+                }
+              />
+            )}
 
-        {!canManage && !loading && (
-          <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-4 py-2.5 text-body-sm text-ink-subtle">
-            <Lock className="size-3.5 shrink-0" aria-hidden />
-            <span>You can view the skills catalog but not make changes.</span>
-          </div>
-        )}
+            {!canManage && !loading && (
+              <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-4 py-2.5 text-body-sm text-ink-subtle">
+                <Lock className="size-3.5 shrink-0" aria-hidden />
+                <span>You can view the skills catalog but not make changes.</span>
+              </div>
+            )}
 
-        {loading ? (
-          <>
-            <div className="grid grid-cols-3 gap-3">
-              <Skeleton height={68} radius={3} />
-              <Skeleton height={68} radius={3} />
-              <Skeleton height={68} radius={3} />
-            </div>
-            <Skeleton height={384} radius={3} />
-          </>
-        ) : (
-          <>
-            <StatStrip
-              categories={categories.length}
-              skills={skills.length}
-              largest={largestCategory(categories, countByCat)}
-            />
-
-            <div className="grid grid-cols-[280px_1fr] gap-5">
-              {/* Categories rail */}
-              <section className="flex min-w-0 flex-col gap-2">
-                <div className="flex items-center justify-between px-1">
-                  <h2 className="flex items-center gap-1.5 text-eyebrow uppercase tracking-[0.04em] text-ink-tertiary">
-                    <Layers className="size-3.5" aria-hidden />
-                    Categories
-                  </h2>
-                  <span className="text-caption tabular-nums text-ink-tertiary">
-                    {categories.length}
-                  </span>
+            {loading ? (
+              <>
+                <div className="grid grid-cols-3 gap-3">
+                  <Skeleton height={68} radius={3} />
+                  <Skeleton height={68} radius={3} />
+                  <Skeleton height={68} radius={3} />
                 </div>
+                <Skeleton height={384} radius={3} />
+              </>
+            ) : (
+              <>
+                <StatStrip
+                  categories={categories.length}
+                  skills={skills.length}
+                  largest={largestCategory(categories, countByCat)}
+                />
 
-                {canManage && (
-                  <AddRow
-                    placeholder="New category…"
-                    value={newCatName}
-                    onChange={setNewCatName}
-                    onSubmit={() => addCatMut.mutate()}
-                    pending={addCatMut.isPending}
-                  />
-                )}
+                <div className="grid grid-cols-[280px_1fr] gap-5">
+                  {/* Categories rail */}
+                  <section className="flex min-w-0 flex-col gap-2">
+                    <div className="flex items-center justify-between px-1">
+                      <h2 className="flex items-center gap-1.5 text-eyebrow uppercase tracking-[0.04em] text-ink-tertiary">
+                        <Layers className="size-3.5" aria-hidden />
+                        Categories
+                      </h2>
+                      <span className="text-caption tabular-nums text-ink-tertiary">
+                        {categories.length}
+                      </span>
+                    </div>
 
-                <ul className="flex flex-col gap-0.5">
-                  {categories.map((cat) => (
-                    <CategoryRow
-                      key={cat.id}
-                      cat={cat}
-                      count={countByCat.get(cat.id) ?? 0}
-                      selected={cat.id === activeId && !searching}
-                      canManage={canManage}
-                      onSelect={() => {
-                        setSelectedId(cat.id);
-                        setSearch('');
-                      }}
-                      onRename={(name) =>
-                        renameCatMut.mutate({ id: cat.id, name, version: cat.version })
-                      }
-                      onArchive={() => archiveCatMut.mutate({ id: cat.id, version: cat.version })}
-                    />
-                  ))}
-                  {categories.length === 0 && (
-                    <li className="px-2 py-2 text-body-sm text-ink-tertiary">No categories yet.</li>
-                  )}
-                </ul>
-              </section>
-
-              {/* Skills pane */}
-              <section className="flex min-w-0 flex-col gap-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="flex items-center gap-2 text-body-sm font-semibold text-ink">
-                    {searching ? (
-                      <>
-                        Search results
-                        <Badge
-                          variant="neutral"
-                          className="tabular-nums"
-                          label={visibleSkills.length}
-                        />
-                      </>
-                    ) : activeCat ? (
-                      <>
-                        {activeCat.name}
-                        <Badge
-                          variant="neutral"
-                          className="tabular-nums"
-                          label={visibleSkills.length}
-                        />
-                      </>
-                    ) : (
-                      'Skills'
+                    {canManage && (
+                      <AddRow
+                        placeholder="New category…"
+                        value={newCatName}
+                        onChange={setNewCatName}
+                        onSubmit={() => addCatMut.mutate()}
+                        pending={addCatMut.isPending}
+                      />
                     )}
-                  </h2>
 
-                  <Input
-                    label="Search skills"
-                    isLabelHidden
-                    startIcon={<Search className="size-3.5" aria-hidden />}
-                    hasClear
-                    value={search}
-                    onChange={(value) => setSearch(value)}
-                    placeholder="Search all skills…"
-                    className="w-56"
-                    size="sm"
-                  />
-                </div>
+                    <ul className="flex flex-col gap-0.5">
+                      {categories.map((cat) => (
+                        <CategoryRow
+                          key={cat.id}
+                          cat={cat}
+                          count={countByCat.get(cat.id) ?? 0}
+                          selected={cat.id === activeId && !searching}
+                          canManage={canManage}
+                          onSelect={() => {
+                            setSelectedId(cat.id);
+                            setSearch('');
+                          }}
+                          onRename={(name) =>
+                            renameCatMut.mutate({ id: cat.id, name, version: cat.version })
+                          }
+                          onArchive={() =>
+                            archiveCatMut.mutate({ id: cat.id, version: cat.version })
+                          }
+                        />
+                      ))}
+                      {categories.length === 0 && (
+                        <li className="px-2 py-2 text-body-sm text-ink-tertiary">
+                          No categories yet.
+                        </li>
+                      )}
+                    </ul>
+                  </section>
 
-                {canManage && activeCat && !searching && (
-                  <AddRow
-                    placeholder={`Add a skill to ${activeCat.name}…`}
-                    value={newSkillName}
-                    onChange={setNewSkillName}
-                    onSubmit={() => addSkillMut.mutate()}
-                    pending={addSkillMut.isPending}
-                  />
-                )}
+                  {/* Skills pane */}
+                  <section className="flex min-w-0 flex-col gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h2 className="flex items-center gap-2 text-body-sm font-semibold text-ink">
+                        {searching ? (
+                          <>
+                            Search results
+                            <Badge
+                              variant="neutral"
+                              className="tabular-nums"
+                              label={visibleSkills.length}
+                            />
+                          </>
+                        ) : activeCat ? (
+                          <>
+                            {activeCat.name}
+                            <Badge
+                              variant="neutral"
+                              className="tabular-nums"
+                              label={visibleSkills.length}
+                            />
+                          </>
+                        ) : (
+                          'Skills'
+                        )}
+                      </h2>
 
-                {skillsQ.error ? (
-                  <Banner
-                    status="error"
-                    title={<>Couldn&apos;t load skills: {(skillsQ.error as Error).message}</>}
-                  />
-                ) : categories.length === 0 ? (
-                  <EmptyState
-                    icon={<Tags className="size-8" />}
-                    title="No categories yet"
-                    description="Create a category on the left to start building your skills catalog."
-                  />
-                ) : visibleSkills.length === 0 ? (
-                  <EmptyState
-                    icon={<Tags className="size-8" />}
-                    title={searching ? 'No matching skills' : 'No skills in this category'}
-                    description={
-                      searching
-                        ? `Nothing matches “${search.trim()}”.`
-                        : canManage
-                          ? 'Add the first skill using the field above.'
-                          : 'This category has no skills yet.'
-                    }
-                  />
-                ) : (
-                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    {visibleSkills.map((skill) => (
-                      <SkillCard
-                        key={skill.id}
-                        skill={skill}
-                        categoryLabel={searching ? catName(skill.category_id) : null}
-                        canManage={canManage}
-                        onRename={(name) =>
-                          renameSkillMut.mutate({ id: skill.id, name, version: skill.version })
-                        }
-                        onArchive={() =>
-                          archiveSkillMut.mutate({ id: skill.id, version: skill.version })
+                      <Input
+                        label="Search skills"
+                        isLabelHidden
+                        startIcon={<Search className="size-3.5" aria-hidden />}
+                        hasClear
+                        value={search}
+                        onChange={(value) => setSearch(value)}
+                        placeholder="Search all skills…"
+                        className="w-56"
+                        size="sm"
+                      />
+                    </div>
+
+                    {canManage && activeCat && !searching && (
+                      <AddRow
+                        placeholder={`Add a skill to ${activeCat.name}…`}
+                        value={newSkillName}
+                        onChange={setNewSkillName}
+                        onSubmit={() => addSkillMut.mutate()}
+                        pending={addSkillMut.isPending}
+                      />
+                    )}
+
+                    {skillsQ.error ? (
+                      <Banner
+                        status="error"
+                        title={<>Couldn&apos;t load skills: {(skillsQ.error as Error).message}</>}
+                      />
+                    ) : categories.length === 0 ? (
+                      <EmptyState
+                        icon={<Tags className="size-8" />}
+                        title="No categories yet"
+                        description="Create a category on the left to start building your skills catalog."
+                      />
+                    ) : visibleSkills.length === 0 ? (
+                      <EmptyState
+                        icon={<Tags className="size-8" />}
+                        title={searching ? 'No matching skills' : 'No skills in this category'}
+                        description={
+                          searching
+                            ? `Nothing matches “${search.trim()}”.`
+                            : canManage
+                              ? 'Add the first skill using the field above.'
+                              : 'This category has no skills yet.'
                         }
                       />
-                    ))}
-                  </ul>
-                )}
-              </section>
-            </div>
-          </>
-        )}
-      </div>
-    </PageChrome>
+                    ) : (
+                      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                        {visibleSkills.map((skill) => (
+                          <SkillCard
+                            key={skill.id}
+                            skill={skill}
+                            categoryLabel={searching ? catName(skill.category_id) : null}
+                            canManage={canManage}
+                            onRename={(name) =>
+                              renameSkillMut.mutate({ id: skill.id, name, version: skill.version })
+                            }
+                            onArchive={() =>
+                              archiveSkillMut.mutate({ id: skill.id, version: skill.version })
+                            }
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </div>
+              </>
+            )}
+          </div>
+        </LayoutContent>
+      }
+    />
   );
 }
 
