@@ -2,8 +2,8 @@
 
 Prod runs on ECS Fargate (Graviton) in `ap-southeast-1`, single region. Baseline is one `api` task and
 one `worker` task, each autoscaling to 2+. Edge is zero-inbound via a Cloudflare Tunnel. RDS is
-single-AZ; the web bundle is served from S3 + CloudFront. Same `platform-server` / `platform-web` images
-as dev/uat (`entrypoint.sh` selects `serve` vs `worker`). Provisioned by Terraform in
+single-AZ; the web bundle is served from S3 + CloudFront (**planned — FUT-652, not yet in terraform**).
+Same `platform-server` / `platform-web` images as dev/uat (`entrypoint.sh` selects `serve` vs `worker`). Provisioned by Terraform in
 `infra/terraform/prod/`. Matches [`../platform/tech-stack.md §18`](../platform/tech-stack.md#18-ecs-fargate).
 
 ## 1. Topology
@@ -14,7 +14,7 @@ flowchart TB
 
     subgraph edge["Cloudflare edge — zero inbound"]
         cf["DNS · TLS Full · Tunnel"]
-        cfront["CloudFront"]
+        cfront["CloudFront (planned — FUT-652)"]
     end
     s3web[("S3 · web bundle")]
 
@@ -101,8 +101,9 @@ terraform init && terraform plan -out=prod.tfplan
 terraform apply prod.tfplan                     # human-reviewed
 ```
 
-Provisions VPC (2 public + 2 private subnets, IGW), S3 (app + web) + CloudFront, ECS cluster +
+Provisions VPC (2 public + 2 private subnets, IGW), the S3 app bucket (uploads/knowledge), ECS cluster +
 `api`/`worker` task defs + services + autoscaling, task-execution/task IAM roles, task SGs, RDS single-AZ.
+Web static hosting (S3 web bucket + CloudFront + deploy sync) is **not** in the terraform yet — FUT-652.
 Secrets live in Secrets Manager, injected into both containers by the execution role; S3 uses the task
 role (no static keys). The boot-required set: `DATABASE_URL`, `BETTER_AUTH_SECRET`,
 `CRYPTO_LOCAL_MASTER_KEY`, and **`OPENAI_API_KEY`** (the embedding provider constructs at boot and throws
@@ -118,7 +119,7 @@ up the GitHub→AWS OIDC role for deploys (no on-box runner — Fargate has no p
 Build-once → ECR → ECS rolling, on GitHub-hosted runners via the OIDC role.
 
 1. `build.yml` builds `linux/arm64` `server` + `web` images (`server-git-<sha>` / `web-git-<sha>` +
-   `-latest`), syncs the web bundle to S3 + CloudFront invalidation.
+   `-latest`). The web-bundle S3 sync + CloudFront invalidation step lands with FUT-652.
 2. `deploy.yml` (`environment=prod`, gated): pre-migration RDS snapshot → migrator via
    `aws ecs run-task` → register new task-def revision + `update-service` (rolling) for both services →
    wait `services-stable` → smoke `/health/ready` → record `PROD_LAST_GOOD_TAG`.
@@ -181,7 +182,7 @@ plus absent-series on the pushed data.
 | api — 1 vCPU / 2 GB | $36 |
 | worker — 1 vCPU / 3 GB | $39 |
 | cloudflared sidecar | ~$9 |
-| web — S3 + CloudFront | ~$3 |
+| web — S3 + CloudFront (planned, FUT-652) | ~$1–3 est. |
 | RDS single-AZ (`db.t3.micro`) | ~$19 |
 | **Total** | **~$106** |
 
