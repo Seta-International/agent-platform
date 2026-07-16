@@ -1,13 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProjectDetailPage } from '../../../src/pages/project-detail-page.tsx';
 
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ projectId: 'proj-1' }),
-  Link: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
 }));
 
 vi.mock('@seta/web-identity', () => ({
@@ -105,4 +103,30 @@ describe('ProjectDetailPage org unit field', () => {
     const body = editProjectMock.mock.calls.at(-1)?.[0] as { patch: { org_unit_id?: string } };
     expect(body.patch.org_unit_id).toBe('ou-2');
   }, 15_000);
+});
+
+describe('ProjectDetailPage — breadcrumb trail (back-link → crumb parity, Astryx migration)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // The deleted bespoke `backLink` (`<Link to="/pm/projects">‹ Projects`) is gone; the parent
+  // "Projects" crumb now carries that exact navigation target — this is the parity gate: the
+  // href must match the old backLink's `to` verbatim.
+  it('renders the full trail with the parent crumb carrying the old back-link href', async () => {
+    mockFetch();
+    renderPage();
+
+    await screen.findByRole('heading', { level: 1, name: 'Atlas' });
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Project Monitoring' });
+    expect(rootCrumb).toHaveAttribute('href', '/pm');
+
+    const parentCrumb = within(nav).getByRole('link', { name: 'Projects' });
+    expect(parentCrumb).toHaveAttribute('href', '/pm/projects');
+
+    // Current (terminal) crumb is the project name, not a link.
+    expect(within(nav).getByText('Atlas').closest('a')).toBeNull();
+  });
 });

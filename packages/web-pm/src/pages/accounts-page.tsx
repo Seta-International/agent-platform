@@ -1,16 +1,19 @@
 import {
   Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Checkbox,
   type ColumnSettingsOption,
   Dialog,
   DialogHeader,
   EmptyState,
+  HStack,
   Input,
   Layout,
   LayoutContent,
   LayoutFooter,
-  PageChrome,
+  LayoutHeader,
   Popover,
   paginateData,
   pixel,
@@ -18,12 +21,14 @@ import {
   Skeleton,
   Table,
   type TableColumn,
+  Text,
   useTableColumnSettings,
   useTableColumnSettingsState,
   useTablePagination,
   useTableSortable,
   useTableSortableState,
   useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -257,102 +262,125 @@ export function AccountsPage() {
   ) : undefined;
 
   return (
-    <PageChrome title="Accounts" actions={actions}>
-      <div className="page-container space-y-4 p-6">
-        {error ? (
-          <Banner status="error" title={(error as Error).message} />
-        ) : (
-          <>
-            <div className="flex items-center justify-between gap-2">
-              <Input
-                label="Search accounts"
-                isLabelHidden
-                className="max-w-sm"
-                placeholder="Search accounts…"
-                value={search}
-                onChange={(value) => {
-                  setSearch(value);
-                  setPage(1);
-                }}
-              />
-              <Popover
-                placement="below"
-                alignment="end"
-                label="Toggle columns"
-                content={
-                  <div className="flex min-w-[180px] flex-col gap-1 p-2">
-                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
-                      Toggle columns
-                    </div>
-                    {COLUMN_OPTIONS.map((col) => (
-                      <Checkbox
-                        key={col.key}
-                        label={col.label}
-                        value={columnSettingsState.isColumnActive(col.key)}
-                        onChange={() => columnSettingsState.toggleColumn(col.key)}
-                      />
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Accounts</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Accounts
+                </Text>
+              </HStack>
+              {actions}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="page-container space-y-4 p-6">
+            {error ? (
+              <Banner status="error" title={(error as Error).message} />
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <Input
+                    label="Search accounts"
+                    isLabelHidden
+                    className="max-w-sm"
+                    placeholder="Search accounts…"
+                    value={search}
+                    onChange={(value) => {
+                      setSearch(value);
+                      setPage(1);
+                    }}
+                  />
+                  <Popover
+                    placement="below"
+                    alignment="end"
+                    label="Toggle columns"
+                    content={
+                      <div className="flex min-w-[180px] flex-col gap-1 p-2">
+                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                          Toggle columns
+                        </div>
+                        {COLUMN_OPTIONS.map((col) => (
+                          <Checkbox
+                            key={col.key}
+                            label={col.label}
+                            value={columnSettingsState.isColumnActive(col.key)}
+                            onChange={() => columnSettingsState.toggleColumn(col.key)}
+                          />
+                        ))}
+                      </div>
+                    }
+                  >
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Settings2 className="size-3.5" />}
+                      label="Columns"
+                    />
+                  </Popover>
+                </div>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                      <Skeleton key={id} height={40} />
                     ))}
                   </div>
-                }
-              >
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Settings2 className="size-3.5" />}
-                  label="Columns"
-                />
-              </Popover>
-            </div>
-            {isLoading ? (
-              <div className="space-y-2">
-                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
-                  <Skeleton key={id} height={40} />
-                ))}
-              </div>
-            ) : (
-              <Table
-                data={pageRows}
-                columns={columns}
-                idKey="account_id"
-                plugins={{
-                  pagination,
-                  sortable,
-                  columnSettings,
-                  rowClick: {
-                    transformBodyRow: (props, item) => ({
-                      ...props,
-                      htmlProps: {
-                        ...props.htmlProps,
-                        style: { ...props.htmlProps.style, cursor: 'pointer' },
-                        onClick: () =>
-                          void navigate({
-                            to: '/pm/accounts/$accountId',
-                            params: { accountId: item.account_id },
-                          }),
+                ) : (
+                  <Table
+                    data={pageRows}
+                    columns={columns}
+                    idKey="account_id"
+                    plugins={{
+                      pagination,
+                      sortable,
+                      columnSettings,
+                      rowClick: {
+                        transformBodyRow: (props, item) => ({
+                          ...props,
+                          htmlProps: {
+                            ...props.htmlProps,
+                            style: { ...props.htmlProps.style, cursor: 'pointer' },
+                            onClick: () =>
+                              void navigate({
+                                to: '/pm/accounts/$accountId',
+                                params: { accountId: item.account_id },
+                              }),
+                          },
+                        }),
                       },
-                    }),
-                  },
-                }}
-                emptyState={
-                  search.trim() ? (
-                    <EmptyState
-                      title="No results match these filters"
-                      description="Try removing a filter or clearing your search."
-                      action={{ label: 'Clear filters', onClick: () => setSearch('') }}
-                    />
-                  ) : (
-                    <EmptyState
-                      icon={<FolderKanban className="size-6" />}
-                      title="No accounts yet"
-                      description="Create an account to get started."
-                    />
-                  )
-                }
-              />
+                    }}
+                    emptyState={
+                      search.trim() ? (
+                        <EmptyState
+                          title="No results match these filters"
+                          description="Try removing a filter or clearing your search."
+                          action={{ label: 'Clear filters', onClick: () => setSearch('') }}
+                        />
+                      ) : (
+                        <EmptyState
+                          icon={<FolderKanban className="size-6" />}
+                          title="No accounts yet"
+                          description="Create an account to get started."
+                        />
+                      )
+                    }
+                  />
+                )}
+              </>
             )}
-          </>
-        )}
-      </div>
-    </PageChrome>
+          </div>
+        </LayoutContent>
+      }
+    />
   );
 }

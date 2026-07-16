@@ -119,3 +119,31 @@ describe('CharterDetailPage — reject-charter dialog (Astryx migration smoke te
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
   });
 });
+
+describe('CharterDetailPage — breadcrumb trail (back-link → crumb parity, Astryx migration)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // The deleted bespoke `backLink` (`<Link to="/pm/requests">‹ Requests`) is gone; the parent
+  // crumb now carries that exact navigation target — this is the parity gate: the href must
+  // match the old backLink's `to` verbatim. Note the deliberate asymmetry: this middle crumb
+  // reads "Requests" (the manifest nav label, matching today's back-link text exactly), even
+  // though the requests page's OWN current crumb is "Project Requests" (title-wins there) — only
+  // the terminal crumb of a page takes the title-wins clause.
+  it('renders the full trail with the parent crumb carrying the old back-link href', async () => {
+    renderPage();
+
+    await screen.findByRole('heading', { level: 1, name: 'Watchtower charter' });
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Project Monitoring' });
+    expect(rootCrumb).toHaveAttribute('href', '/pm');
+
+    const parentCrumb = within(nav).getByRole('link', { name: 'Requests' });
+    expect(parentCrumb).toHaveAttribute('href', '/pm/requests');
+
+    // Current (terminal) crumb is the charter name, not a link.
+    expect(within(nav).getByText('Watchtower charter').closest('a')).toBeNull();
+  });
+});

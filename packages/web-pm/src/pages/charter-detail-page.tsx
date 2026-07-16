@@ -1,25 +1,29 @@
 import {
   Badge,
   Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Card,
   CardTitle,
   Dialog,
   DialogHeader,
+  HStack,
   Layout,
   LayoutContent,
   LayoutFooter,
   LayoutHeader,
-  PageChrome,
   Skeleton,
+  Text,
   Textarea,
   useSeededItems,
   useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission, useSession } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import {
   bodApproveCharter,
@@ -145,52 +149,88 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
     onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
-  const backLink = (
-    <Link
-      to="/pm/requests"
-      className="flex items-center gap-1 text-body-sm text-ink-muted hover:text-ink transition-colors"
-    >
-      <ChevronLeft className="size-4" />
-      Requests
-    </Link>
-  );
-
   if (isLoading) {
     return (
-      <PageChrome title="Request" breadcrumb={[backLink]}>
-        <div className="page-container p-6 space-y-4">
-          <Card>
-            <Layout
-              header={
-                <LayoutHeader hasDivider>
-                  <Skeleton height={20} width={192} />
-                </LayoutHeader>
-              }
-              content={
-                <LayoutContent>
-                  <div className="space-y-3">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                      <Skeleton key={i} height={16} />
-                    ))}
-                  </div>
-                </LayoutContent>
-              }
-            />
-          </Card>
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+                <BreadcrumbItem href="/pm/requests">Requests</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Request</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Request
+                  </Text>
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <div className="page-container p-6 space-y-4">
+              <Card>
+                <Layout
+                  header={
+                    <LayoutHeader hasDivider>
+                      <Skeleton height={20} width={192} />
+                    </LayoutHeader>
+                  }
+                  content={
+                    <LayoutContent>
+                      <div className="space-y-3">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
+                          <Skeleton key={i} height={16} />
+                        ))}
+                      </div>
+                    </LayoutContent>
+                  }
+                />
+              </Card>
+            </div>
+          </LayoutContent>
+        }
+      />
     );
   }
 
   if (loadError || !c) {
     const msg = (loadError as Error | null)?.message ?? 'Charter not found';
     return (
-      <PageChrome title="Request" breadcrumb={[backLink]}>
-        <div className="page-container p-6">
-          <Banner status="error" title={msg} />
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+                <BreadcrumbItem href="/pm/requests">Requests</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Request</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Request
+                  </Text>
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <div className="page-container p-6">
+              <Banner status="error" title={msg} />
+            </div>
+          </LayoutContent>
+        }
+      />
     );
   }
 
@@ -238,138 +278,162 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
     ) : undefined;
 
   return (
-    <PageChrome title={c.name} breadcrumb={[backLink]} actions={headerActions}>
-      <div className="page-container p-6 space-y-4">
-        <Card padding={4}>
-          <CharterStepper status={c.status} rejectedStage={c.rejected_stage} />
-        </Card>
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+              <BreadcrumbItem href="/pm/requests">Requests</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>{c.name}</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  {c.name}
+                </Text>
+              </HStack>
+              {headerActions}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="page-container p-6 space-y-4">
+            <Card padding={4}>
+              <CharterStepper status={c.status} rejectedStage={c.rejected_stage} />
+            </Card>
 
-        {c.status === 'rejected' && c.rejection_reason && (
-          <Banner
-            status="error"
-            title={
-              <>
-                Rejected at {c.rejected_stage === 'bod' ? 'BoD' : 'PMO'} review:{' '}
-                {c.rejection_reason}
-              </>
-            }
-          />
-        )}
+            {c.status === 'rejected' && c.rejection_reason && (
+              <Banner
+                status="error"
+                title={
+                  <>
+                    Rejected at {c.rejected_stage === 'bod' ? 'BoD' : 'PMO'} review:{' '}
+                    {c.rejection_reason}
+                  </>
+                }
+              />
+            )}
 
-        <Card>
-          <Layout
-            header={
-              <LayoutHeader hasDivider>
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle>Charter</CardTitle>
-                  <Badge
-                    variant={STATUS_META[c.status].variant}
-                    label={STATUS_META[c.status].label}
+            <Card>
+              <Layout
+                header={
+                  <LayoutHeader hasDivider>
+                    <div className="flex items-center justify-between gap-3">
+                      <CardTitle>Charter</CardTitle>
+                      <Badge
+                        variant={STATUS_META[c.status].variant}
+                        label={STATUS_META[c.status].label}
+                      />
+                    </div>
+                  </LayoutHeader>
+                }
+                content={
+                  <LayoutContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-hairline bg-hairline sm:grid-cols-4">
+                        <Fact label="Account" value={accountName(c.account_id)} />
+                        <Fact label="PM" value={workerName(c.pm_worker_id)} />
+                        <Fact label="PMO" value={workerName(c.pmo_worker_id)} />
+                        <Fact
+                          label="Methodology"
+                          value={c.methodology ? METHODOLOGY_LABEL[c.methodology] : null}
+                        />
+                        <Fact
+                          label="Pricing"
+                          value={c.pricing_model ? PRICING_LABEL[c.pricing_model] : null}
+                        />
+                        <Fact
+                          label="Team size"
+                          value={c.team_size != null ? String(c.team_size) : null}
+                        />
+                        <Fact
+                          label="Budget"
+                          value={
+                            c.budget_bmm != null && Number(c.budget_bmm) > 0
+                              ? `${Number(c.budget_bmm)} BMM`
+                              : null
+                          }
+                        />
+                        <Fact
+                          label="Timeline"
+                          value={c.date_from ? `${c.date_from} → ${c.date_to ?? '?'}` : null}
+                        />
+                      </div>
+
+                      <ScopeBox label="Objective" text={c.objective} />
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <ScopeBox label="In scope" text={c.scope?.in} />
+                        <ScopeBox label="Out of scope" text={c.scope?.out} />
+                      </div>
+
+                      {c.status === 'approved' && c.project_id && (
+                        <Link
+                          to="/pm/projects/$projectId"
+                          params={{ projectId: c.project_id }}
+                          className="flex items-center justify-between rounded-md border border-hairline bg-surface-2 px-3.5 py-3 text-body-sm font-medium text-ink transition-colors hover:border-blue/40"
+                        >
+                          <span>Open live project</span>
+                          <ChevronRight className="size-4 text-ink-muted" />
+                        </Link>
+                      )}
+                    </div>
+                  </LayoutContent>
+                }
+              />
+            </Card>
+
+            {c.status === 'approved' && c.project_id && (
+              <CharterStaffingEditor
+                projectId={c.project_id}
+                dateFrom={c.date_from}
+                dateTo={c.date_to}
+                canManage={canManageProject}
+              />
+            )}
+          </div>
+
+          <Dialog isOpen={rejecting} onOpenChange={setRejecting} purpose="required">
+            <Layout
+              header={<DialogHeader title="Reject charter" onOpenChange={setRejecting} />}
+              content={
+                <LayoutContent>
+                  <Textarea
+                    label="Reason"
+                    isRequired
+                    value={reason}
+                    onChange={(value) => setReason(value)}
+                    placeholder="Explain the reason for rejection…"
+                    rows={4}
                   />
-                </div>
-              </LayoutHeader>
-            }
-            content={
-              <LayoutContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-hairline bg-hairline sm:grid-cols-4">
-                    <Fact label="Account" value={accountName(c.account_id)} />
-                    <Fact label="PM" value={workerName(c.pm_worker_id)} />
-                    <Fact label="PMO" value={workerName(c.pmo_worker_id)} />
-                    <Fact
-                      label="Methodology"
-                      value={c.methodology ? METHODOLOGY_LABEL[c.methodology] : null}
-                    />
-                    <Fact
-                      label="Pricing"
-                      value={c.pricing_model ? PRICING_LABEL[c.pricing_model] : null}
-                    />
-                    <Fact
-                      label="Team size"
-                      value={c.team_size != null ? String(c.team_size) : null}
-                    />
-                    <Fact
-                      label="Budget"
-                      value={
-                        c.budget_bmm != null && Number(c.budget_bmm) > 0
-                          ? `${Number(c.budget_bmm)} BMM`
-                          : null
-                      }
-                    />
-                    <Fact
-                      label="Timeline"
-                      value={c.date_from ? `${c.date_from} → ${c.date_to ?? '?'}` : null}
-                    />
-                  </div>
-
-                  <ScopeBox label="Objective" text={c.objective} />
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <ScopeBox label="In scope" text={c.scope?.in} />
-                    <ScopeBox label="Out of scope" text={c.scope?.out} />
-                  </div>
-
-                  {c.status === 'approved' && c.project_id && (
-                    <Link
-                      to="/pm/projects/$projectId"
-                      params={{ projectId: c.project_id }}
-                      className="flex items-center justify-between rounded-md border border-hairline bg-surface-2 px-3.5 py-3 text-body-sm font-medium text-ink transition-colors hover:border-blue/40"
-                    >
-                      <span>Open live project</span>
-                      <ChevronRight className="size-4 text-ink-muted" />
-                    </Link>
-                  )}
-                </div>
-              </LayoutContent>
-            }
-          />
-        </Card>
-
-        {c.status === 'approved' && c.project_id && (
-          <CharterStaffingEditor
-            projectId={c.project_id}
-            dateFrom={c.date_from}
-            dateTo={c.date_to}
-            canManage={canManageProject}
-          />
-        )}
-      </div>
-
-      <Dialog isOpen={rejecting} onOpenChange={setRejecting} purpose="required">
-        <Layout
-          header={<DialogHeader title="Reject charter" onOpenChange={setRejecting} />}
-          content={
-            <LayoutContent>
-              <Textarea
-                label="Reason"
-                isRequired
-                value={reason}
-                onChange={(value) => setReason(value)}
-                placeholder="Explain the reason for rejection…"
-                rows={4}
-              />
-            </LayoutContent>
-          }
-          footer={
-            <LayoutFooter hasDivider>
-              <Button
-                variant="secondary"
-                label="Cancel"
-                onClick={() => {
-                  setRejecting(false);
-                  setReason('');
-                }}
-                isDisabled={rejectMutation.isPending}
-              />
-              <Button
-                variant="destructive"
-                label={rejectMutation.isPending ? 'Rejecting…' : 'Reject'}
-                onClick={() => rejectMutation.mutate()}
-                isDisabled={rejectMutation.isPending || !reason.trim()}
-              />
-            </LayoutFooter>
-          }
-        />
-      </Dialog>
-    </PageChrome>
+                </LayoutContent>
+              }
+              footer={
+                <LayoutFooter hasDivider>
+                  <Button
+                    variant="secondary"
+                    label="Cancel"
+                    onClick={() => {
+                      setRejecting(false);
+                      setReason('');
+                    }}
+                    isDisabled={rejectMutation.isPending}
+                  />
+                  <Button
+                    variant="destructive"
+                    label={rejectMutation.isPending ? 'Rejecting…' : 'Reject'}
+                    onClick={() => rejectMutation.mutate()}
+                    isDisabled={rejectMutation.isPending || !reason.trim()}
+                  />
+                </LayoutFooter>
+              }
+            />
+          </Dialog>
+        </LayoutContent>
+      }
+    />
   );
 }

@@ -1,6 +1,8 @@
 import {
   Badge,
   Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Card,
   Checkbox,
@@ -11,12 +13,13 @@ import {
   Dialog,
   DialogHeader,
   EmptyState,
+  HStack,
   Input,
   Layout,
   LayoutContent,
   LayoutFooter,
+  LayoutHeader,
   NumberInput,
-  PageChrome,
   Popover,
   paginateData,
   pixel,
@@ -27,12 +30,14 @@ import {
   Table,
   type TableColumn,
   type TableSortState,
+  Text,
   Typeahead,
   useTableColumnSettings,
   useTableColumnSettingsState,
   useTablePagination,
   useTableSortable,
   useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -654,202 +659,220 @@ export function RaMonitoringPage() {
     : 'All projects';
 
   return (
-    <PageChrome
-      title="RA Monitoring"
-      actions={
-        canManageAny ? (
-          <SelectEmployeeDialog
-            onSelect={(worker) =>
-              setWizardTarget({
-                worker_id: worker.id,
-                worker_name: worker.name,
-                worker_title: null,
-              })
-            }
-          />
-        ) : undefined
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>RA Monitoring</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  RA Monitoring
+                </Text>
+              </HStack>
+              {canManageAny ? (
+                <SelectEmployeeDialog
+                  onSelect={(worker) =>
+                    setWizardTarget({
+                      worker_id: worker.id,
+                      worker_name: worker.name,
+                      worker_title: null,
+                    })
+                  }
+                />
+              ) : undefined}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
       }
-    >
-      <div className="space-y-5 p-6">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <Kpi
-            label="Calendar effort"
-            value={`${kpis.total_mm.toFixed(1)} MM`}
-            sub="in active window"
-          />
-          <Kpi
-            label="Billable"
-            value={`${kpis.billable_mm.toFixed(1)} MM`}
-            sub={`${kpis.billable_pct}% of effort`}
-            tone="positive"
-          />
-          <Kpi label="People allocated" value={String(kpis.people)} sub="distinct" />
-          <Kpi
-            label="Over-allocated"
-            value={String(overWorkers.size)}
-            sub=">100% in window"
-            tone={overWorkers.size > 0 ? 'accent' : undefined}
-          />
-          <Kpi label="Scope" value={scopeLabel} sub={`${visibleProjects.length} projects`} />
-        </div>
+      content={
+        <LayoutContent padding={0}>
+          <div className="space-y-5 p-6">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <Kpi
+                label="Calendar effort"
+                value={`${kpis.total_mm.toFixed(1)} MM`}
+                sub="in active window"
+              />
+              <Kpi
+                label="Billable"
+                value={`${kpis.billable_mm.toFixed(1)} MM`}
+                sub={`${kpis.billable_pct}% of effort`}
+                tone="positive"
+              />
+              <Kpi label="People allocated" value={String(kpis.people)} sub="distinct" />
+              <Kpi
+                label="Over-allocated"
+                value={String(overWorkers.size)}
+                sub=">100% in window"
+                tone={overWorkers.size > 0 ? 'accent' : undefined}
+              />
+              <Kpi label="Scope" value={scopeLabel} sub={`${visibleProjects.length} projects`} />
+            </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            label="Search person, project"
-            isLabelHidden
-            className="w-56"
-            size="sm"
-            placeholder="Search person, project…"
-            value={searchInput}
-            onChange={(value) => setSearchInput(value)}
-          />
-          <Typeahead
-            label="Account"
-            isLabelHidden
-            className="h-8 w-44"
-            searchSource={accountSource}
-            debounceMs={0}
-            hasEntriesOnFocus
-            hasClear
-            placeholder="All accounts"
-            value={accountOptions.find((o) => o.id === accountId) ?? null}
-            onChange={(item) => update({ account: item?.id ?? undefined, project: undefined })}
-          />
-          <Typeahead
-            label="Project"
-            isLabelHidden
-            className="h-8 w-44"
-            searchSource={projectSource}
-            debounceMs={0}
-            hasEntriesOnFocus
-            hasClear
-            placeholder="All projects"
-            value={projectOptions.find((o) => o.id === projectId) ?? null}
-            onChange={(item) => update({ project: item?.id ?? undefined })}
-          />
-          <div className="flex items-center gap-1.5">
-            <DateInput
-              label="Active from"
-              isLabelHidden
-              size="sm"
-              value={activeFrom || undefined}
-              onChange={(v) => update({ from: v })}
-            />
-            <span className="text-ink-subtle">→</span>
-            <DateInput
-              label="Active to"
-              isLabelHidden
-              size="sm"
-              value={activeTo || undefined}
-              onChange={(v) => update({ to: v })}
-            />
-          </div>
-          {hasFilters ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto h-8 gap-1 text-ink-muted"
-              label="Clear"
-              icon={<X className="size-3.5" />}
-              onClick={() => {
-                setSearchInput('');
-                update({
-                  q: undefined,
-                  account: undefined,
-                  project: undefined,
-                  from: undefined,
-                  to: undefined,
-                });
-              }}
-            />
-          ) : null}
-        </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                label="Search person, project"
+                isLabelHidden
+                className="w-56"
+                size="sm"
+                placeholder="Search person, project…"
+                value={searchInput}
+                onChange={(value) => setSearchInput(value)}
+              />
+              <Typeahead
+                label="Account"
+                isLabelHidden
+                className="h-8 w-44"
+                searchSource={accountSource}
+                debounceMs={0}
+                hasEntriesOnFocus
+                hasClear
+                placeholder="All accounts"
+                value={accountOptions.find((o) => o.id === accountId) ?? null}
+                onChange={(item) => update({ account: item?.id ?? undefined, project: undefined })}
+              />
+              <Typeahead
+                label="Project"
+                isLabelHidden
+                className="h-8 w-44"
+                searchSource={projectSource}
+                debounceMs={0}
+                hasEntriesOnFocus
+                hasClear
+                placeholder="All projects"
+                value={projectOptions.find((o) => o.id === projectId) ?? null}
+                onChange={(item) => update({ project: item?.id ?? undefined })}
+              />
+              <div className="flex items-center gap-1.5">
+                <DateInput
+                  label="Active from"
+                  isLabelHidden
+                  size="sm"
+                  value={activeFrom || undefined}
+                  onChange={(v) => update({ from: v })}
+                />
+                <span className="text-ink-subtle">→</span>
+                <DateInput
+                  label="Active to"
+                  isLabelHidden
+                  size="sm"
+                  value={activeTo || undefined}
+                  onChange={(v) => update({ to: v })}
+                />
+              </div>
+              {hasFilters ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto h-8 gap-1 text-ink-muted"
+                  label="Clear"
+                  icon={<X className="size-3.5" />}
+                  onClick={() => {
+                    setSearchInput('');
+                    update({
+                      q: undefined,
+                      account: undefined,
+                      project: undefined,
+                      from: undefined,
+                      to: undefined,
+                    });
+                  }}
+                />
+              ) : null}
+            </div>
 
-        <div className="flex justify-end">
-          <Popover
-            placement="below"
-            alignment="end"
-            label="Toggle columns"
-            content={
-              <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
-                  Toggle columns
-                </div>
-                {RA_COLUMN_OPTIONS.map((col) => (
-                  <Checkbox
-                    key={col.key}
-                    label={col.label}
-                    value={columnSettingsState.isColumnActive(col.key)}
-                    onChange={() => columnSettingsState.toggleColumn(col.key)}
-                  />
+            <div className="flex justify-end">
+              <Popover
+                placement="below"
+                alignment="end"
+                label="Toggle columns"
+                content={
+                  <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
+                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                      Toggle columns
+                    </div>
+                    {RA_COLUMN_OPTIONS.map((col) => (
+                      <Checkbox
+                        key={col.key}
+                        label={col.label}
+                        value={columnSettingsState.isColumnActive(col.key)}
+                        onChange={() => columnSettingsState.toggleColumn(col.key)}
+                      />
+                    ))}
+                  </div>
+                }
+              >
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Settings2 className="size-3.5" />}
+                  label="Columns"
+                />
+              </Popover>
+            </div>
+
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                  <Skeleton key={id} height={40} />
                 ))}
               </div>
-            }
-          >
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<Settings2 className="size-3.5" />}
-              label="Columns"
-            />
-          </Popover>
-        </div>
-
-        {isLoading ? (
-          <div className="space-y-2">
-            {['s0', 's1', 's2', 's3', 's4'].map((id) => (
-              <Skeleton key={id} height={40} />
-            ))}
-          </div>
-        ) : (
-          <Table
-            data={pageRows}
-            columns={columns}
-            idKey="allocation_id"
-            density="compact"
-            plugins={{
-              pagination,
-              sortable,
-              columnSettings,
-              rowStyling: {
-                transformBodyRow: (props, item) => ({
-                  ...props,
-                  htmlProps: {
-                    ...props.htmlProps,
-                    className: cn(props.htmlProps.className, rowClassName(item)),
+            ) : (
+              <Table
+                data={pageRows}
+                columns={columns}
+                idKey="allocation_id"
+                density="compact"
+                plugins={{
+                  pagination,
+                  sortable,
+                  columnSettings,
+                  rowStyling: {
+                    transformBodyRow: (props, item) => ({
+                      ...props,
+                      htmlProps: {
+                        ...props.htmlProps,
+                        className: cn(props.htmlProps.className, rowClassName(item)),
+                      },
+                    }),
                   },
-                }),
-              },
-            }}
-            emptyState={
-              <EmptyState
-                icon={<Users className="size-6" />}
-                title="No allocations in view"
-                description={
-                  canManage
-                    ? 'Adjust the filters, or add an allocation to staff someone onto a project.'
-                    : 'Adjust the account, project, or active-period filters.'
+                }}
+                emptyState={
+                  <EmptyState
+                    icon={<Users className="size-6" />}
+                    title="No allocations in view"
+                    description={
+                      canManage
+                        ? 'Adjust the filters, or add an allocation to staff someone onto a project.'
+                        : 'Adjust the account, project, or active-period filters.'
+                    }
+                  />
                 }
               />
-            }
+            )}
+          </div>
+
+          <SplitAllocationDialog
+            target={splitTarget}
+            onClose={() => setSplitTarget(null)}
+            onSplit={invalidate}
           />
-        )}
-      </div>
 
-      <SplitAllocationDialog
-        target={splitTarget}
-        onClose={() => setSplitTarget(null)}
-        onSplit={invalidate}
-      />
-
-      <ReassignWizardDialog
-        target={wizardTarget}
-        allocations={allocations.filter((a) => a.worker_id === wizardTarget?.worker_id)}
-        accountOptions={accountOptions}
-        projects={projects ?? []}
-        onClose={() => setWizardTarget(null)}
-        onReassigned={invalidate}
-      />
-    </PageChrome>
+          <ReassignWizardDialog
+            target={wizardTarget}
+            allocations={allocations.filter((a) => a.worker_id === wizardTarget?.worker_id)}
+            accountOptions={accountOptions}
+            projects={projects ?? []}
+            onClose={() => setWizardTarget(null)}
+            onReassigned={invalidate}
+          />
+        </LayoutContent>
+      }
+    />
   );
 }

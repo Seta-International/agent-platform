@@ -166,3 +166,23 @@ describe('AccountsPage — table (filter · sort · previously undiscovered defa
     expect(within(table).queryByText('Account 25')).not.toBeInTheDocument();
   });
 });
+
+describe('AccountsPage — breadcrumb trail (Astryx migration)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fetchAccountsMock.mockReset();
+    fetchAccountsMock.mockResolvedValue([]);
+  });
+
+  it('renders the root crumb and the current (terminal) "Accounts" crumb', async () => {
+    renderPage();
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Project Monitoring' });
+    expect(rootCrumb).toHaveAttribute('href', '/pm');
+
+    // Current crumb — manifest label and page title agree ("Accounts"), not a link.
+    expect(within(nav).getByText('Accounts').closest('a')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Accounts' })).toBeInTheDocument();
+  });
+});

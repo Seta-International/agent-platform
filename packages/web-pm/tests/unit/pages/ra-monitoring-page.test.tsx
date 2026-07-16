@@ -282,3 +282,22 @@ describe('RaMonitoringPage — table (Astryx Table + plugins)', () => {
     expect(screen.queryByText('Worker 00')).not.toBeInTheDocument();
   });
 });
+
+describe('RaMonitoringPage — breadcrumb trail (Astryx migration)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    latestSearch = {};
+  });
+
+  it('renders the root crumb and the current (terminal) "RA Monitoring" crumb', async () => {
+    renderPage();
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Project Monitoring' });
+    expect(rootCrumb).toHaveAttribute('href', '/pm');
+
+    // Current crumb — manifest label and page title agree ("RA Monitoring"), not a link.
+    expect(within(nav).getByText('RA Monitoring').closest('a')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'RA Monitoring' })).toBeInTheDocument();
+  });
+});

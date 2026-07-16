@@ -63,3 +63,23 @@ describe('ProjectsPage — table (sort · pagination parity)', () => {
     expect(within(table).queryByText('Project 25')).not.toBeInTheDocument();
   });
 });
+
+describe('ProjectsPage — breadcrumb trail (Astryx migration)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fetchProjectsMock.mockReset();
+    fetchProjectsMock.mockResolvedValue([]);
+  });
+
+  it('renders the root crumb and the current (terminal) "Projects" crumb', async () => {
+    renderPage();
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Project Monitoring' });
+    expect(rootCrumb).toHaveAttribute('href', '/pm');
+
+    // Current crumb — manifest label and page title agree ("Projects"), not a link.
+    expect(within(nav).getByText('Projects').closest('a')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Projects' })).toBeInTheDocument();
+  });
+});
