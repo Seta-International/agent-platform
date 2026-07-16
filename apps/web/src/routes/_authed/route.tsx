@@ -1,4 +1,4 @@
-import { AppShell, type ShellLinkProps } from '@seta/shared-ui';
+import { AppShell, LinkProvider, type ShellLinkProps } from '@seta/shared-ui';
 import {
   AgentMobileSheet,
   AgentProvider,
@@ -99,25 +99,27 @@ function ShellWithPanel({ children }: { children: React.ReactNode }) {
   });
 
   return (
-    <AppShell
-      apps={chromeManifests}
-      activeAppId={activeApp ?? ''}
-      activeItemId={activeId}
-      onAppSelect={onAppSelect}
-      linkComponent={ShellLink}
-      userMenu={<UserMenu onSignOut={() => clearLastApp(session.user_id)} />}
-      hideAgent={pathname.startsWith('/agent/')}
-      notificationPanel={
-        <NotificationPopoverContainer
-          resolvers={[useResolvePlannerNotification, useResolveAgentNotification]}
-        />
-      }
-      agentPanel={<AgentSidePanel onClose={() => setPanelOpen(false)} />}
-      agentOpen={panelOpen}
-      onAgentOpenChange={setPanelOpen}
-      agentMobileSlot={<AgentMobileSheet />}
-    >
-      {children}
-    </AppShell>
+    <LinkProvider component={ShellLink}>
+      <AppShell
+        apps={chromeManifests}
+        activeAppId={activeApp ?? ''}
+        activeItemId={activeId}
+        onAppSelect={onAppSelect}
+        linkComponent={ShellLink}
+        userMenu={<UserMenu onSignOut={() => clearLastApp(session.user_id)} />}
+        hideAgent={pathname.startsWith('/agent/')}
+        notificationPanel={
+          <NotificationPopoverContainer
+            resolvers={[useResolvePlannerNotification, useResolveAgentNotification]}
+          />
+        }
+        agentPanel={<AgentSidePanel onClose={() => setPanelOpen(false)} />}
+        agentOpen={panelOpen}
+        onAgentOpenChange={setPanelOpen}
+        agentMobileSlot={<AgentMobileSheet />}
+      >
+        {children}
+      </AppShell>
+    </LinkProvider>
   );
 }
