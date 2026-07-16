@@ -1,8 +1,9 @@
+import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
+import { Layout, LayoutContent } from '@astryxdesign/core/Layout';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
-import { Dialog, DialogHeader, Layout, LayoutContent } from '../../../src';
 
 function Harness() {
   const [open, setOpen] = useState(false);
@@ -22,15 +23,17 @@ function Harness() {
 }
 
 describe('Astryx Dialog under happy-dom', () => {
-  it('renders content only when open and closes via the header button', async () => {
+  it('exposes the dialog role only when open and closes via the header button', async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    // Closed: Dialog returns null.
-    expect(screen.queryByText('Dialog body')).not.toBeInTheDocument();
+    // Closed: content is mounted (Astryx Dialog does not unmount on close) but the
+    // native <dialog> has no `open` attribute, so it carries no accessible role.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Open' }));
-    expect(await screen.findByText('Dialog body')).toBeInTheDocument();
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('Dialog body')).toBeInTheDocument();
     // Close button is the DialogHeader's (rendered because onOpenChange was passed).
     await user.click(screen.getByRole('button', { name: /close/i }));
-    expect(screen.queryByText('Dialog body')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
