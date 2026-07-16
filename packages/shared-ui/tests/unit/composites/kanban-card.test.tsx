@@ -27,7 +27,7 @@ describe('KanbanCard', () => {
     expect(screen.getByRole('img', { name: 'Jane Doe' })).toBeInTheDocument();
   });
 
-  it('applies kanban-card--recently-moved class when recentlyMoved is true', () => {
+  it('marks the card data-recently-moved when recentlyMoved is true', () => {
     render(<KanbanCard task={{ ...task, recentlyMoved: true }} draggable={{}} />);
 
     const article = screen.getByRole('button', { name: /Ship M3 spec/ });

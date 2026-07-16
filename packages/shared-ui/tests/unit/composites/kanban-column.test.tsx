@@ -1,4 +1,5 @@
 import { LayoutContent } from '@astryxdesign/core/Layout';
+import * as stylex from '@stylexjs/stylex';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -444,6 +445,57 @@ describe('KanbanColumn bucket actions', () => {
     const dot = container.querySelector('[data-kanban-status-dot]') as HTMLElement;
     expect(dot).not.toBeNull();
     expect(dot.style.backgroundColor).toBe('');
+  });
+});
+
+describe('<KanbanColumn> Delete bucket danger styling', () => {
+  // Astryx Item renders the label in its own <span> whose class sets an explicit
+  // `color: var(--color-text-primary)`, so an xstyle colour on the menuitem ROOT is
+  // only inherited and never reaches the text. The danger colour must land on the
+  // label element itself.
+  //
+  // StyleX class names are a content hash of the declaration, so an identical
+  // `color: var(--color-danger)` created here yields the very same class the composite
+  // uses — that keeps this self-calibrating instead of hardcoding a hash.
+  const probe = stylex.create({ danger: { color: 'var(--color-danger)' } });
+
+  function dangerClass() {
+    // dev-mode props also carry a `<file>__styles.<key>` debug marker; keep the real class.
+    const cls = stylex
+      .props(probe.danger)
+      .className?.split(/\s+/)
+      .filter((c) => /^x[a-z0-9]+$/i.test(c));
+    if (!cls?.length) throw new Error('could not derive the danger StyleX class');
+    return cls;
+  }
+
+  // All three nested label spans share the same textContent, so take the DEEPEST match —
+  // the outermost wrapper is identical between items and would compare equal either way.
+  function labelElementFor(name: string) {
+    const item = screen.getByRole('menuitem', { name });
+    const matches = Array.from(item.querySelectorAll('*')).filter((n) => n.textContent === name);
+    const el = matches.at(-1);
+    if (!el) throw new Error(`no label element for "${name}"`);
+    return el as HTMLElement;
+  }
+
+  it('colours the Delete label element itself, not just the menuitem root', () => {
+    col({ onDelete: vi.fn(), onArchive: vi.fn() });
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+
+    const danger = dangerClass();
+    const deleteLabel = labelElementFor('Delete bucket');
+    const neutralLabel = labelElementFor('Archive bucket');
+
+    // Root-only styling (the regression) leaves the danger class off the label entirely.
+    expect(danger.every((c) => deleteLabel.classList.contains(c))).toBe(true);
+    expect(danger.some((c) => neutralLabel.classList.contains(c))).toBe(false);
+  });
+
+  it('keeps the Delete accessible name exactly "Delete bucket" despite the styled label', () => {
+    col({ onDelete: vi.fn() });
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    expect(screen.getByRole('menuitem', { name: 'Delete bucket' })).toBeInTheDocument();
   });
 });
 

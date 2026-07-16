@@ -29,7 +29,9 @@ const styles = stylex.create({
   grip: { color: 'var(--color-ink-tertiary)', flexShrink: 0 },
   gripDisabled: { opacity: 0.4 },
   countOver: { color: 'var(--color-danger)', fontWeight: 600 },
-  dangerItem: { color: 'var(--color-danger)' },
+  // Astryx Item paints the label in a child <span> with an explicit color, so the danger
+  // colour must go on the label itself — an xstyle on the item root is only inherited.
+  dangerLabel: { color: 'var(--color-danger)' },
   quickCreate: { alignSelf: 'flex-start' },
 });
 
@@ -186,9 +188,12 @@ export function KanbanColumn({
                       {...stylex.props(styles.grip)}
                     />
                   ))}
+                {/* aria-hidden: the dot only restates the adjacent bucket name, and
+                    StatusDot would otherwise announce it as role="img". */}
                 <StatusDot
                   variant={status ?? 'neutral'}
                   label={`${name} status`}
+                  aria-hidden="true"
                   data-kanban-status-dot=""
                   style={color ? { backgroundColor: color } : undefined}
                 />
@@ -296,9 +301,8 @@ export function KanbanColumn({
                           reason={deleteDisabledReason}
                         >
                           <DropdownMenuItem
-                            label="Delete bucket"
+                            label={<Text xstyle={styles.dangerLabel}>Delete bucket</Text>}
                             isDisabled={Boolean(deleteDisabledReason)}
-                            xstyle={styles.dangerItem}
                             onClick={onDelete}
                           />
                         </DisabledActionTooltip>

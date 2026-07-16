@@ -4,7 +4,8 @@ import type { CSSProperties, HTMLAttributes, KeyboardEvent, ReactNode } from 're
 
 const flash = stylex.keyframes({
   '0%': { borderColor: 'var(--color-primary)', boxShadow: '0 0 0 2px var(--color-primary-tint)' },
-  '100%': { borderColor: 'var(--color-hairline)', boxShadow: 'none' },
+  // Must land on the Astryx Card's resting border (variant="default" -> withBorder).
+  '100%': { borderColor: 'var(--color-border-emphasized)', boxShadow: 'none' },
 });
 
 const styles = stylex.create({
