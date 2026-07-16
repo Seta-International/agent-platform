@@ -14,10 +14,8 @@ import {
   LayoutFooter,
   PageChrome,
   Skeleton,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
+  Tab,
+  TabList,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { CheckSquare, Layers, RotateCcw, Trash2, Users } from 'lucide-react';
@@ -80,6 +78,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
   const unarchivePlan = useUnarchivePlan();
   const deleteArchivedPlan = useDeleteArchivedPlan();
   const [confirmingPurge, setConfirmingPurge] = useState<TrashRow | null>(null);
+  const [tab, setTab] = useState('deleted');
   const closePurgeDialog = () => setConfirmingPurge(null);
 
   const canUpdatePlan = usePermission('planner.plan.update');
@@ -173,26 +172,30 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
 
   return (
     <PageChrome breadcrumb={['Planner']} title="Trash">
-      <Tabs defaultValue="deleted" className="flex flex-col">
+      <div className="flex flex-col">
         <div className="border-b border-hairline px-7 pt-4">
-          <TabsList>
-            <TabsTrigger value="deleted">
-              Deleted
-              {rows.length > 0 && (
-                <Badge variant="neutral" className="ml-1.5" label={rows.length} />
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="archived">
-              Archived
-              {archivedRows.length > 0 && (
-                <Badge variant="neutral" className="ml-1.5" label={archivedRows.length} />
-              )}
-            </TabsTrigger>
-          </TabsList>
+          <TabList value={tab} onChange={setTab} aria-label="Trash">
+            <Tab
+              value="deleted"
+              label="Deleted"
+              endContent={
+                rows.length > 0 ? <Badge variant="neutral" label={rows.length} /> : undefined
+              }
+            />
+            <Tab
+              value="archived"
+              label="Archived"
+              endContent={
+                archivedRows.length > 0 ? (
+                  <Badge variant="neutral" label={archivedRows.length} />
+                ) : undefined
+              }
+            />
+          </TabList>
         </div>
 
-        <TabsContent value="deleted" className="mt-0">
-          {rows.length === 0 ? (
+        {tab === 'deleted' &&
+          (rows.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 title="No deleted items"
@@ -273,11 +276,10 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                 })}
               </div>
             </div>
-          )}
-        </TabsContent>
+          ))}
 
-        <TabsContent value="archived" className="mt-0">
-          {archivedRows.length === 0 ? (
+        {tab === 'archived' &&
+          (archivedRows.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 title="No archived plans"
@@ -354,9 +356,8 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                 ))}
               </div>
             </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          ))}
+      </div>
 
       <Dialog
         isOpen={confirmingPurge !== null}
