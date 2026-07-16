@@ -48,9 +48,9 @@ export interface KanbanColumnProps {
   onSetWipLimit?: () => void;
   onArchive?: () => void;
   /**
-   * When set, the corresponding trigger renders disabled with this reason (tooltip on
-   * standalone buttons; inline description on menu items) — for users who lack the
-   * relevant permission. The owning callback is still passed so the trigger stays visible.
+   * When set, the corresponding trigger renders disabled with this reason in a tooltip
+   * (standalone buttons and menu items alike) — for users who lack the relevant
+   * permission. The owning callback is still passed so the trigger stays visible.
    */
   createTaskDisabledReason?: string;
   renameDisabledReason?: string;
@@ -258,20 +258,28 @@ export function KanbanColumn({
                       }}
                     >
                       {onRename && (
-                        <DropdownMenuItem
-                          label="Rename bucket"
-                          isDisabled={Boolean(renameDisabledReason)}
-                          description={renameDisabledReason}
-                          onClick={openRename}
-                        />
+                        <DisabledActionTooltip
+                          disabled={Boolean(renameDisabledReason)}
+                          reason={renameDisabledReason}
+                        >
+                          <DropdownMenuItem
+                            label="Rename bucket"
+                            isDisabled={Boolean(renameDisabledReason)}
+                            onClick={openRename}
+                          />
+                        </DisabledActionTooltip>
                       )}
                       {onCreateTask && (
-                        <DropdownMenuItem
-                          label="Add task here"
-                          isDisabled={Boolean(createTaskDisabledReason)}
-                          description={createTaskDisabledReason}
-                          onClick={() => setComposing(true)}
-                        />
+                        <DisabledActionTooltip
+                          disabled={Boolean(createTaskDisabledReason)}
+                          reason={createTaskDisabledReason}
+                        >
+                          <DropdownMenuItem
+                            label="Add task here"
+                            isDisabled={Boolean(createTaskDisabledReason)}
+                            onClick={() => setComposing(true)}
+                          />
+                        </DisabledActionTooltip>
                       )}
                       {localActions && onSetColor && (
                         <DropdownMenuItem label="Set color" onClick={onSetColor} />
@@ -283,13 +291,17 @@ export function KanbanColumn({
                         <DropdownMenuItem label="Archive bucket" onClick={onArchive} />
                       )}
                       {onDelete && (
-                        <DropdownMenuItem
-                          label="Delete bucket"
-                          isDisabled={Boolean(deleteDisabledReason)}
-                          description={deleteDisabledReason}
-                          xstyle={styles.dangerItem}
-                          onClick={onDelete}
-                        />
+                        <DisabledActionTooltip
+                          disabled={Boolean(deleteDisabledReason)}
+                          reason={deleteDisabledReason}
+                        >
+                          <DropdownMenuItem
+                            label="Delete bucket"
+                            isDisabled={Boolean(deleteDisabledReason)}
+                            xstyle={styles.dangerItem}
+                            onClick={onDelete}
+                          />
+                        </DisabledActionTooltip>
                       )}
                     </DropdownMenu>
                   )}

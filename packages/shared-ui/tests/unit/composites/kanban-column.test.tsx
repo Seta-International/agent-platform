@@ -16,12 +16,10 @@ const noopDrop = {
   isDraggingOver: false,
 };
 
-// Astryx's own Button renders a hidden, always-present `aria-live="assertive"
-// role="alert"` announcer alongside our inline error `<Text role="alert">`, so
-// more than one role="alert" element can be in the tree at once. `role="alert"`
-// computes its accessible name from `author` only (not content, per the ARIA
-// accname spec), so `findByRole('alert', { name: ... })` can never match our
-// message — filter by text content instead.
+// In the error state there are two role="alert" elements (our inline error
+// `<Text role="alert">` plus TextInput's own FieldStatus announcer), so
+// `findByRole('alert')` fails with "Found multiple elements" — filter by
+// text content instead.
 async function findAlertWithText(text: string) {
   return waitFor(() => {
     const alert = screen.getAllByRole('alert').find((el) => el.textContent === text);
@@ -292,9 +290,10 @@ describe('<KanbanColumn> quick-create submit', () => {
     fireEvent.change(screen.getByPlaceholderText('Task title'), { target: { value: longTitle } });
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
-    expect(await findAlertWithText('Task title cannot exceed 255 characters.')).toHaveTextContent(
-      'Task title cannot exceed 255 characters.',
-    );
+    // findAlertWithText's own throw-based wait already asserts a role="alert"
+    // element with this exact text appears; re-asserting the same text here
+    // would be tautological.
+    await findAlertWithText('Task title cannot exceed 255 characters.');
     expect(screen.getByPlaceholderText('Task title')).toBeInTheDocument();
     expect(onCreateTask).not.toHaveBeenCalled();
   });
@@ -346,9 +345,10 @@ describe('<KanbanColumn> quick-create submit', () => {
     fireEvent.change(screen.getByPlaceholderText('Task title'), { target: { value: 'Too long' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
-    expect(await findAlertWithText('Task title cannot exceed 255 characters.')).toHaveTextContent(
-      'Task title cannot exceed 255 characters.',
-    );
+    // findAlertWithText's own throw-based wait already asserts a role="alert"
+    // element with this exact text appears; re-asserting the same text here
+    // would be tautological.
+    await findAlertWithText('Task title cannot exceed 255 characters.');
     expect(screen.getByPlaceholderText('Task title')).toBeInTheDocument();
   });
 });
@@ -443,6 +443,41 @@ describe('KanbanColumn bucket actions', () => {
     const dot = container.querySelector('[data-kanban-status-dot]') as HTMLElement;
     expect(dot).not.toBeNull();
     expect(dot.style.backgroundColor).toBe('');
+  });
+});
+
+describe('<KanbanColumn> disabled menu items keep their exact accessible name', () => {
+  it('keeps "Rename bucket" as the exact name (no appended reason) when disabled', () => {
+    col({
+      onRename: vi.fn(),
+      renameDisabledReason: 'You do not have permission to rename this bucket.',
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    // Exact match: if the disabled reason leaked into the accessible name (e.g. via
+    // Astryx's `description` prop), this query would not find the item at all.
+    const item = screen.getByRole('menuitem', { name: 'Rename bucket' });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('keeps "Delete bucket" as the exact name (no appended reason) when disabled', () => {
+    col({
+      onDelete: vi.fn(),
+      deleteDisabledReason: 'You do not have permission to delete this bucket.',
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    const item = screen.getByRole('menuitem', { name: 'Delete bucket' });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('keeps "Add task here" as the exact name (no appended reason) when disabled', () => {
+    col({
+      onCreateTask: vi.fn(),
+      onDelete: vi.fn(),
+      createTaskDisabledReason: 'You do not have permission to create tasks.',
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    const item = screen.getByRole('menuitem', { name: 'Add task here' });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
   });
 });
 
