@@ -46,7 +46,10 @@ export const Route = createFileRoute('/_authed')({
     // beforeLoad constantly, and must not each hit /identity/v1/me (FUT-648).
     const session = await ensureSession(context.queryClient);
     if (!session)
-      throw redirect({ to: '/login', search: { redirect: location.href, reason: undefined } });
+      throw redirect({
+        to: '/login',
+        search: { redirect: location.href, reason: undefined, error: undefined },
+      });
     return { session };
   },
   component: AuthedLayout,

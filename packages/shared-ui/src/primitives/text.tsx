@@ -1,2 +1,9 @@
-export type { TextProps, TextSize, TextType } from '@astryxdesign/core/Text';
-export { Text } from '@astryxdesign/core/Text';
+export type {
+  HeadingLevel,
+  HeadingProps,
+  HeadingType,
+  TextProps,
+  TextSize,
+  TextType,
+} from '@astryxdesign/core/Text';
+export { Heading, Text } from '@astryxdesign/core/Text';
