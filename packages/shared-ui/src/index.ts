@@ -14,12 +14,8 @@ export * from './composites/app-shell';
 export * from './composites/auth-backdrop';
 export * from './composites/avatar-stack';
 export * from './composites/chat-composer';
-export * from './composites/chat-hitl-card';
 export * from './composites/chat-markdown';
-export * from './composites/chat-message';
 export * from './composites/chat-thread-rail';
-export * from './composites/chat-tool-call';
-export * from './composites/chat-transcript';
 export * from './composites/coming-soon';
 export * from './composites/counter-badge-popover';
 export * from './composites/disabled-action-tooltip';
@@ -99,6 +95,7 @@ export type {
   ChatMessageBubbleVariant,
   ChatMessageListProps,
   ChatMessageMetadataProps,
+  ChatMessageProps,
   ChatMessageSender,
   ChatMessageStatus,
   ChatSendButtonProps,
@@ -129,6 +126,7 @@ export {
   ChatDictationButton,
   ChatLayout,
   ChatLayoutScrollButton,
+  ChatMessage,
   ChatMessageBubble,
   ChatMessageList,
   ChatMessageMetadata,
@@ -145,6 +143,7 @@ export {
   useSpeechRecognition,
 } from './primitives/chat';
 export * from './primitives/checkbox';
+export * from './primitives/collapsible';
 export * from './primitives/date-input';
 export * from './primitives/dialog';
 export * from './primitives/dropdown-menu';

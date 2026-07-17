@@ -1,5 +1,15 @@
 import { MessagePrimitive, ThreadPrimitive, useAui, useAuiState } from '@assistant-ui/react';
-import { ChatMarkdown, ChatMessage, ChatTranscript } from '@seta/shared-ui';
+import {
+  type ChatDensity,
+  ChatLayout,
+  ChatMessage,
+  ChatMessageBubble,
+  ChatMessageList,
+  ChatMessageMetadata,
+  Markdown,
+  Timestamp,
+  Token,
+} from '@seta/shared-ui';
 import { Paperclip, Sparkles } from 'lucide-react';
 import { type ReactNode, useCallback } from 'react';
 import { ThreadListRefresher } from '../components/thread-list-refresher';
@@ -12,8 +22,17 @@ import { type PageContext, useAgentSelection, usePageContext } from './agent-pro
 import { ChainOfThought } from './chain-of-thought';
 import { groupByThought } from './group-by-thought';
 import { RenderContextBadge } from './render-context-badge';
+import { type Density, useDensity } from './use-density';
 
 const ASSISTANT_LABEL = 'Agent';
+
+// Our density axis is about how much *detail* the transcript shows; Astryx's is
+// about spacing. 'detailed' maps to 'balanced' rather than 'spacious' so the
+// side panel keeps its current information density.
+const CHAT_DENSITY: Record<Density, ChatDensity> = {
+  concise: 'compact',
+  detailed: 'balanced',
+};
 
 function splitThinkSegments(text: string): { text: string; isThink: boolean; id: string }[] {
   const segments: { text: string; isThink: boolean; id: string }[] = [];
@@ -42,15 +61,17 @@ function TextPart({ text, status }: PartProps) {
   // ThinkingIndicator that the transcript shows for empty turns.
   if (text.length === 0) return null;
   return (
-    <div className="relative">
-      <ChatMarkdown text={text} />
-      {status.type === 'running' && (
-        <span
-          aria-hidden
-          className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-[2px] animate-pulse bg-ink"
-        />
-      )}
-    </div>
+    <ChatMessageBubble variant="ghost">
+      <div className="relative">
+        <Markdown density="compact">{text}</Markdown>
+        {status.type === 'running' && (
+          <span
+            aria-hidden
+            className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-[2px] animate-pulse bg-ink"
+          />
+        )}
+      </div>
+    </ChatMessageBubble>
   );
 }
 
@@ -95,13 +116,7 @@ function PlainTextPart({ text }: PartProps) {
     return (
       <div className="flex flex-wrap gap-1.5">
         {filenames.map((name) => (
-          <span
-            key={name}
-            className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2 py-1 text-caption"
-          >
-            <Paperclip className="size-3" aria-hidden />
-            <span className="max-w-[12rem] truncate">{name}</span>
-          </span>
+          <Token key={name} size="sm" label={name} icon={<Paperclip aria-hidden />} />
         ))}
       </div>
     );
@@ -173,7 +188,7 @@ function UserMessage() {
   const content = useAuiState((s) => s.message.content);
   const ctx = extractPageContext(content);
   return (
-    <ChatMessage variant="user">
+    <ChatMessage sender="user">
       {ctx && <RenderContextBadge data={ctx} />}
       <MessagePrimitive.Parts components={{ Text: PlainTextPart }} />
     </ChatMessage>
@@ -243,14 +258,18 @@ function makeAssistantMessage(authorLabel: string) {
 
   return function AssistantMessage() {
     const stableGroupBy = useCallback(groupByThought, []);
+    const createdAt = useAuiState((s) => s.message.createdAt);
     return (
-      <ChatMessage variant="agent" author={authorLabel}>
+      <ChatMessage sender="assistant" name={authorLabel}>
         <MessagePrimitive.GroupedParts groupBy={stableGroupBy as never}>
           {renderPart as never}
         </MessagePrimitive.GroupedParts>
         <MessagePrimitive.If hasContent={false} last>
           <ThinkingIndicator />
         </MessagePrimitive.If>
+        <ChatMessageMetadata
+          timestamp={<Timestamp value={createdAt.toISOString()} format="time" />}
+        />
       </ChatMessage>
     );
   };
@@ -259,24 +278,30 @@ function makeAssistantMessage(authorLabel: string) {
 export function AgentTranscript() {
   const { selection } = useAgentSelection();
   const { pageContext } = usePageContext();
+  const { density } = useDensity();
+  const isRunning = useAuiState((s) => s.thread.isRunning);
   const AssistantMessage = makeAssistantMessage(ASSISTANT_LABEL);
 
   const emptyTitle = pageContext ? `Ask about ${pageContext.label}` : AGENT_COPY.emptyThreads.title;
   const emptyBody = pageContext
     ? `Ask agent anything about this ${pageContext.kind.split('.').pop() ?? 'item'}.`
     : AGENT_COPY.emptyThreads.body;
+  const chatDensity = CHAT_DENSITY[density];
 
   return (
     <>
-      <ChatTranscript>
-        <ThreadPrimitive.Empty>
-          <AgentEmpty title={emptyTitle} body={emptyBody} />
-        </ThreadPrimitive.Empty>
-        <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
-        <div className="px-4 pb-4">
+      {/* `composer={null}`: every surface (side panel, mobile sheet, chat page)
+          renders <AgentComposer/> as a sibling below the transcript today.
+          Threading it into ChatLayout's dock is a surfaces change — Task 5. */}
+      <ChatLayout density={chatDensity} composer={null}>
+        <ChatMessageList density={chatDensity} isStreaming={isRunning}>
+          <ThreadPrimitive.Empty>
+            <AgentEmpty title={emptyTitle} body={emptyBody} />
+          </ThreadPrimitive.Empty>
+          <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
           <ChatEmbeddedHitl threadId={selection.threadId} />
-        </div>
-      </ChatTranscript>
+        </ChatMessageList>
+      </ChatLayout>
       <ToolUIRegistry />
       <ThreadListRefresher threadId={selection.threadId} />
     </>

@@ -33,7 +33,13 @@ vi.mock('@assistant-ui/react', () => {
       composer: () => ({ setText: vi.fn(), send: vi.fn() }),
     }),
     useAuiState: (selector: (state: unknown) => unknown) =>
-      selector({ message: { content: [{ status: { type: 'complete' } }] } }),
+      selector({
+        message: {
+          content: [{ status: { type: 'complete' } }],
+          createdAt: new Date('2026-05-20T16:13:00Z'),
+        },
+        thread: { isRunning: thoughtStatus === 'running' },
+      }),
   };
 });
 
@@ -57,6 +63,11 @@ vi.mock('../../../src/components/thread-list-refresher', () => ({
 import { AgentTranscript } from '../../../src/chat-experience/agent-transcript';
 import { DensityProvider } from '../../../src/chat-experience/use-density';
 
+// NOTE (FUT-670): `aria-expanded` is the ONLY load-bearing assertion for
+// open/closed here. Astryx `Collapsible` keeps its children mounted and hides
+// them with a StyleX `display: none` class; happy-dom loads no Astryx CSS, so
+// `toBeVisible()` returns true for a collapsed body too — verified empirically.
+// Assert presence, never visibility, for collapsed content in this suite.
 describe('AgentTranscript thought group', () => {
   beforeEach(() => localStorage.clear());
 
@@ -84,7 +95,7 @@ describe('AgentTranscript thought group', () => {
       'aria-expanded',
       'true',
     );
-    expect(screen.getByText('Collected reasoning')).toBeVisible();
+    expect(screen.getByText('Collected reasoning')).toBeInTheDocument();
   });
 
   it('keeps a completed thought expanded in detailed density', () => {
@@ -115,6 +126,6 @@ describe('AgentTranscript thought group', () => {
       'aria-expanded',
       'true',
     );
-    expect(screen.getByText('Collected reasoning')).toBeVisible();
+    expect(screen.getByText('Collected reasoning')).toBeInTheDocument();
   });
 });

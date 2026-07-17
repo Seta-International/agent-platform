@@ -1,13 +1,16 @@
+import { Token } from '@seta/shared-ui';
+import { Paperclip } from 'lucide-react';
 import type { PageContext } from './agent-provider';
 
 export function RenderContextBadge({ data }: { data: PageContext }) {
+  // Astryx `Token` takes a single string label, so the old four-span row
+  // (prefix / kind / em-dash / label) collapses into one, and the literal 📎
+  // becomes the token's icon slot.
   return (
-    <div className="mb-1.5 inline-flex items-center gap-1 rounded bg-surface-2 px-2 py-0.5 text-caption text-ink-subtle">
-      <span aria-hidden>📎</span>
-      <span>sent with context:</span>
-      <span className="font-medium text-ink">{data.kind}</span>
-      <span>—</span>
-      <span className="truncate">{data.label}</span>
-    </div>
+    <Token
+      size="sm"
+      icon={<Paperclip aria-hidden />}
+      label={`sent with context: ${data.kind} — ${data.label}`}
+    />
   );
 }

@@ -1,20 +1,38 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const message = {
-  content: [
-    { type: 'tool-call', status: { type: 'complete' } },
-    {
-      type: 'data',
-      name: 'tool-agent',
-      data: {
-        id: 'planner-supervisor',
-        toolCalls: [{ payload: { toolCallId: 'c1', toolName: 'planner_createTask' } }],
-        toolResults: [{ payload: { toolCallId: 'c1', isError: false } }],
+interface MessageShape {
+  content: unknown[];
+}
+
+// The leaf rows are MULTI-call on purpose. Astryx `ChatToolCalls` renders a
+// single-element `calls` array inline via `CallRow` and IGNORES
+// `isExpanded`/`defaultIsExpanded` entirely (ChatToolCalls.tsx L525-530), so a
+// one-call group looks "expanded" no matter what the state says and a
+// forced-open assertion against it would pass vacuously. With two calls the
+// collapsible group header (role="button" + aria-expanded) actually exists and
+// reflects real state.
+function messageWith(toolCallStatus: string): MessageShape {
+  return {
+    content: [
+      { type: 'tool-call', status: { type: toolCallStatus } },
+      {
+        type: 'data',
+        name: 'tool-agent',
+        data: {
+          id: 'planner-supervisor',
+          toolCalls: [
+            { payload: { toolCallId: 'c1', toolName: 'planner_createTask' } },
+            { payload: { toolCallId: 'c2', toolName: 'planner_listTasks' } },
+          ],
+          toolResults: [{ payload: { toolCallId: 'c1', isError: false } }],
+        },
       },
-    },
-  ],
-};
+    ],
+  };
+}
+
+let message: MessageShape = messageWith('complete');
 
 vi.mock('@assistant-ui/react', () => ({
   useAuiState: (selector: (s: unknown) => unknown) => selector({ message }),
@@ -23,14 +41,20 @@ vi.mock('@assistant-ui/react', () => ({
 import { ChainOfThought } from '../../../src/chat-experience/chain-of-thought';
 
 describe('ChainOfThought', () => {
-  it('renders a leaf tool-call row with its via-agent label when expanded', () => {
+  beforeEach(() => {
+    message = messageWith('complete');
+    localStorage.clear();
+  });
+
+  it('renders leaf tool-call rows with their via-agent label when expanded', () => {
     render(
       <ChainOfThought running={true} count={1} indices={[0]}>
         <div>delegate-row</div>
       </ChainOfThought>,
     );
     expect(screen.getByText('Planner Create Task')).toBeInTheDocument();
-    expect(screen.getByText('via Planner')).toBeInTheDocument();
+    expect(screen.getByText('Planner List Tasks')).toBeInTheDocument();
+    expect(screen.getAllByText('via Planner')).toHaveLength(2);
     expect(screen.getByText('delegate-row')).toBeInTheDocument();
   });
 
@@ -40,7 +64,44 @@ describe('ChainOfThought', () => {
         <div>delegate-row</div>
       </ChainOfThought>,
     );
-    // count(1 grouped) + 1 leaf = 2 steps
-    expect(screen.getByText(/2 steps/)).toBeInTheDocument();
+    // count(1 grouped) + 2 leaves = 3 steps
+    expect(screen.getByRole('button', { name: /3 steps/ })).toBeInTheDocument();
+  });
+
+  it('collapses a finished group under the default (concise) density', () => {
+    render(
+      <ChainOfThought running={false} count={1} indices={[0]}>
+        <div>delegate-row</div>
+      </ChainOfThought>,
+    );
+    // Control for the forced-open test below: with no `requires-action` part
+    // and `running=false`, this exact tree collapses. Without this assertion the
+    // forced-open test could not distinguish "held open by the HITL gate" from
+    // "open by default".
+    expect(screen.queryByRole('button', { expanded: true })).toBeNull();
+  });
+
+  it('stays forced-open while an inner tool call awaits approval (requires-action)', () => {
+    // Mastra-native `requireApproval` HITL gate: the agent flips the group to
+    // 'complete', which would collapse it and hide the approval card behind a
+    // manual expand. `hasPendingAction` must override that.
+    message = messageWith('requires-action');
+    render(
+      <ChainOfThought running={false} count={1} indices={[0]}>
+        <div>delegate-row</div>
+      </ChainOfThought>,
+    );
+    // The chain-of-thought shell itself is held open...
+    expect(screen.getByRole('button', { name: /Thought/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    // ...and so is the multi-call leaf group nested inside it, so a pending
+    // approval row is actually reachable rather than one more click away.
+    expect(screen.getByRole('button', { name: /2 tool calls/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.queryByRole('button', { expanded: false })).toBeNull();
   });
 });

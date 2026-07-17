@@ -1,4 +1,5 @@
-import { ChatToolCall } from '@seta/shared-ui';
+import { ChatToolCalls } from '@seta/shared-ui';
+import { payloadDetail } from './payload-detail';
 
 export interface WhoAmIProps {
   name: string;
@@ -10,14 +11,20 @@ export interface WhoAmIProps {
 export function WhoAmIRenderer({ name, state, output }: WhoAmIProps) {
   if (state === 'output-available') {
     return (
-      <ChatToolCall
-        name={name}
-        status="ok"
-        summary={output?.display_name ?? output?.email ?? 'profile loaded'}
-        payload={output}
+      <ChatToolCalls
+        calls={[
+          {
+            name,
+            status: 'complete',
+            target: output?.display_name ?? output?.email ?? 'profile loaded',
+            resultDetail: payloadDetail(output),
+          },
+        ]}
       />
     );
   }
-  if (state === 'output-error') return <ChatToolCall name={name} status="error" summary="failed" />;
-  return <ChatToolCall name={name} status="running" />;
+  if (state === 'output-error') {
+    return <ChatToolCalls calls={[{ name, status: 'error', errorMessage: 'failed' }]} />;
+  }
+  return <ChatToolCalls calls={[{ name, status: 'running' }]} />;
 }

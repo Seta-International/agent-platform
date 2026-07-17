@@ -1,7 +1,7 @@
 import { useAuiState } from '@assistant-ui/react';
-import { ChatToolCall } from '@seta/shared-ui';
+import { type ChatToolCallStatus, ChatToolCalls, Collapsible } from '@seta/shared-ui';
 import { type ReactNode, useMemo, useState } from 'react';
-import { extractLeafToolCalls, humanizeToolName } from './leaf-tool-calls';
+import { extractLeafToolCalls, humanizeToolName, type LeafToolCall } from './leaf-tool-calls';
 import { useDensity } from './use-density';
 
 export interface ChainOfThoughtProps {
@@ -10,6 +10,12 @@ export interface ChainOfThoughtProps {
   indices: readonly number[];
   children: ReactNode;
 }
+
+const LEAF_STATUS: Record<LeafToolCall['status'], ChatToolCallStatus> = {
+  running: 'running',
+  ok: 'complete',
+  error: 'error',
+};
 
 export function ChainOfThought({ running, count, indices, children }: ChainOfThoughtProps) {
   const { density } = useDensity();
@@ -34,47 +40,32 @@ export function ChainOfThought({ running, count, indices, children }: ChainOfTho
   const forcedOpen = running || hasPendingAction;
   const defaultOpen = density === 'detailed';
   const open = forcedOpen || (manualOverride ?? defaultOpen);
+  const calls = useMemo(
+    () =>
+      leafRows.map((r) => ({
+        key: r.toolCallId,
+        name: humanizeToolName(r.name),
+        status: LEAF_STATUS[r.status],
+        target: `via ${r.via}`,
+      })),
+    [leafRows],
+  );
   return (
-    <div className="my-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-caption">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setManualOverride((prev) => !(prev ?? defaultOpen))}
-        className="flex w-full cursor-pointer select-none items-center justify-between text-left text-ink-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-      >
-        <span className="inline-flex items-center gap-1.5">
-          {running ? (
-            <>
-              <span className="inline-block size-1.5 animate-pulse rounded-full bg-primary" />
-              Thinking…
-            </>
-          ) : (
-            <>
-              <span className="inline-block size-1.5 rounded-full bg-semantic-success" />
-              Thought {stepCount > 0 ? `· ${stepCount} step${stepCount > 1 ? 's' : ''}` : ''}
-            </>
-          )}
-          <span
-            aria-hidden
-            className={`ml-1 text-ink-tertiary transition-transform ${open ? 'rotate-90' : ''}`}
-          >
-            ›
-          </span>
-        </span>
-      </button>
-      {open && (
-        <div className="mt-2 space-y-1.5 border-l-2 border-hairline pl-3">
-          {children}
-          {leafRows.map((r) => (
-            <ChatToolCall
-              key={r.toolCallId}
-              name={humanizeToolName(r.name)}
-              status={r.status}
-              summary={`via ${r.via}`}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    <Collapsible
+      isOpen={open}
+      onOpenChange={() => setManualOverride((prev) => !(prev ?? defaultOpen))}
+      trigger={
+        running
+          ? 'Thinking…'
+          : `Thought ${stepCount > 0 ? `· ${stepCount} step${stepCount > 1 ? 's' : ''}` : ''}`
+      }
+    >
+      {children}
+      {/* Drive the leaf group from the same `open` state rather than letting it
+          keep its own: nested inside an open chain-of-thought the rows were
+          always flat/visible before, and a second collapsed layer would bury a
+          pending approval one extra click deep. */}
+      <ChatToolCalls calls={calls} isExpanded={open} />
+    </Collapsible>
   );
 }
