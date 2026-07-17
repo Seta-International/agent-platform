@@ -62,10 +62,12 @@ export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelec
         label: ariaLabel,
         isDisabled: isLoading || models.length === 0,
         children: (
-          <>
-            <CurrentIcon className="size-3 text-secondary" aria-hidden />
+          // Button renders bare children — own the row layout so the icon and
+          // label sit inline with a gap instead of wrapping onto each other.
+          <span className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+            <CurrentIcon className="size-3 shrink-0 text-secondary" aria-hidden />
             <span className="truncate">{current?.label ?? 'Model'}</span>
-          </>
+          </span>
         ),
       }}
     >
