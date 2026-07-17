@@ -3,9 +3,9 @@ import {
   Breadcrumbs,
   Button,
   DisabledActionTooltip,
+  Divider,
   DropdownMenu,
   DropdownMenuItem,
-  KbdHint,
 } from '@seta/shared-ui';
 import { ArrowRightLeft, Copy, MoreHorizontal, Sparkles } from 'lucide-react';
 import { type ReactNode, useEffect } from 'react';
@@ -180,14 +180,13 @@ export function TaskDetailHeader({
                 )}
               </DropdownMenu>
             )}
-            <span aria-hidden="true" className="h-5 w-px bg-hairline" />
+            <Divider orientation="vertical" style={{ height: 20 }} />
             <button
               type="button"
               onClick={onPrevious}
               aria-label="Previous task"
               className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-ink-subtle hover:bg-surface-1 hover:text-ink"
             >
-              <KbdHint keys={['K']} />
               <span>Prev</span>
             </button>
             <button
@@ -197,7 +196,6 @@ export function TaskDetailHeader({
               className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-ink-subtle hover:bg-surface-1 hover:text-ink"
             >
               <span>Next</span>
-              <KbdHint keys={['J']} />
             </button>
           </div>
         </div>

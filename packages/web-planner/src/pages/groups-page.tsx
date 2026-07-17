@@ -8,7 +8,6 @@ import {
   DisabledActionTooltip,
   EmptyState,
   HStack,
-  KbdHint,
   Layout,
   LayoutContent,
   LayoutFooter,
@@ -333,11 +332,6 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
                   ? ` · ${syncedCount} ${syncedCount === 1 ? 'group' : 'groups'} synced from IdP`
                   : ''}
               </span>
-              {canCreateGroup ? (
-                <span className="inline-flex items-center gap-1 text-ink-subtle">
-                  Press <KbdHint keys={['N']} /> to create a new group
-                </span>
-              ) : null}
             </footer>
           </div>
           <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />

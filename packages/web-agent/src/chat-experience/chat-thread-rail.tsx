@@ -1,4 +1,4 @@
-import { Badge, Button, cn, Input, KbdHint, List, ListItem, Text } from '@seta/shared-ui';
+import { Badge, Button, cn, Input, List, ListItem, Text } from '@seta/shared-ui';
 import { Plus, Search } from 'lucide-react';
 
 export interface ThreadRailItem {
@@ -41,7 +41,6 @@ export function ChatThreadRail({
           <Button
             label="New"
             icon={<Plus className="size-3" aria-hidden />}
-            endContent={<KbdHint keys={['⌘N']} />}
             variant="primary"
             size="sm"
             onClick={onNewThread}

@@ -166,7 +166,6 @@ export function KanbanColumnCompose({
         />
       </div>
       <div {...stylex.props(styles.footer)}>
-        {/* KbdHint rendered null here by design; only the plain word survives. */}
         <Text size="2xs" color="secondary">
           add
         </Text>
