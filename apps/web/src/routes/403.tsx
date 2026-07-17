@@ -1,4 +1,4 @@
-import { EmptyState } from '@seta/shared-ui';
+import { Button, EmptyState } from '@seta/shared-ui';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
 function Page() {
@@ -8,7 +8,7 @@ function Page() {
       <EmptyState
         title="No access"
         description="You don't have permission to view this page."
-        action={{ label: 'Go home', onClick: () => void navigate({ to: '/' }) }}
+        actions={<Button label="Go home" onClick={() => void navigate({ to: '/' })} />}
       />
     </div>
   );

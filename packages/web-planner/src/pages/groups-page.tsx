@@ -194,10 +194,10 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
                     ? 'Create a group to organize plans and people.'
                     : 'Ask an admin to create a group and invite you to it.'
                 }
-                action={
-                  canCreateGroup
-                    ? { label: 'New group', onClick: () => setCreateOpen(true) }
-                    : undefined
+                actions={
+                  canCreateGroup ? (
+                    <Button label="New group" onClick={() => setCreateOpen(true)} />
+                  ) : undefined
                 }
               />
               <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />

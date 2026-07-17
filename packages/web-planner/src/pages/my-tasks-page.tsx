@@ -274,7 +274,7 @@ function MyTasksEmpty({ onBrowse }: { onBrowse?: () => void }) {
         icon={<CheckCircle2 className="size-8" />}
         title="You&apos;re all caught up"
         description="Nothing is assigned to you right now. Pick up something from a plan."
-        action={onBrowse ? { label: 'Browse plans', onClick: onBrowse } : undefined}
+        actions={onBrowse ? <Button label="Browse plans" onClick={onBrowse} /> : undefined}
       />
     </div>
   );

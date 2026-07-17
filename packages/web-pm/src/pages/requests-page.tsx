@@ -601,14 +601,15 @@ export function RequestsPage() {
                     ? 'Try clearing the status, account, or search filters.'
                     : 'Submit a project charter to get started.'
                 }
-                action={
-                  filtered
-                    ? {
-                        label: 'Clear filters',
-                        onClick: () =>
-                          update({ status: undefined, account: undefined, q: undefined }),
+                actions={
+                  filtered ? (
+                    <Button
+                      label="Clear filters"
+                      onClick={() =>
+                        update({ status: undefined, account: undefined, q: undefined })
                       }
-                    : undefined
+                    />
+                  ) : undefined
                 }
               />
             ) : view === 'table' ? (
@@ -684,7 +685,9 @@ export function RequestsPage() {
                         <EmptyState
                           title="No results match these filters"
                           description="Try removing a filter or clearing your search."
-                          action={{ label: 'Clear filters', onClick: () => setTableSearch('') }}
+                          actions={
+                            <Button label="Clear filters" onClick={() => setTableSearch('')} />
+                          }
                         />
                       ) : undefined
                     }
