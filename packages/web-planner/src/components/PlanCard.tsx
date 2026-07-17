@@ -41,9 +41,9 @@ function subtextParts(
   return parts.join(' · ');
 }
 
-// MS Planner 3-state colors. Completed = green, In progress = amber, Not started = neutral.
+// 3-state colors. Completed = green, In progress = Jira-style blue, Not started = neutral.
 const COLOR_COMPLETED = 'var(--color-success, #1f8a4c)';
-const COLOR_IN_PROGRESS = 'var(--color-warning, #c2750a)';
+const COLOR_IN_PROGRESS = 'var(--color-icon-blue, #1868db)';
 const COLOR_NOT_STARTED = 'var(--color-text-disabled, #9aa0a6)';
 
 interface StackedBarProps {

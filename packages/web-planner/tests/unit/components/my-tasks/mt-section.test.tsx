@@ -182,10 +182,9 @@ describe('MtSection', () => {
     expect(screen.queryByText(/sorted by your priority/i)).not.toBeInTheDocument();
   });
 
-  it('renders the tone dot with class dot--<tone>', async () => {
+  it('renders the tone dot with the matching status-dot tone', async () => {
     renderInRouter(<MtSection section={fxSection({ tone: 'success' })} />);
     const dot = await screen.findByTestId('section-tone-dot');
-    expect(dot.className).toContain('dot');
-    expect(dot.className).toContain('dot--success');
+    expect(dot.getAttribute('data-tone')).toBe('success');
   });
 });

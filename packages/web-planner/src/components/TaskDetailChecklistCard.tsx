@@ -107,7 +107,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
   return (
     <section className="card" aria-label="Checklist">
       <header className="mb-2">
-        <span className="t-sm subtle">
+        <span className="text-sm text-secondary">
           Checklist · {task.checklist_summary.checked}/{task.checklist_summary.total}
         </span>
       </header>
@@ -171,7 +171,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                             }
                           }}
                           title={canUpdate ? 'Double-click to edit' : undefined}
-                          className={`t-sm flex-1 select-none border-none bg-transparent p-0 text-left ${canUpdate ? 'cursor-text' : 'cursor-default'} ${it.checked ? 'text-secondary line-through' : 'text-primary'}`}
+                          className={`text-sm flex-1 select-none border-none bg-transparent p-0 text-left ${canUpdate ? 'cursor-text' : 'cursor-default'} ${it.checked ? 'text-secondary line-through' : 'text-primary'}`}
                         >
                           {it.label}
                         </button>
@@ -212,7 +212,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
             placeholder="Add an item"
             className="flex-1 border-0 bg-transparent text-base text-primary outline-none placeholder:text-secondary disabled:cursor-not-allowed"
           />
-          <span className="t-xs subtle shrink-0" aria-hidden>
+          <span className="text-xs text-secondary shrink-0" aria-hidden>
             ↵ to add
           </span>
         </div>

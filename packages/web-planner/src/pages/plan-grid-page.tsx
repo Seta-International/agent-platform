@@ -1,5 +1,5 @@
 import type { BucketRow, TaskWithAssigneesRow } from '@seta/planner';
-import { TaskGrid, type TaskGridRow } from '@seta/shared-ui';
+import { type PeekTask, TaskGrid, type TaskGridRow, TaskPeekPanel } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMemo, useState } from 'react';
 import { GridBulkActionFooter } from '../components/grid-bulk-action-footer';
@@ -8,6 +8,7 @@ import { useCreateTask } from '../hooks/mutations/create-task';
 import { useMoveTask } from '../hooks/mutations/move-task';
 import { useReopenTask } from '../hooks/mutations/reopen-task';
 import { useUpdateTask } from '../hooks/mutations/update-task';
+import { useUpdateTaskSchedule } from '../hooks/mutations/update-task-schedule';
 import { useBulkActions } from '../hooks/use-bulk-actions';
 import { useGridColumnPrefs } from '../hooks/use-grid-column-prefs';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
@@ -20,6 +21,23 @@ import {
   progressLabelPatch,
 } from '../state/task-derived';
 import type { BoardFilters, GroupBy } from '../state/url-state';
+
+const PEEK_STATUS: Record<
+  TaskGridRow['status'],
+  { label: string; tone: 'muted' | 'primary' | 'warning' | 'success' }
+> = {
+  not_started: { label: 'Not started', tone: 'muted' },
+  in_progress: { label: 'In progress', tone: 'primary' },
+  completed: { label: 'Completed', tone: 'success' },
+  deferred: { label: 'Deferred', tone: 'warning' },
+};
+
+const PEEK_PRIORITY: Record<TaskGridRow['priority'], string> = {
+  urgent: 'Urgent',
+  important: 'Important',
+  medium: 'Medium',
+  low: 'Low',
+};
 
 interface Props {
   planId: string;
@@ -49,12 +67,14 @@ export function PlanGridPage({
   const clearSelection = useSelectedTaskIds((s) => s.clear);
   const [prefs, setPrefs] = useGridColumnPrefs(planId);
   const updateTask = useUpdateTask(planId);
+  const updateSchedule = useUpdateTaskSchedule(planId);
   const moveTask = useMoveTask(planId);
   const completeTask = useCompleteTask(planId);
   const reopenTask = useReopenTask(planId);
   const createTask = useCreateTask(planId);
   const bulk = useBulkActions(planId);
   const [addingBucketId, setAddingBucketId] = useState<string | null | undefined>(undefined);
+  const [peekTaskId, setPeekTaskId] = useState<string | null>(null);
 
   const canUpdateTask = usePermission('planner.task.update');
   const canCreateTask = usePermission('planner.task.create');
@@ -91,6 +111,7 @@ export function PlanGridPage({
           bucket_id: t.bucket_id,
           priority: priorityLabel(t.priority_number),
           assignees: t.assignees.map((a) => ({ id: a.user_id, name: a.display_name })),
+          start: t.start_at,
           due: t.due_at,
           labels: t.labels.map((l) => ({ id: l.id, name: l.name })),
           external_source: t.external_source,
@@ -117,6 +138,10 @@ export function PlanGridPage({
 
     if (patch.bucket_id !== undefined) {
       moveTask.mutate({ task_id: taskId, expected_version, bucket_id: patch.bucket_id });
+      return;
+    }
+    if (patch.start !== undefined) {
+      updateSchedule.mutate({ task_id: taskId, expected_version, start_at: patch.start });
       return;
     }
     const currentStatus = progressLabel({
@@ -204,26 +229,60 @@ export function PlanGridPage({
     setAddingBucketId(undefined);
   }
 
+  const peekTask = useMemo<PeekTask | null>(() => {
+    if (!peekTaskId) return null;
+    const row = rows.find((r) => r.id === peekTaskId);
+    if (!row) return null;
+    const source = tasksById.get(peekTaskId);
+    return {
+      id: row.id,
+      title: row.title,
+      status: PEEK_STATUS[row.status],
+      priority: { label: PEEK_PRIORITY[row.priority], level: row.priority },
+      assignees: row.assignees.map((a) => ({ user_id: a.id, display_name: a.name })),
+      start: row.start,
+      due: row.due,
+      labels: row.labels,
+      percentComplete: source?.percent_complete,
+      bucket: row.bucket,
+      external_source: row.external_source,
+      sync_status: row.sync_status,
+      external_synced_at: row.external_synced_at,
+    };
+  }, [peekTaskId, rows, tasksById]);
+
   return (
     <>
-      <TaskGrid
-        rows={rows}
-        groupBy={groupBy}
-        selection={selectedIds}
-        onSelectionChange={setSelectedIds}
-        onCommitField={onCommitField}
-        bucketOptions={bucketOptions}
-        onOpenTask={onOpenTask}
-        columnOrder={prefs.order}
-        columnWidths={prefs.widths}
-        onColumnOrderChange={(order) => setPrefs((p) => ({ ...p, order }))}
-        onColumnWidthsChange={(widths) => setPrefs((p) => ({ ...p, widths }))}
-        addingBucketId={addingBucketId}
-        onAddTask={handleAddTask}
-        onCancelAdd={handleCancelAdd}
-        editDisabledReason={canUpdateTask ? undefined : PERMISSION_DENIED.task.edit}
-        addTaskDisabledReason={canCreateTask ? undefined : PERMISSION_DENIED.task.create}
-      />
+      <div className="flex min-h-0 flex-1">
+        <TaskGrid
+          rows={rows}
+          groupBy={groupBy}
+          selection={selectedIds}
+          onSelectionChange={setSelectedIds}
+          onCommitField={onCommitField}
+          bucketOptions={bucketOptions}
+          onOpenTask={onOpenTask}
+          onRowClick={setPeekTaskId}
+          activeRowId={peekTaskId}
+          columnOrder={prefs.order}
+          columnWidths={prefs.widths}
+          onColumnOrderChange={(order) => setPrefs((p) => ({ ...p, order }))}
+          onColumnWidthsChange={(updates) =>
+            setPrefs((p) => ({ ...p, widths: { ...p.widths, ...updates } }))
+          }
+          addingBucketId={addingBucketId}
+          onAddTask={handleAddTask}
+          onCancelAdd={handleCancelAdd}
+          editDisabledReason={canUpdateTask ? undefined : PERMISSION_DENIED.task.edit}
+          addTaskDisabledReason={canCreateTask ? undefined : PERMISSION_DENIED.task.create}
+        />
+        <TaskPeekPanel
+          task={peekTask}
+          onClose={() => setPeekTaskId(null)}
+          onOpenFull={onOpenTask}
+          storageKey="planner.grid.peek-width"
+        />
+      </div>
       {selectedIds.size > 0 && (
         <GridBulkActionFooter
           count={selectedIds.size}

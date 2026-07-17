@@ -140,7 +140,7 @@ export function TaskDetailAssigneesCard({
   return (
     <section className="card" aria-label="Assignees">
       <header className="mb-2 flex items-center justify-between gap-2">
-        <span className="t-sm subtle">Assignees</span>
+        <span className="text-sm text-secondary">Assignees</span>
         {canAssign && (
           <Button
             size="sm"
@@ -182,7 +182,7 @@ export function TaskDetailAssigneesCard({
           >
             <Avatar name={item.label} size={20} />
             <span className="text-base text-primary">{item.label}</span>
-            {item.auxiliaryData?.isDriver && <span className="text-xs subtle">driver</span>}
+            {item.auxiliaryData?.isDriver && <span className="text-xs text-secondary">driver</span>}
             <IconButton
               variant="ghost"
               size="sm"

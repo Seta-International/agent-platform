@@ -44,7 +44,7 @@ export function TaskDetailScheduleCard({ task, planId, today }: Props) {
   return (
     <section className="card" aria-label="Schedule">
       <header className="mb-1.5">
-        <span className="t-sm subtle">Schedule</span>
+        <span className="text-sm text-secondary">Schedule</span>
       </header>
       <div className="flex flex-col gap-2">
         <DateField

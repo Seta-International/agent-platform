@@ -16,6 +16,7 @@ import { Inbox, Plus } from 'lucide-react';
 import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDeleteBucketDialog } from '../components/ConfirmDeleteBucketDialog';
 import { type BucketCard, VirtualizedBucketList } from '../components/virtualized-bucket-list';
+import { useAssignTask } from '../hooks/mutations/assign-task';
 import { useCreateBucket } from '../hooks/mutations/create-bucket';
 import { useCreateTask } from '../hooks/mutations/create-task';
 import { useDeleteBucket } from '../hooks/mutations/delete-bucket';
@@ -42,6 +43,7 @@ interface Props {
   onOpenTask: (taskId: string) => void;
   q?: string;
   onQChange?: (next: string) => void;
+  assigneeOptions?: ReadonlyArray<{ value: string; label?: string }>;
 }
 
 const NO_BUCKET_DROPPABLE_ID = '__no_bucket__';
@@ -54,6 +56,17 @@ function statusForBucketName(name: string): 'neutral' | 'accent' | 'warning' | '
   return 'neutral';
 }
 
+// Standard board colors (Jira-like): In Progress = blue, In Review = orange,
+// Done = green. The theme's `accent` tone is achromatic, so drive the dot with an
+// explicit icon-color token instead. undefined → neutral default dot.
+function statusColorForBucketName(name: string): string | undefined {
+  const n = name.toLowerCase();
+  if (n.includes('progress')) return 'var(--color-icon-blue)';
+  if (n.includes('review')) return 'var(--color-icon-orange)';
+  if (n.includes('done')) return 'var(--color-icon-teal)';
+  return undefined;
+}
+
 export function PlanPage({
   plan,
   buckets,
@@ -63,11 +76,13 @@ export function PlanPage({
   onOpenTask,
   q = '',
   onQChange,
+  assigneeOptions,
 }: Props) {
   const planId = plan.id;
   const moveTask = useMoveTask(planId);
   const moveBucket = useMoveBucket(planId);
   const createTask = useCreateTask(planId);
+  const assignTask = useAssignTask(planId);
   const createBucket = useCreateBucket(planId);
   const deleteBucket = useDeleteBucket(planId);
   const updateBucket = useUpdateBucket(planId);
@@ -330,11 +345,21 @@ export function PlanPage({
                 const isVirtualized = list.length > 50;
 
                 const handleCreateTask = async (input: QuickCreateTaskInput) => {
-                  await createTask.mutateAsync({
+                  // Assignees aren't accepted by the create endpoint; assign them in a
+                  // follow-up step once the task exists.
+                  const { assignee_ids, ...createInput } = input;
+                  const { task } = await createTask.mutateAsync({
                     plan_id: plan.id,
                     bucket_id: b.id,
-                    ...input,
+                    ...createInput,
                   });
+                  if (assignee_ids?.length) {
+                    await Promise.all(
+                      assignee_ids.map((user_id) =>
+                        assignTask.mutateAsync({ task_id: task.id, user_id }),
+                      ),
+                    );
+                  }
                 };
                 const handleRename = (newName: string) =>
                   updateBucket.mutate({
@@ -393,6 +418,7 @@ export function PlanPage({
                             name={b.name}
                             count={list.length}
                             status={statusForBucketName(b.name)}
+                            color={statusColorForBucketName(b.name)}
                             titleMaxLength={TASK_TITLE_MAX_LENGTH}
                             width={256}
                             createTaskDisabledReason={createTaskReason}
@@ -400,6 +426,7 @@ export function PlanPage({
                             deleteDisabledReason={deleteBucketReason}
                             reorderDisabledReason={reorderBucketReason}
                             onCreateTask={handleCreateTask}
+                            assigneeOptions={assigneeOptions}
                             onRename={handleRename}
                             onDelete={handleDelete}
                             draggableHandle={draggableHandle}
@@ -428,6 +455,7 @@ export function PlanPage({
                               name={b.name}
                               count={list.length}
                               status={statusForBucketName(b.name)}
+                              color={statusColorForBucketName(b.name)}
                               titleMaxLength={TASK_TITLE_MAX_LENGTH}
                               width={256}
                               emptyState={
@@ -444,6 +472,7 @@ export function PlanPage({
                               deleteDisabledReason={deleteBucketReason}
                               reorderDisabledReason={reorderBucketReason}
                               onCreateTask={handleCreateTask}
+                              assigneeOptions={assigneeOptions}
                               onRename={handleRename}
                               onDelete={handleDelete}
                               draggableHandle={draggableHandle}

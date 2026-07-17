@@ -37,7 +37,7 @@ export function TaskDetailPriorityCard({ task, planId }: Props) {
   return (
     <section className="card" aria-label="Priority">
       <header className="mb-1.5">
-        <span className="t-sm subtle">Priority</span>
+        <span className="text-sm text-secondary">Priority</span>
       </header>
       <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
         <Selector

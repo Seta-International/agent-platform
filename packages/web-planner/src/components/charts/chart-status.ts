@@ -11,11 +11,12 @@ export const STATUS_LABEL: Record<StatusKey, string> = {
   completed: 'Completed',
 };
 
-// 3-status model matching the reference mock: neutral grey, Seta brand blue,
-// success green. Late is surfaced as a KPI, not a chart segment.
+// 3-status model: neutral grey, Jira-style blue (the theme's accent is
+// achromatic, so use the blue icon token), success green. Late is surfaced
+// as a KPI, not a chart segment.
 export const STATUS_COLOR: Record<StatusKey, string> = {
   not_started: 'var(--color-text-secondary)',
-  in_progress: 'var(--color-accent)',
+  in_progress: 'var(--color-icon-blue)',
   completed: 'var(--color-success)',
 };
 

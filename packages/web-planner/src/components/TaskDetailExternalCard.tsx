@@ -33,10 +33,10 @@ export function TaskDetailExternalCard({ task, plan, onOpenConflictDialog }: Pro
 
   return (
     <section className="card" aria-label="External link">
-      <header className="t-sm subtle mb-2">External</header>
+      <header className="text-sm text-secondary mb-2">External</header>
       <div className="m-0 flex flex-col gap-1.5">
-        <div className="t-sm">
-          <span className="subtle">Source: </span>
+        <div className="text-sm">
+          <span className="text-secondary">Source: </span>
           {isLinked ? (
             <span>
               M365
@@ -46,12 +46,12 @@ export function TaskDetailExternalCard({ task, plan, onOpenConflictDialog }: Pro
             <span>Native</span>
           )}
         </div>
-        <div className="t-sm">
-          <span className="subtle">Synced: </span>
+        <div className="text-sm">
+          <span className="text-secondary">Synced: </span>
           <span>{synced}</span>
         </div>
         {errorText && (
-          <div className="t-sm text-error" role="status">
+          <div className="text-sm text-error" role="status">
             {errorText}
           </div>
         )}
