@@ -1,4 +1,4 @@
-import { Button, Heading } from '@seta/shared-ui';
+import { Button, Heading, SegmentedControl, SegmentedControlItem } from '@seta/shared-ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   type CalendarMode,
@@ -63,14 +63,15 @@ export function CalendarToolbar({ from, to, totalCount, onRangeChange }: Props) 
           {totalCount} task{totalCount === 1 ? '' : 's'}
         </span>
       </div>
-      <div className="plan-view-switcher">
-        <button type="button" aria-pressed={mode === 'week'} onClick={() => setMode('week')}>
-          <span>Week</span>
-        </button>
-        <button type="button" aria-pressed={mode === 'month'} onClick={() => setMode('month')}>
-          <span>Month</span>
-        </button>
-      </div>
+      <SegmentedControl
+        label="Calendar range"
+        size="sm"
+        value={mode}
+        onChange={(v) => setMode(v as CalendarMode)}
+      >
+        <SegmentedControlItem value="week" label="Week" />
+        <SegmentedControlItem value="month" label="Month" />
+      </SegmentedControl>
     </div>
   );
 }
