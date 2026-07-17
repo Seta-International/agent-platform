@@ -133,6 +133,7 @@ export interface ApplicantRow {
   status: string | null;
   /** From the detail read's candidate join — null for internal applications. */
   candidate_name: string | null;
+  candidate_seniority: string | null;
   created_at: string;
 }
 export interface RequisitionDetail {
@@ -556,7 +557,7 @@ export async function setApplicationRating(
 }
 export async function rejectApplication(
   applicationId: string,
-  input: { expected_version?: number; reason_id: string; tags: string[]; note?: string },
+  input: { expected_version?: number; reason: string; reason_id?: string; tags?: string[] },
 ): Promise<{ version: number }> {
   const { expected_version, ...reasonInput } = input;
   return handleResponse(

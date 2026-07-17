@@ -178,7 +178,10 @@ export interface RequisitionDetail {
   skills: (typeof requisitionSkill.$inferSelect)[];
   /** All applications including closed history (rejected/transferred/…) — the UI counts
    * only active ones and renders the rest as a dimmed past-applicants trail. */
-  applicants: (typeof application.$inferSelect & { candidate_name: string | null })[];
+  applicants: (typeof application.$inferSelect & {
+    candidate_name: string | null;
+    candidate_seniority: string | null;
+  })[];
 }
 
 export async function getRequisition(input: {
@@ -214,7 +217,11 @@ export async function getRequisition(input: {
       .from(requisitionSkill)
       .where(eq(requisitionSkill.requisition_id, requisition_id)),
     hiringDb()
-      .select({ ...getTableColumns(application), candidate_name: candidate.name })
+      .select({
+        ...getTableColumns(application),
+        candidate_name: candidate.name,
+        candidate_seniority: candidate.seniority,
+      })
       .from(application)
       .leftJoin(candidate, eq(candidate.id, application.candidate_id))
       .where(eq(application.requisition_id, requisition_id)),

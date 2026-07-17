@@ -174,18 +174,24 @@ export async function rejectApplication(input: {
       `cannot reject a ${cur.status} application — only active applications may be rejected`,
     );
   await assertApplicationRequisitionNotOnHold(application_id, session);
-  const [reasonRow] = await hiringDb()
-    .select({ category: reason.category })
-    .from(reason)
-    .where(
-      and(
-        eq(reason.id, input.input.reason_id),
-        eq(reason.kind, 'rejection'),
-        tenantScoped(reason.tenant_id, session),
-      ),
-    )
-    .limit(1);
-  if (!reasonRow) throw new HiringError('VALIDATION', 'unknown rejection reason');
+  // The free-text reason is the record; the catalog id is an optional classification —
+  // when absent, the event categorizes as 'other' so downstream consumers keep a category.
+  let category: string = 'other';
+  if (input.input.reason_id) {
+    const [reasonRow] = await hiringDb()
+      .select({ category: reason.category })
+      .from(reason)
+      .where(
+        and(
+          eq(reason.id, input.input.reason_id),
+          eq(reason.kind, 'rejection'),
+          tenantScoped(reason.tenant_id, session),
+        ),
+      )
+      .limit(1);
+    if (!reasonRow) throw new HiringError('VALIDATION', 'unknown rejection reason');
+    category = reasonRow.category ?? 'other';
+  }
   const next = cur.version + 1;
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },
@@ -194,9 +200,9 @@ export async function rejectApplication(input: {
         .update(application)
         .set({
           status: 'rejected',
-          rejection_reason_id: input.input.reason_id,
+          rejection_reason_id: input.input.reason_id ?? null,
           tags: input.input.tags,
-          note: input.input.note ?? null,
+          note: input.input.reason,
           closed_at: new Date(),
           version: next,
           updated_at: new Date(),
@@ -217,8 +223,8 @@ export async function rejectApplication(input: {
           candidate_id: cur.candidate_id,
           application_id,
           kind: 'rejected',
-          summary: `Rejected — ${reasonRow.category}`,
-          detail: { reason_id: input.input.reason_id, tags: input.input.tags },
+          summary: `Rejected — ${input.input.reason}`,
+          detail: { reason_id: input.input.reason_id ?? null, tags: input.input.tags },
         });
       }
       await emit({
@@ -230,8 +236,8 @@ export async function rejectApplication(input: {
         payload: {
           application_id,
           tenant_id: session.tenant_id,
-          reason_id: input.input.reason_id,
-          category: reasonRow.category as 'rejected_by_us' | 'withdrew' | 'other',
+          reason_id: input.input.reason_id ?? null,
+          category: category as 'rejected_by_us' | 'withdrew' | 'other',
         },
       });
     },

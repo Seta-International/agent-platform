@@ -71,7 +71,7 @@ describe('on-hold requisitions freeze their pipeline (FUT-559)', () => {
           rejectApplication({
             application_id,
             expected_version: 1,
-            input: { reason_id: crypto.randomUUID(), tags: [] },
+            input: { reason: 'Not a fit', reason_id: crypto.randomUUID(), tags: [] },
             session,
           }),
         ).rejects.toThrow(/on hold/i);

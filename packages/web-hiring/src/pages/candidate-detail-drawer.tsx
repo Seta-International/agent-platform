@@ -205,6 +205,13 @@ export function CandidateDetailDrawer({
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: hiringKeys.candidate(candidateId ?? '') });
     void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
+    // Every pipeline action (reject / move stage / hire / transfer) changes what the
+    // requisition board card and detail Applicants list must show — refresh them too,
+    // including when this drawer is opened from the requisition detail itself.
+    void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
+    for (const a of data?.applications ?? []) {
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.requisition(a.requisition_id) });
+    }
   };
 
   const app = data?.applications.find((a) => a.status === 'active') ?? data?.applications[0];

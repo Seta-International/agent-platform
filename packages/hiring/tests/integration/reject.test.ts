@@ -47,7 +47,11 @@ describe('rejectApplication', () => {
         await rejectApplication({
           application_id,
           expected_version: 1,
-          input: { reason_id: reason.id, tags: ['junior', 'no-react'] },
+          input: {
+            reason: 'Not enough React depth',
+            reason_id: reason.id,
+            tags: ['junior', 'no-react'],
+          },
           session: t.adminSession,
         });
 
@@ -57,11 +61,56 @@ describe('rejectApplication', () => {
           .where(eq(application.id, application_id));
         expect(app?.status).toBe('rejected');
         expect(app?.rejection_reason_id).toBe(reason.id);
+        expect(app?.note).toBe('Not enough React depth');
         expect(app?.tags).toEqual(['junior', 'no-react']);
         expect(app?.closed_at).not.toBeNull();
 
         const evts = await readEvents(pool, t.tenant_id, 'hiring.application.rejected');
         expect(evts[0]?.payload.category).toBe('rejected_by_us');
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('rejects with a free-text reason alone — no catalog id, category falls back to other', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const { requisition_id } = await openRequisition({
+          title: 'R',
+          kind: 'new',
+          headcount: 1,
+          session: t.adminSession,
+        });
+        const { application_id } = await addCandidate({
+          requisition_id,
+          name: 'C',
+          session: t.adminSession,
+        });
+
+        await rejectApplication({
+          application_id,
+          expected_version: 1,
+          input: { reason: 'Withdrew after the offer talk', tags: [] },
+          session: t.adminSession,
+        });
+
+        const [app] = await hiringDb()
+          .select()
+          .from(application)
+          .where(eq(application.id, application_id));
+        expect(app?.status).toBe('rejected');
+        expect(app?.rejection_reason_id).toBeNull();
+        expect(app?.note).toBe('Withdrew after the offer talk');
+
+        const evts = await readEvents(pool, t.tenant_id, 'hiring.application.rejected');
+        expect(evts[0]?.payload.category).toBe('other');
       } finally {
         resetHiringDb();
         resetCoreDb();
@@ -97,7 +146,7 @@ describe('rejectApplication', () => {
           rejectApplication({
             application_id,
             expected_version: 99,
-            input: { reason_id: reason.id, tags: [] },
+            input: { reason: 'Not a fit', reason_id: reason.id, tags: [] },
             session: t.adminSession,
           }),
         ).rejects.toThrow(/version/i);
@@ -142,7 +191,7 @@ describe('rejectApplication', () => {
           rejectApplication({
             application_id,
             expected_version: 2,
-            input: { reason_id: reason.id, tags: [] },
+            input: { reason: 'Not a fit', reason_id: reason.id, tags: [] },
             session: t.adminSession,
           }),
         ).rejects.toThrow(/active/i);
@@ -176,7 +225,7 @@ describe('rejectApplication', () => {
         await expect(
           rejectApplication({
             application_id,
-            input: { reason_id: crypto.randomUUID(), tags: [] },
+            input: { reason: 'Not a fit', reason_id: crypto.randomUUID(), tags: [] },
             session: t.adminSession,
           }),
         ).rejects.toMatchObject({ code: 'VALIDATION' });

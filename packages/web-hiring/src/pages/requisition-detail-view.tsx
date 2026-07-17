@@ -35,13 +35,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar as CalendarIcon, MoreHorizontal, Pencil, Share2, X } from 'lucide-react';
 import { type ReactNode, useRef, useState } from 'react';
 import {
+  type ApplicantRow,
+  addOpening,
+  closeOpening,
   editRequisition,
   fetchAccounts,
   fetchProjects,
   holdRequisition,
   type JdSectionKey,
   type JdVariant,
-  type OpenRequisitionsBoard,
   resumeRequisition,
   setRequisitionJd,
   setRequisitionSkills,
@@ -50,6 +52,7 @@ import { GRADES } from '../lib/grades.ts';
 import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { CancelRequisitionDialog } from './cancel-requisition-dialog.tsx';
+import { CandidateDetailDrawer } from './candidate-detail-drawer.tsx';
 import { MarkFilledDialog } from './mark-filled-dialog.tsx';
 import {
   daysLeft,
@@ -249,6 +252,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const [mode, setMode] = useState<'online' | 'onsite' | 'either'>('online');
   const [accountId, setAccountId] = useState('');
   const [projectId, setProjectId] = useState('');
+  const [openCount, setOpenCount] = useState(1);
   const [start, setStart] = useState('');
   const [due, setDue] = useState('');
   const [editVariant, setEditVariant] = useState<JdVariant>('external');
@@ -257,6 +261,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [showFillConfirm, setShowFillConfirm] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  // Applicant rows open the same candidate drawer the Candidates page uses.
+  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   // 'cancel' backs out of edit mode, 'close' also dismisses the panel — both ask first
   // when there are unsaved edits.
@@ -268,6 +274,9 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     .slice(0, 10);
   const originalStart = data?.requisition.start_date ?? '';
   const originalDue = data?.requisition.due_date ?? '';
+  // Headcount edits operate on open openings only — filled/closed slots are history.
+  const openOpenings = (data?.openings ?? []).filter((o) => o.status === 'open');
+  const originalOpenCount = openOpenings.length;
   // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
   // "Not in the past" only applies to values the user changes — a requisition whose stored
   // dates have since passed must stay editable (title fixes etc.) without forced re-dating.
@@ -305,6 +314,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       mode !== (data.requisition.default_interview_mode ?? 'online') ||
       accountId !== (data.requisition.account_id ?? '') ||
       projectId !== (data.requisition.project_id ?? '') ||
+      openCount !== originalOpenCount ||
       start !== originalStart ||
       due !== originalDue ||
       SECTIONS.some((s) => sections[s.key] !== originalSections[s.key]) ||
@@ -389,6 +399,21 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         version = res.version;
       }
 
+      // Headcount is opening rows, not a column: grow by adding openings, shrink by
+      // cancelling the highest-seq open ones (filled/closed slots are never touched).
+      if (openCount > originalOpenCount) {
+        for (let i = originalOpenCount; i < openCount; i++) {
+          await addOpening(requisitionId, {});
+        }
+      } else if (openCount < originalOpenCount) {
+        const toCancel = [...openOpenings]
+          .sort((a, b) => b.seq - a.seq)
+          .slice(0, originalOpenCount - openCount);
+        for (const o of toCancel) {
+          await closeOpening(o.id, { expected_version: o.version, status: 'cancelled' });
+        }
+      }
+
       const originalSections = emptySections();
       for (const s of data.jd_sections)
         if (s.variant === editVariant) originalSections[s.section] = s.body;
@@ -440,6 +465,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     setMode((data.requisition.default_interview_mode as typeof mode) ?? 'online');
     setAccountId(data.requisition.account_id ?? '');
     setProjectId(data.requisition.project_id ?? '');
+    setOpenCount(data.openings.filter((o) => o.status === 'open').length);
     setStart(data.requisition.start_date ?? '');
     setDue(data.requisition.due_date ?? '');
     setEditVariant(jdVariant);
@@ -526,21 +552,16 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const onHoldReason =
     'This requisition is on hold — resume it from the Requisitions board to make changes.';
 
-  // The board list's row (already fetched for the page this modal is opened from) carries
-  // candidate name/role/applied-date that the detail endpoint's bare application rows don't
-  // — reuse it instead of a second round-trip. Falls back to nothing if opened without that
-  // cache warm (e.g. a direct link), and only "at Company" is skipped since no such field
-  // exists on a candidate. The board list is active-pipeline-only.
-  const cachedRow = queryClient
-    .getQueryData<OpenRequisitionsBoard>(hiringKeys.requisitions())
-    ?.requisitions.find((r) => r.id === requisitionId);
-  const applicantRows = (cachedRow?.applicants ?? []).filter((a) => a.status === 'active');
-  // Closed applications (transferred/rejected/…) come from the detail read — shown as a
-  // dimmed trail so "where did X go?" is answered in place without inflating the count.
-  const activeCount = data.applicants.filter((a) => a.status === 'active').length;
-  const pastApplicants = data.applicants.filter(
-    (a) => a.status !== 'active' && a.status !== 'hired',
-  );
+  // The detail read carries candidate name/seniority via its module-local join, so the
+  // list renders without the requisitions-board cache (works on direct links too).
+  // Closed applications (transferred/rejected/…) are a dimmed trail below the active
+  // count, answering "where did X go?" in place without inflating it.
+  const byApplied = (a: ApplicantRow, b: ApplicantRow) => a.created_at.localeCompare(b.created_at);
+  const applicantRows = data.applicants.filter((a) => a.status === 'active').sort(byApplied);
+  const activeCount = applicantRows.length;
+  const pastApplicants = data.applicants
+    .filter((a) => a.status !== 'active' && a.status !== 'hired')
+    .sort(byApplied);
 
   // While editing, reflect the in-progress Account/Project/Grade selection instead of the
   // last-saved server values, so the subtitle updates live as the user picks a new one.
@@ -671,6 +692,22 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <Label htmlFor="jd-headcount">Headcount (openings)</Label>
+                <Input
+                  id="jd-headcount"
+                  type="number"
+                  min={0}
+                  value={openCount}
+                  onChange={(e) => setOpenCount(Math.max(0, Number(e.target.value) || 0))}
+                />
+                {openCount < originalOpenCount && (
+                  <p className="text-caption text-ink-muted">
+                    Saving cancels {originalOpenCount - openCount} open opening
+                    {originalOpenCount - openCount > 1 ? 's' : ''}. Filled openings are kept.
+                  </p>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -704,7 +741,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               </div>
             </div>
 
-            <SkillPicker value={skills} onChange={setSkills} />
+            <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
 
             {/* External/Internal variant switcher is temporarily hidden (same as the New
                 form) — edits keep whichever variant the requisition's content already uses. */}
@@ -916,58 +953,81 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 </p>
               ) : (
                 <div className="divide-y divide-hairline">
-                  {applicantRows.slice(0, 5).map((a) => (
-                    <div
-                      key={`${a.name}-${a.applied_date}`}
-                      className="flex items-center gap-3 py-3"
+                  {applicantRows.map((a) => (
+                    // Each row opens the existing candidate detail drawer — internal
+                    // applications (no candidate record) stay plain rows.
+                    <button
+                      key={a.id}
+                      type="button"
+                      disabled={!a.candidate_id}
+                      onClick={() => a.candidate_id && setSelectedCandidate(a.candidate_id)}
+                      className="flex w-full items-center gap-3 rounded-md px-1 py-3 text-left enabled:cursor-pointer enabled:hover:bg-surface-1"
                     >
                       <Avatar className="size-9">
                         <AvatarFallback className="bg-primary/15 text-caption font-semibold text-primary">
-                          {initialsOf(a.name)}
+                          {initialsOf(a.candidate_name ?? 'Internal applicant')}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium text-ink">{a.name}</div>
+                        <div className="truncate font-medium text-ink">
+                          {a.candidate_name ?? 'Internal applicant'}
+                        </div>
                         <div className="truncate text-body-sm text-ink-muted">
-                          {[a.role, `Applied ${relativeDays(a.applied_date)}`]
+                          {[a.candidate_seniority, `Applied ${relativeDays(a.created_at)}`]
                             .filter(Boolean)
                             .join(' · ')}
                         </div>
                       </div>
                       <span
                         className={`shrink-0 rounded-full px-2.5 py-1 text-caption font-medium ${
-                          (a.status !== 'active'
-                            ? APPLICANT_STATUS_BADGE[a.status]
-                            : APPLICANT_STAGE_BADGE[a.stage]) ?? 'bg-surface-2 text-ink-muted'
+                          APPLICANT_STAGE_BADGE[a.stage ?? ''] ?? 'bg-surface-2 text-ink-muted'
                         }`}
                       >
-                        {a.status !== 'active'
-                          ? (APPLICANT_STATUS_LABEL[a.status] ?? a.status)
-                          : (APPLICANT_STAGE_LABEL[a.stage] ?? a.stage)}
+                        {APPLICANT_STAGE_LABEL[a.stage ?? ''] ?? a.stage}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
               {pastApplicants.length > 0 && (
-                <div className="mt-2 border-t border-hairline pt-3 opacity-70">
+                <div className="mt-2 border-t border-hairline pt-3">
                   <div className="mb-1 text-caption font-semibold uppercase text-ink-muted">
                     Past applicants ({pastApplicants.length})
                   </div>
                   <div className="divide-y divide-hairline">
+                    {/* Same row anatomy as the active list — only the palette dims and the
+                        badge shows the outcome instead of a stage. */}
                     {pastApplicants.map((a) => (
-                      <div key={a.id} className="flex items-center gap-3 py-2">
-                        <span className="min-w-0 flex-1 truncate text-body-sm text-ink-muted">
-                          {a.candidate_name ?? 'Internal applicant'}
-                        </span>
+                      <button
+                        key={a.id}
+                        type="button"
+                        disabled={!a.candidate_id}
+                        onClick={() => a.candidate_id && setSelectedCandidate(a.candidate_id)}
+                        className="flex w-full items-center gap-3 rounded-md px-1 py-3 text-left enabled:cursor-pointer enabled:hover:bg-surface-1"
+                      >
+                        <Avatar className="size-9">
+                          <AvatarFallback className="bg-surface-2 text-caption font-semibold text-ink-subtle">
+                            {initialsOf(a.candidate_name ?? 'Internal applicant')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium text-ink-muted">
+                            {a.candidate_name ?? 'Internal applicant'}
+                          </div>
+                          <div className="truncate text-body-sm text-ink-subtle">
+                            {[a.candidate_seniority, `Applied ${relativeDays(a.created_at)}`]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </div>
+                        </div>
                         <span
-                          className={`shrink-0 rounded-full px-2.5 py-0.5 text-caption font-medium ${
+                          className={`shrink-0 rounded-full px-2.5 py-1 text-caption font-medium ${
                             APPLICANT_STATUS_BADGE[a.status ?? ''] ?? 'bg-surface-2 text-ink-muted'
                           }`}
                         >
                           {APPLICANT_STATUS_LABEL[a.status ?? ''] ?? a.status}
                         </span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -1012,6 +1072,10 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 <DetailRow
                   label="Type"
                   value={req.kind === 'replacement' ? 'Replacement' : 'New'}
+                />
+                <DetailRow
+                  label="Openings"
+                  value={`${originalOpenCount} open of ${data.openings.length}`}
                 />
               </div>
             </section>
@@ -1058,6 +1122,11 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         open={showCancelDialog}
         onOpenChange={setShowCancelDialog}
         onDone={refresh}
+      />
+      {/* Same candidate detail screen the Candidates page opens — self-contained drawer. */}
+      <CandidateDetailDrawer
+        candidateId={selectedCandidate}
+        onClose={() => setSelectedCandidate(null)}
       />
     </div>
   );

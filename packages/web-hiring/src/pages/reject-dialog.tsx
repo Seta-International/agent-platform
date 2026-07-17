@@ -4,19 +4,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Textarea,
   toast,
 } from '@seta/shared-ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { fetchRejectionReasons, rejectApplication } from '../api/hiring-client.ts';
+import { rejectApplication } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { on409 } from './utils.ts';
 
@@ -34,36 +28,33 @@ export function RejectDialog({
   onDone: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [reasonId, setReasonId] = useState('');
-  const [tags, setTags] = useState('');
-  const [note, setNote] = useState('');
-
-  const { data: reasons } = useQuery({
-    queryKey: hiringKeys.rejectionReasons(),
-    queryFn: fetchRejectionReasons,
-  });
-  const active = (reasons ?? []).filter((r) => r.active);
-  const effectiveReason = reasonId || active[0]?.id || '';
+  const [reason, setReason] = useState('');
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const reasonMissing = reason.trim() === '';
+  const reasonInvalid = submitAttempted && reasonMissing;
 
   const mutation = useMutation({
     mutationFn: () =>
       rejectApplication(applicationId, {
         expected_version: version,
-        reason_id: effectiveReason,
-        tags: tags
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean),
-        note: note.trim() || undefined,
+        reason: reason.trim(),
       }),
     onSuccess: () => {
       toast.success('Candidate rejected');
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
+      setReason('');
+      setSubmitAttempted(false);
       onOpenChange(false);
       onDone();
     },
     onError: (e: Error) => on409(e, queryClient, hiringKeys.candidates()),
   });
+
+  function submit() {
+    setSubmitAttempted(true);
+    if (reasonMissing) return;
+    mutation.mutate();
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -73,42 +64,23 @@ export function RejectDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label htmlFor="reject-reason">Reason</Label>
-            <Select value={effectiveReason} onValueChange={(v) => setReasonId(v)}>
-              <SelectTrigger id="reject-reason" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {active.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="reject-tags">Tags — comma-separated</Label>
-            <Input
-              id="reject-tags"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="e.g. frontend, junior"
+            <Label htmlFor="reject-reason">Reason *</Label>
+            <Textarea
+              id="reject-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Why is this candidate being rejected?"
+              rows={3}
+              aria-invalid={reasonInvalid}
+              className={reasonInvalid ? '!border-danger' : undefined}
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="reject-note">Note</Label>
-            <Textarea id="reject-note" value={note} onChange={(e) => setNote(e.target.value)} />
+            {reasonInvalid && <p className="text-caption text-danger-ink">Reason is required.</p>}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !effectiveReason}
-            >
+            <Button variant="destructive" onClick={submit} disabled={mutation.isPending}>
               {mutation.isPending ? 'Rejecting…' : 'Reject'}
             </Button>
           </div>
