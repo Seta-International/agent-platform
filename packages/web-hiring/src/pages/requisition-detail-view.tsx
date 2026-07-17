@@ -14,6 +14,7 @@ import {
   RichTextDisplay,
   RichTextEditor,
   SegmentedControl,
+  SegmentedControlItem,
   Selector,
   useToast,
 } from '@seta/shared-ui';
@@ -617,13 +618,13 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             <div className="flex items-center justify-between">
               <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
               <SegmentedControl
+                label="JD variant"
                 value={editVariant}
-                onValueChange={(v) => setEditVariant(v as JdVariant)}
-                options={[
-                  { value: 'external', label: 'External' },
-                  { value: 'internal', label: 'Internal' },
-                ]}
-              />
+                onChange={(v) => setEditVariant(v as JdVariant)}
+              >
+                <SegmentedControlItem value="external" label="External" />
+                <SegmentedControlItem value="internal" label="Internal" />
+              </SegmentedControl>
             </div>
 
             {SECTIONS.map((s) => (

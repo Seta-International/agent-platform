@@ -14,6 +14,7 @@ import {
   Popover,
   paginateData,
   SegmentedControl,
+  SegmentedControlItem,
   Selector,
   Skeleton,
   Table,
@@ -413,13 +414,13 @@ export function RequisitionsPage() {
               </div>
               <div className="ml-auto">
                 <SegmentedControl
+                  label="Requisitions view"
                   value={view}
-                  onValueChange={(v) => setView(v as 'board' | 'list')}
-                  options={[
-                    { value: 'board', label: 'Board' },
-                    { value: 'list', label: 'List' },
-                  ]}
-                />
+                  onChange={(v) => setView(v as 'board' | 'list')}
+                >
+                  <SegmentedControlItem value="board" label="Board" />
+                  <SegmentedControlItem value="list" label="List" />
+                </SegmentedControl>
               </div>
             </div>
             {error ? (

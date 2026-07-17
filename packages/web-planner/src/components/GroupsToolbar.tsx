@@ -1,4 +1,4 @@
-import { FilterPill, Input, SegmentedControl } from '@seta/shared-ui';
+import { FilterPill, Input, SegmentedControl, SegmentedControlItem } from '@seta/shared-ui';
 import { LayoutGrid, List, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -124,12 +124,11 @@ export function GroupsToolbar({
       {/* Separator */}
       <div className="mx-1 h-4 w-px bg-hairline" />
 
-      <SegmentedControl
-        aria-label="View"
-        value={view}
-        onValueChange={onViewChange}
-        options={VIEW_OPTIONS}
-      />
+      <SegmentedControl label="View" value={view} onChange={(v) => onViewChange(v as GroupsView)}>
+        {VIEW_OPTIONS.map((o) => (
+          <SegmentedControlItem key={o.value} value={o.value} label={o.label} icon={o.icon} />
+        ))}
+      </SegmentedControl>
 
       {/* Right cluster */}
       <Input

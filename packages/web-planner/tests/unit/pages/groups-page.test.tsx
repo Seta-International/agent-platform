@@ -160,7 +160,7 @@ describe('GroupsPage', () => {
     expect(screen.getByText('Group')).toBeInTheDocument();
 
     // Switch to grid
-    await user.click(screen.getByRole('tab', { name: /Grid/i }));
+    await user.click(screen.getByRole('radio', { name: /Grid/i }));
 
     // Grid shows plan/member counts in card format (no column headers)
     // The card-specific text (from GroupsGrid) exists; column headers from table are gone

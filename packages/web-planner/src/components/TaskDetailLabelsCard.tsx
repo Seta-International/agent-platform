@@ -33,6 +33,17 @@ function pickLabelColor(name: string): string {
   return LABEL_COLORS[Math.abs(h) % LABEL_COLORS.length] ?? LABEL_COLORS[0];
 }
 
+// Swatch background tints — mirrors the LabelChip palette so the picker preview
+// matches the rendered chip. Kept local: this is a color-swatch picker, not a chip.
+const SWATCH_BACKGROUND: Record<(typeof LABEL_COLORS)[number], string> = {
+  blue: 'var(--color-info-tint)',
+  green: 'var(--color-success-tint)',
+  amber: 'var(--color-warning-tint)',
+  red: 'var(--color-danger-tint)',
+  purple: 'rgba(168, 85, 247, 0.10)',
+  teal: 'rgba(20, 184, 166, 0.10)',
+};
+
 interface Props {
   task: TaskWithAssigneesRow;
   planId: string;
@@ -299,9 +310,15 @@ function LabelEditPanel({
               className="sr-only"
             />
             <span
-              className={`label-chip label-chip--${c}`}
               aria-hidden="true"
-              style={{ display: 'block', width: 18, height: 18, borderRadius: 9999, padding: 0 }}
+              style={{
+                display: 'block',
+                width: 18,
+                height: 18,
+                borderRadius: 9999,
+                padding: 0,
+                background: SWATCH_BACKGROUND[c],
+              }}
             >
               &nbsp;
             </span>

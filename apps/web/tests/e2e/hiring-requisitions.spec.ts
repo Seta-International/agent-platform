@@ -30,13 +30,13 @@ test('board↔list toggle keeps the requisition visible', async ({ page }) => {
   await page.goto('/hiring/requisitions');
   await expect(page.getByRole('button', { name: TITLE })).toBeVisible();
 
-  // Switch to List — SegmentedControl renders role="tab" inside role="tablist".
-  await page.getByRole('tab', { name: 'List' }).click();
+  // Switch to List — SegmentedControl renders role="radio" inside role="radiogroup".
+  await page.getByRole('radio', { name: 'List' }).click();
   await page.getByPlaceholder('Search requisitions…').fill(TITLE);
   await expect(page.getByText(TITLE)).toBeVisible();
 
   // Switch back to Board.
-  await page.getByRole('tab', { name: 'Board' }).click();
+  await page.getByRole('radio', { name: 'Board' }).click();
   await expect(page.getByRole('button', { name: TITLE })).toBeVisible();
 });
 

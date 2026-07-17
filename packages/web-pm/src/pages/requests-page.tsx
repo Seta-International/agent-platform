@@ -18,6 +18,7 @@ import {
   pixel,
   proportional,
   SegmentedControl,
+  SegmentedControlItem,
   Selector,
   Skeleton,
   Table,
@@ -579,13 +580,13 @@ export function RequestsPage() {
                   }
                 />
                 <SegmentedControl
+                  label="Requests view"
                   value={view}
-                  onValueChange={(v) => update({ view: v as 'cards' | 'table' }, false)}
-                  options={[
-                    { value: 'cards', label: 'Cards' },
-                    { value: 'table', label: 'Table' },
-                  ]}
-                />
+                  onChange={(v) => update({ view: v as 'cards' | 'table' }, false)}
+                >
+                  <SegmentedControlItem value="cards" label="Cards" />
+                  <SegmentedControlItem value="table" label="Table" />
+                </SegmentedControl>
               </div>
             </div>
 

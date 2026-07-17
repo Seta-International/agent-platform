@@ -15,6 +15,7 @@ import {
   LayoutFooter,
   LayoutHeader,
   SegmentedControl,
+  SegmentedControlItem,
   Selector,
   Text,
   Textarea,
@@ -142,13 +143,13 @@ function NewTemplateDialog() {
                     Sections
                   </div>
                   <SegmentedControl
+                    label="JD variant"
                     value={variant}
-                    onValueChange={(v) => setVariant(v as JdVariant)}
-                    options={[
-                      { value: 'external', label: 'External' },
-                      { value: 'internal', label: 'Internal' },
-                    ]}
-                  />
+                    onChange={(v) => setVariant(v as JdVariant)}
+                  >
+                    <SegmentedControlItem value="external" label="External" />
+                    <SegmentedControlItem value="internal" label="Internal" />
+                  </SegmentedControl>
                 </div>
                 {SECTIONS.map((s) => (
                   <Textarea

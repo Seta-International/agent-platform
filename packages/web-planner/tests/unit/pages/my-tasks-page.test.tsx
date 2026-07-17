@@ -371,7 +371,7 @@ describe('MyTasksPage', () => {
     const { setFilters } = renderPage();
     await screen.findByText('Login storm');
     expect(screen.queryByTestId('my-tasks-grid')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('tab', { name: /grid view/i }));
+    await userEvent.click(screen.getByRole('radio', { name: /^Grid$/i }));
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ view: 'grid' }));
   });
 

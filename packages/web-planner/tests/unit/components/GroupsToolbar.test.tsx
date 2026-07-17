@@ -30,7 +30,7 @@ describe('GroupsToolbar', () => {
     render(<GroupsToolbar {...baseProps} />);
     expect(screen.getByRole('button', { name: /Visibility/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Owner/i })).toBeInTheDocument();
-    expect(screen.getByRole('tablist', { name: /View/i })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: /View/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Search groups/i)).toBeInTheDocument();
   });
 
@@ -60,7 +60,7 @@ describe('GroupsToolbar', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const onViewChange = vi.fn();
     render(<GroupsToolbar {...baseProps} onViewChange={onViewChange} />);
-    await user.click(screen.getByRole('tab', { name: /Grid/i }));
+    await user.click(screen.getByRole('radio', { name: /Grid/i }));
     expect(onViewChange).toHaveBeenCalledWith('grid');
   });
 

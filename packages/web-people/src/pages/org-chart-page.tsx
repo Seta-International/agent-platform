@@ -8,6 +8,7 @@ import {
   LayoutHeader,
   type SearchableItem,
   SegmentedControl,
+  SegmentedControlItem,
   Text,
   Typeahead,
   VStack,
@@ -180,16 +181,15 @@ export function OrgChartPage() {
           <div className="flex h-[calc(100vh-9rem)] flex-col gap-3 p-4">
             <div className="flex items-center gap-3">
               <SegmentedControl
-                aria-label="Org chart view"
+                label="Org chart view"
                 value={view}
-                onValueChange={(v) => setSearch({ view: v as OrgView })}
-                options={[
-                  { value: 'company', label: 'Company' },
-                  { value: 'department', label: 'Department' },
-                  { value: 'account', label: 'Account' },
-                  { value: 'project', label: 'Project' },
-                ]}
-              />
+                onChange={(v) => setSearch({ view: v as OrgView })}
+              >
+                <SegmentedControlItem value="company" label="Company" />
+                <SegmentedControlItem value="department" label="Department" />
+                <SegmentedControlItem value="account" label="Account" />
+                <SegmentedControlItem value="project" label="Project" />
+              </SegmentedControl>
               {view === 'account' ? (
                 <div className="w-64">
                   <Typeahead

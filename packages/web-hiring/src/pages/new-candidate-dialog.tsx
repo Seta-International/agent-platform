@@ -5,8 +5,8 @@ import {
   DateInput,
   Dialog,
   DialogHeader,
-  Dropzone,
   Field,
+  FileInput,
   Input,
   Layout,
   LayoutContent,
@@ -232,17 +232,22 @@ export function NewCandidateDialog() {
                     />
                   </div>
                 ) : (
-                  <Dropzone
-                    accept=".pdf,.docx"
-                    maxBytes={10 * 1024 * 1024}
+                  <FileInput
+                    mode="dropzone"
                     label="Upload CV to auto-fill"
-                    hint="PDF or DOCX, up to 10MB — parsed fields stay editable"
-                    pendingLabel="Parsing CV…"
-                    isPending={parse.isPending}
-                    onFile={(f) => {
-                      setCvFile(f);
-                      parse.mutate(f);
+                    accept=".pdf,.docx"
+                    maxSize={10 * 1024 * 1024}
+                    value={null}
+                    onChange={(file) => {
+                      if (file instanceof File) {
+                        setCvFile(file);
+                        parse.mutate(file);
+                      }
                     }}
+                    isLoading={parse.isPending}
+                    isDisabled={parse.isPending}
+                    placeholder="Drop a CV here, or click to choose one"
+                    description="PDF or DOCX, up to 10MB — parsed fields stay editable"
                   />
                 )}
                 <div className="space-y-1">

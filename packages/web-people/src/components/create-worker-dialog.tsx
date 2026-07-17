@@ -6,7 +6,7 @@ import {
   DateInput,
   Dialog,
   DialogHeader,
-  Dropzone,
+  FileInput,
   Input,
   Layout,
   LayoutContent,
@@ -120,9 +120,11 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
     parse.reset();
   }
 
-  function onFile(file: File) {
-    setCvFile(file);
-    parse.mutate(file);
+  function handleCvChange(file: File | File[] | null) {
+    if (file instanceof File) {
+      setCvFile(file);
+      parse.mutate(file);
+    }
   }
 
   function handleOpenChange(v: boolean) {
@@ -164,14 +166,17 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                     />
                   </div>
                 ) : (
-                  <Dropzone
-                    accept=".pdf,.docx"
-                    maxBytes={CV_MAX_BYTES}
+                  <FileInput
+                    mode="dropzone"
                     label="Upload CV to auto-fill"
-                    hint="PDF or DOCX, up to 10MB — parsed fields stay editable"
-                    pendingLabel="Parsing CV…"
-                    isPending={parse.isPending}
-                    onFile={onFile}
+                    accept=".pdf,.docx"
+                    maxSize={CV_MAX_BYTES}
+                    value={null}
+                    onChange={handleCvChange}
+                    isLoading={parse.isPending}
+                    isDisabled={parse.isPending}
+                    placeholder="Drop a CV here, or click to choose one"
+                    description="PDF or DOCX, up to 10MB — parsed fields stay editable"
                   />
                 )}
 

@@ -18,6 +18,7 @@ import {
   pixel,
   proportional,
   SegmentedControl,
+  SegmentedControlItem,
   Skeleton,
   Table,
   type TableColumn,
@@ -391,18 +392,21 @@ export function PeoplePage() {
                         </Popover>
                       )}
                       <SegmentedControl
-                        aria-label="Directory view"
+                        label="Directory view"
                         value={view}
-                        onValueChange={setView}
-                        options={[
-                          { value: 'list', label: 'List', icon: <List className="size-3.5" /> },
-                          {
-                            value: 'cards',
-                            label: 'Cards',
-                            icon: <LayoutGrid className="size-3.5" />,
-                          },
-                        ]}
-                      />
+                        onChange={(v) => setView(v as 'list' | 'cards')}
+                      >
+                        <SegmentedControlItem
+                          value="list"
+                          label="List"
+                          icon={<List className="size-3.5" />}
+                        />
+                        <SegmentedControlItem
+                          value="cards"
+                          label="Cards"
+                          icon={<LayoutGrid className="size-3.5" />}
+                        />
+                      </SegmentedControl>
                     </div>
                   </div>
 

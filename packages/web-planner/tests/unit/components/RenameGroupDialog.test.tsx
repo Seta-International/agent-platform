@@ -60,10 +60,11 @@ describe('EditGroupDialog', () => {
     expect(screen.getByLabelText('Name')).toHaveValue('Engineering');
     expect(screen.getByLabelText('Description')).toHaveValue('Platform work');
     expect(screen.getByRole('button', { name: 'blue' })).toHaveAttribute('aria-pressed', 'true');
-    // `SegmentedControl` here is shared-ui's own composite wrapper (options/onValueChange API),
-    // not the raw Astryx primitive — it renders role="tablist"/"tab" with aria-selected.
-    expect(screen.getByRole('tab', { name: 'Private' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: 'Member' })).toHaveAttribute('aria-selected', 'true');
+    // Two independent Astryx SegmentedControls (Visibility, Default role) — each is its own
+    // role="radiogroup"/"radio" set, so "Private" (Visibility) and "Member" (Default role)
+    // are both legitimately the checked radio in their own group at the same time.
+    expect(screen.getByRole('radio', { name: 'Private' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Member' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('is not exposed as a dialog when closed', () => {

@@ -39,15 +39,15 @@ describe('MyTasksToolbar', () => {
     // Anchored: Popover content is eagerly mounted (hidden), and the Due pill's own
     // "Overdue" option would otherwise also match a loose /Due/i.
     expect(screen.getByRole('button', { name: /^Due/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /list view/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /grid view/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /^List$/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /^Grid$/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/search my tasks/i)).toBeInTheDocument();
   });
 
   it('clicking the Grid tab calls onChange with { view: "grid" }', async () => {
     const user = userEvent.setup();
     const { onChange } = setup();
-    await user.click(screen.getByRole('tab', { name: /grid view/i }));
+    await user.click(screen.getByRole('radio', { name: /^Grid$/i }));
     expect(onChange).toHaveBeenCalledWith({ view: 'grid' });
   });
 
