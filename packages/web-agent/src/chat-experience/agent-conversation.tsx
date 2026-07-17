@@ -1,5 +1,6 @@
 import { MessagePrimitive, ThreadPrimitive, useAui, useAuiState } from '@assistant-ui/react';
 import {
+  Button,
   type ChatDensity,
   ChatLayout,
   ChatMessage,
@@ -150,14 +151,14 @@ function AgentEmpty({ title, body }: { title: string; body: string }) {
       </div>
       <div className="flex flex-wrap items-center justify-center gap-1.5">
         {AGENT_COPY.emptySuggestions.map((s) => (
-          <button
+          <Button
             key={s}
             type="button"
+            variant="secondary"
+            size="sm"
+            label={s}
             onClick={() => send(s)}
-            className="inline-flex h-7 items-center rounded-full border border-hairline bg-canvas px-3 text-caption text-ink-muted transition-colors hover:border-primary-border hover:bg-primary-tint hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-          >
-            {s}
-          </button>
+          />
         ))}
       </div>
     </div>

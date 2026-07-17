@@ -1,4 +1,4 @@
-import { DropdownMenu, DropdownMenuItem } from '@seta/shared-ui';
+import { DropdownMenu, DropdownMenuItem, IconButton } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Menu, MessageSquare, MoreHorizontal, Pencil, Sparkles, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -95,14 +95,14 @@ export function AgentHeader({
       }`}
     >
       {!compact && onOpenMobileNav && (
-        <button
+        <IconButton
           type="button"
+          variant="ghost"
           onClick={onOpenMobileNav}
-          aria-label="Open chats"
-          className="-ml-1 inline-flex size-8 flex-none items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink lg:hidden"
-        >
-          <Menu className="size-4" aria-hidden />
-        </button>
+          label="Open chats"
+          icon={<Menu className="size-4" aria-hidden />}
+          className="-ml-1 flex-none lg:hidden"
+        />
       )}
 
       <span
@@ -194,15 +194,15 @@ export function AgentHeader({
           />
         </DropdownMenu>
         {onClose && (
-          <button
+          <IconButton
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            aria-label="Close agent panel"
-            title="Close"
-            className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-          >
-            <X className="size-4" aria-hidden />
-          </button>
+            label="Close agent panel"
+            tooltip="Close"
+            icon={<X className="size-4" aria-hidden />}
+          />
         )}
       </div>
     </header>
