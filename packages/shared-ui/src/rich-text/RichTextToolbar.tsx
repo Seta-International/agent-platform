@@ -3,40 +3,42 @@ import {
   Bold,
   Code,
   Code2,
-  Heading1,
-  Heading2,
   Italic,
   Link,
   List,
   ListOrdered,
   Strikethrough,
-  Type,
   Underline,
 } from 'lucide-react';
 import { Button } from '../primitives/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../primitives/select';
 
 interface Props {
   editor: Editor | null;
 }
 
-type HeadingLevel = 1 | 2;
-
 export function RichTextToolbar({ editor }: Props) {
   if (!editor) return null;
 
-  const headingLabel = editor.isActive('heading', { level: 1 })
-    ? 'H1'
+  const textStyle = editor.isActive('heading', { level: 1 })
+    ? 'h1'
     : editor.isActive('heading', { level: 2 })
-      ? 'H2'
-      : 'Normal';
+      ? 'h2'
+      : 'p';
 
-  const setHeading = (level: HeadingLevel | null) => {
-    if (level === null) {
+  const setTextStyle = (style: string) => {
+    if (style === 'p') {
       // biome-ignore lint/suspicious/noExplicitAny: Tiptap extension commands
       (editor.chain().focus() as any).setParagraph().run();
     } else {
       // biome-ignore lint/suspicious/noExplicitAny: Tiptap extension commands
-      (editor.chain().focus() as any).toggleHeading({ level }).run();
+      (editor.chain().focus() as any).setHeading({ level: style === 'h1' ? 1 : 2 }).run();
     }
   };
 
@@ -54,27 +56,21 @@ export function RichTextToolbar({ editor }: Props) {
 
   return (
     <div className="flex flex-wrap gap-0.5 border-b border-hairline bg-surface-1 px-1.5 py-1">
-      {/* Heading dropdown — cycle Normal → H1 → H2 → Normal */}
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        className="w-16 text-xs"
-        onClick={() => {
-          if (headingLabel === 'Normal') setHeading(1);
-          else if (headingLabel === 'H1') setHeading(2);
-          else setHeading(null);
-        }}
-      >
-        {headingLabel === 'Normal' ? (
-          <Type className="size-3.5" />
-        ) : headingLabel === 'H1' ? (
-          <Heading1 className="size-3.5" />
-        ) : (
-          <Heading2 className="size-3.5" />
-        )}
-        <span className="ml-1">{headingLabel}</span>
-      </Button>
+      {/* Explicit text-style picker — a cycling button reads as a status, not a control,
+          and clicking "H1" that produces H2 breaks trust in the whole toolbar. */}
+      <Select value={textStyle} onValueChange={setTextStyle}>
+        <SelectTrigger
+          aria-label="Text style"
+          className="h-7 w-28 border-none bg-transparent text-xs shadow-none"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="p">Normal</SelectItem>
+          <SelectItem value="h1">Heading 1</SelectItem>
+          <SelectItem value="h2">Heading 2</SelectItem>
+        </SelectContent>
+      </Select>
 
       <Button
         type="button"
