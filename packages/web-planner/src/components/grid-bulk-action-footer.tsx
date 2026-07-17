@@ -6,6 +6,7 @@ import {
   Popover,
   type SearchableItem,
   Typeahead,
+  VStack,
 } from '@seta/shared-ui';
 import { useMemo, useState } from 'react';
 import { useGroupMembers } from '../hooks/queries/use-group-members';
@@ -217,10 +218,10 @@ function DueMenu({
       width={224}
       label="Set due date"
       content={
-        <>
+        <VStack gap={2} hAlign="stretch">
           {/* DateInput emits onChange per parseable keystroke, so the draft is
               committed explicitly rather than on change — see Apply below. */}
-          <DateInput label="Due date" value={draft} onChange={(v) => setDraft(v)} />
+          <DateInput label="Due date" value={draft} onChange={(v) => setDraft(v)} width="100%" />
           <Button
             label="Apply"
             variant="primary"
@@ -238,7 +239,7 @@ function DueMenu({
               setOpen(false);
             }}
           />
-        </>
+        </VStack>
       }
     >
       <button type="button">Set due</button>

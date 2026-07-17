@@ -21,6 +21,7 @@ const REQUIRED = [
   'InboxList',
   'Input',
   'NumberInput',
+  'Pagination',
   'Popover',
   'Selector',
   'SetaLogo',
