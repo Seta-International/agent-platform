@@ -1,4 +1,5 @@
 import {
+  AccountChip,
   AuthBackdrop,
   AuthPanel,
   Avatar,
@@ -8,9 +9,9 @@ import {
   Heading,
   Input,
   Link,
+  PasswordInput,
   SetaMark,
   Text,
-  Token,
   VStack,
 } from '@seta/shared-ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -241,24 +242,16 @@ function PasswordStep({
           Enter your password
         </Heading>
 
-        {/* Centred identity pill (Google-style): content-sized and centred so it reads
-            as account context, not a disabled input; lg matches the field scale. */}
-        <VStack gap={2} hAlign="center">
+        <VStack gap={2} hAlign="stretch">
           <Text type="supporting" color="secondary">
             Signing in as
           </Text>
-          <Token
-            size="lg"
-            label={email}
-            icon={<Avatar name={email} size={24} />}
-            onRemove={onEdit}
-          />
+          <AccountChip label={email} avatar={<Avatar name={email} size={24} />} onRemove={onEdit} />
         </VStack>
 
         <VStack gap={1} hAlign="stretch">
-          <Input
+          <PasswordInput
             label="Password"
-            type="password"
             value={password}
             onChange={(value) => onPasswordChange(value)}
             size="lg"
@@ -334,13 +327,11 @@ function SsoStep({
         </Text>
       </VStack>
 
-      {/* Centred identity pill (Google-style): content-sized and centred so it reads
-          as account context, not a disabled input; lg matches the field scale. */}
-      <VStack gap={2} hAlign="center">
+      <VStack gap={2} hAlign="stretch">
         <Text type="supporting" color="secondary">
           Signing in as
         </Text>
-        <Token size="lg" label={email} icon={<Avatar name={email} size={24} />} onRemove={onEdit} />
+        <AccountChip label={email} avatar={<Avatar name={email} size={24} />} onRemove={onEdit} />
       </VStack>
 
       {error ? <Banner status="error" title={error} /> : null}
