@@ -1,8 +1,17 @@
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Avatar,
   AvatarFallback,
   Badge,
   Button,
+  buttonVariants,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -185,6 +194,7 @@ export function CandidateDetailDrawer({
   const canTransfer = usePermission('hiring.candidate.transfer');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [confirmHire, setConfirmHire] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: hiringKeys.candidate(candidateId ?? ''),
@@ -217,9 +227,13 @@ export function CandidateDetailDrawer({
     },
     onSuccess: () => {
       toast.success('Candidate hired');
+      setConfirmHire(false);
       refresh();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.candidate(candidateId ?? '')),
+    onError: (e: Error) => {
+      setConfirmHire(false);
+      on409(e, queryClient, hiringKeys.candidate(candidateId ?? ''));
+    },
   });
   const terminal = app ? app.status !== 'active' : true;
   // FUT-559: an on-hold requisition freezes its pipeline — the backend rejects every
@@ -352,7 +366,8 @@ export function CandidateDetailDrawer({
                     </DropdownMenuItem>
                   ))}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => hire.mutate()}>Hired</DropdownMenuItem>
+                  {/* Hiring is terminal (the application locks) — always confirm first. */}
+                  <DropdownMenuItem onSelect={() => setConfirmHire(true)}>Hired</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -500,6 +515,30 @@ export function CandidateDetailDrawer({
               onClose();
             }}
           />
+          <AlertDialog open={confirmHire} onOpenChange={setConfirmHire}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Hire {data?.candidate.name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Hiring is final — the application closes and can no longer be moved between
+                  stages.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={hire.isPending}>Back</AlertDialogCancel>
+                <AlertDialogAction
+                  className={buttonVariants({ variant: 'default' })}
+                  disabled={hire.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    hire.mutate();
+                  }}
+                >
+                  {hire.isPending ? 'Hiring…' : 'Hire candidate'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
     </Dialog>
