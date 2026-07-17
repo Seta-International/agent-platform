@@ -31,7 +31,7 @@ import { type PageContext, useAgentSelection, usePageContext } from './agent-pro
 import { ChainOfThought } from './chain-of-thought';
 import { groupByThought } from './group-by-thought';
 import { RenderContextBadge } from './render-context-badge';
-import { dateDividerLabel } from './transcript-structure';
+import { type BubbleGroup, bubbleGroup, dateDividerLabel } from './transcript-structure';
 import { type Density, useDensity } from './use-density';
 
 const ASSISTANT_LABEL = 'Agent';
@@ -65,13 +65,13 @@ interface PartProps {
   status: { type: string };
 }
 
-function TextPart({ text, status }: PartProps) {
+function TextPart({ text, status, group }: PartProps & { group?: BubbleGroup }) {
   // While the assistant is still queueing the first token, the part exists with
   // empty text; rendering anything here would stack a stray cursor above the
   // ThinkingIndicator that the transcript shows for empty turns.
   if (text.length === 0) return null;
   return (
-    <ChatMessageBubble variant="ghost">
+    <ChatMessageBubble variant="ghost" group={group}>
       <div className="relative">
         {/* `autolink`: the deleted ChatMarkdown ran remark-gfm, whose
             autolink-literal extension is on by default. Astryx's is opt-in, so
@@ -342,17 +342,22 @@ function makeAssistantMessage(authorLabel: string) {
         const status = part.status ?? { type: 'complete' };
         if (!raw.includes('<think>')) return <TextPart text={raw} status={status} />;
         // r1-style models embed thinking in text — split and render in-place so
-        // streaming turns show correctly without a reload.
+        // streaming turns show correctly without a reload. The text segments are
+        // adjacent ghost bubbles, so group them as one unit (reasoning segments
+        // render as bordered rows and don't count toward the group run).
         const segments = splitThinkSegments(raw);
+        const textCount = segments.filter((seg) => !seg.isThink).length;
+        let textPos = 0;
         return (
           <>
-            {segments.map((seg) =>
-              seg.isThink ? (
-                <ReasoningPart key={seg.id} text={seg.text} status={{ type: 'complete' }} />
-              ) : (
-                <TextPart key={seg.id} text={seg.text} status={status} />
-              ),
-            )}
+            {segments.map((seg) => {
+              if (seg.isThink) {
+                return <ReasoningPart key={seg.id} text={seg.text} status={{ type: 'complete' }} />;
+              }
+              const group = bubbleGroup(textPos, textCount);
+              textPos += 1;
+              return <TextPart key={seg.id} text={seg.text} status={status} group={group} />;
+            })}
           </>
         );
       }
