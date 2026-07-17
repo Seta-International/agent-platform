@@ -200,10 +200,10 @@ export function HitlApprovalCard({
     return (
       <section
         aria-label="Duplicate check"
-        className="overflow-hidden rounded-xl border border-border bg-body shadow-[inset_3px_0_0_var(--color-warning),0_4px_16px_-8px_rgb(0_0_0/0.18)]"
+        className="overflow-hidden rounded-xl border border-border bg-body shadow-[0_8px_24px_-12px_rgb(0_0_0/0.18)]"
       >
         <header className="flex items-start gap-2.5 border-b border-border bg-card px-3.5 py-2">
-          <Sparkles className="mt-[3px] size-3.5 shrink-0 text-warning" aria-hidden />
+          <Sparkles className="mt-[3px] size-3.5 shrink-0 text-secondary" aria-hidden />
           <h3 className="line-clamp-2 flex-1 text-base font-semibold text-primary">{cardIntent}</h3>
           <span
             className={`inline-flex shrink-0 items-center gap-1 font-mono text-sm tabular-nums ${countdownToneClass[remaining.tier]}`}
@@ -334,11 +334,11 @@ export function HitlApprovalCard({
   return (
     <section
       aria-label="Your input needed"
-      className="overflow-hidden rounded-xl border-[1.5px] border-accent-bg bg-body shadow-[0_0_0_4px_var(--color-accent-muted),0_10px_24px_-14px_rgb(0_0_0/0.25)]"
+      className="overflow-hidden rounded-xl border border-border bg-body shadow-[0_8px_24px_-12px_rgb(0_0_0/0.18)]"
     >
-      <header className="flex items-start gap-2.5 border-b border-accent-bg bg-accent-muted px-3.5 py-2">
-        <Sparkles className="mt-[3px] size-3.5 shrink-0 text-accent" aria-hidden />
-        <h3 className="line-clamp-2 flex-1 text-base font-semibold text-accent">{cardIntent}</h3>
+      <header className="flex items-start gap-2.5 border-b border-border bg-card px-3.5 py-2">
+        <Sparkles className="mt-[3px] size-3.5 shrink-0 text-secondary" aria-hidden />
+        <h3 className="line-clamp-2 flex-1 text-base font-semibold text-primary">{cardIntent}</h3>
         <span
           className={`inline-flex shrink-0 items-center gap-1 font-mono text-sm tabular-nums ${countdownToneClass[remaining.tier]}`}
           aria-live={remaining.tier === 'urgent' ? 'polite' : 'off'}
@@ -470,7 +470,7 @@ export function HitlApprovalCard({
             />
             <Button
               type="button"
-              variant="destructive"
+              variant="ghost"
               isDisabled={disabled}
               onClick={() => setRejectOpen(true)}
               label={card?.decline?.label ?? 'Leave unassigned'}
