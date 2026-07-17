@@ -2,14 +2,17 @@ import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-p
 import type { BucketRow, PlanRow, TaskWithAssigneesRow } from '@seta/planner';
 import {
   Button,
+  DisabledActionTooltip,
+  EmptyState,
   KanbanBoard,
   KanbanCard,
-  KanbanCardList,
   KanbanColumn,
   PreviewBody,
   type PreviewBodyTask,
+  type QuickCreateTaskInput,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
+import { Inbox, Plus } from 'lucide-react';
 import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDeleteBucketDialog } from '../components/ConfirmDeleteBucketDialog';
 import { type BucketCard, VirtualizedBucketList } from '../components/virtualized-bucket-list';
@@ -288,6 +291,29 @@ export function PlanPage({
                   after_bucket_id: buckets[buckets.length - 1]?.id,
                 });
               }}
+              emptyState={(startCompose) =>
+                buckets.length === 0 ? (
+                  <EmptyState
+                    headingLevel={2}
+                    title="Start your board"
+                    description="Add your first bucket to organize tasks."
+                    actions={
+                      <DisabledActionTooltip
+                        disabled={Boolean(createBucketReason)}
+                        reason={createBucketReason}
+                      >
+                        <Button
+                          variant="primary"
+                          icon={<Plus className="size-4" />}
+                          label="Add bucket"
+                          isDisabled={Boolean(createBucketReason)}
+                          onClick={startCompose}
+                        />
+                      </DisabledActionTooltip>
+                    }
+                  />
+                ) : undefined
+              }
               rootDroppable={{
                 ref: provided.innerRef,
                 // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
@@ -295,140 +321,183 @@ export function PlanPage({
                 placeholder: provided.placeholder,
               }}
             >
-              {buckets.map((b, idx) => (
-                <Draggable key={b.id} draggableId={b.id} index={idx}>
-                  {(dp, ds) => (
-                    <KanbanColumn
-                      name={b.name}
-                      count={(activeByBucket.get(b.id) ?? []).length}
-                      status={statusForBucketName(b.name)}
-                      titleMaxLength={TASK_TITLE_MAX_LENGTH}
-                      createTaskDisabledReason={createTaskReason}
-                      renameDisabledReason={renameBucketReason}
-                      deleteDisabledReason={deleteBucketReason}
-                      reorderDisabledReason={reorderBucketReason}
-                      onCreateTask={async (input) => {
-                        await createTask.mutateAsync({
-                          plan_id: plan.id,
-                          bucket_id: b.id,
-                          ...input,
-                        });
-                      }}
-                      onRename={(newName) =>
-                        updateBucket.mutate({
-                          bucket_id: b.id,
-                          expected_version: b.version,
-                          patch: { name: newName },
-                        })
-                      }
-                      onDelete={() => {
-                        const count =
-                          (activeByBucket.get(b.id) ?? []).length +
-                          (completedByBucket.get(b.id) ?? []).length;
-                        if (count > 0) {
-                          setPendingDeleteBucket({
-                            id: b.id,
-                            name: b.name,
-                            count,
-                            version: b.version,
-                          });
-                        } else {
-                          deleteBucket.mutate({ bucket_id: b.id, expected_version: b.version });
-                        }
-                      }}
-                      draggableHandle={{
+              {buckets.map((b, idx) => {
+                const list = activeByBucket.get(b.id) ?? [];
+                // Virtualized buckets don't participate in keyboard navigation:
+                // rows outside the overscan window aren't mounted, so cardRefs never
+                // contains their elements and .focus() can't reach them. They're also
+                // never empty (>50 tasks), so the emptyState slot doesn't apply.
+                const isVirtualized = list.length > 50;
+
+                const handleCreateTask = async (input: QuickCreateTaskInput) => {
+                  await createTask.mutateAsync({
+                    plan_id: plan.id,
+                    bucket_id: b.id,
+                    ...input,
+                  });
+                };
+                const handleRename = (newName: string) =>
+                  updateBucket.mutate({
+                    bucket_id: b.id,
+                    expected_version: b.version,
+                    patch: { name: newName },
+                  });
+                const handleDelete = () => {
+                  const count = list.length + (completedByBucket.get(b.id) ?? []).length;
+                  if (count > 0) {
+                    setPendingDeleteBucket({
+                      id: b.id,
+                      name: b.name,
+                      count,
+                      version: b.version,
+                    });
+                  } else {
+                    deleteBucket.mutate({ bucket_id: b.id, expected_version: b.version });
+                  }
+                };
+                const completedTasksSlot = (() => {
+                  const cList = completedByBucket.get(b.id) ?? [];
+                  if (cList.length === 0) return undefined;
+                  return {
+                    count: cList.length,
+                    children: (
+                      <>
+                        {cList.map((entry) => (
+                          <KanbanCard
+                            key={entry.card.id}
+                            task={entry.card}
+                            previewSlot={entry.previewSlot}
+                            onOpen={() => onOpenTask(entry.card.id)}
+                            draggable={{}}
+                          />
+                        ))}
+                      </>
+                    ),
+                  };
+                })();
+
+                return (
+                  <Draggable key={b.id} draggableId={b.id} index={idx}>
+                    {(dp, ds) => {
+                      const draggableHandle = {
                         ref: dp.innerRef,
                         rootProps: dp.draggableProps,
                         handleProps: dp.dragHandleProps ?? undefined,
                         isDragging: ds.isDragging,
                         extraStyle: dp.draggableProps.style,
-                      }}
-                      droppable={{}}
-                      completedTasks={(() => {
-                        const cList = completedByBucket.get(b.id) ?? [];
-                        if (cList.length === 0) return undefined;
-                        return {
-                          count: cList.length,
-                          children: (
-                            <>
-                              {cList.map((entry) => (
-                                <KanbanCard
-                                  key={entry.card.id}
-                                  task={entry.card}
-                                  previewSlot={entry.previewSlot}
-                                  onOpen={() => onOpenTask(entry.card.id)}
-                                  draggable={{}}
-                                />
-                              ))}
-                            </>
-                          ),
-                        };
-                      })()}
-                    >
-                      {(() => {
-                        const list = activeByBucket.get(b.id) ?? [];
-                        if (list.length <= 50) {
-                          return (
-                            <Droppable droppableId={b.id} type="TASK">
-                              {(dp2, ds2) => (
-                                <KanbanCardList
-                                  ref={dp2.innerRef}
-                                  // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
-                                  rootProps={
-                                    dp2.droppableProps as unknown as HTMLAttributes<HTMLDivElement>
-                                  }
-                                  isDraggingOver={ds2.isDraggingOver}
-                                >
-                                  {list.map((entry, ci) => (
-                                    <Draggable
-                                      key={entry.card.id}
-                                      draggableId={entry.card.id}
-                                      index={ci}
-                                    >
-                                      {(dpc, dsc) => (
-                                        <KanbanCard
-                                          task={entry.card}
-                                          previewSlot={entry.previewSlot}
-                                          onOpen={() => onOpenTask(entry.card.id)}
-                                          selected={focusedCardId === entry.card.id}
-                                          draggable={{
-                                            // Compose dnd's innerRef with our cardRefs map so
-                                            // keyboard focus (focusedCardId effect) can call .focus().
-                                            ref: (el) => {
-                                              dpc.innerRef(el);
-                                              if (el) cardRefs.current.set(entry.card.id, el);
-                                              else cardRefs.current.delete(entry.card.id);
-                                            },
-                                            rootProps: dpc.draggableProps,
-                                            // Suppress the drag handle when the user can't move
-                                            // tasks (moving a task is a task.update).
-                                            handleProps: canUpdateTask
-                                              ? (dpc.dragHandleProps ?? undefined)
-                                              : undefined,
-                                            isDragging: dsc.isDragging,
-                                            extraStyle: dpc.draggableProps.style,
-                                          }}
-                                        />
-                                      )}
-                                    </Draggable>
-                                  ))}
-                                  {dp2.placeholder}
-                                </KanbanCardList>
-                              )}
-                            </Droppable>
-                          );
-                        }
-                        // Virtualized buckets don't participate in keyboard navigation:
-                        // rows outside the overscan window aren't mounted, so cardRefs never
-                        // contains their elements and .focus() can't reach them.
+                      };
+
+                      if (isVirtualized) {
                         return (
-                          <VirtualizedBucketList bucketId={b.id} cards={list} onOpen={onOpenTask} />
+                          <KanbanColumn
+                            name={b.name}
+                            count={list.length}
+                            status={statusForBucketName(b.name)}
+                            titleMaxLength={TASK_TITLE_MAX_LENGTH}
+                            width={256}
+                            createTaskDisabledReason={createTaskReason}
+                            renameDisabledReason={renameBucketReason}
+                            deleteDisabledReason={deleteBucketReason}
+                            reorderDisabledReason={reorderBucketReason}
+                            onCreateTask={handleCreateTask}
+                            onRename={handleRename}
+                            onDelete={handleDelete}
+                            draggableHandle={draggableHandle}
+                            droppable={{}}
+                            completedTasks={completedTasksSlot}
+                          >
+                            <VirtualizedBucketList
+                              bucketId={b.id}
+                              cards={list}
+                              onOpen={onOpenTask}
+                            />
+                          </KanbanColumn>
                         );
-                      })()}
-                    </KanbanColumn>
-                  )}
-                </Draggable>
-              ))}
+                      }
+
+                      // The per-bucket Droppable now wraps KanbanColumn directly (via its
+                      // `droppable` prop) instead of nesting inside `children`, so `children`
+                      // is just the card list — empty when there are no active tasks. That's
+                      // what lets KanbanColumn's emptyState slot (Children.count === 0) fire;
+                      // KanbanColumn still mounts its own KanbanCardList off the `droppable`
+                      // prop, so the bucket stays a valid drop target even while empty.
+                      return (
+                        <Droppable droppableId={b.id} type="TASK">
+                          {(dp2, ds2) => (
+                            <KanbanColumn
+                              name={b.name}
+                              count={list.length}
+                              status={statusForBucketName(b.name)}
+                              titleMaxLength={TASK_TITLE_MAX_LENGTH}
+                              width={256}
+                              emptyState={
+                                <EmptyState
+                                  isCompact
+                                  headingLevel={2}
+                                  icon={<Inbox className="size-5 text-secondary" aria-hidden />}
+                                  title="No tasks yet"
+                                  description="Add a task to get this bucket started."
+                                />
+                              }
+                              createTaskDisabledReason={createTaskReason}
+                              renameDisabledReason={renameBucketReason}
+                              deleteDisabledReason={deleteBucketReason}
+                              reorderDisabledReason={reorderBucketReason}
+                              onCreateTask={handleCreateTask}
+                              onRename={handleRename}
+                              onDelete={handleDelete}
+                              draggableHandle={draggableHandle}
+                              droppable={{
+                                ref: dp2.innerRef,
+                                // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
+                                rootProps:
+                                  dp2.droppableProps as unknown as HTMLAttributes<HTMLElement>,
+                                isDraggingOver: ds2.isDraggingOver,
+                                placeholder: dp2.placeholder,
+                              }}
+                              completedTasks={completedTasksSlot}
+                            >
+                              {list.map((entry, ci) => (
+                                <Draggable
+                                  key={entry.card.id}
+                                  draggableId={entry.card.id}
+                                  index={ci}
+                                >
+                                  {(dpc, dsc) => (
+                                    <KanbanCard
+                                      task={entry.card}
+                                      previewSlot={entry.previewSlot}
+                                      onOpen={() => onOpenTask(entry.card.id)}
+                                      selected={focusedCardId === entry.card.id}
+                                      draggable={{
+                                        // Compose dnd's innerRef with our cardRefs map so
+                                        // keyboard focus (focusedCardId effect) can call .focus().
+                                        ref: (el) => {
+                                          dpc.innerRef(el);
+                                          if (el) cardRefs.current.set(entry.card.id, el);
+                                          else cardRefs.current.delete(entry.card.id);
+                                        },
+                                        rootProps: dpc.draggableProps,
+                                        // Suppress the drag handle when the user can't move
+                                        // tasks (moving a task is a task.update).
+                                        handleProps: canUpdateTask
+                                          ? (dpc.dragHandleProps ?? undefined)
+                                          : undefined,
+                                        isDragging: dsc.isDragging,
+                                        extraStyle: dpc.draggableProps.style,
+                                      }}
+                                    />
+                                  )}
+                                </Draggable>
+                              ))}
+                            </KanbanColumn>
+                          )}
+                        </Droppable>
+                      );
+                    }}
+                  </Draggable>
+                );
+              })}
             </KanbanBoard>
           )}
         </Droppable>

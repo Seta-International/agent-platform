@@ -406,4 +406,13 @@ describe('PlanPage (via PlanBoardShell)', () => {
       plan_id: 'p1',
     });
   });
+
+  it('shows an empty-column state for a bucket with no tasks', async () => {
+    // seedBoardHandlers() puts taskOne in bucket b1 ("To do") only, so b2
+    // ("Done") has zero active tasks and should render the empty-column state.
+    server.use(...seedBoardHandlers());
+    renderShell();
+    await screen.findByText('Done');
+    expect(await screen.findByText(/no tasks yet/i)).toBeInTheDocument();
+  });
 });

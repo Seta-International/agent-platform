@@ -306,5 +306,24 @@ describe('KanbanBoard', () => {
       expect(screen.queryByText('Start your board')).toBeNull();
       expect(screen.getByText('col')).toBeInTheDocument();
     });
+
+    it('a render-prop emptyState exposes startCompose, opening the add-bucket input in one click', () => {
+      render(
+        <KanbanBoard
+          onAddBucket={vi.fn()}
+          emptyState={(start) => (
+            <button type="button" onClick={start}>
+              go
+            </button>
+          )}
+        >
+          {null}
+        </KanbanBoard>,
+      );
+
+      fireEvent.click(screen.getByText('go'));
+
+      expect(screen.getByPlaceholderText('Enter bucket name…')).toBeInTheDocument();
+    });
   });
 });
