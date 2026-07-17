@@ -80,6 +80,19 @@ const wrap =
   );
 
 describe('CandidatesPage', () => {
+  it('renders the breadcrumb trail and page heading', async () => {
+    fetchCandidates.mockResolvedValue(rows);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Hiring Management' });
+    expect(rootCrumb).toHaveAttribute('href', '/hiring');
+    expect(within(nav).getByText('Candidates').closest('a')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Candidates' })).toBeInTheDocument();
+  });
+
   it('renders the board with the candidate card under New', async () => {
     fetchCandidates.mockResolvedValue(rows);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

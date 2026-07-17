@@ -1,5 +1,11 @@
-import { DropdownMenu, DropdownMenuItem, SyncBadge, type SyncState } from '@seta/shared-ui';
-import { Link } from '@tanstack/react-router';
+import {
+  BreadcrumbItem,
+  Breadcrumbs,
+  DropdownMenu,
+  DropdownMenuItem,
+  SyncBadge,
+  type SyncState,
+} from '@seta/shared-ui';
 import {
   Archive,
   Copy,
@@ -111,19 +117,15 @@ export function PlanPageHeader({
   return (
     <header className="plan-page-header">
       {groupName && (
-        <nav aria-label="Breadcrumb" className="plan-page-header__breadcrumb">
-          <Link to="/planner/groups">Planner</Link>
-          <span aria-hidden="true">/</span>
+        <Breadcrumbs variant="supporting">
+          <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
           {groupId ? (
-            <Link to="/planner/groups/$groupId" params={{ groupId }}>
-              {groupName}
-            </Link>
+            <BreadcrumbItem href={`/planner/groups/${groupId}`}>{groupName}</BreadcrumbItem>
           ) : (
-            <span>{groupName}</span>
+            <BreadcrumbItem>{groupName}</BreadcrumbItem>
           )}
-          <span aria-hidden="true">/</span>
-          <span aria-current="page">{planName}</span>
-        </nav>
+          <BreadcrumbItem isCurrent>{planName}</BreadcrumbItem>
+        </Breadcrumbs>
       )}
       <div className="plan-page-header__title-row">
         {canRename && editing ? (

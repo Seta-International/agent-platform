@@ -1,9 +1,10 @@
 import path from 'node:path';
+import { stylexVitePlugin } from '@seta/shared-ui/testing/vitest-preset';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [stylexVitePlugin(), react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),

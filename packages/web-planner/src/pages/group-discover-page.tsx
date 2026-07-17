@@ -1,6 +1,18 @@
-import { Badge, Button, Input, PageChrome, Skeleton, useToast } from '@seta/shared-ui';
+import {
+  Badge,
+  BreadcrumbItem,
+  Breadcrumbs,
+  Button,
+  Input,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  Skeleton,
+  Text,
+  useToast,
+  VStack,
+} from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 import { Search } from 'lucide-react';
 import { useState } from 'react';
 import { createJoinRequest, discoverGroups } from '../api/planner-client';
@@ -37,84 +49,97 @@ export function GroupDiscoverPage() {
   }
 
   return (
-    <PageChrome
-      breadcrumb={[
-        'Planner',
-        <Link key="groups" to="/planner/groups">
-          Groups
-        </Link>,
-      ]}
-      title="Find a Workspace Group"
-    >
-      <div className="page-container max-w-2xl py-8">
-        <form onSubmit={handleSearch} className="flex gap-2 mb-8">
-          <Input
-            label="Search by group name"
-            isLabelHidden
-            placeholder="Search by group name…"
-            value={q}
-            onChange={(value) => setQ(value)}
-            className="flex-1"
-          />
-          <Button
-            type="submit"
-            icon={<Search className="size-4" />}
-            label="Search"
-            isDisabled={q.trim().length === 0}
-          />
-        </form>
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+              <BreadcrumbItem href="/planner/groups">Groups</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Find a Workspace Group</BreadcrumbItem>
+            </Breadcrumbs>
+            <Text as="h1" size="lg" weight="semibold">
+              Find a Workspace Group
+            </Text>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="page-container max-w-2xl py-8">
+            <form onSubmit={handleSearch} className="flex gap-2 mb-8">
+              <Input
+                label="Search by group name"
+                isLabelHidden
+                placeholder="Search by group name…"
+                value={q}
+                onChange={(value) => setQ(value)}
+                className="flex-1"
+              />
+              <Button
+                type="submit"
+                icon={<Search className="size-4" />}
+                label="Search"
+                isDisabled={q.trim().length === 0}
+              />
+            </form>
 
-        {searchQuery.isPending && submittedQ && (
-          <div className="flex flex-col gap-3">
-            {(['sk-0', 'sk-1', 'sk-2'] as const).map((k) => (
-              <Skeleton key={k} height={80} radius={3} />
-            ))}
+            {searchQuery.isPending && submittedQ && (
+              <div className="flex flex-col gap-3">
+                {(['sk-0', 'sk-1', 'sk-2'] as const).map((k) => (
+                  <Skeleton key={k} height={80} radius={3} />
+                ))}
+              </div>
+            )}
+
+            {searchQuery.data && searchQuery.data.length === 0 && (
+              <p className="text-sm text-ink-muted">
+                No public groups match &ldquo;{submittedQ}&rdquo;.
+              </p>
+            )}
+
+            {searchQuery.data && searchQuery.data.length > 0 && (
+              <ul className="flex flex-col gap-3">
+                {searchQuery.data.map((group) => {
+                  const isRequested = group.has_pending_request || requestedIds.has(group.id);
+                  return (
+                    <li
+                      key={group.id}
+                      className="flex items-start justify-between gap-4 rounded-lg border bg-surface-1 p-4"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold truncate">{group.name}</p>
+                        {group.description && (
+                          <p className="text-sm text-ink-muted mt-1 truncate">
+                            {group.description}
+                          </p>
+                        )}
+                        <p className="text-xs text-ink-subtle mt-1">
+                          {group.member_count} member
+                          {group.member_count !== 1 ? 's' : ''}
+                          {group.owner_display_name ? ` · Owner: ${group.owner_display_name}` : ''}
+                        </p>
+                      </div>
+                      {group.is_member ? (
+                        <Badge variant="success" className="shrink-0" label="Member" />
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant={isRequested ? 'secondary' : 'primary'}
+                          isDisabled={isRequested || joinMutation.isPending}
+                          onClick={() => joinMutation.mutate(group.id)}
+                          label={isRequested ? 'Requested' : 'Request to Join'}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
-        )}
-
-        {searchQuery.data && searchQuery.data.length === 0 && (
-          <p className="text-sm text-ink-muted">
-            No public groups match &ldquo;{submittedQ}&rdquo;.
-          </p>
-        )}
-
-        {searchQuery.data && searchQuery.data.length > 0 && (
-          <ul className="flex flex-col gap-3">
-            {searchQuery.data.map((group) => {
-              const isRequested = group.has_pending_request || requestedIds.has(group.id);
-              return (
-                <li
-                  key={group.id}
-                  className="flex items-start justify-between gap-4 rounded-lg border bg-surface-1 p-4"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold truncate">{group.name}</p>
-                    {group.description && (
-                      <p className="text-sm text-ink-muted mt-1 truncate">{group.description}</p>
-                    )}
-                    <p className="text-xs text-ink-subtle mt-1">
-                      {group.member_count} member
-                      {group.member_count !== 1 ? 's' : ''}
-                      {group.owner_display_name ? ` · Owner: ${group.owner_display_name}` : ''}
-                    </p>
-                  </div>
-                  {group.is_member ? (
-                    <Badge variant="success" className="shrink-0" label="Member" />
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant={isRequested ? 'secondary' : 'primary'}
-                      isDisabled={isRequested || joinMutation.isPending}
-                      onClick={() => joinMutation.mutate(group.id)}
-                      label={isRequested ? 'Requested' : 'Request to Join'}
-                    />
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </PageChrome>
+        </LayoutContent>
+      }
+    />
   );
 }

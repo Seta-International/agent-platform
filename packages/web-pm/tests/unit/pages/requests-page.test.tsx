@@ -97,3 +97,26 @@ describe('RequestsPage — inner table view (sort · pagination parity)', () => 
     expect(within(table).queryByText('Charter 25')).not.toBeInTheDocument();
   });
 });
+
+describe('RequestsPage — breadcrumb trail (Astryx migration)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fetchChartersMock.mockReset();
+  });
+
+  // Manifest nav label for /pm/requests is "Requests"; this page's own title is "Project
+  // Requests" — they disagree, so the footnote's title-wins clause fires and the *current*
+  // crumb is "Project Requests" (unlike the middle crumb on charter-detail-page, which still
+  // reads "Requests" — see the asymmetry note in the task report).
+  it('renders the root crumb and the current (terminal) "Project Requests" crumb', async () => {
+    fetchChartersMock.mockResolvedValue({ charters: [], total: 0 });
+    renderPage();
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Project Monitoring' });
+    expect(rootCrumb).toHaveAttribute('href', '/pm');
+
+    expect(within(nav).getByText('Project Requests').closest('a')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Project Requests' })).toBeInTheDocument();
+  });
+});

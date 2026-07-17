@@ -16,10 +16,6 @@ vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   createRejectionReason: vi.fn(),
 }));
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
-}));
-
 import { SettingsPage } from '../../src/pages/settings-page.tsx';
 
 const wrap =
@@ -33,6 +29,19 @@ const wrap =
 // title via its heading rather than the dialog's accessible name — matching this batch's
 // established pattern (see NewRequisitionDialog's test).
 describe('SettingsPage', () => {
+  it('renders the breadcrumb trail and page heading', () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<SettingsPage />, { wrapper: wrap(qc) });
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Hiring Management' });
+    expect(rootCrumb).toHaveAttribute('href', '/hiring');
+    expect(within(nav).getByText('Hiring settings').closest('a')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Hiring settings' })).toBeInTheDocument();
+
+    expect(within(nav).queryByRole('link', { name: 'Requisitions' })).not.toBeInTheDocument();
+  });
+
   it('has no dialog exposed until a trigger is clicked', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<SettingsPage />, { wrapper: wrap(qc) });

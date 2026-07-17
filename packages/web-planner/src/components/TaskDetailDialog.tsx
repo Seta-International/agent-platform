@@ -47,6 +47,7 @@ export function TaskDetailDialog({ planId, taskId, onClose, onOpenFullPage }: Pr
               taskId={taskId}
               variant="modal"
               onDeleted={onClose}
+              onClose={onClose}
               modalHeaderActions={
                 <>
                   <button

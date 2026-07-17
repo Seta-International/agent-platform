@@ -1,6 +1,16 @@
-import { Button, PageChrome } from '@seta/shared-ui';
+import {
+  BreadcrumbItem,
+  Breadcrumbs,
+  Button,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  Text,
+  VStack,
+} from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { workflowsApi } from '../api/workflows.ts';
 import { HitlApprovalCard } from '../components/hitl-approval-card.tsx';
@@ -60,22 +70,6 @@ export function WorkflowRunPage({ runId }: WorkflowRunPageProps) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const runQuery = useWorkflowRun(runId);
-  const workflowsBreadcrumb = [
-    <Link
-      key="agent"
-      to="/agent/workflows"
-      className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-    >
-      Agent
-    </Link>,
-    <Link
-      key="workflows"
-      to="/agent/workflows"
-      className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-    >
-      Workflows
-    </Link>,
-  ] as const;
   const snapshotQuery = useWorkflowRunSnapshot(runId);
   const approvalsQuery = usePendingApprovals();
   const decide = useDecideApproval(runId, { workflowHint: runQuery.data?.workflowId });
@@ -119,23 +113,61 @@ export function WorkflowRunPage({ runId }: WorkflowRunPageProps) {
 
   if (runQuery.isLoading) {
     return (
-      <PageChrome breadcrumb={workflowsBreadcrumb} title="Loading run…">
-        <div className="p-8 text-sm text-ink-subtle">Loading run…</div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/agent">Agent Studio</BreadcrumbItem>
+                <BreadcrumbItem href="/agent/workflows">Workflows</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Loading run…</BreadcrumbItem>
+              </Breadcrumbs>
+              <Text as="h1" size="lg" weight="semibold">
+                Loading run…
+              </Text>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <div className="p-8 text-sm text-ink-subtle">Loading run…</div>
+          </LayoutContent>
+        }
+      />
     );
   }
   if (!runQuery.data) {
     return (
-      <PageChrome breadcrumb={workflowsBreadcrumb} title="Run not found">
-        <div className="grid h-full place-items-center p-8 text-sm">
-          <div className="space-y-2 text-center">
-            <p className="text-ink">We couldn&apos;t find that run.</p>
-            <p className="text-xs text-ink-subtle">
-              It may have been deleted, or you might not have access.
-            </p>
-          </div>
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/agent">Agent Studio</BreadcrumbItem>
+                <BreadcrumbItem href="/agent/workflows">Workflows</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Run not found</BreadcrumbItem>
+              </Breadcrumbs>
+              <Text as="h1" size="lg" weight="semibold">
+                Run not found
+              </Text>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <div className="grid h-full place-items-center p-8 text-sm">
+              <div className="space-y-2 text-center">
+                <p className="text-ink">We couldn&apos;t find that run.</p>
+                <p className="text-xs text-ink-subtle">
+                  It may have been deleted, or you might not have access.
+                </p>
+              </div>
+            </div>
+          </LayoutContent>
+        }
+      />
     );
   }
 
@@ -144,64 +176,82 @@ export function WorkflowRunPage({ runId }: WorkflowRunPageProps) {
   const terminal = TERMINAL.has(run.status);
 
   return (
-    <PageChrome
-      breadcrumb={workflowsBreadcrumb}
-      title={<span className="font-mono">{workflowLabel(run.workflowId)}</span>}
-      subtitle={
-        <>
-          <span className="font-mono text-xs">Run {run.runId.slice(0, 7)}</span>
-          <RunStatusPill status={run.status} />
-        </>
-      }
-      actions={
-        terminal ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            isDisabled={rerunMutation.isPending}
-            onClick={() => rerunMutation.mutate()}
-            label={rerunMutation.isPending ? 'Replaying…' : 'Replay from start'}
-          />
-        ) : undefined
-      }
-    >
-      <div className="flex h-full flex-1 overflow-hidden">
-        <main className="relative flex-1 overflow-hidden bg-surface-2">
-          <WorkflowGraph
-            snapshot={snapshotQuery.data}
-            run={{
-              runId: run.runId,
-              startedAt: run.startedAt,
-              finishedAt: run.finishedAt,
-              status: run.status,
-            }}
-            onReplay={onReplay}
-          />
-          {run.status === 'paused' && myApproval ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-4">
-              <div className="pointer-events-auto w-full max-w-xl">
-                <HitlApprovalCard
-                  approval={myApproval}
-                  // Snapshot fallback: legacy approval rows have empty
-                  // proposed_payload because the adapter wasn't extracting the
-                  // suspend payload. The Mastra snapshot still has the full card
-                  // under .result.suspendPayload (and .context[step].suspendPayload),
-                  // so the UI can recover the candidate list from there.
-                  proposedPayloadFallback={cardFromSnapshot(snapshotQuery.data)}
-                  canAct
-                  pending={decide.isPending}
-                  onDecide={(args) => decide.mutate({ approvalId: myApproval.approvalId, ...args })}
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/agent">Agent Studio</BreadcrumbItem>
+              <BreadcrumbItem href="/agent/workflows">Workflows</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>{workflowLabel(run.workflowId)}</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  <span className="font-mono">{workflowLabel(run.workflowId)}</span>
+                </Text>
+                <Text color="secondary">
+                  <span className="font-mono text-xs">Run {run.runId.slice(0, 7)}</span>
+                </Text>
+                <RunStatusPill status={run.status} />
+              </HStack>
+              {terminal && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  isDisabled={rerunMutation.isPending}
+                  onClick={() => rerunMutation.mutate()}
+                  label={rerunMutation.isPending ? 'Replaying…' : 'Replay from start'}
                 />
-              </div>
-            </div>
-          ) : null}
-        </main>
-        <RunRightPanel
-          run={run}
-          streamEvents={runQuery.streamEvents}
-          snapshot={snapshotQuery.data}
-        />
-      </div>
-    </PageChrome>
+              )}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="flex h-full flex-1 overflow-hidden">
+            <main className="relative flex-1 overflow-hidden bg-surface-2">
+              <WorkflowGraph
+                snapshot={snapshotQuery.data}
+                run={{
+                  runId: run.runId,
+                  startedAt: run.startedAt,
+                  finishedAt: run.finishedAt,
+                  status: run.status,
+                }}
+                onReplay={onReplay}
+              />
+              {run.status === 'paused' && myApproval ? (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-4">
+                  <div className="pointer-events-auto w-full max-w-xl">
+                    <HitlApprovalCard
+                      approval={myApproval}
+                      // Snapshot fallback: legacy approval rows have empty
+                      // proposed_payload because the adapter wasn't extracting the
+                      // suspend payload. The Mastra snapshot still has the full card
+                      // under .result.suspendPayload (and .context[step].suspendPayload),
+                      // so the UI can recover the candidate list from there.
+                      proposedPayloadFallback={cardFromSnapshot(snapshotQuery.data)}
+                      canAct
+                      pending={decide.isPending}
+                      onDecide={(args) =>
+                        decide.mutate({ approvalId: myApproval.approvalId, ...args })
+                      }
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </main>
+            <RunRightPanel
+              run={run}
+              streamEvents={runQuery.streamEvents}
+              snapshot={snapshotQuery.data}
+            />
+          </div>
+        </LayoutContent>
+      }
+    />
   );
 }

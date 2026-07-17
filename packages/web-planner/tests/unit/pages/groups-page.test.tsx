@@ -89,6 +89,29 @@ function renderWithRouter(node: ReactNode) {
 }
 
 describe('GroupsPage', () => {
+  it('renders the Planner → Groups breadcrumb trail and a single h1', async () => {
+    server.use(makeGroupsHandler([makeGroupWithCounts({ id: 'g1', name: 'Engineering' })]));
+    renderWithRouter(<GroupsPage />);
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).getByRole('link', { name: 'Planner' })).toHaveAttribute('href', '/planner');
+    expect(within(nav).getByText('Groups')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { level: 1, name: 'Groups' })).toBeInTheDocument();
+  });
+
+  it('keeps the groups toolbar pinned outside the scrollable content region', async () => {
+    server.use(makeGroupsHandler([makeGroupWithCounts({ id: 'g1', name: 'Engineering' })]));
+    const { container } = renderWithRouter(<GroupsPage />);
+    await screen.findByText('Engineering');
+
+    const toolbar = screen.getByTestId('groups-toolbar');
+    // `.astryx-layout-content` is the Astryx `LayoutContent` component's own stable, documented
+    // base class (see `themeProps()` in the vendor package) — not a StyleX atomic-class hash, so
+    // it's safe to assert on. This is the same gate used for web-admin's Directory page.
+    const content = container.querySelector('.astryx-layout-content');
+    expect(content).not.toBeNull();
+    expect(content?.contains(toolbar)).toBe(false);
+  });
+
   it('renders skeleton while loading', async () => {
     server.use(makeGroupsHandlerWithDelay([]));
     renderWithRouter(<GroupsPage />);

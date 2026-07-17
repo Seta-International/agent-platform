@@ -1,4 +1,6 @@
 import {
+  BreadcrumbItem,
+  Breadcrumbs,
   DisabledActionTooltip,
   DropdownMenu,
   DropdownMenuItem,
@@ -9,7 +11,7 @@ import {
 import { useAgentContext } from '@seta/web-agent';
 import { usePermission, useSession } from '@seta/web-identity';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowRightLeft, ChevronRight, Copy, MoreHorizontal } from 'lucide-react';
+import { ArrowRightLeft, Copy, MoreHorizontal } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { PlannerClientError } from '../api/planner-client';
 import { ConfirmDeleteTaskDialog } from '../components/ConfirmDeleteTaskDialog';
@@ -52,6 +54,12 @@ interface Props {
    * The full-page variant navigates back to the plan board itself.
    */
   onDeleted?: () => void;
+  /**
+   * Modal variant only: closes the dialog, revealing the board underneath. The plan
+   * breadcrumb uses this instead of a router navigation — the board is already mounted
+   * behind the dialog, so closing preserves its scroll/selection state.
+   */
+  onClose?: () => void;
 }
 
 // Stable, monotonic-ish task number derived from the trailing UUID hex. The
@@ -83,6 +91,7 @@ export function TaskDetailPage({
   variant = 'page',
   modalHeaderActions,
   onDeleted,
+  onClose,
 }: Props) {
   const navigate = useNavigate();
   const toast = useToast();
@@ -282,14 +291,31 @@ export function TaskDetailPage({
       {variant === 'modal' && (
         <header className="flex flex-col gap-2 border-b border-hairline bg-canvas px-5 pt-2.5 pb-3">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-1.5 text-caption text-ink-subtle">
-              <span className="truncate">{groupQ.data?.name ?? ''}</span>
-              <ChevronRight className="size-3 shrink-0 text-ink-tertiary" aria-hidden />
-              <span className="truncate text-primary">{plan?.name ?? ''}</span>
-              <ChevronRight className="size-3 shrink-0 text-ink-tertiary" aria-hidden />
-              <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-ink-muted">
-                T-{taskNumberFromId(task.id)}
-              </span>
+            <div className="min-w-0">
+              <Breadcrumbs variant="supporting">
+                {groupId ? (
+                  <BreadcrumbItem href={`/planner/groups/${groupId}`}>
+                    {groupQ.data?.name ?? ''}
+                  </BreadcrumbItem>
+                ) : (
+                  <BreadcrumbItem>{groupQ.data?.name ?? ''}</BreadcrumbItem>
+                )}
+                {/* Keeps a real href so the crumb is a genuine link; a modified click
+                    (cmd/ctrl/shift) falls through to real navigation, while a plain click closes
+                    the dialog in place — the board is already mounted behind it, so no navigation
+                    is needed to "go back" to it. */}
+                <BreadcrumbItem
+                  href={`/planner/plans/${planId}`}
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    e.preventDefault();
+                    onClose?.();
+                  }}
+                >
+                  {plan?.name ?? ''}
+                </BreadcrumbItem>
+                <BreadcrumbItem isCurrent>{`T-${taskNumberFromId(task.id)}`}</BreadcrumbItem>
+              </Breadcrumbs>
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <DropdownMenu

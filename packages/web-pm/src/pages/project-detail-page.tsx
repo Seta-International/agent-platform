@@ -1,24 +1,27 @@
 import {
   Badge,
   Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Card,
   CardTitle,
+  HStack,
   Layout,
   LayoutContent,
   LayoutHeader,
-  PageChrome,
   Selector,
   Skeleton,
+  Text,
   Textarea,
   Typeahead,
   useSeededItem,
   useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from '@tanstack/react-router';
-import { ChevronLeft } from 'lucide-react';
+import { useParams } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { orgUnitSearch } from '../api/org-unit-search.ts';
 import { createPlannerGroup, fetchPlannerGroups } from '../api/planner-client.ts';
@@ -130,52 +133,88 @@ export function ProjectDetailPage() {
     onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
-  const backLink = (
-    <Link
-      to="/pm/projects"
-      className="flex items-center gap-1 text-body-sm text-ink-muted hover:text-ink transition-colors"
-    >
-      <ChevronLeft className="size-4" />
-      Projects
-    </Link>
-  );
-
   if (isLoading) {
     return (
-      <PageChrome title="Project" breadcrumb={[backLink]}>
-        <div className="page-container p-6 space-y-4">
-          <Card>
-            <Layout
-              header={
-                <LayoutHeader hasDivider>
-                  <Skeleton height={20} width={192} />
-                </LayoutHeader>
-              }
-              content={
-                <LayoutContent>
-                  <div className="space-y-3">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                      <Skeleton key={i} height={16} />
-                    ))}
-                  </div>
-                </LayoutContent>
-              }
-            />
-          </Card>
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+                <BreadcrumbItem href="/pm/projects">Projects</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Project</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Project
+                  </Text>
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <div className="page-container p-6 space-y-4">
+              <Card>
+                <Layout
+                  header={
+                    <LayoutHeader hasDivider>
+                      <Skeleton height={20} width={192} />
+                    </LayoutHeader>
+                  }
+                  content={
+                    <LayoutContent>
+                      <div className="space-y-3">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
+                          <Skeleton key={i} height={16} />
+                        ))}
+                      </div>
+                    </LayoutContent>
+                  }
+                />
+              </Card>
+            </div>
+          </LayoutContent>
+        }
+      />
     );
   }
 
   if (error || !p) {
     const msg = (error as Error | null)?.message ?? 'Project not found';
     return (
-      <PageChrome title="Project" breadcrumb={[backLink]}>
-        <div className="page-container p-6">
-          <Banner status="error" title={msg} />
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+                <BreadcrumbItem href="/pm/projects">Projects</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Project</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Project
+                  </Text>
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <div className="page-container p-6">
+              <Banner status="error" title={msg} />
+            </div>
+          </LayoutContent>
+        }
+      />
     );
   }
 
@@ -211,150 +250,176 @@ export function ProjectDetailPage() {
   ) : undefined;
 
   return (
-    <PageChrome title={p.name} breadcrumb={[backLink]} actions={actions}>
-      <div className="page-container p-6 space-y-6">
-        <div className="flex items-center gap-2">
-          <Badge variant="neutral" label={p.phase} />
-          <Badge variant={STATUS_VARIANT[p.status]} label={p.status} />
-        </div>
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+              <BreadcrumbItem href="/pm/projects">Projects</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>{p.name}</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  {p.name}
+                </Text>
+              </HStack>
+              {actions}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="page-container p-6 space-y-6">
+            <div className="flex items-center gap-2">
+              <Badge variant="neutral" label={p.phase} />
+              <Badge variant={STATUS_VARIANT[p.status]} label={p.status} />
+            </div>
 
-        <Card>
-          <Layout
-            header={
-              <LayoutHeader hasDivider>
-                <CardTitle>Details</CardTitle>
-              </LayoutHeader>
-            }
-            content={
-              <LayoutContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Selector
-                        label="Phase"
-                        options={PHASES.map((ph) => ({ value: ph, label: ph }))}
-                        value={patchVal('phase', p.phase) ?? undefined}
-                        onChange={(v) => setPatch((s) => ({ ...s, phase: v }))}
+            <Card>
+              <Layout
+                header={
+                  <LayoutHeader hasDivider>
+                    <CardTitle>Details</CardTitle>
+                  </LayoutHeader>
+                }
+                content={
+                  <LayoutContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Selector
+                            label="Phase"
+                            options={PHASES.map((ph) => ({ value: ph, label: ph }))}
+                            value={patchVal('phase', p.phase) ?? undefined}
+                            onChange={(v) => setPatch((s) => ({ ...s, phase: v }))}
+                            isDisabled={inputsDisabled}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Selector
+                            label="Status"
+                            options={STATUSES.map((st) => ({ value: st, label: st }))}
+                            value={patchVal('status', p.status) ?? undefined}
+                            onChange={(v) =>
+                              setPatch((s) => ({ ...s, status: v as ProjectPatch['status'] }))
+                            }
+                            isDisabled={inputsDisabled}
+                          />
+                        </div>
+                      </div>
+
+                      <Textarea
+                        label="Objective"
+                        value={(patchVal('objective', p.objective) ?? '') as string}
+                        onChange={(value) => setPatch((s) => ({ ...s, objective: value }))}
                         isDisabled={inputsDisabled}
                       />
+
+                      <div className="space-y-1">
+                        <Typeahead
+                          label="Org unit"
+                          searchSource={orgUnitSearch.source}
+                          value={orgUnitItem}
+                          onChange={(item) => {
+                            setOrgUnitItem(item);
+                            setPatch((s) => ({ ...s, org_unit_id: item?.id ?? null }));
+                          }}
+                          placeholder="Search org units…"
+                          isDisabled={inputsDisabled}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <Textarea
+                          label="Scope (in)"
+                          value={patch.scope?.in ?? p.scope?.in ?? ''}
+                          onChange={(value) =>
+                            setPatch((s) => ({
+                              ...s,
+                              scope: { in: value, out: s.scope?.out ?? p.scope?.out ?? '' },
+                            }))
+                          }
+                          isDisabled={inputsDisabled}
+                        />
+                        <Textarea
+                          label="Scope (out)"
+                          value={patch.scope?.out ?? p.scope?.out ?? ''}
+                          onChange={(value) =>
+                            setPatch((s) => ({
+                              ...s,
+                              scope: { in: s.scope?.in ?? p.scope?.in ?? '', out: value },
+                            }))
+                          }
+                          isDisabled={inputsDisabled}
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <Selector
-                        label="Status"
-                        options={STATUSES.map((st) => ({ value: st, label: st }))}
-                        value={patchVal('status', p.status) ?? undefined}
-                        onChange={(v) =>
-                          setPatch((s) => ({ ...s, status: v as ProjectPatch['status'] }))
-                        }
-                        isDisabled={inputsDisabled}
-                      />
-                    </div>
-                  </div>
+                  </LayoutContent>
+                }
+              />
+            </Card>
 
-                  <Textarea
-                    label="Objective"
-                    value={(patchVal('objective', p.objective) ?? '') as string}
-                    onChange={(value) => setPatch((s) => ({ ...s, objective: value }))}
-                    isDisabled={inputsDisabled}
-                  />
-
-                  <div className="space-y-1">
-                    <Typeahead
-                      label="Org unit"
-                      searchSource={orgUnitSearch.source}
-                      value={orgUnitItem}
-                      onChange={(item) => {
-                        setOrgUnitItem(item);
-                        setPatch((s) => ({ ...s, org_unit_id: item?.id ?? null }));
-                      }}
-                      placeholder="Search org units…"
-                      isDisabled={inputsDisabled}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <Textarea
-                      label="Scope (in)"
-                      value={patch.scope?.in ?? p.scope?.in ?? ''}
-                      onChange={(value) =>
-                        setPatch((s) => ({
-                          ...s,
-                          scope: { in: value, out: s.scope?.out ?? p.scope?.out ?? '' },
-                        }))
-                      }
-                      isDisabled={inputsDisabled}
-                    />
-                    <Textarea
-                      label="Scope (out)"
-                      value={patch.scope?.out ?? p.scope?.out ?? ''}
-                      onChange={(value) =>
-                        setPatch((s) => ({
-                          ...s,
-                          scope: { in: s.scope?.in ?? p.scope?.in ?? '', out: value },
-                        }))
-                      }
-                      isDisabled={inputsDisabled}
-                    />
-                  </div>
-                </div>
-              </LayoutContent>
-            }
-          />
-        </Card>
-
-        {canManage && (
-          <Card>
-            <Layout
-              header={
-                <LayoutHeader hasDivider>
-                  <CardTitle>Planner board</CardTitle>
-                </LayoutHeader>
-              }
-              content={
-                <LayoutContent>
-                  <div className="flex items-end gap-2">
-                    <div className="space-y-1 flex-1">
-                      <Selector
-                        label="Board"
-                        options={(groups ?? []).map((g) => ({ value: g.id, label: g.name }))}
-                        value={selectedGroupId || undefined}
-                        onChange={setSelectedGroupId}
-                        placeholder="Select a board"
-                      />
-                    </div>
-                    <Button
-                      variant="secondary"
-                      label="Link"
-                      onClick={() => link.mutate()}
-                      isDisabled={link.isPending || !selectedGroupId}
-                    />
-                    <Button
-                      variant="secondary"
-                      label={createBoard.isPending ? 'Creating…' : 'Create board'}
-                      onClick={() => createBoard.mutate()}
-                      isDisabled={createBoard.isPending}
-                    />
-                  </div>
-                  {p.planner_group_id && (
-                    <p className="mt-2 text-body-sm text-ink-muted">
-                      Linked:{' '}
-                      <span className="font-mono text-caption text-ink">{p.planner_group_id}</span>
-                      {groups?.find((g) => g.id === p.planner_group_id) && (
-                        <> — {groups.find((g) => g.id === p.planner_group_id)?.name}</>
+            {canManage && (
+              <Card>
+                <Layout
+                  header={
+                    <LayoutHeader hasDivider>
+                      <CardTitle>Planner board</CardTitle>
+                    </LayoutHeader>
+                  }
+                  content={
+                    <LayoutContent>
+                      <div className="flex items-end gap-2">
+                        <div className="space-y-1 flex-1">
+                          <Selector
+                            label="Board"
+                            options={(groups ?? []).map((g) => ({ value: g.id, label: g.name }))}
+                            value={selectedGroupId || undefined}
+                            onChange={setSelectedGroupId}
+                            placeholder="Select a board"
+                          />
+                        </div>
+                        <Button
+                          variant="secondary"
+                          label="Link"
+                          onClick={() => link.mutate()}
+                          isDisabled={link.isPending || !selectedGroupId}
+                        />
+                        <Button
+                          variant="secondary"
+                          label={createBoard.isPending ? 'Creating…' : 'Create board'}
+                          onClick={() => createBoard.mutate()}
+                          isDisabled={createBoard.isPending}
+                        />
+                      </div>
+                      {p.planner_group_id && (
+                        <p className="mt-2 text-body-sm text-ink-muted">
+                          Linked:{' '}
+                          <span className="font-mono text-caption text-ink">
+                            {p.planner_group_id}
+                          </span>
+                          {groups?.find((g) => g.id === p.planner_group_id) && (
+                            <> — {groups.find((g) => g.id === p.planner_group_id)?.name}</>
+                          )}
+                        </p>
                       )}
-                    </p>
-                  )}
-                </LayoutContent>
-              }
-            />
-          </Card>
-        )}
+                    </LayoutContent>
+                  }
+                />
+              </Card>
+            )}
 
-        <Card className="space-y-6 pt-6">
-          <StaffingPlanSection projectId={projectId} canManage={canManage} />
-          <ProjectAccessSection projectId={projectId} canManage={canManage} />
-        </Card>
-      </div>
-    </PageChrome>
+            <Card className="space-y-6 pt-6">
+              <StaffingPlanSection projectId={projectId} canManage={canManage} />
+              <ProjectAccessSection projectId={projectId} canManage={canManage} />
+            </Card>
+          </div>
+        </LayoutContent>
+      }
+    />
   );
 }

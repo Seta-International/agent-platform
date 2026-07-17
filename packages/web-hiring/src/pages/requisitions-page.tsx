@@ -1,11 +1,16 @@
 import {
   Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Checkbox,
   type ColumnSettingsOption,
   EmptyState,
+  HStack,
   Input,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   Popover,
   paginateData,
   SegmentedControl,
@@ -13,12 +18,14 @@ import {
   Skeleton,
   Table,
   type TableColumn,
+  Text,
   Tooltip,
   useTableColumnSettings,
   useTableColumnSettingsState,
   useTablePagination,
   useTableSortable,
   useTableSortableState,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -290,251 +297,277 @@ export function RequisitionsPage() {
   const totalApplicants = rows.reduce((n, r) => n + r.applicants_count, 0);
 
   return (
-    <PageChrome
-      breadcrumb={['Hiring management', 'Open positions']}
-      title="Requisitions"
-      subtitle="Live open positions across every account — track hiring status and let internal staff browse and apply."
-      actions={<NewRequisitionDialog disabled={!canCreate} />}
-    >
-      <div className="page-container space-y-4 p-6">
-        {scopeNote && <Banner status="info" title={scopeNote} />}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {stat(
-            'Open positions',
-            openCount,
-            <Briefcase className="size-5" aria-hidden />,
-            'bg-primary/12 text-primary',
-          )}
-          {stat(
-            'Applicants',
-            totalApplicants,
-            <Users className="size-5" aria-hidden />,
-            'bg-success-tint text-success-ink',
-          )}
-          {stat(
-            'On hold',
-            onHold,
-            <Pause className="size-5" aria-hidden />,
-            'bg-warning-tint text-warning-ink',
-            'text-warning',
-          )}
-          {stat(
-            'Total open',
-            rows.length,
-            <Layers className="size-5" aria-hidden />,
-            'bg-primary/12 text-primary',
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Input
-            label="Search requisitions"
-            isLabelHidden
-            startIcon={<Search className="size-3.5" aria-hidden />}
-            placeholder="Search requisitions…"
-            value={query}
-            onChange={(value) => setQuery(value)}
-            className="min-w-[220px] max-w-sm flex-1"
-          />
-          {/* Filters cluster — grouped tighter (gap-2) than the gap-3 that separates this
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/hiring">Hiring Management</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Requisitions</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Requisitions
+                </Text>
+                <Text color="secondary">
+                  Live open positions across every account — track hiring status and let internal
+                  staff browse and apply.
+                </Text>
+              </HStack>
+              <NewRequisitionDialog disabled={!canCreate} />
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="page-container space-y-4 p-6">
+            {scopeNote && <Banner status="info" title={scopeNote} />}
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {stat(
+                'Open positions',
+                openCount,
+                <Briefcase className="size-5" aria-hidden />,
+                'bg-primary/12 text-primary',
+              )}
+              {stat(
+                'Applicants',
+                totalApplicants,
+                <Users className="size-5" aria-hidden />,
+                'bg-success-tint text-success-ink',
+              )}
+              {stat(
+                'On hold',
+                onHold,
+                <Pause className="size-5" aria-hidden />,
+                'bg-warning-tint text-warning-ink',
+                'text-warning',
+              )}
+              {stat(
+                'Total open',
+                rows.length,
+                <Layers className="size-5" aria-hidden />,
+                'bg-primary/12 text-primary',
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Input
+                label="Search requisitions"
+                isLabelHidden
+                startIcon={<Search className="size-3.5" aria-hidden />}
+                placeholder="Search requisitions…"
+                value={query}
+                onChange={(value) => setQuery(value)}
+                className="min-w-[220px] max-w-sm flex-1"
+              />
+              {/* Filters cluster — grouped tighter (gap-2) than the gap-3 that separates this
               cluster from the search box and the view toggle, so proximity signals the
               relationship: search finds, filters narrow, toggle changes layout. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Selector
-              label="Filter by status"
-              isLabelHidden
-              options={[
-                { value: 'all', label: 'Status' },
-                { value: 'open', label: 'Open' },
-                { value: 'on_hold', label: 'On hold' },
-              ]}
-              value={statusFilter}
-              onChange={setStatusFilter}
-            />
-            <Selector
-              label="Filter by account"
-              isLabelHidden
-              options={[
-                { value: 'all', label: 'Account' },
-                ...accountOptions.map((a) => ({ value: a, label: a })),
-              ]}
-              value={accountFilter}
-              onChange={onAccountFilterChange}
-            />
-            <Selector
-              label="Filter by project"
-              isLabelHidden
-              options={[
-                { value: 'all', label: 'Project' },
-                ...projectOptions.map((p) => ({ value: p, label: p })),
-              ]}
-              value={projectFilter}
-              onChange={setProjectFilter}
-              isDisabled={accountFilter === 'all'}
-              placeholder="Project"
-            />
-            <Selector
-              label="Filter by type"
-              isLabelHidden
-              options={[
-                { value: 'all', label: 'More filters' },
-                { value: 'new', label: 'New' },
-                { value: 'replacement', label: 'Replacement' },
-              ]}
-              value={kindFilter}
-              onChange={setKindFilter}
-            />
-          </div>
-          <div className="ml-auto">
-            <SegmentedControl
-              value={view}
-              onValueChange={(v) => setView(v as 'board' | 'list')}
-              options={[
-                { value: 'board', label: 'Board' },
-                { value: 'list', label: 'List' },
-              ]}
-            />
-          </div>
-        </div>
-        {error ? (
-          <Banner status="error" title={(error as Error).message} />
-        ) : view === 'list' ? (
-          <div className="space-y-3">
-            <div className="flex justify-end">
-              <Popover
-                placement="below"
-                alignment="end"
-                label="Toggle columns"
-                content={
-                  <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
-                      Toggle columns
-                    </div>
-                    {REQ_COLUMN_OPTIONS.map((col) => (
-                      <Checkbox
-                        key={col.key}
-                        label={col.label}
-                        value={columnSettingsState.isColumnActive(col.key)}
-                        onChange={() => columnSettingsState.toggleColumn(col.key)}
-                      />
+              <div className="flex flex-wrap items-center gap-2">
+                <Selector
+                  label="Filter by status"
+                  isLabelHidden
+                  options={[
+                    { value: 'all', label: 'Status' },
+                    { value: 'open', label: 'Open' },
+                    { value: 'on_hold', label: 'On hold' },
+                  ]}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                />
+                <Selector
+                  label="Filter by account"
+                  isLabelHidden
+                  options={[
+                    { value: 'all', label: 'Account' },
+                    ...accountOptions.map((a) => ({ value: a, label: a })),
+                  ]}
+                  value={accountFilter}
+                  onChange={onAccountFilterChange}
+                />
+                <Selector
+                  label="Filter by project"
+                  isLabelHidden
+                  options={[
+                    { value: 'all', label: 'Project' },
+                    ...projectOptions.map((p) => ({ value: p, label: p })),
+                  ]}
+                  value={projectFilter}
+                  onChange={setProjectFilter}
+                  isDisabled={accountFilter === 'all'}
+                  placeholder="Project"
+                />
+                <Selector
+                  label="Filter by type"
+                  isLabelHidden
+                  options={[
+                    { value: 'all', label: 'More filters' },
+                    { value: 'new', label: 'New' },
+                    { value: 'replacement', label: 'Replacement' },
+                  ]}
+                  value={kindFilter}
+                  onChange={setKindFilter}
+                />
+              </div>
+              <div className="ml-auto">
+                <SegmentedControl
+                  value={view}
+                  onValueChange={(v) => setView(v as 'board' | 'list')}
+                  options={[
+                    { value: 'board', label: 'Board' },
+                    { value: 'list', label: 'List' },
+                  ]}
+                />
+              </div>
+            </div>
+            {error ? (
+              <Banner status="error" title={(error as Error).message} />
+            ) : view === 'list' ? (
+              <div className="space-y-3">
+                <div className="flex justify-end">
+                  <Popover
+                    placement="below"
+                    alignment="end"
+                    label="Toggle columns"
+                    content={
+                      <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
+                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                          Toggle columns
+                        </div>
+                        {REQ_COLUMN_OPTIONS.map((col) => (
+                          <Checkbox
+                            key={col.key}
+                            label={col.label}
+                            value={columnSettingsState.isColumnActive(col.key)}
+                            onChange={() => columnSettingsState.toggleColumn(col.key)}
+                          />
+                        ))}
+                      </div>
+                    }
+                  >
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Settings2 className="size-3.5" />}
+                      label="Columns"
+                    />
+                  </Popover>
+                </div>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                      <Skeleton key={id} height={40} />
                     ))}
                   </div>
-                }
-              >
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Settings2 className="size-3.5" />}
-                  label="Columns"
-                />
-              </Popover>
-            </div>
-            {isLoading ? (
-              <div className="space-y-2">
-                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
-                  <Skeleton key={id} height={40} />
-                ))}
-              </div>
-            ) : (
-              <Table
-                data={pageRows}
-                columns={columns}
-                idKey="id"
-                plugins={{
-                  pagination,
-                  sortable,
-                  columnSettings,
-                  rowClick: {
-                    transformBodyRow: (props, item) => ({
-                      ...props,
-                      htmlProps: {
-                        ...props.htmlProps,
-                        style: { ...props.htmlProps.style, cursor: 'pointer' },
-                        onClick: () =>
-                          void navigate({
-                            to: '/hiring/requisitions',
-                            search: (prev: Record<string, unknown>) => ({
-                              ...prev,
-                              selectedRequisitionId: item.id,
-                            }),
-                          }),
+                ) : (
+                  <Table
+                    data={pageRows}
+                    columns={columns}
+                    idKey="id"
+                    plugins={{
+                      pagination,
+                      sortable,
+                      columnSettings,
+                      rowClick: {
+                        transformBodyRow: (props, item) => ({
+                          ...props,
+                          htmlProps: {
+                            ...props.htmlProps,
+                            style: { ...props.htmlProps.style, cursor: 'pointer' },
+                            onClick: () =>
+                              void navigate({
+                                to: '/hiring/requisitions',
+                                search: (prev: Record<string, unknown>) => ({
+                                  ...prev,
+                                  selectedRequisitionId: item.id,
+                                }),
+                              }),
+                          },
+                        }),
                       },
-                    }),
-                  },
-                }}
-                emptyState={
-                  <EmptyState
-                    icon={<Briefcase className="size-6" />}
-                    title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
-                    description={
-                      rows.length === 0
-                        ? 'Open a requisition to get started.'
-                        : 'Try different filters.'
+                    }}
+                    emptyState={
+                      <EmptyState
+                        icon={<Briefcase className="size-6" />}
+                        title={
+                          rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'
+                        }
+                        description={
+                          rows.length === 0
+                            ? 'Open a requisition to get started.'
+                            : 'Try different filters.'
+                        }
+                      />
                     }
                   />
+                )}
+              </div>
+            ) : isLoading ? (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
+                  />
+                ))}
+              </div>
+            ) : filteredRows.length === 0 ? (
+              <EmptyState
+                icon={<Briefcase className="size-6" />}
+                title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
+                description={
+                  rows.length === 0
+                    ? 'Open a requisition to get started.'
+                    : 'Try different filters.'
                 }
               />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {filteredRows.map((r) => (
+                  <RequisitionCard
+                    key={r.id}
+                    r={r}
+                    canManage={canManage}
+                    canClose={canClose}
+                    onRequestMarkFilled={() => setFillTarget({ id: r.id, version: r.version })}
+                    onRequestCancel={() => setCancelTarget({ id: r.id, version: r.version })}
+                  />
+                ))}
+              </div>
             )}
           </div>
-        ) : isLoading ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {[0, 1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
-              />
-            ))}
-          </div>
-        ) : filteredRows.length === 0 ? (
-          <EmptyState
-            icon={<Briefcase className="size-6" />}
-            title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
-            description={
-              rows.length === 0 ? 'Open a requisition to get started.' : 'Try different filters.'
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {filteredRows.map((r) => (
-              <RequisitionCard
-                key={r.id}
-                r={r}
-                canManage={canManage}
-                canClose={canClose}
-                onRequestMarkFilled={() => setFillTarget({ id: r.id, version: r.version })}
-                onRequestCancel={() => setCancelTarget({ id: r.id, version: r.version })}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-      {fillTarget && (
-        <MarkFilledDialog
-          requisitionId={fillTarget.id}
-          version={fillTarget.version}
-          open
-          onOpenChange={(v) => {
-            if (!v) setFillTarget(null);
-          }}
-          onDone={() => {
-            invalidate();
-            setFillTarget(null);
-          }}
-        />
-      )}
-      {cancelTarget && (
-        <CancelRequisitionDialog
-          requisitionId={cancelTarget.id}
-          version={cancelTarget.version}
-          open
-          onOpenChange={(v) => {
-            if (!v) setCancelTarget(null);
-          }}
-          onDone={() => {
-            invalidate();
-            setCancelTarget(null);
-          }}
-        />
-      )}
-    </PageChrome>
+          {fillTarget && (
+            <MarkFilledDialog
+              requisitionId={fillTarget.id}
+              version={fillTarget.version}
+              open
+              onOpenChange={(v) => {
+                if (!v) setFillTarget(null);
+              }}
+              onDone={() => {
+                invalidate();
+                setFillTarget(null);
+              }}
+            />
+          )}
+          {cancelTarget && (
+            <CancelRequisitionDialog
+              requisitionId={cancelTarget.id}
+              version={cancelTarget.version}
+              open
+              onOpenChange={(v) => {
+                if (!v) setCancelTarget(null);
+              }}
+              onDone={() => {
+                invalidate();
+                setCancelTarget(null);
+              }}
+            />
+          )}
+        </LayoutContent>
+      }
+    />
   );
 }
