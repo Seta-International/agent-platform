@@ -98,6 +98,10 @@ const baseProps = {
   onMenuAction: vi.fn(),
 };
 
+// The badge renders exactly one of these labels. Anchored so that prose which
+// merely mentions syncing ("…will keep the name … in sync.") cannot match.
+const SYNC_BADGE_LABEL = /^(Synced\b.*|Pulling…|Pushing…|Sync failed|Conflict)$/;
+
 describe('GroupDetailHeader', () => {
   it('renders the breadcrumb, tile, and title', async () => {
     renderInRouter(<GroupDetailHeader {...baseProps} />);
@@ -182,7 +186,7 @@ describe('GroupDetailHeader', () => {
       <GroupDetailHeader {...baseProps} group={{ ...baseGroup, external_source: 'native' }} />,
     );
     await screen.findByRole('heading', { name: 'Engineering' });
-    expect(screen.queryByText(/Sync/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(SYNC_BADGE_LABEL)).not.toBeInTheDocument();
   });
 
   it('does not show the auto-mirror info line for native groups', async () => {
