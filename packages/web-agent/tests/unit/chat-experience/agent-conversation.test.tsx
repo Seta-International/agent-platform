@@ -1,13 +1,26 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let thoughtStatus = 'complete';
 
+// Drives DateDivider: each message reads its own index/createdAt and the branch
+// via thread.messages. The mock renders each turn under a React context that
+// pins its index, so `useAuiState` resolves the right message at React's actual
+// (deferred, depth-first) render time — a plain `currentIndex` mutation would be
+// stale by the time nested components like <DateDivider /> render.
+let messagesFixture: { createdAt: Date }[] = [
+  { createdAt: new Date('2026-05-20T16:13:00Z') },
+  { createdAt: new Date('2026-05-20T16:14:00Z') },
+];
+
 const composer = vi.hoisted(() => ({ setText: vi.fn(), send: vi.fn() }));
 
-vi.mock('@assistant-ui/react', () => {
+vi.mock('@assistant-ui/react', async () => {
+  const React = await import('react');
+  const MessageIndexContext = React.createContext(0);
+
   const MessagePrimitive = {
     GroupedParts: ({ children }: { children: (props: unknown) => ReactNode }) =>
       children({
@@ -29,26 +42,39 @@ vi.mock('@assistant-ui/react', () => {
       components,
     }: {
       components: { UserMessage: () => ReactNode; AssistantMessage: () => ReactNode };
-    }) => (
-      <>
-        {components.UserMessage()}
-        {components.AssistantMessage()}
-      </>
-    ),
+    }) => {
+      const { UserMessage, AssistantMessage } = components;
+      return (
+        <>
+          <MessageIndexContext.Provider value={0}>
+            <UserMessage />
+          </MessageIndexContext.Provider>
+          <MessageIndexContext.Provider value={1}>
+            <AssistantMessage />
+          </MessageIndexContext.Provider>
+        </>
+      );
+    },
   };
 
   return {
     MessagePrimitive,
     ThreadPrimitive,
     useAui: () => ({ composer: () => composer }),
-    useAuiState: (selector: (state: unknown) => unknown) =>
-      selector({
+    useAuiState: (selector: (state: unknown) => unknown) => {
+      const index = React.useContext(MessageIndexContext);
+      return selector({
         message: {
           content: [{ status: { type: 'complete' } }],
-          createdAt: new Date('2026-05-20T16:13:00Z'),
+          createdAt: messagesFixture[index]?.createdAt ?? new Date('2026-05-20T16:13:00Z'),
+          index,
         },
-        thread: { isRunning: thoughtStatus === 'running' },
-      }),
+        thread: {
+          isRunning: thoughtStatus === 'running',
+          messages: messagesFixture,
+        },
+      });
+    },
   };
 });
 
@@ -79,6 +105,21 @@ vi.mock('../../../src/chat-experience/agent-composer', () => ({
 
 import { AgentConversation } from '../../../src/chat-experience/agent-conversation';
 import { DensityProvider } from '../../../src/chat-experience/use-density';
+
+// Reset the day fixture so the divider tests are isolated from each other and
+// from the suites that don't care about dates (they use the same-day default).
+beforeEach(() => {
+  messagesFixture = [
+    { createdAt: new Date('2026-05-20T16:13:00Z') },
+    { createdAt: new Date('2026-05-20T16:14:00Z') },
+  ];
+});
+
+// Always restore real timers so a failed assertion inside a fake-timer divider
+// test can't leak into the userEvent suites (fake timers + userEvent deadlock).
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // NOTE (FUT-670): `aria-expanded` is the ONLY load-bearing assertion for
 // open/closed here. Astryx `Collapsible` keeps its children mounted and hides
@@ -184,6 +225,41 @@ describe('AgentConversation composer dock', () => {
     const composer = screen.getByTestId('composer-stub');
     expect(composer).toBeInTheDocument();
     expect(within(screen.getByRole('log')).queryByTestId('composer-stub')).toBeNull();
+  });
+});
+
+// Slice D: date dividers are per-message, derived from each turn's local day vs
+// the previous turn's. Fixtures use the local-time Date constructor and fake
+// timers pin "now" so Today/Yesterday are deterministic in any runner timezone.
+describe('AgentConversation date dividers', () => {
+  it('shows one divider at a day boundary and none within the same day', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 4, 20, 18)); // local May 20 2026, 18:00
+    messagesFixture = [
+      { createdAt: new Date(2026, 4, 20, 9) }, // message 0 → boundary (first)
+      { createdAt: new Date(2026, 4, 20, 17) }, // message 1 → same day, no divider
+    ];
+    thoughtStatus = 'complete';
+    render(<AgentConversation />);
+
+    // First message opens with "Today"; the same-day second message adds none.
+    expect(screen.getAllByText('Today')).toHaveLength(1);
+    vi.useRealTimers();
+  });
+
+  it('adds a second divider when the day changes between messages', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 4, 21, 18)); // local May 21 2026, 18:00
+    messagesFixture = [
+      { createdAt: new Date(2026, 4, 20, 9) }, // Yesterday
+      { createdAt: new Date(2026, 4, 21, 9) }, // Today
+    ];
+    thoughtStatus = 'complete';
+    render(<AgentConversation />);
+
+    expect(screen.getByText('Yesterday')).toBeInTheDocument();
+    expect(screen.getByText('Today')).toBeInTheDocument();
+    vi.useRealTimers();
   });
 });
 

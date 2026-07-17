@@ -7,6 +7,7 @@ import {
   ChatMessageBubble,
   ChatMessageList,
   ChatMessageMetadata,
+  ChatSystemMessage,
   ClickableCard,
   Grid,
   Heading,
@@ -30,6 +31,7 @@ import { type PageContext, useAgentSelection, usePageContext } from './agent-pro
 import { ChainOfThought } from './chain-of-thought';
 import { groupByThought } from './group-by-thought';
 import { RenderContextBadge } from './render-context-badge';
+import { dateDividerLabel } from './transcript-structure';
 import { type Density, useDensity } from './use-density';
 
 const ASSISTANT_LABEL = 'Agent';
@@ -274,16 +276,35 @@ function extractPageContext(content: ReadonlyArray<unknown>): PageContext | unde
   return undefined;
 }
 
+// A divider is derived per-message rather than injected into a list we own:
+// assistant-ui renders each message in its own runtime context, so the only
+// honest seam is to compare this message's day to the previous message's day
+// via thread state. Returns nothing on same-day / streaming-placeholder rows.
+function DateDivider() {
+  const label = useAuiState((s) => {
+    const index = s.message.index;
+    const current = s.message.createdAt;
+    if (!(current instanceof Date)) return null;
+    const previous = index > 0 ? s.thread.messages[index - 1]?.createdAt : undefined;
+    return dateDividerLabel(current, previous instanceof Date ? previous : undefined, new Date());
+  });
+  if (!label) return null;
+  return <ChatSystemMessage variant="divider">{label}</ChatSystemMessage>;
+}
+
 function UserMessage() {
   const content = useAuiState((s) => s.message.content);
   const ctx = extractPageContext(content);
   return (
-    <ChatMessage sender="user">
-      <ChatMessageBubble>
-        {ctx && <RenderContextBadge data={ctx} />}
-        <MessagePrimitive.Parts components={{ Text: PlainTextPart }} />
-      </ChatMessageBubble>
-    </ChatMessage>
+    <>
+      <DateDivider />
+      <ChatMessage sender="user">
+        <ChatMessageBubble>
+          {ctx && <RenderContextBadge data={ctx} />}
+          <MessagePrimitive.Parts components={{ Text: PlainTextPart }} />
+        </ChatMessageBubble>
+      </ChatMessage>
+    </>
   );
 }
 
@@ -352,17 +373,20 @@ function makeAssistantMessage(authorLabel: string) {
     const stableGroupBy = useCallback(groupByThought, []);
     const createdAt = useAuiState((s) => s.message.createdAt);
     return (
-      <ChatMessage sender="assistant" name={authorLabel}>
-        <MessagePrimitive.GroupedParts groupBy={stableGroupBy as never}>
-          {renderPart as never}
-        </MessagePrimitive.GroupedParts>
-        <MessagePrimitive.If hasContent={false} last>
-          <ThinkingIndicator />
-        </MessagePrimitive.If>
-        <ChatMessageMetadata
-          timestamp={<Timestamp value={createdAt.toISOString()} format="time" />}
-        />
-      </ChatMessage>
+      <>
+        <DateDivider />
+        <ChatMessage sender="assistant" name={authorLabel}>
+          <MessagePrimitive.GroupedParts groupBy={stableGroupBy as never}>
+            {renderPart as never}
+          </MessagePrimitive.GroupedParts>
+          <MessagePrimitive.If hasContent={false} last>
+            <ThinkingIndicator />
+          </MessagePrimitive.If>
+          <ChatMessageMetadata
+            timestamp={<Timestamp value={createdAt.toISOString()} format="time" />}
+          />
+        </ChatMessage>
+      </>
     );
   };
 }
