@@ -15,7 +15,6 @@ import {
   Label,
   RichTextDisplay,
   RichTextEditor,
-  SegmentedControl,
   Select,
   SelectContent,
   SelectItem,
@@ -619,17 +618,9 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
             <SkillPicker value={skills} onChange={setSkills} />
 
-            <div className="flex items-center justify-between">
-              <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
-              <SegmentedControl
-                value={editVariant}
-                onValueChange={(v) => setEditVariant(v as JdVariant)}
-                options={[
-                  { value: 'external', label: 'External' },
-                  { value: 'internal', label: 'Internal' },
-                ]}
-              />
-            </div>
+            {/* External/Internal variant switcher is temporarily hidden (same as the New
+                form) — edits keep whichever variant the requisition's content already uses. */}
+            <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
 
             {SECTIONS.map((s) => (
               <div key={s.key} ref={s.key === 'about' ? aboutRef : undefined}>

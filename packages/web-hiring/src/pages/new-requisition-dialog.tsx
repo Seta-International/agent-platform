@@ -10,7 +10,6 @@ import {
   Input,
   Label,
   RichTextEditor,
-  SegmentedControl,
   Select,
   SelectContent,
   SelectItem,
@@ -326,17 +325,9 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
               <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
 
-              <div className="flex items-center justify-between">
-                <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
-                <SegmentedControl
-                  value={variant}
-                  onValueChange={(v) => setVariant(v as JdVariant)}
-                  options={[
-                    { value: 'external', label: 'External' },
-                    { value: 'internal', label: 'Internal' },
-                  ]}
-                />
-              </div>
+              {/* External/Internal variant switcher is temporarily hidden — content saves
+                  under the default variant until the two-variant flow is finalized. */}
+              <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
 
               {SECTIONS.map((s) => (
                 <div key={s.key} ref={s.key === 'about' ? aboutRef : undefined}>
