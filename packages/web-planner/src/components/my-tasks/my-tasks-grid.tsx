@@ -1,5 +1,5 @@
 import type { MyTasksResult, TaskWithPlan } from '@seta/planner';
-import { AvatarStack, CounterBadgePopover } from '@seta/shared-ui';
+import { AvatarStack, Checkbox, CounterBadgePopover } from '@seta/shared-ui';
 import { Link } from '@tanstack/react-router';
 import { ArrowDown, ArrowUp, ChevronsUpDown, Layout } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
@@ -172,15 +172,11 @@ export function MyTasksGrid({ data }: Props) {
       <thead className="sticky top-0 z-10 bg-canvas">
         <tr className="border-b border-hairline text-[10.5px] uppercase tracking-[0.06em] text-ink-subtle">
           <th className="w-10 px-7 py-2.5 text-left">
-            <input
-              type="checkbox"
-              aria-label="Select all"
-              checked={allChecked}
-              ref={(el) => {
-                if (el) el.indeterminate = someChecked;
-              }}
+            <Checkbox
+              label="Select all"
+              isLabelHidden
+              value={someChecked ? 'indeterminate' : allChecked}
               onChange={toggleAll}
-              className="align-middle cursor-pointer"
             />
           </th>
           {columns.map((c) => {
@@ -225,12 +221,11 @@ export function MyTasksGrid({ data }: Props) {
               }
             >
               <td className="px-7 py-2.5 align-middle">
-                <input
-                  type="checkbox"
-                  aria-label={`Select ${r.title}`}
-                  checked={isSelected}
+                <Checkbox
+                  label={`Select ${r.title}`}
+                  isLabelHidden
+                  value={isSelected}
                   onChange={() => toggle(r.id)}
-                  className="align-middle cursor-pointer"
                 />
               </td>
               {columns.map((c) => (
