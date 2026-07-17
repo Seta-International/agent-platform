@@ -30,13 +30,13 @@ export function ChartRangeControl({ from, to, onChange }: Props) {
           />
           <DateInput label="To" size="sm" value={to} onChange={(v) => onChange({ from, to: v })} />
           {active && (
-            <button
-              type="button"
-              className="self-start text-xs text-ink-subtle hover:text-ink"
+            <Button
+              variant="ghost"
+              size="sm"
+              label="Clear range"
               onClick={() => onChange({ from: undefined, to: undefined })}
-            >
-              Clear range
-            </button>
+              className="self-start"
+            />
           )}
         </div>
       }

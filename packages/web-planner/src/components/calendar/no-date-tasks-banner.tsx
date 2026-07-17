@@ -1,5 +1,5 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { cn } from '@seta/shared-ui';
+import { Button } from '@seta/shared-ui';
 import { CalendarOff, ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
@@ -38,16 +38,12 @@ export function NoDateTasksBanner({ tasks, onOpenTask }: Props) {
         <ul className="flex flex-wrap gap-1.5 px-3 pb-2">
           {tasks.map((t) => (
             <li key={t.id}>
-              <button
-                type="button"
+              <Button
+                size="sm"
+                variant="secondary"
+                label={t.title}
                 onClick={() => onOpenTask(t.id)}
-                className={cn(
-                  'max-w-64 truncate rounded-full border border-hairline bg-surface-1 px-2.5 py-0.5',
-                  'text-caption text-ink hover:bg-surface-2',
-                )}
-              >
-                {t.title}
-              </button>
+              />
             </li>
           ))}
         </ul>

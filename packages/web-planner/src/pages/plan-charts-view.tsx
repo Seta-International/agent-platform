@@ -1,3 +1,4 @@
+import { Button } from '@seta/shared-ui';
 import { ChartFilterBar } from '../components/charts/chart-filter-bar';
 import { ChartRangeControl } from '../components/charts/chart-range-control';
 import { ChartsGrid, type OpenInGridArgs } from '../components/charts/charts-grid';
@@ -60,14 +61,13 @@ export function PlanChartsView({ planId, search, onPatchSearch }: Props) {
             onChange={(r) => onFiltersChange({ ...filters, from: r.from, to: r.to })}
           />
           <CustomizeChartsPopover visible={visible} onChange={onVisibleChange} />
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="secondary"
+            label={q.isFetching ? 'Refreshing…' : 'Refresh'}
             onClick={() => q.refetch()}
-            disabled={q.isFetching}
-            className="inline-flex h-7 items-center gap-1.5 rounded-md border border-hairline bg-canvas px-3 text-sm text-ink hover:bg-surface-2 disabled:opacity-60"
-          >
-            {q.isFetching ? 'Refreshing…' : 'Refresh'}
-          </button>
+            isDisabled={q.isFetching}
+          />
         </div>
       </div>
 
@@ -81,13 +81,7 @@ export function PlanChartsView({ planId, search, onPatchSearch }: Props) {
       ) : q.isError || !q.data ? (
         <div className="flex h-40 flex-col items-center justify-center gap-3 text-body-sm text-ink-subtle">
           <p>Couldn't load charts.</p>
-          <button
-            type="button"
-            onClick={() => q.refetch()}
-            className="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-ink hover:bg-surface-2"
-          >
-            Retry
-          </button>
+          <Button size="sm" variant="secondary" label="Retry" onClick={() => q.refetch()} />
         </div>
       ) : (
         <>
