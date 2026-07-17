@@ -6,6 +6,7 @@ import {
   Checkbox,
   Dialog,
   DialogHeader,
+  IconButton,
   Input,
   Layout,
   LayoutContent,
@@ -118,14 +119,13 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
                     className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs"
                   >
                     {s.display_name}
-                    <button
-                      type="button"
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
                       onClick={() => toggle(s)}
-                      aria-label={`Remove ${s.display_name}`}
-                      className="text-ink-muted hover:text-ink"
-                    >
-                      <X className="size-3" />
-                    </button>
+                      label={`Remove ${s.display_name}`}
+                      icon={<X className="size-3" />}
+                    />
                   </span>
                 ))}
               </div>

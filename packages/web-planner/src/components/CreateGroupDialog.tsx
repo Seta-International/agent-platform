@@ -2,6 +2,7 @@ import type { GroupRow } from '@seta/planner';
 import {
   Banner,
   Button,
+  Checkbox,
   cn,
   Dialog,
   DialogHeader,
@@ -308,14 +309,11 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
           footer={
             <LayoutFooter hasDivider>
               <div className="flex w-full items-center justify-between">
-                <label className="inline-flex items-center gap-2 text-xs text-ink-muted">
-                  <input
-                    type="checkbox"
-                    checked={createStarterPlan}
-                    onChange={(e) => setCreateStarterPlan(e.target.checked)}
-                  />
-                  Create a starter plan in this group
-                </label>
+                <Checkbox
+                  label="Create a starter plan in this group"
+                  value={createStarterPlan}
+                  onChange={(checked) => setCreateStarterPlan(checked)}
+                />
                 <div className="flex gap-2 items-center">
                   <span className="text-xs text-ink-tertiary">⌘ Return</span>
                   <Button
