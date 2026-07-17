@@ -111,8 +111,8 @@ describe('PlanCategoriesSettingsPage', () => {
     expect(subhead.textContent).toMatch(/Just for this plan/);
   });
 
-  // The old hand-rolled nav carried a "Back to board" link; the plan crumb now holds that
-  // same /planner/plans/p1 destination, so nothing became unreachable.
+  // Parity gate: the plan crumb's href must be exactly /planner/plans/p1 — the board remains
+  // reachable from this page.
   it('renders the breadcrumb trail with the plan crumb linking back to the board', async () => {
     server.use(
       http.get('/api/planner/v1/plans/p1/categories', () => HttpResponse.json(CATEGORIES_RESPONSE)),

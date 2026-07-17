@@ -102,12 +102,12 @@ function renderPage(initialFilters: MyTasksFilters = {}) {
     routeTree: rootRoute.addChildren([pageRoute, taskRoute, planRoute]),
     history: createMemoryHistory({ initialEntries: ['/planner/my-tasks'] }),
   });
-  render(
+  const { container } = render(
     <QueryClientProvider client={qc}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return { router, setFilters };
+  return { router, setFilters, container };
 }
 
 describe('findNeighbors', () => {
@@ -219,6 +219,20 @@ describe('MyTasksPage', () => {
     expect(within(nav).getByRole('link', { name: 'Planner' })).toHaveAttribute('href', '/planner');
     expect(within(nav).getByText('My tasks')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('heading', { level: 1, name: 'My tasks' })).toBeInTheDocument();
+  });
+
+  it('keeps the my-tasks toolbar pinned outside the scrollable content region', async () => {
+    server.use(http.get('*/api/planner/v1/my-tasks', () => HttpResponse.json(emptyResult())));
+    const { container } = renderPage();
+    await screen.findByText(/all caught up/i);
+
+    const toolbar = screen.getByTestId('my-tasks-toolbar');
+    // `.astryx-layout-content` is the Astryx `LayoutContent` component's own stable, documented
+    // base class (see `themeProps()` in the vendor package) — not a StyleX atomic-class hash, so
+    // it's safe to assert on. This is the same gate used for web-admin's Directory page.
+    const content = container.querySelector('.astryx-layout-content');
+    expect(content).not.toBeNull();
+    expect(content?.contains(toolbar)).toBe(false);
   });
 
   it('renders the loading skeleton while data is in-flight', async () => {

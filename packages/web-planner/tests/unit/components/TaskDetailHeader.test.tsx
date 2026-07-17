@@ -5,7 +5,7 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { TaskDetailHeader } from '../../../src/components/TaskDetailHeader';
@@ -93,8 +93,7 @@ describe('TaskDetailHeader', () => {
     expect(screen.getByRole('button', { name: /Next task/i })).toBeInTheDocument();
   });
 
-  // Replaces the old "Back to board" button test: that affordance is gone, and the plan
-  // crumb now carries its behavior (return to the board in-place, without a navigation).
+  // The plan crumb's click intercepts navigation and returns to the board in place (calls onBack).
   it('calls onBack when the plan breadcrumb is clicked', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
@@ -103,6 +102,22 @@ describe('TaskDetailHeader', () => {
     const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
     await user.click(within(nav).getByRole('link', { name: 'Q3 Launch' }));
     expect(onBack).toHaveBeenCalled();
+  });
+
+  it('lets a cmd/ctrl/shift-click on the plan breadcrumb fall through to real navigation', async () => {
+    const onBack = vi.fn();
+    renderInRouter(<TaskDetailHeader {...baseProps} planId="p-1" onBack={onBack} />);
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    const link = within(nav).getByRole('link', { name: 'Q3 Launch' });
+
+    for (const modifier of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }]) {
+      onBack.mockClear();
+      // fireEvent.click returns the DOM dispatch result: false means preventDefault() was
+      // called; true means the browser's default action (navigation) is left to proceed.
+      const notPrevented = fireEvent.click(link, modifier);
+      expect(notPrevented).toBe(true);
+      expect(onBack).not.toHaveBeenCalled();
+    }
   });
 
   it('invokes onPrevious when K is pressed and onNext when J is pressed', async () => {

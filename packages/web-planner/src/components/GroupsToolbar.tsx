@@ -91,7 +91,10 @@ export function GroupsToolbar({
   }, [localSearch, searchQuery, onSearchChange, isComposing]);
 
   return (
-    <div className="flex items-center gap-3 border-b border-hairline px-7 py-3">
+    <div
+      data-testid="groups-toolbar"
+      className="flex items-center gap-3 border-b border-hairline px-7 py-3"
+    >
       {/* Left cluster */}
       <FilterPill
         label="Visibility"

@@ -300,11 +300,14 @@ export function TaskDetailPage({
                 ) : (
                   <BreadcrumbItem>{groupQ.data?.name ?? ''}</BreadcrumbItem>
                 )}
-                {/* Keeps the honest href while the click just closes the dialog — the board is
-                    already mounted behind it, so no navigation is needed to "go back" to it. */}
+                {/* Keeps a real href so the crumb is a genuine link; a modified click
+                    (cmd/ctrl/shift) falls through to real navigation, while a plain click closes
+                    the dialog in place — the board is already mounted behind it, so no navigation
+                    is needed to "go back" to it. */}
                 <BreadcrumbItem
                   href={`/planner/plans/${planId}`}
                   onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey) return;
                     e.preventDefault();
                     onClose?.();
                   }}
