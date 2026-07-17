@@ -69,8 +69,7 @@ describe('LoginCard search params', () => {
 
   // The idle branch is deleted. core's session middleware still emits
   // /login?reason=idle (middleware/session.ts:55), but apps/server serves no
-  // non-/api/ paths, so it cannot reach a browser. Removing that emitter is
-  // tracked separately.
+  // non-/api/ paths, so it cannot reach a browser. Removing that emitter is FUT-723.
   it('does not render inactivity copy for reason=idle', () => {
     mockSearch.current = { reason: 'idle' };
     render(<LoginCard />);
