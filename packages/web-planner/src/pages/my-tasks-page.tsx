@@ -152,7 +152,7 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
               page chrome did. The inner div reproduces that chrome's toolbar wrapper verbatim —
               MyTasksToolbar carries no horizontal padding of its own and relies on this `px-6`. */}
           <LayoutHeader padding={0}>
-            <div className="flex h-12 flex-none items-center justify-between gap-4 border-b border-hairline bg-canvas px-6">
+            <div className="flex h-12 flex-none items-center justify-between gap-4 border-b border-border bg-body px-6">
               <MyTasksToolbar
                 value={{
                   planId: filters.planId,
@@ -228,12 +228,12 @@ function MyTasksFooter({ data, total }: { data: MyTasksResult; total: number }) 
   const open =
     data.late.length + data.dueThisWeek.length + data.inProgress.length + data.notStarted.length;
   return (
-    <footer className="flex h-11 flex-none items-center justify-between border-t border-hairline bg-canvas px-6 text-xs text-ink-muted">
+    <footer className="flex h-11 flex-none items-center justify-between border-t border-border bg-body px-6 text-xs text-secondary">
       <span>
         {open} open · {data.late.length} late · {data.dueThisWeek.length} due this week ·{' '}
         {data.recentlyCompleted.length} recently completed
       </span>
-      <span className="text-ink-subtle">
+      <span className="text-secondary">
         {total} {total === 1 ? 'task' : 'tasks'} assigned to you
       </span>
     </footer>
@@ -247,7 +247,7 @@ function MyTasksSkeleton() {
         <div
           key={i}
           data-testid="mt-section-skeleton"
-          className="rounded-md border border-hairline overflow-hidden"
+          className="rounded-md border border-border overflow-hidden"
         >
           <Skeleton height={36} />
           {i < 2 && <Skeleton className="mt-px" height={44} />}

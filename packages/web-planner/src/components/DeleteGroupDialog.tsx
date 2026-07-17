@@ -35,7 +35,7 @@ export function DeleteGroupDialog({
         content={
           <LayoutContent>
             <div className="space-y-4">
-              <p className="text-body-sm text-ink-subtle">
+              <p className="text-body-sm text-secondary">
                 This group will be deleted. You can restore it later from the Archived filter.
                 {isM365 && (
                   <>

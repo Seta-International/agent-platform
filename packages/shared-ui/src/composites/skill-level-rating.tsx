@@ -28,7 +28,7 @@ export function SkillLevelRating({
         {LEVELS.map((d) => (
           <span
             key={d}
-            className={`h-1.5 w-4 rounded-full ${level && d <= level ? 'bg-primary' : 'bg-surface-4'}`}
+            className={`h-1.5 w-4 rounded-full ${level && d <= level ? 'bg-accent-bg' : 'bg-surface'}`}
           />
         ))}
       </div>
@@ -51,9 +51,9 @@ export function SkillLevelRating({
           className={`h-2 w-5 rounded-full transition-colors ${
             d <= shown
               ? hover !== null && hover >= d
-                ? 'bg-primary/60'
-                : 'bg-primary'
-              : 'bg-surface-4 hover:bg-primary/30'
+                ? 'bg-accent-bg/60'
+                : 'bg-accent-bg'
+              : 'bg-surface hover:bg-accent-bg/30'
           }`}
         />
       ))}

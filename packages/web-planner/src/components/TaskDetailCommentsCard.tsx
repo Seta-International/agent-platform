@@ -15,7 +15,7 @@ export function TaskDetailCommentsCard({ taskId, currentUserId, isGroupOwner }: 
   const totalLoaded = q.data?.pages.reduce((acc, p) => acc + p.comments.length, 0) ?? 0;
 
   return (
-    <section aria-label="Comments" className="rounded-lg border border-hairline bg-canvas p-4">
+    <section aria-label="Comments" className="rounded-lg border border-border bg-body p-4">
       <header className="mb-3 flex items-center justify-between">
         <Heading level={3}>
           Comments ({totalLoaded}
@@ -27,9 +27,9 @@ export function TaskDetailCommentsCard({ taskId, currentUserId, isGroupOwner }: 
         <CommentComposer taskId={taskId} />
       </div>
 
-      {q.isPending && <p className="text-caption text-ink-tertiary">Loading comments…</p>}
+      {q.isPending && <p className="text-caption text-disabled">Loading comments…</p>}
       {q.isError && (
-        <p className="text-caption text-semantic-danger">
+        <p className="text-caption text-error">
           Could not load comments.{' '}
           <button type="button" className="underline" onClick={() => void q.refetch()}>
             Retry
@@ -38,7 +38,7 @@ export function TaskDetailCommentsCard({ taskId, currentUserId, isGroupOwner }: 
       )}
 
       {q.data && totalLoaded === 0 && (
-        <p className="text-caption text-ink-tertiary">No comments yet. Be the first to comment.</p>
+        <p className="text-caption text-disabled">No comments yet. Be the first to comment.</p>
       )}
 
       <ul className="flex flex-col gap-4">

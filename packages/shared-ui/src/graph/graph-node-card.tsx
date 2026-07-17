@@ -28,19 +28,19 @@ export interface GraphNodeCardProps {
 
 const TONE: Record<GraphNodeTone, { card: string; title: string; subtitle: string }> = {
   surface: {
-    card: 'bg-surface-1 border-hairline text-ink',
-    title: 'text-ink',
-    subtitle: 'text-ink-subtle',
+    card: 'bg-card border-border text-primary',
+    title: 'text-primary',
+    subtitle: 'text-secondary',
   },
   solid: {
-    card: 'bg-ink border-transparent text-surface-1',
-    title: 'text-surface-1',
-    subtitle: 'text-surface-1/70',
+    card: 'bg-primary border-transparent text-card',
+    title: 'text-card',
+    subtitle: 'text-card/70',
   },
   primary: {
-    card: 'bg-surface-1 border-primary text-ink',
-    title: 'text-ink',
-    subtitle: 'text-ink-subtle',
+    card: 'bg-card border-accent-bg text-primary',
+    title: 'text-primary',
+    subtitle: 'text-secondary',
   },
 };
 
@@ -69,8 +69,8 @@ export function GraphNodeCard({
   // primary/selected ring. Inline boxShadow overrides the `shadow-sm` class, so re-state the base.
   const shadows = ['0 1px 2px rgb(0 0 0 / 0.06)'];
   if (accent) shadows.push(`inset 3px 0 0 ${accent}`);
-  if (tone === 'primary') shadows.push('0 0 0 3px var(--color-primary-tint)');
-  else if (selected) shadows.push('0 0 0 2px var(--color-primary)');
+  if (tone === 'primary') shadows.push('0 0 0 3px var(--color-accent-muted)');
+  else if (selected) shadows.push('0 0 0 2px var(--color-accent)');
   const ringStyle: CSSProperties = { boxShadow: shadows.join(', ') };
 
   // Icon nodes (department/account/project) tint their type glyph with the accent; person nodes
@@ -100,7 +100,7 @@ export function GraphNodeCard({
         'relative z-[1] flex min-w-[190px] items-center gap-2.5 rounded-lg border px-3.5 py-2.5 shadow-sm transition',
         t.card,
         interactive &&
-          'cursor-pointer hover:-translate-y-0.5 hover:border-primary-border hover:shadow-lg',
+          'cursor-pointer hover:-translate-y-0.5 hover:border-accent-bg hover:shadow-lg',
         className,
       )}
     >
@@ -127,7 +127,7 @@ export function GraphNodeCard({
       {count !== undefined && (
         <span
           className="ml-auto shrink-0 rounded-pill px-2 py-0.5 text-caption font-bold"
-          style={{ background: 'var(--color-primary-tint)', color: 'var(--color-primary-ink)' }}
+          style={{ background: 'var(--color-accent-muted)', color: 'var(--color-text-accent)' }}
         >
           {count}
         </span>
@@ -140,7 +140,7 @@ export function GraphNodeCard({
             e.stopPropagation();
             onToggleCollapse?.();
           }}
-          className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-pill border border-hairline bg-surface-1 px-2 py-0.5 text-caption font-bold text-ink-subtle shadow-sm hover:border-primary-border"
+          className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-pill border border-border bg-card px-2 py-0.5 text-caption font-bold text-secondary shadow-sm hover:border-accent-bg"
         >
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           {collapsed && descendantCount !== undefined && <span>{descendantCount}</span>}

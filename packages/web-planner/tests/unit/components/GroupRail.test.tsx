@@ -135,6 +135,6 @@ describe('GroupRail', () => {
     const m = makeMember({ role: 'owner' });
     render(<GroupRail group={baseGroup} members={[m]} canManage onAddMember={vi.fn()} />);
     const pill = screen.getByText('Owner');
-    expect(pill.className).toMatch(/bg-primary-tint/);
+    expect(pill.className).toMatch(/bg-accent-muted/);
   });
 });

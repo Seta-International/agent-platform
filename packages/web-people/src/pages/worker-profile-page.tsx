@@ -70,9 +70,9 @@ function LifecycleBadge({ stage }: { stage: string | null }) {
 
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[140px_1fr] gap-2 items-start py-2 border-b border-hairline last:border-0">
-      <span className="text-body-sm text-ink-muted font-medium">{label}</span>
-      <span className="text-body-sm text-ink break-all">{value ?? '—'}</span>
+    <div className="grid grid-cols-[140px_1fr] gap-2 items-start py-2 border-b border-border last:border-0">
+      <span className="text-body-sm text-secondary font-medium">{label}</span>
+      <span className="text-body-sm text-primary break-all">{value ?? '—'}</span>
     </div>
   );
 }
@@ -370,7 +370,7 @@ export function WorkerProfilePage() {
                             </span>
                             <LifecycleBadge stage={worker.lifecycle_stage} />
                           </div>
-                          <p className="text-body-sm text-ink-muted truncate">
+                          <p className="text-body-sm text-secondary truncate">
                             {worker.work_email || '—'}
                           </p>
                         </div>
@@ -493,12 +493,12 @@ export function WorkerProfilePage() {
                   content={
                     <LayoutContent>
                       {worker.skills.length === 0 && !editing ? (
-                        <span className="text-body-sm text-ink-muted">—</span>
+                        <span className="text-body-sm text-secondary">—</span>
                       ) : (
                         <div className="space-y-4">
                           {editing && (
                             <div className="flex items-center gap-2">
-                              <Search className="size-4 shrink-0 text-ink-subtle" />
+                              <Search className="size-4 shrink-0 text-secondary" />
                               <Typeahead
                                 label="Add a skill"
                                 isLabelHidden
@@ -518,10 +518,10 @@ export function WorkerProfilePage() {
                               {displaySkills.map((s) => (
                                 <div
                                   key={s.id}
-                                  className="group flex flex-col gap-2 rounded-md border border-hairline bg-surface-2 px-3 py-2.5 transition-colors hover:bg-surface-3"
+                                  className="group flex flex-col gap-2 rounded-md border border-border bg-surface px-3 py-2.5 transition-colors hover:bg-surface"
                                 >
                                   <div className="flex items-center justify-between gap-2">
-                                    <span className="text-body-sm font-medium text-ink truncate">
+                                    <span className="text-body-sm font-medium text-primary truncate">
                                       {s.name}
                                     </span>
                                     {editing ? (
@@ -535,7 +535,7 @@ export function WorkerProfilePage() {
                                         className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                                       />
                                     ) : (
-                                      <span className="shrink-0 text-caption tabular-nums text-ink-subtle">
+                                      <span className="shrink-0 text-caption tabular-nums text-secondary">
                                         {s.level ? `${s.level}/5` : '—'}
                                       </span>
                                     )}
@@ -551,13 +551,13 @@ export function WorkerProfilePage() {
                             </div>
                           ) : (
                             editing && (
-                              <p className="text-body-sm text-ink-muted">
+                              <p className="text-body-sm text-secondary">
                                 No skills yet — search above to add one.
                               </p>
                             )
                           )}
                           {editing && displaySkills.length > 0 && (
-                            <p className="text-caption text-ink-subtle">
+                            <p className="text-caption text-secondary">
                               Click a segment to rate proficiency · 1 = novice, 5 = expert · click
                               the active level to clear
                             </p>
@@ -580,7 +580,7 @@ export function WorkerProfilePage() {
                   content={
                     <LayoutContent>
                       {worker.accounts.length === 0 ? (
-                        <span className="text-body-sm text-ink-muted">—</span>
+                        <span className="text-body-sm text-secondary">—</span>
                       ) : (
                         <div className="flex flex-wrap gap-2">
                           {worker.accounts.map((a) => (
@@ -601,7 +601,7 @@ export function WorkerProfilePage() {
                   header={
                     <LayoutHeader hasDivider>
                       <CardTitle className="flex items-center gap-2">
-                        <Clock className="size-4 text-ink-muted" />
+                        <Clock className="size-4 text-secondary" />
                         Change history
                       </CardTitle>
                     </LayoutHeader>
@@ -623,14 +623,14 @@ export function WorkerProfilePage() {
                             <li
                               // biome-ignore lint/suspicious/noArrayIndexKey: history entries have no stable client-side key
                               key={i}
-                              className="border-b border-hairline pb-3 last:border-0 last:pb-0"
+                              className="border-b border-border pb-3 last:border-0 last:pb-0"
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <p className="text-body-sm font-medium text-ink capitalize">
+                                  <p className="text-body-sm font-medium text-primary capitalize">
                                     {entry.action}
                                   </p>
-                                  <p className="text-body-sm text-ink-muted truncate">
+                                  <p className="text-body-sm text-secondary truncate">
                                     <span className="font-mono">{entry.field}</span>
                                     {': '}
                                     <span className="line-through opacity-60">
@@ -639,11 +639,11 @@ export function WorkerProfilePage() {
                                     {' → '}
                                     <span>{entry.to_val ?? '—'}</span>
                                   </p>
-                                  <p className="text-[11px] text-ink-tertiary mt-0.5">
+                                  <p className="text-[11px] text-disabled mt-0.5">
                                     by {entry.by_user_id}
                                   </p>
                                 </div>
-                                <span className="flex-none text-[11px] text-ink-tertiary whitespace-nowrap">
+                                <span className="flex-none text-[11px] text-disabled whitespace-nowrap">
                                   {formatRelative(entry.at)}
                                 </span>
                               </div>
@@ -705,10 +705,10 @@ function WorkerCvActions({ worker, canEdit }: { worker: WorkerDetail; canEdit: b
           className="h-auto p-0"
         />
       ) : (
-        <span className="text-ink-muted">—</span>
+        <span className="text-secondary">—</span>
       )}
       {canEdit && (
-        <label className="cursor-pointer text-body-sm text-primary hover:underline">
+        <label className="cursor-pointer text-body-sm text-accent hover:underline">
           {replace.isPending ? 'Uploading…' : worker.cv_storage_key ? 'Replace' : 'Upload'}
           <input
             type="file"

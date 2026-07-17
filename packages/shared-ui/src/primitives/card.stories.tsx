@@ -19,7 +19,7 @@ export const Default: Story = {
         }
         content={
           <LayoutContent>
-            <p className="text-body-sm text-ink-muted">Card content area with some body text.</p>
+            <p className="text-body-sm text-secondary">Card content area with some body text.</p>
           </LayoutContent>
         }
         footer={
@@ -44,7 +44,7 @@ export const Muted: Story = {
         }
         content={
           <LayoutContent>
-            <p className="text-body-sm text-ink-muted">Content and description here.</p>
+            <p className="text-body-sm text-secondary">Content and description here.</p>
           </LayoutContent>
         }
       />
@@ -58,8 +58,8 @@ export const Transparent: Story = {
       <p>&ldquo;This product has transformed how our team collaborates day to day.&rdquo;</p>
       <div className="mt-4 flex items-center gap-3">
         <div className="text-body-sm">
-          <p className="font-semibold text-ink">Jane Doe</p>
-          <p className="text-ink-subtle">Head of Operations</p>
+          <p className="font-semibold text-primary">Jane Doe</p>
+          <p className="text-secondary">Head of Operations</p>
         </div>
       </div>
     </Card>

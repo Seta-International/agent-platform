@@ -13,23 +13,23 @@ export function LoopResultNode({ data }: NodeProps<Node<LoopData>>) {
   return (
     <article
       aria-label={`Loop ${data.stepId} (${data.status})`}
-      className="w-[260px] rounded-lg border-2 border-dashed bg-[var(--color-surface-1)] px-3 py-2"
-      style={{ borderColor: 'var(--color-hairline-strong)' }}
+      className="w-[260px] rounded-lg border-2 border-dashed bg-[var(--color-background-card)] px-3 py-2"
+      style={{ borderColor: 'var(--color-border-emphasized)' }}
     >
       <Handle
         type="target"
         position={Position.Top}
-        className="!h-2 !w-2 !bg-[var(--color-hairline)]"
+        className="!h-2 !w-2 !bg-[var(--color-border)]"
       />
       <div className="flex items-center gap-1.5">
         <span aria-hidden className="size-1.5 rounded-full" style={{ background: t.dot }} />
         <span className="truncate font-mono text-xs">{data.stepId}</span>
-        <span className="ml-auto rounded bg-[var(--color-surface-2)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-ink-muted)]">
+        <span className="ml-auto rounded bg-[var(--color-background-surface)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
           loop
         </span>
       </div>
       <p
-        className="mt-1 truncate text-[10px] text-[var(--color-ink-subtle)]"
+        className="mt-1 truncate text-[10px] text-[var(--color-text-secondary)]"
         title={data.predicate}
       >
         until {data.predicate || '—'}
@@ -37,7 +37,7 @@ export function LoopResultNode({ data }: NodeProps<Node<LoopData>>) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!h-2 !w-2 !bg-[var(--color-hairline)]"
+        className="!h-2 !w-2 !bg-[var(--color-border)]"
       />
     </article>
   );

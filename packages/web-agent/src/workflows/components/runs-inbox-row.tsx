@@ -46,7 +46,7 @@ export function RunsInboxRow({ row }: { row: WorkflowRunRow }) {
       data-testid="runs-inbox-row"
       data-decision-kind={row.latestApprovalKind ?? undefined}
       className={cn(
-        'flex items-center gap-3 border-b border-[var(--color-hairline-tertiary)] px-4 py-2.5 text-sm hover:bg-[var(--color-surface-2)]',
+        'flex items-center gap-3 border-b border-[var(--color-border)] px-4 py-2.5 text-sm hover:bg-[var(--color-background-surface)]',
         isSuperseded && 'opacity-60',
       )}
     >
@@ -54,25 +54,25 @@ export function RunsInboxRow({ row }: { row: WorkflowRunRow }) {
       <span className="flex flex-1 min-w-0 flex-col">
         <span className="truncate">
           <span className="font-medium">{shortName(row.workflowId)}</span>
-          {label ? <span className="ml-2 text-[var(--color-ink-subtle)]">{label}</span> : null}
+          {label ? <span className="ml-2 text-[var(--color-text-secondary)]">{label}</span> : null}
         </span>
-        <span className="font-mono text-xs text-[var(--color-ink-subtle)]">{runIdShort}</span>
+        <span className="font-mono text-xs text-[var(--color-text-secondary)]">{runIdShort}</span>
       </span>
       {isSuperseded ? (
-        <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-ink-subtle)]">
+        <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">
           Superseded — {humanizeSupersedeReason(row.latestApprovalReason)}
         </span>
       ) : row.status === 'paused' ? (
-        <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-warning-ink)]">
+        <span className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-yellow)]">
           HITL
         </span>
       ) : null}
       {duration ? (
-        <span className="font-mono text-xs tabular-nums text-[var(--color-ink-subtle)]">
+        <span className="font-mono text-xs tabular-nums text-[var(--color-text-secondary)]">
           {duration}
         </span>
       ) : null}
-      <span className="w-16 text-right text-xs tabular-nums text-[var(--color-ink-subtle)]">
+      <span className="w-16 text-right text-xs tabular-nums text-[var(--color-text-secondary)]">
         {relativeTime(row.startedAt)}
       </span>
     </Link>

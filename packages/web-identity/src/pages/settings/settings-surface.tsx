@@ -33,7 +33,7 @@ export function SettingsSurface({ title, children }: { title: string; children: 
       }
       content={
         <LayoutContent padding={0}>
-          <div className="bg-surface-1 min-h-full">
+          <div className="bg-card min-h-full">
             <PageContainer className="space-y-5">{children}</PageContainer>
           </div>
         </LayoutContent>
@@ -45,7 +45,7 @@ export function SettingsSurface({ title, children }: { title: string; children: 
 export function ComingSoonCard({ body }: { body: string }) {
   return (
     <Card className="p-8 text-center">
-      <p className="text-sm text-ink-subtle">{body}</p>
+      <p className="text-sm text-secondary">{body}</p>
     </Card>
   );
 }

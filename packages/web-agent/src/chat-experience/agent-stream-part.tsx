@@ -49,7 +49,7 @@ export const AgentStreamPart: DataMessagePartComponent = ({ data, status }) => {
       </Markdown>
       <span
         aria-hidden
-        className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-[2px] animate-pulse bg-ink"
+        className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-[2px] animate-pulse bg-primary"
       />
     </div>
   );

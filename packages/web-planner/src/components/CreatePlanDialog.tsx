@@ -64,7 +64,7 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
         content={
           <LayoutContent>
             <div className="space-y-3">
-              <p className="text-body-sm text-ink-subtle">
+              <p className="text-body-sm text-secondary">
                 One plan = one stream of work, with its own buckets and tasks.
               </p>
               <div className="space-y-1">

@@ -284,12 +284,12 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                     />
                   </div>
                 </div>
-                {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
+                {dateError && <p className="text-body-sm text-error">{dateError}</p>}
 
                 <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
 
                 <div className="flex items-center justify-between">
-                  <div className="text-caption font-semibold uppercase text-ink-muted">
+                  <div className="text-caption font-semibold uppercase text-secondary">
                     JD detail
                   </div>
                   <SegmentedControl
@@ -305,7 +305,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                 {SECTIONS.map((s) => (
                   <div key={s.key}>
                     <div
-                      className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                      className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
                     >
                       {s.key === 'about' ? 'About the role *' : s.label}
                     </div>
@@ -328,7 +328,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               <div className="space-y-2">
                 {error && <Banner status="error" title={error} />}
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-body-sm text-danger-ink">{requiredError}</p>
+                  <p className="text-body-sm text-error">{requiredError}</p>
                   <div className="flex shrink-0 gap-2">
                     <Button
                       variant="secondary"

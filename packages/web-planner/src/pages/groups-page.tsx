@@ -288,7 +288,7 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
           {/* Second header row pins the filters outside the scroll container, as the old page
               chrome did. The inner div reproduces that chrome's toolbar wrapper verbatim. */}
           <LayoutHeader padding={0}>
-            <div className="flex h-12 flex-none items-center justify-between gap-4 border-b border-hairline bg-canvas px-6">
+            <div className="flex h-12 flex-none items-center justify-between gap-4 border-b border-border bg-body px-6">
               <GroupsToolbar
                 view={view}
                 onViewChange={setView}
@@ -325,7 +325,7 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
                 />
               )}
             </div>
-            <footer className="flex h-11 flex-none items-center justify-between border-t border-hairline bg-canvas px-6 text-xs text-ink-muted">
+            <footer className="flex h-11 flex-none items-center justify-between border-t border-border bg-body px-6 text-xs text-secondary">
               <span>
                 Showing {filtered.length} of {groups.length}
                 {syncedCount > 0

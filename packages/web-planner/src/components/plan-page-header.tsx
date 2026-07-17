@@ -244,10 +244,10 @@ export function PlanPageHeader({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 'var(--spacing-xxs)',
-                  padding: 'var(--spacing-xxs) var(--spacing-xs)',
+                  gap: 'var(--spacing-1)',
+                  padding: 'var(--spacing-1) var(--spacing-2)',
                   borderRadius: 'var(--radius-sm)',
-                  color: 'var(--color-ink)',
+                  color: 'var(--color-text-primary)',
                   textDecoration: 'none',
                 }}
               >
@@ -258,7 +258,7 @@ export function PlanPageHeader({
               <DropdownMenuItem
                 icon={<Unlink aria-hidden />}
                 label="Unlink from Microsoft 365…"
-                style={{ color: 'var(--color-danger)' }}
+                style={{ color: 'var(--color-error)' }}
                 onClick={onUnlinkFromM365}
               />
             )}
@@ -276,7 +276,7 @@ export function PlanPageHeader({
                   height: 1,
                   margin: '4px 6px',
                   border: 'none',
-                  backgroundColor: 'var(--color-hairline)',
+                  backgroundColor: 'var(--color-border)',
                 }}
               />
             )}
@@ -299,7 +299,7 @@ export function PlanPageHeader({
               <DropdownMenuItem
                 icon={<X aria-hidden />}
                 label="Delete plan"
-                style={{ color: 'var(--color-danger)' }}
+                style={{ color: 'var(--color-error)' }}
                 isDisabled={!canDelete}
                 onClick={onDelete}
               />

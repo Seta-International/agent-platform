@@ -114,7 +114,7 @@ export function GroupsPage() {
             </PageContainer>
           ) : (
             <div className="flex h-full min-h-0">
-              <aside className="flex w-72 flex-none flex-col border-r border-hairline bg-surface-1">
+              <aside className="flex w-72 flex-none flex-col border-r border-border bg-card">
                 <RailHeader>All groups</RailHeader>
                 <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
                   {isLoading ? (
@@ -124,7 +124,7 @@ export function GroupsPage() {
                       <Skeleton height={48} radius={2} />
                     </>
                   ) : groups.length === 0 ? (
-                    <p className="px-3 py-6 text-center text-body-sm text-ink-tertiary">
+                    <p className="px-3 py-6 text-center text-body-sm text-disabled">
                       No groups yet.
                     </p>
                   ) : (

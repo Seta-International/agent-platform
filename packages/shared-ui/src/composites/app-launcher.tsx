@@ -44,9 +44,9 @@ export function AppLauncher({
                 onClose?.();
               }}
               className={cn(
-                'relative flex flex-col items-center gap-2 rounded-md border border-transparent px-2 pb-3 pt-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus',
-                isCurrent && 'border-primary-border bg-primary-tint',
-                isDisabled ? 'opacity-55' : 'hover:border-hairline hover:bg-surface-2',
+                'relative flex flex-col items-center gap-2 rounded-md border border-transparent px-2 pb-3 pt-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg',
+                isCurrent && 'border-accent-bg bg-accent-muted',
+                isDisabled ? 'opacity-55' : 'hover:border-border hover:bg-surface',
               )}
             >
               {isDisabled && (
@@ -56,11 +56,11 @@ export function AppLauncher({
               )}
               <span
                 className="grid size-10 place-items-center rounded-lg text-white"
-                style={{ background: app.color ?? 'var(--color-primary, #0047FF)' }}
+                style={{ background: app.color ?? 'var(--color-accent, #0047FF)' }}
               >
                 <Icon className="size-5" aria-hidden />
               </span>
-              <span className="text-body-sm font-medium text-ink">{app.label}</span>
+              <span className="text-body-sm font-medium text-primary">{app.label}</span>
             </button>
           );
         })}

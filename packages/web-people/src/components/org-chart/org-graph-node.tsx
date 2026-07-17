@@ -10,10 +10,10 @@ function visualFor(data: OrgGraphNodeData): { icon?: ReactNode; accent?: string 
     case 'department':
       return {
         icon: <Building2 />,
-        accent: data.tone === 'primary' ? 'var(--color-primary)' : 'var(--color-ink-subtle)',
+        accent: data.tone === 'primary' ? 'var(--color-accent)' : 'var(--color-text-secondary)',
       };
     case 'account':
-      return { icon: <Briefcase />, accent: 'var(--color-group-theme-teal)' };
+      return { icon: <Briefcase />, accent: 'var(--color-icon-teal)' };
     case 'project':
       return { icon: <Boxes />, accent: 'var(--color-warning)' };
     default:
@@ -33,7 +33,7 @@ export function OrgGraphNode({ data }: NodeProps<Node<OrgGraphNodeData>>) {
             textAlign: 'center',
             fontSize: 13,
             fontStyle: 'italic',
-            color: 'var(--color-ink-subtle)',
+            color: 'var(--color-text-secondary)',
           }}
         >
           {data.title}

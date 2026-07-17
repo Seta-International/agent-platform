@@ -59,7 +59,7 @@ export function AgentPanel({
       aria-label="Agent"
       style={{ width: panel.size }}
       className={cn(
-        'relative flex h-full flex-none flex-col border-l border-hairline bg-canvas',
+        'relative flex h-full flex-none flex-col border-l border-border bg-body',
         className,
       )}
     >

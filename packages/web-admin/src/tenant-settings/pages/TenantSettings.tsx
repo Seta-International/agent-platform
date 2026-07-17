@@ -76,8 +76,8 @@ export function TenantSettings() {
             <Card padding={5}>
               <div className="space-y-3">
                 <div>
-                  <div className="font-medium text-ink">Email domains</div>
-                  <p className="mt-1 text-body-sm text-ink-muted">
+                  <div className="font-medium text-primary">Email domains</div>
+                  <p className="mt-1 text-body-sm text-secondary">
                     Used to generate work email addresses for new people.
                   </p>
                 </div>
@@ -87,7 +87,7 @@ export function TenantSettings() {
                   <>
                     <DomainsField domains={domains} onChange={setDomains} />
                     {saveDomainsM.error && (
-                      <div className="text-body-sm text-destructive">
+                      <div className="text-body-sm text-error">
                         {(saveDomainsM.error as Error).message}
                       </div>
                     )}

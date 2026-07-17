@@ -99,7 +99,7 @@ export function ChartsGrid({
               <StackedBarChart
                 orientation="vertical"
                 series={[
-                  { key: 'open', name: 'Open', color: 'var(--color-primary)' },
+                  { key: 'open', name: 'Open', color: 'var(--color-accent)' },
                   { key: 'completed', name: 'Completed', color: 'var(--color-success)' },
                 ]}
                 rows={data.workload.map((w) => ({

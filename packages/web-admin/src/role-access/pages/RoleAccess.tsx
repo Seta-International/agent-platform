@@ -87,7 +87,7 @@ export function RoleAccess() {
             </PageContainer>
           ) : (
             <div className="flex h-full min-h-0">
-              <aside className="flex w-72 flex-none flex-col border-r border-hairline bg-surface-1">
+              <aside className="flex w-72 flex-none flex-col border-r border-border bg-card">
                 <RailHeader>Modules</RailHeader>
                 <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
                   {isLoading || !data ? (
@@ -109,7 +109,7 @@ export function RoleAccess() {
                           count={modRoles.length}
                           subtitle={
                             changed > 0 ? (
-                              <span className="text-primary">{changed} customised</span>
+                              <span className="text-accent">{changed} customised</span>
                             ) : (
                               <span>Built-in defaults</span>
                             )
@@ -155,10 +155,10 @@ function ModuleDetail({
     <div className="space-y-6 px-8 py-7">
       <header className="space-y-3">
         <div className="space-y-1">
-          <h2 className="text-card-title font-semibold tracking-tight text-ink">
+          <h2 className="text-card-title font-semibold tracking-tight text-primary">
             {moduleLabel(module)}
           </h2>
-          <p className="text-body-sm text-ink-subtle">
+          <p className="text-body-sm text-secondary">
             Built-in roles for the {moduleLabel(module)} module. Changes apply to everyone holding
             the role.
           </p>
@@ -178,9 +178,9 @@ function ModuleDetail({
           />
         </StatBar>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-caption text-ink-subtle">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-caption text-secondary">
           <span className="inline-flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-primary" aria-hidden />
+            <span className="size-2 rounded-full bg-accent-bg" aria-hidden />
             Changed from default
           </span>
           {!canWrite && (
@@ -193,7 +193,7 @@ function ModuleDetail({
       </header>
 
       {roles.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-hairline">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <MatrixTable roles={roles} canWrite={canWrite} />
         </div>
       )}
@@ -208,7 +208,7 @@ function RoleColumnHeader({ role, canWrite }: { role: MatrixRole; canWrite: bool
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
-        <span className="text-body-sm font-semibold tracking-tight text-ink">
+        <span className="text-body-sm font-semibold tracking-tight text-primary">
           {roleShort(role.slug)}
         </span>
         {canWrite && (
@@ -218,7 +218,7 @@ function RoleColumnHeader({ role, canWrite }: { role: MatrixRole; canWrite: bool
             isIconOnly
             icon={<RotateCcw className="size-3" aria-hidden />}
             label={`Reset ${role.slug} to defaults`}
-            className="size-5 text-ink-tertiary transition-opacity disabled:pointer-events-none disabled:opacity-0"
+            className="size-5 text-disabled transition-opacity disabled:pointer-events-none disabled:opacity-0"
             isDisabled={modified === 0 || reset.isPending}
             onClick={() => reset.mutate(role.slug)}
           />
@@ -233,10 +233,10 @@ function RoleColumnHeader({ role, canWrite }: { role: MatrixRole; canWrite: bool
           />
         )}
         {modified > 0 && (
-          <span className="text-caption tabular-nums text-primary">{modified} changed</span>
+          <span className="text-caption tabular-nums text-accent">{modified} changed</span>
         )}
       </div>
-      <span className="font-mono text-caption font-normal text-ink-tertiary">{role.slug}</span>
+      <span className="font-mono text-caption font-normal text-disabled">{role.slug}</span>
     </div>
   );
 }
@@ -255,13 +255,13 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
     <Table dividers="none" hasHover>
       <TableHeader>
         <TableRow isHeaderRow>
-          <TableHeaderCell className="sticky left-0 z-10 bg-surface-1 align-bottom">
-            <span className="text-eyebrow uppercase text-ink-tertiary">Permission</span>
+          <TableHeaderCell className="sticky left-0 z-10 bg-card align-bottom">
+            <span className="text-eyebrow uppercase text-disabled">Permission</span>
           </TableHeaderCell>
           {roles.map((role) => (
             <TableHeaderCell
               key={role.slug}
-              className="min-w-44 border-l border-hairline-tertiary bg-surface-1 align-bottom"
+              className="min-w-44 border-l border-border bg-card align-bottom"
             >
               <RoleColumnHeader role={role} canWrite={canWrite} />
             </TableHeaderCell>
@@ -270,26 +270,21 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
       </TableHeader>
       <TableBody>
         {keys.map(({ key, description }) => (
-          <TableRow key={key} className="border-b border-hairline-tertiary">
-            <TableCell className="sticky left-0 z-10 bg-canvas">
+          <TableRow key={key} className="border-b border-border">
+            <TableCell className="sticky left-0 z-10 bg-body">
               <div className="flex flex-col">
-                <span className="text-body-sm text-ink">{description}</span>
+                <span className="text-body-sm text-primary">{description}</span>
                 {description !== key && (
-                  <span className="font-mono text-caption text-ink-tertiary">{key}</span>
+                  <span className="font-mono text-caption text-disabled">{key}</span>
                 )}
               </div>
             </TableCell>
             {roles.map((role) => {
               const cell = cellOf(role, key);
               if (!cell)
-                return (
-                  <TableCell
-                    key={role.slug}
-                    className="border-l border-hairline-tertiary bg-surface-1/40"
-                  />
-                );
+                return <TableCell key={role.slug} className="border-l border-border bg-card/40" />;
               return (
-                <TableCell key={role.slug} className="border-l border-hairline-tertiary">
+                <TableCell key={role.slug} className="border-l border-border">
                   <div className="relative inline-flex">
                     <Checkbox
                       label={`${roleShort(role.slug)} — ${key}`}
@@ -302,7 +297,7 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
                     />
                     {cell.overridden && (
                       <span
-                        className="absolute -right-1.5 -top-1.5 size-2 rounded-full border border-canvas bg-primary"
+                        className="absolute -right-1.5 -top-1.5 size-2 rounded-full border border-body bg-accent-bg"
                         title="Changed from default"
                         aria-hidden
                       />

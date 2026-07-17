@@ -60,13 +60,13 @@ describe('ThemeProvider', () => {
     expect(() => render(<Probe />)).toThrow(/useTheme must be used inside <ThemeProvider>/);
   });
 
-  it('mounts Astryx Theme at the root with data-astryx-theme="seta"', () => {
+  it('mounts Astryx Theme at the root with the neutral theme', () => {
     render(
       <ThemeProvider defaultTheme="light">
         <Probe />
       </ThemeProvider>,
     );
-    expect(document.documentElement.getAttribute('data-astryx-theme')).toBe('seta');
+    expect(document.documentElement.getAttribute('data-astryx-theme')).toBe('neutral');
   });
 
   it('flips Astryx data-theme when the mode changes', () => {

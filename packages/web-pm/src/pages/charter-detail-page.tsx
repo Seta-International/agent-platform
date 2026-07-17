@@ -46,17 +46,17 @@ const PRICING_LABEL: Record<string, string> = { fixed_price: 'Fixed-price', time
 function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="bg-surface p-3">
-      <div className="text-[10.5px] uppercase tracking-wide text-ink-muted">{label}</div>
-      <div className="mt-0.5 text-body-sm font-medium text-ink">{value ?? '—'}</div>
+      <div className="text-[10.5px] uppercase tracking-wide text-secondary">{label}</div>
+      <div className="mt-0.5 text-body-sm font-medium text-primary">{value ?? '—'}</div>
     </div>
   );
 }
 
 function ScopeBox({ label, text }: { label: string; text?: string | null }) {
   return (
-    <div className="rounded-md border border-hairline bg-surface-2 p-3.5">
-      <div className="text-[12px] font-semibold text-ink">{label}</div>
-      <div className="mt-1 whitespace-pre-line text-body-sm leading-relaxed text-ink-muted">
+    <div className="rounded-md border border-border bg-surface p-3.5">
+      <div className="text-[12px] font-semibold text-primary">{label}</div>
+      <div className="mt-1 whitespace-pre-line text-body-sm leading-relaxed text-secondary">
         {text?.trim() ? text : '—'}
       </div>
     </div>
@@ -335,7 +335,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
                 content={
                   <LayoutContent>
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-hairline bg-hairline sm:grid-cols-4">
+                      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-4">
                         <Fact label="Account" value={accountName(c.account_id)} />
                         <Fact label="PM" value={workerName(c.pm_worker_id)} />
                         <Fact label="PMO" value={workerName(c.pmo_worker_id)} />
@@ -375,10 +375,10 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
                         <Link
                           to="/pm/projects/$projectId"
                           params={{ projectId: c.project_id }}
-                          className="flex items-center justify-between rounded-md border border-hairline bg-surface-2 px-3.5 py-3 text-body-sm font-medium text-ink transition-colors hover:border-blue/40"
+                          className="flex items-center justify-between rounded-md border border-border bg-surface px-3.5 py-3 text-body-sm font-medium text-primary transition-colors hover:border-blue/40"
                         >
                           <span>Open live project</span>
-                          <ChevronRight className="size-4 text-ink-muted" />
+                          <ChevronRight className="size-4 text-secondary" />
                         </Link>
                       )}
                     </div>

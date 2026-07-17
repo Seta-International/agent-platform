@@ -12,16 +12,16 @@ export function ControlNode({ data }: NodeProps<Node<ControlData>>) {
   return (
     <article
       aria-label={`${data.kind} ${data.stepId}`}
-      className="w-[140px] rounded-full border border-dashed bg-[var(--color-surface-1)] px-3 py-1"
-      style={{ borderColor: 'var(--color-hairline-strong)' }}
+      className="w-[140px] rounded-full border border-dashed bg-[var(--color-background-card)] px-3 py-1"
+      style={{ borderColor: 'var(--color-border-emphasized)' }}
     >
       <Handle
         type="target"
         position={Position.Top}
-        className="!h-2 !w-2 !bg-[var(--color-hairline)]"
+        className="!h-2 !w-2 !bg-[var(--color-border)]"
       />
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px] uppercase tracking-wide text-[var(--color-ink-muted)]">
+        <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
           {data.kind === 'sleep' ? 'sleep' : 'wait'}
         </span>
         <span className="truncate font-mono text-[10px]" title={data.label}>
@@ -31,7 +31,7 @@ export function ControlNode({ data }: NodeProps<Node<ControlData>>) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!h-2 !w-2 !bg-[var(--color-hairline)]"
+        className="!h-2 !w-2 !bg-[var(--color-border)]"
       />
     </article>
   );

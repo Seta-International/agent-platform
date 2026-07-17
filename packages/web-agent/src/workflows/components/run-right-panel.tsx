@@ -77,11 +77,11 @@ function JsonBlock({ value, emptyTitle, emptyDescription }: JsonBlockProps) {
   const lineCount = pretty.split('\n').length;
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-9 flex-none items-center justify-between border-b border-hairline px-3 text-[11px] uppercase tracking-wider text-ink-subtle">
+      <div className="flex h-9 flex-none items-center justify-between border-b border-border px-3 text-[11px] uppercase tracking-wider text-secondary">
         <span>{lineCount} lines</span>
         <CopyButton text={pretty} />
       </div>
-      <pre className="m-0 flex-1 overflow-auto whitespace-pre-wrap break-all bg-surface-1 p-3 font-mono text-[11.5px] leading-[1.55] text-ink">
+      <pre className="m-0 flex-1 overflow-auto whitespace-pre-wrap break-all bg-card p-3 font-mono text-[11.5px] leading-[1.55] text-primary">
         {pretty}
       </pre>
     </div>
@@ -130,26 +130,28 @@ function StepRow({ stepId, entry }: StepRowProps) {
   }, [dataValue]);
 
   return (
-    <li className="border-b border-hairline-tertiary last:border-b-0">
+    <li className="border-b border-border last:border-b-0">
       <button
         type="button"
         onClick={() => hasData && setOpen((v) => !v)}
         disabled={!hasData}
         aria-expanded={hasData ? open : undefined}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-1 disabled:cursor-default disabled:hover:bg-transparent"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-card disabled:cursor-default disabled:hover:bg-transparent"
       >
         <ChevronRight
           aria-hidden
-          className={`size-3 flex-none text-ink-tertiary transition-transform ${
+          className={`size-3 flex-none text-disabled transition-transform ${
             open ? 'rotate-90' : ''
           } ${hasData ? '' : 'invisible'}`}
         />
-        <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-ink">{stepId}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-primary">
+          {stepId}
+        </span>
         <Badge variant={tone} className="flex-none text-[10px]" label={statusLabel} />
-        {dataLabel && <span className="flex-none text-[10px] text-ink-tertiary">{dataLabel}</span>}
+        {dataLabel && <span className="flex-none text-[10px] text-disabled">{dataLabel}</span>}
       </button>
       {open && hasData ? (
-        <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-all border-t border-hairline-tertiary bg-surface-1 px-3 py-2 font-mono text-[11px] leading-[1.5] text-ink">
+        <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-all border-t border-border bg-card px-3 py-2 font-mono text-[11px] leading-[1.5] text-primary">
           {prettyData}
         </pre>
       ) : null}
@@ -178,26 +180,26 @@ function CurrentRunTab({ run, snapshot }: CurrentRunTabProps) {
   return (
     <div className="flex h-full flex-col overflow-auto">
       {/* Input section */}
-      <section className="flex-none border-b border-hairline">
+      <section className="flex-none border-b border-border">
         <button
           type="button"
           onClick={() => setInputOpen((v) => !v)}
-          className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-1"
+          className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-card"
         >
           <ChevronRight
             aria-hidden
-            className={`size-3 flex-none text-ink-tertiary transition-transform ${inputOpen ? 'rotate-90' : ''}`}
+            className={`size-3 flex-none text-disabled transition-transform ${inputOpen ? 'rotate-90' : ''}`}
           />
-          <span className="text-[11px] font-medium uppercase tracking-wider text-ink-subtle">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-secondary">
             Input
           </span>
         </button>
         {inputOpen && (
-          <div className="max-h-48 overflow-auto border-t border-hairline-tertiary">
+          <div className="max-h-48 overflow-auto border-t border-border">
             {isEmptyValue(workflowInput) ? (
-              <p className="px-4 py-3 text-xs text-ink-subtle">No input payload.</p>
+              <p className="px-4 py-3 text-xs text-secondary">No input payload.</p>
             ) : (
-              <pre className="m-0 whitespace-pre-wrap break-all bg-surface-1 px-3 py-2 font-mono text-[11px] leading-[1.5] text-ink">
+              <pre className="m-0 whitespace-pre-wrap break-all bg-card px-3 py-2 font-mono text-[11px] leading-[1.5] text-primary">
                 {(() => {
                   try {
                     return JSON.stringify(workflowInput, null, 2);
@@ -213,7 +215,7 @@ function CurrentRunTab({ run, snapshot }: CurrentRunTabProps) {
 
       {/* Steps section */}
       <section className="flex-1">
-        <div className="flex h-9 items-center px-3 text-[11px] font-medium uppercase tracking-wider text-ink-subtle">
+        <div className="flex h-9 items-center px-3 text-[11px] font-medium uppercase tracking-wider text-secondary">
           Steps{steps.length > 0 ? ` (${steps.length})` : ''}
         </div>
         {steps.length === 0 ? (
@@ -240,7 +242,7 @@ export function RunRightPanel({ run, snapshot }: RunRightPanelProps) {
   const snap = (snapshot ?? null) as SnapshotShape | null;
   const [tab, setTab] = useState('current-run');
   return (
-    <aside className="flex w-[380px] shrink-0 flex-col border-l border-hairline bg-canvas">
+    <aside className="flex w-[380px] shrink-0 flex-col border-l border-border bg-body">
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex-none px-3">
           <TabList value={tab} onChange={setTab} size="sm" hasDivider aria-label="Run details">

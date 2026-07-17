@@ -100,9 +100,9 @@ function WorkflowGraphInner({ snapshot, run, onReplay }: WorkflowGraphProps) {
   const running = run.status === 'running' || run.status === 'paused';
 
   const overlay = (
-    <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-md border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-2 py-1 shadow-sm">
-      <span className="text-xs text-[var(--color-ink-subtle)]">{run.status}</span>
-      <span className="text-[var(--color-ink-subtle)]">·</span>
+    <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-background-body)] px-2 py-1 shadow-sm">
+      <span className="text-xs text-[var(--color-text-secondary)]">{run.status}</span>
+      <span className="text-[var(--color-text-secondary)]">·</span>
       <WorkflowClock
         startedAt={new Date(run.startedAt)}
         finishedAt={run.finishedAt ? new Date(run.finishedAt) : null}
@@ -126,7 +126,7 @@ function WorkflowGraphInner({ snapshot, run, onReplay }: WorkflowGraphProps) {
     return (
       <div className="relative h-full w-full">
         {overlay}
-        <div className="grid h-full place-items-center text-sm text-[var(--color-ink-subtle)]">
+        <div className="grid h-full place-items-center text-sm text-[var(--color-text-secondary)]">
           No graph data yet — the run hasn't produced a snapshot.
         </div>
       </div>

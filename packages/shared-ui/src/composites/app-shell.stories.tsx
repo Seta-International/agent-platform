@@ -144,8 +144,8 @@ function SessionFooter() {
     <div className="flex items-center gap-2">
       <Avatar name="Jane Doe" size={24} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-caption font-medium text-ink">Jane Doe</div>
-        <div className="truncate text-eyebrow text-ink-subtle">org.admin</div>
+        <div className="truncate text-caption font-medium text-primary">Jane Doe</div>
+        <div className="truncate text-eyebrow text-secondary">org.admin</div>
       </div>
     </div>
   );
@@ -174,8 +174,8 @@ export const Default: Story = {
     sessionFooter: <SessionFooter />,
     children: (
       <div className="p-6">
-        <h1 className="text-card-title font-semibold text-ink">Audit log</h1>
-        <p className="mt-2 text-body-sm text-ink-muted">
+        <h1 className="text-card-title font-semibold text-primary">Audit log</h1>
+        <p className="mt-2 text-body-sm text-secondary">
           Page content goes here. The shell wires up the topbar, sidebar accordion, agent toggle,
           and resizable agent panel.
         </p>

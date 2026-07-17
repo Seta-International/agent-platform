@@ -197,9 +197,9 @@ export function RequisitionsPage() {
     value: number,
     icon: ReactNode,
     iconClass: string,
-    valueClass = 'text-ink',
+    valueClass = 'text-primary',
   ) => (
-    <div className="flex items-center gap-4 rounded-lg border border-hairline bg-surface-1 px-5 py-4">
+    <div className="flex items-center gap-4 rounded-lg border border-border bg-card px-5 py-4">
       <div
         className={`flex size-11 shrink-0 items-center justify-center rounded-full ${iconClass}`}
       >
@@ -207,7 +207,7 @@ export function RequisitionsPage() {
       </div>
       <div>
         <div className={`text-display-md font-semibold tabular-nums ${valueClass}`}>{value}</div>
-        <div className="mt-1 text-caption text-ink-muted">{label}</div>
+        <div className="mt-1 text-caption text-secondary">{label}</div>
       </div>
     </div>
   );
@@ -221,7 +221,7 @@ export function RequisitionsPage() {
         renderCell: (r) => (
           <div className="min-w-[240px] max-w-[420px]">
             <Tooltip content={r.title} hasHoverIndication={false}>
-              <div className="line-clamp-2 break-words font-medium text-ink">{r.title}</div>
+              <div className="line-clamp-2 break-words font-medium text-primary">{r.title}</div>
             </Tooltip>
           </div>
         ),
@@ -231,7 +231,7 @@ export function RequisitionsPage() {
         header: 'Account',
         sortable: true,
         renderCell: (r) => (
-          <span className="whitespace-nowrap text-ink-muted">{r.account_name ?? '—'}</span>
+          <span className="whitespace-nowrap text-secondary">{r.account_name ?? '—'}</span>
         ),
       },
       {
@@ -239,7 +239,7 @@ export function RequisitionsPage() {
         header: 'Project',
         sortable: true,
         renderCell: (r) => (
-          <span className="whitespace-nowrap text-ink-muted">{r.project_name ?? '—'}</span>
+          <span className="whitespace-nowrap text-secondary">{r.project_name ?? '—'}</span>
         ),
       },
       {
@@ -250,43 +250,43 @@ export function RequisitionsPage() {
           r.grade ? (
             <div className="max-w-[160px]">
               <Tooltip content={r.grade} hasHoverIndication={false}>
-                <div className="truncate text-ink-muted">{r.grade}</div>
+                <div className="truncate text-secondary">{r.grade}</div>
               </Tooltip>
             </div>
           ) : (
-            <span className="text-ink-muted">—</span>
+            <span className="text-secondary">—</span>
           ),
       },
       {
         key: 'kind',
         header: 'Type',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted capitalize">{r.kind}</span>,
+        renderCell: (r) => <span className="text-secondary capitalize">{r.kind}</span>,
       },
       {
         key: 'stage',
         header: 'Stage',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{STAGE_LABEL[r.stage]}</span>,
+        renderCell: (r) => <span className="text-secondary">{STAGE_LABEL[r.stage]}</span>,
       },
       {
         key: 'applicants_count',
         header: 'Applicants',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{r.applicants_count}</span>,
+        renderCell: (r) => <span className="text-secondary">{r.applicants_count}</span>,
       },
       {
         key: 'status',
         header: 'Status',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{STATUS_LABEL[r.status]}</span>,
+        renderCell: (r) => <span className="text-secondary">{STATUS_LABEL[r.status]}</span>,
       },
       {
         key: 'due_date',
         header: 'Due',
         sortable: true,
         renderCell: (r) => (
-          <span className="font-mono text-caption text-ink-muted">{r.due_date ?? '—'}</span>
+          <span className="font-mono text-caption text-secondary">{r.due_date ?? '—'}</span>
         ),
       },
     ],
@@ -332,26 +332,26 @@ export function RequisitionsPage() {
                 'Open positions',
                 openCount,
                 <Briefcase className="size-5" aria-hidden />,
-                'bg-primary/12 text-primary',
+                'bg-accent-bg/12 text-accent',
               )}
               {stat(
                 'Applicants',
                 totalApplicants,
                 <Users className="size-5" aria-hidden />,
-                'bg-success-tint text-success-ink',
+                'bg-success-muted text-success',
               )}
               {stat(
                 'On hold',
                 onHold,
                 <Pause className="size-5" aria-hidden />,
-                'bg-warning-tint text-warning-ink',
+                'bg-warning-muted text-warning',
                 'text-warning',
               )}
               {stat(
                 'Total open',
                 rows.length,
                 <Layers className="size-5" aria-hidden />,
-                'bg-primary/12 text-primary',
+                'bg-accent-bg/12 text-accent',
               )}
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -435,7 +435,7 @@ export function RequisitionsPage() {
                     label="Toggle columns"
                     content={
                       <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
                           Toggle columns
                         </div>
                         {REQ_COLUMN_OPTIONS.map((col) => (
@@ -511,7 +511,7 @@ export function RequisitionsPage() {
                 {[0, 1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
+                    className="h-40 animate-pulse rounded-lg border border-border bg-surface"
                   />
                 ))}
               </div>

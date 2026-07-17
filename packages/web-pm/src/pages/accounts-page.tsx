@@ -216,14 +216,14 @@ export function AccountsPage() {
         header: 'Name',
         width: proportional(2),
         sortable: true,
-        renderCell: (r) => <span className="font-medium text-ink">{r.name}</span>,
+        renderCell: (r) => <span className="font-medium text-primary">{r.name}</span>,
       },
       {
         key: 'industry',
         header: 'Industry',
         width: proportional(1),
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{r.industry ?? '—'}</span>,
+        renderCell: (r) => <span className="text-secondary">{r.industry ?? '—'}</span>,
       },
       {
         key: 'am_worker_id',
@@ -231,7 +231,7 @@ export function AccountsPage() {
         width: proportional(1),
         sortable: true,
         renderCell: (r) => (
-          <span className="font-mono text-caption text-ink-muted truncate block">
+          <span className="font-mono text-caption text-secondary truncate block">
             {r.am_worker_id ?? '—'}
           </span>
         ),
@@ -242,7 +242,7 @@ export function AccountsPage() {
         width: pixel(110),
         align: 'end',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{r.recruiter_count}</span>,
+        renderCell: (r) => <span className="text-secondary">{r.recruiter_count}</span>,
       },
       {
         key: 'project_count',
@@ -250,7 +250,7 @@ export function AccountsPage() {
         width: pixel(100),
         align: 'end',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{r.project_count}</span>,
+        renderCell: (r) => <span className="text-secondary">{r.project_count}</span>,
       },
     ],
     [],
@@ -308,7 +308,7 @@ export function AccountsPage() {
                     label="Toggle columns"
                     content={
                       <div className="flex min-w-[180px] flex-col gap-1 p-2">
-                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
                           Toggle columns
                         </div>
                         {COLUMN_OPTIONS.map((col) => (

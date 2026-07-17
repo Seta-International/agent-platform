@@ -67,7 +67,7 @@ export function GroupDetailHeader({
 
   return (
     <>
-      <header className="flex h-14 flex-none items-center justify-between gap-4 border-b border-hairline bg-canvas px-6">
+      <header className="flex h-14 flex-none items-center justify-between gap-4 border-b border-border bg-body px-6">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="flex-none">
             <GroupTile name={group.name} theme={group.theme} size={32} />
@@ -82,7 +82,7 @@ export function GroupDetailHeader({
               <Heading level={1} maxLines={1}>
                 {group.name}
               </Heading>
-              <div className="flex min-w-0 items-center gap-2 text-body-sm text-ink-subtle">
+              <div className="flex min-w-0 items-center gap-2 text-body-sm text-secondary">
                 {!group.deleted_at && (
                   <DisabledActionTooltip
                     disabled={!canUpdateGroup}
@@ -98,15 +98,15 @@ export function GroupDetailHeader({
                     />
                   </DisabledActionTooltip>
                 )}
-                <span className="inline-flex h-5 flex-none items-center gap-1.5 rounded-full bg-surface-1 px-2 text-xs">
+                <span className="inline-flex h-5 flex-none items-center gap-1.5 rounded-full bg-card px-2 text-xs">
                   {group.visibility === 'private' ? (
                     <>
-                      <Shield className="size-3 text-ink-subtle" aria-hidden="true" />
+                      <Shield className="size-3 text-secondary" aria-hidden="true" />
                       Private
                     </>
                   ) : (
                     <>
-                      <Users className="size-3 text-ink-subtle" aria-hidden="true" />
+                      <Users className="size-3 text-secondary" aria-hidden="true" />
                       Workspace
                     </>
                   )}
@@ -195,7 +195,7 @@ export function GroupDetailHeader({
             />
             <DropdownMenuItem
               label="Delete"
-              style={{ color: 'var(--color-danger)' }}
+              style={{ color: 'var(--color-error)' }}
               isDisabled={!canDeleteGroup}
               onClick={() => onMenuAction('delete')}
             />
@@ -205,7 +205,7 @@ export function GroupDetailHeader({
       {isLinked && (
         <div
           data-testid="m365-auto-mirror-info"
-          className="flex-none border-b border-hairline bg-surface-1 px-6 py-2 text-body-sm text-ink-subtle"
+          className="flex-none border-b border-border bg-card px-6 py-2 text-body-sm text-secondary"
         >
           Plans in this group are mirrored to and from M365 Planner automatically. Native plans you
           create here will be pushed to M365 as new Planner plans.

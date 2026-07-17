@@ -44,7 +44,7 @@ export function PlanError({ error, onRetry, onBack }: Props) {
             {detail && (
               // Kept as <details> rather than Banner's children slot: that slot's
               // toggle is labelled "Expand", losing the "Technical details" affordance.
-              <details className="mt-3 text-xs text-ink-subtle">
+              <details className="mt-3 text-xs text-secondary">
                 <summary>Technical details</summary>
                 <pre className="mt-1 whitespace-pre-wrap break-words">{detail}</pre>
               </details>

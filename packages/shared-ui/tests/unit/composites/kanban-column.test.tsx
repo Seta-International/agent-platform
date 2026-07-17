@@ -250,7 +250,7 @@ describe('<KanbanColumn> quick-create submit', () => {
       const item = await screen.findByRole('menuitem', { name: label });
       const dot = item.querySelector('span[aria-hidden="true"]');
       expect(dot, `dot for ${label}`).toBeTruthy();
-      expect(dot?.getAttribute('style') ?? '', `color for ${label}`).toContain('--color-priority');
+      expect(dot?.getAttribute('style') ?? '', `color for ${label}`).toContain('--color-icon-');
     }
   });
 
@@ -455,9 +455,9 @@ describe('<KanbanColumn> Delete bucket danger styling', () => {
   // label element itself.
   //
   // StyleX class names are a content hash of the declaration, so an identical
-  // `color: var(--color-danger)` created here yields the very same class the composite
+  // `color: var(--color-error)` created here yields the very same class the composite
   // uses — that keeps this self-calibrating instead of hardcoding a hash.
-  const probe = stylex.create({ danger: { color: 'var(--color-danger)' } });
+  const probe = stylex.create({ danger: { color: 'var(--color-error)' } });
 
   function dangerClass() {
     // dev-mode props also carry a `<file>__styles.<key>` debug marker; keep the real class.

@@ -19,18 +19,18 @@ function DecidedRow({ approval }: { approval: WorkflowApprovalRow }) {
   const positive = approval.status === 'approved' || approval.status === 'modified';
 
   return (
-    <div className="flex items-start gap-2.5 rounded-lg border border-hairline bg-surface-1 px-3.5 py-2.5">
+    <div className="flex items-start gap-2.5 rounded-lg border border-border bg-card px-3.5 py-2.5">
       {positive ? (
-        <CheckCircle2 className="mt-px size-4 shrink-0 text-semantic-success" aria-hidden />
+        <CheckCircle2 className="mt-px size-4 shrink-0 text-success" aria-hidden />
       ) : (
-        <XCircle className="mt-px size-4 shrink-0 text-ink-subtle" aria-hidden />
+        <XCircle className="mt-px size-4 shrink-0 text-secondary" aria-hidden />
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-1.5 text-body-sm">
-          <span className="font-medium text-ink">{label}.</span>
-          {intent ? <span className="truncate text-ink-subtle">{intent}</span> : null}
+          <span className="font-medium text-primary">{label}.</span>
+          {intent ? <span className="truncate text-secondary">{intent}</span> : null}
         </div>
-        <p className="mt-0.5 text-caption text-ink-subtle">{outcomeText(approval)}</p>
+        <p className="mt-0.5 text-caption text-secondary">{outcomeText(approval)}</p>
       </div>
     </div>
   );

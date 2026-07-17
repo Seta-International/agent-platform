@@ -130,7 +130,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                         aria-label="Drag handle"
                         {...(canUpdate ? dpc.dragHandleProps : {})}
                         disabled={!canUpdate}
-                        className={`inline-flex items-center border-none bg-transparent p-0 text-ink-tertiary ${canUpdate ? 'cursor-grab' : 'cursor-not-allowed opacity-40'}`}
+                        className={`inline-flex items-center border-none bg-transparent p-0 text-disabled ${canUpdate ? 'cursor-grab' : 'cursor-not-allowed opacity-40'}`}
                       >
                         <GripVertical className="size-3.5" />
                       </button>
@@ -171,7 +171,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                             }
                           }}
                           title={canUpdate ? 'Double-click to edit' : undefined}
-                          className={`t-sm flex-1 select-none border-none bg-transparent p-0 text-left ${canUpdate ? 'cursor-text' : 'cursor-default'} ${it.checked ? 'text-ink-subtle line-through' : 'text-ink'}`}
+                          className={`t-sm flex-1 select-none border-none bg-transparent p-0 text-left ${canUpdate ? 'cursor-text' : 'cursor-default'} ${it.checked ? 'text-secondary line-through' : 'text-primary'}`}
                         >
                           {it.label}
                         </button>
@@ -200,8 +200,8 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
       </DragDropContext>
 
       <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
-        <div className="mt-2 flex items-center gap-2 rounded-sm border border-hairline bg-surface-1 px-2 py-1.5 focus-within:border-primary">
-          <Plus className="size-3.5 shrink-0 text-ink-tertiary" aria-hidden />
+        <div className="mt-2 flex items-center gap-2 rounded-sm border border-border bg-card px-2 py-1.5 focus-within:border-accent-bg">
+          <Plus className="size-3.5 shrink-0 text-disabled" aria-hidden />
           <input
             ref={inputRef}
             aria-label="New checklist item"
@@ -210,7 +210,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
             onKeyDown={onKeyDown}
             disabled={!canUpdate}
             placeholder="Add an item"
-            className="flex-1 border-0 bg-transparent text-body-sm text-ink outline-none placeholder:text-ink-subtle disabled:cursor-not-allowed"
+            className="flex-1 border-0 bg-transparent text-body-sm text-primary outline-none placeholder:text-secondary disabled:cursor-not-allowed"
           />
           <span className="t-xs subtle shrink-0" aria-hidden>
             ↵ to add

@@ -3,7 +3,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 
 const styles = stylex.create({
   list: { display: 'flex', flexDirection: 'column', gap: 6, minHeight: 40 },
-  over: { background: 'var(--color-primary-tint)', borderRadius: 'var(--radius-sm)' },
+  over: { background: 'var(--color-accent-muted)', borderRadius: 'var(--radius-sm)' },
 });
 
 export interface KanbanCardListProps {

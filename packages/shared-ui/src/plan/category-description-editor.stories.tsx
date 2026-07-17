@@ -8,14 +8,14 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const labels: CategoryLabel[] = [
-  { id: 'l1', name: 'bug', color: 'var(--color-danger)', category_slot: 1 },
-  { id: 'l2', name: 'customer', color: 'var(--color-info)', category_slot: 2 },
+  { id: 'l1', name: 'bug', color: 'var(--color-error)', category_slot: 1 },
+  { id: 'l2', name: 'customer', color: 'var(--color-icon-blue)', category_slot: 2 },
   { id: 'l3', name: 'cx-impact', color: 'var(--color-warning)', category_slot: 3 },
-  { id: 'l4', name: 'infra', color: 'var(--color-info)', category_slot: 4 },
+  { id: 'l4', name: 'infra', color: 'var(--color-icon-blue)', category_slot: 4 },
   { id: 'l5', name: 'perf', color: 'var(--color-warning)', category_slot: 5 },
-  { id: 'l6', name: 'security', color: 'var(--color-danger)', category_slot: 6 },
-  { id: 'l7', name: 'api', color: 'var(--color-primary)', category_slot: 7 },
-  { id: 'l8', name: 'design', color: 'var(--color-primary)', category_slot: null },
+  { id: 'l6', name: 'security', color: 'var(--color-error)', category_slot: 6 },
+  { id: 'l7', name: 'api', color: 'var(--color-accent)', category_slot: 7 },
+  { id: 'l8', name: 'design', color: 'var(--color-accent)', category_slot: null },
 ];
 
 const partialDescriptions: Record<string, string> = {

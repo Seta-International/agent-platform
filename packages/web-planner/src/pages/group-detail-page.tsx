@@ -76,7 +76,7 @@ interface ErrorStateProps {
 function ErrorState({ onRetry }: ErrorStateProps) {
   return (
     <div className="flex flex-col items-center justify-center p-12 gap-4" role="alert">
-      <p className="text-body-sm text-ink-subtle">Couldn&apos;t load this group.</p>
+      <p className="text-body-sm text-secondary">Couldn&apos;t load this group.</p>
       <Button size="sm" variant="secondary" label="Try again" onClick={onRetry} />
     </div>
   );
@@ -253,7 +253,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         onMenuAction={handleMenuAction}
       />
       {group.deleted_at && (
-        <div className="flex flex-none items-center justify-between gap-4 border-b border-hairline bg-semantic-warning-tint px-6 py-2 text-body-sm text-semantic-warning">
+        <div className="flex flex-none items-center justify-between gap-4 border-b border-border bg-warning-muted px-6 py-2 text-body-sm text-warning">
           <span>This group is archived.</span>
           <DisabledActionTooltip
             disabled={!canUpdateGroup}
@@ -270,7 +270,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         </div>
       )}
       <div className="flex flex-1 min-h-0 flex-col">
-        <div className="border-b border-hairline bg-canvas px-6">
+        <div className="border-b border-border bg-body px-6">
           <TabList
             value={tab}
             onChange={(t) => onTabChange(t as GroupTab)}
@@ -293,7 +293,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         </div>
 
         {tab === 'plans' && (
-          <div className="@container flex-1 overflow-auto bg-surface-1">
+          <div className="@container flex-1 overflow-auto bg-card">
             <PageContainer className="grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
               <GroupPlansSection
                 groupName={group.name}
@@ -331,7 +331,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         )}
 
         {tab === 'members' && (
-          <div className="@container flex-1 overflow-auto bg-surface-1">
+          <div className="@container flex-1 overflow-auto bg-card">
             <PageContainer className="grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
               <GroupMembersTable
                 group={group}
@@ -364,7 +364,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         )}
 
         {tab === 'activity' && (
-          <div className="flex-1 overflow-auto bg-surface-1">
+          <div className="flex-1 overflow-auto bg-card">
             <PageContainer>
               <ActivityFeedTab groupId={groupId} />
             </PageContainer>
@@ -374,7 +374,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
 
         {canManage && tab === 'settings' && (
           <div className="p-6">
-            <div className="text-sm text-ink-subtle">Group settings are coming soon.</div>
+            <div className="text-sm text-secondary">Group settings are coming soon.</div>
           </div>
         )}
       </div>
@@ -396,7 +396,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
           }
           content={
             <LayoutContent>
-              <p className="text-body-sm text-ink-subtle">
+              <p className="text-body-sm text-secondary">
                 This group is linked to Microsoft 365. Archiving pauses sync here, but the group
                 remains in Microsoft 365.
               </p>
@@ -427,7 +427,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
           }
           content={
             <LayoutContent>
-              <p className="text-body-sm text-ink-subtle">
+              <p className="text-body-sm text-secondary">
                 This group has been archived. Would you like to restore it so it becomes active
                 again?
               </p>

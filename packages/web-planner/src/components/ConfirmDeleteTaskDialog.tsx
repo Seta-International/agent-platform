@@ -21,10 +21,10 @@ export function ConfirmDeleteTaskDialog({
         header={<DialogHeader title="Delete this task?" onOpenChange={onOpenChange} />}
         content={
           <LayoutContent>
-            <div className="space-y-2 text-body-sm text-ink-subtle">
+            <div className="space-y-2 text-body-sm text-secondary">
               <p>
-                <span className="text-ink">&ldquo;{taskTitle}&rdquo;</span> moves to Trash. You can
-                restore it within 30 days; after that, it is gone for good.
+                <span className="text-primary">&ldquo;{taskTitle}&rdquo;</span> moves to Trash. You
+                can restore it within 30 days; after that, it is gone for good.
               </p>
             </div>
           </LayoutContent>

@@ -216,10 +216,10 @@ export function daysBetweenInclusive(fromIso: string, toIso: string): number {
 export type MetricTone = 'danger' | 'info' | 'warning' | 'success';
 
 const METRIC_TONE_CLS: Record<MetricTone, string> = {
-  danger: 'bg-danger-tint text-danger-ink',
-  info: 'bg-info-tint text-info-ink',
-  warning: 'bg-warning-tint text-warning-ink',
-  success: 'bg-success-tint text-success-ink',
+  danger: 'bg-error-muted text-error',
+  info: 'bg-blue-subtle text-blue-vivid',
+  warning: 'bg-warning-muted text-warning',
+  success: 'bg-success-muted text-success',
 };
 
 export function ImpactMetric({
@@ -236,16 +236,16 @@ export function ImpactMetric({
   sub?: string;
 }) {
   return (
-    <div className="flex items-start gap-2.5 rounded-md border border-hairline p-3">
+    <div className="flex items-start gap-2.5 rounded-md border border-border p-3">
       <span
         className={`flex size-8 shrink-0 items-center justify-center rounded-full ${METRIC_TONE_CLS[tone]}`}
       >
         {icon}
       </span>
       <div className="min-w-0 space-y-0.5">
-        <div className="text-caption text-ink-muted">{label}</div>
-        <div className="text-body-sm font-semibold text-ink">{value}</div>
-        {sub ? <div className="text-caption text-ink-muted">{sub}</div> : null}
+        <div className="text-caption text-secondary">{label}</div>
+        <div className="text-body-sm font-semibold text-primary">{value}</div>
+        {sub ? <div className="text-caption text-secondary">{sub}</div> : null}
       </div>
     </div>
   );

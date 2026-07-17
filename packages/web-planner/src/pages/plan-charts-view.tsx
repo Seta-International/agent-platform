@@ -43,10 +43,7 @@ export function PlanChartsView({ planId, search, onPatchSearch }: Props) {
     });
 
   return (
-    <div
-      data-testid="plan-charts"
-      className="flex h-full flex-col gap-5 overflow-auto bg-surface-1 p-6"
-    >
+    <div data-testid="plan-charts" className="flex h-full flex-col gap-5 overflow-auto bg-card p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ChartFilterBar
           filters={filters}
@@ -74,12 +71,12 @@ export function PlanChartsView({ planId, search, onPatchSearch }: Props) {
       {q.isPending ? (
         <div
           data-testid="plan-charts-loading"
-          className="flex h-40 items-center justify-center text-body-sm text-ink-subtle"
+          className="flex h-40 items-center justify-center text-body-sm text-secondary"
         >
           Loading charts…
         </div>
       ) : q.isError || !q.data ? (
-        <div className="flex h-40 flex-col items-center justify-center gap-3 text-body-sm text-ink-subtle">
+        <div className="flex h-40 flex-col items-center justify-center gap-3 text-body-sm text-secondary">
           <p>Couldn't load charts.</p>
           <Button size="sm" variant="secondary" label="Retry" onClick={() => q.refetch()} />
         </div>

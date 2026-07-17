@@ -21,5 +21,5 @@ export function CardDescription({
   children?: ReactNode;
   className?: string;
 }) {
-  return <div className={cn('text-body-sm text-ink-subtle', className)}>{children}</div>;
+  return <div className={cn('text-body-sm text-secondary', className)}>{children}</div>;
 }

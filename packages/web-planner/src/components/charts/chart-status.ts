@@ -14,8 +14,8 @@ export const STATUS_LABEL: Record<StatusKey, string> = {
 // 3-status model matching the reference mock: neutral grey, Seta brand blue,
 // success green. Late is surfaced as a KPI, not a chart segment.
 export const STATUS_COLOR: Record<StatusKey, string> = {
-  not_started: 'var(--color-ink-subtle)',
-  in_progress: 'var(--color-primary)',
+  not_started: 'var(--color-text-secondary)',
+  in_progress: 'var(--color-accent)',
   completed: 'var(--color-success)',
 };
 

@@ -33,7 +33,7 @@ function MenuDivider() {
         height: 1,
         margin: '4px 6px',
         border: 'none',
-        backgroundColor: 'var(--color-hairline)',
+        backgroundColor: 'var(--color-border)',
       }}
     />
   );
@@ -63,7 +63,7 @@ export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelec
         isDisabled: isLoading || models.length === 0,
         children: (
           <>
-            <CurrentIcon className="size-3 text-ink-subtle" aria-hidden />
+            <CurrentIcon className="size-3 text-secondary" aria-hidden />
             <span className="truncate">{current?.label ?? 'Model'}</span>
           </>
         ),
@@ -73,7 +73,7 @@ export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelec
         const header = (
           <div
             key={`hdr-${group.tier}`}
-            className="uppercase text-caption text-ink-subtle"
+            className="uppercase text-caption text-secondary"
             style={{ padding: '4px 8px' }}
           >
             {TIER_LABEL[group.tier]}
@@ -84,15 +84,13 @@ export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelec
           return (
             <DropdownMenuItem
               key={m.key}
-              icon={<Icon className="size-3.5 text-ink-subtle" aria-hidden />}
+              icon={<Icon className="size-3.5 text-secondary" aria-hidden />}
               label={m.label}
               description={
                 m.supportsReasoning && m.tier !== 'auto' ? 'Shows its thinking' : undefined
               }
               endContent={
-                m.key === value ? (
-                  <Check className="size-3.5 text-primary" aria-hidden />
-                ) : undefined
+                m.key === value ? <Check className="size-3.5 text-accent" aria-hidden /> : undefined
               }
               onClick={() => onChange(m.key)}
             />

@@ -37,12 +37,12 @@ const styles = stylex.create({
   // a near-background colour in either theme — no media query, no per-theme opacity.
   edges: {
     fill: 'none',
-    stroke: 'color-mix(in oklch, var(--color-primary-ink) 18%, var(--color-canvas))',
+    stroke: 'color-mix(in oklch, var(--color-text-accent) 18%, var(--color-background-body))',
     strokeWidth: 1,
   },
   nodes: {
     stroke: 'none',
-    fill: 'color-mix(in oklch, var(--color-primary-ink) 40%, var(--color-canvas))',
+    fill: 'color-mix(in oklch, var(--color-text-accent) 40%, var(--color-background-body))',
   },
   content: { position: 'relative', zIndex: 1 },
 });

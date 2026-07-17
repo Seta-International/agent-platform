@@ -55,7 +55,7 @@ export function ProfileAccountSection({
                   <Input label="Email" value={profile.email} isDisabled />
                 </div>
               )}
-              {passwordHint && <p className="text-sm text-ink-muted">{passwordHint}</p>}
+              {passwordHint && <p className="text-sm text-secondary">{passwordHint}</p>}
               <div className="flex justify-end pt-1">
                 <Button
                   onClick={save}

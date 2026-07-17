@@ -263,7 +263,7 @@ export function PlanPage({
       {hasActiveFilters && totalVisible === 0 && (
         <div
           role="status"
-          className="flex items-center gap-3 px-6 py-3 text-body-sm text-ink-subtle"
+          className="flex items-center gap-3 px-6 py-3 text-body-sm text-secondary"
         >
           <p>No tasks match what you&apos;re filtering for.</p>
           <Button

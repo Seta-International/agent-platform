@@ -51,7 +51,7 @@ export function Paginator({
   return (
     <div
       className={cn(
-        'flex h-11 items-center justify-between border-t border-hairline bg-canvas px-4 text-caption text-ink-muted',
+        'flex h-11 items-center justify-between border-t border-border bg-body px-4 text-caption text-secondary',
         className,
       )}
     >
@@ -67,7 +67,7 @@ export function Paginator({
       </span>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="text-ink-subtle">Rows per page</span>
+          <span className="text-secondary">Rows per page</span>
           <DropdownMenu
             placement="below"
             menuWidth={80}
@@ -86,7 +86,10 @@ export function Paginator({
                 onClick={() => onPageSizeChange(s)}
                 style={
                   s === pageSize
-                    ? { backgroundColor: 'var(--color-surface-2)', color: 'var(--color-ink)' }
+                    ? {
+                        backgroundColor: 'var(--color-background-surface)',
+                        color: 'var(--color-text-primary)',
+                      }
                     : undefined
                 }
               />
@@ -109,7 +112,7 @@ export function Paginator({
               <span
                 key={`ellipsis-${pages[i - 1] ?? 'start'}-${pages[i + 1] ?? 'end'}`}
                 aria-hidden
-                className="px-1 text-ink-subtle"
+                className="px-1 text-secondary"
               >
                 …
               </span>
@@ -122,8 +125,8 @@ export function Paginator({
                 aria-current={p === safePageIndex ? 'page' : undefined}
                 onClick={() => onPageChange(p)}
                 className={cn(
-                  'h-7 min-w-7 px-2 text-ink-muted',
-                  p === safePageIndex && 'bg-surface-2 text-ink',
+                  'h-7 min-w-7 px-2 text-secondary',
+                  p === safePageIndex && 'bg-surface text-primary',
                 )}
               >
                 {p + 1}

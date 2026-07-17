@@ -342,7 +342,7 @@ function AgentRuntimeHost({ children }: { children: React.ReactNode }) {
   // alive for the lifetime of that (threadId × approvalRevision) pair.
   if (!historyReady) {
     return (
-      <div className="flex h-full min-h-0 flex-1 items-center justify-center text-caption text-ink-subtle">
+      <div className="flex h-full min-h-0 flex-1 items-center justify-center text-caption text-secondary">
         Loading chat…
       </div>
     );

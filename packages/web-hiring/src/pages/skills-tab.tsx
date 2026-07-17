@@ -47,12 +47,12 @@ export function SkillsTab({
     return (
       <div className="flex flex-wrap gap-2">
         {detail.skills.length === 0 ? (
-          <span className="text-ink-muted">No skills set.</span>
+          <span className="text-secondary">No skills set.</span>
         ) : (
           detail.skills.map((s) => (
             <span
               key={s.skill_name}
-              className="rounded-full bg-surface-2 px-3 py-1 text-caption text-ink"
+              className="rounded-full bg-surface px-3 py-1 text-caption text-primary"
             >
               {s.skill_name}
               {s.min_level ? ` · ${s.min_level}` : ''}

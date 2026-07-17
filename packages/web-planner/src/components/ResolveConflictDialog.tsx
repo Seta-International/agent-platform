@@ -65,7 +65,7 @@ export function ResolveConflictDialog({
           <LayoutContent>
             <div className="space-y-5">
               {conflictFields.length === 0 ? (
-                <p className="text-sm text-ink-subtle">
+                <p className="text-sm text-secondary">
                   Details aren&apos;t ready yet. Refresh the sync and try again.
                 </p>
               ) : (

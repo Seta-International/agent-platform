@@ -35,7 +35,7 @@ export interface TopBarProps {
 }
 
 const ICON_BTN =
-  'inline-flex size-8 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus';
+  'inline-flex size-8 items-center justify-center rounded-md text-secondary transition-colors hover:bg-surface hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg';
 
 export function TopBar({
   activeApp,
@@ -108,17 +108,17 @@ export function TopBar({
               aria-label={agentOpen ? 'Hide agent panel' : 'Show agent panel'}
               title="Agent"
               className={cn(
-                'relative inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
+                'relative inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
                 agentOpen
-                  ? 'border-primary-border bg-primary-tint text-ink'
-                  : 'border-hairline text-ink-muted hover:bg-surface-2 hover:text-ink',
+                  ? 'border-accent-bg bg-accent-muted text-primary'
+                  : 'border-border text-secondary hover:bg-surface hover:text-primary',
               )}
             >
               <Sparkles className="size-3.5 text-violet-500" aria-hidden />
               <span className="hidden sm:inline">Agent</span>
               {agentAlert && (
                 <span
-                  className="absolute right-1 top-1 inline-block size-1.5 rounded-full bg-semantic-warning ring-2 ring-canvas"
+                  className="absolute right-1 top-1 inline-block size-1.5 rounded-full bg-warning ring-2 ring-body"
                   aria-hidden
                 />
               )}
@@ -139,15 +139,15 @@ function AppCrumb({ app, Link }: { app: AppManifest; Link: ShellLinkComponent })
   const Icon = app.icon;
   return (
     <span className="flex min-w-0 items-center gap-0.5">
-      <ChevronRight className="size-3.5 flex-none text-ink-subtle" aria-hidden />
+      <ChevronRight className="size-3.5 flex-none text-secondary" aria-hidden />
       <Link
         href={app.routeNamespace}
         title={`${app.label} home`}
         aria-current="page"
-        className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+        className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg"
       >
-        <Icon className="size-3.5 flex-none text-primary" aria-hidden />
-        <span className="truncate text-body-sm font-medium text-ink">{app.label}</span>
+        <Icon className="size-3.5 flex-none text-accent" aria-hidden />
+        <span className="truncate text-body-sm font-medium text-primary">{app.label}</span>
       </Link>
     </span>
   );

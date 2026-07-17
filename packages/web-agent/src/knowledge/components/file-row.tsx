@@ -35,17 +35,17 @@ export function FileRow({ file }: FileRowProps) {
   return (
     <li
       className={cn(
-        'flex items-center gap-3 rounded-md border border-hairline bg-surface-1 px-4 py-3',
+        'flex items-center gap-3 rounded-md border border-border bg-card px-4 py-3',
         deleteMutation.isPending && 'opacity-50',
       )}
     >
-      <FileText className="size-5 shrink-0 text-ink-tertiary" aria-hidden />
+      <FileText className="size-5 shrink-0 text-disabled" aria-hidden />
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-body-sm font-medium text-ink">{file.filename}</p>
-        <p className="text-eyebrow text-ink-subtle">{formatBytes(file.size_bytes)}</p>
+        <p className="truncate text-body-sm font-medium text-primary">{file.filename}</p>
+        <p className="text-eyebrow text-secondary">{formatBytes(file.size_bytes)}</p>
         {file.status === 'failed' && file.error_reason && (
-          <p className="mt-0.5 text-eyebrow text-destructive">{file.error_reason}</p>
+          <p className="mt-0.5 text-eyebrow text-error">{file.error_reason}</p>
         )}
       </div>
 
@@ -59,7 +59,7 @@ export function FileRow({ file }: FileRowProps) {
         label={`Delete ${file.filename}`}
         isDisabled={deleteMutation.isPending}
         onClick={() => deleteMutation.mutate(file.file_id)}
-        className="shrink-0 text-ink-subtle hover:text-destructive"
+        className="shrink-0 text-secondary hover:text-error"
       />
     </li>
   );

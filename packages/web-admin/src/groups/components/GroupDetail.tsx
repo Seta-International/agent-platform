@@ -68,9 +68,9 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="text-ink-subtle">{icon}</span>
-      <h3 className="text-body font-semibold tracking-tight text-ink">{title}</h3>
-      {hint && <span className="text-caption text-ink-tertiary">{hint}</span>}
+      <span className="text-secondary">{icon}</span>
+      <h3 className="text-body font-semibold tracking-tight text-primary">{title}</h3>
+      {hint && <span className="text-caption text-disabled">{hint}</span>}
     </div>
   );
 }
@@ -210,7 +210,7 @@ function DeleteGroupButton({ group, onDeleted }: { group: Group; onDeleted: () =
       <Button
         variant="ghost"
         size="sm"
-        className="text-ink-tertiary hover:text-destructive"
+        className="text-disabled hover:text-error"
         label="Delete"
         icon={<Trash2 className="size-3.5" aria-hidden />}
         onClick={() => setIsOpen(true)}
@@ -268,13 +268,13 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 space-y-1">
             <div className="flex items-center gap-2">
-              <h2 className="truncate text-card-title font-semibold tracking-tight text-ink">
+              <h2 className="truncate text-card-title font-semibold tracking-tight text-primary">
                 {group.name}
               </h2>
               {group.is_base && <Badge variant="neutral" label="Base" />}
               {group.kind === 'default' && <Badge variant="neutral" label="Default" />}
             </div>
-            <p className="font-mono text-caption text-ink-tertiary">{group.slug}</p>
+            <p className="font-mono text-caption text-disabled">{group.slug}</p>
           </div>
           <div className="flex flex-none items-center gap-2">
             {editable && <RenameDialog group={group} />}
@@ -306,11 +306,11 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
             title="Roles"
             hint="Tick the roles everyone in this group inherits"
           />
-          <div className="overflow-hidden rounded-lg border border-hairline">
+          <div className="overflow-hidden rounded-lg border border-border">
             {ROLE_GROUPS.map(({ module, product, roles }) => (
-              <div key={module} className="border-b border-hairline last:border-b-0">
-                <div className="flex items-center gap-2 border-b border-hairline-tertiary bg-surface-1 px-3.5 py-2">
-                  <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+              <div key={module} className="border-b border-border last:border-b-0">
+                <div className="flex items-center gap-2 border-b border-border bg-card px-3.5 py-2">
+                  <span className="text-eyebrow uppercase tracking-[0.04em] text-secondary">
                     {moduleDisplay(module)}
                   </span>
                   {product && (
@@ -321,7 +321,7 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                     />
                   )}
                 </div>
-                <ul className="divide-y divide-hairline-tertiary">
+                <ul className="divide-y divide-border">
                   {roles.map((r) => {
                     const entry = roleEntries.find((e) => e.role_slug === r.slug);
                     const checked = entry != null;
@@ -331,8 +331,8 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                           className={cn(
                             'flex items-center gap-3 px-3.5 py-2.5 transition-colors',
                             checked
-                              ? 'bg-primary/[0.06] hover:bg-primary/10'
-                              : 'hover:bg-surface-2',
+                              ? 'bg-accent-bg/[0.06] hover:bg-accent-bg/10'
+                              : 'hover:bg-surface',
                           )}
                         >
                           <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -343,16 +343,16 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                               onChange={(v) => toggleRole(r.slug, v)}
                             />
                             <div className="min-w-0 flex-1">
-                              <span className="text-body-sm font-medium text-ink">
+                              <span className="text-body-sm font-medium text-primary">
                                 {roleTail(r.slug)}
                               </span>
                               {r.description && (
-                                <p className="mt-0.5 truncate text-caption text-ink-subtle">
+                                <p className="mt-0.5 truncate text-caption text-secondary">
                                   {r.description}
                                 </p>
                               )}
                             </div>
-                            <span className="flex-none font-mono text-caption text-ink-tertiary">
+                            <span className="flex-none font-mono text-caption text-disabled">
                               {r.slug}
                             </span>
                           </div>
@@ -392,7 +392,7 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
               ))}
             </div>
           ) : (
-            <p className="text-body-sm text-ink-tertiary">
+            <p className="text-body-sm text-disabled">
               No products yet — assign a product role above to grant app access.
             </p>
           )}

@@ -10,8 +10,8 @@ const BIO_MAX = 500;
 function FieldLabel({ label, hint }: { label: string; hint?: string }) {
   return (
     <div className="flex items-baseline justify-between mb-1.5">
-      <span className="text-xs font-medium text-ink-muted">{label}</span>
-      {hint && <span className="text-xs text-ink-subtle">{hint}</span>}
+      <span className="text-xs font-medium text-secondary">{label}</span>
+      {hint && <span className="text-xs text-secondary">{hint}</span>}
     </div>
   );
 }
@@ -125,7 +125,7 @@ export function ProfileIdentityCard({
                   value={whStart || undefined}
                   onChange={(v) => setWhStart(v ?? '')}
                 />
-                <span className="text-ink-muted text-sm">to</span>
+                <span className="text-secondary text-sm">to</span>
                 <TimeInput
                   label="Working hours end"
                   isLabelHidden
@@ -145,8 +145,8 @@ export function ProfileIdentityCard({
                 />
               </div>
             ) : (
-              <div className="flex items-center gap-2.5 rounded-md border border-hairline-strong px-3 py-1.5 text-sm">
-                <Calendar className="size-3.5 text-ink-muted flex-none" />
+              <div className="flex items-center gap-2.5 rounded-md border border-border-strong px-3 py-1.5 text-sm">
+                <Calendar className="size-3.5 text-secondary flex-none" />
                 <span>{wh ? `Mon–Fri · ${wh.start}–${wh.end}` : 'Not set'}</span>
                 <span className="flex-1" />
                 {canEditWorkingHours ? (
@@ -158,13 +158,11 @@ export function ProfileIdentityCard({
                     label="Edit"
                   />
                 ) : (
-                  <span className="text-xs text-ink-subtle">Set by your admin</span>
+                  <span className="text-xs text-secondary">Set by your admin</span>
                 )}
               </div>
             )}
-            {whInvalid && (
-              <p className="mt-1 text-xs text-destructive">Use 24-hour time, like 09:00</p>
-            )}
+            {whInvalid && <p className="mt-1 text-xs text-error">Use 24-hour time, like 09:00</p>}
           </div>
 
           <div className="flex justify-end pt-1">

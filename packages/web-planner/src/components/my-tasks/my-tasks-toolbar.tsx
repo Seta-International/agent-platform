@@ -79,7 +79,7 @@ export function MyTasksToolbar({
   return (
     <div
       data-testid="my-tasks-toolbar"
-      className="flex items-center gap-2 border-b border-hairline py-2"
+      className="flex items-center gap-2 border-b border-border py-2"
     >
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <FilterPill
@@ -114,7 +114,7 @@ export function MyTasksToolbar({
           onChange={(next) => onChange({ due: next ?? undefined })}
         />
 
-        <span aria-hidden="true" className="mx-1 h-5 border-l border-hairline" />
+        <span aria-hidden="true" className="mx-1 h-5 border-l border-border" />
 
         <SegmentedControl
           label="View"

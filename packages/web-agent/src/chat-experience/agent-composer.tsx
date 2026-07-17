@@ -166,7 +166,7 @@ export function AgentComposer() {
         // 28px) rather than a border on the transparent outer wrapper, so it
         // outlines the composer itself instead of a full-bleed strip.
         className={`mx-auto max-w-[45rem] ${
-          isDragging ? 'rounded-[28px] ring-2 ring-primary/40' : ''
+          isDragging ? 'rounded-[28px] ring-2 ring-accent-bg/40' : ''
         }`}
       >
         <ChatComposer
@@ -239,7 +239,7 @@ export function AgentComposer() {
                     // aria-description), so the status the old composite showed
                     // has to ride in `endContent` to stay visible.
                     endContent={
-                      <span style={{ color: 'var(--color-ink-subtle)' }}>
+                      <span style={{ color: 'var(--color-text-secondary)' }}>
                         {a.status === 'uploading'
                           ? `${Math.round((a.progress ?? 0) * 100)}%`
                           : STATUS_LABEL[a.status]}

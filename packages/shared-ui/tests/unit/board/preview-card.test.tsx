@@ -17,7 +17,7 @@ const baseTask: PreviewCardTask = {
     { id: 'r1', type: 'word', alias: 'Architecture review notes', host: 'docs.acme.com' },
   ],
   priority: 'urgent',
-  labels: [{ name: 'api', color: 'var(--color-primary)' }],
+  labels: [{ name: 'api', color: 'var(--color-accent)' }],
   assignees: [
     { user_id: 'u1', display_name: 'Jane Doe' },
     { user_id: 'u2', display_name: 'Mark Lee' },

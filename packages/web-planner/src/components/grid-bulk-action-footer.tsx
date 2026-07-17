@@ -49,7 +49,7 @@ export function GridBulkActionFooter({
   return (
     <footer
       role="toolbar"
-      className="sticky bottom-0 flex items-center gap-3 border-hairline border-t bg-surface-1 px-4 py-3"
+      className="sticky bottom-0 flex items-center gap-3 border-border border-t bg-card px-4 py-3"
       aria-label={`${count} tasks selected`}
     >
       <span>
@@ -99,7 +99,7 @@ function BucketMenu({
         <>
           <button
             type="button"
-            className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface-2"
+            className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface"
             onClick={() => {
               onPick(null);
               setOpen(false);
@@ -111,7 +111,7 @@ function BucketMenu({
             <button
               key={b.id}
               type="button"
-              className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface-2"
+              className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface"
               onClick={() => {
                 onPick(b.id);
                 setOpen(false);
@@ -175,8 +175,8 @@ function AssigneeMenu({
       }}
       renderItem={(item) => (
         <div className="flex flex-col items-start gap-0.5">
-          <span className="truncate text-body-sm leading-tight text-ink">{item.label}</span>
-          <span className="truncate text-caption leading-tight text-ink-subtle">
+          <span className="truncate text-body-sm leading-tight text-primary">{item.label}</span>
+          <span className="truncate text-caption leading-tight text-secondary">
             {item.auxiliaryData?.email}
           </span>
         </div>

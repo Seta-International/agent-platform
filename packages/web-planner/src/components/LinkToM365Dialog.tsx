@@ -103,18 +103,18 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange, onSelect }: Prop
                   }}
                 />
                 {search.isFetching && (
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-muted animate-pulse">
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-secondary animate-pulse">
                     Searching…
                   </span>
                 )}
               </div>
 
               {search.data && groups.length === 0 && (
-                <p className="text-sm text-ink-subtle px-1">No matching groups in Microsoft 365.</p>
+                <p className="text-sm text-secondary px-1">No matching groups in Microsoft 365.</p>
               )}
 
               {groups.length > 0 && (
-                <ul className="max-h-72 overflow-y-auto rounded-md border border-hairline divide-y divide-hairline">
+                <ul className="max-h-72 overflow-y-auto rounded-md border border-border divide-y divide-border">
                   {groups.map((g) => (
                     <li key={g.external_id}>
                       <button
@@ -122,20 +122,20 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange, onSelect }: Prop
                         disabled={g.already_linked}
                         onClick={() => setSelectedId(g.external_id)}
                         className={cn(
-                          'w-full px-3 py-2 text-left hover:bg-surface-1',
-                          selectedId === g.external_id && 'bg-primary/10',
+                          'w-full px-3 py-2 text-left hover:bg-card',
+                          selectedId === g.external_id && 'bg-accent-bg/10',
                           g.already_linked && 'cursor-not-allowed opacity-50 hover:bg-transparent',
                         )}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="font-medium text-sm">{g.display_name}</div>
                           {g.already_linked && (
-                            <span className="rounded bg-surface-2 px-1.5 py-0.5 text-xs text-ink-muted">
+                            <span className="rounded bg-surface px-1.5 py-0.5 text-xs text-secondary">
                               Already linked
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-ink-muted">{g.mail_nickname}</div>
+                        <div className="text-xs text-secondary">{g.mail_nickname}</div>
                       </button>
                     </li>
                   ))}

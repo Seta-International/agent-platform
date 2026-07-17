@@ -131,7 +131,7 @@ export function WorkflowRunPage({ runId }: WorkflowRunPageProps) {
         }
         content={
           <LayoutContent padding={0}>
-            <div className="p-8 text-sm text-ink-subtle">Loading run…</div>
+            <div className="p-8 text-sm text-secondary">Loading run…</div>
           </LayoutContent>
         }
       />
@@ -159,8 +159,8 @@ export function WorkflowRunPage({ runId }: WorkflowRunPageProps) {
           <LayoutContent padding={0}>
             <div className="grid h-full place-items-center p-8 text-sm">
               <div className="space-y-2 text-center">
-                <p className="text-ink">We couldn&apos;t find that run.</p>
-                <p className="text-xs text-ink-subtle">
+                <p className="text-primary">We couldn&apos;t find that run.</p>
+                <p className="text-xs text-secondary">
                   It may have been deleted, or you might not have access.
                 </p>
               </div>
@@ -212,7 +212,7 @@ export function WorkflowRunPage({ runId }: WorkflowRunPageProps) {
       content={
         <LayoutContent padding={0}>
           <div className="flex h-full flex-1 overflow-hidden">
-            <main className="relative flex-1 overflow-hidden bg-surface-2">
+            <main className="relative flex-1 overflow-hidden bg-surface">
               <WorkflowGraph
                 snapshot={snapshotQuery.data}
                 run={{

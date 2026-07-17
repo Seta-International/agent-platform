@@ -53,7 +53,7 @@ export function RichTextToolbar({ editor }: Props) {
   };
 
   return (
-    <div className="flex flex-wrap gap-0.5 border-b border-hairline bg-surface-1 px-1.5 py-1">
+    <div className="flex flex-wrap gap-0.5 border-b border-border bg-card px-1.5 py-1">
       {/* Heading dropdown — cycle Normal → H1 → H2 → Normal */}
       <Button
         type="button"

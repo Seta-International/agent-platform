@@ -7,8 +7,8 @@ type Story = StoryObj<typeof meta>;
 
 // Stand-ins for real KanbanCards — only the column's own layout is under test here.
 const placeholderCard = {
-  background: 'var(--color-canvas)',
-  border: '1px solid var(--color-hairline)',
+  background: 'var(--color-background-body)',
+  border: '1px solid var(--color-border)',
   borderRadius: 6,
   padding: '10px 12px',
   boxShadow: 'var(--shadow-sm)',

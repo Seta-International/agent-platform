@@ -46,7 +46,7 @@ export function DonutChart({
             innerRadius={62}
             outerRadius={92}
             paddingAngle={2}
-            stroke="var(--color-canvas)"
+            stroke="var(--color-background-body)"
             strokeWidth={2}
           >
             {visible.map((s) => (
@@ -66,8 +66,8 @@ export function DonutChart({
       </ResponsiveContainer>
       {centerValue !== undefined && (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-semibold tabular-nums text-ink">{centerValue}</span>
-          {centerLabel && <span className="text-xs text-ink-subtle">{centerLabel}</span>}
+          <span className="text-2xl font-semibold tabular-nums text-primary">{centerValue}</span>
+          {centerLabel && <span className="text-xs text-secondary">{centerLabel}</span>}
         </div>
       )}
     </div>
@@ -88,9 +88,9 @@ export function DonutChart({
                 className="size-2.5 shrink-0 rounded-[3px]"
                 style={{ background: s.color }}
               />
-              <span className="text-ink">{s.name}</span>
-              <span className="ml-auto font-medium tabular-nums text-ink">{s.value}</span>
-              <span className="w-9 text-right tabular-nums text-ink-subtle">{pct}%</span>
+              <span className="text-primary">{s.name}</span>
+              <span className="ml-auto font-medium tabular-nums text-primary">{s.value}</span>
+              <span className="w-9 text-right tabular-nums text-secondary">{pct}%</span>
             </>
           );
           return (

@@ -24,7 +24,7 @@ export function GroupsTable({ groups, onRestore }: Props) {
     <div className="w-full overflow-x-auto">
       {/* Header row */}
       <div
-        className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
+        className="sticky top-0 z-10 grid items-center gap-2 border-b border-border bg-body px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-secondary"
         style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 32px' }}
       >
         <div />
@@ -44,7 +44,7 @@ export function GroupsTable({ groups, onRestore }: Props) {
             key={group.id}
             to="/planner/groups/$groupId"
             params={{ groupId: group.id }}
-            className="grid items-center gap-2 border-b border-hairline-tertiary px-7 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
+            className="grid items-center gap-2 border-b border-border px-7 py-3 text-sm text-primary transition-colors hover:bg-card"
             style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 32px' }}
             aria-label={group.name}
           >
@@ -55,7 +55,7 @@ export function GroupsTable({ groups, onRestore }: Props) {
 
             {/* Name + description */}
             <div className="min-w-0 pr-4">
-              <p className="truncate font-medium text-ink">
+              <p className="truncate font-medium text-primary">
                 {group.name}
                 {group.deleted_at && (
                   <Badge variant="neutral" className="ml-1.5 align-middle" label="Archived" />
@@ -65,14 +65,14 @@ export function GroupsTable({ groups, onRestore }: Props) {
                     role="img"
                     aria-label="Synced from M365"
                     title="Synced from IdP"
-                    className="ml-1.5 inline-flex items-center align-middle text-info"
+                    className="ml-1.5 inline-flex items-center align-middle text-blue-vivid"
                   >
                     <RefreshCw className="size-3" aria-hidden="true" />
                   </span>
                 )}
               </p>
               {group.description && (
-                <p className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-ink-muted">
+                <p className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-secondary">
                   {group.description}
                 </p>
               )}
@@ -81,7 +81,7 @@ export function GroupsTable({ groups, onRestore }: Props) {
             {/* Owner */}
             <div className="flex min-w-0 items-center gap-2 pr-4">
               <Avatar name={group.owner_display_name ?? undefined} size={24} />
-              <span className="truncate text-xs text-ink-subtle">
+              <span className="truncate text-xs text-secondary">
                 {group.owner_display_name ?? '—'}
               </span>
             </div>
@@ -92,11 +92,11 @@ export function GroupsTable({ groups, onRestore }: Props) {
             {/* Members */}
             <div className="flex items-center gap-2">
               <AvatarStack assignees={group.members_preview} max={3} />
-              <span className="text-xs text-ink-muted">{group.member_count}</span>
+              <span className="text-xs text-secondary">{group.member_count}</span>
             </div>
 
             {/* Visibility */}
-            <div className="flex items-center gap-1.5 text-xs text-ink-subtle">
+            <div className="flex items-center gap-1.5 text-xs text-secondary">
               {group.visibility === 'private' ? (
                 <>
                   <Shield className="size-3.5 shrink-0" aria-hidden="true" />
@@ -111,7 +111,7 @@ export function GroupsTable({ groups, onRestore }: Props) {
             </div>
 
             {/* Activity */}
-            <div className="text-right text-xs text-ink-muted">
+            <div className="text-right text-xs text-secondary">
               {formatRelative(group.updated_at)}
             </div>
 
@@ -135,7 +135,7 @@ export function GroupsTable({ groups, onRestore }: Props) {
                   />
                 </DisabledActionTooltip>
               ) : (
-                <ChevronRight className="size-3 text-ink-tertiary" aria-hidden="true" />
+                <ChevronRight className="size-3 text-disabled" aria-hidden="true" />
               )}
             </div>
           </Link>

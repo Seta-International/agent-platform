@@ -38,7 +38,7 @@ export function WorkflowClock({ startedAt, finishedAt, status, className }: Work
 
   return (
     <span
-      className={`font-mono text-xs tabular-nums text-[var(--color-ink-muted)] ${className ?? ''}`}
+      className={`font-mono text-xs tabular-nums text-[var(--color-text-secondary)] ${className ?? ''}`}
     >
       {formatMs(elapsed)}
     </span>

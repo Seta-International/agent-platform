@@ -10,7 +10,7 @@ export function ChartLegend({ items }: { items: LegendItem[] }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
       {items.map((it) => (
-        <span key={it.key} className="inline-flex items-center gap-1.5 text-xs text-ink-subtle">
+        <span key={it.key} className="inline-flex items-center gap-1.5 text-xs text-secondary">
           <span
             aria-hidden="true"
             className="size-2.5 shrink-0 rounded-[3px]"

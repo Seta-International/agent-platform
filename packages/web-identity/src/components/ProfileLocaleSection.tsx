@@ -97,7 +97,7 @@ export function ProfileLocaleSection({
                       value={whStart || undefined}
                       onChange={(v) => setWhStart(v ?? '')}
                     />
-                    <span className="text-ink-muted text-sm">to</span>
+                    <span className="text-secondary text-sm">to</span>
                     <TimeInput
                       label="Working hours end"
                       isLabelHidden
@@ -121,10 +121,10 @@ export function ProfileLocaleSection({
               ) : (
                 wh && (
                   <div className="space-y-2">
-                    <span className="text-body-sm font-medium text-ink">
+                    <span className="text-body-sm font-medium text-primary">
                       Working hours (Mon–Fri)
                     </span>
-                    <p className="text-sm text-ink-muted">
+                    <p className="text-sm text-secondary">
                       {wh.start}–{wh.end} · contact your admin to change
                     </p>
                   </div>

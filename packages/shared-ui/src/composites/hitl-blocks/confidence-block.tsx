@@ -9,9 +9,9 @@ function confidenceTier(score: number): Tier {
 }
 
 const TIER_CLASS: Record<Tier, string> = {
-  High: 'bg-success-tint text-success',
-  Medium: 'bg-warning-tint text-warning',
-  Uncertain: 'bg-surface-2 text-ink-muted',
+  High: 'bg-success-muted text-success',
+  Medium: 'bg-warning-muted text-warning',
+  Uncertain: 'bg-surface text-secondary',
 };
 
 export function ConfidenceBlock({ block }: BlockProps) {

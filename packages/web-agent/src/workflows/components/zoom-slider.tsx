@@ -12,7 +12,7 @@ export function ZoomSlider() {
   }, [getZoom]);
 
   return (
-    <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-md border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-1 py-0.5 shadow-sm">
+    <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-background-body)] px-1 py-0.5 shadow-sm">
       <IconButton
         type="button"
         variant="ghost"
@@ -21,7 +21,7 @@ export function ZoomSlider() {
         icon={<span aria-hidden>−</span>}
         onClick={() => zoomOut()}
       />
-      <span className="w-10 text-center font-mono text-xs tabular-nums text-[var(--color-ink-muted)]">
+      <span className="w-10 text-center font-mono text-xs tabular-nums text-[var(--color-text-secondary)]">
         {Math.round(zoom * 100)}%
       </span>
       <IconButton

@@ -165,14 +165,14 @@ export function StaffingPlanSection({
         header: 'Role',
         width: proportional(2),
         sortable: true,
-        renderCell: (r) => <span className="text-ink">{r.role}</span>,
+        renderCell: (r) => <span className="text-primary">{r.role}</span>,
       },
       {
         key: 'effort_mm',
         header: 'Effort (MM)',
         width: proportional(1),
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{r.effort_mm ?? '—'}</span>,
+        renderCell: (r) => <span className="text-secondary">{r.effort_mm ?? '—'}</span>,
       },
       {
         key: 'actions',
@@ -195,7 +195,7 @@ export function StaffingPlanSection({
 
   return (
     <section className="space-y-3">
-      <h3 className="text-ink font-medium">Staffing plan</h3>
+      <h3 className="text-primary font-medium">Staffing plan</h3>
       <div className="flex items-center justify-between gap-2">
         <Input
           label="Search staffing plan"
@@ -214,7 +214,7 @@ export function StaffingPlanSection({
           label="Toggle columns"
           content={
             <div className="flex min-w-[180px] flex-col gap-1 p-2">
-              <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+              <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
                 Toggle columns
               </div>
               {COLUMN_OPTIONS.map((col) => (

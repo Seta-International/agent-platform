@@ -46,9 +46,7 @@ export function ReplayFromStepButton({
         onClick={() => void handleClick()}
         label={pending ? 'Replaying…' : 'Replay from here'}
       />
-      {failed ? (
-        <span className="text-[10px] text-[var(--color-destructive)]">Replay failed</span>
-      ) : null}
+      {failed ? <span className="text-[10px] text-[var(--color-error)]">Replay failed</span> : null}
     </div>
   );
 }

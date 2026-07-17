@@ -238,7 +238,7 @@ export function PlanBoardShell({
           resolvedPlan.external_source === 'm365' ? () => setConflictDialogOpen(true) : undefined
         }
       />
-      <div className="flex items-center justify-between gap-3 border-hairline border-b px-6 py-2">
+      <div className="flex items-center justify-between gap-3 border-border border-b px-6 py-2">
         <div className="flex items-center gap-2">
           <PlanFilterBar
             filters={filters}
@@ -259,7 +259,7 @@ export function PlanBoardShell({
       {resolvedPlan.sync_status === 'error' && resolvedPlan.last_error && (
         <div
           role="alert"
-          className="mx-7 mt-3 rounded border border-semantic-danger bg-semantic-danger-tint p-3 text-body-sm"
+          className="mx-7 mt-3 rounded border border-error bg-error-muted p-3 text-body-sm"
           data-testid="plan-sync-error-banner"
         >
           <div className="font-medium">
@@ -268,7 +268,7 @@ export function PlanBoardShell({
           </div>
           <button
             type="button"
-            className="mt-2 text-primary underline"
+            className="mt-2 text-accent underline"
             onClick={() => refreshSync.mutate()}
             disabled={refreshSync.isPending}
           >
@@ -278,13 +278,13 @@ export function PlanBoardShell({
       )}
       {resolvedPlan.sync_status === 'conflict' && (
         <div
-          className="mx-7 mt-3 rounded border border-semantic-warning bg-semantic-warning-tint p-3 text-body-sm"
+          className="mx-7 mt-3 rounded border border-warning bg-warning-muted p-3 text-body-sm"
           data-testid="plan-sync-conflict-banner"
         >
           <div className="font-medium">A few changes clashed — pick which version to keep</div>
           <button
             type="button"
-            className="mt-2 text-primary underline"
+            className="mt-2 text-accent underline"
             onClick={() => setConflictDialogOpen(true)}
           >
             Review changes

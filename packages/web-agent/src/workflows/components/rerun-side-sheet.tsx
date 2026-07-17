@@ -94,17 +94,19 @@ export function RerunSideSheet({
         content={
           <LayoutContent>
             {isReplay && replayContext ? (
-              <div className="mt-3 rounded border border-[var(--color-hairline)] bg-[var(--color-surface-1)] px-3 py-2 text-xs text-[var(--color-ink-muted)]">
+              <div className="mt-3 rounded border border-[var(--color-border)] bg-[var(--color-background-card)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
                 Replaying from step <span className="font-mono">{replayContext.stepId}</span>.
                 Earlier steps' outputs are reused; this step receives the input below.
               </div>
             ) : null}
             <div className="mt-4">
               {schemaQ.isLoading ? (
-                <div className="text-sm text-[var(--color-ink-subtle)]">Loading input schema…</div>
+                <div className="text-sm text-[var(--color-text-secondary)]">
+                  Loading input schema…
+                </div>
               ) : null}
               {schemaQ.isError ? (
-                <div className="text-sm text-[var(--color-danger)]">
+                <div className="text-sm text-[var(--color-error)]">
                   Failed to load input schema for this workflow.
                 </div>
               ) : null}
@@ -119,7 +121,7 @@ export function RerunSideSheet({
                 />
               ) : null}
               {submit.isError ? (
-                <p className="mt-3 text-xs text-[var(--color-danger)]">
+                <p className="mt-3 text-xs text-[var(--color-error)]">
                   {isReplay ? 'Replay failed.' : 'Re-run failed.'} Adjust inputs and try again.
                 </p>
               ) : null}

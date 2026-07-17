@@ -140,7 +140,7 @@ function NewTemplateDialog() {
                   />
                 </div>
                 <div className="flex items-center justify-between pt-2">
-                  <div className="text-caption font-semibold uppercase text-ink-muted">
+                  <div className="text-caption font-semibold uppercase text-secondary">
                     Sections
                   </div>
                   <SegmentedControl
@@ -420,17 +420,17 @@ export function SettingsPage() {
                     {templates.error ? (
                       <Banner status="error" title={(templates.error as Error).message} />
                     ) : templates.isLoading ? (
-                      <div className="text-ink-muted">Loading…</div>
+                      <div className="text-secondary">Loading…</div>
                     ) : (templates.data?.length ?? 0) === 0 ? (
-                      <div className="text-ink-muted">No templates yet.</div>
+                      <div className="text-secondary">No templates yet.</div>
                     ) : (
-                      <div className="divide-y divide-hairline">
+                      <div className="divide-y divide-border">
                         {templates.data?.map((t) => (
                           <div
                             key={t.template.id}
                             className="flex items-center justify-between py-2"
                           >
-                            <span className="text-ink">
+                            <span className="text-primary">
                               {t.template.name} <Badge variant="neutral" label={t.template.kind} />
                             </span>
                             {canManage && (
@@ -463,14 +463,14 @@ export function SettingsPage() {
                     {reasons.error ? (
                       <Banner status="error" title={(reasons.error as Error).message} />
                     ) : reasons.isLoading ? (
-                      <div className="text-ink-muted">Loading…</div>
+                      <div className="text-secondary">Loading…</div>
                     ) : (reasons.data?.length ?? 0) === 0 ? (
-                      <div className="text-ink-muted">No close reasons yet.</div>
+                      <div className="text-secondary">No close reasons yet.</div>
                     ) : (
-                      <div className="divide-y divide-hairline">
+                      <div className="divide-y divide-border">
                         {reasons.data?.map((r) => (
                           <div key={r.id} className="flex items-center justify-between py-2">
-                            <span className="text-ink">
+                            <span className="text-primary">
                               {r.label} {!r.active && <Badge variant="neutral" label="archived" />}
                             </span>
                             {canManage && r.active && (
@@ -503,14 +503,14 @@ export function SettingsPage() {
                     {rejections.error ? (
                       <Banner status="error" title={(rejections.error as Error).message} />
                     ) : rejections.isLoading ? (
-                      <div className="text-ink-muted">Loading…</div>
+                      <div className="text-secondary">Loading…</div>
                     ) : (rejections.data?.length ?? 0) === 0 ? (
-                      <div className="text-ink-muted">No rejection reasons yet.</div>
+                      <div className="text-secondary">No rejection reasons yet.</div>
                     ) : (
-                      <div className="divide-y divide-hairline">
+                      <div className="divide-y divide-border">
                         {rejections.data?.map((r) => (
                           <div key={r.id} className="flex items-center justify-between py-2">
-                            <span className="text-ink">
+                            <span className="text-primary">
                               {r.label} <Badge variant="neutral" label={r.category} />
                               {!r.active && <Badge variant="neutral" label="archived" />}
                             </span>

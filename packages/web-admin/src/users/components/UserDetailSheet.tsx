@@ -127,7 +127,7 @@ function RolesSection({ userId }: { userId: string }) {
           {roles.map((r) => (
             <span
               key={r}
-              className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-caption text-ink-subtle"
+              className="inline-flex items-center gap-1 rounded-md bg-surface px-1.5 py-0.5 font-mono text-caption text-secondary"
             >
               <ShieldCheck className="size-3" aria-hidden />
               {r}
@@ -135,7 +135,7 @@ function RolesSection({ userId }: { userId: string }) {
           ))}
         </div>
       ) : (
-        <span className="text-ink-tertiary">No roles</span>
+        <span className="text-disabled">No roles</span>
       )}
     </Field>
   );
@@ -204,20 +204,22 @@ function ProductsSection({ userId }: { userId: string }) {
             key={p.id}
             className={cn(
               'flex items-center justify-between gap-3 rounded-lg border px-3 py-2',
-              isOverride ? 'border-primary/40 bg-primary/[0.04]' : 'border-hairline bg-surface-1',
+              isOverride ? 'border-accent-bg/40 bg-accent-bg/[0.04]' : 'border-border bg-card',
             )}
           >
             <div className="flex min-w-0 items-center gap-2.5">
               <span
                 className={cn(
                   'size-1.5 flex-none rounded-full',
-                  granted ? 'bg-success' : 'bg-ink-tertiary/50',
+                  granted ? 'bg-success' : 'bg-disabled/50',
                 )}
                 aria-hidden
               />
               <div className="min-w-0">
-                <span className="block truncate text-body-sm font-medium text-ink">{p.label}</span>
-                <span className="block truncate text-caption text-ink-subtle">{source}</span>
+                <span className="block truncate text-body-sm font-medium text-primary">
+                  {p.label}
+                </span>
+                <span className="block truncate text-caption text-secondary">{source}</span>
               </div>
             </div>
             <Selector

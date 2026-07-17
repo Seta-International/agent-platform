@@ -28,16 +28,14 @@ const PROVIDERS: ReadonlyArray<PreviewProvider> = [
 
 export function ComingSoonProvidersCard() {
   return (
-    <section className="overflow-hidden rounded-lg border border-hairline bg-canvas">
-      <header className="flex items-baseline justify-between gap-2 border-b border-hairline-tertiary px-5 py-4">
-        <h2 className="m-0 text-section-title font-semibold tracking-tight text-ink">
+    <section className="overflow-hidden rounded-lg border border-border bg-body">
+      <header className="flex items-baseline justify-between gap-2 border-b border-border px-5 py-4">
+        <h2 className="m-0 text-section-title font-semibold tracking-tight text-primary">
           More providers
         </h2>
-        <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
-          Coming soon
-        </span>
+        <span className="text-eyebrow uppercase tracking-[0.04em] text-secondary">Coming soon</span>
       </header>
-      <ul className="m-0 list-none divide-y divide-hairline-tertiary p-0">
+      <ul className="m-0 list-none divide-y divide-border p-0">
         {PROVIDERS.map((p) => (
           <li key={p.id} className="flex items-center gap-3 px-5 py-3">
             <span
@@ -48,18 +46,18 @@ export function ComingSoonProvidersCard() {
               {p.badge.initials}
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-body-sm font-medium text-ink">{p.name}</div>
-              <div className="text-caption text-ink-subtle">{p.description}</div>
+              <div className="text-body-sm font-medium text-primary">{p.name}</div>
+              <div className="text-caption text-secondary">{p.description}</div>
             </div>
-            <span className="inline-flex h-5 items-center rounded-full border border-hairline bg-surface-1 px-2 text-caption font-medium text-ink-muted">
+            <span className="inline-flex h-5 items-center rounded-full border border-border bg-card px-2 text-caption font-medium text-secondary">
               Soon
             </span>
           </li>
         ))}
       </ul>
-      <footer className="border-t border-hairline-tertiary bg-surface-1 px-5 py-3">
-        <p className="m-0 text-caption text-ink-subtle">
-          Need a different provider? <span className="text-primary">Talk to support.</span>
+      <footer className="border-t border-border bg-card px-5 py-3">
+        <p className="m-0 text-caption text-secondary">
+          Need a different provider? <span className="text-accent">Talk to support.</span>
         </p>
       </footer>
     </section>

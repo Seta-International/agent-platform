@@ -47,11 +47,11 @@ function compareValues(a: SortValue, b: SortValue): number {
 }
 
 function formatDueShort(v: string | null): ReactNode {
-  if (!v) return <span className="text-ink-tertiary">—</span>;
+  if (!v) return <span className="text-disabled">—</span>;
   const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return <span className="text-ink-tertiary">—</span>;
+  if (Number.isNaN(d.getTime())) return <span className="text-disabled">—</span>;
   return (
-    <span className="text-ink-muted text-[12.5px]">
+    <span className="text-secondary text-[12.5px]">
       {d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
     </span>
   );
@@ -86,7 +86,7 @@ export function MyTasksGrid({ data }: Props) {
           <Link
             to="/planner/plans/$planId/tasks/$taskId"
             params={{ planId: r.plan_id, taskId: r.id }}
-            className="text-ink hover:text-primary no-underline font-medium truncate block"
+            className="text-primary hover:text-accent no-underline font-medium truncate block"
           >
             {r.title}
           </Link>
@@ -97,8 +97,8 @@ export function MyTasksGrid({ data }: Props) {
         header: 'Plan',
         sortValue: (r) => r.plan.name,
         renderCell: (r) => (
-          <span className="inline-flex items-center gap-1.5 text-ink-muted text-[12.5px] truncate">
-            <Layout size={11} className="text-primary shrink-0" />
+          <span className="inline-flex items-center gap-1.5 text-secondary text-[12.5px] truncate">
+            <Layout size={11} className="text-accent shrink-0" />
             <span className="truncate">{r.plan.name}</span>
           </span>
         ),
@@ -169,8 +169,8 @@ export function MyTasksGrid({ data }: Props) {
 
   return (
     <table data-testid="my-tasks-grid" className="w-full text-[13px] border-collapse">
-      <thead className="sticky top-0 z-10 bg-canvas">
-        <tr className="border-b border-hairline text-[10.5px] uppercase tracking-[0.06em] text-ink-subtle">
+      <thead className="sticky top-0 z-10 bg-body">
+        <tr className="border-b border-border text-[10.5px] uppercase tracking-[0.06em] text-secondary">
           <th className="w-10 px-7 py-2.5 text-left">
             <Checkbox
               label="Select all"
@@ -188,7 +188,7 @@ export function MyTasksGrid({ data }: Props) {
                 onClick={canSort ? () => toggleSort(c) : undefined}
                 className={
                   'text-left font-medium px-3 py-2.5 select-none ' +
-                  (canSort ? 'cursor-pointer hover:text-ink' : '')
+                  (canSort ? 'cursor-pointer hover:text-primary' : '')
                 }
               >
                 <span className="inline-flex items-center gap-1">
@@ -216,8 +216,8 @@ export function MyTasksGrid({ data }: Props) {
               data-task-id={r.id}
               data-selected={isSelected ? 'true' : undefined}
               className={
-                'border-b border-hairline-tertiary hover:bg-surface-1 transition-colors ' +
-                (isSelected ? 'bg-primary-tint/30' : '')
+                'border-b border-border hover:bg-card transition-colors ' +
+                (isSelected ? 'bg-accent-muted/30' : '')
               }
             >
               <td className="px-7 py-2.5 align-middle">

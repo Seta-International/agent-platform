@@ -78,9 +78,9 @@ function RoleSelect({
 }
 
 const LEVEL_TONE: Record<AccessLevel, string> = {
-  owner: 'var(--color-primary)',
+  owner: 'var(--color-accent)',
   edit: 'var(--color-success)',
-  view: 'var(--color-ink-muted)',
+  view: 'var(--color-text-secondary)',
 };
 
 export function CharterStaffingEditor({
@@ -219,10 +219,10 @@ export function CharterStaffingEditor({
         content={
           <LayoutContent>
             <div className="space-y-4">
-              <div className="overflow-hidden rounded-md border border-hairline">
+              <div className="overflow-hidden rounded-md border border-border">
                 <table className="w-full text-body-sm">
                   <thead>
-                    <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-wide text-ink-muted">
+                    <tr className="bg-surface text-left text-[11px] uppercase tracking-wide text-secondary">
                       <th className="px-3 py-2 font-medium">Member</th>
                       <th className="px-3 py-2 font-medium">Role</th>
                       <th className="px-3 py-2 text-center font-medium">RA %</th>
@@ -235,8 +235,10 @@ export function CharterStaffingEditor({
                       const editing = editId === a.allocation_id;
                       const lvl = levelOf(a.worker_id);
                       return (
-                        <tr key={a.allocation_id} className="border-t border-hairline align-middle">
-                          <td className="px-3 py-2 font-medium text-ink">{nameOf(a.worker_id)}</td>
+                        <tr key={a.allocation_id} className="border-t border-border align-middle">
+                          <td className="px-3 py-2 font-medium text-primary">
+                            {nameOf(a.worker_id)}
+                          </td>
                           <td className="px-3 py-2">
                             {editing ? (
                               <div className="w-36">
@@ -320,9 +322,7 @@ export function CharterStaffingEditor({
                                       label="Remove member"
                                       isDisabled={busy}
                                       onClick={() => remove.mutate(a)}
-                                      icon={
-                                        <Trash2 className="size-4 text-[var(--color-danger)]" />
-                                      }
+                                      icon={<Trash2 className="size-4 text-[var(--color-error)]" />}
                                     />
                                   </>
                                 )}
@@ -334,7 +334,7 @@ export function CharterStaffingEditor({
                     })}
                     {rows.length === 0 && (
                       <tr>
-                        <td colSpan={cols} className="px-3 py-4 text-center text-ink-muted">
+                        <td colSpan={cols} className="px-3 py-4 text-center text-secondary">
                           No one staffed yet.
                         </td>
                       </tr>
@@ -344,7 +344,7 @@ export function CharterStaffingEditor({
               </div>
 
               {canManage && (
-                <div className="flex flex-wrap items-end gap-2 border-t border-hairline pt-4">
+                <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
                   <div className="min-w-[200px] flex-1 space-y-1">
                     <Typeahead
                       label="Add member"
