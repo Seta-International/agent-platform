@@ -362,7 +362,7 @@ export function ReassignWizardDialog({
               ) : (
                 <div className="space-y-4">
                   <div className="overflow-hidden rounded-md border border-border">
-                    <div className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] gap-2 bg-card px-2 py-2 text-caption text-secondary">
+                    <div className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] gap-2 bg-card px-2 py-2 text-sm text-secondary">
                       <div className="text-left font-medium">Account</div>
                       <div className="text-left font-medium">Project</div>
                       <div className="text-left font-medium">Allocation</div>
@@ -393,7 +393,7 @@ export function ReassignWizardDialog({
                       return (
                         <div
                           key={a.allocation_id}
-                          className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] items-center gap-2 border-t border-border px-2 py-2 text-body-sm"
+                          className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] items-center gap-2 border-t border-border px-2 py-2 text-base"
                         >
                           <div className="relative">
                             <Building2
@@ -538,7 +538,7 @@ export function ReassignWizardDialog({
                           <p
                             key={a.allocation_id}
                             role="alert"
-                            className="text-caption font-medium text-error"
+                            className="text-sm font-medium text-error"
                           >
                             {a.project_name}: {existingErrors[a.allocation_id]}
                           </p>
@@ -558,7 +558,7 @@ export function ReassignWizardDialog({
 
                   {targetRows.length > 0 ? (
                     <div className="overflow-hidden rounded-md border border-border">
-                      <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] gap-2 bg-card px-2 py-2 text-caption text-secondary">
+                      <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] gap-2 bg-card px-2 py-2 text-sm text-secondary">
                         <div className="text-left font-medium">
                           Account <span className="text-error">*</span>
                         </div>
@@ -594,7 +594,7 @@ export function ReassignWizardDialog({
 
                   <div
                     role="alert"
-                    className="flex items-center gap-3 rounded-md bg-accent-muted p-sm text-body-sm text-accent"
+                    className="flex items-center gap-3 rounded-md bg-accent-muted p-sm text-base text-accent"
                   >
                     <Info className="size-4 shrink-0 text-accent" />
                     <div>
@@ -797,7 +797,7 @@ function TargetRowFields({
         />
       </div>
       {error ? (
-        <p role="alert" className="px-2 pb-2 text-caption font-medium text-error">
+        <p role="alert" className="px-2 pb-2 text-sm font-medium text-error">
           {error}
         </p>
       ) : null}
@@ -821,7 +821,7 @@ function ReviewStep({
   mutation: { isPending: boolean; isError: boolean; error: Error | null };
 }) {
   if (previewMutation.isPending) {
-    return <p className="py-8 text-center text-caption text-secondary">Checking impact…</p>;
+    return <p className="py-8 text-center text-sm text-secondary">Checking impact…</p>;
   }
 
   const timelineRows: TimelineRow[] = [
@@ -853,7 +853,7 @@ function ReviewStep({
         // laid out as a centered flex row so the icon lines up with the middle of the text.
         <div
           role="alert"
-          className="flex items-center gap-3 rounded-md bg-warning-muted p-sm text-body-sm text-warning"
+          className="flex items-center gap-3 rounded-md bg-warning-muted p-sm text-base text-warning"
         >
           <AlertCircle className="size-4 shrink-0" />
           <div>

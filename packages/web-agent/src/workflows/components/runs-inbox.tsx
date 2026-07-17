@@ -18,7 +18,7 @@ export function RunsInbox({ definitionId = null }: RunsInboxProps) {
 
   return (
     <section className="flex h-full flex-col">
-      <header className="flex h-11 flex-none items-center justify-between border-b border-border px-4 text-[11px] font-medium uppercase tracking-wider text-secondary">
+      <header className="flex h-11 flex-none items-center justify-between border-b border-border px-4 text-xs font-medium uppercase tracking-wider text-secondary">
         <span>Runs</span>
         <span className="inline-flex items-center gap-1.5 text-xs font-normal normal-case tracking-normal text-secondary">
           Show

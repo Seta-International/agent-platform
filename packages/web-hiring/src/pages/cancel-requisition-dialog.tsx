@@ -82,7 +82,7 @@ export function CancelRequisitionDialog({
               <div className="space-y-1">
                 {!reasonsLoading && active.length === 0 ? (
                   <div className="space-y-2">
-                    <p className="text-body-sm text-secondary">
+                    <p className="text-base text-secondary">
                       No close reasons yet — add one to continue.
                     </p>
                     <div className="flex gap-2">
@@ -111,7 +111,7 @@ export function CancelRequisitionDialog({
                   />
                 )}
               </div>
-              <p className="text-body-sm text-secondary">
+              <p className="text-base text-secondary">
                 This closes the requisition for good — it can&apos;t be reopened afterwards.
               </p>
             </div>

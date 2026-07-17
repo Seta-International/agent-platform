@@ -34,7 +34,7 @@ function Landing() {
 
   return (
     <div className="space-y-2 p-xl">
-      <p className="text-muted-foreground">No apps available — ask your admin.</p>
+      <p className="text-secondary">No apps available — ask your admin.</p>
     </div>
   );
 }

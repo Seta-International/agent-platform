@@ -76,7 +76,7 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
         <Heading level={1} className="mb-1">
           Categories{planName ? ` · ${planName}` : ''}
         </Heading>
-        <p className="mb-3 text-body-sm text-secondary" data-testid="categories-sync-subhead">
+        <p className="mb-3 text-base text-secondary" data-testid="categories-sync-subhead">
           {planForGroup?.external_source === 'm365'
             ? 'Synced with Microsoft Planner'
             : 'Just for this plan'}

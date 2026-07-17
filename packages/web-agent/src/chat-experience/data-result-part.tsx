@@ -38,7 +38,7 @@ interface ResultData {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="my-1 rounded-md border border-border bg-card p-2 text-body-sm">{children}</div>
+    <div className="my-1 rounded-md border border-border bg-card p-2 text-base">{children}</div>
   );
 }
 
@@ -46,7 +46,7 @@ function PersonRow({ name, id, meta }: { name: string | null; id: string; meta?:
   return (
     <li className="flex items-center justify-between gap-2 py-0.5">
       <span className="text-primary">{name ?? id}</span>
-      {meta && <span className="text-caption text-secondary">{meta}</span>}
+      {meta && <span className="text-sm text-secondary">{meta}</span>}
     </li>
   );
 }
@@ -59,11 +59,11 @@ export function DataResultPart({ data }: { data: ResultData }) {
           {data.tasks.map(({ task, recommendations }) => (
             <li key={task.taskId} className="flex flex-col gap-0.5">
               <span className="font-medium text-primary">{task.title}</span>
-              <span className="text-caption text-secondary">
+              <span className="text-sm text-secondary">
                 {task.status} · {task.labels.join(', ') || 'no labels'}
               </span>
               {recommendations?.length ? (
-                <span className="text-caption text-secondary">
+                <span className="text-sm text-secondary">
                   →{' '}
                   {recommendations
                     .slice(0, 3)
@@ -119,7 +119,7 @@ export function DataResultPart({ data }: { data: ResultData }) {
                 {p.name}
                 {p.role ? ` · ${p.role}` : ''}
               </span>
-              <span className="text-caption text-secondary">
+              <span className="text-sm text-secondary">
                 {p.skills.join(', ') || 'no skills recorded'}
               </span>
             </li>
@@ -131,7 +131,7 @@ export function DataResultPart({ data }: { data: ResultData }) {
   if (data.skills?.length) {
     return (
       <Card>
-        <span className="text-caption text-secondary">Skills: {data.skills.join(', ')}</span>
+        <span className="text-sm text-secondary">Skills: {data.skills.join(', ')}</span>
       </Card>
     );
   }

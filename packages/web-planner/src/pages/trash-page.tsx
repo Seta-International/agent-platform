@@ -262,7 +262,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                 <div role="table" aria-label="Deleted items" className="w-full">
                   <div
                     role="row"
-                    className="sticky top-0 z-10 grid items-center gap-2 border-b border-border bg-body px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-secondary"
+                    className="sticky top-0 z-10 grid items-center gap-2 border-b border-border bg-body px-7 py-2.5 text-xs font-medium uppercase tracking-wider text-secondary"
                     style={{ gridTemplateColumns: GRID_TEMPLATE }}
                   >
                     <div role="columnheader">Type</div>
@@ -350,7 +350,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                 <div role="table" aria-label="Archived plans" className="w-full">
                   <div
                     role="row"
-                    className="sticky top-0 z-10 grid items-center gap-2 border-b border-border bg-body px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-secondary"
+                    className="sticky top-0 z-10 grid items-center gap-2 border-b border-border bg-body px-7 py-2.5 text-xs font-medium uppercase tracking-wider text-secondary"
                     style={{ gridTemplateColumns: '120px 1.7fr 160px 220px' }}
                   >
                     <div role="columnheader">Type</div>

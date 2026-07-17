@@ -220,9 +220,9 @@ export function CharterStaffingEditor({
           <LayoutContent>
             <div className="space-y-4">
               <div className="overflow-hidden rounded-md border border-border">
-                <table className="w-full text-body-sm">
+                <table className="w-full text-base">
                   <thead>
-                    <tr className="bg-surface text-left text-[11px] uppercase tracking-wide text-secondary">
+                    <tr className="bg-surface text-left text-xs uppercase tracking-wide text-secondary">
                       <th className="px-3 py-2 font-medium">Member</th>
                       <th className="px-3 py-2 font-medium">Role</th>
                       <th className="px-3 py-2 text-center font-medium">RA %</th>

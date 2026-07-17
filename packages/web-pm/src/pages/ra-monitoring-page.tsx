@@ -125,11 +125,11 @@ function Kpi({
           : undefined;
   return (
     <Card padding={4}>
-      <div className="text-[11px] uppercase tracking-wide text-secondary">{label}</div>
+      <div className="text-xs uppercase tracking-wide text-secondary">{label}</div>
       <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
         {value}
       </div>
-      {sub ? <div className="text-[11px] text-secondary">{sub}</div> : null}
+      {sub ? <div className="text-xs text-secondary">{sub}</div> : null}
     </Card>
   );
 }
@@ -587,7 +587,7 @@ export function RaMonitoringPage() {
         width: pixel(100),
         sortable: true,
         renderCell: (r) => (
-          <span className="whitespace-nowrap font-mono text-caption text-secondary">
+          <span className="whitespace-nowrap font-mono text-sm text-secondary">
             {r.date_from ? formatDisplayDate(r.date_from) : '—'}
           </span>
         ),
@@ -598,7 +598,7 @@ export function RaMonitoringPage() {
         width: pixel(100),
         sortable: true,
         renderCell: (r) => (
-          <span className="whitespace-nowrap font-mono text-caption text-secondary">
+          <span className="whitespace-nowrap font-mono text-sm text-secondary">
             {r.date_to ? formatDisplayDate(r.date_to) : '—'}
           </span>
         ),
@@ -625,7 +625,7 @@ export function RaMonitoringPage() {
         key: 'note',
         header: 'Note',
         width: proportional(1),
-        renderCell: (r) => <span className="text-caption text-secondary">{r.note ?? '—'}</span>,
+        renderCell: (r) => <span className="text-sm text-secondary">{r.note ?? '—'}</span>,
       },
       {
         key: 'actions',
@@ -793,7 +793,7 @@ export function RaMonitoringPage() {
                 label="Toggle columns"
                 content={
                   <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
+                    <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
                       Toggle columns
                     </div>
                     {RA_COLUMN_OPTIONS.map((col) => (

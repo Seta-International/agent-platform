@@ -127,7 +127,7 @@ function RolesSection({ userId }: { userId: string }) {
           {roles.map((r) => (
             <span
               key={r}
-              className="inline-flex items-center gap-1 rounded-md bg-surface px-1.5 py-0.5 font-mono text-caption text-secondary"
+              className="inline-flex items-center gap-1 rounded-md bg-surface px-1.5 py-0.5 font-mono text-sm text-secondary"
             >
               <ShieldCheck className="size-3" aria-hidden />
               {r}
@@ -216,10 +216,8 @@ function ProductsSection({ userId }: { userId: string }) {
                 aria-hidden
               />
               <div className="min-w-0">
-                <span className="block truncate text-body-sm font-medium text-primary">
-                  {p.label}
-                </span>
-                <span className="block truncate text-caption text-secondary">{source}</span>
+                <span className="block truncate text-base font-medium text-primary">{p.label}</span>
+                <span className="block truncate text-sm text-secondary">{source}</span>
               </div>
             </div>
             <Selector
@@ -266,7 +264,7 @@ export function UserDetailSheet({ row, open, onOpenChange }: Props) {
             startContent={
               <PersonAvatar
                 name={row?.full_name ?? '?'}
-                className="size-10 text-body-sm font-semibold"
+                className="size-10 text-base font-semibold"
               />
             }
             onOpenChange={onOpenChange}

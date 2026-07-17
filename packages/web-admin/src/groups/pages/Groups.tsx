@@ -124,9 +124,7 @@ export function GroupsPage() {
                       <Skeleton height={48} radius={2} />
                     </>
                   ) : groups.length === 0 ? (
-                    <p className="px-3 py-6 text-center text-body-sm text-disabled">
-                      No groups yet.
-                    </p>
+                    <p className="px-3 py-6 text-center text-base text-disabled">No groups yet.</p>
                   ) : (
                     groups.map((g) => (
                       <GroupListItem

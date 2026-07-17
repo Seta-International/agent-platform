@@ -152,7 +152,7 @@ export function ProjectAccessSection({
         width: proportional(2),
         sortable: true,
         renderCell: (r) => (
-          <span className="text-caption text-primary truncate block">{nameOf(r.worker_id)}</span>
+          <span className="text-sm text-primary truncate block">{nameOf(r.worker_id)}</span>
         ),
       },
       {
@@ -202,7 +202,7 @@ export function ProjectAccessSection({
           label="Toggle columns"
           content={
             <div className="flex min-w-[180px] flex-col gap-1 p-2">
-              <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
+              <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
                 Toggle columns
               </div>
               {COLUMN_OPTIONS.map((col) => (

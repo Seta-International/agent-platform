@@ -82,7 +82,7 @@ export function GroupDetailHeader({
               <Heading level={1} maxLines={1}>
                 {group.name}
               </Heading>
-              <div className="flex min-w-0 items-center gap-2 text-body-sm text-secondary">
+              <div className="flex min-w-0 items-center gap-2 text-base text-secondary">
                 {!group.deleted_at && (
                   <DisabledActionTooltip
                     disabled={!canUpdateGroup}
@@ -205,7 +205,7 @@ export function GroupDetailHeader({
       {isLinked && (
         <div
           data-testid="m365-auto-mirror-info"
-          className="flex-none border-b border-border bg-card px-6 py-2 text-body-sm text-secondary"
+          className="flex-none border-b border-border bg-card px-6 py-2 text-base text-secondary"
         >
           Plans in this group are mirrored to and from M365 Planner automatically. Native plans you
           create here will be pushed to M365 as new Planner plans.

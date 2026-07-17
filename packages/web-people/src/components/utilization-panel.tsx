@@ -92,7 +92,7 @@ export function UtilizationPanel() {
   return (
     <Card className="space-y-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-body font-semibold">Utilization by person</h3>
+        <h3 className="text-base font-semibold">Utilization by person</h3>
         <Input
           label="Search name or worker ID"
           isLabelHidden
@@ -108,11 +108,9 @@ export function UtilizationPanel() {
       </div>
 
       {error ? (
-        <div className="text-body-sm text-[color:var(--color-error)]">
-          {(error as Error).message}
-        </div>
+        <div className="text-base text-[color:var(--color-error)]">{(error as Error).message}</div>
       ) : isLoading ? (
-        <div className="text-body-sm text-secondary">Loading…</div>
+        <div className="text-base text-secondary">Loading…</div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Gauge className="size-6" />}
@@ -144,7 +142,7 @@ export function UtilizationPanel() {
                 >
                   <div className="flex items-center gap-3">
                     <span
-                      className="w-40 shrink-0 truncate text-body-sm font-medium"
+                      className="w-40 shrink-0 truncate text-base font-medium"
                       title={r.full_name}
                     >
                       {r.full_name}
@@ -165,13 +163,13 @@ export function UtilizationPanel() {
                       )}
                     </span>
                     <span
-                      className="w-16 shrink-0 text-right font-mono text-[12px]"
+                      className="w-16 shrink-0 text-right font-mono text-sm"
                       style={{ color: totalColor }}
                     >
                       {r.total_pct}%{r.over_allocated ? ' ⚠' : ''}
                     </span>
                   </div>
-                  <div className="mt-0.5 pl-[172px] text-[11px] text-secondary">
+                  <div className="mt-0.5 pl-[172px] text-xs text-secondary">
                     billable {r.split.billable}% · internal {r.split.internal}% · bench{' '}
                     {r.split.bench}%
                   </div>
@@ -179,7 +177,7 @@ export function UtilizationPanel() {
               );
             })}
           </div>
-          <div className="flex items-center justify-between text-body-sm text-secondary">
+          <div className="flex items-center justify-between text-base text-secondary">
             <span>{filtered.length} people</span>
             <Pagination
               page={safePage}

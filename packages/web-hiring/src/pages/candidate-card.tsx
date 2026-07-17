@@ -37,8 +37,8 @@ export function CandidateCard({
         <Avatar name={item.name} size={36} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium text-primary">{item.name}</div>
-          <div className="mt-1 truncate text-caption text-secondary">{item.requisition_title}</div>
-          <div className="mt-1 text-caption text-secondary">
+          <div className="mt-1 truncate text-sm text-secondary">{item.requisition_title}</div>
+          <div className="mt-1 text-sm text-secondary">
             {item.source ?? '—'} · {appliedLabel(item.applied_at)}
           </div>
         </div>

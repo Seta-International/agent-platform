@@ -27,10 +27,10 @@ export function ProfileRolesCard({ roles }: { roles: string[] }) {
             >
               <span className="flex items-center gap-2">
                 <span className="size-1.5 rounded-full bg-accent-bg" />
-                <span className="font-mono text-[12.5px]">{slug}</span>
+                <span className="font-mono text-sm">{slug}</span>
               </span>
               <span className="text-sm text-secondary">Organization</span>
-              <span className="justify-self-end inline-flex items-center h-[18px] rounded-full bg-surface border border-transparent px-1.5 text-[11px] text-secondary">
+              <span className="justify-self-end inline-flex items-center h-[18px] rounded-full bg-surface border border-transparent px-1.5 text-xs text-secondary">
                 Manual
               </span>
             </div>

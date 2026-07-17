@@ -29,9 +29,9 @@ function MethodRow({
     <div className="flex items-start justify-between gap-4 px-5 py-4">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-body font-medium text-primary">{title}</span>
+          <span className="text-base font-medium text-primary">{title}</span>
           <span
-            className={`inline-flex h-5 items-center rounded-full px-2 text-caption font-medium ${
+            className={`inline-flex h-5 items-center rounded-full px-2 text-sm font-medium ${
               enabled
                 ? 'border-0 bg-success-muted text-success'
                 : 'border border-border bg-card text-secondary'
@@ -40,7 +40,7 @@ function MethodRow({
             {enabled ? 'Enabled' : 'Disabled'}
           </span>
         </div>
-        <p className="m-0 mt-1 text-body-sm text-secondary">{description}</p>
+        <p className="m-0 mt-1 text-base text-secondary">{description}</p>
       </div>
       <Switch
         label={title}
@@ -86,10 +86,8 @@ export function SignInMethodsCard({
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-body">
       <header className="border-b border-border px-5 py-4">
-        <h2 className="m-0 text-section-title font-semibold tracking-tight text-primary">
-          Sign-in methods
-        </h2>
-        <p className="m-0 mt-0.5 text-body-sm text-secondary">
+        <h2 className="m-0 text-lg font-semibold tracking-tight text-primary">Sign-in methods</h2>
+        <p className="m-0 mt-0.5 text-base text-secondary">
           Choose how people in your organization sign in.
         </p>
       </header>

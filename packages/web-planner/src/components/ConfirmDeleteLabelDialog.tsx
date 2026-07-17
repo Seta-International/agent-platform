@@ -21,7 +21,7 @@ export function ConfirmDeleteLabelDialog({
         header={<DialogHeader title={`Delete “${labelName}”?`} onOpenChange={onOpenChange} />}
         content={
           <LayoutContent>
-            <div className="space-y-2 text-body-sm text-secondary">
+            <div className="space-y-2 text-base text-secondary">
               <p>This removes the label from every task in this plan. It can&apos;t be undone.</p>
             </div>
           </LayoutContent>

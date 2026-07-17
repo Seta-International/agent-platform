@@ -15,7 +15,7 @@ export function CalendarPagination({ page, totalCount, hasNext, onPageChange }: 
   const to = Math.min(totalCount, page * CALENDAR_PAGE_SIZE);
   return (
     <div
-      className="flex items-center justify-end gap-2 border-t border-border px-7 py-2 text-caption text-secondary"
+      className="flex items-center justify-end gap-2 border-t border-border px-7 py-2 text-sm text-secondary"
       data-testid="calendar-pagination"
     >
       <span>

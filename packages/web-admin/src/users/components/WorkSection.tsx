@@ -189,7 +189,7 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
     return (
       <div className="flex flex-col gap-4">
         <SectionTitle icon={<Briefcase className="size-4" />}>Work</SectionTitle>
-        <p className="text-body-sm text-disabled">Couldn't load the work profile.</p>
+        <p className="text-base text-disabled">Couldn't load the work profile.</p>
       </div>
     );
   }
@@ -234,7 +234,7 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
 
       <div className="flex flex-col gap-2">
         <div className="flex h-6 items-center justify-between">
-          <span className="text-eyebrow uppercase tracking-[0.04em] text-secondary">
+          <span className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">
             Accounts · projects
           </span>
           {allocationsEditable && !adding && (
@@ -265,7 +265,7 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
           </div>
         ) : groups.length === 0 ? (
           !adding && (
-            <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-body-sm text-disabled">
+            <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-base text-disabled">
               No project allocations
             </p>
           )
@@ -276,11 +276,11 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
               return (
                 <div key={group.id} className="rounded-lg border border-border bg-card">
                   <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
-                    <span className="truncate text-caption font-semibold uppercase tracking-[0.04em] text-secondary">
+                    <span className="truncate text-sm font-semibold uppercase tracking-[0.04em] text-secondary">
                       {group.name}
                     </span>
                     {total !== null && (
-                      <span className="flex-none text-caption tabular-nums text-secondary">
+                      <span className="flex-none text-sm tabular-nums text-secondary">
                         {total}% total
                       </span>
                     )}
@@ -293,11 +293,11 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
                       >
                         <FolderKanban className="size-4 flex-none text-secondary" aria-hidden />
                         <div className="min-w-0 flex-1">
-                          <span className="block truncate text-body-sm font-medium text-primary">
+                          <span className="block truncate text-base font-medium text-primary">
                             {a.project_name}
                           </span>
                           {(a.role || a.status !== 'committed') && (
-                            <span className="block truncate text-caption text-secondary">
+                            <span className="block truncate text-sm text-secondary">
                               {[a.role, a.status !== 'committed' ? a.status : null]
                                 .filter(Boolean)
                                 .join(' · ')}
@@ -305,7 +305,7 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
                           )}
                         </div>
                         {a.planned_pct !== null && (
-                          <span className="flex-none text-body-sm tabular-nums text-secondary">
+                          <span className="flex-none text-base tabular-nums text-secondary">
                             {a.planned_pct}%
                           </span>
                         )}

@@ -141,7 +141,7 @@ export function ProfileSkillsSection({
       />
 
       {shown.length === 0 ? (
-        <p className="text-body-sm text-secondary">No skills yet — search above to add one.</p>
+        <p className="text-base text-secondary">No skills yet — search above to add one.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {shown.map((s) => (
@@ -150,7 +150,7 @@ export function ProfileSkillsSection({
               className="group flex flex-col gap-2 rounded-md border border-border bg-surface px-3 py-2.5 transition-colors hover:bg-surface"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-body-sm font-medium text-primary truncate">{s.name}</span>
+                <span className="text-base font-medium text-primary truncate">{s.name}</span>
                 <IconButton
                   type="button"
                   variant="ghost"
@@ -169,7 +169,7 @@ export function ProfileSkillsSection({
       )}
 
       {shown.length > 0 && (
-        <p className="text-caption text-secondary">
+        <p className="text-sm text-secondary">
           Click a segment to rate proficiency · 1 = novice, 5 = expert · click the active level to
           clear
         </p>

@@ -69,7 +69,7 @@ export function TaskDetailExternalCard({ task, plan, onOpenConflictDialog }: Pro
             href={linkUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="self-start text-caption text-[var(--color-accent)] underline"
+            className="self-start text-sm text-[var(--color-accent)] underline"
           >
             Open in M365 Planner
           </a>

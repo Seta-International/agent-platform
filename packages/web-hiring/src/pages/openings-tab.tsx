@@ -52,7 +52,7 @@ export function OpeningsTab({
   return (
     <div className="space-y-3">
       <div className="flex justify-between">
-        <div className="text-caption text-secondary">
+        <div className="text-sm text-secondary">
           {detail.openings.filter((o) => o.status === 'open').length} open ·{' '}
           {detail.openings.length} total
         </div>
@@ -69,7 +69,7 @@ export function OpeningsTab({
       <div className="divide-y divide-border">
         {detail.openings.map((o) => (
           <div key={o.id} className="flex items-center justify-between gap-2 py-2">
-            <span className="font-mono text-caption text-primary">
+            <span className="font-mono text-sm text-primary">
               {detail.requisition.id.slice(0, 8)}-{o.seq}
             </span>
             <div className="flex items-center gap-2">

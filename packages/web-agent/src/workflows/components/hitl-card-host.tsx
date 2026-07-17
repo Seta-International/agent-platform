@@ -12,21 +12,21 @@ import { CandidateAvatar } from './hitl-approval-card.tsx';
 type EntityRenderer = (e: EntityRef) => ReactNode;
 
 const renderDefaultEntity: EntityRenderer = (e) => (
-  <span className="text-body-sm text-primary">{e.label}</span>
+  <span className="text-base text-primary">{e.label}</span>
 );
 
 const entityRenderers: Record<string, EntityRenderer> = {
   user: (e) => (
     <>
       <CandidateAvatar id={e.id} label={e.label} />
-      <span className="truncate text-body-sm font-medium text-primary">{e.label}</span>
+      <span className="truncate text-base font-medium text-primary">{e.label}</span>
       {e.secondary ? (
-        <span className="w-full text-caption leading-snug text-secondary">{e.secondary}</span>
+        <span className="w-full text-sm leading-snug text-secondary">{e.secondary}</span>
       ) : null}
     </>
   ),
   task: (e) => (
-    <span className="rounded bg-surface px-1.5 py-0.5 text-body-sm text-primary">{e.label}</span>
+    <span className="rounded bg-surface px-1.5 py-0.5 text-base text-primary">{e.label}</span>
   ),
 };
 

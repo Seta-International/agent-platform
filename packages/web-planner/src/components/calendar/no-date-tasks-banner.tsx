@@ -21,7 +21,7 @@ export function NoDateTasksBanner({ tasks, onOpenTask }: Props) {
         type="button"
         aria-expanded={expanded}
         onClick={() => setExpanded((e) => !e)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-body-sm text-primary"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-base text-primary"
       >
         {expanded ? (
           <ChevronDown aria-hidden="true" className="size-3.5" />
@@ -30,9 +30,7 @@ export function NoDateTasksBanner({ tasks, onOpenTask }: Props) {
         )}
         <CalendarOff aria-hidden="true" className="size-3.5" />
         <span className="font-medium">Unscheduled tasks</span>
-        <span className="rounded-full bg-card px-1.5 text-caption text-secondary">
-          {tasks.length}
-        </span>
+        <span className="rounded-full bg-card px-1.5 text-sm text-secondary">{tasks.length}</span>
       </button>
       {expanded && (
         <ul className="flex flex-wrap gap-1.5 px-3 pb-2">

@@ -28,11 +28,11 @@ export function NestedNode({ data }: NodeProps<Node<NestedData>>) {
       <div className="flex items-center gap-1.5">
         <span aria-hidden className="size-1.5 rounded-full" style={{ background: t.dot }} />
         <span className="truncate text-xs font-medium">{data.workflowName}</span>
-        <span className="ml-auto rounded bg-[var(--color-background-surface)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
+        <span className="ml-auto rounded bg-[var(--color-background-surface)] px-1.5 py-0.5 text-xs uppercase tracking-wide text-[var(--color-text-secondary)]">
           sub
         </span>
       </div>
-      <p className="mt-1 truncate font-mono text-[10px] text-[var(--color-text-secondary)]">
+      <p className="mt-1 truncate font-mono text-xs text-[var(--color-text-secondary)]">
         {data.stepId}
       </p>
       <Handle

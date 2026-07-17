@@ -86,7 +86,7 @@ function StateChip({ label, count, color }: StateChipProps) {
           className="inline-block size-1.5 rounded-full"
           style={{ background: color }}
         />
-        <span className="text-[11px] font-medium text-primary tabular-nums" aria-hidden>
+        <span className="text-xs font-medium text-primary tabular-nums" aria-hidden>
           {count}
         </span>
         <span className="sr-only">{label}</span>
@@ -130,16 +130,14 @@ export function PlanCard({
           <p className="text-sm font-semibold text-primary truncate group-hover:text-accent transition-colors">
             {plan.name}
           </p>
-          {subtext != null && (
-            <p className="text-[11px] text-secondary mt-0.5 truncate">{subtext}</p>
-          )}
+          {subtext != null && <p className="text-xs text-secondary mt-0.5 truncate">{subtext}</p>}
         </div>
 
         {/* Progress + stacked breakdown */}
         {(progressPct != null || hasBuckets) && (
           <div className="mt-3">
             {progressPct != null && (
-              <div className="flex items-center justify-between text-[11px] text-secondary mb-1">
+              <div className="flex items-center justify-between text-xs text-secondary mb-1">
                 <span>Progress</span>
                 <span className="font-semibold text-primary tabular-nums">
                   {Math.round(progressPct * 100)}%
@@ -186,7 +184,7 @@ export function PlanCard({
         {ownerDisplayName != null && (
           <div className="mt-3 flex items-center gap-1.5">
             <Avatar name={ownerDisplayName} size={20} />
-            <span className="text-[11px] text-secondary truncate">{ownerDisplayName}</span>
+            <span className="text-xs text-secondary truncate">{ownerDisplayName}</span>
           </div>
         )}
       </div>

@@ -12,7 +12,7 @@ export function DefinitionsList({ selectedId, onSelect }: DefinitionsListProps) 
 
   return (
     <aside className="hidden w-80 shrink-0 flex-col border-r border-border lg:flex">
-      <header className="flex h-11 flex-none items-center justify-between border-b border-border px-4 text-[11px] font-medium uppercase tracking-wider text-secondary">
+      <header className="flex h-11 flex-none items-center justify-between border-b border-border px-4 text-xs font-medium uppercase tracking-wider text-secondary">
         <span>Definitions</span>
         {selectedId ? (
           <Button
@@ -49,7 +49,7 @@ export function DefinitionsList({ selectedId, onSelect }: DefinitionsListProps) 
                     <span className="absolute inset-y-0 left-0 w-0.5 bg-accent-bg" />
                   ) : null}
                   <span className="font-mono text-xs text-primary">{d.id}</span>
-                  <span className="text-[10px] uppercase tracking-wider text-secondary">
+                  <span className="text-xs uppercase tracking-wider text-secondary">
                     {d.domain}
                   </span>
                   <span className="text-xs text-secondary">{d.description}</span>

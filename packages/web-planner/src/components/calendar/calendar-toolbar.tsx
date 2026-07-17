@@ -59,7 +59,7 @@ export function CalendarToolbar({ from, to, totalCount, onRangeChange }: Props) 
         <Heading level={2} className="ml-2">
           {rangeLabel(from, to)}
         </Heading>
-        <span className="text-caption text-secondary" data-testid="calendar-total-count">
+        <span className="text-sm text-secondary" data-testid="calendar-total-count">
           {totalCount} task{totalCount === 1 ? '' : 's'}
         </span>
       </div>

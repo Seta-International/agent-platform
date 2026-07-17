@@ -42,10 +42,10 @@ export function FileRow({ file }: FileRowProps) {
       <FileText className="size-5 shrink-0 text-disabled" aria-hidden />
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-body-sm font-medium text-primary">{file.filename}</p>
-        <p className="text-eyebrow text-secondary">{formatBytes(file.size_bytes)}</p>
+        <p className="truncate text-base font-medium text-primary">{file.filename}</p>
+        <p className="text-xs font-medium text-secondary">{formatBytes(file.size_bytes)}</p>
         {file.status === 'failed' && file.error_reason && (
-          <p className="mt-0.5 text-eyebrow text-error">{file.error_reason}</p>
+          <p className="mt-0.5 text-xs font-medium text-error">{file.error_reason}</p>
         )}
       </div>
 

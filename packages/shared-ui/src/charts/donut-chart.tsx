@@ -99,12 +99,12 @@ export function DonutChart({
                 <button
                   type="button"
                   onClick={() => onSliceClick?.(s)}
-                  className="flex w-full items-center gap-2 text-body-sm hover:opacity-80"
+                  className="flex w-full items-center gap-2 text-base hover:opacity-80"
                 >
                   {body}
                 </button>
               ) : (
-                <div className="flex items-center gap-2 text-body-sm">{body}</div>
+                <div className="flex items-center gap-2 text-base">{body}</div>
               )}
             </li>
           );

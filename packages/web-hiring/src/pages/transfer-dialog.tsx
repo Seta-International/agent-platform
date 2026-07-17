@@ -73,7 +73,7 @@ export function TransferDialog({
                   placeholder="Select a role"
                 />
               </div>
-              <p className="text-caption text-secondary">
+              <p className="text-sm text-secondary">
                 A fresh application is opened on the target role; this one is closed as transferred.
               </p>
             </div>

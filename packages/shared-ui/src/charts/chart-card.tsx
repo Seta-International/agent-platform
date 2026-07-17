@@ -32,7 +32,7 @@ export function ChartCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-body-sm font-medium text-primary">{title}</h3>
+          <h3 className="text-base font-medium text-primary">{title}</h3>
           {subtitle && <p className="text-xs text-secondary">{subtitle}</p>}
         </div>
         {action}

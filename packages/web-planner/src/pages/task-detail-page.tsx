@@ -435,7 +435,7 @@ export function TaskDetailPage({
               }
             />
             <dl
-              className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-caption text-secondary"
+              className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm text-secondary"
               aria-label="Task metadata"
             >
               <dt className="text-disabled">Created</dt>

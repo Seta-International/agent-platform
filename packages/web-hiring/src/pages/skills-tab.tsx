@@ -52,7 +52,7 @@ export function SkillsTab({
           detail.skills.map((s) => (
             <span
               key={s.skill_name}
-              className="rounded-full bg-surface px-3 py-1 text-caption text-primary"
+              className="rounded-full bg-surface px-3 py-1 text-sm text-primary"
             >
               {s.skill_name}
               {s.min_level ? ` · ${s.min_level}` : ''}

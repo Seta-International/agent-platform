@@ -64,7 +64,7 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                         <Avatar name={c.name} size={32} />
                         <span>
                           <span className="block font-semibold text-primary">{c.name}</span>
-                          <span className="block text-caption text-secondary">
+                          <span className="block text-sm text-secondary">
                             {c.seniority ?? '—'}
                             {c.segment === 'alumni'
                               ? ' · alumni'
@@ -78,7 +78,7 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                       </button>
                       {c.recommended.length > 0 ? (
                         <div className="mt-2">
-                          <span className="text-caption text-secondary">Recommended for</span>
+                          <span className="text-sm text-secondary">Recommended for</span>
                           <div className="mt-1 flex flex-wrap gap-1">
                             {c.recommended.map((r) => (
                               <Badge key={r.requisition_id} variant="neutral" label={r.title} />
@@ -86,7 +86,7 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                           </div>
                         </div>
                       ) : (
-                        <div className="mt-2 text-caption text-secondary">
+                        <div className="mt-2 text-sm text-secondary">
                           No matching open role right now
                         </div>
                       )}

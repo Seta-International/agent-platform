@@ -142,7 +142,7 @@ export function PlanPageHeader({
             }}
           />
         ) : (
-          <h1 className="m-0 text-body-lg font-semibold leading-[1.3]">
+          <h1 className="m-0 text-lg font-semibold leading-[1.3]">
             {canRename ? (
               <button
                 type="button"

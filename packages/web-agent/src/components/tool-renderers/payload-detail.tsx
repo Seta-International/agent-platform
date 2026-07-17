@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
 export function payloadDetail(payload: unknown): ReactNode | undefined {
   if (payload == null) return undefined;
   return (
-    <pre className="max-h-64 max-w-full overflow-auto rounded-md border border-border bg-surface px-2.5 py-2 font-mono text-[11px] leading-relaxed text-secondary">
+    <pre className="max-h-64 max-w-full overflow-auto rounded-md border border-border bg-surface px-2.5 py-2 font-mono text-xs leading-relaxed text-secondary">
       {JSON.stringify(payload, null, 2)}
     </pre>
   );

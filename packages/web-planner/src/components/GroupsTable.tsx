@@ -24,7 +24,7 @@ export function GroupsTable({ groups, onRestore }: Props) {
     <div className="w-full overflow-x-auto">
       {/* Header row */}
       <div
-        className="sticky top-0 z-10 grid items-center gap-2 border-b border-border bg-body px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-secondary"
+        className="sticky top-0 z-10 grid items-center gap-2 border-b border-border bg-body px-7 py-2.5 text-xs font-medium uppercase tracking-wider text-secondary"
         style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 32px' }}
       >
         <div />

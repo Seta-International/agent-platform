@@ -38,9 +38,9 @@ export function NotificationListItem({
 
   const middleContent = (
     <>
-      <div className="line-clamp-2 text-body-sm font-medium text-primary">{title}</div>
-      {body && <div className="line-clamp-2 text-caption text-secondary">{body}</div>}
-      <div className="mt-1 text-caption text-secondary">
+      <div className="line-clamp-2 text-base font-medium text-primary">{title}</div>
+      {body && <div className="line-clamp-2 text-sm text-secondary">{body}</div>}
+      <div className="mt-1 text-sm text-secondary">
         {formatRelative(new Date(notification.created_at))}
       </div>
     </>
@@ -78,7 +78,7 @@ export function NotificationListItem({
           className="group/body min-w-0 flex-1 cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-accent-bg focus:rounded-sm"
         >
           {middleContent}
-          <div className="mt-1 flex items-center gap-0.5 text-caption text-accent opacity-0 transition-opacity group-hover/body:opacity-100">
+          <div className="mt-1 flex items-center gap-0.5 text-sm text-accent opacity-0 transition-opacity group-hover/body:opacity-100">
             <span>View</span>
             <ChevronRight className="size-3" aria-hidden />
           </div>

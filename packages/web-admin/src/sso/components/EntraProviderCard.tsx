@@ -40,8 +40,8 @@ const STATUS_DOT: Record<Status, string> = {
 function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[120px_1fr] items-baseline gap-3 py-2">
-      <dt className="text-eyebrow uppercase tracking-[0.04em] text-secondary">{label}</dt>
-      <dd className="m-0 min-w-0 text-body-sm text-primary">{children}</dd>
+      <dt className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">{label}</dt>
+      <dd className="m-0 min-w-0 text-base text-primary">{children}</dd>
     </div>
   );
 }
@@ -163,10 +163,10 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
             <MicrosoftMark />
           </div>
           <div className="min-w-0">
-            <h2 className="m-0 text-section-title font-semibold tracking-tight text-primary">
+            <h2 className="m-0 text-lg font-semibold tracking-tight text-primary">
               Microsoft Entra ID
             </h2>
-            <p className="m-0 mt-0.5 text-body-sm text-secondary">
+            <p className="m-0 mt-0.5 text-base text-secondary">
               Let your team sign in with their Microsoft work account.
               {row?.updated_at && (
                 <span className="ml-1">
@@ -182,7 +182,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
           aria-label={`Status: ${STATUS_LABEL[status]}`}
         >
           <span aria-hidden className={`size-1.5 rounded-full ${STATUS_DOT[status]}`} />
-          <span className="text-caption font-medium text-primary">{STATUS_LABEL[status]}</span>
+          <span className="text-sm font-medium text-primary">{STATUS_LABEL[status]}</span>
         </div>
       </header>
 
@@ -191,10 +191,10 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
           <div className="flex items-start gap-3 rounded-md border border-dashed border-border-strong bg-card px-4 py-3">
             <Plug aria-hidden className="mt-0.5 size-4 flex-none text-secondary" />
             <div className="min-w-0 flex-1">
-              <p className="m-0 text-body-sm text-primary">
+              <p className="m-0 text-base text-primary">
                 Microsoft Entra sign-in is linked through the Microsoft 365 integration.
               </p>
-              <p className="m-0 mt-1 text-caption text-secondary">
+              <p className="m-0 mt-1 text-sm text-secondary">
                 Configure the Microsoft 365 integration (via platform provisioning) first. Once it's
                 linked, the Entra provider appears here to enable and to manage email domains.
               </p>
@@ -206,7 +206,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
           <dl className="m-0 divide-y divide-border px-5 py-1">
             <MetaRow label="Tenant ID">
               {row.entra_tenant_id ? (
-                <code className="font-mono text-body-sm text-primary">{row.entra_tenant_id}</code>
+                <code className="font-mono text-base text-primary">{row.entra_tenant_id}</code>
               ) : (
                 <span className="text-secondary">
                   Not yet linked — configured via the Microsoft 365 integration.
@@ -221,7 +221,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
                   row.email_domains.map((d) => (
                     <span
                       key={d}
-                      className="inline-flex h-5 items-center rounded-full border border-border bg-card px-2 font-mono text-caption text-primary"
+                      className="inline-flex h-5 items-center rounded-full border border-border bg-card px-2 font-mono text-sm text-primary"
                     >
                       {d}
                     </span>
@@ -238,12 +238,12 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
               {row.config.consent_granted_at ? (
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 aria-hidden className="size-3.5 text-success" />
-                  <span className="text-body-sm text-primary">
+                  <span className="text-base text-primary">
                     Granted{' '}
                     {row.config.consent_granted_by_email && (
                       <>
                         by{' '}
-                        <code className="font-mono text-body-sm text-secondary">
+                        <code className="font-mono text-base text-secondary">
                           {row.config.consent_granted_by_email}
                         </code>{' '}
                       </>
@@ -256,7 +256,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
               ) : (
                 <span className="inline-flex items-center gap-1.5">
                   <ShieldCheck aria-hidden className="size-3.5 text-warning" />
-                  <span className="text-body-sm text-secondary">
+                  <span className="text-base text-secondary">
                     Grant admin consent in Microsoft to finish activating.
                   </span>
                 </span>

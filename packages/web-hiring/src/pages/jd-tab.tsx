@@ -116,7 +116,7 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
       </div>
       {SECTIONS.map((s) => (
         <div key={s.key} className="space-y-1">
-          <div className="text-caption font-semibold text-primary">{s.label}</div>
+          <div className="text-sm font-semibold text-primary">{s.label}</div>
           <RichTextEditor
             value={grid[variant][s.key]}
             onChange={(html) =>

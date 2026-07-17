@@ -73,7 +73,7 @@ export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelec
         const header = (
           <div
             key={`hdr-${group.tier}`}
-            className="uppercase text-caption text-secondary"
+            className="uppercase text-sm text-secondary"
             style={{ padding: '4px 8px' }}
           >
             {TIER_LABEL[group.tier]}

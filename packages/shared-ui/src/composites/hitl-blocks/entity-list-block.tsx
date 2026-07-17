@@ -30,7 +30,7 @@ function RowBody({
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
           {renderEntity?.(item)}
           {item.primary ? (
-            <span className="shrink-0 rounded-sm bg-accent-bg/12 px-1 text-[10px] font-medium uppercase tracking-wide text-accent">
+            <span className="shrink-0 rounded-sm bg-accent-bg/12 px-1 text-xs font-medium uppercase tracking-wide text-accent">
               top match
             </span>
           ) : null}
@@ -39,7 +39,7 @@ function RowBody({
       {typeof item.score === 'number' ? (
         <div className="mt-1 flex shrink-0 items-center gap-1.5">
           <ConfidenceBar score={item.score} />
-          <span className="w-10 text-right font-mono text-caption tabular-nums text-secondary">
+          <span className="w-10 text-right font-mono text-sm tabular-nums text-secondary">
             {Math.round(item.score * 100)}%
           </span>
         </div>

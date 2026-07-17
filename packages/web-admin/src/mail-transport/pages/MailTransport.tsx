@@ -223,7 +223,7 @@ export function MailTransport() {
                     <div className="font-medium text-primary">
                       Application access policy is in place
                     </div>
-                    <p className="text-body-sm text-secondary">
+                    <p className="text-base text-secondary">
                       Confirm an ApplicationAccessPolicy limits the Entra app to sending only from
                       this mailbox. Required before you can turn on Graph send.
                     </p>
@@ -302,7 +302,7 @@ export function MailTransport() {
             <Card className="p-5 space-y-3">
               <div>
                 <div className="font-medium text-primary">Send a test email</div>
-                <p className="text-body-sm text-secondary">
+                <p className="text-base text-secondary">
                   Send yourself a message to make sure your setup actually delivers.
                 </p>
               </div>

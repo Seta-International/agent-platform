@@ -128,17 +128,17 @@ export function HitlCard({
     >
       <header className="flex items-start gap-2.5 border-b border-accent-bg bg-accent-muted px-3.5 py-2">
         <Sparkles className="mt-[3px] size-3.5 shrink-0 text-accent" aria-hidden />
-        <h3 className="line-clamp-2 flex-1 text-body-sm font-semibold text-accent">{intent}</h3>
+        <h3 className="line-clamp-2 flex-1 text-base font-semibold text-accent">{intent}</h3>
         {card.riskBadge ? (
           <span
-            className={`shrink-0 rounded-sm px-1 text-[10px] font-medium uppercase tracking-wide ${RISK_CLASS[card.riskBadge] ?? ''}`}
+            className={`shrink-0 rounded-sm px-1 text-xs font-medium uppercase tracking-wide ${RISK_CLASS[card.riskBadge] ?? ''}`}
           >
             {RISK_LABEL[card.riskBadge] ?? card.riskBadge}
           </span>
         ) : null}
         {remaining ? (
           <span
-            className={`inline-flex shrink-0 items-center gap-1 font-mono text-caption tabular-nums ${countdownToneClass[remaining.tier]}`}
+            className={`inline-flex shrink-0 items-center gap-1 font-mono text-sm tabular-nums ${countdownToneClass[remaining.tier]}`}
             aria-live={remaining.tier === 'urgent' ? 'polite' : 'off'}
           >
             <Clock className="size-3" aria-hidden />
@@ -148,7 +148,7 @@ export function HitlCard({
       </header>
 
       <div className="px-3.5 py-3">
-        {card.summary ? <p className="mb-2.5 text-caption text-secondary">{card.summary}</p> : null}
+        {card.summary ? <p className="mb-2.5 text-sm text-secondary">{card.summary}</p> : null}
 
         <fieldset disabled={disabled} className="space-y-2.5">
           {card.details.map((block) => {
@@ -173,7 +173,7 @@ export function HitlCard({
               type="button"
               disabled={disabled}
               onClick={() => onDecide(toDecision('approve'))}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent-bg px-3 py-1.5 text-body-sm font-semibold text-on-accent shadow-sm transition hover:bg-accent-bg disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent-bg px-3 py-1.5 text-base font-semibold text-on-accent shadow-sm transition hover:bg-accent-bg disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Check className="size-3.5" aria-hidden />
               {pending ? 'Working…' : primaryLabel}
@@ -182,20 +182,20 @@ export function HitlCard({
               type="button"
               disabled={disabled}
               onClick={() => setRejectOpen(true)}
-              className="ml-auto rounded-md px-3 py-1.5 text-body-sm text-error hover:bg-error-muted disabled:cursor-not-allowed disabled:opacity-50"
+              className="ml-auto rounded-md px-3 py-1.5 text-base text-error hover:bg-error-muted disabled:cursor-not-allowed disabled:opacity-50"
             >
               {card.decline.label}
             </button>
           </div>
         ) : (
           <div className="mt-3.5 rounded-lg border border-border-strong bg-card p-2.5">
-            <label className="block text-caption text-secondary">
+            <label className="block text-sm text-secondary">
               Reason (optional)
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
-                className="mt-1 w-full resize-none rounded-md border border-border-strong bg-body px-2.5 py-1.5 text-body-sm text-primary placeholder:text-disabled focus:border-accent-bg focus:outline-none focus:ring-2 focus:ring-accent-bg/20"
+                className="mt-1 w-full resize-none rounded-md border border-border-strong bg-body px-2.5 py-1.5 text-base text-primary placeholder:text-disabled focus:border-accent-bg focus:outline-none focus:ring-2 focus:ring-accent-bg/20"
               />
             </label>
             <div className="mt-2 flex items-center justify-end gap-1.5">
@@ -205,7 +205,7 @@ export function HitlCard({
                   setRejectOpen(false);
                   setNote('');
                 }}
-                className="rounded-md px-2.5 py-1.5 text-body-sm text-secondary hover:bg-surface hover:text-primary"
+                className="rounded-md px-2.5 py-1.5 text-base text-secondary hover:bg-surface hover:text-primary"
               >
                 Cancel
               </button>
@@ -213,7 +213,7 @@ export function HitlCard({
                 type="button"
                 disabled={disabled}
                 onClick={() => onDecide(toDecision('reject', note.trim() || undefined))}
-                className="rounded-md bg-error px-3 py-1.5 text-body-sm font-semibold text-on-error shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md bg-error px-3 py-1.5 text-base font-semibold text-on-error shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Confirm decline
               </button>
@@ -222,11 +222,11 @@ export function HitlCard({
         )}
 
         {!canAct ? (
-          <p className="mt-3 rounded-md bg-surface px-2.5 py-1.5 text-caption text-secondary">
+          <p className="mt-3 rounded-md bg-surface px-2.5 py-1.5 text-sm text-secondary">
             You don&apos;t have permission to decide this one.
           </p>
         ) : expired ? (
-          <p className="mt-3 rounded-md bg-error-muted px-2.5 py-1.5 text-caption text-error">
+          <p className="mt-3 rounded-md bg-error-muted px-2.5 py-1.5 text-sm text-error">
             This approval has expired.
           </p>
         ) : null}

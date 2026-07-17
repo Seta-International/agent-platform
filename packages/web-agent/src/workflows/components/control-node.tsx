@@ -21,10 +21,10 @@ export function ControlNode({ data }: NodeProps<Node<ControlData>>) {
         className="!h-2 !w-2 !bg-[var(--color-border)]"
       />
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
+        <span className="text-xs uppercase tracking-wide text-[var(--color-text-secondary)]">
           {data.kind === 'sleep' ? 'sleep' : 'wait'}
         </span>
-        <span className="truncate font-mono text-[10px]" title={data.label}>
+        <span className="truncate font-mono text-xs" title={data.label}>
           {data.label}
         </span>
       </div>

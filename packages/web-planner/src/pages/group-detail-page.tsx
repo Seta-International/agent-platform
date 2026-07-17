@@ -76,7 +76,7 @@ interface ErrorStateProps {
 function ErrorState({ onRetry }: ErrorStateProps) {
   return (
     <div className="flex flex-col items-center justify-center p-12 gap-4" role="alert">
-      <p className="text-body-sm text-secondary">Couldn&apos;t load this group.</p>
+      <p className="text-base text-secondary">Couldn&apos;t load this group.</p>
       <Button size="sm" variant="secondary" label="Try again" onClick={onRetry} />
     </div>
   );
@@ -253,7 +253,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         onMenuAction={handleMenuAction}
       />
       {group.deleted_at && (
-        <div className="flex flex-none items-center justify-between gap-4 border-b border-border bg-warning-muted px-6 py-2 text-body-sm text-warning">
+        <div className="flex flex-none items-center justify-between gap-4 border-b border-border bg-warning-muted px-6 py-2 text-base text-warning">
           <span>This group is archived.</span>
           <DisabledActionTooltip
             disabled={!canUpdateGroup}
@@ -396,7 +396,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
           }
           content={
             <LayoutContent>
-              <p className="text-body-sm text-secondary">
+              <p className="text-base text-secondary">
                 This group is linked to Microsoft 365. Archiving pauses sync here, but the group
                 remains in Microsoft 365.
               </p>
@@ -427,7 +427,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
           }
           content={
             <LayoutContent>
-              <p className="text-body-sm text-secondary">
+              <p className="text-base text-secondary">
                 This group has been archived. Would you like to restore it so it becomes active
                 again?
               </p>

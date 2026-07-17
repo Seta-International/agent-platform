@@ -88,7 +88,7 @@ function ReasoningPart({ text, status }: PartProps) {
   return (
     <div
       aria-live="polite"
-      className="my-1 flex gap-2 border-l-2 border-border pl-3 text-caption text-secondary"
+      className="my-1 flex gap-2 border-l-2 border-border pl-3 text-sm text-secondary"
     >
       {running && (
         <span
@@ -103,7 +103,7 @@ function ReasoningPart({ text, status }: PartProps) {
 
 function ThinkingIndicator() {
   return (
-    <div className="flex items-center gap-2 text-caption text-secondary">
+    <div className="flex items-center gap-2 text-sm text-secondary">
       <span aria-hidden className="inline-flex items-center gap-0.5">
         <span className="size-1.5 animate-bounce rounded-full bg-accent-bg/70 [animation-delay:-0.32s]" />
         <span className="size-1.5 animate-bounce rounded-full bg-accent-bg/70 [animation-delay:-0.16s]" />
@@ -146,8 +146,8 @@ function AgentEmpty({ title, body }: { title: string; body: string }) {
         <Sparkles className="size-4" />
       </span>
       <div className="max-w-xs">
-        <h3 className="text-card-title font-semibold text-primary">{title}</h3>
-        <p className="mt-1.5 text-body-sm leading-[1.5] text-secondary">{body}</p>
+        <h3 className="text-2xl font-semibold text-primary">{title}</h3>
+        <p className="mt-1.5 text-base leading-[1.5] text-secondary">{body}</p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-1.5">
         {AGENT_COPY.emptySuggestions.map((s) => (

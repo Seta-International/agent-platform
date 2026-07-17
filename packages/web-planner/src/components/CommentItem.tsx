@@ -50,12 +50,12 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
     <article className="flex gap-3">
       <div
         aria-hidden
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-caption font-medium text-secondary"
+        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-sm font-medium text-secondary"
       >
         {initials(comment.author_display_name)}
       </div>
       <div className="min-w-0 flex-1">
-        <header className="flex items-center justify-between gap-2 text-caption">
+        <header className="flex items-center justify-between gap-2 text-sm">
           <div className="flex items-center gap-2 text-secondary">
             <span className="font-medium text-primary">{comment.author_display_name}</span>
             <time

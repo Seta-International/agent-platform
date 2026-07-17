@@ -27,7 +27,7 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
       content={
         <>
           <div className="px-1 pb-2">
-            <p className="text-body-sm font-medium text-primary">Customize charts</p>
+            <p className="text-base font-medium text-primary">Customize charts</p>
             <p className="text-xs text-secondary">
               Pick what shows on this tab. Saved to your view.
             </p>
@@ -47,12 +47,12 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
                 {(c.default || c.disabled) && (
                   <span className="flex items-center gap-1.5">
                     {c.default && (
-                      <span className="rounded border border-border px-1 text-[10px] uppercase tracking-wide text-secondary">
+                      <span className="rounded border border-border px-1 text-xs uppercase tracking-wide text-secondary">
                         Default
                       </span>
                     )}
                     {c.disabled && (
-                      <span className="text-[10px] uppercase tracking-wide text-secondary">
+                      <span className="text-xs uppercase tracking-wide text-secondary">
                         Coming soon
                       </span>
                     )}

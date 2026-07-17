@@ -50,14 +50,14 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
 
   return (
     <div className="space-y-1.5">
-      <div className="text-caption text-secondary">
+      <div className="text-sm text-secondary">
         Allocation timeline{' '}
         <span className="text-secondary">
           ({monthLabel(months[0] as string)} – {monthLabel(months.at(-1) as string)})
         </span>
       </div>
       <div className="relative overflow-x-auto rounded-md border border-border">
-        <div className="grid w-full text-caption" style={{ gridTemplateColumns }}>
+        <div className="grid w-full text-sm" style={{ gridTemplateColumns }}>
           <div
             className="sticky left-0 z-10 border-b border-border bg-card px-2 py-1.5 font-medium text-primary"
             style={{ gridColumn: 1, gridRow: 1 }}
@@ -163,7 +163,7 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
           aria-hidden="true"
         />
       </div>
-      <div className="flex items-center gap-1.5 text-caption text-secondary">
+      <div className="flex items-center gap-1.5 text-sm text-secondary">
         <span className="inline-block h-3 w-0 border-l-2 border-dashed border-accent-bg" /> Today
       </div>
     </div>

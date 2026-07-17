@@ -243,9 +243,9 @@ export function ImpactMetric({
         {icon}
       </span>
       <div className="min-w-0 space-y-0.5">
-        <div className="text-caption text-secondary">{label}</div>
-        <div className="text-body-sm font-semibold text-primary">{value}</div>
-        {sub ? <div className="text-caption text-secondary">{sub}</div> : null}
+        <div className="text-sm text-secondary">{label}</div>
+        <div className="text-base font-semibold text-primary">{value}</div>
+        {sub ? <div className="text-sm text-secondary">{sub}</div> : null}
       </div>
     </div>
   );

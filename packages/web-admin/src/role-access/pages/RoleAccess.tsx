@@ -155,10 +155,10 @@ function ModuleDetail({
     <div className="space-y-6 px-8 py-7">
       <header className="space-y-3">
         <div className="space-y-1">
-          <h2 className="text-card-title font-semibold tracking-tight text-primary">
+          <h2 className="text-2xl font-semibold tracking-tight text-primary">
             {moduleLabel(module)}
           </h2>
-          <p className="text-body-sm text-secondary">
+          <p className="text-base text-secondary">
             Built-in roles for the {moduleLabel(module)} module. Changes apply to everyone holding
             the role.
           </p>
@@ -178,7 +178,7 @@ function ModuleDetail({
           />
         </StatBar>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-caption text-secondary">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-secondary">
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2 rounded-full bg-accent-bg" aria-hidden />
             Changed from default
@@ -208,7 +208,7 @@ function RoleColumnHeader({ role, canWrite }: { role: MatrixRole; canWrite: bool
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
-        <span className="text-body-sm font-semibold tracking-tight text-primary">
+        <span className="text-base font-semibold tracking-tight text-primary">
           {roleShort(role.slug)}
         </span>
         {canWrite && (
@@ -233,10 +233,10 @@ function RoleColumnHeader({ role, canWrite }: { role: MatrixRole; canWrite: bool
           />
         )}
         {modified > 0 && (
-          <span className="text-caption tabular-nums text-accent">{modified} changed</span>
+          <span className="text-sm tabular-nums text-accent">{modified} changed</span>
         )}
       </div>
-      <span className="font-mono text-caption font-normal text-disabled">{role.slug}</span>
+      <span className="font-mono text-sm font-normal text-disabled">{role.slug}</span>
     </div>
   );
 }
@@ -256,7 +256,7 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
       <TableHeader>
         <TableRow isHeaderRow>
           <TableHeaderCell className="sticky left-0 z-10 bg-card align-bottom">
-            <span className="text-eyebrow uppercase text-disabled">Permission</span>
+            <span className="text-xs font-medium uppercase text-disabled">Permission</span>
           </TableHeaderCell>
           {roles.map((role) => (
             <TableHeaderCell
@@ -273,9 +273,9 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
           <TableRow key={key} className="border-b border-border">
             <TableCell className="sticky left-0 z-10 bg-body">
               <div className="flex flex-col">
-                <span className="text-body-sm text-primary">{description}</span>
+                <span className="text-base text-primary">{description}</span>
                 {description !== key && (
-                  <span className="font-mono text-caption text-disabled">{key}</span>
+                  <span className="font-mono text-sm text-disabled">{key}</span>
                 )}
               </div>
             </TableCell>

@@ -189,9 +189,7 @@ export function PeoplePage() {
             <div className="min-w-0">
               <div className="truncate font-medium">{r.full_name}</div>
               {r.job_title && (
-                <div className="truncate text-[11px] text-secondary leading-tight">
-                  {r.job_title}
-                </div>
+                <div className="truncate text-xs text-secondary leading-tight">{r.job_title}</div>
               )}
             </div>
           </div>
@@ -208,7 +206,7 @@ export function PeoplePage() {
                 <Badge
                   key={a.id}
                   variant="neutral"
-                  className="text-[11px] px-1.5 py-0 whitespace-nowrap"
+                  className="text-xs px-1.5 py-0 whitespace-nowrap"
                   label={a.name}
                 />
               ))}
@@ -222,7 +220,7 @@ export function PeoplePage() {
         header: 'Work email',
         width: proportional(2),
         renderCell: (r) => (
-          <span className="font-mono text-[12.5px] text-secondary truncate block">
+          <span className="font-mono text-sm text-secondary truncate block">
             {r.work_email || '—'}
           </span>
         ),
@@ -354,7 +352,7 @@ export function PeoplePage() {
                           label={`Clear filters (${activeFiltersCount})`}
                         />
                       )}
-                      <div className="flex items-center gap-2 text-body-sm text-secondary">
+                      <div className="flex items-center gap-2 text-base text-secondary">
                         <span className="font-medium text-primary flex items-center gap-1">
                           <User className="size-3.5 text-secondary" />
                           {total} {total === 1 ? 'person' : 'people'}
@@ -369,7 +367,7 @@ export function PeoplePage() {
                           label="Toggle columns"
                           content={
                             <div className="flex min-w-[180px] flex-col gap-1 p-2">
-                              <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
+                              <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
                                 Toggle columns
                               </div>
                               {HIDEABLE_COLUMN_KEYS.map((col) => (

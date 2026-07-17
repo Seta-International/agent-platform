@@ -108,18 +108,16 @@ export function RequisitionCard({
         <div className="min-w-0">
           <button
             type="button"
-            className="line-clamp-2 w-full break-words text-left text-card-title font-semibold text-primary hover:underline"
+            className="line-clamp-2 w-full break-words text-left text-2xl font-semibold text-primary hover:underline"
             onClick={go}
           >
             {r.title}
           </button>
-          {subtitle && (
-            <div className="mt-0.5 truncate text-body-sm text-secondary">{subtitle}</div>
-          )}
+          {subtitle && <div className="mt-0.5 truncate text-base text-secondary">{subtitle}</div>}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <span
-            className={`rounded-full px-2.5 py-1 text-caption font-medium ${STATUS_BADGE_CLASS[r.status]}`}
+            className={`rounded-full px-2.5 py-1 text-sm font-medium ${STATUS_BADGE_CLASS[r.status]}`}
           >
             {STATUS_LABEL[r.status]}
           </span>
@@ -180,7 +178,7 @@ export function RequisitionCard({
           {r.skills.map((s) => (
             <span
               key={s.skill_name}
-              className="rounded-full bg-surface px-2.5 py-1 text-caption text-secondary"
+              className="rounded-full bg-surface px-2.5 py-1 text-sm text-secondary"
             >
               {s.skill_name}
               {/* Level 0 means "no minimum" — show the suffix only for a real 1–5 requirement. */}
@@ -221,22 +219,22 @@ export function RequisitionCard({
                     {reached && <Check className="size-3" aria-hidden />}
                   </span>
                   <span
-                    className={`text-caption font-medium ${i === lastReachedIdx ? 'text-primary' : 'text-secondary'}`}
+                    className={`text-sm font-medium ${i === lastReachedIdx ? 'text-primary' : 'text-secondary'}`}
                   >
                     {STAGE_LABEL[s]}
                   </span>
-                  <span className="text-caption tabular-nums text-secondary">{counts[i]}</span>
+                  <span className="text-sm tabular-nums text-secondary">{counts[i]}</span>
                 </div>
               );
             })}
           </div>
         </div>
-        <div className="flex flex-1 items-start justify-end gap-1.5 pt-0.5 text-right text-body-sm">
+        <div className="flex flex-1 items-start justify-end gap-1.5 pt-0.5 text-right text-base">
           <Calendar className="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden />
           {r.status === 'on_hold' ? (
             <div>
               <div className="font-medium text-warning">Paused</div>
-              <div className="text-caption text-secondary">Since {formatDate(r.updated_at)}</div>
+              <div className="text-sm text-secondary">Since {formatDate(r.updated_at)}</div>
             </div>
           ) : r.due_date ? (
             <div>
@@ -245,10 +243,10 @@ export function RequisitionCard({
                   ? `${daysLeft(r.due_date)} days left`
                   : `${-daysLeft(r.due_date)}d overdue`}
               </div>
-              <div className="text-caption text-secondary">Due {formatDate(r.due_date)}</div>
+              <div className="text-sm text-secondary">Due {formatDate(r.due_date)}</div>
             </div>
           ) : (
-            <div className="text-caption text-secondary">No due date</div>
+            <div className="text-sm text-secondary">No due date</div>
           )}
         </div>
       </div>
@@ -257,7 +255,7 @@ export function RequisitionCard({
           content height still align their footers within the same grid row. */}
       <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
         <div>
-          <span className="flex items-center gap-1.5 text-body-sm text-secondary">
+          <span className="flex items-center gap-1.5 text-base text-secondary">
             <Users className="size-4" aria-hidden />
             {r.applicants_count} Applicants
           </span>

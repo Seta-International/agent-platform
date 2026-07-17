@@ -168,16 +168,11 @@ function Kpi({
         ].join(' ')}
       >
         <div className="min-w-0">
-          <div className="text-[10.5px] font-medium uppercase tracking-wide text-secondary">
-            {label}
-          </div>
-          <div
-            className="mt-1 text-[26px] font-semibold leading-none tabular-nums"
-            style={{ color }}
-          >
+          <div className="text-xs font-medium uppercase tracking-wide text-secondary">{label}</div>
+          <div className="mt-1 text-2xl font-semibold leading-none tabular-nums" style={{ color }}>
             {value}
           </div>
-          {sub && <div className="mt-1.5 text-[11px] text-secondary">{sub}</div>}
+          {sub && <div className="mt-1.5 text-xs text-secondary">{sub}</div>}
         </div>
         <span
           className="grid size-9 flex-shrink-0 place-items-center rounded-[10px]"
@@ -231,21 +226,21 @@ function RequestCard({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[10.5px] text-secondary">
+              <span className="font-mono text-xs text-secondary">
                 #{row.charter_id.slice(0, 8)}
               </span>
               <Badge variant={status.variant} label={status.label} />
-              <span className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-secondary">
+              <span className="rounded bg-surface px-1.5 py-0.5 text-xs font-medium text-secondary">
                 {accountName}
               </span>
             </div>
-            <div className="mt-1.5 truncate text-[15px] font-semibold text-primary">{row.name}</div>
-            <div className="mt-0.5 truncate text-body-sm text-secondary">{meta}</div>
+            <div className="mt-1.5 truncate text-base font-semibold text-primary">{row.name}</div>
+            <div className="mt-0.5 truncate text-base text-secondary">{meta}</div>
           </div>
           <div className="flex flex-shrink-0 items-start gap-2">
             <div className="text-right">
-              <div className="text-[10px] uppercase tracking-wide text-secondary">Submitted</div>
-              <div className="font-mono text-[13px] font-semibold text-primary">
+              <div className="text-xs uppercase tracking-wide text-secondary">Submitted</div>
+              <div className="font-mono text-base font-semibold text-primary">
                 {row.created_at.slice(0, 10)}
               </div>
             </div>
@@ -427,7 +422,7 @@ export function RequestsPage() {
         header: 'Budget',
         width: pixel(110),
         renderCell: (r) => (
-          <span className="font-mono text-caption text-secondary">
+          <span className="font-mono text-sm text-secondary">
             {r.budget_bmm != null ? `${Number(r.budget_bmm)} BMM` : '—'}
           </span>
         ),
@@ -447,7 +442,7 @@ export function RequestsPage() {
         header: 'Submitted',
         width: pixel(110),
         renderCell: (r) => (
-          <span className="font-mono text-caption text-secondary">{r.created_at.slice(0, 10)}</span>
+          <span className="font-mono text-sm text-secondary">{r.created_at.slice(0, 10)}</span>
         ),
       },
     ],
@@ -633,7 +628,7 @@ export function RequestsPage() {
                     label="Toggle columns"
                     content={
                       <div className="flex min-w-[180px] flex-col gap-1 p-2">
-                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
+                        <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
                           Toggle columns
                         </div>
                         {TABLE_COLUMN_OPTIONS.map((col) => (
@@ -711,7 +706,7 @@ export function RequestsPage() {
 
             {pageCount > 1 && (
               <div className="flex items-center justify-end gap-3">
-                <span className="text-caption text-secondary">
+                <span className="text-sm text-secondary">
                   Page {page} of {pageCount} · {total} total
                 </span>
                 <Button

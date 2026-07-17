@@ -129,7 +129,7 @@ export function AgentHeader({
               }
             }}
             aria-label="Chat name"
-            className="min-w-0 flex-1 bg-transparent text-body-sm font-semibold tracking-tight text-primary focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent text-base font-semibold tracking-tight text-primary focus:outline-none"
           />
         ) : (
           <button
@@ -137,7 +137,7 @@ export function AgentHeader({
             onClick={() => canEdit && startEdit()}
             disabled={!canEdit}
             title={canEdit ? 'Rename chat' : title}
-            className="group inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 -mx-1 text-left text-body-sm font-semibold tracking-tight text-primary hover:bg-surface disabled:cursor-default disabled:hover:bg-transparent"
+            className="group inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 -mx-1 text-left text-base font-semibold tracking-tight text-primary hover:bg-surface disabled:cursor-default disabled:hover:bg-transparent"
           >
             <span className="truncate">{title}</span>
             <Pencil

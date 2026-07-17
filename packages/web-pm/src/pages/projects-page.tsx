@@ -148,7 +148,7 @@ export function ProjectsPage() {
         width: proportional(1),
         sortable: true,
         renderCell: (r) => (
-          <span className="font-mono text-caption text-secondary truncate block">
+          <span className="font-mono text-sm text-secondary truncate block">
             {r.pm_worker_id ?? '—'}
           </span>
         ),
@@ -202,7 +202,7 @@ export function ProjectsPage() {
                     label="Toggle columns"
                     content={
                       <div className="flex min-w-[180px] flex-col gap-1 p-2">
-                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
+                        <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
                           Toggle columns
                         </div>
                         {COLUMN_OPTIONS.map((col) => (

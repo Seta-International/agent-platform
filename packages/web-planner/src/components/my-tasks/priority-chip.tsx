@@ -10,7 +10,7 @@ export function PriorityChip({ prio }: Props) {
   const cfg = priorityFromNumber(prio);
   return (
     <span
-      className="inline-flex items-center gap-1.5 h-5 px-2 text-[11.5px] rounded-full font-medium justify-self-start"
+      className="inline-flex items-center gap-1.5 h-5 px-2 text-sm rounded-full font-medium justify-self-start"
       style={{ background: cfg.tint, color: cfg.color }}
     >
       <Flag size={10} stroke={cfg.color} />

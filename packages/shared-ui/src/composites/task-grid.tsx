@@ -159,7 +159,7 @@ export function TaskGrid({
     onSelectionChange(next);
   }
 
-  const headCellCls = 'text-[11px] font-medium uppercase tracking-[0.04em] text-secondary min-w-0';
+  const headCellCls = 'text-xs font-medium uppercase tracking-[0.04em] text-secondary min-w-0';
 
   return (
     <div className={`flex flex-1 flex-col overflow-auto bg-card px-lg py-md`}>
@@ -185,8 +185,8 @@ export function TaskGrid({
           <Fragment key={groupKey}>
             <div className="mt-2 flex items-center gap-2 px-3 pb-2 pt-3 first:mt-0">
               <span className={`status-dot status-dot--${header.status}`} aria-hidden />
-              <span className="text-body-sm font-semibold text-primary">{header.label}</span>
-              <span className="text-caption text-secondary">{groupRowList.length}</span>
+              <span className="text-base font-semibold text-primary">{header.label}</span>
+              <span className="text-sm text-secondary">{groupRowList.length}</span>
             </div>
 
             {groupRowList.map((r) => {
@@ -237,7 +237,7 @@ export function TaskGrid({
                         <button
                           type="button"
                           aria-label={`Open ${r.title}`}
-                          className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left text-body-sm font-medium text-primary hover:text-accent hover:underline hover:underline-offset-2"
+                          className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left text-base font-medium text-primary hover:text-accent hover:underline hover:underline-offset-2"
                           onClick={() => onOpenTask?.(r.id)}
                         >
                           {r.title}
@@ -313,7 +313,7 @@ export function TaskGrid({
                       className="inline-flex min-w-0 items-center gap-1 rounded-sm border-0 bg-transparent p-0 hover:opacity-80"
                     >
                       {r.assignees.length === 0 ? (
-                        <span className="text-caption text-disabled">—</span>
+                        <span className="text-sm text-disabled">—</span>
                       ) : (
                         <AvatarStack
                           assignees={r.assignees.map((a) => ({
@@ -343,14 +343,12 @@ export function TaskGrid({
                       className="inline-flex min-w-0 items-center gap-1 rounded-sm border-0 bg-transparent p-0 hover:opacity-80"
                     >
                       {r.labels.length === 0 ? (
-                        <span className="text-caption text-disabled">—</span>
+                        <span className="text-sm text-disabled">—</span>
                       ) : (
                         <>
                           <LabelChip name={r.labels[0]?.name ?? ''} />
                           {r.labels.length > 1 && (
-                            <span className="text-caption text-secondary">
-                              +{r.labels.length - 1}
-                            </span>
+                            <span className="text-sm text-secondary">+{r.labels.length - 1}</span>
                           )}
                         </>
                       )}
@@ -376,7 +374,7 @@ export function TaskGrid({
                     type="button"
                     disabled={Boolean(addTaskDisabledReason)}
                     onClick={() => onAddTask?.('__open__', groupBucketId)}
-                    className="mb-1 flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-body-sm text-secondary hover:bg-surface hover:text-primary"
+                    className="mb-1 flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-base text-secondary hover:bg-surface hover:text-primary"
                   >
                     <span className="text-base leading-none">+</span> Add a task
                   </button>
@@ -390,7 +388,7 @@ export function TaskGrid({
 }
 
 const CHIP_CLS =
-  'inline-flex max-w-full items-center gap-1.5 rounded-full bg-surface px-2 py-0.5 text-caption text-primary hover:bg-card hover:shadow-[inset_0_0_0_1px_var(--color-border)]';
+  'inline-flex max-w-full items-center gap-1.5 rounded-full bg-surface px-2 py-0.5 text-sm text-primary hover:bg-card hover:shadow-[inset_0_0_0_1px_var(--color-border)]';
 
 interface TitleInputProps {
   initialValue: string;
@@ -410,7 +408,7 @@ function TitleInput({ initialValue, onCommit, onCancel }: TitleInputProps) {
       defaultValue={initialValue}
       aria-label="Edit title"
       autoFocus
-      className="w-full rounded-sm border border-accent-bg bg-body px-1.5 py-1 text-body-sm text-primary outline-none"
+      className="w-full rounded-sm border border-accent-bg bg-body px-1.5 py-1 text-base text-primary outline-none"
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
           committedRef.current = true;
@@ -552,7 +550,7 @@ function BucketCell({ label, value, bucketName, options, disabled, onChange }: B
 
 function BucketPill({ name }: { name: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2 py-0.5 text-caption text-primary">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2 py-0.5 text-sm text-primary">
       <span className={`status-dot status-dot--${bucketStatusForName(name)}`} aria-hidden />
       <span className="truncate">{name}</span>
     </span>
@@ -576,7 +574,7 @@ function DueCell({ value, overdue, disabled, onChange, label }: DueCellProps) {
         defaultValue={value ? value.slice(0, 10) : ''}
         aria-label={label}
         autoFocus
-        className="rounded-sm border border-accent-bg bg-body px-1.5 py-1 text-caption text-primary outline-none"
+        className="rounded-sm border border-accent-bg bg-body px-1.5 py-1 text-sm text-primary outline-none"
         onBlur={(e) => {
           const v = e.target.value;
           onChange(v ? new Date(v).toISOString() : null);
@@ -628,7 +626,7 @@ function AddTaskRow({ onCommit, onCancel }: AddTaskRowProps) {
         placeholder="Task name"
         aria-label="New task title"
         autoFocus
-        className="col-span-7 w-full rounded-sm border-0 bg-transparent px-1.5 py-1 text-body-sm text-primary outline-none placeholder:text-disabled"
+        className="col-span-7 w-full rounded-sm border-0 bg-transparent px-1.5 py-1 text-base text-primary outline-none placeholder:text-disabled"
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             const value = (e.target as HTMLInputElement).value.trim();

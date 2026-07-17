@@ -60,7 +60,7 @@ export function TaskDetailReferencesCard({ task, planId }: Props) {
           }
         />
         {errorMessage && (
-          <p role="alert" className="mt-1.5 text-caption text-error">
+          <p role="alert" className="mt-1.5 text-sm text-error">
             {errorMessage}
           </p>
         )}

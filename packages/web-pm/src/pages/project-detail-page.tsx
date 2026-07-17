@@ -398,9 +398,9 @@ export function ProjectDetailPage() {
                         />
                       </div>
                       {p.planner_group_id && (
-                        <p className="mt-2 text-body-sm text-secondary">
+                        <p className="mt-2 text-base text-secondary">
                           Linked:{' '}
-                          <span className="font-mono text-caption text-primary">
+                          <span className="font-mono text-sm text-primary">
                             {p.planner_group_id}
                           </span>
                           {groups?.find((g) => g.id === p.planner_group_id) && (

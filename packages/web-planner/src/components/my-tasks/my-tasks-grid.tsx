@@ -51,7 +51,7 @@ function formatDueShort(v: string | null): ReactNode {
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return <span className="text-disabled">—</span>;
   return (
-    <span className="text-secondary text-[12.5px]">
+    <span className="text-secondary text-sm">
       {d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
     </span>
   );
@@ -97,7 +97,7 @@ export function MyTasksGrid({ data }: Props) {
         header: 'Plan',
         sortValue: (r) => r.plan.name,
         renderCell: (r) => (
-          <span className="inline-flex items-center gap-1.5 text-secondary text-[12.5px] truncate">
+          <span className="inline-flex items-center gap-1.5 text-secondary text-sm truncate">
             <Layout size={11} className="text-accent shrink-0" />
             <span className="truncate">{r.plan.name}</span>
           </span>
@@ -168,9 +168,9 @@ export function MyTasksGrid({ data }: Props) {
   }
 
   return (
-    <table data-testid="my-tasks-grid" className="w-full text-[13px] border-collapse">
+    <table data-testid="my-tasks-grid" className="w-full text-base border-collapse">
       <thead className="sticky top-0 z-10 bg-body">
-        <tr className="border-b border-border text-[10.5px] uppercase tracking-[0.06em] text-secondary">
+        <tr className="border-b border-border text-xs uppercase tracking-[0.06em] text-secondary">
           <th className="w-10 px-7 py-2.5 text-left">
             <Checkbox
               label="Select all"

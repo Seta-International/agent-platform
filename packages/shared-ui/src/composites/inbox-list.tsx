@@ -31,11 +31,9 @@ export function InboxList({ items, selectedId, onSelect, className }: InboxListP
                 isSelected && 'bg-surface',
               )}
             >
-              <span className="text-body-sm text-primary">{item.title}</span>
-              {item.subtitle && (
-                <span className="text-caption text-secondary">{item.subtitle}</span>
-              )}
-              {item.meta && <span className="text-caption text-disabled">{item.meta}</span>}
+              <span className="text-base text-primary">{item.title}</span>
+              {item.subtitle && <span className="text-sm text-secondary">{item.subtitle}</span>}
+              {item.meta && <span className="text-sm text-disabled">{item.meta}</span>}
             </button>
           </li>
         );

@@ -49,7 +49,7 @@ export function UserMenu({ onSignOut }: { onSignOut?: () => void } = {}) {
         <div className="truncate font-medium" title={session.display_name}>
           {session.display_name}
         </div>
-        <div className="truncate text-muted-foreground text-xs font-mono" title={session.email}>
+        <div className="truncate text-secondary text-xs font-mono" title={session.email}>
           {session.email}
         </div>
       </div>
@@ -61,7 +61,7 @@ export function UserMenu({ onSignOut }: { onSignOut?: () => void } = {}) {
       {theme && (
         <>
           <MenuDivider />
-          <div className="px-2 py-1.5 text-caption uppercase tracking-wide text-secondary">
+          <div className="px-2 py-1.5 text-sm uppercase tracking-wide text-secondary">
             Appearance
           </div>
           {APPEARANCE.map(({ value, label, Icon }) => (

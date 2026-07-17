@@ -140,9 +140,7 @@ function NewTemplateDialog() {
                   />
                 </div>
                 <div className="flex items-center justify-between pt-2">
-                  <div className="text-caption font-semibold uppercase text-secondary">
-                    Sections
-                  </div>
+                  <div className="text-sm font-semibold uppercase text-secondary">Sections</div>
                   <SegmentedControl
                     label="JD variant"
                     value={variant}

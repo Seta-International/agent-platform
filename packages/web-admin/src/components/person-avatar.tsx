@@ -19,7 +19,7 @@ export function PersonAvatar({ name, className }: { name: string; className?: st
     <span
       aria-hidden
       className={cn(
-        'flex size-7 flex-none items-center justify-center rounded-full bg-surface text-caption font-medium text-secondary',
+        'flex size-7 flex-none items-center justify-center rounded-full bg-surface text-sm font-medium text-secondary',
         className,
       )}
     >
