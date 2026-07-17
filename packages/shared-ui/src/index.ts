@@ -186,6 +186,7 @@ export * from './primitives/textarea';
 export * from './primitives/time-input';
 export * from './primitives/timestamp';
 export * from './primitives/toast';
+export * from './primitives/toggle-button';
 export * from './primitives/token';
 export * from './primitives/tokenizer';
 export * from './primitives/toolbar';
