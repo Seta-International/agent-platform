@@ -42,13 +42,11 @@ export * from './composites/left-nav';
 export * from './composites/notification-list-item';
 export * from './composites/notification-popover';
 export * from './composites/priority-icon';
-export * from './composites/progress-bar';
 export * from './composites/resolve-plan-conflicts-dialog';
 export * from './composites/segmented-control';
 export * from './composites/shell-link';
 export * from './composites/side-panel';
 export * from './composites/skill-level-rating';
-export * from './composites/status-pill';
 export * from './composites/sync-badge';
 export * from './composites/task-conflict-group';
 export * from './composites/task-grid';
@@ -90,13 +88,21 @@ export * from './primitives/date-input';
 export * from './primitives/dialog';
 export * from './primitives/dropdown-menu';
 export * from './primitives/field';
+export * from './primitives/file-input';
 export * from './primitives/hover-card';
 export * from './primitives/icon-button';
 export * from './primitives/input';
 export * from './primitives/layout';
 export * from './primitives/number-input';
 export * from './primitives/popover';
+export * from './primitives/progress-bar';
 export * from './primitives/radio-group';
+// NOTE: './primitives/segmented-control' is intentionally NOT re-exported here yet.
+// './composites/segmented-control' (line above, in the Composites block) already
+// exports a `SegmentedControl` with an incompatible API and 13 live consumers;
+// re-exporting both under one barrel is a hard TS2308 "already exported a member"
+// error. FUT-669/Task 3 migrates those consumers onto the Astryx primitive and
+// deletes the composite — swap this export in at that point (see task-1-report.md).
 export * from './primitives/selector';
 export * from './primitives/skeleton';
 export * from './primitives/switch';

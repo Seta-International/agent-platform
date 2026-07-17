@@ -51,10 +51,6 @@ select:focus-visible,
 .label-chip--purple { background: rgba(168, 85, 247, 0.10); color: rgb(168, 85, 247); }
 .label-chip--teal   { background: rgba(20, 184, 166, 0.10); color: rgb(20, 184, 166); }
 
-/* ProgressBar */
-.progress-bar       { width: 100%; height: 8px; background: var(--color-surface-2); border-radius: var(--radius-sm); overflow: hidden; }
-.progress-bar__fill { height: 100%; background: var(--color-primary); transition: width 80ms ease-out; }
-
 /* Rich text content — editor and display both carry this class */
 .rich-text ul,
 .rich-text ol { padding-left: 1.5rem; margin: 0.25rem 0; }
