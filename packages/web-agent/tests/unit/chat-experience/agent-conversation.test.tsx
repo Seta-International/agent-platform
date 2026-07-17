@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let thoughtStatus = 'complete';
 
+const composer = vi.hoisted(() => ({ setText: vi.fn(), send: vi.fn() }));
+
 vi.mock('@assistant-ui/react', () => {
   const MessagePrimitive = {
     GroupedParts: ({ children }: { children: (props: unknown) => ReactNode }) =>
@@ -22,7 +24,7 @@ vi.mock('@assistant-ui/react', () => {
   };
 
   const ThreadPrimitive = {
-    Empty: () => null,
+    Empty: ({ children }: { children: ReactNode }) => <>{children}</>,
     Messages: ({
       components,
     }: {
@@ -38,9 +40,7 @@ vi.mock('@assistant-ui/react', () => {
   return {
     MessagePrimitive,
     ThreadPrimitive,
-    useAui: () => ({
-      composer: () => ({ setText: vi.fn(), send: vi.fn() }),
-    }),
+    useAui: () => ({ composer: () => composer }),
     useAuiState: (selector: (state: unknown) => unknown) =>
       selector({
         message: {
@@ -184,5 +184,53 @@ describe('AgentConversation composer dock', () => {
     const composer = screen.getByTestId('composer-stub');
     expect(composer).toBeInTheDocument();
     expect(within(screen.getByRole('log')).queryByTestId('composer-stub')).toBeNull();
+  });
+});
+
+// Slice C: the empty state is a lane picker + suggestion cards. ClickableCard
+// renders a visually-hidden <button aria-label={label} onClick> as its a11y
+// target (verified in @astryxdesign/core), so each card is reachable by role
+// "button" with its prompt as the accessible name, and clicking it fires the
+// card's onClick directly. ToggleButton renders a Button (role "button", name =
+// lane label). happy-dom loads no Astryx CSS, so assert presence, not visibility.
+describe('AgentConversation greeting', () => {
+  beforeEach(() => {
+    composer.setText.mockClear();
+    composer.send.mockClear();
+    thoughtStatus = 'complete';
+  });
+
+  it('defaults to the General lane', () => {
+    render(<AgentConversation />);
+    expect(screen.getByRole('heading', { name: 'Where should we start?' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'List everything you help with' }),
+    ).toBeInTheDocument();
+    // A Planner-only card is not shown until its lane is selected.
+    expect(
+      screen.queryByRole('button', { name: 'Build a schedule from my open tasks' }),
+    ).toBeNull();
+  });
+
+  it('swaps the cards when a different lane is selected', async () => {
+    const user = userEvent.setup();
+    render(<AgentConversation />);
+
+    await user.click(screen.getByRole('button', { name: 'Planner' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Build a schedule from my open tasks' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'List everything you help with' })).toBeNull();
+  });
+
+  it('prefills and sends the exact prompt when a card is clicked', async () => {
+    const user = userEvent.setup();
+    render(<AgentConversation />);
+
+    await user.click(screen.getByRole('button', { name: 'What am I allowed to do?' }));
+
+    expect(composer.setText).toHaveBeenCalledWith('What am I allowed to do?');
+    expect(composer.send).toHaveBeenCalledTimes(1);
   });
 });

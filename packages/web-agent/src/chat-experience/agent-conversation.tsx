@@ -7,16 +7,22 @@ import {
   ChatMessageBubble,
   ChatMessageList,
   ChatMessageMetadata,
+  ClickableCard,
+  Grid,
+  Heading,
   Markdown,
+  Text,
   Timestamp,
+  ToggleButton,
+  ToggleButtonGroup,
   Token,
 } from '@seta/shared-ui';
 import { Paperclip, Sparkles } from 'lucide-react';
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, useState } from 'react';
 import { ThreadListRefresher } from '../components/thread-list-refresher';
 import { ToolUIRegistry } from '../components/tool-renderers';
 import { ToolFallback } from '../components/tool-renderers/tool-fallback';
-import { AGENT_COPY } from '../i18n';
+import { AGENT_COPY, EMPTY_LANES, type EmptyLaneId } from '../i18n';
 import { parseContextAttachment } from '../lib/context-attachment';
 import { ChatEmbeddedHitl } from '../workflows/components/chat-embedded-hitl';
 import { AgentComposer } from './agent-composer';
@@ -131,12 +137,78 @@ function PlainTextPart({ text }: PartProps) {
   return <span className="whitespace-pre-wrap">{text}</span>;
 }
 
-function AgentEmpty({ title, body }: { title: string; body: string }) {
+function useComposerSend() {
   const aui = useAui();
-  const send = (text: string) => {
-    aui.composer().setText(text);
-    aui.composer().send();
-  };
+  // setText + send are two separate composer() reads in the real API; keep the
+  // handler stable so ClickableCard/Button onClick identities don't churn.
+  return useCallback(
+    (text: string) => {
+      aui.composer().setText(text);
+      aui.composer().send();
+    },
+    [aui],
+  );
+}
+
+function LaneGreeting({ onSend }: { onSend: (text: string) => void }) {
+  const [laneId, setLaneId] = useState<EmptyLaneId>('general');
+  const lane = EMPTY_LANES.find((l) => l.id === laneId) ?? EMPTY_LANES[0];
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-12 text-center">
+      <div className="max-w-md">
+        <Heading level={2}>Where should we start?</Heading>
+        <Text type="body" color="secondary">
+          Pick a lane, or just ask.
+        </Text>
+      </div>
+      <ToggleButtonGroup
+        label="Suggestion lane"
+        size="sm"
+        value={laneId}
+        // Single-select groups emit null when the active button is re-clicked;
+        // a lane must always stay selected, so ignore the deselect.
+        onChange={(next) => {
+          if (next) setLaneId(next as EmptyLaneId);
+        }}
+      >
+        {EMPTY_LANES.map((l) => (
+          <ToggleButton key={l.id} value={l.id} label={l.label} />
+        ))}
+      </ToggleButtonGroup>
+      <Grid columns={{ minWidth: 200, max: 3 }} gap={3} width="100%" maxWidth={640}>
+        {lane.cards.map((card) => (
+          <ClickableCard
+            key={card.prompt}
+            // aria-label carries the sent prompt so the a11y name matches the action.
+            label={card.prompt}
+            padding={4}
+            onClick={() => onSend(card.prompt)}
+          >
+            <div className="flex flex-col gap-1 text-left">
+              <Text type="body" weight="bold">
+                {card.title}
+              </Text>
+              <Text type="supporting" color="secondary">
+                {card.prompt}
+              </Text>
+            </div>
+          </ClickableCard>
+        ))}
+      </Grid>
+    </div>
+  );
+}
+
+// Page-scoped empty state — kept structurally as-is (Slice C keeps today's
+// pageContext branch); only the raw <h3>/<p> became Heading/Text primitives.
+function PageScopedEmpty({
+  pageContext,
+  onSend,
+}: {
+  pageContext: PageContext;
+  onSend: (text: string) => void;
+}) {
+  const kind = pageContext.kind.split('.').pop() ?? 'item';
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-12 text-center">
       <span
@@ -146,8 +218,10 @@ function AgentEmpty({ title, body }: { title: string; body: string }) {
         <Sparkles className="size-4" />
       </span>
       <div className="max-w-xs">
-        <h3 className="text-2xl font-semibold text-primary">{title}</h3>
-        <p className="mt-1.5 text-base leading-[1.5] text-secondary">{body}</p>
+        <Heading level={3}>{`Ask about ${pageContext.label}`}</Heading>
+        <Text type="body" color="secondary">
+          {`Ask agent anything about this ${kind}.`}
+        </Text>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-1.5">
         {AGENT_COPY.emptySuggestions.map((s) => (
@@ -157,11 +231,20 @@ function AgentEmpty({ title, body }: { title: string; body: string }) {
             variant="secondary"
             size="sm"
             label={s}
-            onClick={() => send(s)}
+            onClick={() => onSend(s)}
           />
         ))}
       </div>
     </div>
+  );
+}
+
+function AgentEmpty({ pageContext }: { pageContext: PageContext | null }) {
+  const onSend = useComposerSend();
+  return pageContext ? (
+    <PageScopedEmpty pageContext={pageContext} onSend={onSend} />
+  ) : (
+    <LaneGreeting onSend={onSend} />
   );
 }
 
@@ -291,10 +374,6 @@ export function AgentConversation() {
   const isRunning = useAuiState((s) => s.thread.isRunning);
   const AssistantMessage = makeAssistantMessage(ASSISTANT_LABEL);
 
-  const emptyTitle = pageContext ? `Ask about ${pageContext.label}` : AGENT_COPY.emptyThreads.title;
-  const emptyBody = pageContext
-    ? `Ask agent anything about this ${pageContext.kind.split('.').pop() ?? 'item'}.`
-    : AGENT_COPY.emptyThreads.body;
   const chatDensity = CHAT_DENSITY[density];
 
   return (
@@ -308,7 +387,7 @@ export function AgentConversation() {
       <ChatLayout density={chatDensity} composer={<AgentComposer />}>
         <ChatMessageList density={chatDensity} isStreaming={isRunning}>
           <ThreadPrimitive.Empty>
-            <AgentEmpty title={emptyTitle} body={emptyBody} />
+            <AgentEmpty pageContext={pageContext} />
           </ThreadPrimitive.Empty>
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
           {/* Stays inside the `role="log"`: the list's own inline padding is
