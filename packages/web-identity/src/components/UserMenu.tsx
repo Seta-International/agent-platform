@@ -84,7 +84,10 @@ export function UserMenu({ onSignOut }: { onSignOut?: () => void } = {}) {
           await authClient.signOut();
           queryClient.clear();
           onSignOut?.();
-          void navigate({ to: '/login', search: { redirect: undefined, reason: undefined } });
+          void navigate({
+            to: '/login',
+            search: { redirect: undefined, reason: undefined, error: undefined },
+          });
         }}
       />
     </DropdownMenu>

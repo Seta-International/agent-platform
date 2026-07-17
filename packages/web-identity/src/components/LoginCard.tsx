@@ -25,7 +25,6 @@ export function LoginCard() {
   const navigate = useNavigate();
   const search = useSearch({ strict: false }) as {
     redirect?: string;
-    reason?: string;
     error?: string;
   };
 
@@ -35,9 +34,7 @@ export function LoginCard() {
 
   const initialError = search.error
     ? (ERROR_MESSAGES[search.error] ?? 'Something went wrong. Try again, or contact your admin.')
-    : search.reason === 'idle'
-      ? "You've been signed out for inactivity. Sign in to continue."
-      : null;
+    : null;
 
   const [error, setError] = useState<string | null>(initialError);
   const [rateLimited, setRateLimited] = useState(false);
