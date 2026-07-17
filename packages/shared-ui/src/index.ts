@@ -13,7 +13,6 @@ export * from './composites/app-launcher';
 export * from './composites/app-shell';
 export * from './composites/auth-backdrop';
 export * from './composites/avatar-stack';
-export * from './composites/chat-markdown';
 export * from './composites/coming-soon';
 export * from './composites/counter-badge-popover';
 export * from './composites/disabled-action-tooltip';
