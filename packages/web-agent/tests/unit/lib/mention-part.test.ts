@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildMentionPart,
+  extractMentions,
   isMentionPart,
   type PendingMention,
   reconcileMentions,
@@ -69,6 +70,35 @@ describe('reconcileMentions', () => {
 
   it('returns an empty list when nothing was inserted', () => {
     expect(reconcileMentions([], 'plain text')).toEqual([]);
+  });
+});
+
+describe('extractMentions', () => {
+  it('reads normalized `data` / `entity-mention` parts from message content', () => {
+    // Assistant-ui persists a `data-<name>` part as `{ type: 'data', name, data }`
+    // — the same normalized shape `extractPageContext` reads — so the transcript
+    // sees `name: 'entity-mention'`, not the `data-entity-mention` build type.
+    const content = [
+      { type: 'text', text: 'ping' },
+      {
+        type: 'data',
+        name: 'entity-mention',
+        data: { kind: 'person', id: 'w1', label: 'Jane Doe' },
+      },
+      { type: 'data', name: 'page-context', data: { kind: 'plan', id: 'p1', label: 'Q3' } },
+    ];
+    expect(extractMentions(content)).toEqual([{ kind: 'person', id: 'w1', label: 'Jane Doe' }]);
+  });
+
+  it('ignores malformed or unrelated parts', () => {
+    expect(
+      extractMentions([
+        null,
+        'nope',
+        { type: 'data', name: 'entity-mention', data: { kind: 'person' } },
+        { type: 'data', name: 'page-context', data: { kind: 'plan', id: 'p1', label: 'Q3' } },
+      ]),
+    ).toEqual([]);
   });
 });
 

@@ -18,17 +18,19 @@ import {
   ToggleButtonGroup,
   Token,
 } from '@seta/shared-ui';
-import { Paperclip, Sparkles } from 'lucide-react';
+import { AtSign, Paperclip, Sparkles } from 'lucide-react';
 import { type ReactNode, useCallback, useState } from 'react';
 import { ThreadListRefresher } from '../components/thread-list-refresher';
 import { ToolUIRegistry } from '../components/tool-renderers';
 import { ToolFallback } from '../components/tool-renderers/tool-fallback';
 import { AGENT_COPY, EMPTY_LANES, type EmptyLaneId } from '../i18n';
 import { parseContextAttachment } from '../lib/context-attachment';
+import { extractMentions } from '../lib/mention-part';
 import { ChatEmbeddedHitl } from '../workflows/components/chat-embedded-hitl';
 import { AgentComposer } from './agent-composer';
 import { type PageContext, useAgentSelection, usePageContext } from './agent-provider';
 import { ChainOfThought } from './chain-of-thought';
+import { ContextChip } from './context-chip';
 import { groupByThought } from './group-by-thought';
 import { RenderContextBadge } from './render-context-badge';
 import { type BubbleGroup, bubbleGroup, dateDividerLabel } from './transcript-structure';
@@ -295,12 +297,25 @@ function DateDivider() {
 function UserMessage() {
   const content = useAuiState((s) => s.message.content);
   const ctx = extractPageContext(content);
+  const mentions = extractMentions(content);
   return (
     <>
       <DateDivider />
       <ChatMessage sender="user">
         <ChatMessageBubble>
           {ctx && <RenderContextBadge data={ctx} />}
+          {mentions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {mentions.map((m) => (
+                <ContextChip
+                  key={`${m.kind}:${m.id}`}
+                  kind={m.kind}
+                  label={m.label}
+                  icon={<AtSign aria-hidden />}
+                />
+              ))}
+            </div>
+          )}
           <MessagePrimitive.Parts components={{ Text: PlainTextPart }} />
         </ChatMessageBubble>
       </ChatMessage>

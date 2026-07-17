@@ -65,7 +65,14 @@ vi.mock('@assistant-ui/react', async () => {
       const index = React.useContext(MessageIndexContext);
       return selector({
         message: {
-          content: [{ status: { type: 'complete' } }],
+          content: [
+            { status: { type: 'complete' } },
+            {
+              type: 'data',
+              name: 'entity-mention',
+              data: { kind: 'person', id: 'w1', label: 'Jane Doe' },
+            },
+          ],
           createdAt: messagesFixture[index]?.createdAt ?? new Date('2026-05-20T16:13:00Z'),
           index,
         },
@@ -206,6 +213,20 @@ describe('AgentConversation user message', () => {
     // is specific to the bubble being present with the default 'filled'
     // variant (the old composite's user bubble was solid, not ghost).
     expect(container.querySelector('[data-sender="user"][data-variant="filled"]')).not.toBeNull();
+  });
+});
+
+// Slice F: mentions are attached at send but nothing rendered them, so they
+// vanished after the turn was sent. The persisted turn carries an
+// `entity-mention` data part (see the shared mock); UserMessage surfaces it as
+// a visible ContextChip (muted kind + label).
+describe('AgentConversation user mentions', () => {
+  it('renders an @-mention from the persisted turn as a visible chip', () => {
+    thoughtStatus = 'complete';
+    render(<AgentConversation />);
+    // Regression: mentions used to render nothing and vanish after send.
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+    expect(screen.getByText('person')).toBeInTheDocument();
   });
 });
 
