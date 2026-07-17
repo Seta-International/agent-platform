@@ -810,14 +810,6 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     >
       <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
         <div className="flex min-w-0 items-start gap-3">
-          <button
-            type="button"
-            onClick={requestClose}
-            aria-label="Close dialog"
-            className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-hairline text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-          >
-            <X className="size-4" />
-          </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="truncate text-section-title font-semibold text-ink">{req.title}</h1>
@@ -879,6 +871,15 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               </DropdownMenu>
             </DisabledActionTooltip>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Close dialog"
+            onClick={requestClose}
+            className="text-ink-muted hover:text-ink"
+          >
+            <X className="size-4" />
+          </Button>
         </div>
       </header>
 
