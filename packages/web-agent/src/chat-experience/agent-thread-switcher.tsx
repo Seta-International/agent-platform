@@ -1,4 +1,4 @@
-import { DropdownMenuItem } from '@seta/shared-ui';
+import { Divider, DropdownMenuItem, Text } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { useThreadList } from '../hooks/use-thread-list';
@@ -6,23 +6,6 @@ import { useAgentSelection } from './agent-provider';
 
 interface AgentThreadSwitcherProps {
   onAfterSelect?: () => void;
-}
-
-// Astryx's compound DropdownMenuItem has no divider/label sub-components (those only
-// exist for data-driven `items`); plain nodes render fine since useListFocus's keyboard
-// nav only queries `[role="menuitem"]` in the DOM, not React children shape.
-function MenuDivider() {
-  return (
-    <hr
-      aria-hidden
-      style={{
-        height: 1,
-        margin: '4px 6px',
-        border: 'none',
-        backgroundColor: 'var(--color-hairline)',
-      }}
-    />
-  );
 }
 
 export function AgentThreadSwitcher({ onAfterSelect }: AgentThreadSwitcherProps) {
@@ -44,15 +27,10 @@ export function AgentThreadSwitcher({ onAfterSelect }: AgentThreadSwitcherProps)
           onAfterSelect?.();
         }}
       />
-      {flat.length > 0 && <MenuDivider />}
-      {flat.length > 0 && (
-        <div
-          className="text-caption uppercase tracking-wide text-ink-subtle"
-          style={{ padding: '4px 8px' }}
-        >
-          Recent
-        </div>
-      )}
+      {/* Astryx's DropdownMenu has no divider/label sub-components of its own (those only
+          exist for data-driven `items`); the general-purpose Divider renders fine interspersed
+          here since useListFocus's keyboard nav only queries `[role="menuitem"]`, not children shape. */}
+      {flat.length > 0 && <Divider label="Recent" />}
       {flat.map((t) => (
         <DropdownMenuItem
           key={t.id}
@@ -66,10 +44,11 @@ export function AgentThreadSwitcher({ onAfterSelect }: AgentThreadSwitcherProps)
           }}
         />
       ))}
-      <MenuDivider />
+      <Divider />
       <DropdownMenuItem
-        label="Show all in /agent/chat"
-        className="text-ink-muted"
+        // A className on the DropdownMenuItem root can't reach Item's label — the label
+        // paints its own color in a child <span>, so the muted tone has to live there.
+        label={<Text color="secondary">Show all in /agent/chat</Text>}
         onClick={() => {
           void navigate({ to: '/agent/chat', search: { thread: selection.threadId } });
           onAfterSelect?.();

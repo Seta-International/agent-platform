@@ -1,8 +1,8 @@
-import { ChatThreadRail } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useThreadList } from '../hooks/use-thread-list';
 import { useAgentSelection } from './agent-provider';
+import { ChatThreadRail } from './chat-thread-rail';
 
 interface AgentThreadRailProps {
   activeThreadId?: string;
