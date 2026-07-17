@@ -317,6 +317,8 @@ const footerStyle: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   marginTop: 10,
+  paddingTop: 8,
+  borderTop: '1px solid var(--color-border)',
 };
 const footerLeft: CSSProperties = {
   display: 'flex',
