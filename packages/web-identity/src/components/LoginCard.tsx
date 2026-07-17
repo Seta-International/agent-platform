@@ -1,4 +1,5 @@
 import {
+  AuthBackdrop,
   Avatar,
   Banner,
   Button,
@@ -135,22 +136,24 @@ export function LoginCard() {
 
 function LoginShell({ children }: { children: React.ReactNode }) {
   return (
-    <Center axis="both" minHeight="100vh">
-      <VStack width="100%" hAlign="center" padding={6}>
-        <VStack gap={4} hAlign="center" width="100%" maxWidth={400}>
-          <VStack gap={2} hAlign="center">
-            <SetaMark size={36} alt="" />
-            <Text type="body" weight="bold" size="lg">
-              Seta
+    <AuthBackdrop>
+      <Center axis="both" minHeight="100vh">
+        <VStack width="100%" hAlign="center" padding={6}>
+          <VStack gap={4} hAlign="center" width="100%" maxWidth={400}>
+            <VStack gap={2} hAlign="center">
+              <SetaMark size={36} alt="" />
+              <Text type="body" weight="bold" size="lg">
+                Seta
+              </Text>
+            </VStack>
+            {children}
+            <Text type="supporting" color="secondary" justify="center">
+              © {new Date().getFullYear()}
             </Text>
           </VStack>
-          {children}
-          <Text type="supporting" color="secondary" justify="center">
-            © {new Date().getFullYear()}
-          </Text>
         </VStack>
-      </VStack>
-    </Center>
+      </Center>
+    </AuthBackdrop>
   );
 }
 
