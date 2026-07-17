@@ -174,6 +174,7 @@ export * from './primitives/radio-group';
 export * from './primitives/resizable';
 export * from './primitives/section';
 export * from './primitives/segmented-control';
+export * from './primitives/selectable-card';
 export * from './primitives/selector';
 export * from './primitives/skeleton';
 export * from './primitives/spinner';
