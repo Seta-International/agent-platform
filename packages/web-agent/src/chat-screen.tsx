@@ -50,6 +50,9 @@ export function ChatScreen({ threadId }: ChatScreenProps) {
           maxHeight="100dvh"
           padding={0}
           aria-label="Chat navigation"
+          // Native <dialog> top-layer: guarantee the sheet has a visible box even if the
+          // Astryx `open` display-flip loses the cascade after the FUT-725 CSS-load change.
+          style={{ display: mobileNavOpen ? 'flex' : undefined, margin: 0, height: '100dvh' }}
         >
           {/*
            * Headerless: the rail is the whole surface — light-dismiss and picking a thread
