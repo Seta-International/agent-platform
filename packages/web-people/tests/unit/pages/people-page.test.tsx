@@ -123,12 +123,12 @@ describe('PeoplePage (Astryx Table migration)', () => {
     expect(await screen.findByText('No matching people')).toBeInTheDocument();
   });
 
-  // Astryx breadcrumb trail (Astryx migration, FUT-668). The current crumb is "People", not
-  // the manifest's route label "Employees" — this page's own title wins over the manifest nav
-  // label per the batch's title-wins derivation rule (manifest label and title disagree here).
-  // Root crumb and current crumb happen to share the text "People" here, so the current crumb
-  // is disambiguated via `aria-current="page"` rather than a text query (which would match both).
-  it('renders the breadcrumb trail with the title-wins current crumb', async () => {
+  // Astryx breadcrumb trail (Astryx migration, FUT-668). The current crumb reads "Employees" —
+  // a deliberate exception to the title-wins rule, since the page's own h1 ("People") collides
+  // with the app root crumb. "Employees" is the manifest nav label for /people/employees, and
+  // matches worker-profile-page's middle crumb. Root and current no longer share text, so the
+  // current crumb is queried directly (exact match) instead of via `aria-current` alone.
+  it('renders the breadcrumb trail with the Employees current crumb (title-wins exception)', async () => {
     mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 2 });
     renderPage();
 
@@ -138,10 +138,10 @@ describe('PeoplePage (Astryx Table migration)', () => {
     const rootCrumb = within(nav).getByRole('link', { name: 'People' });
     expect(rootCrumb).toHaveAttribute('href', '/people');
 
-    // Current (terminal) crumb is "People" (the page title), not a link.
-    const currentCrumb = nav.querySelector('[aria-current="page"]');
-    expect(currentCrumb).toHaveTextContent('People');
-    expect(currentCrumb?.closest('a')).toBeNull();
+    // Current (terminal) crumb is "Employees", not a link.
+    const currentCrumb = within(nav).getByText('Employees');
+    expect(currentCrumb).toHaveAttribute('aria-current', 'page');
+    expect(currentCrumb.closest('a')).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'People' })).toBeInTheDocument();
   });
 });

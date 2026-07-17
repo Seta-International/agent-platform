@@ -304,7 +304,11 @@ export function PeoplePage() {
           <VStack gap={1}>
             <Breadcrumbs variant="supporting">
               <BreadcrumbItem href="/people">People</BreadcrumbItem>
-              <BreadcrumbItem isCurrent>People</BreadcrumbItem>
+              {/* Deliberate exception to the title-wins rule: the page's h1 is "People", which
+                  collides with the app root crumb above. "Employees" is the manifest nav label
+                  for /people/employees — the item a user actually clicks to reach this page —
+                  and keeps this trail consistent with worker-profile-page's middle crumb. */}
+              <BreadcrumbItem isCurrent>Employees</BreadcrumbItem>
             </Breadcrumbs>
             <HStack hAlign="between" vAlign="center" gap={2}>
               <HStack gap={2} vAlign="center">

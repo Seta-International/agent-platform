@@ -60,12 +60,8 @@ describe('WorkerProfilePage — breadcrumb trail (back-link → crumb parity, As
     vi.restoreAllMocks();
   });
 
-  // The deleted bespoke `backLink` (`<Link to="/people/employees">‹ Employees`) is gone; the
-  // middle "Employees" crumb now carries that exact navigation target — this is the parity
-  // gate: the href must match the old backLink's `to` verbatim. Note the deliberate asymmetry:
-  // this middle crumb uses the manifest nav label ("Employees"), even though people-page.tsx's
-  // own *current* crumb for that same route is "People" (title-wins) — only a page's own
-  // terminal crumb takes the title-wins clause, not a middle crumb pointing at it.
+  // Parity gate: the middle "Employees" crumb's href must be exactly /people/employees — the
+  // manifest nav label for that route, matching people-page.tsx's own current crumb.
   it('renders the full trail with the middle crumb carrying the old back-link href', async () => {
     renderPage();
 
