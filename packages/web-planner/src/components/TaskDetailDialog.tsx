@@ -56,7 +56,7 @@ export function TaskDetailDialog({ planId, taskId, onClose, onOpenFullPage }: Pr
                     onClick={onOpenFullPage}
                     tooltip="Open as full page"
                     label="Open as full page"
-                    icon={<Maximize2 />}
+                    icon={<Maximize2 className="size-4" />}
                   />
                   <IconButton
                     variant="ghost"
@@ -64,7 +64,7 @@ export function TaskDetailDialog({ planId, taskId, onClose, onOpenFullPage }: Pr
                     onClick={onClose}
                     tooltip="Close"
                     label="Close"
-                    icon={<X />}
+                    icon={<X className="size-4" />}
                   />
                 </>
               }

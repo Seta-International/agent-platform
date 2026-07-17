@@ -155,7 +155,9 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                           onChange={(value) => setEditDraft(value)}
                           onKeyDown={(e) => onEditKeyDown(e, it)}
                           onBlur={() => commitEdit(it)}
-                          className="flex-1"
+                          // className would land on the inner control, not the
+                          // Field that is the flex item; width sizes the field.
+                          width="100%"
                         />
                       ) : (
                         <button

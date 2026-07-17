@@ -456,20 +456,21 @@ export function HitlApprovalCard({
 
         {!rejectOpen ? (
           <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
-            <button
+            <Button
               type="button"
-              disabled={!canApprove || disabled}
+              variant="primary"
+              isDisabled={!canApprove || disabled}
               onClick={submitApprove}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-body-sm font-semibold text-on-primary shadow-sm transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Check className="size-3.5" aria-hidden />
-              {pending ? 'Approving…' : 'Approve'}
-              {selected.size > 1 ? (
-                <span className="rounded-full bg-canvas/25 px-1.5 py-px font-mono text-[10px] tabular-nums">
-                  {selected.size}
-                </span>
-              ) : null}
-            </button>
+              icon={<Check className="size-3.5" aria-hidden />}
+              label={pending ? 'Approving…' : 'Approve'}
+              endContent={
+                selected.size > 1 ? (
+                  <span className="rounded-full bg-canvas/25 px-1.5 py-px font-mono text-[10px] tabular-nums">
+                    {selected.size}
+                  </span>
+                ) : undefined
+              }
+            />
             <Button
               type="button"
               variant="destructive"

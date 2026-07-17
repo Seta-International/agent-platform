@@ -56,7 +56,9 @@ export function CalendarToolbar({ from, to, totalCount, onRangeChange }: Props) 
           onClick={() => onShift(1)}
         />
         <Button variant="ghost" size="sm" label="Today" onClick={onToday} />
-        <Heading level={2}>{rangeLabel(from, to)}</Heading>
+        <Heading level={2} className="ml-2">
+          {rangeLabel(from, to)}
+        </Heading>
         <span className="text-caption text-ink-muted" data-testid="calendar-total-count">
           {totalCount} task{totalCount === 1 ? '' : 's'}
         </span>

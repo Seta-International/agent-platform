@@ -501,17 +501,19 @@ function CategoryRow({
         selected ? 'border-primary bg-surface-2' : 'border-transparent hover:bg-surface-2',
       )}
     >
-      <Button
+      {/* Not an Astryx Button: this is a full-width, left-aligned, truncating
+          list row. Button centres its label and owns its own weight/size, so
+          expressing this shape means overriding its StyleX at equal specificity. */}
+      <button
         type="button"
-        variant="ghost"
-        size="sm"
-        label={cat.name}
         onClick={onSelect}
         className={cn(
-          'min-w-0 flex-1 justify-start truncate text-left text-body-sm',
+          'min-w-0 flex-1 truncate text-left text-body-sm',
           selected ? 'font-semibold text-ink' : 'text-ink-subtle',
         )}
-      />
+      >
+        {cat.name}
+      </button>
 
       {confirming ? (
         <span className="flex items-center gap-1">

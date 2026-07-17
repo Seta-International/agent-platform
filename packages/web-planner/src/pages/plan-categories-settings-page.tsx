@@ -73,7 +73,9 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
             <BreadcrumbItem isCurrent>Categories</BreadcrumbItem>
           </Breadcrumbs>
         </div>
-        <Heading level={1}>Categories{planName ? ` · ${planName}` : ''}</Heading>
+        <Heading level={1} className="mb-1">
+          Categories{planName ? ` · ${planName}` : ''}
+        </Heading>
         <p className="mb-3 text-body-sm text-ink-subtle" data-testid="categories-sync-subhead">
           {planForGroup?.external_source === 'm365'
             ? 'Synced with Microsoft Planner'

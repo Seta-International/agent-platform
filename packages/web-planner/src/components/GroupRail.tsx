@@ -201,13 +201,17 @@ export function GroupRail({
 
       {/* Recent activity */}
       <Card padding={4}>
-        <Heading level={3}>Recent activity</Heading>
+        <Heading level={3} className="mb-2">
+          Recent activity
+        </Heading>
         <ActivityList items={activityItems} />
       </Card>
 
       {/* Properties */}
       <Card padding={4}>
-        <Heading level={3}>Properties</Heading>
+        <Heading level={3} className="mb-2">
+          Properties
+        </Heading>
         <div className="flex flex-col">
           <PropertyRow
             label="Visibility"

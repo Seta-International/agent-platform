@@ -144,13 +144,7 @@ export function PeopleCardGrid({
         ))}
       </div>
 
-      <Pagination
-        page={page}
-        onChange={goToPage}
-        totalPages={pageCount}
-        variant="compact"
-        className="justify-end"
-      />
+      <Pagination page={page} onChange={goToPage} totalPages={pageCount} variant="compact" />
     </div>
   );
 }
