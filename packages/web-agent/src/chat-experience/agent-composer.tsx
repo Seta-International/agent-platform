@@ -139,9 +139,11 @@ export function AgentComposer() {
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: drop target mirrors the paste path; the attach button is the keyboard-accessible equivalent
     <div
-      className={`border-t bg-canvas px-3 py-3 md:px-4 md:py-4 ${
-        isDragging ? 'border-primary-border' : 'border-hairline'
-      }`}
+      // No chrome here — Astryx's dock already supplies the frosted-glass
+      // surround and ChatComposer renders its own floating pill (border,
+      // background, shadow). This div exists only to host the drag/IME
+      // handlers below; it must stay visually transparent or it defeats the
+      // dock's blur and double-pads the composer (FUT-670 review finding).
       onDragOver={(e) => {
         if (!e.dataTransfer?.types?.includes('Files')) return;
         e.preventDefault();
@@ -159,7 +161,14 @@ export function AgentComposer() {
         if (e.nativeEvent.isComposing || e.keyCode === 229) e.stopPropagation();
       }}
     >
-      <div className="mx-auto max-w-conversation">
+      <div
+        // Drag highlight rides the pill's own radius (Astryx --radius-chat,
+        // 28px) rather than a border on the transparent outer wrapper, so it
+        // outlines the composer itself instead of a full-bleed strip.
+        className={`mx-auto max-w-conversation ${
+          isDragging ? 'rounded-[28px] ring-2 ring-primary/40' : ''
+        }`}
+      >
         <ChatComposer
           value={value}
           onChange={setValue}

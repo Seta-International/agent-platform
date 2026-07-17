@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -70,9 +70,11 @@ vi.mock('../../../src/components/thread-list-refresher', () => ({
 }));
 
 // The conversation now owns the composer via ChatLayout's dock; the composer
-// pulls in providers this suite deliberately does not mount.
+// pulls in providers this suite deliberately does not mount, so it's stubbed
+// with a renderable marker (not `null`) — a `null` stub would make the dock
+// adoption itself unverifiable (see the "renders composer in the dock" test).
 vi.mock('../../../src/chat-experience/agent-composer', () => ({
-  AgentComposer: () => null,
+  AgentComposer: () => <div data-testid="composer-stub" />,
 }));
 
 import { AgentConversation } from '../../../src/chat-experience/agent-conversation';
@@ -163,5 +165,24 @@ describe('AgentConversation user message', () => {
     // is specific to the bubble being present with the default 'filled'
     // variant (the old composite's user bubble was solid, not ghost).
     expect(container.querySelector('[data-sender="user"][data-variant="filled"]')).not.toBeNull();
+  });
+});
+
+// Regression for FUT-670 Task 5 review finding: nothing in this suite asserted
+// the headline change — that ChatLayout's `composer` slot is actually wired to
+// `<AgentComposer />` rather than left `composer={null}`. Reverting that one
+// prop would leave a silent regression (the composer vanishes) while every
+// other test in this file kept passing, because they all stub AgentComposer.
+// Mutation-tested: reverting `composer={<AgentComposer />}` to
+// `composer={null}` in agent-conversation.tsx makes this test fail (the
+// composer stub is absent) while leaving the rest of the suite green.
+describe('AgentConversation composer dock', () => {
+  it('renders the composer in the dock, not inside the transcript log', () => {
+    thoughtStatus = 'complete';
+    render(<AgentConversation />);
+
+    const composer = screen.getByTestId('composer-stub');
+    expect(composer).toBeInTheDocument();
+    expect(within(screen.getByRole('log')).queryByTestId('composer-stub')).toBeNull();
   });
 });
