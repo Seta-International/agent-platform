@@ -1,5 +1,4 @@
 import { AgentComposer } from './agent-composer';
-import { AgentContextChip } from './agent-context-chip';
 import { AgentHeader } from './agent-header';
 import { AgentTranscript } from './agent-transcript';
 
@@ -12,7 +11,7 @@ export function AgentSidePanel({ onClose, showThreadSwitcher = true }: AgentSide
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <AgentHeader compact showThreadSwitcher={showThreadSwitcher} onClose={onClose} />
-      <AgentContextChip />
+      {/* The page-context chip now lives in the composer header (FUT-670). */}
       <div className="flex min-h-0 flex-1 flex-col">
         <AgentTranscript />
       </div>

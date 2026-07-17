@@ -13,7 +13,6 @@ export * from './composites/app-launcher';
 export * from './composites/app-shell';
 export * from './composites/auth-backdrop';
 export * from './composites/avatar-stack';
-export * from './composites/chat-composer';
 export * from './composites/chat-markdown';
 export * from './composites/chat-thread-rail';
 export * from './composites/coming-soon';
@@ -83,6 +82,7 @@ export type {
   ChatComposerDrawerProps,
   ChatComposerInputHandle,
   ChatComposerInputProps,
+  ChatComposerProps,
   ChatComposerStatus,
   ChatComposerToken,
   ChatComposerTrigger,
@@ -120,6 +120,7 @@ export type {
   UseSpeechRecognitionReturn,
 } from './primitives/chat';
 export {
+  ChatComposer,
   ChatComposerDrawer,
   ChatComposerInput,
   ChatComposerTokenElement,
