@@ -82,6 +82,68 @@ export * from './primitives/button';
 export * from './primitives/calendar';
 export * from './primitives/card';
 export * from './primitives/center';
+export type {
+  ChatComposerDensity,
+  ChatComposerDrawerProps,
+  ChatComposerInputHandle,
+  ChatComposerInputProps,
+  ChatComposerStatus,
+  ChatComposerToken,
+  ChatComposerTrigger,
+  ChatComposerTriggerItem,
+  ChatDensity,
+  ChatDictationButtonProps,
+  ChatLayoutProps,
+  ChatLayoutScrollButtonProps,
+  ChatMessageBubbleProps,
+  ChatMessageBubbleVariant,
+  ChatMessageListProps,
+  ChatMessageMetadataProps,
+  ChatMessageSender,
+  ChatMessageStatus,
+  ChatSendButtonProps,
+  ChatSystemMessageProps,
+  ChatSystemMessageVariant,
+  ChatTokenizedTextProps,
+  ChatToolCallItem,
+  ChatToolCallStatus,
+  ChatToolCallsProps,
+  TokenPortal,
+  UseChatComposerTokensOptions,
+  UseChatComposerTokensReturn,
+  UseChatDictationOptions,
+  UseChatDictationReturn,
+  UseChatNewMessagesOptions,
+  UseChatNewMessagesReturn,
+  UseChatPasteAsTokenOptions,
+  UseChatPasteAsTokenReturn,
+  UseChatStreamScrollOptions,
+  UseChatStreamScrollReturn,
+  UseSpeechRecognitionOptions,
+  UseSpeechRecognitionReturn,
+} from './primitives/chat';
+export {
+  ChatComposerDrawer,
+  ChatComposerInput,
+  ChatComposerTokenElement,
+  ChatDictationButton,
+  ChatLayout,
+  ChatLayoutScrollButton,
+  ChatMessageBubble,
+  ChatMessageList,
+  ChatMessageMetadata,
+  ChatSendButton,
+  ChatSystemMessage,
+  ChatTokenizedText,
+  ChatToolCalls,
+  useChatComposerTokens,
+  useChatDictation,
+  useChatLayoutContext,
+  useChatNewMessages,
+  useChatPasteAsToken,
+  useChatStreamScroll,
+  useSpeechRecognition,
+} from './primitives/chat';
 export * from './primitives/checkbox';
 export * from './primitives/date-input';
 export * from './primitives/dialog';
@@ -93,6 +155,7 @@ export * from './primitives/icon-button';
 export * from './primitives/input';
 export * from './primitives/layout';
 export * from './primitives/link';
+export * from './primitives/markdown';
 export * from './primitives/number-input';
 export * from './primitives/popover';
 export * from './primitives/progress-bar';
@@ -106,6 +169,7 @@ export * from './primitives/table';
 export * from './primitives/text';
 export * from './primitives/textarea';
 export * from './primitives/time-input';
+export * from './primitives/timestamp';
 export * from './primitives/toast';
 export * from './primitives/token';
 export * from './primitives/tokenizer';
