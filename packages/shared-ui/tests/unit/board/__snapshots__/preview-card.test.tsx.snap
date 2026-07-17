@@ -40,7 +40,7 @@ exports[`PreviewCard > renders automatic variant matching snapshot 1`] = `
     </div>
   </div>
   <div
-    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;"
+    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top-width: var(--color-border); border-top-style: var(--color-border); border-top-color: var(--color-border);"
   >
     <div
       style="display: flex; align-items: center; gap: 6px;"
@@ -181,7 +181,7 @@ exports[`PreviewCard > renders checklist variant matching snapshot 1`] = `
     </div>
   </div>
   <div
-    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;"
+    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top-width: var(--color-border); border-top-style: var(--color-border); border-top-color: var(--color-border);"
   >
     <div
       style="display: flex; align-items: center; gap: 6px;"
@@ -278,7 +278,7 @@ exports[`PreviewCard > renders description variant matching snapshot 1`] = `
     </div>
   </div>
   <div
-    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;"
+    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top-width: var(--color-border); border-top-style: var(--color-border); border-top-color: var(--color-border);"
   >
     <div
       style="display: flex; align-items: center; gap: 6px;"
@@ -363,7 +363,7 @@ exports[`PreviewCard > renders noPreview variant matching snapshot 1`] = `
     Cache layer for /tasks API
   </div>
   <div
-    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;"
+    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top-width: var(--color-border); border-top-style: var(--color-border); border-top-color: var(--color-border);"
   >
     <div
       style="display: flex; align-items: center; gap: 6px;"
@@ -471,7 +471,7 @@ exports[`PreviewCard > renders reference variant matching snapshot 1`] = `
     </div>
   </div>
   <div
-    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;"
+    style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top-width: var(--color-border); border-top-style: var(--color-border); border-top-color: var(--color-border);"
   >
     <div
       style="display: flex; align-items: center; gap: 6px;"
