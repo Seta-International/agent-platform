@@ -229,14 +229,14 @@ function PasswordStep({
             Enter your password
           </Heading>
 
-          {/* size={20} = the old EmailAvatar's size-5. Astryx named sizes are
-              tiny|xsmall|small|medium|large — there is no 'xs'. */}
-          <Token
-            label={email}
-            description="Signing in as"
-            icon={<Avatar name={email} size={20} />}
-            onRemove={onEdit}
-          />
+          <VStack gap={1} hAlign="stretch">
+            <Text type="supporting" color="secondary">
+              Signing in as
+            </Text>
+            {/* size={20} = the old EmailAvatar's size-5. Astryx named sizes are
+                tiny|xsmall|small|medium|large — there is no 'xs'. */}
+            <Token label={email} icon={<Avatar name={email} size={20} />} onRemove={onEdit} />
+          </VStack>
 
           <VStack gap={1} hAlign="stretch">
             <Input
@@ -316,14 +316,14 @@ function SsoStep({
           </Text>
         </VStack>
 
-        {/* size={20} = the old EmailAvatar's size-5. Astryx named sizes are
-            tiny|xsmall|small|medium|large — there is no 'xs'. */}
-        <Token
-          label={email}
-          description="Signing in as"
-          icon={<Avatar name={email} size={20} />}
-          onRemove={onEdit}
-        />
+        <VStack gap={1} hAlign="stretch">
+          <Text type="supporting" color="secondary">
+            Signing in as
+          </Text>
+          {/* size={20} = the old EmailAvatar's size-5. Astryx named sizes are
+              tiny|xsmall|small|medium|large — there is no 'xs'. */}
+          <Token label={email} icon={<Avatar name={email} size={20} />} onRemove={onEdit} />
+        </VStack>
 
         {error ? <Banner status="error" title={error} /> : null}
 
