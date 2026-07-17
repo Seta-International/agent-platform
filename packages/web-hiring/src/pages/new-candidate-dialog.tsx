@@ -246,7 +246,7 @@ export function NewCandidateDialog() {
                     }}
                     isLoading={parse.isPending}
                     isDisabled={parse.isPending}
-                    placeholder="Upload CV to auto-fill"
+                    placeholder="Drop a CV here, or click to choose one"
                     description="PDF or DOCX, up to 10MB — parsed fields stay editable"
                   />
                 )}
