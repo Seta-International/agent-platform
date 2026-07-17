@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { fetchSkillCatalog } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
@@ -44,12 +44,12 @@ export function SkillPicker({
   const skills = useMemo(() => (data?.skills ?? []).filter((s) => s.active), [data]);
   const chosen = new Set(value.map((v) => v.skill_id));
 
-  function add(skillId: string, name: string) {
-    if (chosen.has(skillId)) return;
-    onChange([...value, { skill_id: skillId, skill_name: name, level: 0 }]);
-  }
   function remove(skillId: string) {
     onChange(value.filter((v) => v.skill_id !== skillId));
+  }
+  function toggle(skillId: string, name: string) {
+    if (chosen.has(skillId)) remove(skillId);
+    else onChange([...value, { skill_id: skillId, skill_name: name, level: 0 }]);
   }
   function setLevel(skillId: string, level: number) {
     onChange(value.map((v) => (v.skill_id === skillId ? { ...v, level } : v)));
@@ -73,15 +73,20 @@ export function SkillPicker({
                 if (inCat.length === 0) return null;
                 return (
                   <CommandGroup key={cat.id} heading={cat.name}>
-                    {inCat.map((s) => (
-                      <CommandItem
-                        key={s.id}
-                        value={`${cat.name} ${s.name}`}
-                        onSelect={() => add(s.id, s.name)}
-                      >
-                        {s.name}
-                      </CommandItem>
-                    ))}
+                    {inCat.map((s) => {
+                      const picked = chosen.has(s.id);
+                      return (
+                        <CommandItem
+                          key={s.id}
+                          value={`${cat.name} ${s.name}`}
+                          data-picked={picked}
+                          onSelect={() => toggle(s.id, s.name)}
+                        >
+                          {s.name}
+                          {picked && <Check className="ml-auto size-4 text-primary" aria-hidden />}
+                        </CommandItem>
+                      );
+                    })}
                   </CommandGroup>
                 );
               })}
