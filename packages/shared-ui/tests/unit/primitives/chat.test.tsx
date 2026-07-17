@@ -90,6 +90,11 @@ describe('Astryx Chat contract (happy-dom)', () => {
       />,
     );
     expect(screen.getByText('report.pdf')).toBeInTheDocument();
+    // The remove button is rendered by Astryx `Token` with
+    // `aria-label="Remove ${label}"` (dist/Token/Token.js L219/L289) — assert
+    // it actually fires `onRemove`, not just that the token's label renders.
+    fireEvent.click(screen.getByRole('button', { name: 'Remove report.pdf' }));
+    expect(onRemove).toHaveBeenCalledTimes(1);
   });
 
   it('transcript trio renders with sender semantics', () => {
@@ -105,19 +110,24 @@ describe('Astryx Chat contract (happy-dom)', () => {
     );
     expect(screen.getByText('Hi')).toBeInTheDocument();
     expect(screen.getByText('Hello')).toBeInTheDocument();
+    // Sender semantics (ChatMessage.js L163-164): a message with no `name`
+    // gets `aria-label="Message from ${sender}"`; a message WITH `name` gets
+    // `aria-labelledby` pointing at the rendered name node (L181) instead.
+    // Assert both, plus the `name` text itself, so a future swap that flips
+    // the user/assistant a11y distinction actually fails this suite.
+    expect(screen.getByLabelText('Message from user')).toBeInTheDocument();
+    expect(screen.getByText('Agent')).toBeInTheDocument();
+    expect(screen.getByTestId('c')).toBeInTheDocument();
   });
 
   it('tool calls: single-call row exposes the error message via a title attribute', () => {
-    render(
-      <ChatToolCalls
-        defaultIsExpanded
-        calls={[{ name: 'x', status: 'error', errorMessage: 'boom' }]}
-      />,
-    );
+    render(<ChatToolCalls calls={[{ name: 'x', status: 'error', errorMessage: 'boom' }]} />);
     // PROBE (query pin): a single-element `calls` array renders inline via
     // `CallRow` with no group chrome — `defaultIsExpanded`/`isExpanded` only
     // gate the collapsible *summary* used for >1 calls (ChatToolCalls.js
-    // ~L183 `if (calls.length === 1) { ... }`). `errorMessage` is NOT
+    // L270 `if (calls.length === 1) { ... }`) — confirmed the test still
+    // passes with `defaultIsExpanded` removed entirely, since it has no
+    // effect on the single-call path this test exercises. `errorMessage` is NOT
     // rendered as visible text; it is set as a native `title` attribute on
     // the status-icon `<span>` (ChatToolCalls.js ~L129:
     // `title: status === 'error' ? call.errorMessage : undefined`). So the
@@ -139,7 +149,7 @@ describe('Astryx Chat contract (happy-dom)', () => {
 // ---------------------------------------------------------------------------
 //
 // 1. ChatToolCalls controlled expansion: CONTROLLED IS SUPPORTED.
-//    dist/Chat/ChatToolCalls.js ~L250-252:
+//    dist/Chat/ChatToolCalls.js L256-257:
 //      `const isControlled = controlledExpanded !== undefined;`
 //      `const isExpanded = isControlled ? controlledExpanded : internalExpanded;`
 //    Passing `isExpanded` (even `isExpanded={false}`) makes the component
@@ -152,12 +162,18 @@ describe('Astryx Chat contract (happy-dom)', () => {
 //    Astryx `Markdown` (dist/Markdown/Markdown.js) already covers every
 //    behavior our hand-rolled `Components` map (src/composites/chat-markdown.tsx)
 //    exists for, and does it with real Astryx components instead of ad-hoc
-//    Tailwind classes:
+//    Tailwind classes. NOTE: "covers" below is not "identical parity" for
+//    links — see the correction beneath the list.
 //      - Links: our `a` renderer hardcodes `target="_blank" rel="noreferrer
-//        noopener"`. Astryx does this itself for every external link
-//        (Markdown.js ~L647-654: "external links with target=\"_blank\"
-//        should use a plain anchor" -> `target: '_blank', rel: 'noopener
-//        noreferrer'`) with no opt-in needed.
+//        noopener"` on EVERY href. Astryx only does this for a link it
+//        classifies as external — `isExternal = safeHref.startsWith('https://')
+//        || safeHref.startsWith('http://')` (Markdown.js L638) — then sets
+//        `target: '_blank', rel: 'noopener noreferrer'` (~L647-654: "external
+//        links with target=\"_blank\" should use a plain anchor"). Relative,
+//        anchor (`#...`), and `mailto:` links do NOT get `target="_blank"`
+//        under Astryx, unlike our current renderer. This is a behavior
+//        CHANGE (probably an improvement), not strict parity — Task 5 must
+//        know this going in, not discover it after ship.
 //      - Tables: our `table`/`th`/`td` renderers are raw `<table>` elements
 //        with manual border/padding classes. Astryx renders GFM tables with
 //        its own themed `Table`/`TableRow`/`TableCell`/`TableHeaderCell`/
@@ -177,6 +193,14 @@ describe('Astryx Chat contract (happy-dom)', () => {
 //    em/table/th/td slots), because those remaining node types are meant
 //    to just take Astryx's themed defaults, not be re-skinned per call site.
 //    No named gap justifies keeping a wrapper: verdict is DELETE, not KEEP.
+//    RISK for Task 5: our wrapper's outer div hardcodes `text-body-sm
+//    leading-[1.55]` (chat-markdown.tsx L75) on every render. Astryx
+//    `Markdown` exposes a `density?: 'default' | 'compact'` prop
+//    (Markdown.d.ts L75) — the natural analogue — but no `density` value is
+//    guaranteed to reproduce our hardcoded size/line-height exactly. Task 5
+//    must pick a `density` deliberately (verify visually) instead of
+//    dropping the prop and silently inheriting Astryx's default, or the
+//    swap ships an unreviewed typography/density shift.
 //
 // 3. Dictation unsupported: HIDDEN (renders null), not disabled.
 //    dist/Chat/ChatDictationButton.js ~L82-89:
