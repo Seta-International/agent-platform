@@ -1,3 +1,4 @@
+import { Button } from '@seta/shared-ui';
 import { useState } from 'react';
 
 const RUN_TERMINAL = new Set(['success', 'failed', 'tripwire', 'canceled']);
@@ -37,14 +38,14 @@ export function ReplayFromStepButton({
 
   return (
     <div className="flex flex-col items-end gap-0.5">
-      <button
+      <Button
         type="button"
-        disabled={pending}
-        className="rounded border border-[var(--color-hairline)] px-2 py-0.5 text-xs hover:bg-[var(--color-surface-2)] disabled:cursor-not-allowed disabled:opacity-60"
+        variant="secondary"
+        size="sm"
+        isDisabled={pending}
         onClick={() => void handleClick()}
-      >
-        {pending ? 'Replaying…' : 'Replay from here'}
-      </button>
+        label={pending ? 'Replaying…' : 'Replay from here'}
+      />
       {failed ? (
         <span className="text-[10px] text-[var(--color-destructive)]">Replay failed</span>
       ) : null}

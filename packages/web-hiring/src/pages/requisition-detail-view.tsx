@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   EmptyState,
+  IconButton,
   Input,
   Popover,
   RichTextDisplay,
@@ -179,12 +180,12 @@ function DateField({
                 />
               }
             >
-              <button
+              <Button
                 type="button"
-                className="text-body-sm font-medium text-ink underline decoration-dotted underline-offset-4 hover:text-primary"
-              >
-                {value ? formatDate(value) : 'Set date'}
-              </button>
+                variant="ghost"
+                size="sm"
+                label={value ? formatDate(value) : 'Set date'}
+              />
             </Popover>
           ) : (
             <span className="text-body-sm font-medium text-ink">
@@ -657,14 +658,14 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     >
       <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
         <div className="flex min-w-0 items-start gap-3">
-          <button
+          <IconButton
             type="button"
+            variant="secondary"
             onClick={requestClose}
-            aria-label="Close dialog"
-            className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-hairline text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-          >
-            <X className="size-4" />
-          </button>
+            label="Close dialog"
+            icon={<X className="size-4" />}
+            className="mt-0.5 shrink-0"
+          />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="truncate text-section-title font-semibold text-ink">{req.title}</h1>

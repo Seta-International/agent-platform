@@ -1,4 +1,4 @@
-import { Dialog, Layout, LayoutContent } from '@seta/shared-ui';
+import { Dialog, IconButton, Layout, LayoutContent } from '@seta/shared-ui';
 import { useRouterState } from '@tanstack/react-router';
 import { Sparkles } from 'lucide-react';
 import { useIsMobile } from '../lib/use-is-mobile';
@@ -17,14 +17,15 @@ export function AgentMobileSheet() {
 
   return (
     <>
-      <button
+      <IconButton
         type="button"
-        aria-label="Open agent"
+        variant="primary"
+        size="lg"
+        label="Open agent"
         onClick={() => setPanelOpen(true)}
-        className="fixed bottom-4 right-4 z-40 inline-flex size-12 items-center justify-center rounded-full bg-primary text-on-primary shadow-lg"
-      >
-        <Sparkles className="size-5" aria-hidden />
-      </button>
+        icon={<Sparkles className="size-5" aria-hidden />}
+        className="fixed bottom-4 right-4 z-40 shadow-lg"
+      />
       <Dialog
         isOpen={panelOpen}
         onOpenChange={setPanelOpen}

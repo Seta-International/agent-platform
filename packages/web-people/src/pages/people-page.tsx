@@ -345,14 +345,14 @@ export function PeoplePage() {
                       />
                       <span className="text-ink-tertiary select-none">|</span>
                       {activeFiltersCount > 0 && (
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={handleClearFilters}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
-                        >
-                          <X className="size-3.5" />
-                          Clear filters ({activeFiltersCount})
-                        </button>
+                          icon={<X className="size-3.5" />}
+                          label={`Clear filters (${activeFiltersCount})`}
+                        />
                       )}
                       <div className="flex items-center gap-2 text-body-sm text-ink-muted">
                         <span className="font-medium text-ink flex items-center gap-1">

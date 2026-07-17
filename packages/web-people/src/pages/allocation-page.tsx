@@ -453,8 +453,10 @@ export function AllocationPage() {
                       />
                       <span className="hidden text-ink-tertiary select-none sm:inline">|</span>
                       {activeFiltersCount > 0 && (
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => {
                             setSearchInput('');
                             setSearch({
@@ -465,11 +467,9 @@ export function AllocationPage() {
                               bucket: undefined,
                             });
                           }}
-                          className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-primary transition-opacity hover:opacity-80 focus:outline-none"
-                        >
-                          <X className="size-3.5" />
-                          Clear filters ({activeFiltersCount})
-                        </button>
+                          icon={<X className="size-3.5" />}
+                          label={`Clear filters (${activeFiltersCount})`}
+                        />
                       )}
                       <div className="flex items-center gap-2 text-body-sm text-ink-muted">
                         <span className="flex items-center gap-1 font-medium text-ink">

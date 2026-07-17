@@ -1,6 +1,7 @@
 import {
   Button,
   Card,
+  IconButton,
   type SearchableItem,
   type SearchSource,
   SkillLevelRating,
@@ -150,15 +151,16 @@ export function ProfileSkillsSection({
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-body-sm font-medium text-ink truncate">{s.name}</span>
-                <button
+                <IconButton
                   type="button"
-                  aria-label={`Remove ${s.name}`}
-                  disabled={saving}
-                  className="shrink-0 rounded text-ink-subtle opacity-0 transition-opacity hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
+                  variant="ghost"
+                  size="sm"
+                  label={`Remove ${s.name}`}
+                  isDisabled={saving}
+                  icon={<X className="size-3.5" />}
                   onClick={() => removeSkill(s.name)}
-                >
-                  <X className="size-3.5" />
-                </button>
+                  className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                />
               </div>
               <SkillLevelRating level={s.level} onChange={(level) => rate(s.name, level)} />
             </div>

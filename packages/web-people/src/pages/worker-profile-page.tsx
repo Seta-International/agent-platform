@@ -11,6 +11,7 @@ import {
   EmptyState,
   formatRelative,
   HStack,
+  IconButton,
   Input,
   Layout,
   LayoutContent,
@@ -523,14 +524,15 @@ export function WorkerProfilePage() {
                                       {s.name}
                                     </span>
                                     {editing ? (
-                                      <button
+                                      <IconButton
                                         type="button"
-                                        aria-label={`Remove ${s.name}`}
-                                        className="shrink-0 rounded text-ink-subtle opacity-0 transition-opacity hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
+                                        variant="ghost"
+                                        size="sm"
+                                        label={`Remove ${s.name}`}
+                                        icon={<X className="size-3.5" />}
                                         onClick={() => removeSkillFromDraft(s.id)}
-                                      >
-                                        <X className="size-3.5" />
-                                      </button>
+                                        className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                                      />
                                     ) : (
                                       <span className="shrink-0 text-caption tabular-nums text-ink-subtle">
                                         {s.level ? `${s.level}/5` : '—'}
