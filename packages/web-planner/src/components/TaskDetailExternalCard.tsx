@@ -1,5 +1,5 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { formatRelative, PLANNER_403_LIMIT_MESSAGES } from '@seta/shared-ui';
+import { Button, formatRelative, PLANNER_403_LIMIT_MESSAGES } from '@seta/shared-ui';
 
 interface PlanForCard {
   external_source?: 'native' | 'm365';
@@ -56,13 +56,13 @@ export function TaskDetailExternalCard({ task, plan, onOpenConflictDialog }: Pro
           </div>
         )}
         {showResolveConflicts && onOpenConflictDialog && (
-          <button
-            type="button"
-            className="inline-flex cursor-pointer items-center gap-1.5 self-start rounded-md border border-hairline-strong bg-transparent px-2.5 py-1.5 text-caption text-[var(--color-ink-strong)]"
+          <Button
+            size="sm"
+            variant="secondary"
+            label="Resolve conflicts"
             onClick={onOpenConflictDialog}
-          >
-            Resolve conflicts
-          </button>
+            className="self-start"
+          />
         )}
         {isLinked && linkUrl && (
           <a

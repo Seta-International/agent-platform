@@ -2,8 +2,10 @@ import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-p
 import type { TaskWithAssigneesRow } from '@seta/planner';
 import {
   Avatar,
+  Button,
   createStaticSource,
   DisabledActionTooltip,
+  IconButton,
   type SearchableItem,
   Typeahead,
 } from '@seta/shared-ui';
@@ -164,15 +166,14 @@ export function TaskDetailAssigneesCard({
                         disabled={!canAssign}
                         reason={PERMISSION_DENIED.task.assign}
                       >
-                        <button
-                          type="button"
-                          aria-label={`Remove ${a.display_name}`}
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          label={`Remove ${a.display_name}`}
                           onClick={() => unassign.mutate({ task_id: task.id, user_id: a.user_id })}
-                          disabled={!canAssign}
-                          className="cursor-pointer border-none bg-transparent p-1 text-ink-subtle disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <X className="size-3" />
-                        </button>
+                          isDisabled={!canAssign}
+                          icon={<X className="size-3" />}
+                        />
                       </DisabledActionTooltip>
                     </div>
                   )}
@@ -236,15 +237,15 @@ export function TaskDetailAssigneesCard({
 
       {isCurrentUserAssigned && (
         <DisabledActionTooltip disabled={!canAssign} reason={noAssignReason}>
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="secondary"
+            label="Move to top of my list"
+            icon={<Zap className="size-3" />}
             onClick={() => moveToTop.mutate({ task_id: task.id })}
-            disabled={!canAssign}
-            className="mt-2.5 inline-flex items-center gap-1.5 rounded-md border border-dashed border-primary-border bg-primary-tint px-2.5 py-1.5 text-caption font-semibold text-primary-ink enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Zap className="size-3" />
-            Move to top of my list
-          </button>
+            isDisabled={!canAssign}
+            className="mt-2.5"
+          />
         </DisabledActionTooltip>
       )}
     </section>

@@ -1,8 +1,8 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import type { ChecklistItemRow, TaskDetailRow } from '@seta/planner';
-import { Checkbox, DisabledActionTooltip } from '@seta/shared-ui';
+import { Checkbox, DisabledActionTooltip, IconButton, Input } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { GripVertical, Plus } from 'lucide-react';
+import { GripVertical, Plus, X } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useAddChecklistItem } from '../hooks/mutations/add-checklist-item';
 import { useRemoveChecklistItem } from '../hooks/mutations/remove-checklist-item';
@@ -147,14 +147,15 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                         }
                       />
                       {editingId === it.id ? (
-                        <input
+                        <Input
                           ref={editInputRef}
-                          aria-label="Edit checklist item"
+                          label="Edit checklist item"
+                          isLabelHidden
                           value={editDraft}
-                          onChange={(e) => setEditDraft(e.currentTarget.value)}
+                          onChange={(value) => setEditDraft(value)}
                           onKeyDown={(e) => onEditKeyDown(e, it)}
                           onBlur={() => commitEdit(it)}
-                          className="t-sm flex-1 rounded-sm border border-primary bg-surface-1 px-1 py-0.5 text-ink outline-none"
+                          className="flex-1"
                         />
                       ) : (
                         <button
@@ -177,15 +178,14 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
                         disabled={!canUpdate}
                         reason={PERMISSION_DENIED.task.edit}
                       >
-                        <button
-                          type="button"
-                          aria-label="Remove"
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          label="Remove"
                           onClick={() => remove.mutate({ item_id: it.id })}
-                          disabled={!canUpdate}
-                          className="cursor-pointer border-none bg-transparent px-1 py-0 text-[14px] leading-none text-ink-subtle disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          ×
-                        </button>
+                          isDisabled={!canUpdate}
+                          icon={<X className="size-3" />}
+                        />
                       </DisabledActionTooltip>
                     </div>
                   )}
