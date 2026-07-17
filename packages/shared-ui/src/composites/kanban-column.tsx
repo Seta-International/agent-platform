@@ -8,6 +8,7 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import * as stylex from '@stylexjs/stylex';
 import { GripVertical, MoreHorizontal, Plus } from 'lucide-react';
 import {
+  Children,
   type CSSProperties,
   type HTMLAttributes,
   type ReactNode,
@@ -33,6 +34,20 @@ const styles = stylex.create({
   // colour must go on the label itself — an xstyle on the item root is only inherited.
   dangerLabel: { color: 'var(--color-error)' },
   quickCreate: { alignSelf: 'flex-start' },
+  countPill: {
+    background: 'var(--color-background-surface)',
+    borderRadius: 999,
+    paddingInline: 'var(--spacing-1)',
+  },
+  emptyWrap: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 0,
+    padding: 'var(--spacing-4) var(--spacing-2)',
+  },
 });
 
 export interface KanbanColumnProps {
@@ -67,6 +82,8 @@ export interface KanbanColumnProps {
   isLinked?: boolean;
   /** Column width in px (flex-basis in the board row). */
   width?: number;
+  /** Rendered centered, full-height, in place of the card list when there are no children. */
+  emptyState?: ReactNode;
   droppable: {
     ref?: (el: HTMLElement | null) => void;
     rootProps?: HTMLAttributes<HTMLElement>;
@@ -103,6 +120,7 @@ export function KanbanColumn({
   wipLimit,
   isLinked,
   width = 280,
+  emptyState,
   droppable,
   draggableHandle,
 }: KanbanColumnProps) {
@@ -145,6 +163,7 @@ export function KanbanColumn({
     onRename || onDelete || (localActions && (onSetColor || onSetWipLimit || onArchive)),
   );
   const overLimit = wipLimit != null && count > wipLimit;
+  const isEmpty = Children.count(children) === 0;
 
   return (
     <Card
@@ -219,15 +238,17 @@ export function KanbanColumn({
                     <Text size="sm" weight="semibold" maxLines={1}>
                       {name}
                     </Text>
-                    <Text
-                      size="2xs"
-                      color="secondary"
-                      hasTabularNumbers
-                      xstyle={overLimit ? styles.countOver : undefined}
-                      data-over-limit={overLimit ? 'true' : undefined}
-                    >
-                      {wipLimit != null ? `${count}/${wipLimit}` : count}
-                    </Text>
+                    <span {...stylex.props(styles.countPill)}>
+                      <Text
+                        size="2xs"
+                        color="secondary"
+                        hasTabularNumbers
+                        xstyle={overLimit ? styles.countOver : undefined}
+                        data-over-limit={overLimit ? 'true' : undefined}
+                      >
+                        {wipLimit != null ? `${count}/${wipLimit}` : count}
+                      </Text>
+                    </span>
                   </>
                 )}
               </HStack>
@@ -344,6 +365,7 @@ export function KanbanColumn({
                 />
               )}
 
+              {isEmpty && emptyState && <div {...stylex.props(styles.emptyWrap)}>{emptyState}</div>}
               <KanbanCardList
                 ref={droppable.ref as ((el: HTMLDivElement | null) => void) | undefined}
                 rootProps={droppable.rootProps as HTMLAttributes<HTMLDivElement> | undefined}

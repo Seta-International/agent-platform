@@ -608,6 +608,37 @@ describe('<KanbanColumn> scroll containment', () => {
   });
 });
 
+describe('<KanbanColumn> emptyState slot', () => {
+  it('renders the emptyState when there are no children', () => {
+    render(
+      <KanbanColumn
+        name="In review"
+        count={0}
+        droppable={{ ref: () => {}, rootProps: {}, isDraggingOver: false, placeholder: null }}
+        emptyState={<div>Nothing here</div>}
+      >
+        {null}
+      </KanbanColumn>,
+    );
+    expect(screen.getByText('Nothing here')).toBeInTheDocument();
+  });
+
+  it('hides the emptyState when children are present', () => {
+    render(
+      <KanbanColumn
+        name="In review"
+        count={1}
+        droppable={{ ref: () => {}, rootProps: {}, isDraggingOver: false, placeholder: null }}
+        emptyState={<div>Nothing here</div>}
+      >
+        <div>a card</div>
+      </KanbanColumn>,
+    );
+    expect(screen.queryByText('Nothing here')).toBeNull();
+    expect(screen.getByText('a card')).toBeInTheDocument();
+  });
+});
+
 describe('<KanbanColumn> completed section', () => {
   it('toggles completed children via the Collapsible trigger', async () => {
     const user = userEvent.setup();
