@@ -152,7 +152,11 @@ describe('LoginCard password step', () => {
     );
     await user.type(screen.getByLabelText(/^password/i), 'hunter2');
     await user.click(screen.getByRole('button', { name: /^sign in$/i }));
-    expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled();
+    // Astryx's isLoading keeps the accessible name stable ("Sign in") and
+    // signals in-flight state via aria-busy + disabled, not a swapped label.
+    const button = screen.getByRole('button', { name: /^sign in$/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-busy', 'true');
     resolveSignIn({});
   });
 
@@ -163,6 +167,58 @@ describe('LoginCard password step', () => {
     await user.type(screen.getByLabelText(/^password/i), 'hunter2');
     await user.click(screen.getByRole('button', { name: /^sign in$/i }));
     expect(await screen.findByRole('button', { name: /^sign in$/i })).toBeDisabled();
+  });
+
+  // Change 4: a credential mismatch is a "you typed this field wrong" error,
+  // so it renders inline on the password field via TextInput's status prop
+  // (real aria-describedby wiring) instead of a page-level Banner.
+  it('renders a credential mismatch error inline on the password field, with the message text unchanged', async () => {
+    const user = userEvent.setup();
+    await goToPasswordStep(user, 'person@company.com');
+    mockedSignInEmail.mockResolvedValueOnce({ error: { status: 401 } });
+    await user.type(screen.getByLabelText(/^password/i), 'wrong-password');
+    await user.click(screen.getByRole('button', { name: /^sign in$/i }));
+
+    const message = "That email and password don't match. Try again.";
+    await screen.findByText(message);
+
+    // Genuinely field-level: the password input's aria-describedby resolves
+    // to a node that contains the error text (Field.tsx's real wiring), not
+    // just co-located text on the page.
+    const passwordInput = screen.getByLabelText(/^password/i);
+    const describedByIds = passwordInput.getAttribute('aria-describedby')?.split(' ') ?? [];
+    const describesError = describedByIds.some((id) =>
+      document.getElementById(id)?.textContent?.includes(message),
+    );
+    expect(describesError).toBe(true);
+
+    // A credential mismatch alone must not disable the button (only rate
+    // limiting does), and it must render as the field's own status (Astryx
+    // `astryx-field-status`), not as a page-level Banner (`astryx-banner`).
+    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeEnabled();
+    const alert = screen.getByRole('alert');
+    expect(alert.className).toMatch(/astryx-field-status/);
+    expect(alert.className).not.toMatch(/astryx-banner/);
+  });
+
+  // Change 4: rate limiting is form-level (not "you typed this wrong"), so it
+  // must keep rendering as a Banner and must keep disabling Sign in.
+  it('still renders a rate-limit error as a Banner and keeps Sign in disabled', async () => {
+    const user = userEvent.setup();
+    await goToPasswordStep(user, 'person@company.com');
+    mockedSignInEmail.mockResolvedValueOnce({ error: { status: 429 } });
+    await user.type(screen.getByLabelText(/^password/i), 'hunter2');
+    await user.click(screen.getByRole('button', { name: /^sign in$/i }));
+
+    const message = 'Too many attempts. Wait a minute, then try again.';
+    const banner = await screen.findByRole('alert');
+    expect(banner).toHaveTextContent(message);
+
+    // Not wired to the field: rate limiting is not a per-field status, so the
+    // password input carries no aria-describedby link to it.
+    expect(screen.getByLabelText(/^password/i)).not.toHaveAttribute('aria-describedby');
+
+    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeDisabled();
   });
 });
 

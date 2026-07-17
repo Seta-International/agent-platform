@@ -138,7 +138,12 @@ function LoginShell({ children }: { children: React.ReactNode }) {
     <Center axis="both" minHeight="100vh">
       <VStack width="100%" hAlign="center" padding={6}>
         <VStack gap={4} hAlign="center" width="100%" maxWidth={400}>
-          <SetaMark size={36} />
+          <VStack gap={2} hAlign="center">
+            <SetaMark size={36} alt="" />
+            <Text type="body" weight="bold" size="lg">
+              Seta
+            </Text>
+          </VStack>
           {children}
           <Text type="supporting" color="secondary" justify="center">
             © {new Date().getFullYear()}
@@ -163,9 +168,9 @@ function EmailStep({
   error: string | null;
 }) {
   return (
-    <Card padding={6} width="100%">
+    <Card padding={8} width="100%">
       <form onSubmit={onSubmit}>
-        <VStack gap={3} hAlign="stretch">
+        <VStack gap={4} hAlign="stretch">
           <VStack gap={1} hAlign="center">
             <Heading level={1} justify="center">
               Sign in
@@ -190,9 +195,10 @@ function EmailStep({
           <Button
             type="submit"
             size="lg"
-            isDisabled={submitting || !email}
-            label={submitting ? 'Continue…' : 'Continue'}
-            endContent={!submitting ? <ArrowRight size={12} /> : undefined}
+            isLoading={submitting}
+            isDisabled={!email}
+            label="Continue"
+            endContent={<ArrowRight size={12} />}
           />
 
           <Text type="supporting" color="secondary" justify="center">
@@ -224,9 +230,9 @@ function PasswordStep({
   error: string | null;
 }) {
   return (
-    <Card padding={6} width="100%">
+    <Card padding={8} width="100%">
       <form onSubmit={onSubmit}>
-        <VStack gap={3} hAlign="stretch">
+        <VStack gap={4} hAlign="stretch">
           <Heading level={1} justify="center">
             Enter your password
           </Heading>
@@ -248,6 +254,7 @@ function PasswordStep({
               onChange={(value) => onPasswordChange(value)}
               size="lg"
               isRequired
+              status={error && !rateLimited ? { type: 'error', message: error } : undefined}
             />
             <Link
               href="mailto:canh.ta@seta-international.vn?subject=Password%20reset"
@@ -257,13 +264,14 @@ function PasswordStep({
             </Link>
           </VStack>
 
-          {error ? <Banner status="error" title={error} /> : null}
+          {error && rateLimited ? <Banner status="error" title={error} /> : null}
 
           <Button
             type="submit"
             size="lg"
-            isDisabled={submitting || !password || rateLimited}
-            label={submitting ? 'Signing in…' : 'Sign in'}
+            isLoading={submitting}
+            isDisabled={!password || rateLimited}
+            label="Sign in"
           />
 
           <Text type="supporting" color="secondary" justify="center">
@@ -307,8 +315,8 @@ function SsoStep({
   }
 
   return (
-    <Card padding={6} width="100%">
-      <VStack gap={3} hAlign="stretch">
+    <Card padding={8} width="100%">
+      <VStack gap={4} hAlign="stretch">
         <VStack gap={1} hAlign="center">
           <Heading level={1} justify="center">
             Sign in with Microsoft
@@ -333,9 +341,9 @@ function SsoStep({
           size="lg"
           variant="secondary"
           onClick={() => void handleSignIn()}
-          isDisabled={submitting}
+          isLoading={submitting}
           icon={<MicrosoftLogo />}
-          label={submitting ? 'Opening Microsoft…' : 'Continue with Microsoft'}
+          label="Continue with Microsoft"
         />
 
         <Text type="supporting" color="secondary" justify="center">
