@@ -17,12 +17,21 @@ vi.mock('@assistant-ui/react', () => {
         children: <div>Collected reasoning</div>,
       }),
     If: () => null,
+    Parts: ({ components }: { components: { Text: (props: unknown) => ReactNode } }) =>
+      components.Text({ text: 'Hello from the user', status: { type: 'complete' } }),
   };
 
   const ThreadPrimitive = {
     Empty: () => null,
-    Messages: ({ components }: { components: { AssistantMessage: () => ReactNode } }) => (
-      <>{components.AssistantMessage()}</>
+    Messages: ({
+      components,
+    }: {
+      components: { UserMessage: () => ReactNode; AssistantMessage: () => ReactNode };
+    }) => (
+      <>
+        {components.UserMessage()}
+        {components.AssistantMessage()}
+      </>
     ),
   };
 
@@ -127,5 +136,26 @@ describe('AgentTranscript thought group', () => {
       'true',
     );
     expect(screen.getByText('Collected reasoning')).toBeInTheDocument();
+  });
+});
+
+// Regression for FUT-670 review finding: the migration wrapped assistant text
+// in a `ghost` ChatMessageBubble but left the user path with no bubble at
+// all, so user turns rendered as unstyled full-width text. Assert the bubble
+// is structurally present rather than trying to assert appearance — happy-dom
+// loads no Astryx CSS, so nothing about background/padding/max-width is
+// observable here (see the note atop this file re: `toBeVisible()`).
+describe('AgentTranscript user message', () => {
+  it('wraps the user turn in a filled ChatMessageBubble', () => {
+    thoughtStatus = 'complete';
+    const { container } = render(<AgentTranscript />);
+
+    expect(screen.getByText('Hello from the user')).toBeInTheDocument();
+    // ChatMessageBubble reflects its variant/sender as data attributes
+    // (see @astryxdesign/core's themeProps); `data-variant` only exists on
+    // the bubble itself, not the outer ChatMessage wrapper, so this selector
+    // is specific to the bubble being present with the default 'filled'
+    // variant (the old composite's user bubble was solid, not ghost).
+    expect(container.querySelector('[data-sender="user"][data-variant="filled"]')).not.toBeNull();
   });
 });

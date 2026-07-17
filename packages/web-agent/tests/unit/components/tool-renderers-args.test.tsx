@@ -39,7 +39,14 @@ describe('generic tool card streaming args', () => {
     // Nothing to summarize, so the row is just the tool name. Astryx signals
     // "running" with a spinner rather than the old `running…` text label, so
     // there is no generic fallback string to fall back to any more.
+    //
+    // Assert the absence of a leaked summary rather than pinning the whole
+    // subtree's text: `summarizeArgs` always formats as `key: value[, ...]`,
+    // so any leaked summary necessarily contains a colon. A bare `toBe` match
+    // would also break on any incidental text Astryx adds to the running row
+    // (e.g. a spinner picking up a visible accessible label) with no bearing
+    // on this test's actual intent.
     expect(screen.getByText('Search')).toBeInTheDocument();
-    expect(container.textContent).toBe('Search');
+    expect(container.textContent).not.toMatch(/:/);
   });
 });

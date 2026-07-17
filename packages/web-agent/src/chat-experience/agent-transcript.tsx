@@ -189,8 +189,10 @@ function UserMessage() {
   const ctx = extractPageContext(content);
   return (
     <ChatMessage sender="user">
-      {ctx && <RenderContextBadge data={ctx} />}
-      <MessagePrimitive.Parts components={{ Text: PlainTextPart }} />
+      <ChatMessageBubble>
+        {ctx && <RenderContextBadge data={ctx} />}
+        <MessagePrimitive.Parts components={{ Text: PlainTextPart }} />
+      </ChatMessageBubble>
     </ChatMessage>
   );
 }
