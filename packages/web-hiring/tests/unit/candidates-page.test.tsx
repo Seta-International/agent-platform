@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CandidateListItem } from '../../src/api/hiring-client.ts';
+import { COLUMN_EMPTY_COPY } from '../../src/pages/candidate-utils.ts';
 
 vi.mock('@seta/web-identity', () => ({ usePermission: () => true }));
 
@@ -104,6 +105,24 @@ describe('CandidatesPage', () => {
     expect(screen.getByText('Interview')).toBeInTheDocument();
     expect(screen.getByText('Offer')).toBeInTheDocument();
     expect(screen.getAllByText('Hired').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('shows the stage empty state via the column slot, not inside the droppable card list', async () => {
+    // Only the "new" stage is populated — interview/screening/offer/hired are empty and
+    // must show their stage copy through KanbanColumn's `emptyState` slot, not as a
+    // rendered card inside the droppable list (Task 8, FUT-725).
+    fetchCandidates.mockResolvedValue(rows);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    expect(await screen.findByText(COLUMN_EMPTY_COPY.interview.title)).toBeInTheDocument();
+
+    const droppable = document.querySelector('[data-rfd-droppable-id="interview"]');
+    expect(droppable).not.toBeNull();
+    expect(
+      within(droppable as HTMLElement).queryByText(COLUMN_EMPTY_COPY.interview.title),
+    ).not.toBeInTheDocument();
   });
 
   it('switches to list view', async () => {

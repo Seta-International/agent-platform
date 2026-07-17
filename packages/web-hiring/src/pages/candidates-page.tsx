@@ -521,9 +521,18 @@ export function CandidatesPage() {
                           name={col.label}
                           count={groups[col.id].length}
                           color={STAGE_COLOR[col.id]}
-                          // Why: narrows each column below the shared default (280px) so all
-                          // 4 stages fit one screen without horizontal scrolling.
-                          width={220}
+                          // Why: narrows each column below the shared default (280px) —
+                          // now a min-width floor (Task 8, FUT-725), so the column still
+                          // flexes to fill the board row above it.
+                          width={210}
+                          emptyState={
+                            <EmptyState
+                              className="py-4"
+                              icon={COLUMN_EMPTY_ICON[col.id]}
+                              title={COLUMN_EMPTY_COPY[col.id].title}
+                              description={COLUMN_EMPTY_COPY[col.id].description}
+                            />
+                          }
                           droppable={{
                             ref: provided.innerRef,
                             // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
@@ -533,37 +542,28 @@ export function CandidatesPage() {
                             placeholder: provided.placeholder,
                           }}
                         >
-                          {groups[col.id].length === 0 ? (
-                            <EmptyState
-                              className="py-4"
-                              icon={COLUMN_EMPTY_ICON[col.id]}
-                              title={COLUMN_EMPTY_COPY[col.id].title}
-                              description={COLUMN_EMPTY_COPY[col.id].description}
-                            />
-                          ) : (
-                            groups[col.id].map((item, idx) => (
-                              <Draggable
-                                key={item.application_id}
-                                draggableId={item.application_id}
-                                index={idx}
-                                isDragDisabled={!canManage}
-                              >
-                                {(dp, ds) => (
-                                  <CandidateCard
-                                    item={item}
-                                    onSelect={setSelected}
-                                    draggable={{
-                                      ref: dp.innerRef,
-                                      rootProps: dp.draggableProps,
-                                      handleProps: dp.dragHandleProps ?? undefined,
-                                      isDragging: ds.isDragging,
-                                      extraStyle: dp.draggableProps.style,
-                                    }}
-                                  />
-                                )}
-                              </Draggable>
-                            ))
-                          )}
+                          {groups[col.id].map((item, idx) => (
+                            <Draggable
+                              key={item.application_id}
+                              draggableId={item.application_id}
+                              index={idx}
+                              isDragDisabled={!canManage}
+                            >
+                              {(dp, ds) => (
+                                <CandidateCard
+                                  item={item}
+                                  onSelect={setSelected}
+                                  draggable={{
+                                    ref: dp.innerRef,
+                                    rootProps: dp.draggableProps,
+                                    handleProps: dp.dragHandleProps ?? undefined,
+                                    isDragging: ds.isDragging,
+                                    extraStyle: dp.draggableProps.style,
+                                  }}
+                                />
+                              )}
+                            </Draggable>
+                          ))}
                         </KanbanColumn>
                       )}
                     </Droppable>
