@@ -99,6 +99,21 @@ export type CloseReasonInput = z.infer<typeof closeReasonInput>;
 
 export const applicationStage = z.enum(['new', 'screening', 'interview', 'offer']);
 
+export const NAME_ERROR_MESSAGE = 'Full name must be a valid person name.';
+
+function normalizeName(value: string) {
+  return value.normalize('NFC').replace(/\s+/g, ' ').replace(/‐/g, '-').trim();
+}
+
+const NAME_RE = /^[\p{L}\p{M}]+(?:[ '’-][\p{L}\p{M}]+)*$/u;
+
+const nameString = z
+  .string()
+  .transform(normalizeName)
+  .pipe(z.string().min(1).max(100).regex(NAME_RE, NAME_ERROR_MESSAGE));
+
+export { NAME_RE, nameString, normalizeName };
+
 export const candidateSkillInput = z.object({
   skill_id: z.string().uuid(),
   skill_name: z.string().min(1),
@@ -108,7 +123,7 @@ export type CandidateSkillInput = z.infer<typeof candidateSkillInput>;
 
 export const addCandidateInput = z.object({
   requisition_id: z.string().uuid(),
-  name: z.string().min(1),
+  name: nameString,
   personal_email: z.string().email().optional(),
   phone: z.string().optional(),
   dob: z.string().optional(),
@@ -123,7 +138,7 @@ export type AddCandidateInput = z.input<typeof addCandidateInput>;
 
 export const editCandidatePatch = z
   .object({
-    name: z.string().min(1),
+    name: nameString,
     personal_email: z.string().email(),
     cv_storage_key: z.string().min(1).nullable(),
     cv_sha256: z

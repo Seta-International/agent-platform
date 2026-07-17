@@ -51,4 +51,57 @@ describe('hiring contracts (HIR-2)', () => {
     expect(rejectApplicationInput.safeParse({ tags: [] }).success).toBe(false);
     expect(rejectApplicationInput.safeParse({ reason: '   ', tags: [] }).success).toBe(false);
   });
+
+  describe('name validation (FUT-623)', () => {
+    const validReq = () => ({ requisition_id: crypto.randomUUID() });
+    it('rejects date-like values', () => {
+      expect(addCandidateInput.safeParse({ name: '12-12-1992', ...validReq() }).success).toBe(
+        false,
+      );
+    });
+    it('rejects numeric-only values', () => {
+      expect(addCandidateInput.safeParse({ name: '12345', ...validReq() }).success).toBe(false);
+    });
+    it('rejects symbol-only values', () => {
+      expect(addCandidateInput.safeParse({ name: '!!!', ...validReq() }).success).toBe(false);
+    });
+    it('rejects emoji values', () => {
+      expect(addCandidateInput.safeParse({ name: 'Nguyễn Văn A 😀', ...validReq() }).success).toBe(
+        false,
+      );
+      expect(addCandidateInput.safeParse({ name: '😀', ...validReq() }).success).toBe(false);
+    });
+    it('accepts valid Vietnamese name', () => {
+      expect(addCandidateInput.safeParse({ name: 'Nguyễn Văn A', ...validReq() }).success).toBe(
+        true,
+      );
+    });
+    it('accepts hyphenated Western name', () => {
+      expect(addCandidateInput.safeParse({ name: 'Jean-Claude', ...validReq() }).success).toBe(
+        true,
+      );
+    });
+    it('accepts name with apostrophe', () => {
+      expect(addCandidateInput.safeParse({ name: "O'Connor", ...validReq() }).success).toBe(true);
+    });
+    it('accepts CJK characters', () => {
+      expect(addCandidateInput.safeParse({ name: '玛丽', ...validReq() }).success).toBe(true);
+    });
+    it('accepts single character', () => {
+      expect(addCandidateInput.safeParse({ name: 'A', ...validReq() }).success).toBe(true);
+    });
+    it('rejects over 100 characters', () => {
+      expect(addCandidateInput.safeParse({ name: 'A'.repeat(101), ...validReq() }).success).toBe(
+        false,
+      );
+    });
+    it('normalizes excess whitespace', () => {
+      const r = addCandidateInput.parse({ name: '  Nguyễn   Văn   A  ', ...validReq() });
+      expect(r.name).toBe('Nguyễn Văn A');
+    });
+    it('normalizes unicode hyphen', () => {
+      const r = addCandidateInput.parse({ name: 'Jean‐Luc', ...validReq() });
+      expect(r.name).toBe('Jean-Luc');
+    });
+  });
 });

@@ -34,6 +34,12 @@ import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 const NONE = '__none__';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9()\-.\s]{7,20}$/;
+const NAME_ERROR_MESSAGE = 'Full name must be a valid person name.';
+const NAME_RE = /^[\p{L}\p{M}]+(?:[ '’-][\p{L}\p{M}]+)*$/u;
+
+function normalizeName(value: string) {
+  return value.normalize('NFC').replace(/\s+/g, ' ').replace(/‐/g, '-').trim();
+}
 
 export function NewCandidateDialog() {
   const toast = useToast();
@@ -57,6 +63,7 @@ export function NewCandidateDialog() {
   const emailError = email.trim() && !EMAIL_RE.test(email.trim()) ? 'Enter a valid email.' : null;
   const phoneError =
     phone.trim() && !PHONE_RE.test(phone.trim()) ? 'Enter a valid phone number.' : null;
+  const nameError = name.trim() && !NAME_RE.test(normalizeName(name)) ? NAME_ERROR_MESSAGE : null;
 
   const { data: reqs } = useQuery({
     queryKey: hiringKeys.requisitionOptions(),
@@ -194,7 +201,7 @@ export function NewCandidateDialog() {
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || emailError || phoneError) return;
+    if (missingRequired || emailError || phoneError || nameError) return;
     setError(null);
     mutation.mutate();
   }
@@ -264,6 +271,7 @@ export function NewCandidateDialog() {
                     value={name}
                     onChange={(value) => setName(value)}
                   />
+                  {nameError && <p className="text-sm text-error">{nameError}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
