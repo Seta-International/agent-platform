@@ -16,7 +16,6 @@ import {
   Timestamp,
   ToggleButton,
   ToggleButtonGroup,
-  Token,
 } from '@seta/shared-ui';
 import { AtSign, Paperclip, Sparkles } from 'lucide-react';
 import { type ReactNode, useCallback, useState } from 'react';
@@ -133,7 +132,7 @@ function PlainTextPart({ text }: PartProps) {
     return (
       <div className="flex flex-wrap gap-1.5">
         {filenames.map((name) => (
-          <Token key={name} size="sm" label={name} icon={<Paperclip aria-hidden />} />
+          <ContextChip key={name} kind="file" label={name} icon={<Paperclip aria-hidden />} />
         ))}
       </div>
     );

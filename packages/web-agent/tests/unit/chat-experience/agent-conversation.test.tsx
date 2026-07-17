@@ -32,8 +32,15 @@ vi.mock('@assistant-ui/react', async () => {
         children: <div>Collected reasoning</div>,
       }),
     If: () => null,
-    Parts: ({ components }: { components: { Text: (props: unknown) => ReactNode } }) =>
-      components.Text({ text: 'Hello from the user', status: { type: 'complete' } }),
+    Parts: ({ components }: { components: { Text: (props: unknown) => ReactNode } }) => (
+      <>
+        {components.Text({ text: 'Hello from the user', status: { type: 'complete' } })}
+        {components.Text({
+          text: 'Context:\n<<<FILE: spec.pdf>>>\nBODY\n<<<END spec.pdf>>>',
+          status: { type: 'complete' },
+        })}
+      </>
+    ),
   };
 
   const ThreadPrimitive = {
@@ -227,6 +234,20 @@ describe('AgentConversation user mentions', () => {
     // Regression: mentions used to render nothing and vanish after send.
     expect(screen.getByText('Jane Doe')).toBeInTheDocument();
     expect(screen.getByText('person')).toBeInTheDocument();
+  });
+});
+
+// Slice F: a persisted attachment rides as a `Context:\n<<<FILE:` text part so
+// Mastra replays it on follow-ups; PlainTextPart collapses that sentinel into a
+// file ContextChip so the raw document body never reaches the user as text.
+describe('AgentConversation attachment chips', () => {
+  it('renders a persisted attachment filename as a chip, not raw sentinel text', () => {
+    thoughtStatus = 'complete';
+    render(<AgentConversation />);
+    expect(screen.getByText('spec.pdf')).toBeInTheDocument();
+    // The `<<<FILE:` sentinel body must never reach the user as text.
+    expect(screen.queryByText(/<<<FILE:/)).toBeNull();
+    expect(screen.queryByText(/BODY/)).toBeNull();
   });
 });
 
