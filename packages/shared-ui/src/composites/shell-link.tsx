@@ -7,6 +7,8 @@ export interface ShellLinkProps {
   children: React.ReactNode;
   title?: string;
   'aria-current'?: 'page' | undefined;
+  /** Behavior-carrying crumbs (Astryx Breadcrumbs) rely on this reaching the rendered `<a>`. */
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>;
 }
 export type ShellLinkComponent = React.ComponentType<ShellLinkProps>;
 

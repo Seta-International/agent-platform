@@ -2,6 +2,10 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { BreadcrumbItem, Breadcrumbs, LinkProvider } from '../../../src/primitives/breadcrumbs';
 
+// Deliberately narrowed to the vendor-documented contract (href, className, style, children —
+// see Astryx's `LinkComponentType` docs) and nothing else. Used below only to prove routing
+// through a provided component; it must NOT gain onClick — see `ForwardingLink` for the stub
+// that models the real production seam (ShellLink's `...rest` spread).
 function StubLink({
   href,
   className,
@@ -15,6 +19,29 @@ function StubLink({
 }) {
   return (
     <a href={href} className={className} style={style} data-stub="true">
+      {children}
+    </a>
+  );
+}
+
+// Mirrors production `ShellLink` (packages/shared-ui/src/composites/shell-link.tsx): destructures
+// the documented props and forward-spreads everything else — including onClick — onto the
+// underlying <a>. This is the actual seam Astryx's LinkProvider relies on in apps/web; unlike
+// `StubLink` above, nothing here special-cases onClick.
+function ForwardingLink({
+  href,
+  className,
+  style,
+  children,
+  ...rest
+}: {
+  href?: string;
+  className?: string;
+  style?: React.CSSProperties;
+  children?: React.ReactNode;
+} & Record<string, unknown>) {
+  return (
+    <a href={href} className={className} style={style} {...rest}>
       {children}
     </a>
   );
@@ -77,6 +104,28 @@ describe('Breadcrumbs (Astryx contract under happy-dom)', () => {
         </BreadcrumbItem>
         <BreadcrumbItem isCurrent>T-42</BreadcrumbItem>
       </Breadcrumbs>,
+    );
+    screen.getByRole('link', { name: 'Sprint plan' }).click();
+    expect(clicked).toBe(true);
+  });
+
+  it('LinkProvider seam: a behavior-carrying crumb (href + onClick) fires through the provided link component', () => {
+    let clicked = false;
+    render(
+      <LinkProvider component={ForwardingLink}>
+        <Breadcrumbs>
+          <BreadcrumbItem
+            href="/planner/plans/p1"
+            onClick={(e) => {
+              e.preventDefault();
+              clicked = true;
+            }}
+          >
+            Sprint plan
+          </BreadcrumbItem>
+          <BreadcrumbItem isCurrent>T-42</BreadcrumbItem>
+        </Breadcrumbs>
+      </LinkProvider>,
     );
     screen.getByRole('link', { name: 'Sprint plan' }).click();
     expect(clicked).toBe(true);
