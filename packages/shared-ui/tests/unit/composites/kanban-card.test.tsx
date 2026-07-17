@@ -1,81 +1,80 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { KanbanCard } from '../../../src/composites/kanban-card';
+import { KanbanCard, type KanbanCardTask } from '../../../src/composites/kanban-card';
 
-const task = {
+const base: KanbanCardTask = {
   id: 't1',
-  title: 'Ship M3 spec',
-  priority: 'urgent' as const,
-  due_label: '2d',
-  label: { name: 'api', color: undefined },
-  assignees: [
-    { user_id: 'u1', display_name: 'Jane Doe' },
-    { user_id: 'u2', display_name: 'Mark Lee' },
-  ],
-  recentlyMoved: false,
-  saving: false,
+  title: 'Design the landing page',
+  priority: 'urgent',
+  due_label: 'Jul 3',
+  label: { name: 'Marketing' },
+  assignees: [{ user_id: 'u1', display_name: 'Ada Lovelace' }],
 };
 
 describe('KanbanCard', () => {
-  it('renders title, priority, due label, label chip, and first assignee initials', () => {
-    render(<KanbanCard task={task} draggable={{}} />);
+  it('shows priority as a labelled pill in the header', () => {
+    render(<KanbanCard task={base} draggable={{}} />);
+    expect(screen.getByText('Urgent')).toBeInTheDocument();
+    expect(screen.getByLabelText('Urgent priority')).toBeInTheDocument();
+  });
 
-    expect(screen.getByText('Ship M3 spec')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Urgent priority' })).toBeInTheDocument();
-    expect(screen.getByText('2d')).toBeInTheDocument();
-    expect(screen.getByText('api')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Jane Doe' })).toBeInTheDocument();
+  it('puts label, due and avatars in the hairline footer', () => {
+    render(<KanbanCard task={base} draggable={{}} />);
+    const footer = document.querySelector('[data-role="card-footer"]');
+    expect(footer).not.toBeNull();
+    expect(footer).toHaveTextContent('Marketing');
+    expect(footer).toHaveTextContent('Jul 3');
+  });
+
+  it('renders a blocked marker and completed styling', () => {
+    render(<KanbanCard task={{ ...base, blocked: true, isCompleted: true }} draggable={{}} />);
+    expect(screen.getByLabelText('Blocked')).toBeInTheDocument();
+    expect(screen.getByText('Design the landing page')).toBeInTheDocument();
   });
 
   it('marks the card data-recently-moved when recentlyMoved is true', () => {
-    render(<KanbanCard task={{ ...task, recentlyMoved: true }} draggable={{}} />);
+    render(<KanbanCard task={{ ...base, recentlyMoved: true }} draggable={{}} />);
 
-    const article = screen.getByRole('button', { name: /Ship M3 spec/ });
-    expect(article).toHaveAttribute('data-recently-moved', 'true');
+    const card = screen.getByRole('button', { name: /Design the landing page/ });
+    expect(card).toHaveAttribute('data-recently-moved', 'true');
   });
 
   it('renders saving indicator when saving is true', () => {
-    render(<KanbanCard task={{ ...task, saving: true }} draggable={{}} />);
+    render(<KanbanCard task={{ ...base, saving: true }} draggable={{}} />);
 
     expect(screen.getByTestId('saving-indicator')).toBeInTheDocument();
   });
 
-  it('renders previewSlot between the title and the meta footer when provided', () => {
+  it('renders previewSlot between the title and the hairline footer when provided', () => {
     render(
       <KanbanCard
-        task={task}
+        task={base}
         draggable={{}}
         previewSlot={<div data-testid="preview-body">first three items</div>}
       />,
     );
 
-    const card = screen.getByRole('button', { name: /Ship M3 spec/ });
+    const card = screen.getByRole('button', { name: /Design the landing page/ });
     const slot = screen.getByTestId('preview-body');
     expect(slot).toBeInTheDocument();
 
-    // Shell wraps all children in one flex body div, so descend one level before
-    // locating rows by their actual content (title text / meta's priority icon)
-    // instead of the removed `kanban-card__*` classNames.
+    // Shell wraps header/children/footer in one flex body div — descend one level
+    // and locate rows by content rather than the removed `kanban-card__*` classNames.
     const body = card.children[0] as HTMLElement;
     const rows = Array.from(body.children);
-    const titleIdx = rows.findIndex((c) => c.textContent?.includes('Ship M3 spec'));
+    const titleIdx = rows.findIndex((c) => c.textContent?.includes('Design the landing page'));
     const slotIdx = rows.indexOf(slot);
-    const metaIdx = rows.findIndex((c) => c.querySelector('[aria-label="Urgent priority"]'));
+    const footerIdx = rows.findIndex((c) => c.getAttribute('data-role') === 'card-footer');
     expect(titleIdx).toBeGreaterThan(-1);
     expect(slotIdx).toBeGreaterThan(titleIdx);
-    expect(metaIdx).toBeGreaterThan(slotIdx);
-  });
-
-  it('omits the preview slot wrapper entirely when previewSlot is undefined', () => {
-    const { container } = render(<KanbanCard task={task} draggable={{}} />);
-    expect(container.querySelector('[data-role="preview-slot"]')).toBeNull();
+    expect(footerIdx).toBeGreaterThan(slotIdx);
   });
 
   it('renders a mini SyncBadge when external_source is m365', () => {
     render(
       <KanbanCard
         task={{
-          ...task,
+          ...base,
           external_source: 'm365',
           sync_status: 'idle',
           external_synced_at: '2026-05-22T00:00:00.000Z',
@@ -91,7 +90,7 @@ describe('KanbanCard', () => {
   it('does not render a SyncBadge when external_source is native', () => {
     render(
       <KanbanCard
-        task={{ ...task, external_source: 'native', sync_status: 'idle' }}
+        task={{ ...base, external_source: 'native', sync_status: 'idle' }}
         draggable={{}}
       />,
     );
@@ -99,7 +98,7 @@ describe('KanbanCard', () => {
   });
 
   it('does not render a SyncBadge when external_source is undefined', () => {
-    render(<KanbanCard task={task} draggable={{}} />);
+    render(<KanbanCard task={base} draggable={{}} />);
     expect(screen.queryByLabelText(/^Sync /)).toBeNull();
   });
 });

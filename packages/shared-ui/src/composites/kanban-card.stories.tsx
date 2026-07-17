@@ -47,3 +47,17 @@ export const Selected: Story = {
     draggable: {},
   },
 };
+
+export const Completed: Story = {
+  args: {
+    task: { ...baseTask, isCompleted: true },
+    draggable: {},
+  },
+};
+
+export const Blocked: Story = {
+  args: {
+    task: { ...baseTask, blocked: true },
+    draggable: {},
+  },
+};
