@@ -1,4 +1,4 @@
-import { Button, Heading, Text } from '@seta/shared-ui';
+import { Button, EmptyState } from '@seta/shared-ui';
 import { CircleAlert } from 'lucide-react';
 
 interface ServerErrorProps {
@@ -9,42 +9,41 @@ interface ServerErrorProps {
 export function ServerError({ error, onReset }: ServerErrorProps) {
   const detail = error instanceof Error ? error.message : undefined;
   return (
-    <div className="grid min-h-[70vh] place-items-center p-xl">
-      <div className="flex w-full max-w-lg flex-col items-center gap-lg text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-error-muted">
-          <CircleAlert className="size-7 text-error" aria-hidden />
-        </span>
-
-        <div className="flex flex-col items-center gap-xs">
-          <Heading level={2}>Something went wrong on our end</Heading>
-          <Text color="secondary">
-            The app hit an unexpected error. Trying again usually fixes it — if it keeps happening,
-            head home and retry from there.
-          </Text>
-        </div>
-
-        <div className="flex items-center gap-sm">
-          {/* Button defaults to secondary — the retry action must read as primary. */}
-          <Button
-            variant="primary"
-            label="Try again"
-            onClick={() => (onReset ? onReset() : window.location.reload())}
-          />
-          <Button
-            variant="secondary"
-            label="Take me home"
-            onClick={() => {
-              window.location.href = '/';
-            }}
-          />
-        </div>
-
+    <div className="grid min-h-[70vh] place-items-center p-6">
+      <div className="flex w-full max-w-lg flex-col items-center">
+        <EmptyState
+          headingLevel={2}
+          icon={
+            <span className="flex size-12 items-center justify-center rounded-full bg-error-muted">
+              <CircleAlert className="size-6 text-error" />
+            </span>
+          }
+          title="Something went wrong"
+          description="An unexpected error occurred. Try again, or return home."
+          actions={
+            <>
+              {/* Button defaults to secondary — the retry action must read as primary. */}
+              <Button
+                variant="primary"
+                label="Try again"
+                onClick={() => (onReset ? onReset() : window.location.reload())}
+              />
+              <Button
+                variant="secondary"
+                label="Go home"
+                onClick={() => {
+                  window.location.href = '/';
+                }}
+              />
+            </>
+          }
+        />
         {detail && (
           <details className="w-full text-left">
             <summary className="cursor-pointer text-center text-sm text-secondary hover:text-primary">
               Technical details
             </summary>
-            <pre className="mt-sm max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-surface p-md font-mono text-xs leading-relaxed text-secondary">
+            <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-surface p-4 font-mono text-xs leading-relaxed text-secondary">
               {detail}
             </pre>
           </details>

@@ -8,7 +8,7 @@ export function NotFound() {
         description="The link might be broken, or the page may have moved."
         actions={
           <Button
-            label="Take me home"
+            label="Go home"
             onClick={() => {
               window.location.href = '/';
             }}
