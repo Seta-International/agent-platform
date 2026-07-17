@@ -77,6 +77,17 @@ export function assignedNames(approval: WorkflowApprovalRow): string {
     .join(', ');
 }
 
+/**
+ * The centered transcript status line for a resolved approval, or null while
+ * it is still pending. HITL is the only source of transcript status lines.
+ */
+export function resolutionStatusLine(status: string): string | null {
+  if (status === 'pending') return null;
+  if (status === 'approved' || status === 'modified') return 'Approval granted';
+  if (status === 'rejected') return 'Declined';
+  return STATUS_LABELS[status] ?? status;
+}
+
 /** One-line outcome rendered under the decided-row heading. */
 export function outcomeText(approval: WorkflowApprovalRow): string {
   if (approval.status === 'approved' || approval.status === 'modified') {

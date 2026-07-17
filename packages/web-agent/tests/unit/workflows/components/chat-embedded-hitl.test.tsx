@@ -55,6 +55,15 @@ const APPROVED_APPROVAL: WorkflowApprovalRow = {
   decidedAt: new Date().toISOString(),
 };
 
+const REJECTED_APPROVAL: WorkflowApprovalRow = {
+  ...PENDING_APPROVAL,
+  approvalId: 'a3',
+  runId: 'r3',
+  status: 'rejected',
+  decisionPayload: { decision: 'reject' },
+  decidedAt: new Date().toISOString(),
+};
+
 function withQuery(children: React.ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
@@ -86,6 +95,20 @@ describe('ChatEmbeddedHitl', () => {
     expect(
       screen.queryByRole('region', { name: /assign task to a teammate/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it('renders a system status line when an approval is granted', async () => {
+    vi.spyOn(workflowsApi, 'listThreadApprovals').mockResolvedValue([APPROVED_APPROVAL]);
+    render(withQuery(<ChatEmbeddedHitl threadId="thread-x" />));
+    await waitFor(() => expect(screen.getByText('Approval granted')).toBeInTheDocument());
+    // The detail row still renders beneath the status line.
+    expect(screen.getByText('Approved.')).toBeInTheDocument();
+  });
+
+  it('renders a "Declined" status line for a rejected approval', async () => {
+    vi.spyOn(workflowsApi, 'listThreadApprovals').mockResolvedValue([REJECTED_APPROVAL]);
+    render(withQuery(<ChatEmbeddedHitl threadId="thread-x" />));
+    await waitFor(() => expect(screen.getByText('Declined')).toBeInTheDocument());
   });
 
   it('renders nothing when the thread has no approvals', async () => {
