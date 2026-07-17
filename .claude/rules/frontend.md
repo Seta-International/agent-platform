@@ -7,7 +7,7 @@ paths:
 
 # Frontend rules
 
-Stack: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), Astryx (`@astryxdesign/core` + StyleX, custom `seta` theme in `packages/shared-ui/src/theme/`) for components, Tailwind 4, AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui (v6-paired). Every `shared-ui` primitive is an Astryx re-export, and all UI — including `apps/web` — is built on them. The only deliberate non-Astryx UI deps are recharts (no Astryx charts) and lucide (icons). See [`DESIGN.md`](../../DESIGN.md) for design tokens and the `packages/shared-ui` contract. `../mastra/packages/playground-ui/` is the reference for chat/upload UX patterns in `apps/web`.
+Stack: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), Astryx (`@astryxdesign/core` + StyleX, custom `seta` theme in `packages/shared-ui/src/theme/`) for components, Tailwind 4, AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui (v6-paired). Every `shared-ui` primitive is an Astryx re-export, and leaf packages build on those. The only deliberate non-Astryx UI deps are recharts (no Astryx charts) and lucide (icons). See [`DESIGN.md`](../../DESIGN.md) for design tokens and the `packages/shared-ui` contract. `../mastra/packages/playground-ui/` is the reference for chat/upload UX patterns in `apps/web`.
 
 ## App-tier boundaries (CI-gated: `pnpm depcruise`)
 
@@ -20,7 +20,7 @@ All styling lives in `packages/shared-ui/` — no `.css`, `tailwind.config.*`, o
 
 ## Use the primitive, never hand-roll the native element
 
-**Never write a raw interactive or typographic HTML element in a `web-*` package or `apps/web`.** Import the primitive from `@seta/shared-ui` instead — it is the Astryx component under the repo's own name:
+**Reach for the `@seta/shared-ui` primitive before hand-rolling a native element** in a `web-*` package or `apps/web`. The primitive is the Astryx component under the repo's own name:
 
 | Don't hand-roll | Use |
 | --- | --- |
@@ -35,7 +35,11 @@ A raw element styled with Tailwind (`<button className="rounded px-2 py-1.5 …"
 
 **When auditing a surface, grep for the lowercase native tag (`<button`, `<input`), not just the component name.** A file whose imports look fully migrated can still hand-roll its markup — searching for `<Button` will never match a `<button>`.
 
-Escape hatches, in order: a component prop → a `style`/`className` with tokens (`var(--color-*|--spacing-*|--radius-*)`) → `xstyle`. If a primitive genuinely cannot express it, say so in review rather than reaching for a raw element.
+**This is not yet true everywhere** — roughly 100 raw elements remain (mostly overlay triggers and rows whose shape no primitive expresses, concentrated in `web-planner` and `web-agent`). New code follows the rule; converting the rest is ongoing. Don't treat an existing raw element as a bug to fix in an unrelated ticket.
+
+**When a primitive genuinely cannot express the shape, keep the native element and say why in a comment.** A conversion that has to fight the primitive is worse than none: consumer Tailwind and the component's own StyleX land at *equal specificity*, so the winner is stylesheet-order luck. Concretely, `Button` centres its label and owns its weight/size — a full-width, left-aligned, truncating list row is not a `Button` (see `SkillsCatalog.tsx`). Likewise `Input`'s `className` lands on the inner control, not the `Field` wrapper that is the flex item — use its `width` prop instead.
+
+Escape hatches, in order: a component prop → a `style`/`className` with tokens (`var(--color-*|--spacing-*|--radius-*)`) → `xstyle`.
 
 ## Astryx design system
 
