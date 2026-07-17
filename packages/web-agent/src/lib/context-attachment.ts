@@ -1,8 +1,18 @@
-/** If a user text part is an injected `Context:` block, return the attached
- *  filenames (for chip rendering); otherwise null. */
+/** If a user text part is an injected `Context:` attachment block, return the
+ *  attached filenames (for chip rendering); otherwise null.
+ *
+ *  The `<<<FILE:` sentinel is the wire format Mastra replays on follow-ups — it
+ *  is intentionally text and MUST NOT change here. This parser only reads it,
+ *  defensively: non-string input, and empty/whitespace-only names, yield null. */
 export function parseContextAttachment(text: string): string[] | null {
-  if (!text.startsWith('Context:\n<<<FILE:')) return null;
-  // biome-ignore lint/style/noNonNullAssertion: capture group 1 is always defined for this regex pattern
-  const names = [...text.matchAll(/<<<FILE:\s*(.+?)>>>/g)].map((m) => m[1]!.trim());
+  if (typeof text !== 'string' || !text.startsWith('Context:\n<<<FILE:')) return null;
+  const names: string[] = [];
+  // `[^>]+?` keeps a match inside one sentinel (never spans a `>`); the trailing
+  // `\s*>>>` + trim drop padding. No capture is asserted non-null — an empty or
+  // whitespace-only name is filtered rather than emitted.
+  for (const match of text.matchAll(/<<<FILE:\s*([^>]+?)\s*>>>/g)) {
+    const name = match[1]?.trim();
+    if (name) names.push(name);
+  }
   return names.length > 0 ? names : null;
 }
