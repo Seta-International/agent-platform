@@ -21,4 +21,18 @@ describe('LabelChip', () => {
     rerender(<LabelChip name="Design" />);
     expect(screen.getByText('Design').getAttribute('data-variant')).toBe(firstVariant);
   });
+
+  it('exposes data-label-color matching an explicit color prop', () => {
+    render(<LabelChip name="Feature" color="purple" />);
+    expect(screen.getByText('Feature').getAttribute('data-label-color')).toBe('purple');
+  });
+
+  it('exposes a stable data-label-color for the hashed path (no color prop)', () => {
+    const { rerender } = render(<LabelChip name="Design" />);
+    const firstColor = screen.getByText('Design').getAttribute('data-label-color');
+    expect(firstColor).not.toBeNull();
+
+    rerender(<LabelChip name="Design" />);
+    expect(screen.getByText('Design').getAttribute('data-label-color')).toBe(firstColor);
+  });
 });

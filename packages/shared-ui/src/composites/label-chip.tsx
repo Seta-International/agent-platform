@@ -26,5 +26,5 @@ export interface LabelChipProps {
 export function LabelChip({ name, color }: LabelChipProps) {
   const hashed = COLOR_PALETTE[hashString(name) % COLOR_PALETTE.length] ?? COLOR_PALETTE[0];
   const c = color ?? hashed;
-  return <Badge label={name} variant={BADGE_VARIANT[c] ?? 'neutral'} />;
+  return <Badge label={name} variant={BADGE_VARIANT[c] ?? 'neutral'} data-label-color={c} />;
 }

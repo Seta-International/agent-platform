@@ -28,8 +28,8 @@ test('Labels flyout: recolor a label via a swatch', async ({ page }) => {
   await page.getByRole('radio', { name: 'purple' }).click();
   await page.getByRole('button', { name: 'Save' }).click();
 
-  // Chip now carries the purple variant class.
-  await expect(page.locator('.label-chip--purple', { hasText: 'Defect' })).toBeVisible();
+  // Chip now carries the purple variant.
+  await expect(page.locator('[data-label-color="purple"]', { hasText: 'Defect' })).toBeVisible();
 });
 
 test('Labels flyout: delete a label removes it from the task (cascade)', async ({ page }) => {
