@@ -25,6 +25,60 @@ const wrap =
   );
 
 describe('NewCandidateDialog', () => {
+  it('asks before discarding entered data, then clears it when confirmed', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    await userEvent.type(screen.getByLabelText(/full name/i), 'Ada Lovelace');
+    await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+
+    expect(screen.getByText('Discard this candidate?')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^discard$/i }));
+
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    expect(screen.getByLabelText(/full name/i)).toHaveValue('');
+  });
+
+  it('keeps the form when choosing Keep editing', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    await userEvent.type(screen.getByLabelText(/full name/i), 'Keep me');
+    await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    await userEvent.click(screen.getByRole('button', { name: /keep editing/i }));
+
+    expect(screen.getByLabelText(/full name/i)).toHaveValue('Keep me');
+  });
+
+  it('closes without confirmation when nothing was entered', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+
+    expect(screen.queryByText('Discard this candidate?')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/full name/i)).not.toBeInTheDocument();
+  });
+
+  it('focuses the invalid email instead of failing silently', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    await userEvent.type(screen.getByLabelText(/full name/i), 'Ada Lovelace');
+    await userEvent.type(screen.getByLabelText(/^email$/i), 'not-an-email');
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /save candidate/i }));
+
+    expect(addCandidate).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/^email$/i)).toHaveFocus();
+  });
+
   it('submits addCandidate with the entered name and selected role', async () => {
     addCandidate.mockResolvedValueOnce({ candidate_id: 'c1', application_id: 'a1' });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

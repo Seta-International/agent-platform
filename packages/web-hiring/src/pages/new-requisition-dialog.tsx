@@ -1,6 +1,14 @@
 import {
   Alert,
   AlertDescription,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Dialog,
   DialogContent,
@@ -41,6 +49,15 @@ const SECTIONS: { key: JdSectionKey; label: string }[] = [
   { key: 'nice_to_have', label: 'Nice to have' },
 ];
 
+// Section eyebrow + "(optional)" affix share one look across the form.
+function Eyebrow({ children }: { children: string }) {
+  return <div className="text-caption font-semibold uppercase text-ink-muted">{children}</div>;
+}
+
+function Optional() {
+  return <span className="font-normal text-ink-muted"> (optional)</span>;
+}
+
 export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -52,8 +69,22 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   const [projectId, setProjectId] = useState('');
   const [start, setStart] = useState('');
   const [due, setDue] = useState('');
+  // Local-midnight today as yyyy-mm-dd — toISOString() alone is UTC and drifts a day
+  // around midnight for non-UTC users.
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 10);
   // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
-  const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
+  // The inputs' min/max only guard the picker — typed dates still land in state, so the
+  // same bounds are re-checked here and on Create.
+  const startError = start && start < today ? 'Start date cannot be in the past.' : null;
+  const dueError = !due
+    ? null
+    : start && due < start
+      ? 'Due date must be on or after the start date.'
+      : !start && due < today
+        ? 'Due date cannot be in the past.'
+        : null;
   const [headcount, setHeadcount] = useState(1);
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [variant, setVariant] = useState<JdVariant>('internal');
@@ -65,6 +96,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   });
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const missingRequired = !title.trim() || isRichTextEmpty(jd.about);
   // Required-field feedback is the field itself: red border + scroll-to on Create,
   // no separate warning text. Typing clears the highlight because these derive live.
@@ -72,6 +104,19 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   const aboutInvalid = submitAttempted && isRichTextEmpty(jd.about);
   const titleRef = useRef<HTMLInputElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
+  const startDateRef = useRef<HTMLInputElement>(null);
+  const dueDateRef = useRef<HTMLInputElement>(null);
+
+  // Anything worth keeping? Esc/overlay/Cancel ask before throwing it away.
+  const dirty =
+    title.trim() !== '' ||
+    accountId !== '' ||
+    projectId !== '' ||
+    start !== '' ||
+    due !== '' ||
+    headcount !== 1 ||
+    skills.length > 0 ||
+    SECTIONS.some((s) => !isRichTextEmpty(jd[s.key]));
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -104,6 +149,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     });
     setError(null);
     setSubmitAttempted(false);
+    setConfirmDiscard(false);
   }
 
   // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
@@ -111,6 +157,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   function close() {
     setOpen(false);
     reset();
+  }
+
+  // Every dismissal path (Esc, overlay click, Cancel) funnels through here so a
+  // half-written JD is never lost to one keystroke.
+  function requestClose() {
+    if (dirty) setConfirmDiscard(true);
+    else close();
   }
 
   const mutation = useMutation({
@@ -156,7 +209,12 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
       if (!title.trim()) titleRef.current?.focus({ preventScroll: true });
       return;
     }
-    if (dateError) return;
+    if (startError || dueError) {
+      const target = startError ? startDateRef.current : dueDateRef.current;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target?.focus({ preventScroll: true });
+      return;
+    }
     mutation.mutate();
   }
 
@@ -164,8 +222,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     <Dialog
       open={open}
       onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
+        if (v) setOpen(true);
+        else requestClose();
       }}
     >
       <DisabledActionTooltip disabled={disabled} reason={PERMISSION_DENIED.requisition.create}>
@@ -187,6 +245,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
           </header>
           <div className="min-h-0 flex-1 overflow-auto">
             <div className="space-y-5 px-6 pb-5 pt-3">
+              <Eyebrow>Role</Eyebrow>
               <div className="space-y-1">
                 <Label htmlFor="new-req-title">Job title *</Label>
                 <Input
@@ -231,9 +290,15 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                   </Select>
                 </div>
               </div>
+              <div className="border-t border-hairline pt-4">
+                <Eyebrow>Placement & timeline</Eyebrow>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="new-req-account">Account</Label>
+                  <Label htmlFor="new-req-account">
+                    Account
+                    <Optional />
+                  </Label>
                   <Select
                     value={accountId}
                     onValueChange={(v) => {
@@ -254,7 +319,10 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="new-req-project">Project</Label>
+                  <Label htmlFor="new-req-project">
+                    Project
+                    <Optional />
+                  </Label>
                   <Select value={projectId} onValueChange={setProjectId} disabled={!accountId}>
                     <SelectTrigger id="new-req-project" className="w-full">
                       <SelectValue
@@ -301,33 +369,52 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="new-req-start">Start date</Label>
+                  <Label htmlFor="new-req-start">
+                    Start date
+                    <Optional />
+                  </Label>
                   <Input
                     id="new-req-start"
+                    ref={startDateRef}
                     type="date"
                     value={start}
+                    min={today}
                     max={due || undefined}
                     onChange={(e) => setStart(e.target.value)}
+                    aria-invalid={!!startError}
+                    className={startError ? '!border-danger' : undefined}
                   />
+                  {startError && <p className="text-caption text-danger-ink">{startError}</p>}
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="new-req-due">Due date</Label>
+                  <Label htmlFor="new-req-due">
+                    Due date
+                    <Optional />
+                  </Label>
                   <Input
                     id="new-req-due"
+                    ref={dueDateRef}
                     type="date"
                     value={due}
-                    min={start || undefined}
+                    min={start || today}
                     onChange={(e) => setDue(e.target.value)}
+                    aria-invalid={!!dueError}
+                    className={dueError ? '!border-danger' : undefined}
                   />
+                  {dueError && <p className="text-caption text-danger-ink">{dueError}</p>}
                 </div>
               </div>
-              {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
 
-              <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
+              <div className="space-y-3 border-t border-hairline pt-4">
+                <Eyebrow>Skills</Eyebrow>
+                <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
+              </div>
 
               {/* External/Internal variant switcher is temporarily hidden — content saves
                   under the default variant until the two-variant flow is finalized. */}
-              <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
+              <div className="border-t border-hairline pt-4">
+                <Eyebrow>JD detail</Eyebrow>
+              </div>
 
               {SECTIONS.map((s) => (
                 <div key={s.key} ref={s.key === 'about' ? aboutRef : undefined}>
@@ -360,7 +447,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               </Alert>
             )}
             <div className="flex items-center justify-end gap-2">
-              <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
+              <Button variant="secondary" onClick={requestClose} disabled={mutation.isPending}>
                 Cancel
               </Button>
               <Button onClick={submit} disabled={mutation.isPending}>
@@ -370,6 +457,20 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
           </footer>
         </div>
       </DialogContent>
+      <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard this requisition?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Everything you entered will be lost. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction onClick={close}>Discard</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

@@ -1,6 +1,14 @@
 import {
   Alert,
   AlertDescription,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   Dialog,
@@ -54,9 +62,24 @@ export function NewCandidateDialog() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const emailError = email.trim() && !EMAIL_RE.test(email.trim()) ? 'Enter a valid email.' : null;
   const phoneError =
     phone.trim() && !PHONE_RE.test(phone.trim()) ? 'Enter a valid phone number.' : null;
+
+  // Anything worth keeping? Esc/overlay/Cancel ask before throwing it away.
+  const dirty =
+    name.trim() !== '' ||
+    email.trim() !== '' ||
+    phone.trim() !== '' ||
+    dob !== '' ||
+    gender !== '' ||
+    seniority !== '' ||
+    source !== '' ||
+    reqId !== '' ||
+    note.trim() !== '' ||
+    skills.length > 0 ||
+    cvFile !== null;
 
   const { data: reqs } = useQuery({
     queryKey: hiringKeys.requisitionOptions(),
@@ -102,6 +125,7 @@ export function NewCandidateDialog() {
     setSuggestions([]);
     setError(null);
     setSubmitAttempted(false);
+    setConfirmDiscard(false);
   }
 
   // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
@@ -109,6 +133,13 @@ export function NewCandidateDialog() {
   function close() {
     setOpen(false);
     reset();
+  }
+
+  // Every dismissal path (Esc, overlay click, Cancel) funnels through here so a
+  // half-typed candidate is never lost to one keystroke.
+  function requestClose() {
+    if (dirty) setConfirmDiscard(true);
+    else close();
   }
 
   const effectiveReq = reqId || openReqs[0]?.id || '';
@@ -119,6 +150,8 @@ export function NewCandidateDialog() {
   const reqInvalid = submitAttempted && !effectiveReq;
   const nameRef = useRef<HTMLInputElement>(null);
   const reqRef = useRef<HTMLButtonElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
 
   // Fill-only-empty: a parse never overwrites what the recruiter already typed.
   const parse = useMutation({
@@ -193,7 +226,12 @@ export function NewCandidateDialog() {
       if (!name.trim()) nameRef.current?.focus({ preventScroll: true });
       return;
     }
-    if (emailError || phoneError) return;
+    if (emailError || phoneError) {
+      const target = emailError ? emailRef.current : phoneRef.current;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target?.focus({ preventScroll: true });
+      return;
+    }
     setError(null);
     mutation.mutate();
   }
@@ -202,8 +240,8 @@ export function NewCandidateDialog() {
     <Dialog
       open={open}
       onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
+        if (v) setOpen(true);
+        else requestClose();
       }}
     >
       <DialogTrigger asChild>
@@ -272,12 +310,26 @@ export function NewCandidateDialog() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="cand-email">Email</Label>
-                  <Input id="cand-email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Input
+                    id="cand-email"
+                    ref={emailRef}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    aria-invalid={!!emailError}
+                    className={emailError ? '!border-danger' : undefined}
+                  />
                   {emailError && <p className="text-caption text-danger-ink">{emailError}</p>}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="cand-phone">Phone</Label>
-                  <Input id="cand-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  <Input
+                    id="cand-phone"
+                    ref={phoneRef}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    aria-invalid={!!phoneError}
+                    className={phoneError ? '!border-danger' : undefined}
+                  />
                   {phoneError && <p className="text-caption text-danger-ink">{phoneError}</p>}
                 </div>
                 <div className="space-y-1">
@@ -395,7 +447,7 @@ export function NewCandidateDialog() {
               </Alert>
             )}
             <div className="flex items-center justify-end gap-2">
-              <Button variant="secondary" onClick={close}>
+              <Button variant="secondary" onClick={requestClose}>
                 Cancel
               </Button>
               <Button onClick={submit} disabled={mutation.isPending || parse.isPending}>
@@ -405,6 +457,20 @@ export function NewCandidateDialog() {
           </footer>
         </div>
       </DialogContent>
+      <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard this candidate?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Everything you entered will be lost. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction onClick={close}>Discard</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

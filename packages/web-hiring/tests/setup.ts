@@ -2,6 +2,9 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
+// jsdom doesn't implement scrollIntoView; forms use it to surface validation errors.
+Element.prototype.scrollIntoView ??= () => {};
+
 if (typeof localStorage === 'undefined') {
   const _store: Record<string, string> = {};
   const localStorageShim: Storage = {
