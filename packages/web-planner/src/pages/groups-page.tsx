@@ -8,7 +8,6 @@ import {
   DisabledActionTooltip,
   EmptyState,
   HStack,
-  KbdHint,
   Layout,
   LayoutContent,
   LayoutFooter,
@@ -194,10 +193,10 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
                     ? 'Create a group to organize plans and people.'
                     : 'Ask an admin to create a group and invite you to it.'
                 }
-                action={
-                  canCreateGroup
-                    ? { label: 'New group', onClick: () => setCreateOpen(true) }
-                    : undefined
+                actions={
+                  canCreateGroup ? (
+                    <Button label="New group" onClick={() => setCreateOpen(true)} />
+                  ) : undefined
                 }
               />
               <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
@@ -333,11 +332,6 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
                   ? ` · ${syncedCount} ${syncedCount === 1 ? 'group' : 'groups'} synced from IdP`
                   : ''}
               </span>
-              {canCreateGroup ? (
-                <span className="inline-flex items-center gap-1 text-ink-subtle">
-                  Press <KbdHint keys={['N']} /> to create a new group
-                </span>
-              ) : null}
             </footer>
           </div>
           <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />

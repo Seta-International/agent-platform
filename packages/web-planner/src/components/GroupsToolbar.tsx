@@ -1,4 +1,10 @@
-import { FilterPill, Input, SegmentedControl, SegmentedControlItem } from '@seta/shared-ui';
+import {
+  Divider,
+  FilterPill,
+  Input,
+  SegmentedControl,
+  SegmentedControlItem,
+} from '@seta/shared-ui';
 import { LayoutGrid, List, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -121,8 +127,7 @@ export function GroupsToolbar({
         onChange={onStatusChange}
       />
 
-      {/* Separator */}
-      <div className="mx-1 h-4 w-px bg-hairline" />
+      <Divider orientation="vertical" style={{ height: 16, marginInline: 4 }} />
 
       <SegmentedControl label="View" value={view} onChange={(v) => onViewChange(v as GroupsView)}>
         {VIEW_OPTIONS.map((o) => (

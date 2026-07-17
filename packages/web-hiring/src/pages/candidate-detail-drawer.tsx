@@ -6,6 +6,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   formatRelative,
+  IconButton,
   Layout,
   LayoutContent,
   useToast,
@@ -97,14 +98,14 @@ function DetailRow({
       <span className="flex items-center gap-1.5 text-body-sm text-ink">
         {value}
         {onCopy && (
-          <button
+          <IconButton
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={onCopy}
-            aria-label={`Copy ${label}`}
-            className="text-ink-subtle hover:text-ink"
-          >
-            <Copy className="size-3.5" />
-          </button>
+            label={`Copy ${label}`}
+            icon={<Copy className="size-3.5" />}
+          />
         )}
       </span>
     </div>

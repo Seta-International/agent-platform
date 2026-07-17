@@ -1,3 +1,4 @@
+import { Button } from '@seta/shared-ui';
 import { Check, Clock, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { WorkflowApprovalRow } from '../api/schemas.ts';
@@ -281,40 +282,40 @@ export function HitlApprovalCard({
           ) : null}
 
           <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
-            <button
+            <Button
               type="button"
-              disabled={selectedLinks.size === 0 || disabled}
+              variant="primary"
+              isDisabled={selectedLinks.size === 0 || disabled}
               onClick={() => {
                 if (selectedLinks.size > 0) {
                   onDecide({ decision: 'approve', alternateIndices: [...selectedLinks] });
                 }
               }}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-body-sm font-semibold text-on-primary shadow-sm transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-subtle disabled:shadow-none"
-            >
-              <Check className="size-3.5" aria-hidden />
-              {pending
-                ? 'Linking…'
-                : selectedLinks.size > 1
-                  ? `Link ${selectedLinks.size} tickets`
-                  : 'Link ticket'}
-            </button>
-            <button
+              icon={<Check className="size-3.5" aria-hidden />}
+              label={
+                pending
+                  ? 'Linking…'
+                  : selectedLinks.size > 1
+                    ? `Link ${selectedLinks.size} tickets`
+                    : 'Link ticket'
+              }
+            />
+            <Button
               type="button"
-              disabled={disabled}
+              variant="secondary"
+              isDisabled={disabled}
               onClick={() => onDecide({ decision: 'approve' })}
-              className="rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-body-sm font-medium text-ink hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Keep as new task
-            </button>
-            <button
+              label="Keep as new task"
+            />
+            <Button
               type="button"
-              disabled={disabled}
+              variant="destructive"
+              isDisabled={disabled}
               onClick={() => onDecide({ decision: 'reject' })}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-body-sm text-danger-ink hover:bg-danger-tint disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Trash2 className="size-3.5" aria-hidden />
-              Delete this ticket
-            </button>
+              icon={<Trash2 className="size-3.5" aria-hidden />}
+              label="Delete this ticket"
+              className="ml-auto"
+            />
           </div>
 
           {!canAct ? (
@@ -455,28 +456,29 @@ export function HitlApprovalCard({
 
         {!rejectOpen ? (
           <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
-            <button
+            <Button
               type="button"
-              disabled={!canApprove || disabled}
+              variant="primary"
+              isDisabled={!canApprove || disabled}
               onClick={submitApprove}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-body-sm font-semibold text-on-primary shadow-sm transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Check className="size-3.5" aria-hidden />
-              {pending ? 'Approving…' : 'Approve'}
-              {selected.size > 1 ? (
-                <span className="rounded-full bg-canvas/25 px-1.5 py-px font-mono text-[10px] tabular-nums">
-                  {selected.size}
-                </span>
-              ) : null}
-            </button>
-            <button
+              icon={<Check className="size-3.5" aria-hidden />}
+              label={pending ? 'Approving…' : 'Approve'}
+              endContent={
+                selected.size > 1 ? (
+                  <span className="rounded-full bg-canvas/25 px-1.5 py-px font-mono text-[10px] tabular-nums">
+                    {selected.size}
+                  </span>
+                ) : undefined
+              }
+            />
+            <Button
               type="button"
-              disabled={disabled}
+              variant="destructive"
+              isDisabled={disabled}
               onClick={() => setRejectOpen(true)}
-              className="ml-auto rounded-md px-3 py-1.5 text-body-sm text-danger-ink hover:bg-danger-tint disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {card?.decline?.label ?? 'Leave unassigned'}
-            </button>
+              label={card?.decline?.label ?? 'Leave unassigned'}
+              className="ml-auto"
+            />
           </div>
         ) : (
           <div className="mt-3.5 rounded-lg border border-hairline-strong bg-surface-1 p-2.5">
@@ -491,24 +493,22 @@ export function HitlApprovalCard({
               />
             </label>
             <div className="mt-2 flex items-center justify-end gap-1.5">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => {
                   setRejectOpen(false);
                   setNote('');
                 }}
-                className="rounded-md px-2.5 py-1.5 text-body-sm text-ink-subtle hover:bg-surface-2 hover:text-ink"
-              >
-                Cancel
-              </button>
-              <button
+                label="Cancel"
+              />
+              <Button
                 type="button"
-                disabled={pending}
+                variant="destructive"
+                isDisabled={pending}
                 onClick={() => onDecide({ decision: 'reject', note })}
-                className="rounded-md bg-danger px-3 py-1.5 text-body-sm font-semibold text-on-destructive shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Confirm decline
-              </button>
+                label="Confirm decline"
+              />
             </div>
           </div>
         )}

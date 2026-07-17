@@ -364,7 +364,7 @@ export function AccountsPage() {
                         <EmptyState
                           title="No results match these filters"
                           description="Try removing a filter or clearing your search."
-                          action={{ label: 'Clear filters', onClick: () => setSearch('') }}
+                          actions={<Button label="Clear filters" onClick={() => setSearch('')} />}
                         />
                       ) : (
                         <EmptyState

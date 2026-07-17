@@ -1,4 +1,4 @@
-import { Button } from '@seta/shared-ui';
+import { Button, Heading } from '@seta/shared-ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   type CalendarMode,
@@ -56,7 +56,9 @@ export function CalendarToolbar({ from, to, totalCount, onRangeChange }: Props) 
           onClick={() => onShift(1)}
         />
         <Button variant="ghost" size="sm" label="Today" onClick={onToday} />
-        <h2 className="ml-2 text-card-title text-ink">{rangeLabel(from, to)}</h2>
+        <Heading level={2} className="ml-2">
+          {rangeLabel(from, to)}
+        </Heading>
         <span className="text-caption text-ink-muted" data-testid="calendar-total-count">
           {totalCount} task{totalCount === 1 ? '' : 's'}
         </span>

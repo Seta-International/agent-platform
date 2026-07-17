@@ -1,4 +1,4 @@
-import { Avatar, Badge, Button, Card, EmptyState, Skeleton } from '@seta/shared-ui';
+import { Avatar, Badge, Card, EmptyState, Pagination, Skeleton } from '@seta/shared-ui';
 import { Users } from 'lucide-react';
 import type { WorkerListRow, WorkersQuery } from '../api/people-client.ts';
 
@@ -144,28 +144,7 @@ export function PeopleCardGrid({
         ))}
       </div>
 
-      {/* Pager */}
-      <div className="flex items-center justify-between text-body-sm text-ink-muted">
-        <span>
-          Page {page} of {pageCount}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            isDisabled={page <= 1}
-            onClick={() => goToPage(page - 1)}
-            label="Prev"
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            isDisabled={page >= pageCount}
-            onClick={() => goToPage(page + 1)}
-            label="Next"
-          />
-        </div>
-      </div>
+      <Pagination page={page} onChange={goToPage} totalPages={pageCount} variant="compact" />
     </div>
   );
 }

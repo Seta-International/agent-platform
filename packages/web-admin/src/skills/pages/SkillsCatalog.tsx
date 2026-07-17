@@ -501,6 +501,9 @@ function CategoryRow({
         selected ? 'border-primary bg-surface-2' : 'border-transparent hover:bg-surface-2',
       )}
     >
+      {/* Not an Astryx Button: this is a full-width, left-aligned, truncating
+          list row. Button centres its label and owns its own weight/size, so
+          expressing this shape means overriding its StyleX at equal specificity. */}
       <button
         type="button"
         onClick={onSelect}

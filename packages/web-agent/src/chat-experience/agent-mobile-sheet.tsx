@@ -17,6 +17,9 @@ export function AgentMobileSheet() {
 
   return (
     <>
+      {/* Not an IconButton: a circular FAB. IconButton is Button with
+          isIconOnly and exposes no shape prop, so the round shape would mean
+          overriding its radius at equal specificity. */}
       <button
         type="button"
         aria-label="Open agent"

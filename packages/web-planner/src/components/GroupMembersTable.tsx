@@ -295,7 +295,7 @@ export function GroupMembersTable({
             <EmptyState
               title="No results match these filters"
               description="Try removing a filter or clearing your search."
-              action={{ label: 'Clear filters', onClick: () => setSearch('') }}
+              actions={<Button label="Clear filters" onClick={() => setSearch('')} />}
             />
           ) : (
             <div className="px-4 py-12 text-center text-body-sm text-ink-subtle">

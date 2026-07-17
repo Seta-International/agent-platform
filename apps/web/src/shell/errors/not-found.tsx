@@ -1,4 +1,4 @@
-import { EmptyState } from '@seta/shared-ui';
+import { Button, EmptyState } from '@seta/shared-ui';
 
 export function NotFound() {
   return (
@@ -6,12 +6,14 @@ export function NotFound() {
       <EmptyState
         title="We couldn't find that page"
         description="The link might be broken, or the page may have moved."
-        action={{
-          label: 'Take me home',
-          onClick: () => {
-            window.location.href = '/';
-          },
-        }}
+        actions={
+          <Button
+            label="Take me home"
+            onClick={() => {
+              window.location.href = '/';
+            }}
+          />
+        }
       />
     </div>
   );

@@ -106,12 +106,8 @@ select:focus-visible,
 .plan-search-input input { background: transparent; border: 0; outline: 0; flex: 1; font-size: var(--text-body-sm); color: var(--color-ink); min-width: 0; }
 .plan-search-input input::placeholder { color: var(--color-ink-subtle); }
 .plan-search-input input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
-.plan-search-input__clear { background: transparent; border: 0; color: var(--color-ink-subtle); cursor: pointer; padding: 2px; border-radius: var(--radius-sm); display: inline-flex; }
-.plan-search-input__clear:hover { color: var(--color-ink); background: var(--color-surface-2); }
 
 .plan-filter-bar              { display: flex; gap: var(--spacing-xs); align-items: center; }
-.plan-filter-bar__clear       { background: transparent; border: 0; color: var(--color-ink-subtle); font-size: var(--font-size-xs); cursor: pointer; padding: 4px var(--spacing-xs); border-radius: var(--radius-sm); }
-.plan-filter-bar__clear:hover { background: var(--color-surface-2); color: var(--color-ink); }
 
 /* PlanGridPage */
 .plan-grid-page { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: var(--spacing-md); }

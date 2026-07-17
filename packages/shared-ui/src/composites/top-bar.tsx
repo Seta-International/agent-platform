@@ -5,6 +5,7 @@ import { ChevronRight, LayoutGrid, Menu, Sparkles } from 'lucide-react';
 import type * as React from 'react';
 import { SetaMark } from '../icons/seta-mark';
 import { cn } from '../lib/cn';
+import { Divider } from '../primitives/divider';
 import { IconButton } from '../primitives/icon-button';
 import { DefaultShellLink, type ShellLinkComponent } from './shell-link';
 
@@ -124,7 +125,9 @@ export function TopBar({
             </button>
           )}
           {notificationPanel}
-          <span className="mx-1 h-5 w-px bg-hairline" />
+          {/* Height is explicit: a vertical Divider is height:100% over a
+              flex-grow line, so it collapses without a definite parent height. */}
+          <Divider orientation="vertical" style={{ height: 20, marginInline: 4 }} />
           {userMenu}
         </div>
       }

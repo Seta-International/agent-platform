@@ -1,3 +1,4 @@
+import { Button } from '@seta/shared-ui';
 import { useWorkflowDefinitions } from '../hooks/use-workflow-definitions.ts';
 
 export interface DefinitionsListProps {
@@ -14,13 +15,14 @@ export function DefinitionsList({ selectedId, onSelect }: DefinitionsListProps) 
       <header className="flex h-11 flex-none items-center justify-between border-b border-hairline px-4 text-[11px] font-medium uppercase tracking-wider text-ink-subtle">
         <span>Definitions</span>
         {selectedId ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
+            label="Clear"
             onClick={() => onSelect(null)}
-            className="text-xs font-normal normal-case tracking-normal text-primary hover:underline"
-          >
-            Clear
-          </button>
+            className="normal-case tracking-normal"
+          />
         ) : null}
       </header>
       {isLoading ? (

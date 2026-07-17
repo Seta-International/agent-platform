@@ -1,3 +1,4 @@
+import { Button } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Background,
@@ -108,14 +109,15 @@ function WorkflowGraphInner({ snapshot, run, onReplay }: WorkflowGraphProps) {
         status={run.status}
       />
       {running ? (
-        <button
+        <Button
           type="button"
-          disabled={cancelling}
-          className="ml-1 rounded border border-[var(--color-hairline)] px-2 py-0.5 text-xs hover:bg-[var(--color-surface-2)] disabled:opacity-60"
+          variant="secondary"
+          size="sm"
+          isDisabled={cancelling}
           onClick={() => cancel.mutate()}
-        >
-          {cancelling ? 'Cancelling…' : 'Cancel run'}
-        </button>
+          label={cancelling ? 'Cancelling…' : 'Cancel run'}
+          className="ml-1"
+        />
       ) : null}
     </div>
   );

@@ -1,7 +1,7 @@
-import { Dialog, DialogHeader, Layout, LayoutContent } from '@seta/shared-ui';
+import { Dialog, DialogHeader, Layout, LayoutContent, Spinner } from '@seta/shared-ui';
 import type { Node } from '@xyflow/react';
 import { Handle, type NodeProps, Position } from '@xyflow/react';
-import { Ban, Check, CircleDashed, Loader2, PauseCircle, ShieldAlert, X } from 'lucide-react';
+import { Ban, Check, CircleDashed, PauseCircle, ShieldAlert, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { DefaultNodeData } from '../lib/build-graph.ts';
 import { stepStatusToRunStatus, tokenFor } from '../lib/status-tokens.ts';
@@ -53,7 +53,8 @@ function StatusIcon({ status }: { status: string }) {
     case 'failed':
       return <X className={`${cls} text-[var(--color-destructive)]`} />;
     case 'running':
-      return <Loader2 className={`${cls} animate-spin text-[var(--color-primary)]`} />;
+      // size="md" is 14px, matching the size-3.5 of the sibling status icons.
+      return <Spinner size="md" className="flex-none" />;
     case 'paused':
     case 'suspended':
       return <PauseCircle className={`${cls} text-[var(--color-semantic-warning)]`} />;
