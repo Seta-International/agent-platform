@@ -69,7 +69,13 @@ vi.mock('../../../src/components/thread-list-refresher', () => ({
   ThreadListRefresher: () => null,
 }));
 
-import { AgentTranscript } from '../../../src/chat-experience/agent-transcript';
+// The conversation now owns the composer via ChatLayout's dock; the composer
+// pulls in providers this suite deliberately does not mount.
+vi.mock('../../../src/chat-experience/agent-composer', () => ({
+  AgentComposer: () => null,
+}));
+
+import { AgentConversation } from '../../../src/chat-experience/agent-conversation';
 import { DensityProvider } from '../../../src/chat-experience/use-density';
 
 // NOTE (FUT-670): `aria-expanded` is the ONLY load-bearing assertion for
@@ -77,13 +83,13 @@ import { DensityProvider } from '../../../src/chat-experience/use-density';
 // them with a StyleX `display: none` class; happy-dom loads no Astryx CSS, so
 // `toBeVisible()` returns true for a collapsed body too — verified empirically.
 // Assert presence, never visibility, for collapsed content in this suite.
-describe('AgentTranscript thought group', () => {
+describe('AgentConversation thought group', () => {
   beforeEach(() => localStorage.clear());
 
   it('can be expanded from the summary after the thought finishes running', async () => {
     const user = userEvent.setup();
     thoughtStatus = 'running';
-    const { rerender } = render(<AgentTranscript />);
+    const { rerender } = render(<AgentConversation />);
 
     expect(screen.getByRole('button', { name: /Thinking/ })).toHaveAttribute(
       'aria-expanded',
@@ -91,7 +97,7 @@ describe('AgentTranscript thought group', () => {
     );
 
     thoughtStatus = 'complete';
-    rerender(<AgentTranscript />);
+    rerender(<AgentConversation />);
 
     expect(screen.getByRole('button', { name: /Thought/ })).toHaveAttribute(
       'aria-expanded',
@@ -112,7 +118,7 @@ describe('AgentTranscript thought group', () => {
     thoughtStatus = 'complete';
     render(
       <DensityProvider>
-        <AgentTranscript />
+        <AgentConversation />
       </DensityProvider>,
     );
     expect(screen.getByRole('button', { name: /Thought/ })).toHaveAttribute(
@@ -124,7 +130,7 @@ describe('AgentTranscript thought group', () => {
   it('opens a completed thought when the user clicks the thought card', async () => {
     const user = userEvent.setup();
     thoughtStatus = 'complete';
-    render(<AgentTranscript />);
+    render(<AgentConversation />);
 
     const thought = screen.getByRole('button', { name: /Thought/ });
     expect(thought).toHaveAttribute('aria-expanded', 'false');
@@ -145,10 +151,10 @@ describe('AgentTranscript thought group', () => {
 // is structurally present rather than trying to assert appearance — happy-dom
 // loads no Astryx CSS, so nothing about background/padding/max-width is
 // observable here (see the note atop this file re: `toBeVisible()`).
-describe('AgentTranscript user message', () => {
+describe('AgentConversation user message', () => {
   it('wraps the user turn in a filled ChatMessageBubble', () => {
     thoughtStatus = 'complete';
-    const { container } = render(<AgentTranscript />);
+    const { container } = render(<AgentConversation />);
 
     expect(screen.getByText('Hello from the user')).toBeInTheDocument();
     // ChatMessageBubble reflects its variant/sender as data attributes

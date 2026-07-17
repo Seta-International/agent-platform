@@ -18,6 +18,7 @@ import { ToolFallback } from '../components/tool-renderers/tool-fallback';
 import { AGENT_COPY } from '../i18n';
 import { parseContextAttachment } from '../lib/context-attachment';
 import { ChatEmbeddedHitl } from '../workflows/components/chat-embedded-hitl';
+import { AgentComposer } from './agent-composer';
 import { type PageContext, useAgentSelection, usePageContext } from './agent-provider';
 import { ChainOfThought } from './chain-of-thought';
 import { groupByThought } from './group-by-thought';
@@ -63,7 +64,12 @@ function TextPart({ text, status }: PartProps) {
   return (
     <ChatMessageBubble variant="ghost">
       <div className="relative">
-        <Markdown density="compact">{text}</Markdown>
+        {/* `autolink`: the deleted ChatMarkdown ran remark-gfm, whose
+            autolink-literal extension is on by default. Astryx's is opt-in, so
+            without this a bare URL in an answer renders as dead plain text. */}
+        <Markdown density="compact" autolink="gfm">
+          {text}
+        </Markdown>
         {status.type === 'running' && (
           <span
             aria-hidden
@@ -277,7 +283,7 @@ function makeAssistantMessage(authorLabel: string) {
   };
 }
 
-export function AgentTranscript() {
+export function AgentConversation() {
   const { selection } = useAgentSelection();
   const { pageContext } = usePageContext();
   const { density } = useDensity();
@@ -292,15 +298,21 @@ export function AgentTranscript() {
 
   return (
     <>
-      {/* `composer={null}`: every surface (side panel, mobile sheet, chat page)
-          renders <AgentComposer/> as a sibling below the transcript today.
-          Threading it into ChatLayout's dock is a surfaces change — Task 5. */}
-      <ChatLayout density={chatDensity} composer={null}>
+      {/* The composer rides ChatLayout's dock rather than sitting below as a
+          sibling: the dock (blur layer + scroll button + composer) renders
+          unconditionally, so `composer={null}` would leave a ~100px frosted
+          band glued to the transcript's bottom edge with nothing in it.
+          `scrollButton` is deliberately unset — omitting it is what wires the
+          default jump-to-latest button to Astryx's stream-scroll hooks. */}
+      <ChatLayout density={chatDensity} composer={<AgentComposer />}>
         <ChatMessageList density={chatDensity} isStreaming={isRunning}>
           <ThreadPrimitive.Empty>
             <AgentEmpty title={emptyTitle} body={emptyBody} />
           </ThreadPrimitive.Empty>
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
+          {/* Stays inside the `role="log"`: the list's own inline padding is
+              what replaces the old `px-4 pb-4` wrapper, and living in the
+              polite live region is how an approval announces itself at all. */}
           <ChatEmbeddedHitl threadId={selection.threadId} />
         </ChatMessageList>
       </ChatLayout>

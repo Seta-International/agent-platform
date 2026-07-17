@@ -35,14 +35,18 @@ export const AgentStreamPart: DataMessagePartComponent = ({ data, status }) => {
     // sub-agent answer this branch exists to hide would render expanded.
     return (
       <Collapsible defaultIsOpen={false} trigger={`Trace · ${agentLabel(payload.id)}`}>
-        <Markdown density="compact">{text}</Markdown>
+        <Markdown density="compact" autolink="gfm">
+          {text}
+        </Markdown>
       </Collapsible>
     );
   }
 
   return (
     <div className="relative">
-      <Markdown density="compact">{text}</Markdown>
+      <Markdown density="compact" autolink="gfm">
+        {text}
+      </Markdown>
       <span
         aria-hidden
         className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-[2px] animate-pulse bg-ink"
