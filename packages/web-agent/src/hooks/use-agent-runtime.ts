@@ -3,6 +3,7 @@ import { AssistantChatTransport, useChatRuntime } from '@assistant-ui/react-ai-s
 import type { UIMessage } from 'ai';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { mastraThreadListAdapter } from '../lib/mastra-thread-list-adapter';
+import { buildMentionPart, type EntityMention } from '../lib/mention-part';
 import { buildPageContextPart } from '../lib/page-context-part';
 import type { PageContext } from '../lib/page-context-types';
 
@@ -18,6 +19,13 @@ interface UseAgentRuntimeOpts {
    */
   pageContextRef?: { current: { ctx: PageContext | null; suppressedFor: string | null } };
   /**
+   * When provided, the runtime attaches one `data-entity-mention` part per
+   * `@`-mention the composer resolved for the outgoing user message. The
+   * composer fills the ref at submit time and the runtime drains it here, so a
+   * mention is never replayed onto a later turn.
+   */
+  mentionsRef?: { current: EntityMention[] };
+  /**
    * Called when a run fails. The AI SDK transport throws `new Error(<response
    * body text>)` on a non-ok response, so `error.message` is the raw JSON body
    * (e.g. the chat 413 `{ "error": "context_overflow", "message": "…" }`).
@@ -31,6 +39,7 @@ export function useAgentRuntime({
   modelKey,
   initialMessages,
   pageContextRef,
+  mentionsRef,
   onError,
 }: UseAgentRuntimeOpts) {
   const modelRef = useRef(modelKey);
@@ -94,9 +103,19 @@ export function useAgentRuntime({
         );
       }
 
+      if (message.role === 'user' && mentionsRef) {
+        for (const mention of mentionsRef.current) {
+          parts.push(
+            buildMentionPart(mention) as unknown as { type: string; [k: string]: unknown },
+          );
+        }
+        // Drain: mentions belong to the turn that resolved them.
+        mentionsRef.current = [];
+      }
+
       return { role: message.role as 'user', parts } as never;
     },
-    [pageContextRef],
+    [pageContextRef, mentionsRef],
   );
 
   // Capture values needed inside the runtimeHook via refs so the hook

@@ -8,7 +8,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -102,12 +102,12 @@ function renderPage(initialFilters: MyTasksFilters = {}) {
     routeTree: rootRoute.addChildren([pageRoute, taskRoute, planRoute]),
     history: createMemoryHistory({ initialEntries: ['/planner/my-tasks'] }),
   });
-  render(
+  const { container } = render(
     <QueryClientProvider client={qc}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return { router, setFilters };
+  return { router, setFilters, container };
 }
 
 describe('findNeighbors', () => {
@@ -212,6 +212,29 @@ describe('findNeighbors', () => {
 });
 
 describe('MyTasksPage', () => {
+  it('renders the Planner → My tasks breadcrumb trail and a single h1', async () => {
+    server.use(http.get('*/api/planner/v1/my-tasks', () => HttpResponse.json(emptyResult())));
+    renderPage();
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).getByRole('link', { name: 'Planner' })).toHaveAttribute('href', '/planner');
+    expect(within(nav).getByText('My tasks')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { level: 1, name: 'My tasks' })).toBeInTheDocument();
+  });
+
+  it('keeps the my-tasks toolbar pinned outside the scrollable content region', async () => {
+    server.use(http.get('*/api/planner/v1/my-tasks', () => HttpResponse.json(emptyResult())));
+    const { container } = renderPage();
+    await screen.findByText(/all caught up/i);
+
+    const toolbar = screen.getByTestId('my-tasks-toolbar');
+    // `.astryx-layout-content` is the Astryx `LayoutContent` component's own stable, documented
+    // base class (see `themeProps()` in the vendor package) — not a StyleX atomic-class hash, so
+    // it's safe to assert on. This is the same gate used for web-admin's Directory page.
+    const content = container.querySelector('.astryx-layout-content');
+    expect(content).not.toBeNull();
+    expect(content?.contains(toolbar)).toBe(false);
+  });
+
   it('renders the loading skeleton while data is in-flight', async () => {
     server.use(
       http.get('*/api/planner/v1/my-tasks', async () => {
@@ -331,8 +354,9 @@ describe('MyTasksPage', () => {
     server.use(http.get('*/api/planner/v1/my-tasks', () => HttpResponse.json(emptyResult())));
     const { setFilters } = renderPage();
     await screen.findByText(/all caught up/i);
-    await userEvent.click(screen.getByRole('button', { name: /priority/i }));
-    await userEvent.click(await screen.findByText('Urgent'));
+    // Priority is a plain Astryx Selector (no search) → its trigger has the `combobox` role.
+    await userEvent.click(screen.getByRole('combobox', { name: /priority/i }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Urgent' }));
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ priority: 1 }));
   });
 
@@ -348,7 +372,7 @@ describe('MyTasksPage', () => {
     const { setFilters } = renderPage();
     await screen.findByText('Login storm');
     expect(screen.queryByTestId('my-tasks-grid')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('tab', { name: /grid view/i }));
+    await userEvent.click(screen.getByRole('radio', { name: /^Grid$/i }));
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ view: 'grid' }));
   });
 

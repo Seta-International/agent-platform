@@ -1,4 +1,4 @@
-import { Button } from '@seta/shared-ui';
+import { Banner, Button, HStack } from '@seta/shared-ui';
 
 interface Props {
   error?: unknown;
@@ -30,31 +30,34 @@ export function PlanError({ error, onRetry, onBack }: Props) {
   const detail =
     error instanceof Error ? error.message : typeof error === 'string' ? error : undefined;
   return (
-    <div role="alert" className="plan-error">
-      <h2 className="text-card-title text-ink">{title}</h2>
-      <p className="mt-1 text-body-sm text-ink-subtle">
-        {category === 'Network'
-          ? 'Check your connection and try again.'
-          : category === 'Permission'
-            ? 'Ask your admin for access.'
-            : 'Something went wrong on our end.'}
-      </p>
-      <div className="mt-3 flex gap-2">
-        <Button size="sm" onClick={onRetry}>
-          Try again
-        </Button>
-        {onBack && (
-          <Button size="sm" variant="ghost" onClick={onBack}>
-            Go back
-          </Button>
-        )}
-      </div>
-      {detail && (
-        <details className="mt-3 text-xs text-ink-subtle">
-          <summary>Technical details</summary>
-          <pre className="mt-1 whitespace-pre-wrap break-words">{detail}</pre>
-        </details>
-      )}
+    <div className="m-6">
+      <Banner
+        status="error"
+        title={title}
+        description={
+          <>
+            {category === 'Network'
+              ? 'Check your connection and try again.'
+              : category === 'Permission'
+                ? 'Ask your admin for access.'
+                : 'Something went wrong on our end.'}
+            {detail && (
+              // Kept as <details> rather than Banner's children slot: that slot's
+              // toggle is labelled "Expand", losing the "Technical details" affordance.
+              <details className="mt-3 text-xs text-secondary">
+                <summary>Technical details</summary>
+                <pre className="mt-1 whitespace-pre-wrap break-words">{detail}</pre>
+              </details>
+            )}
+          </>
+        }
+        endContent={
+          <HStack gap={2}>
+            <Button size="sm" label="Try again" onClick={onRetry} />
+            {onBack && <Button size="sm" variant="ghost" label="Go back" onClick={onBack} />}
+          </HStack>
+        }
+      />
     </div>
   );
 }

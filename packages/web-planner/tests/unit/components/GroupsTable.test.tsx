@@ -35,7 +35,9 @@ function TableWithRouter({
 }: {
   groups: ReadonlyArray<ReturnType<typeof makeGroupWithCounts>>;
 }) {
-  return <GroupsTable groups={groups} />;
+  return (
+    <GroupsTable groups={groups} sort={{ field: 'group', dir: 'asc' }} onSortChange={() => {}} />
+  );
 }
 
 describe('GroupsTable', () => {

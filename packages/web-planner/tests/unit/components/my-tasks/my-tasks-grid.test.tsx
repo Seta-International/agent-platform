@@ -84,16 +84,15 @@ function renderInRouter(ui: React.ReactNode) {
 describe('MyTasksGrid', () => {
   it('renders header columns Task, Plan, Priority, Progress, Due, Labels, Assignees', async () => {
     renderInRouter(<MyTasksGrid data={emptyResult({ late: [fxTask()] })} />);
-    expect(await screen.findByText('Task')).toBeInTheDocument();
-    expect(screen.getByText('Plan')).toBeInTheDocument();
-    expect(screen.getByText('Priority')).toBeInTheDocument();
-    expect(screen.getByText('Progress')).toBeInTheDocument();
-    expect(screen.getByText('Due')).toBeInTheDocument();
-    expect(screen.getByText('Labels')).toBeInTheDocument();
-    expect(screen.getByText('Assignees')).toBeInTheDocument();
+    // Scope to columnheader — the View-options popover keeps its (hidden)
+    // radio labels mounted, so bare text queries match twice.
+    expect(await screen.findByRole('columnheader', { name: /task/i })).toBeInTheDocument();
+    for (const name of [/plan/i, /priority/i, /progress/i, /due/i, /labels/i, /assignees/i]) {
+      expect(screen.getByRole('columnheader', { name })).toBeInTheDocument();
+    }
   });
 
-  it('flattens all 5 sections into one table body', async () => {
+  it('renders all 5 sections as collapsible groups with every task visible', async () => {
     renderInRouter(
       <MyTasksGrid
         data={emptyResult({
@@ -110,7 +109,36 @@ describe('MyTasksGrid', () => {
     expect(screen.getByText('Progress one')).toBeInTheDocument();
     expect(screen.getByText('Not started one')).toBeInTheDocument();
     expect(screen.getByText('Done one')).toBeInTheDocument();
-    expect(document.querySelectorAll('tbody tr')).toHaveLength(5);
+    // 5 data rows + 5 group-header rows
+    expect(document.querySelectorAll('tbody tr')).toHaveLength(10);
+    expect(screen.getByText('Late')).toBeInTheDocument();
+    expect(screen.getByText('Due this week')).toBeInTheDocument();
+  });
+
+  it('collapsing a group hides its rows; expanding restores them', async () => {
+    renderInRouter(
+      <MyTasksGrid data={emptyResult({ late: [fxTask({ id: 'L', title: 'Late one' })] })} />,
+    );
+    await screen.findByText('Late one');
+    await userEvent.click(screen.getByRole('button', { name: /collapse group late/i }));
+    expect(screen.queryByText('Late one')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /expand group late/i }));
+    expect(screen.getByText('Late one')).toBeInTheDocument();
+  });
+
+  it('row click fires onOpenTask with the task', async () => {
+    const opened: string[] = [];
+    renderInRouter(
+      <MyTasksGrid
+        data={emptyResult({ late: [fxTask({ id: 'T-9', title: 'Peekless' })] })}
+        onOpenTask={(t) => opened.push(t.id)}
+      />,
+    );
+    await screen.findByText('Peekless');
+    const row = document.querySelector('tr[data-row-id="T-9"]');
+    if (!row) throw new Error('row not rendered');
+    await userEvent.click(row.querySelector('td:nth-child(3)') as HTMLElement);
+    expect(opened).toEqual(['T-9']);
   });
 
   it('Priority column reads task.priority_number', async () => {
@@ -143,7 +171,10 @@ describe('MyTasksGrid', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('clicking a header toggles client-side sort (toggles aria/state observable via title)', async () => {
+  // Row order is read via the title links (role="link"), which render in DOM/body order.
+  const rowOrder = () => screen.getAllByRole('link').map((l) => l.textContent);
+
+  it('clicking a header sorts ascending within the group', async () => {
     renderInRouter(
       <MyTasksGrid
         data={emptyResult({
@@ -152,14 +183,68 @@ describe('MyTasksGrid', () => {
       />,
     );
     await screen.findByText('Beta');
-    let cells = Array.from(document.querySelectorAll('tbody tr td:nth-child(2) a')).map(
-      (a) => a.textContent,
-    );
-    expect(cells).toEqual(['Beta', 'Alpha']);
+    expect(rowOrder()).toEqual(['Beta', 'Alpha']);
     await userEvent.click(screen.getByText('Task'));
-    cells = Array.from(document.querySelectorAll('tbody tr td:nth-child(2) a')).map(
-      (a) => a.textContent,
+    expect(rowOrder()).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('numeric column cycles asc -> desc -> unsorted (Astryx sortable contract)', async () => {
+    renderInRouter(
+      <MyTasksGrid
+        data={emptyResult({
+          late: [
+            fxTask({ id: 'A', title: 'Mid', percent_complete: 50 }),
+            fxTask({ id: 'B', title: 'High', percent_complete: 90 }),
+            fxTask({ id: 'C', title: 'Low', percent_complete: 10 }),
+          ],
+        })}
+      />,
     );
-    expect(cells).toEqual(['Alpha', 'Beta']);
+    await screen.findByText('Mid');
+    expect(rowOrder()).toEqual(['Mid', 'High', 'Low']); // original insertion order
+    await userEvent.click(screen.getByText('Progress'));
+    expect(rowOrder()).toEqual(['Low', 'Mid', 'High']); // first click => asc (10,50,90)
+    await userEvent.click(screen.getByText('Progress'));
+    expect(rowOrder()).toEqual(['High', 'Mid', 'Low']); // second click => desc (90,50,10)
+    await userEvent.click(screen.getByText('Progress'));
+    expect(rowOrder()).toEqual(['Mid', 'High', 'Low']); // third click => unsorted (original)
+  });
+
+  it('string column (Task) cycles asc -> desc -> unsorted (restores original order)', async () => {
+    renderInRouter(
+      <MyTasksGrid
+        data={emptyResult({
+          late: [
+            fxTask({ id: 'A', title: 'Beta' }),
+            fxTask({ id: 'B', title: 'Alpha' }),
+            fxTask({ id: 'C', title: 'Gamma' }),
+          ],
+        })}
+      />,
+    );
+    await screen.findByText('Beta');
+    expect(rowOrder()).toEqual(['Beta', 'Alpha', 'Gamma']); // original insertion order
+    await userEvent.click(screen.getByText('Task'));
+    expect(rowOrder()).toEqual(['Alpha', 'Beta', 'Gamma']); // first click => asc
+    await userEvent.click(screen.getByText('Task'));
+    expect(rowOrder()).toEqual(['Gamma', 'Beta', 'Alpha']); // second click => desc
+    await userEvent.click(screen.getByText('Task'));
+    expect(rowOrder()).toEqual(['Beta', 'Alpha', 'Gamma']); // third click => unsorted (original)
+  });
+
+  it('sorts null due_at last under ascending (missing values sort to the end)', async () => {
+    renderInRouter(
+      <MyTasksGrid
+        data={emptyResult({
+          late: [
+            fxTask({ id: 'B', title: 'NoDate', due_at: null }),
+            fxTask({ id: 'A', title: 'HasDate', due_at: '2024-06-01T00:00:00.000Z' }),
+          ],
+        })}
+      />,
+    );
+    await screen.findByText('HasDate');
+    await userEvent.click(screen.getByText('Due'));
+    expect(rowOrder()).toEqual(['HasDate', 'NoDate']);
   });
 });

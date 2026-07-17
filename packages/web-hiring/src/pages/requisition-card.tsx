@@ -2,15 +2,12 @@ import {
   Button,
   DisabledActionTooltip,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Calendar, Check, ExternalLink, MoreHorizontal, Users } from 'lucide-react';
-import { useState } from 'react';
 import {
   holdRequisition,
   type RequisitionListRow,
@@ -52,20 +49,20 @@ export function RequisitionCard({
   onRequestMarkFilled: () => void;
   onRequestCancel: () => void;
 }) {
-  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const toast = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const invalidate = () =>
     void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
 
   function onError(e: Error) {
-    on409(e, queryClient, hiringKeys.requisitions());
+    on409(toast, e, queryClient, hiringKeys.requisitions());
   }
 
   const pause = useMutation({
     mutationFn: () => holdRequisition(r.id, { expected_version: r.version }),
     onSuccess: () => {
-      toast.success('Requisition paused');
+      toast({ body: 'Requisition paused' });
       invalidate();
     },
     onError,
@@ -73,7 +70,7 @@ export function RequisitionCard({
   const resume = useMutation({
     mutationFn: () => resumeRequisition(r.id, { expected_version: r.version }),
     onSuccess: () => {
-      toast.success('Requisition resumed');
+      toast({ body: 'Requisition resumed' });
       invalidate();
     },
     onError,
@@ -104,25 +101,23 @@ export function RequisitionCard({
   return (
     <div
       data-testid="requisition-card"
-      className="flex h-full flex-col rounded-xl border border-hairline bg-surface-1 p-5"
+      className="flex h-full flex-col rounded-xl border border-border bg-card p-5"
     >
       {/* Title + status */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <button
             type="button"
-            className="line-clamp-2 w-full break-words text-left text-card-title font-semibold text-ink hover:underline"
+            className="line-clamp-2 w-full break-words text-left text-2xl font-semibold text-primary hover:underline"
             onClick={go}
           >
             {r.title}
           </button>
-          {subtitle && (
-            <div className="mt-0.5 truncate text-body-sm text-ink-muted">{subtitle}</div>
-          )}
+          {subtitle && <div className="mt-0.5 truncate text-base text-secondary">{subtitle}</div>}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <span
-            className={`rounded-full px-2.5 py-1 text-caption font-medium ${STATUS_BADGE_CLASS[r.status]}`}
+            className={`rounded-full px-2.5 py-1 text-sm font-medium ${STATUS_BADGE_CLASS[r.status]}`}
           >
             {STATUS_LABEL[r.status]}
           </span>
@@ -131,53 +126,45 @@ export function RequisitionCard({
               disabled={!canManage && !canClose}
               reason={PERMISSION_DENIED.requisition.edit}
             >
-              <DropdownMenu open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={!canManage && !canClose}
-                    aria-label="Requisition actions"
-                  >
-                    <MoreHorizontal className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {r.status === 'open' && (
-                    <DropdownMenuItem disabled={!canManage} onSelect={() => pause.mutate()}>
-                      Pause
-                    </DropdownMenuItem>
-                  )}
-                  {r.status === 'on_hold' && (
-                    <DropdownMenuItem disabled={!canManage} onSelect={() => resume.mutate()}>
-                      Resume
-                    </DropdownMenuItem>
-                  )}
+              <DropdownMenu
+                placement="below"
+                button={{
+                  variant: 'ghost',
+                  size: 'sm',
+                  isIconOnly: true,
+                  icon: <MoreHorizontal className="size-4" />,
+                  label: 'Requisition actions',
+                  isDisabled: !canManage && !canClose,
+                }}
+              >
+                {r.status === 'open' && (
                   <DropdownMenuItem
-                    disabled={!canClose}
-                    // Defer past the menu's own close/focus-return — opening a Dialog
-                    // synchronously from onSelect races two Radix focus-traps and can leave
-                    // body pointer-events stuck off (page looks frozen until a refresh).
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setMoreActionsOpen(false);
-                      setTimeout(onRequestMarkFilled, 150);
-                    }}
-                  >
-                    Mark filled
-                  </DropdownMenuItem>
+                    label="Pause"
+                    isDisabled={!canManage}
+                    onClick={() => pause.mutate()}
+                  />
+                )}
+                {r.status === 'on_hold' && (
                   <DropdownMenuItem
-                    disabled={!canClose}
-                    className="text-danger-ink"
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setMoreActionsOpen(false);
-                      setTimeout(onRequestCancel, 150);
-                    }}
-                  >
-                    Cancel
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+                    label="Resume"
+                    isDisabled={!canManage}
+                    onClick={() => resume.mutate()}
+                  />
+                )}
+                <DropdownMenuItem
+                  label="Mark filled"
+                  isDisabled={!canClose}
+                  // Defer past the menu's own close/focus-return — opening a Dialog
+                  // synchronously from onClick races two focus-traps and can leave
+                  // body pointer-events stuck off (page looks frozen until a refresh).
+                  onClick={() => setTimeout(onRequestMarkFilled, 0)}
+                />
+                <DropdownMenuItem
+                  label="Cancel"
+                  isDisabled={!canClose}
+                  style={{ color: 'var(--color-text-red)' }}
+                  onClick={() => setTimeout(onRequestCancel, 0)}
+                />
               </DropdownMenu>
             </DisabledActionTooltip>
           )}
@@ -191,7 +178,7 @@ export function RequisitionCard({
           {r.skills.map((s) => (
             <span
               key={s.skill_name}
-              className="rounded-full bg-surface-2 px-2.5 py-1 text-caption text-ink-muted"
+              className="rounded-full bg-surface px-2.5 py-1 text-sm text-secondary"
             >
               {s.skill_name}
               {/* Level 0 means "no minimum" — show the suffix only for a real 1–5 requirement. */}
@@ -206,10 +193,10 @@ export function RequisitionCard({
           number under each step is a per-stage bucket count (FUT-558), not cumulative. */}
       <div className="mt-5 flex items-start gap-4 pb-4">
         <div className="relative flex-[3] pt-2.5">
-          <div className="absolute inset-x-[12.5%] top-[19px] h-px bg-hairline-strong" />
+          <div className="absolute inset-x-[12.5%] top-[19px] h-px bg-border-strong" />
           <div
             className={`absolute inset-y-0 left-[12.5%] top-[19px] h-px transition-[width] ${
-              r.status === 'on_hold' ? 'bg-warning' : 'bg-primary'
+              r.status === 'on_hold' ? 'bg-warning' : 'bg-accent-bg'
             }`}
             style={{
               width: lastReachedIdx <= 0 ? 0 : `${(lastReachedIdx / (STAGES.length - 1)) * 75}%`,
@@ -221,62 +208,65 @@ export function RequisitionCard({
               return (
                 <div key={s} className="flex flex-col items-center gap-1.5">
                   <span
-                    className={`flex size-5 items-center justify-center rounded-full text-on-primary ${
+                    className={`flex size-5 items-center justify-center rounded-full text-on-accent ${
                       reached
                         ? r.status === 'on_hold'
                           ? 'bg-warning'
-                          : 'bg-primary'
-                        : 'border-2 border-hairline-strong bg-canvas'
+                          : 'bg-accent-bg'
+                        : 'border-2 border-border-strong bg-body'
                     }`}
                   >
                     {reached && <Check className="size-3" aria-hidden />}
                   </span>
                   <span
-                    className={`text-caption font-medium ${i === lastReachedIdx ? 'text-ink' : 'text-ink-subtle'}`}
+                    className={`text-sm font-medium ${i === lastReachedIdx ? 'text-primary' : 'text-secondary'}`}
                   >
                     {STAGE_LABEL[s]}
                   </span>
-                  <span className="text-caption tabular-nums text-ink-subtle">{counts[i]}</span>
+                  <span className="text-sm tabular-nums text-secondary">{counts[i]}</span>
                 </div>
               );
             })}
           </div>
         </div>
-        <div className="flex flex-1 items-start justify-end gap-1.5 pt-0.5 text-right text-body-sm">
-          <Calendar className="mt-0.5 size-4 shrink-0 text-ink-subtle" aria-hidden />
+        <div className="flex flex-1 items-start justify-end gap-1.5 pt-0.5 text-right text-base">
+          <Calendar className="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden />
           {r.status === 'on_hold' ? (
             <div>
-              <div className="font-medium text-warning-ink">Paused</div>
-              <div className="text-caption text-ink-muted">Since {formatDate(r.updated_at)}</div>
+              <div className="font-medium text-warning">Paused</div>
+              <div className="text-sm text-secondary">Since {formatDate(r.updated_at)}</div>
             </div>
           ) : r.due_date ? (
             <div>
-              <div className="font-medium text-ink">
+              <div className="font-medium text-primary">
                 {daysLeft(r.due_date) >= 0
                   ? `${daysLeft(r.due_date)} days left`
                   : `${-daysLeft(r.due_date)}d overdue`}
               </div>
-              <div className="text-caption text-ink-muted">Due {formatDate(r.due_date)}</div>
+              <div className="text-sm text-secondary">Due {formatDate(r.due_date)}</div>
             </div>
           ) : (
-            <div className="text-caption text-ink-muted">No due date</div>
+            <div className="text-sm text-secondary">No due date</div>
           )}
         </div>
       </div>
 
       {/* Applicants + View JD — mt-auto pins the footer to the bottom so cards of different
           content height still align their footers within the same grid row. */}
-      <div className="mt-auto flex items-center justify-between border-t border-hairline pt-4">
+      <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
         <div>
-          <span className="flex items-center gap-1.5 text-body-sm text-ink-muted">
+          <span className="flex items-center gap-1.5 text-base text-secondary">
             <Users className="size-4" aria-hidden />
             {r.applicants_count} Applicants
           </span>
         </div>
-        <Button size="sm" variant="secondary" onClick={go}>
-          View Detail
-          <ExternalLink className="ml-1 size-3.5" aria-hidden />
-        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          label="View Detail"
+          endContent={<ExternalLink className="size-3.5" aria-hidden />}
+          onClick={go}
+        />
       </div>
     </div>
   );

@@ -31,9 +31,7 @@ describe('TaskEventCard', () => {
 
   it('applies the priority colour to the left border stripe', () => {
     render(<TaskEventCard task={makeTask({ priority_number: 1 })} />);
-    expect(screen.getByTestId('task-event-t1').style.borderLeftColor).toBe(
-      'var(--color-priority-urgent)',
-    );
+    expect(screen.getByTestId('task-event-t1').style.borderLeftColor).toBe('var(--color-icon-red)');
   });
 
   it('shows the due date label when task has due_at', () => {

@@ -12,6 +12,7 @@ const rows: TaskGridRow[] = [
     bucket_id: 'b1',
     priority: 'medium',
     assignees: [{ id: 'u1', name: 'Alice' }],
+    start: null,
     due: null,
     labels: [],
   },
@@ -23,6 +24,7 @@ const rows: TaskGridRow[] = [
     bucket_id: 'b1',
     priority: 'important',
     assignees: [],
+    start: null,
     due: null,
     labels: [],
   },
@@ -33,11 +35,13 @@ describe('TaskGrid', () => {
     render(
       <TaskGrid rows={rows} groupBy="bucket" selection={new Set()} onSelectionChange={() => {}} />,
     );
-    expect(screen.getByRole('row', { name: /A/i })).toBeInTheDocument();
-    expect(screen.getByRole('row', { name: /B/i })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: 'A' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: 'B' })).toBeInTheDocument();
     // "Sprint" now appears in the group header AND in each row's bucket pill.
     expect(screen.getAllByText('Sprint').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('2')).toBeInTheDocument();
+    // Scope the count to the header's count span — the DateInput calendars keep
+    // their day-number buttons mounted, so a bare '2' matches July 2 as well.
+    expect(screen.getByText('2', { selector: 'span.text-sm.text-secondary' })).toBeInTheDocument();
   });
 
   it('renders one "Add a task" affordance per bucket group with no trailing duplicate', () => {
@@ -62,7 +66,8 @@ describe('TaskGrid', () => {
       />,
     );
 
-    expect(screen.getByText('Backlog')).toBeInTheDocument();
+    // "Backlog" now also appears as a hidden option inside each row's bucket-cell menu.
+    expect(screen.getAllByText('Backlog').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('0', { selector: 'span' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /\+ Add a task/ })).toHaveLength(2);
   });
@@ -243,5 +248,29 @@ describe('TaskGrid', () => {
     fireEvent.click(screen.getAllByRole('checkbox')[0]!);
     fireEvent.click(screen.getAllByRole('checkbox')[1]!, { shiftKey: true });
     expect(onSelect).toHaveBeenLastCalledWith(new Set(['t1', 't2']));
+  });
+
+  it('renders Astryx DateInput cells for Start and Due; typing commits, clearing nulls', () => {
+    const onCommit = vi.fn();
+    const datedRows: TaskGridRow[] = [
+      { ...rows[0]!, start: '2026-07-01T00:00:00.000Z', due: '2026-07-25T00:00:00.000Z' },
+    ];
+    render(
+      <TaskGrid
+        rows={datedRows}
+        groupBy="bucket"
+        selection={new Set()}
+        onSelectionChange={() => {}}
+        onCommitField={onCommit}
+      />,
+    );
+    const startInput = screen.getByLabelText('Edit start date for A');
+    expect(screen.getByLabelText('Edit due date for A')).toBeInTheDocument();
+
+    fireEvent.change(startInput, { target: { value: '2026-08-01' } });
+    expect(onCommit).toHaveBeenCalledWith('t1', { start: '2026-08-01T00:00:00.000Z' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Edit due date for A' }));
+    expect(onCommit).toHaveBeenCalledWith('t1', { due: null });
   });
 });

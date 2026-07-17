@@ -2,19 +2,20 @@ import { Skeleton } from '@seta/shared-ui';
 
 export function BoardSkeleton() {
   return (
-    <div className="board-skeleton" data-testid="board-skeleton" aria-busy="true">
+    <div className="flex gap-4 px-6 py-4" data-testid="board-skeleton" aria-busy="true">
       {Array.from({ length: 4 }).map((_, ci) => (
         <div
           // biome-ignore lint/suspicious/noArrayIndexKey: skeleton columns have no semantic identity
           key={ci}
-          className="board-skeleton__column"
+          className="flex flex-[0_0_280px] flex-col gap-2"
         >
-          <Skeleton className="h-4 w-24" />
+          <Skeleton height={16} width={96} />
           {Array.from({ length: 3 }).map((__, ti) => (
             <Skeleton
               // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows have no semantic identity
               key={ti}
-              className="h-16 w-full rounded-md"
+              height={64}
+              radius={2}
             />
           ))}
         </div>
@@ -25,12 +26,12 @@ export function BoardSkeleton() {
 
 export function GridSkeleton() {
   return (
-    <div className="grid-skeleton" data-testid="grid-skeleton" aria-busy="true">
+    <div className="flex flex-col gap-2 px-6 py-4" data-testid="grid-skeleton" aria-busy="true">
       {Array.from({ length: 15 }).map((_, i) => (
         <Skeleton
           // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows have no semantic identity
           key={i}
-          className="h-8 w-full"
+          height={32}
         />
       ))}
     </div>

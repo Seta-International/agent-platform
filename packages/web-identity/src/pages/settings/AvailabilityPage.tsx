@@ -9,7 +9,7 @@ export function AvailabilityPage() {
   return (
     <SettingsSurface title="Availability">
       {!profile ? (
-        <Skeleton className="h-64 w-full" />
+        <Skeleton height={256} />
       ) : (
         <ProfileAvailabilitySection profile={profile} onSave={patchProfile} onUpdate={setProfile} />
       )}

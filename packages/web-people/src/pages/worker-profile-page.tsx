@@ -1,33 +1,36 @@
 import {
-  Alert,
-  AlertDescription,
-  AsyncCombobox,
   Avatar,
-  AvatarFallback,
   Badge,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
+  DateInput,
   EmptyState,
   formatRelative,
+  HStack,
+  IconButton,
   Input,
-  Label,
-  PageChrome,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  PageContainer,
+  type SearchableItem,
+  Selector,
   Skeleton,
   SkillLevelRating,
-  toast,
+  Text,
+  Typeahead,
+  useSeededItem,
+  useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from '@tanstack/react-router';
-import { ChevronLeft, Clock, Search, X } from 'lucide-react';
+import { useParams } from '@tanstack/react-router';
+import { Clock, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import { searchOrgUnits } from '../api/org-client.ts';
 import {
@@ -48,34 +51,28 @@ import {
 } from '../api/people-client.ts';
 import { peopleKeys } from '../state/query-keys.ts';
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((s) => s[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
-
 function LifecycleBadge({ stage }: { stage: string | null }) {
-  const variantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    active: 'default',
-    onboarding: 'secondary',
-    offboarding: 'outline',
-    terminated: 'destructive',
-    leave: 'outline',
+  const variantMap: Record<string, 'neutral' | 'error'> = {
+    active: 'neutral',
+    onboarding: 'neutral',
+    offboarding: 'neutral',
+    terminated: 'error',
+    leave: 'neutral',
   };
   return (
-    <Badge variant={(stage ? variantMap[stage] : undefined) ?? 'secondary'} className="capitalize">
-      {stage}
-    </Badge>
+    <Badge
+      variant={(stage ? variantMap[stage] : undefined) ?? 'neutral'}
+      className="capitalize"
+      label={stage}
+    />
   );
 }
 
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[140px_1fr] gap-2 items-start py-2 border-b border-hairline last:border-0">
-      <span className="text-body-sm text-ink-muted font-medium">{label}</span>
-      <span className="text-body-sm text-ink break-all">{value ?? '—'}</span>
+    <div className="grid grid-cols-[140px_1fr] gap-2 items-start py-2 border-b border-border last:border-0">
+      <span className="text-base text-secondary font-medium">{label}</span>
+      <span className="text-base text-primary break-all">{value ?? '—'}</span>
     </div>
   );
 }
@@ -84,6 +81,7 @@ export function WorkerProfilePage() {
   const params = useParams({ strict: false });
   const workerId = params.workerId as string;
   const queryClient = useQueryClient();
+  const toast = useToast();
   const canEdit = usePermission('people.worker.update');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<WorkerPatch>({});
@@ -91,6 +89,13 @@ export function WorkerProfilePage() {
     Array<{ id: string; name: string; level: number | null }>
   >([]);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // The draft only carries a persisted org_unit_id — resolve it into a labelled item while
+  // editing (matched BY ID: searchOrgUnits.seed may not return the wanted unit first).
+  const [orgUnitItem, setOrgUnitItem] = useSeededItem(
+    editing ? (draft.org_unit_id ?? null) : null,
+    searchOrgUnits.seed,
+  );
 
   const {
     data: worker,
@@ -149,7 +154,7 @@ export function WorkerProfilePage() {
       ]);
     },
     onSuccess: () => {
-      toast.success('Changes saved');
+      toast({ body: 'Changes saved' });
       setEditing(false);
       setDraft({});
       setSkillDraft([]);
@@ -167,14 +172,13 @@ export function WorkerProfilePage() {
     },
   });
 
-  // Skill edits stage into skillDraft and commit with the page's Save button.
-  async function addSkillToDraft(id: string) {
-    if (skillDraft.some((s) => s.id === id)) return;
-    const [opt] = await searchSkills.resolveByIds([id]);
+  // Skill edits stage into skillDraft and commit with the page's Save button. The typeahead
+  // onChange already hands us the resolved item (id + label) — no need to re-resolve by id.
+  function addSkillToDraft(item: SearchableItem) {
     setSkillDraft((prev) =>
-      prev.some((s) => s.id === id)
+      prev.some((s) => s.id === item.id)
         ? prev
-        : [...prev, { id, name: opt?.label ?? '…', level: null }],
+        : [...prev, { id: item.id, name: item.label, level: null }],
     );
   }
 
@@ -210,75 +214,116 @@ export function WorkerProfilePage() {
     setEditError(null);
   }
 
-  const backLink = (
-    <Link
-      to="/people/employees"
-      className="flex items-center gap-1 text-body-sm text-ink-muted hover:text-ink transition-colors"
-    >
-      <ChevronLeft className="size-4" />
-      Employees
-    </Link>
-  );
-
   const headerActions =
     canEdit && !editing && worker ? (
-      <Button size="sm" onClick={startEdit}>
-        Edit
-      </Button>
+      <Button size="sm" onClick={startEdit} label="Edit" />
     ) : canEdit && editing ? (
       <div className="flex items-center gap-2">
         <Button
           size="sm"
           variant="secondary"
           onClick={cancelEdit}
-          disabled={saveMutation.isPending}
-        >
-          Cancel
-        </Button>
-        <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? 'Saving…' : 'Save'}
-        </Button>
+          isDisabled={saveMutation.isPending}
+          label="Cancel"
+        />
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => saveMutation.mutate()}
+          isDisabled={saveMutation.isPending}
+          label={saveMutation.isPending ? 'Saving…' : 'Save'}
+        />
       </div>
     ) : undefined;
 
   if (workerLoading) {
     return (
-      <PageChrome title="Profile" breadcrumb={[backLink]}>
-        <div className="page-container p-6 space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-4">
-                <Skeleton className="size-14 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-5 w-40" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                  <Skeleton key={i} className="h-4 w-full" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/people">People</BreadcrumbItem>
+                <BreadcrumbItem href="/people/employees">Employees</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Profile</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Profile
+                  </Text>
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <PageContainer className="space-y-4">
+              <Card>
+                <Layout
+                  header={
+                    <LayoutHeader hasDivider>
+                      <div className="flex items-center gap-4">
+                        <Skeleton height={56} width={56} radius="rounded" />
+                        <div className="space-y-2">
+                          <Skeleton height={20} width={160} />
+                          <Skeleton height={16} width={96} />
+                        </div>
+                      </div>
+                    </LayoutHeader>
+                  }
+                  content={
+                    <LayoutContent>
+                      <div className="space-y-3">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
+                          <Skeleton key={i} height={16} />
+                        ))}
+                      </div>
+                    </LayoutContent>
+                  }
+                />
+              </Card>
+            </PageContainer>
+          </LayoutContent>
+        }
+      />
     );
   }
 
   if (workerError || !worker) {
     const msg = (workerError as Error | null)?.message ?? 'Worker not found';
     return (
-      <PageChrome title="Profile" breadcrumb={[backLink]}>
-        <div className="page-container p-6">
-          <Alert variant="destructive">
-            <AlertDescription>{msg}</AlertDescription>
-          </Alert>
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/people">People</BreadcrumbItem>
+                <BreadcrumbItem href="/people/employees">Employees</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Profile</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Profile
+                  </Text>
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <PageContainer>
+              <Banner status="error" title={msg} />
+            </PageContainer>
+          </LayoutContent>
+        }
+      />
     );
   }
 
@@ -287,304 +332,346 @@ export function WorkerProfilePage() {
   const currentSkillIds = displaySkills.map((s) => s.id);
 
   return (
-    <PageChrome title={worker.full_name} breadcrumb={[backLink]} actions={headerActions}>
-      <div className="page-container grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 p-6 items-start">
-        <div className="space-y-6">
-          {/* Profile card */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-4">
-                <Avatar className="size-14">
-                  <AvatarFallback className="text-lg">{initials(worker.full_name)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-card-title font-semibold truncate">
-                      {worker.full_name}
-                    </span>
-                    <LifecycleBadge stage={worker.lifecycle_stage} />
-                  </div>
-                  <p className="text-body-sm text-ink-muted truncate">{worker.work_email || '—'}</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {editError && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertDescription>{editError}</AlertDescription>
-                </Alert>
-              )}
-
-              {editing ? (
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <Label>Full name</Label>
-                    <Input
-                      value={draft.full_name ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, full_name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Job title</Label>
-                    <Input
-                      value={draft.job_title ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, job_title: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Org unit</Label>
-                    <AsyncCombobox
-                      search={searchOrgUnits.search}
-                      resolveByIds={searchOrgUnits.resolveByIds}
-                      value={draft.org_unit_id ?? null}
-                      onChange={(v) => {
-                        setDraft((d) => ({ ...d, org_unit_id: v }));
-                      }}
-                      placeholder="Search org units…"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Manager</Label>
-                    <p className="text-body-sm text-ink py-2">{worker.manager_name ?? '—'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Work email</Label>
-                    <Input
-                      type="email"
-                      value={draft.work_email ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, work_email: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Phone</Label>
-                    <Input
-                      value={draft.phone ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Date of birth</Label>
-                    <Input
-                      type="date"
-                      value={draft.dob ?? ''}
-                      onChange={(e) => setDraft((d) => ({ ...d, dob: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Gender</Label>
-                    <Select
-                      value={draft.gender ?? ''}
-                      onValueChange={(v) => setDraft((d) => ({ ...d, gender: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {GENDER_OPTIONS.map((g) => (
-                          <SelectItem key={g.value} value={g.value}>
-                            {g.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Emergency contact</Label>
-                    <Input
-                      value={draft.emergency_contact ?? ''}
-                      onChange={(e) =>
-                        setDraft((d) => ({ ...d, emergency_contact: e.target.value }))
-                      }
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <FieldRow label="Full name" value={worker.full_name} />
-                  <FieldRow label="Job title" value={worker.job_title} />
-                  <FieldRow label="Manager" value={worker.manager_name} />
-                  <FieldRow label="Org unit" value={worker.org_unit_name} />
-                  <FieldRow label="Work email" value={worker.work_email} />
-                  <FieldRow label="Personal email" value={worker.personal_email} />
-                  <FieldRow label="Phone" value={worker.phone} />
-                  <FieldRow label="Date of birth" value={worker.dob} />
-                  <FieldRow label="Gender" value={genderLabel(worker.gender)} />
-                  <FieldRow label="Emergency contact" value={worker.emergency_contact} />
-                  <FieldRow
-                    label="Lifecycle stage"
-                    value={<LifecycleBadge stage={worker.lifecycle_stage} />}
-                  />
-                  <FieldRow
-                    label="CV"
-                    value={<WorkerCvActions worker={worker} canEdit={canEdit} />}
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Techstack card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Techstack</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {worker.skills.length === 0 && !editing ? (
-                <span className="text-body-sm text-ink-muted">—</span>
-              ) : (
-                <div className="space-y-4">
-                  {editing && (
-                    <div className="flex items-center gap-2">
-                      <Search className="size-4 shrink-0 text-ink-subtle" />
-                      <AsyncCombobox
-                        search={searchSkills.search}
-                        resolveByIds={searchSkills.resolveByIds}
-                        value={null}
-                        onChange={(id) => {
-                          if (id && !currentSkillIds.includes(id)) void addSkillToDraft(id);
-                        }}
-                        placeholder="Search to add a skill…"
-                        className="flex-1"
-                      />
-                    </div>
-                  )}
-                  {displaySkills.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                      {displaySkills.map((s) => (
-                        <div
-                          key={s.id}
-                          className="group flex flex-col gap-2 rounded-md border border-hairline bg-surface-2 px-3 py-2.5 transition-colors hover:bg-surface-3"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-body-sm font-medium text-ink truncate">
-                              {s.name}
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/people">People</BreadcrumbItem>
+              <BreadcrumbItem href="/people/employees">Employees</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>{worker.full_name}</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  {worker.full_name}
+                </Text>
+              </HStack>
+              {headerActions}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <PageContainer className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
+            <div className="space-y-6">
+              {/* Profile card */}
+              <Card>
+                <Layout
+                  header={
+                    <LayoutHeader hasDivider>
+                      <div className="flex items-center gap-4">
+                        <Avatar name={worker.full_name} size={60} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-2xl font-semibold truncate">
+                              {worker.full_name}
                             </span>
-                            {editing ? (
-                              <button
-                                type="button"
-                                aria-label={`Remove ${s.name}`}
-                                className="shrink-0 rounded text-ink-subtle opacity-0 transition-opacity hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
-                                onClick={() => removeSkillFromDraft(s.id)}
-                              >
-                                <X className="size-3.5" />
-                              </button>
-                            ) : (
-                              <span className="shrink-0 text-caption tabular-nums text-ink-subtle">
-                                {s.level ? `${s.level}/5` : '—'}
-                              </span>
-                            )}
+                            <LifecycleBadge stage={worker.lifecycle_stage} />
                           </div>
-                          <SkillLevelRating
-                            level={s.level}
-                            onChange={
-                              editing ? (level) => rateSkillInDraft(s.id, level) : undefined
-                            }
+                          <p className="text-base text-secondary truncate">
+                            {worker.work_email || '—'}
+                          </p>
+                        </div>
+                      </div>
+                    </LayoutHeader>
+                  }
+                  content={
+                    <LayoutContent>
+                      {editError && <Banner status="error" className="mb-4" title={editError} />}
+
+                      {editing ? (
+                        <div className="space-y-4">
+                          <div className="space-y-1">
+                            <Input
+                              label="Full name"
+                              value={draft.full_name ?? ''}
+                              onChange={(value) => setDraft((d) => ({ ...d, full_name: value }))}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Input
+                              label="Job title"
+                              value={draft.job_title ?? ''}
+                              onChange={(value) => setDraft((d) => ({ ...d, job_title: value }))}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Typeahead
+                              label="Org unit"
+                              searchSource={searchOrgUnits.source}
+                              hasEntriesOnFocus
+                              value={orgUnitItem}
+                              onChange={(item) => {
+                                setOrgUnitItem(item);
+                                setDraft((d) => ({ ...d, org_unit_id: item?.id ?? null }));
+                              }}
+                              placeholder="Search org units…"
+                            />
+                          </div>
+                          <FieldRow label="Manager" value={worker.manager_name ?? '—'} />
+                          <div className="space-y-1">
+                            <Input
+                              type="email"
+                              label="Work email"
+                              value={draft.work_email ?? ''}
+                              onChange={(value) => setDraft((d) => ({ ...d, work_email: value }))}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Input
+                              label="Phone"
+                              value={draft.phone ?? ''}
+                              onChange={(value) => setDraft((d) => ({ ...d, phone: value }))}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <DateInput
+                              label="Date of birth"
+                              value={draft.dob || undefined}
+                              onChange={(v) => setDraft((d) => ({ ...d, dob: v ?? '' }))}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Selector
+                              label="Gender"
+                              options={GENDER_OPTIONS.map((g) => ({
+                                value: g.value,
+                                label: g.label,
+                              }))}
+                              value={draft.gender || undefined}
+                              onChange={(v) => setDraft((d) => ({ ...d, gender: v }))}
+                              placeholder="Select…"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Input
+                              label="Emergency contact"
+                              value={draft.emergency_contact ?? ''}
+                              onChange={(value) =>
+                                setDraft((d) => ({ ...d, emergency_contact: value }))
+                              }
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <FieldRow label="Full name" value={worker.full_name} />
+                          <FieldRow label="Job title" value={worker.job_title} />
+                          <FieldRow label="Manager" value={worker.manager_name} />
+                          <FieldRow label="Org unit" value={worker.org_unit_name} />
+                          <FieldRow label="Work email" value={worker.work_email} />
+                          <FieldRow label="Personal email" value={worker.personal_email} />
+                          <FieldRow label="Phone" value={worker.phone} />
+                          <FieldRow label="Date of birth" value={worker.dob} />
+                          <FieldRow label="Gender" value={genderLabel(worker.gender)} />
+                          <FieldRow label="Emergency contact" value={worker.emergency_contact} />
+                          <FieldRow
+                            label="Lifecycle stage"
+                            value={<LifecycleBadge stage={worker.lifecycle_stage} />}
+                          />
+                          <FieldRow
+                            label="CV"
+                            value={<WorkerCvActions worker={worker} canEdit={canEdit} />}
                           />
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    editing && (
-                      <p className="text-body-sm text-ink-muted">
-                        No skills yet — search above to add one.
-                      </p>
-                    )
-                  )}
-                  {editing && displaySkills.length > 0 && (
-                    <p className="text-caption text-ink-subtle">
-                      Click a segment to rate proficiency · 1 = novice, 5 = expert · click the
-                      active level to clear
-                    </p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      )}
+                    </LayoutContent>
+                  }
+                />
+              </Card>
 
-          {/* Engagements card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Engagements</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {worker.accounts.length === 0 ? (
-                <span className="text-body-sm text-ink-muted">—</span>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {worker.accounts.map((a) => (
-                    <Badge key={a.id} variant="outline">
-                      {a.name}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Change history card */}
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="size-4 text-ink-muted" />
-                Change history
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {historyLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                    <Skeleton key={i} className="h-10 w-full" />
-                  ))}
-                </div>
-              ) : !history || history.length === 0 ? (
-                <EmptyState title="No changes yet" description="Edits will appear here." />
-              ) : (
-                <ul className="space-y-3">
-                  {history.map((entry, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: history entries have no stable client-side key
-                    <li key={i} className="border-b border-hairline pb-3 last:border-0 last:pb-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-body-sm font-medium text-ink capitalize">
-                            {entry.action}
-                          </p>
-                          <p className="text-body-sm text-ink-muted truncate">
-                            <span className="font-mono">{entry.field}</span>
-                            {': '}
-                            <span className="line-through opacity-60">{entry.from_val ?? '—'}</span>
-                            {' → '}
-                            <span>{entry.to_val ?? '—'}</span>
-                          </p>
-                          <p className="text-[11px] text-ink-tertiary mt-0.5">
-                            by {entry.by_user_id}
-                          </p>
+              {/* Techstack card */}
+              <Card>
+                <Layout
+                  header={
+                    <LayoutHeader hasDivider>
+                      <CardTitle>Techstack</CardTitle>
+                    </LayoutHeader>
+                  }
+                  content={
+                    <LayoutContent>
+                      {worker.skills.length === 0 && !editing ? (
+                        <span className="text-base text-secondary">—</span>
+                      ) : (
+                        <div className="space-y-4">
+                          {editing && (
+                            <div className="flex items-center gap-2">
+                              <Search className="size-4 shrink-0 text-secondary" />
+                              <Typeahead
+                                label="Add a skill"
+                                isLabelHidden
+                                searchSource={searchSkills.source}
+                                value={null}
+                                onChange={(item) => {
+                                  if (item && !currentSkillIds.includes(item.id))
+                                    addSkillToDraft(item);
+                                }}
+                                placeholder="Search to add a skill…"
+                                className="flex-1"
+                              />
+                            </div>
+                          )}
+                          {displaySkills.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                              {displaySkills.map((s) => (
+                                <div
+                                  key={s.id}
+                                  className="group flex flex-col gap-2 rounded-md border border-border bg-surface px-3 py-2.5 transition-colors hover:bg-surface"
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-base font-medium text-primary truncate">
+                                      {s.name}
+                                    </span>
+                                    {editing ? (
+                                      <IconButton
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        label={`Remove ${s.name}`}
+                                        icon={<X className="size-3.5" />}
+                                        onClick={() => removeSkillFromDraft(s.id)}
+                                        className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                                      />
+                                    ) : (
+                                      <span className="shrink-0 text-sm tabular-nums text-secondary">
+                                        {s.level ? `${s.level}/5` : '—'}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <SkillLevelRating
+                                    level={s.level}
+                                    onChange={
+                                      editing ? (level) => rateSkillInDraft(s.id, level) : undefined
+                                    }
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            editing && (
+                              <p className="text-base text-secondary">
+                                No skills yet — search above to add one.
+                              </p>
+                            )
+                          )}
+                          {editing && displaySkills.length > 0 && (
+                            <p className="text-sm text-secondary">
+                              Click a segment to rate proficiency · 1 = novice, 5 = expert · click
+                              the active level to clear
+                            </p>
+                          )}
                         </div>
-                        <span className="flex-none text-[11px] text-ink-tertiary whitespace-nowrap">
-                          {formatRelative(entry.at)}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </PageChrome>
+                      )}
+                    </LayoutContent>
+                  }
+                />
+              </Card>
+
+              {/* Engagements card */}
+              <Card>
+                <Layout
+                  header={
+                    <LayoutHeader hasDivider>
+                      <CardTitle>Engagements</CardTitle>
+                    </LayoutHeader>
+                  }
+                  content={
+                    <LayoutContent>
+                      {worker.accounts.length === 0 ? (
+                        <span className="text-base text-secondary">—</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {worker.accounts.map((a) => (
+                            <Badge key={a.id} variant="neutral" label={a.name} />
+                          ))}
+                        </div>
+                      )}
+                    </LayoutContent>
+                  }
+                />
+              </Card>
+            </div>
+
+            {/* Change history card */}
+            <div>
+              <Card>
+                <Layout
+                  header={
+                    <LayoutHeader hasDivider>
+                      <CardTitle className="flex items-center gap-2">
+                        <Clock className="size-4 text-secondary" />
+                        Change history
+                      </CardTitle>
+                    </LayoutHeader>
+                  }
+                  content={
+                    <LayoutContent>
+                      {historyLoading ? (
+                        <div className="space-y-3">
+                          {Array.from({ length: 3 }).map((_, i) => (
+                            // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
+                            <Skeleton key={i} height={40} />
+                          ))}
+                        </div>
+                      ) : !history || history.length === 0 ? (
+                        <EmptyState title="No changes yet" description="Edits will appear here." />
+                      ) : (
+                        <ul className="space-y-3">
+                          {history.map((entry, i) => (
+                            <li
+                              // biome-ignore lint/suspicious/noArrayIndexKey: history entries have no stable client-side key
+                              key={i}
+                              className="border-b border-border pb-3 last:border-0 last:pb-0"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-base font-medium text-primary capitalize">
+                                    {entry.action}
+                                  </p>
+                                  <p className="text-base text-secondary truncate">
+                                    <span className="font-mono">{entry.field}</span>
+                                    {': '}
+                                    <span className="line-through opacity-60">
+                                      {entry.from_val ?? '—'}
+                                    </span>
+                                    {' → '}
+                                    <span>{entry.to_val ?? '—'}</span>
+                                  </p>
+                                  <p className="text-xs text-disabled mt-0.5">
+                                    by {entry.by_user_id}
+                                  </p>
+                                </div>
+                                <span className="flex-none text-xs text-disabled whitespace-nowrap">
+                                  {formatRelative(entry.at)}
+                                </span>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </LayoutContent>
+                  }
+                />
+              </Card>
+            </div>
+          </PageContainer>
+        </LayoutContent>
+      }
+    />
   );
 }
 
 function WorkerCvActions({ worker, canEdit }: { worker: WorkerDetail; canEdit: boolean }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const download = useMutation({
     mutationFn: () => getWorkerCvDownloadUrl(worker.worker_id),
     onSuccess: (url) => window.open(url, '_blank', 'noopener'),
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const replace = useMutation({
@@ -601,29 +688,28 @@ function WorkerCvActions({ worker, canEdit }: { worker: WorkerDetail; canEdit: b
       });
     },
     onSuccess: () => {
-      toast.success('CV updated');
+      toast({ body: 'CV updated' });
       void queryClient.invalidateQueries({ queryKey: peopleKeys.worker(worker.worker_id) });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   return (
     <span className="flex items-center gap-2">
       {worker.cv_storage_key ? (
         <Button
-          variant="link"
+          variant="ghost"
           size="sm"
-          className="h-auto p-0"
-          disabled={download.isPending}
+          label="Download"
+          isDisabled={download.isPending}
           onClick={() => download.mutate()}
-        >
-          Download
-        </Button>
+          className="h-auto p-0"
+        />
       ) : (
-        <span className="text-ink-muted">—</span>
+        <span className="text-secondary">—</span>
       )}
       {canEdit && (
-        <label className="cursor-pointer text-body-sm text-primary hover:underline">
+        <label className="cursor-pointer text-base text-accent hover:underline">
           {replace.isPending ? 'Uploading…' : worker.cv_storage_key ? 'Replace' : 'Upload'}
           <input
             type="file"

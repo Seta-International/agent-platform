@@ -1,4 +1,12 @@
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@seta/shared-ui';
+import {
+  Button,
+  Card,
+  CardTitle,
+  Input,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+} from '@seta/shared-ui';
 import { useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../api/client.ts';
 
@@ -30,27 +38,35 @@ export function ProfileAccountSection({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Account</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="display_name">Display name</Label>
-          <Input id="display_name" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        {showEmail && (
-          <div className="space-y-2">
-            <Label>Email</Label>
-            <Input value={profile.email} readOnly />
-          </div>
-        )}
-        {passwordHint && <p className="text-sm text-ink-muted">{passwordHint}</p>}
-        <div className="flex justify-end pt-1">
-          <Button onClick={save} disabled={saving || name === profile.display_name}>
-            Save changes
-          </Button>
-        </div>
-      </CardContent>
+      <Layout
+        header={
+          <LayoutHeader hasDivider>
+            <CardTitle>Account</CardTitle>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Input label="Display name" value={name} onChange={(value) => setName(value)} />
+              </div>
+              {showEmail && (
+                <div className="space-y-2">
+                  <Input label="Email" value={profile.email} isDisabled />
+                </div>
+              )}
+              {passwordHint && <p className="text-sm text-secondary">{passwordHint}</p>}
+              <div className="flex justify-end pt-1">
+                <Button
+                  onClick={save}
+                  isDisabled={saving || name === profile.display_name}
+                  label="Save changes"
+                />
+              </div>
+            </div>
+          </LayoutContent>
+        }
+      />
     </Card>
   );
 }

@@ -1,28 +1,32 @@
-// biome-ignore-all lint/a11y/useSemanticElements: intentional div+role="table"/"row"/"cell" markup to escape native table layout constraints; a11y semantics preserved via explicit roles.
-// biome-ignore-all lint/a11y/useFocusableInteractive: row/cell roles are decorative grid wrappers, not interactive elements; focus targets live inside (buttons).
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Dialog,
-  DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DisabledActionTooltip,
+  DropdownMenu,
+  DropdownMenuItem,
   EmptyState,
   formatRelative,
-  PageChrome,
+  Input,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  pixel,
+  proportional,
+  Selector,
   Skeleton,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
+  Table,
+  type TableColumn,
+  Text,
+  Toolbar,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { CheckSquare, Layers, RotateCcw, Trash2, Users } from 'lucide-react';
+import { CheckSquare, Layers, MoreHorizontal, Search, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useDeleteArchivedPlan } from '../hooks/mutations/delete-archived-plan';
 import { useRestoreGroup } from '../hooks/mutations/restore-group';
@@ -33,20 +37,45 @@ import { useTrash } from '../hooks/queries/use-trash';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
 
 type TrashKind = 'group' | 'plan' | 'task';
-
-type TrashRow =
-  | { kind: 'group'; id: string; name: string; deleted_at: string | null }
-  | { kind: 'plan'; id: string; name: string; deleted_at: string | null; group_id?: string }
-  | { kind: 'task'; id: string; name: string; deleted_at: string | null; plan_id?: string };
+type TrashStatus = 'deleted' | 'archived';
 
 const RETENTION_DAYS = 30;
 
-const GRID_TEMPLATE = '120px 1.7fr 160px 130px 220px';
+// One unified row for every trashed item (deleted or archived). `Record<string, unknown>` satisfies
+// the Astryx Table's `T extends Record<string, unknown>` constraint without touching source DTOs.
+interface TrashItem extends Record<string, unknown> {
+  rowKey: string;
+  status: TrashStatus;
+  kind: TrashKind;
+  id: string;
+  name: string;
+  /** deleted_at for deleted items, archived_at for archived plans. */
+  date: string | null;
+  plan_id?: string;
+  group_id?: string;
+  version?: number;
+}
+
+const STATUS_META: Record<TrashStatus, { label: string; variant: 'red' | 'orange' }> = {
+  deleted: { label: 'Deleted', variant: 'red' },
+  archived: { label: 'Archived', variant: 'orange' },
+};
+
+const STATUS_OPTIONS = [
+  { value: 'deleted' as const, label: 'Deleted' },
+  { value: 'archived' as const, label: 'Archived' },
+];
+
+const TYPE_OPTIONS = [
+  { value: 'group' as const, label: 'Group' },
+  { value: 'plan' as const, label: 'Plan' },
+  { value: 'task' as const, label: 'Task' },
+];
 
 const KIND_META: Record<TrashKind, { label: string; Icon: typeof Users; iconClass: string }> = {
-  group: { label: 'Group', Icon: Users, iconClass: 'text-primary' },
-  plan: { label: 'Plan', Icon: Layers, iconClass: 'text-info' },
-  task: { label: 'Task', Icon: CheckSquare, iconClass: 'text-ink-subtle' },
+  group: { label: 'Group', Icon: Users, iconClass: 'text-accent' },
+  plan: { label: 'Plan', Icon: Layers, iconClass: 'text-blue-vivid' },
+  task: { label: 'Task', Icon: CheckSquare, iconClass: 'text-secondary' },
 };
 
 function daysRemaining(deletedAt: string | null): number | null {
@@ -58,15 +87,15 @@ function daysRemaining(deletedAt: string | null): number | null {
 
 function DaysBadge({ days }: { days: number | null }) {
   if (days === null) {
-    return <span className="text-ink-tertiary">—</span>;
+    return <span className="text-disabled">—</span>;
   }
   if (days === 0) {
-    return <Badge variant="destructive">Expiring</Badge>;
+    return <Badge variant="error" label="Expiring" />;
   }
   if (days <= 7) {
-    return <Badge variant="warning">{days}d left</Badge>;
+    return <Badge variant="warning" label={`${days}d left`} />;
   }
-  return <Badge variant="secondary">{days}d left</Badge>;
+  return <Badge variant="neutral" label={`${days}d left`} />;
 }
 
 interface Props {
@@ -81,7 +110,11 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
   const restorePlan = useRestorePlan();
   const unarchivePlan = useUnarchivePlan();
   const deleteArchivedPlan = useDeleteArchivedPlan();
-  const [confirmingPurge, setConfirmingPurge] = useState<TrashRow | null>(null);
+  const [confirmingPurge, setConfirmingPurge] = useState<TrashItem | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<TrashStatus | null>(null);
+  const [typeFilter, setTypeFilter] = useState<TrashKind | null>(null);
+  const closePurgeDialog = () => setConfirmingPurge(null);
 
   const canUpdatePlan = usePermission('planner.plan.update');
   const canDeletePlan = usePermission('planner.plan.delete');
@@ -97,302 +130,397 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
 
   if (q.isPending) {
     return (
-      <PageChrome breadcrumb={['Planner']} title="Trash">
-        <div data-testid="skeleton-trash" className="space-y-3 p-6">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Trash</BreadcrumbItem>
+              </Breadcrumbs>
+              <Text as="h1" size="lg" weight="semibold">
+                Trash
+              </Text>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <div data-testid="skeleton-trash" className="space-y-3 p-6">
+              <Skeleton height={48} />
+              <Skeleton height={48} />
+              <Skeleton height={48} />
+            </div>
+          </LayoutContent>
+        }
+      />
     );
   }
 
   if (q.isError) {
     return (
-      <PageChrome breadcrumb={['Planner']} title="Trash">
-        <div className="p-6">
-          <Alert variant="destructive" role="alert">
-            <AlertDescription className="flex items-center justify-between gap-3">
-              <span>Couldn&apos;t load trash.</span>
-              <Button size="sm" variant="secondary" onClick={() => q.refetch()}>
-                Retry
-              </Button>
-            </AlertDescription>
-          </Alert>
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Trash</BreadcrumbItem>
+              </Breadcrumbs>
+              <Text as="h1" size="lg" weight="semibold">
+                Trash
+              </Text>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <div className="p-6">
+              <Banner
+                status="error"
+                role="alert"
+                title="Couldn&apos;t load trash."
+                endContent={
+                  <Button size="sm" variant="secondary" label="Retry" onClick={() => q.refetch()} />
+                }
+              />
+            </div>
+          </LayoutContent>
+        }
+      />
     );
   }
 
   const trashedPlanIds = new Set(q.data.plans.map((p) => p.id));
 
-  const archivedRows = q.data.archivedPlans.map((p) => ({
-    id: p.id,
-    name: p.name,
-    archived_at: p.archived_at,
-    group_id: p.group_id,
-    version: p.version,
-  }));
-
-  const rows: TrashRow[] = [
-    ...q.data.groups.map((g) => ({
-      kind: 'group' as const,
-      id: g.id,
-      name: g.name,
-      deleted_at: g.deleted_at,
-    })),
-    ...q.data.plans.map((p) => ({
-      kind: 'plan' as const,
-      id: p.id,
-      name: p.name,
-      deleted_at: p.deleted_at,
-      group_id: p.group_id,
-    })),
-    ...q.data.tasks.map((t) => ({
-      kind: 'task' as const,
-      id: t.id,
-      name: t.title,
-      deleted_at: t.deleted_at,
-      plan_id: t.plan_id,
-    })),
+  // One list for the whole screen: deleted groups/plans/tasks first, then archived plans.
+  const items: TrashItem[] = [
+    ...q.data.groups.map(
+      (g): TrashItem => ({
+        rowKey: `deleted:group:${g.id}`,
+        status: 'deleted',
+        kind: 'group',
+        id: g.id,
+        name: g.name,
+        date: g.deleted_at,
+      }),
+    ),
+    ...q.data.plans.map(
+      (p): TrashItem => ({
+        rowKey: `deleted:plan:${p.id}`,
+        status: 'deleted',
+        kind: 'plan',
+        id: p.id,
+        name: p.name,
+        date: p.deleted_at,
+        group_id: p.group_id,
+      }),
+    ),
+    ...q.data.tasks.map(
+      (t): TrashItem => ({
+        rowKey: `deleted:task:${t.id}`,
+        status: 'deleted',
+        kind: 'task',
+        id: t.id,
+        name: t.title,
+        date: t.deleted_at,
+        plan_id: t.plan_id,
+      }),
+    ),
+    ...q.data.archivedPlans.map(
+      (p): TrashItem => ({
+        rowKey: `archived:plan:${p.id}`,
+        status: 'archived',
+        kind: 'plan',
+        id: p.id,
+        name: p.name,
+        date: p.archived_at,
+        group_id: p.group_id,
+        version: p.version,
+      }),
+    ),
   ];
 
-  function onRestore(r: TrashRow) {
-    if (r.kind === 'task') {
-      if (r.plan_id && trashedPlanIds.has(r.plan_id)) {
+  const query = search.trim().toLowerCase();
+  const filtered = items.filter((it) => {
+    if (statusFilter && it.status !== statusFilter) return false;
+    if (typeFilter && it.kind !== typeFilter) return false;
+    if (query && !it.name.toLowerCase().includes(query)) return false;
+    return true;
+  });
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter(null);
+    setTypeFilter(null);
+  };
+
+  function onRestore(it: TrashItem) {
+    if (it.status === 'archived') {
+      unarchivePlan.mutate({ plan_id: it.id });
+      return;
+    }
+    if (it.kind === 'task') {
+      if (it.plan_id && trashedPlanIds.has(it.plan_id)) {
         const confirmed = window.confirm(
           "This task's plan was deleted too. Restore the plan first?",
         );
         if (!confirmed) return;
-        restorePlan.mutate({ plan_id: r.plan_id });
+        restorePlan.mutate({ plan_id: it.plan_id });
       }
-      restoreTask.mutate({ task_id: r.id });
+      restoreTask.mutate({ task_id: it.id });
     }
-    if (r.kind === 'plan') restorePlan.mutate({ plan_id: r.id });
-    if (r.kind === 'group') restoreGroup.mutate({ group_id: r.id });
+    if (it.kind === 'plan') restorePlan.mutate({ plan_id: it.id });
+    if (it.kind === 'group') restoreGroup.mutate({ group_id: it.id });
   }
 
-  return (
-    <PageChrome breadcrumb={['Planner']} title="Trash">
-      <Tabs defaultValue="deleted" className="flex flex-col">
-        <div className="border-b border-hairline px-7 pt-4">
-          <TabsList>
-            <TabsTrigger value="deleted">
-              Deleted
-              {rows.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5">
-                  {rows.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="archived">
-              Archived
-              {archivedRows.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5">
-                  {archivedRows.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-        </div>
+  function onDelete(it: TrashItem) {
+    if (it.status === 'archived') {
+      deleteArchivedPlan.mutate({ plan_id: it.id, expected_version: it.version ?? 0 });
+      return;
+    }
+    setConfirmingPurge(it);
+  }
 
-        <TabsContent value="deleted" className="mt-0">
-          {rows.length === 0 ? (
-            <div className="p-6">
-              <EmptyState
-                title="No deleted items"
-                description={`Anything you delete sits here for ${RETENTION_DAYS} days, then it's gone for good.`}
-              />
-            </div>
-          ) : (
-            <div role="table" aria-label="Deleted items" className="w-full">
-              <div
-                role="row"
-                className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
-                style={{ gridTemplateColumns: GRID_TEMPLATE }}
-              >
-                <div role="columnheader">Type</div>
-                <div role="columnheader">Name</div>
-                <div role="columnheader">Deleted</div>
-                <div role="columnheader">Retention</div>
-                <div role="columnheader" className="text-right">
-                  <span className="sr-only">Actions</span>
-                </div>
-              </div>
-              <div role="rowgroup">
-                {rows.map((r) => {
-                  const days = daysRemaining(r.deleted_at);
-                  const meta = KIND_META[r.kind];
-                  const Icon = meta.Icon;
-                  return (
-                    <div
-                      role="row"
-                      key={`${r.kind}:${r.id}`}
-                      className="grid items-center gap-2 border-b border-hairline-tertiary px-7 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
-                      style={{ gridTemplateColumns: GRID_TEMPLATE }}
-                    >
-                      <div role="cell" className="flex items-center gap-2 text-ink-subtle">
-                        <Icon className={`size-3.5 shrink-0 ${meta.iconClass}`} aria-hidden />
-                        <span className="text-xs">{meta.label}</span>
-                      </div>
-                      <div role="cell" className="min-w-0 pr-4">
-                        <p className="truncate font-medium text-ink">{r.name}</p>
-                      </div>
-                      <div role="cell" className="text-xs text-ink-muted" suppressHydrationWarning>
-                        {r.deleted_at ? formatRelative(r.deleted_at) : '—'}
-                      </div>
-                      <div role="cell">
-                        <DaysBadge days={days} />
-                      </div>
-                      <div role="cell" className="flex justify-end gap-1">
-                        <DisabledActionTooltip
-                          disabled={!restoreGate[r.kind].allowed}
-                          reason={restoreGate[r.kind].reason}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onRestore(r)}
-                            disabled={!restoreGate[r.kind].allowed}
-                          >
-                            <RotateCcw className="size-3" aria-hidden /> Restore
-                          </Button>
-                        </DisabledActionTooltip>
-                        <DisabledActionTooltip
-                          disabled={!canPermanentlyDelete}
-                          reason={PERMISSION_DENIED.trash.permanentDelete}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-semantic-danger hover:text-semantic-danger"
-                            onClick={() => setConfirmingPurge(r)}
-                            disabled={!canPermanentlyDelete}
-                          >
-                            <Trash2 className="size-3" aria-hidden /> Delete
-                          </Button>
-                        </DisabledActionTooltip>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </TabsContent>
+  // Restore/Delete gates differ by status: deleted items restore per their kind's update permission
+  // and purge behind canPermanentlyDelete; archived plans use the plan update/delete permissions.
+  function restorePerm(it: TrashItem) {
+    return it.status === 'archived'
+      ? { allowed: canUpdatePlan, reason: PERMISSION_DENIED.plan.restore }
+      : restoreGate[it.kind];
+  }
+  function deletePerm(it: TrashItem) {
+    return it.status === 'archived'
+      ? { allowed: canDeletePlan, reason: PERMISSION_DENIED.plan.delete }
+      : { allowed: canPermanentlyDelete, reason: PERMISSION_DENIED.trash.permanentDelete };
+  }
 
-        <TabsContent value="archived" className="mt-0">
-          {archivedRows.length === 0 ? (
-            <div className="p-6">
-              <EmptyState
-                title="No archived plans"
-                description="Archived plans will appear here."
-              />
-            </div>
-          ) : (
-            <div role="table" aria-label="Archived plans" className="w-full">
-              <div
-                role="row"
-                className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
-                style={{ gridTemplateColumns: '120px 1.7fr 160px 220px' }}
-              >
-                <div role="columnheader">Type</div>
-                <div role="columnheader">Name</div>
-                <div role="columnheader">Archived</div>
-                <div role="columnheader" className="text-right">
-                  <span className="sr-only">Actions</span>
-                </div>
-              </div>
-              <div role="rowgroup">
-                {archivedRows.map((r) => (
-                  <div
-                    role="row"
-                    key={`archived:${r.id}`}
-                    className="grid items-center gap-2 border-b border-hairline-tertiary px-7 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
-                    style={{ gridTemplateColumns: '120px 1.7fr 160px 220px' }}
-                  >
-                    <div role="cell" className="flex items-center gap-2 text-ink-subtle">
-                      <Layers className="size-3.5 shrink-0 text-info" aria-hidden />
-                      <span className="text-xs">Plan</span>
-                    </div>
-                    <div role="cell" className="min-w-0 pr-4">
-                      <p className="truncate font-medium text-ink">{r.name}</p>
-                    </div>
-                    <div role="cell" className="text-xs text-ink-muted" suppressHydrationWarning>
-                      {r.archived_at ? formatRelative(r.archived_at) : '—'}
-                    </div>
-                    <div role="cell" className="flex justify-end gap-1">
-                      <DisabledActionTooltip
-                        disabled={!canUpdatePlan}
-                        reason={PERMISSION_DENIED.plan.restore}
-                      >
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => unarchivePlan.mutate({ plan_id: r.id })}
-                          disabled={!canUpdatePlan}
-                        >
-                          <RotateCcw className="size-3" aria-hidden /> Restore
-                        </Button>
-                      </DisabledActionTooltip>
-                      <DisabledActionTooltip
-                        disabled={!canDeletePlan}
-                        reason={PERMISSION_DENIED.plan.delete}
-                      >
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-semantic-danger hover:text-semantic-danger"
-                          onClick={() =>
-                            deleteArchivedPlan.mutate({
-                              plan_id: r.id,
-                              expected_version: r.version,
-                            })
-                          }
-                          disabled={!canDeletePlan}
-                        >
-                          <Trash2 className="size-3" aria-hidden /> Delete
-                        </Button>
-                      </DisabledActionTooltip>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      <Dialog
-        open={confirmingPurge !== null}
-        onOpenChange={(v) => {
-          if (!v) setConfirmingPurge(null);
-        }}
-      >
-        <DialogContent className="max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>
-              Permanently delete &ldquo;{confirmingPurge?.name ?? ''}&rdquo;?
-            </DialogTitle>
-            <DialogDescription>You won&apos;t be able to get this back.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmingPurge(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                // The backend's hard-delete endpoint is policy-driven (RETENTION_DAYS sweep, not
-                // a manual API); this dialog confirms intent until that endpoint lands.
-                setConfirmingPurge(null);
+  const columns: TableColumn<TrashItem>[] = [
+    {
+      key: 'type',
+      header: 'Type',
+      width: pixel(104),
+      renderCell: (it) => {
+        const meta = KIND_META[it.kind];
+        const Icon = meta.Icon;
+        return (
+          <span className="flex items-center gap-2 text-secondary">
+            <Icon className={`size-3.5 shrink-0 ${meta.iconClass}`} aria-hidden />
+            <span className="text-xs">{meta.label}</span>
+          </span>
+        );
+      },
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      width: proportional(2.4, { minWidth: 220 }),
+      renderCell: (it) => <span className="truncate font-medium text-primary">{it.name}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: pixel(128),
+      renderCell: (it) => {
+        const s = STATUS_META[it.status];
+        return <Badge variant={s.variant} label={s.label} />;
+      },
+    },
+    {
+      key: 'when',
+      header: 'When',
+      width: pixel(140),
+      renderCell: (it) => (
+        <span className="text-secondary" suppressHydrationWarning>
+          {it.date ? formatRelative(it.date) : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'retention',
+      header: 'Retention',
+      width: pixel(120),
+      // Archived plans are kept until deleted, so retention only applies to deleted items.
+      renderCell: (it) =>
+        it.status === 'deleted' ? (
+          <DaysBadge days={daysRemaining(it.date)} />
+        ) : (
+          <span className="text-disabled">—</span>
+        ),
+    },
+    {
+      key: 'actions',
+      header: <span className="sr-only">Actions</span>,
+      width: pixel(72),
+      align: 'end',
+      renderCell: (it) => {
+        const rp = restorePerm(it);
+        const dp = deletePerm(it);
+        // Deleting an already-deleted item purges it for good; archived plans just move to Deleted.
+        const deleteLabel = it.status === 'deleted' ? 'Delete forever' : 'Delete';
+        return (
+          <div className="flex justify-end">
+            <DropdownMenu
+              placement="below"
+              button={{
+                isIconOnly: true,
+                icon: <MoreHorizontal className="size-4" />,
+                variant: 'ghost',
+                size: 'sm',
+                label: `Actions for ${it.name}`,
               }}
             >
-              Permanently delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </PageChrome>
+              <DropdownMenuItem
+                label="Restore"
+                isDisabled={!rp.allowed}
+                onClick={() => onRestore(it)}
+              />
+              <DropdownMenuItem
+                label={deleteLabel}
+                style={{ color: 'var(--color-error)' }}
+                isDisabled={!dp.allowed}
+                onClick={() => onDelete(it)}
+              />
+            </DropdownMenu>
+          </div>
+        );
+      },
+    },
+  ];
+
+  return (
+    <Layout
+      height="fill"
+      header={
+        <>
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Trash</BreadcrumbItem>
+              </Breadcrumbs>
+              <Text as="h1" size="lg" weight="semibold">
+                Trash
+              </Text>
+            </VStack>
+          </LayoutHeader>
+          {items.length > 0 && (
+            <LayoutHeader padding={0}>
+              <Toolbar
+                label="Trash filters"
+                size="sm"
+                dividers={['bottom']}
+                startContent={
+                  <>
+                    <Input
+                      type="text"
+                      label="Search trash"
+                      isLabelHidden
+                      startIcon={<Search className="size-3.5" aria-hidden />}
+                      hasClear
+                      placeholder="Search by name…"
+                      value={search}
+                      onChange={setSearch}
+                      className="w-[260px]"
+                      size="sm"
+                    />
+                    <Selector
+                      label="Status"
+                      isLabelHidden
+                      size="sm"
+                      placeholder="Status"
+                      hasClear
+                      options={STATUS_OPTIONS}
+                      value={statusFilter}
+                      onChange={(v) => setStatusFilter(v as TrashStatus | null)}
+                    />
+                    <Selector
+                      label="Type"
+                      isLabelHidden
+                      size="sm"
+                      placeholder="Type"
+                      hasClear
+                      options={TYPE_OPTIONS}
+                      value={typeFilter}
+                      onChange={(v) => setTypeFilter(v as TrashKind | null)}
+                    />
+                  </>
+                }
+              />
+            </LayoutHeader>
+          )}
+        </>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="flex h-full flex-col">
+            <div className="flex-1 overflow-auto">
+              {items.length === 0 ? (
+                <div className="p-6">
+                  <EmptyState
+                    icon={<Trash2 className="size-6" />}
+                    title="Trash is empty"
+                    description={`Deleted items stay here for ${RETENTION_DAYS} days before they're gone for good; archived plans are kept until you delete them.`}
+                  />
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="p-6">
+                  <EmptyState
+                    icon={<Search className="size-6" />}
+                    title="No matching items"
+                    description="Try a different search, or clear the status and type filters."
+                    actions={<Button label="Clear filters" onClick={clearFilters} />}
+                  />
+                </div>
+              ) : (
+                <Table
+                  data={filtered}
+                  columns={columns}
+                  idKey="rowKey"
+                  density="compact"
+                  aria-label="Trash"
+                />
+              )}
+            </div>
+          </div>
+
+          <Dialog
+            isOpen={confirmingPurge !== null}
+            onOpenChange={(v) => {
+              if (!v) closePurgeDialog();
+            }}
+            purpose="required"
+          >
+            <Layout
+              header={
+                <DialogHeader
+                  title={`Permanently delete "${confirmingPurge?.name ?? ''}"?`}
+                  subtitle="You won't be able to get this back."
+                  onOpenChange={(v) => {
+                    if (!v) closePurgeDialog();
+                  }}
+                />
+              }
+              content={<LayoutContent />}
+              footer={
+                <DialogFooter>
+                  <Button variant="ghost" label="Cancel" onClick={closePurgeDialog} />
+                  <Button
+                    variant="destructive"
+                    label="Permanently delete"
+                    onClick={() => {
+                      // The backend's hard-delete endpoint is policy-driven (RETENTION_DAYS sweep, not
+                      // a manual API); this dialog confirms intent until that endpoint lands.
+                      setConfirmingPurge(null);
+                    }}
+                  />
+                </DialogFooter>
+              }
+            />
+          </Dialog>
+        </LayoutContent>
+      }
+    />
   );
 }

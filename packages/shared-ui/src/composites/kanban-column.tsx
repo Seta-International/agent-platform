@@ -1,13 +1,14 @@
-// biome-ignore-all lint/a11y/noAutofocus: autoFocus is intentional UX on inline compose input after the user opens it.
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { Collapsible } from '@astryxdesign/core/Collapsible';
+import { HStack, Layout, LayoutContent, LayoutHeader, VStack } from '@astryxdesign/core/Layout';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import * as stylex from '@stylexjs/stylex';
+import { GripVertical, MoreHorizontal, Plus } from 'lucide-react';
 import {
-  CalendarDays,
-  ChevronDown,
-  ChevronRight,
-  GripVertical,
-  MoreHorizontal,
-  Plus,
-} from 'lucide-react';
-import {
+  Children,
   type CSSProperties,
   type HTMLAttributes,
   type ReactNode,
@@ -15,29 +16,63 @@ import {
   useRef,
   useState,
 } from 'react';
-import { PRIORITY_LEVELS } from '../lib/priority';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../primitives/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem } from '../primitives/dropdown-menu';
 import { DisabledActionTooltip } from './disabled-action-tooltip';
-import { KbdHint } from './kbd-hint';
+import { KanbanCardList } from './kanban-card-list';
+import {
+  type AssigneeOption,
+  KanbanColumnCompose,
+  type QuickCreateTaskInput,
+} from './kanban-column-compose';
 
-export interface QuickCreateTaskInput {
-  title: string;
-  due_at?: string;
-  priority_number?: 1 | 3 | 5 | 9;
-}
+export type { AssigneeOption, QuickCreateTaskInput } from './kanban-column-compose';
+
+const styles = stylex.create({
+  shell: { flexShrink: 0 },
+  // Task 5 (FUT-725): width becomes a min-width floor, not a fixed size — the
+  // column flexes to fill the board row and its own height.
+  fluid: { flexGrow: 1, flexBasis: 0, maxHeight: '100%' },
+  shellDragging: { opacity: 0.9 },
+  handleArea: { minWidth: 0, flex: 1, cursor: 'grab', ':active': { cursor: 'grabbing' } },
+  grip: { color: 'var(--color-text-disabled)', flexShrink: 0 },
+  gripDisabled: { opacity: 0.4 },
+  countOver: { color: 'var(--color-error)', fontWeight: 600 },
+  // Astryx Item paints the label in a child <span> with an explicit color, so the danger
+  // colour must go on the label itself — an xstyle on the item root is only inherited.
+  dangerLabel: { color: 'var(--color-error)' },
+  quickCreate: { alignSelf: 'flex-start' },
+  countPill: {
+    background: 'var(--color-background-surface)',
+    borderRadius: 999,
+    paddingInline: 'var(--spacing-1)',
+  },
+  emptyWrap: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 0,
+    padding: 'var(--spacing-4) var(--spacing-2)',
+  },
+  // The card list scrolls here (a non-droppable wrapper), NOT on LayoutContent or
+  // the KanbanCardList droppable itself. pangea resolves a droppable's scroll parent
+  // by computed overflow, so this wrapper becomes the in-column vertical scroll
+  // parent while `.kanban-board` stays the horizontal one. Board drag-autoscroll
+  // across columns must be verified at runtime (e2e); if it regresses, drop this
+  // scrollArea and let overflow scroll at the board level.
+  scrollArea: { flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' },
+});
 
 export interface KanbanColumnProps {
   name: string;
   count: number;
-  status?: 'muted' | 'primary' | 'warning' | 'success';
+  status?: 'neutral' | 'accent' | 'warning' | 'success';
   children: ReactNode;
   completedTasks?: { count: number; children: ReactNode };
   onCreateTask?: (input: QuickCreateTaskInput) => void | Promise<void>;
+  /** Assignable people for the quick-create form; when non-empty, an assignee tokenizer is shown. */
+  assigneeOptions?: ReadonlyArray<AssigneeOption>;
   /** When set, blocks submit and shows an inline error if the trimmed title exceeds this length. */
   titleMaxLength?: number;
   onRename?: (name: string) => void;
@@ -46,9 +81,9 @@ export interface KanbanColumnProps {
   onSetWipLimit?: () => void;
   onArchive?: () => void;
   /**
-   * When set, the corresponding trigger renders disabled with this reason as a tooltip instead of
-   * being interactive — for users who lack the relevant permission. The owning callback is still
-   * passed (so the trigger remains visible); the reason gates interaction.
+   * When set, the corresponding trigger renders disabled with this reason in a tooltip
+   * (standalone buttons and menu items alike) — for users who lack the relevant
+   * permission. The owning callback is still passed so the trigger stays visible.
    */
   createTaskDisabledReason?: string;
   renameDisabledReason?: string;
@@ -61,6 +96,10 @@ export interface KanbanColumnProps {
   wipLimit?: number | null;
   /** M365-linked bucket: color/wip/archive actions are hidden. */
   isLinked?: boolean;
+  /** Min-width floor in px; the column flexes to fill the board row above this. */
+  width?: number;
+  /** Rendered centered, full-height, in place of the card list when there are no children. */
+  emptyState?: ReactNode;
   droppable: {
     ref?: (el: HTMLElement | null) => void;
     rootProps?: HTMLAttributes<HTMLElement>;
@@ -76,16 +115,6 @@ export interface KanbanColumnProps {
   };
 }
 
-// Derived from the shared priority registry so dots use the same colors as
-// PriorityIcon and the task detail panel — never redeclare priority colors here.
-const PRIORITY_OPTIONS = PRIORITY_LEVELS.map((p) => ({
-  value: p.value,
-  label: p.label,
-  color: p.color,
-}));
-
-const DEFAULT_PRIORITY: 1 | 3 | 5 | 9 = 5;
-
 export function KanbanColumn({
   name,
   count,
@@ -93,6 +122,7 @@ export function KanbanColumn({
   children,
   completedTasks,
   onCreateTask,
+  assigneeOptions,
   titleMaxLength,
   onRename,
   onDelete,
@@ -106,71 +136,24 @@ export function KanbanColumn({
   color,
   wipLimit,
   isLinked,
+  width = 280,
+  emptyState,
   droppable,
   draggableHandle,
 }: KanbanColumnProps) {
   const [composing, setComposing] = useState(false);
-  const [value, setValue] = useState('');
-  const [dueAt, setDueAt] = useState<string | null>(null);
-  const [priority, setPriority] = useState<1 | 3 | 5 | 9>(DEFAULT_PRIORITY);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [completedExpanded, setCompletedExpanded] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
-  const [titleError, setTitleError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const headerRef = useRef<HTMLElement>(null);
+  const renameRef = useRef<HTMLInputElement>(null);
   const cancelledRef = useRef(false);
   const committedRef = useRef(false);
 
   useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [menuOpen]);
-
-  function resetCompose() {
-    setValue('');
-    setDueAt(null);
-    setPriority(DEFAULT_PRIORITY);
-    setTitleError(null);
-    setIsSubmitting(false);
-    setComposing(false);
-  }
-
-  async function submit() {
-    const v = value.trim();
-    if (!v || !onCreateTask) {
-      resetCompose();
-      return;
-    }
-    if (titleMaxLength !== undefined && v.length > titleMaxLength) {
-      setTitleError(`Task title cannot exceed ${titleMaxLength} characters.`);
-      return;
-    }
-    const payload: QuickCreateTaskInput = { title: v };
-    if (dueAt) payload.due_at = dueAt;
-    if (priority !== DEFAULT_PRIORITY) payload.priority_number = priority;
-
-    setTitleError(null);
-    setIsSubmitting(true);
-    try {
-      await onCreateTask(payload);
-      resetCompose();
-    } catch (err) {
-      setTitleError(err instanceof Error ? err.message : "Couldn't create the task.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
+    if (renaming) renameRef.current?.focus();
+  }, [renaming]);
 
   function openRename() {
-    setMenuOpen(false);
     setRenameValue(name);
     cancelledRef.current = false;
     committedRef.current = false;
@@ -185,7 +168,10 @@ export function KanbanColumn({
     setRenaming(false);
   }
 
-  const priorityOpt = PRIORITY_OPTIONS.find((o) => o.value === priority) ?? PRIORITY_OPTIONS[2];
+  async function handleCreate(input: QuickCreateTaskInput) {
+    await onCreateTask?.(input);
+    setComposing(false);
+  }
 
   const handle = draggableHandle;
   const reorderDisabled = Boolean(reorderDisabledReason);
@@ -194,349 +180,235 @@ export function KanbanColumn({
     onRename || onDelete || (localActions && (onSetColor || onSetWipLimit || onArchive)),
   );
   const overLimit = wipLimit != null && count > wipLimit;
+  const isEmpty = Children.count(children) === 0;
 
   return (
-    <section
-      ref={handle?.ref}
+    <Card
+      ref={handle?.ref as ((el: HTMLDivElement | null) => void) | undefined}
       {...handle?.rootProps}
-      style={handle?.extraStyle}
-      className={['kanban-column', handle?.isDragging && 'kanban-column--dragging']
-        .filter(Boolean)
-        .join(' ')}
+      variant="muted"
+      padding={0}
+      role="region"
       aria-label={`Bucket: ${name}`}
+      xstyle={[styles.shell, styles.fluid, handle?.isDragging && styles.shellDragging]}
+      style={{ minWidth: width, ...handle?.extraStyle }}
+      data-dragging={handle?.isDragging ? 'true' : undefined}
     >
-      <header ref={headerRef} className="kanban-column__header">
-        <div
-          className="kanban-column__drag-handle"
-          {...(handle && !renaming && !reorderDisabled ? handle.handleProps : {})}
-        >
-          {handle &&
-            (reorderDisabled ? (
-              <DisabledActionTooltip disabled reason={reorderDisabledReason}>
-                <GripVertical
-                  size={12}
-                  className="kanban-column__grip opacity-40"
-                  aria-hidden="true"
-                />
-              </DisabledActionTooltip>
-            ) : (
-              <GripVertical size={12} className="kanban-column__grip" aria-hidden="true" />
-            ))}
-          <span
-            className={`status-dot status-dot--${status ?? 'muted'}`}
-            style={color ? { backgroundColor: color } : undefined}
-            aria-hidden="true"
-          />
-          {renaming ? (
-            <>
-              <input
-                className="kanban-column__rename-input"
-                autoFocus
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitRename();
-                  if (e.key === 'Escape') {
-                    cancelledRef.current = true;
-                    setRenaming(false);
-                  }
-                }}
-                onBlur={commitRename}
-              />
-              <KbdHint keys={['↵']} />
-            </>
-          ) : (
-            <>
-              <span className="kanban-column__name">{name}</span>
-              <span
-                className={`kanban-column__count${overLimit ? ' kanban-column__count--over' : ''}`}
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={2}>
+            <HStack hAlign="between" vAlign="center" gap={1}>
+              <HStack
+                gap={1.5}
+                vAlign="center"
+                xstyle={styles.handleArea}
+                {...(handle && !renaming && !reorderDisabled ? handle.handleProps : {})}
               >
-                {wipLimit != null ? `${count}/${wipLimit}` : count}
-              </span>
-            </>
-          )}
-        </div>
-
-        {!renaming && (onCreateTask || hasMenu) && (
-          <div className="kanban-column__header-actions">
-            {onCreateTask && (
-              <DisabledActionTooltip
-                disabled={Boolean(createTaskDisabledReason)}
-                reason={createTaskDisabledReason}
-              >
-                <button
-                  type="button"
-                  className="kanban-column__action-btn"
-                  title="Add task"
-                  onClick={() => setComposing(true)}
-                  disabled={Boolean(createTaskDisabledReason)}
-                >
-                  <Plus size={12} />
-                </button>
-              </DisabledActionTooltip>
-            )}
-            {hasMenu && (
-              <button
-                type="button"
-                className={[
-                  'kanban-column__action-btn',
-                  menuOpen && 'kanban-column__action-btn--active',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                title="More options"
-                onClick={() => setMenuOpen((v) => !v)}
-              >
-                <MoreHorizontal size={12} />
-              </button>
-            )}
-          </div>
-        )}
-
-        {menuOpen && (
-          <div className="kanban-column__menu" role="menu">
-            {onRename && (
-              <DisabledActionTooltip
-                disabled={Boolean(renameDisabledReason)}
-                reason={renameDisabledReason}
-              >
-                <button
-                  type="button"
-                  className="kanban-column__menu-item"
-                  role="menuitem"
-                  onClick={openRename}
-                  disabled={Boolean(renameDisabledReason)}
-                >
-                  Rename bucket
-                </button>
-              </DisabledActionTooltip>
-            )}
-            {onCreateTask && (
-              <DisabledActionTooltip
-                disabled={Boolean(createTaskDisabledReason)}
-                reason={createTaskDisabledReason}
-              >
-                <button
-                  type="button"
-                  className="kanban-column__menu-item"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setComposing(true);
-                  }}
-                  disabled={Boolean(createTaskDisabledReason)}
-                >
-                  Add task here
-                </button>
-              </DisabledActionTooltip>
-            )}
-            {localActions && onSetColor && (
-              <button
-                type="button"
-                className="kanban-column__menu-item"
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onSetColor();
-                }}
-              >
-                Set color
-              </button>
-            )}
-            {localActions && onSetWipLimit && (
-              <button
-                type="button"
-                className="kanban-column__menu-item"
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onSetWipLimit();
-                }}
-              >
-                Set WIP limit
-              </button>
-            )}
-            {localActions && onArchive && (
-              <>
-                <hr className="kanban-column__menu-sep" />
-                <button
-                  type="button"
-                  className="kanban-column__menu-item"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onArchive();
-                  }}
-                >
-                  Archive bucket
-                </button>
-              </>
-            )}
-            {onDelete && (
-              <DisabledActionTooltip
-                disabled={Boolean(deleteDisabledReason)}
-                reason={deleteDisabledReason}
-              >
-                <button
-                  type="button"
-                  className="kanban-column__menu-item kanban-column__menu-item--danger"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onDelete();
-                  }}
-                  disabled={Boolean(deleteDisabledReason)}
-                >
-                  Delete bucket
-                </button>
-              </DisabledActionTooltip>
-            )}
-          </div>
-        )}
-      </header>
-
-      {!composing && onCreateTask && (
-        <DisabledActionTooltip
-          disabled={Boolean(createTaskDisabledReason)}
-          reason={createTaskDisabledReason}
-        >
-          <button
-            type="button"
-            className="kanban-column__quick-create"
-            onClick={() => setComposing(true)}
-            title="Add a task"
-            disabled={Boolean(createTaskDisabledReason)}
-          >
-            + Add a task
-          </button>
-        </DisabledActionTooltip>
-      )}
-
-      {composing && (
-        <div className="kanban-column__compose">
-          <input
-            placeholder="Task title"
-            value={value}
-            autoFocus
-            aria-invalid={!!titleError}
-            onChange={(e) => {
-              setValue(e.target.value);
-              if (titleError) setTitleError(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !isSubmitting) void submit();
-              if (e.key === 'Escape') resetCompose();
-            }}
-          />
-          {titleError ? (
-            <p role="alert" className="kanban-column__compose-error">
-              {titleError}
-            </p>
-          ) : null}
-          <div className="kanban-column__compose-chips">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="kanban-column__compose-chip"
-                  aria-label="Priority"
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  <span
-                    className="inline-block size-2 rounded-sm"
-                    style={priorityOpt ? { backgroundColor: priorityOpt.color } : undefined}
-                    aria-hidden
-                  />
-                  <span>{priorityOpt?.label ?? 'Priority'}</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {PRIORITY_OPTIONS.map((opt) => (
-                  <DropdownMenuItem
-                    key={opt.value}
-                    onSelect={() => setPriority(opt.value)}
-                    className="flex items-center gap-2"
-                  >
-                    <span
-                      className="inline-block size-2 rounded-sm"
-                      style={{ backgroundColor: opt.color }}
-                      aria-hidden
+                {handle &&
+                  (reorderDisabled ? (
+                    <DisabledActionTooltip disabled reason={reorderDisabledReason}>
+                      <GripVertical
+                        size={12}
+                        aria-hidden="true"
+                        data-kanban-grip
+                        {...stylex.props(styles.grip, styles.gripDisabled)}
+                      />
+                    </DisabledActionTooltip>
+                  ) : (
+                    <GripVertical
+                      size={12}
+                      aria-hidden="true"
+                      data-kanban-grip
+                      {...stylex.props(styles.grip)}
                     />
-                    {opt.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  ))}
+                {/* aria-hidden: the dot only restates the adjacent bucket name, and
+                    StatusDot would otherwise announce it as role="img". */}
+                <StatusDot
+                  variant={status ?? 'neutral'}
+                  label={`${name} status`}
+                  aria-hidden="true"
+                  data-kanban-status-dot=""
+                  style={color ? { backgroundColor: color } : undefined}
+                />
+                {renaming ? (
+                  <TextInput
+                    ref={renameRef}
+                    label="Bucket name"
+                    isLabelHidden
+                    size="sm"
+                    value={renameValue}
+                    onChange={setRenameValue}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitRename();
+                      if (e.key === 'Escape') {
+                        cancelledRef.current = true;
+                        setRenaming(false);
+                      }
+                    }}
+                    onBlur={commitRename}
+                  />
+                ) : (
+                  <>
+                    <Text size="sm" weight="semibold" maxLines={1}>
+                      {name}
+                    </Text>
+                    <span {...stylex.props(styles.countPill)}>
+                      <Text
+                        size="2xs"
+                        color="secondary"
+                        hasTabularNumbers
+                        xstyle={overLimit ? styles.countOver : undefined}
+                        data-over-limit={overLimit ? 'true' : undefined}
+                      >
+                        {wipLimit != null ? `${count}/${wipLimit}` : count}
+                      </Text>
+                    </span>
+                  </>
+                )}
+              </HStack>
 
-            <label className="kanban-column__compose-chip kanban-column__compose-chip--input">
-              <CalendarDays className="size-3 text-ink-subtle" aria-hidden />
-              <input
-                type="date"
-                aria-label="Due"
-                value={dueAt ?? ''}
-                onChange={(e) => setDueAt(e.currentTarget.value || null)}
-                onMouseDown={(e) => e.stopPropagation()}
-              />
-            </label>
-          </div>
-          <div className="kanban-column__compose-footer">
-            <span className="kanban-column__compose-hint">
-              <KbdHint keys={['↵']} /> add
-            </span>
-            <div className="kanban-column__compose-actions">
-              <button
-                type="button"
-                className="kanban-column__compose-btn"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={resetCompose}
+              {!renaming && (onCreateTask || hasMenu) && (
+                <HStack gap={0.5} vAlign="center">
+                  {onCreateTask && (
+                    <DisabledActionTooltip
+                      disabled={Boolean(createTaskDisabledReason)}
+                      reason={createTaskDisabledReason}
+                    >
+                      <Button
+                        label="Add task"
+                        variant="ghost"
+                        size="sm"
+                        isIconOnly
+                        icon={<Plus size={12} aria-hidden />}
+                        isDisabled={Boolean(createTaskDisabledReason)}
+                        onClick={() => setComposing(true)}
+                      />
+                    </DisabledActionTooltip>
+                  )}
+                  {hasMenu && (
+                    <DropdownMenu
+                      placement="below"
+                      hasChevron={false}
+                      button={{
+                        label: 'More options',
+                        variant: 'ghost',
+                        size: 'sm',
+                        isIconOnly: true,
+                        icon: <MoreHorizontal size={12} aria-hidden />,
+                      }}
+                    >
+                      {onRename && (
+                        <DisabledActionTooltip
+                          disabled={Boolean(renameDisabledReason)}
+                          reason={renameDisabledReason}
+                        >
+                          <DropdownMenuItem
+                            label="Rename bucket"
+                            isDisabled={Boolean(renameDisabledReason)}
+                            onClick={openRename}
+                          />
+                        </DisabledActionTooltip>
+                      )}
+                      {onCreateTask && (
+                        <DisabledActionTooltip
+                          disabled={Boolean(createTaskDisabledReason)}
+                          reason={createTaskDisabledReason}
+                        >
+                          <DropdownMenuItem
+                            label="Add task here"
+                            isDisabled={Boolean(createTaskDisabledReason)}
+                            onClick={() => setComposing(true)}
+                          />
+                        </DisabledActionTooltip>
+                      )}
+                      {localActions && onSetColor && (
+                        <DropdownMenuItem label="Set color" onClick={onSetColor} />
+                      )}
+                      {localActions && onSetWipLimit && (
+                        <DropdownMenuItem label="Set WIP limit" onClick={onSetWipLimit} />
+                      )}
+                      {localActions && onArchive && (
+                        <DropdownMenuItem label="Archive bucket" onClick={onArchive} />
+                      )}
+                      {onDelete && (
+                        <DisabledActionTooltip
+                          disabled={Boolean(deleteDisabledReason)}
+                          reason={deleteDisabledReason}
+                        >
+                          <DropdownMenuItem
+                            label={<Text xstyle={styles.dangerLabel}>Delete bucket</Text>}
+                            isDisabled={Boolean(deleteDisabledReason)}
+                            onClick={onDelete}
+                          />
+                        </DisabledActionTooltip>
+                      )}
+                    </DropdownMenu>
+                  )}
+                </HStack>
+              )}
+            </HStack>
+          </LayoutHeader>
+        }
+        content={
+          // isScrollable={false} keeps overflow:clip here: pangea resolves a droppable's
+          // scroll parent to the first ancestor with overflow auto/scroll, so a scrollable
+          // LayoutContent would shadow .kanban-board and break board autoscroll during drag.
+          <LayoutContent padding={2} isScrollable={false}>
+            <VStack gap={1.5} xstyle={styles.scrollArea}>
+              {!composing && onCreateTask && (
+                <DisabledActionTooltip
+                  disabled={Boolean(createTaskDisabledReason)}
+                  reason={createTaskDisabledReason}
+                >
+                  <Button
+                    label="+ Add a task"
+                    variant="ghost"
+                    size="sm"
+                    isDisabled={Boolean(createTaskDisabledReason)}
+                    onClick={() => setComposing(true)}
+                    xstyle={styles.quickCreate}
+                  />
+                </DisabledActionTooltip>
+              )}
+
+              {composing && (
+                <KanbanColumnCompose
+                  titleMaxLength={titleMaxLength}
+                  assigneeOptions={assigneeOptions}
+                  onSubmit={handleCreate}
+                  onCancel={() => setComposing(false)}
+                />
+              )}
+
+              {isEmpty && emptyState && <div {...stylex.props(styles.emptyWrap)}>{emptyState}</div>}
+              <KanbanCardList
+                ref={droppable.ref as ((el: HTMLDivElement | null) => void) | undefined}
+                rootProps={droppable.rootProps as HTMLAttributes<HTMLDivElement> | undefined}
+                isDraggingOver={droppable.isDraggingOver}
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="kanban-column__compose-btn kanban-column__compose-btn--primary"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => void submit()}
-                disabled={!value.trim() || isSubmitting}
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                {children}
+                {droppable.placeholder}
+              </KanbanCardList>
 
-      <div
-        ref={droppable.ref}
-        {...droppable.rootProps}
-        className={['kanban-column__list', droppable.isDraggingOver && 'kanban-column__list--over']
-          .filter(Boolean)
-          .join(' ')}
-      >
-        {children}
-        {droppable.placeholder}
-      </div>
-
-      {completedTasks && completedTasks.count > 0 && (
-        <div className="mt-1">
-          <button
-            type="button"
-            className="flex w-full items-center gap-1 rounded px-2 py-1 text-xs text-ink-tertiary hover:bg-surface-raised"
-            onClick={() => setCompletedExpanded((v) => !v)}
-            aria-expanded={completedExpanded}
-          >
-            {completedExpanded ? (
-              <ChevronDown size={12} aria-hidden="true" />
-            ) : (
-              <ChevronRight size={12} aria-hidden="true" />
-            )}
-            Completed ({completedTasks.count})
-          </button>
-          {completedExpanded && (
-            <div className="mt-1 flex flex-col gap-2 px-1">{completedTasks.children}</div>
-          )}
-        </div>
-      )}
-    </section>
+              {completedTasks && completedTasks.count > 0 && (
+                <Collapsible
+                  isOpen={completedExpanded}
+                  onOpenChange={setCompletedExpanded}
+                  trigger={
+                    <Text size="2xs" color="secondary">
+                      Completed ({completedTasks.count})
+                    </Text>
+                  }
+                >
+                  <VStack gap={1.5}>{completedTasks.children}</VStack>
+                </Collapsible>
+              )}
+            </VStack>
+          </LayoutContent>
+        }
+      />
+    </Card>
   );
 }

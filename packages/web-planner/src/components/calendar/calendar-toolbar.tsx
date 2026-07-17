@@ -1,4 +1,4 @@
-import { Button } from '@seta/shared-ui';
+import { Button, Heading, SegmentedControl, SegmentedControlItem } from '@seta/shared-ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   type CalendarMode,
@@ -39,28 +39,39 @@ export function CalendarToolbar({ from, to, totalCount, onRangeChange }: Props) 
   return (
     <div className="flex items-center justify-between px-7 py-3" data-testid="calendar-toolbar">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" aria-label="Previous range" onClick={() => onShift(-1)}>
-          <ChevronLeft className="size-4" />
-        </Button>
-        <Button variant="ghost" size="icon" aria-label="Next range" onClick={() => onShift(1)}>
-          <ChevronRight className="size-4" />
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onToday}>
-          Today
-        </Button>
-        <h2 className="ml-2 text-card-title text-ink">{rangeLabel(from, to)}</h2>
-        <span className="text-caption text-ink-muted" data-testid="calendar-total-count">
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          icon={<ChevronLeft className="size-4" />}
+          label="Previous range"
+          onClick={() => onShift(-1)}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          icon={<ChevronRight className="size-4" />}
+          label="Next range"
+          onClick={() => onShift(1)}
+        />
+        <Button variant="ghost" size="sm" label="Today" onClick={onToday} />
+        <Heading level={2} className="ml-2">
+          {rangeLabel(from, to)}
+        </Heading>
+        <span className="text-sm text-secondary" data-testid="calendar-total-count">
           {totalCount} task{totalCount === 1 ? '' : 's'}
         </span>
       </div>
-      <div className="plan-view-switcher">
-        <button type="button" aria-pressed={mode === 'week'} onClick={() => setMode('week')}>
-          <span>Week</span>
-        </button>
-        <button type="button" aria-pressed={mode === 'month'} onClick={() => setMode('month')}>
-          <span>Month</span>
-        </button>
-      </div>
+      <SegmentedControl
+        label="Calendar range"
+        size="sm"
+        value={mode}
+        onChange={(v) => setMode(v as CalendarMode)}
+      >
+        <SegmentedControlItem value="week" label="Week" />
+        <SegmentedControlItem value="month" label="Month" />
+      </SegmentedControl>
     </div>
   );
 }

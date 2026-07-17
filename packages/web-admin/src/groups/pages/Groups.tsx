@@ -1,4 +1,18 @@
-import { Alert, AlertDescription, Badge, EmptyState, PageChrome, Skeleton } from '@seta/shared-ui';
+import {
+  Badge,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
+  EmptyState,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  PageContainer,
+  Skeleton,
+  Text,
+  VStack,
+} from '@seta/shared-ui';
 import { UsersRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { RailHeader, RailItem } from '../../components/access-console.tsx';
@@ -37,9 +51,9 @@ function GroupListItem({
       subtitle={
         <>
           {group.is_base ? (
-            <Badge variant="secondary">Base</Badge>
+            <Badge variant="neutral" label="Base" />
           ) : group.kind === 'default' ? (
-            <Badge variant="outline">Default</Badge>
+            <Badge variant="neutral" label="Default" />
           ) : null}
           <span className="truncate">{roleProductSummary(group)}</span>
         </>
@@ -66,69 +80,86 @@ export function GroupsPage() {
 
   const selected = groups.find((g) => g.group_id === selectedId) ?? null;
 
-  return (
-    <PageChrome
-      breadcrumb={['Admin']}
-      title="Groups"
-      subtitle={
-        isLoading ? 'Loading…' : `${groups.length} ${groups.length === 1 ? 'group' : 'groups'}`
-      }
-      actions={<CreateGroupDialog onCreated={setSelectedId} />}
-    >
-      {error ? (
-        <div className="page-container pt-4">
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
-        </div>
-      ) : (
-        <div className="flex h-full min-h-0">
-          <aside className="flex w-72 flex-none flex-col border-r border-hairline bg-surface-1">
-            <RailHeader>All groups</RailHeader>
-            <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
-              {isLoading ? (
-                <>
-                  <Skeleton className="h-12 w-full rounded-md" />
-                  <Skeleton className="h-12 w-full rounded-md" />
-                  <Skeleton className="h-12 w-full rounded-md" />
-                </>
-              ) : groups.length === 0 ? (
-                <p className="px-3 py-6 text-center text-body-sm text-ink-tertiary">
-                  No groups yet.
-                </p>
-              ) : (
-                groups.map((g) => (
-                  <GroupListItem
-                    key={g.group_id}
-                    group={g}
-                    active={g.group_id === selectedId}
-                    onClick={() => setSelectedId(g.group_id)}
-                  />
-                ))
-              )}
-            </div>
-          </aside>
+  const subtitle = isLoading
+    ? 'Loading…'
+    : `${groups.length} ${groups.length === 1 ? 'group' : 'groups'}`;
 
-          <div className="min-w-0 flex-1 overflow-y-auto">
-            {selected ? (
-              <GroupDetail
-                key={selected.group_id}
-                group={selected}
-                onDeleted={() => setSelectedId(null)}
-              />
-            ) : (
-              !isLoading && (
-                <EmptyState
-                  className="h-full"
-                  icon={<UsersRound className="size-8" />}
-                  title="No group selected"
-                  description="Create a group to bundle roles and assign people in one place."
-                />
-              )
-            )}
-          </div>
-        </div>
-      )}
-    </PageChrome>
+  return (
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Groups</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Groups
+                </Text>
+                {subtitle && <Text color="secondary">{subtitle}</Text>}
+              </HStack>
+              <CreateGroupDialog onCreated={setSelectedId} />
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          {error ? (
+            <PageContainer>
+              <Banner status="error" title={(error as Error).message} />
+            </PageContainer>
+          ) : (
+            <div className="flex h-full min-h-0">
+              <aside className="flex w-72 flex-none flex-col border-r border-border bg-card">
+                <RailHeader>All groups</RailHeader>
+                <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
+                  {isLoading ? (
+                    <>
+                      <Skeleton height={48} radius={2} />
+                      <Skeleton height={48} radius={2} />
+                      <Skeleton height={48} radius={2} />
+                    </>
+                  ) : groups.length === 0 ? (
+                    <p className="px-3 py-6 text-center text-base text-disabled">No groups yet.</p>
+                  ) : (
+                    groups.map((g) => (
+                      <GroupListItem
+                        key={g.group_id}
+                        group={g}
+                        active={g.group_id === selectedId}
+                        onClick={() => setSelectedId(g.group_id)}
+                      />
+                    ))
+                  )}
+                </div>
+              </aside>
+
+              <div className="min-w-0 flex-1 overflow-y-auto">
+                {selected ? (
+                  <GroupDetail
+                    key={selected.group_id}
+                    group={selected}
+                    onDeleted={() => setSelectedId(null)}
+                  />
+                ) : (
+                  !isLoading && (
+                    <EmptyState
+                      className="h-full"
+                      icon={<UsersRound className="size-8" />}
+                      title="No group selected"
+                      description="Create a group to bundle roles and assign people in one place."
+                    />
+                  )
+                )}
+              </div>
+            </div>
+          )}
+        </LayoutContent>
+      }
+    />
   );
 }

@@ -53,10 +53,10 @@ test('move the candidate to Interview and the timeline records it', async ({ pag
   // Open the candidate detail drawer via the board card (KanbanCardShell's div[role="button"]).
   await page.getByRole('button', { name: `Candidate: ${CAND}` }).click();
   // Stage controls in the drawer are four buttons: New / Screening / Interview / Offer.
-  // The Sheet uses @radix-ui/react-dialog and its SheetTitle renders as <h2> → dialog name.
+  // The drawer is an Astryx Dialog; its accessible name comes from the `aria-label`.
   const drawer = page.getByRole('dialog', { name: CAND });
   await drawer.getByRole('button', { name: 'Interview' }).click();
-  // Stage move fires toast.success('Stage updated').
+  // Stage move toasts 'Stage updated'.
   await expect(page.getByText('Stage updated')).toBeVisible({ timeout: 8_000 });
   // After the drawer reloads the candidate detail, the activity timeline shows "Stage changed".
   await expect(drawer.getByText('Stage changed')).toBeVisible({ timeout: 8_000 });

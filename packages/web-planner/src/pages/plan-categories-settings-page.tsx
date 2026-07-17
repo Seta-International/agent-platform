@@ -1,6 +1,12 @@
-import { CategoryDescriptionEditor, Skeleton, toast } from '@seta/shared-ui';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  BreadcrumbItem,
+  Breadcrumbs,
+  CategoryDescriptionEditor,
+  Heading,
+  Skeleton,
+  useToast,
+} from '@seta/shared-ui';
+import { useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { PlannerClientError } from '../api/planner-client';
 import { PlanSettingsTabStrip } from '../components/PlanSettingsTabStrip';
@@ -17,9 +23,9 @@ interface Props {
 function PageSkeleton() {
   return (
     <div role="status" aria-label="Loading categories" className="p-7">
-      <Skeleton className="mb-4 h-8 w-1/3" />
-      <Skeleton className="mb-2 h-6 w-full" />
-      <Skeleton className="h-64 w-full" />
+      <Skeleton className="mb-4" height={32} width="33.3333%" />
+      <Skeleton className="mb-2" height={24} />
+      <Skeleton height={256} />
     </div>
   );
 }
@@ -29,13 +35,14 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
   const q = usePlanCategories(planId);
   const boardQ = usePlanBoard(planId);
   const m = useSetCategoryDescriptions(planId);
+  const toast = useToast();
 
   const isForbidden = q.error instanceof PlannerClientError && q.error.status === 403;
   useEffect(() => {
     if (!isForbidden) return;
-    toast.error("You can't edit categories for this plan anymore.");
+    toast({ body: "You can't edit categories for this plan anymore.", type: 'error' });
     void navigate({ to: '/planner/groups' });
-  }, [isForbidden, navigate]);
+  }, [isForbidden, navigate, toast]);
 
   const onTabChange = (next: PlanSettingsTab) => {
     if (next === 'categories') return;
@@ -55,54 +62,21 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="px-7 pt-4 pb-0 border-b border-hairline bg-canvas">
-        <nav
-          aria-label="Breadcrumb"
-          className="mb-2 flex items-center gap-2 text-xs text-ink-subtle"
-        >
-          {planForGroup ? (
-            <Link
-              to="/planner/plans/$planId"
-              params={{ planId: planForGroup.id }}
-              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-surface-1"
-            >
-              <ChevronLeft className="size-3" />
-              Back to board
-            </Link>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5">
-              <ChevronLeft className="size-3" />
-              Back to board
-            </span>
-          )}
-          <span>·</span>
-          <span className="inline-flex items-center gap-1">
-            <Link
-              to="/planner/groups"
-              className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-            >
-              Planner
-            </Link>
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-            {planName ? (
-              <Link
-                to="/planner/plans/$planId"
-                params={{ planId }}
-                className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-              >
-                {planName}
-              </Link>
+      <header className="px-7 pt-4 pb-0 border-b border-border bg-body">
+        <div className="mb-2">
+          <Breadcrumbs variant="supporting">
+            <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+            {planForGroup ? (
+              <BreadcrumbItem href={`/planner/plans/${planForGroup.id}`}>{planName}</BreadcrumbItem>
             ) : null}
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-            <span>Settings</span>
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-            <span className="text-ink">Categories</span>
-          </span>
-        </nav>
-        <h1 className="text-card-title font-semibold text-ink mb-1">
+            <BreadcrumbItem>Settings</BreadcrumbItem>
+            <BreadcrumbItem isCurrent>Categories</BreadcrumbItem>
+          </Breadcrumbs>
+        </div>
+        <Heading level={1} className="mb-1">
           Categories{planName ? ` · ${planName}` : ''}
-        </h1>
-        <p className="mb-3 text-body-sm text-ink-subtle" data-testid="categories-sync-subhead">
+        </Heading>
+        <p className="mb-3 text-base text-secondary" data-testid="categories-sync-subhead">
           {planForGroup?.external_source === 'm365'
             ? 'Synced with Microsoft Planner'
             : 'Just for this plan'}
@@ -113,7 +87,7 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
           onTabChange={onTabChange}
         />
       </header>
-      <div className="flex-1 overflow-auto bg-surface-1">
+      <div className="flex-1 overflow-auto bg-card">
         <div
           className="mx-auto"
           style={{
@@ -140,17 +114,20 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
               }
               void m
                 .mutateAsync({ slots })
-                .then(() => toast.success('Categories saved'))
+                .then(() => toast({ body: 'Categories saved' }))
                 .catch((err) => {
-                  toast.error(err instanceof Error ? err.message : "Couldn't save categories");
+                  toast({
+                    body: err instanceof Error ? err.message : "Couldn't save categories",
+                    type: 'error',
+                  });
                 });
             }}
           />
           <div
-            className="rounded-md border border-hairline bg-canvas p-3 text-sm text-ink-subtle"
+            className="rounded-md border border-border bg-body p-3 text-sm text-secondary"
             role="note"
           >
-            <strong className="block text-ink text-xs uppercase tracking-wide mb-1">
+            <strong className="block text-primary text-xs uppercase tracking-wide mb-1">
               Heads up
             </strong>
             Categories without a label show as plain names — they won&apos;t filter tasks until you

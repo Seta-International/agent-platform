@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { installPopoverShim } from '@seta/shared-ui/testing';
 import { cleanup } from '@testing-library/react';
 import { toHaveNoViolations } from 'jest-axe';
 import { afterEach, expect, vi } from 'vitest';
@@ -58,6 +59,8 @@ window.HTMLElement.prototype.hasPointerCapture = () => false;
 window.HTMLElement.prototype.setPointerCapture = () => {};
 window.HTMLElement.prototype.releasePointerCapture = () => {};
 window.HTMLElement.prototype.scrollIntoView = () => {};
+
+installPopoverShim();
 
 // Radix's FocusScope calls element.focus() inside a `focusin` event handler, causing
 // happy-dom to re-fire a `focusin` event (which bubbles to document) and trigger the

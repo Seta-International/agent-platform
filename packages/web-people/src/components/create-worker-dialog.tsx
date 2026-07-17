@@ -1,28 +1,26 @@
 import {
-  Alert,
-  AlertDescription,
-  AsyncCombobox,
   Badge,
+  Banner,
   Button,
-  Combobox,
+  createStaticSource,
+  DateInput,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  Dropzone,
+  FileInput,
   Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
+  Layout,
+  LayoutContent,
+  type SearchableItem,
+  Selector,
+  Tokenizer,
+  Typeahead,
+  useSeededItems,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { FileText, X } from 'lucide-react';
-import { useState } from 'react';
+import { FileText, Plus, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { fetchOrgStructure } from '../api/org-client.ts';
 import {
   addWorkerSkill,
@@ -48,30 +46,16 @@ const EMPLOYMENT_TYPES = ['full_time', 'part_time', 'contract', 'intern'] as con
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">{title}</span>
-      {children}
-    </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-  className,
-}: {
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`space-y-1 ${className ?? ''}`}>
-      <Label className="text-body-sm">{label}</Label>
+      <span className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">
+        {title}
+      </span>
       {children}
     </div>
   );
 }
 
 export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<WorkerFormValues>(EMPTY_WORKER_FORM);
   const [skillIds, setSkillIds] = useState<string[]>([]);
@@ -84,7 +68,14 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
     queryFn: fetchOrgStructure,
     enabled: open,
   });
-  const orgOptions = (org?.units ?? []).map((u) => ({ value: u.id, label: u.name }));
+  const orgItems = useMemo<SearchableItem[]>(
+    () => (org?.units ?? []).map((u) => ({ id: u.id, label: u.name })),
+    [org],
+  );
+  const orgSource = useMemo(() => createStaticSource(orgItems), [orgItems]);
+  const orgValue = orgItems.find((i) => i.id === form.org_unit_id) ?? null;
+
+  const [skillItems, setSkillItems] = useSeededItems(skillIds, searchSkills.seed);
 
   const set = (field: keyof WorkerFormValues) => (v: string) =>
     setForm((prev) => ({ ...prev, [field]: v }));
@@ -95,9 +86,9 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
       setForm((prev) => applyDraftToForm(draft, prev));
       setSkillIds((prev) => [...new Set([...prev, ...draft.skills.map((s) => s.skill_id)])]);
       setSuggestions(draft.skill_suggestions);
-      toast.success('CV parsed — review the pre-filled fields before saving');
+      toast({ body: 'CV parsed — review the pre-filled fields before saving' });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const save = useMutation({
@@ -113,8 +104,8 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
         { form, skillIds, cvFile },
       ),
     onSuccess: ({ warnings }) => {
-      toast.success('Worker created');
-      for (const w of warnings) toast.error(w);
+      toast({ body: 'Worker created' });
+      for (const w of warnings) toast({ body: w, type: 'error' });
       onCreated();
       setOpen(false);
       reset();
@@ -131,216 +122,202 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
     parse.reset();
   }
 
-  function onFile(file: File) {
-    setCvFile(file);
-    parse.mutate(file);
+  function handleCvChange(file: File | File[] | null) {
+    if (file instanceof File) {
+      setCvFile(file);
+      parse.mutate(file);
+    }
+  }
+
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm">New worker</Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Add worker</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-5">
-          {cvFile ? (
-            <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-1 px-3 py-2 text-body-sm">
-              <FileText className="size-4 flex-none text-ink-subtle" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
-              {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6"
-                aria-label="Remove CV"
-                onClick={() => {
-                  setCvFile(null);
-                  setSuggestions([]);
-                }}
-              >
-                <X className="size-3.5" />
-              </Button>
-            </div>
-          ) : (
-            <Dropzone
-              accept=".pdf,.docx"
-              maxBytes={CV_MAX_BYTES}
-              label="Upload CV to auto-fill"
-              hint="PDF or DOCX, up to 10MB — parsed fields stay editable"
-              pendingLabel="Parsing CV…"
-              isPending={parse.isPending}
-              onFile={onFile}
-            />
-          )}
+    <>
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New worker"
+        onClick={() => setOpen(true)}
+      />
+      <Dialog
+        isOpen={open}
+        onOpenChange={handleOpenChange}
+        width={720}
+        maxHeight="85vh"
+        purpose="form"
+      >
+        <Layout
+          header={<DialogHeader title="Add worker" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-5">
+                {cvFile ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-base">
+                    <FileText className="size-4 flex-none text-secondary" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
+                    {parse.isPending && <span className="text-secondary">Parsing…</span>}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      isIconOnly
+                      icon={<X className="size-3.5" />}
+                      label="Remove CV"
+                      className="size-6"
+                      onClick={() => {
+                        setCvFile(null);
+                        setSuggestions([]);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <FileInput
+                    mode="dropzone"
+                    label="Upload CV to auto-fill"
+                    accept=".pdf,.docx"
+                    maxSize={CV_MAX_BYTES}
+                    value={null}
+                    onChange={handleCvChange}
+                    isLoading={parse.isPending}
+                    isDisabled={parse.isPending}
+                    placeholder="Drop a CV here, or click to choose one"
+                    description="PDF or DOCX, up to 10MB — parsed fields stay editable"
+                  />
+                )}
 
-          <Section title="Identity">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Full name *" className="col-span-2">
-                <Input
-                  value={form.full_name}
-                  onChange={(e) => set('full_name')(e.target.value)}
-                  aria-label="Full name"
-                />
-              </Field>
-              <Field label="Date of birth">
-                <Input
-                  type="date"
-                  value={form.dob}
-                  onChange={(e) => set('dob')(e.target.value)}
-                  aria-label="Date of birth"
-                />
-              </Field>
-              <Field label="Gender">
-                <Select value={form.gender || undefined} onValueChange={set('gender')}>
-                  <SelectTrigger aria-label="Gender">
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GENDER_OPTIONS.map((g) => (
-                      <SelectItem key={g.value} value={g.value}>
-                        {g.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-          </Section>
+                <Section title="Identity">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="Full name"
+                      isRequired
+                      value={form.full_name}
+                      onChange={(value) => set('full_name')(value)}
+                      className="col-span-2"
+                    />
+                    <DateInput
+                      label="Date of birth"
+                      value={form.dob || undefined}
+                      onChange={(v) => set('dob')(v ?? '')}
+                    />
+                    <Selector
+                      label="Gender"
+                      options={GENDER_OPTIONS.map((g) => ({ value: g.value, label: g.label }))}
+                      value={form.gender || undefined}
+                      onChange={set('gender')}
+                      placeholder="—"
+                    />
+                  </div>
+                </Section>
 
-          <Section title="Contact">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Personal email">
-                <Input
-                  type="email"
-                  value={form.personal_email}
-                  onChange={(e) => set('personal_email')(e.target.value)}
-                  aria-label="Personal email"
-                />
-              </Field>
-              <Field label="Phone">
-                <Input
-                  value={form.phone}
-                  onChange={(e) => set('phone')(e.target.value)}
-                  aria-label="Phone"
-                />
-              </Field>
-              <Field label="Work email" className="col-span-2">
-                <Input
-                  type="email"
-                  value={form.work_email}
-                  onChange={(e) => set('work_email')(e.target.value)}
-                  placeholder="Generated from the tenant domain when left empty"
-                  aria-label="Work email"
-                />
-              </Field>
-            </div>
-          </Section>
+                <Section title="Contact">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      type="email"
+                      label="Personal email"
+                      value={form.personal_email}
+                      onChange={(value) => set('personal_email')(value)}
+                    />
+                    <Input
+                      label="Phone"
+                      value={form.phone}
+                      onChange={(value) => set('phone')(value)}
+                    />
+                    <Input
+                      type="email"
+                      label="Work email"
+                      value={form.work_email}
+                      onChange={(value) => set('work_email')(value)}
+                      placeholder="Generated from the tenant domain when left empty"
+                      className="col-span-2"
+                    />
+                  </div>
+                </Section>
 
-          <Section title="Employment">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Job title">
-                <Input
-                  value={form.job_title}
-                  onChange={(e) => set('job_title')(e.target.value)}
-                  aria-label="Job title"
-                />
-              </Field>
-              <Field label="Employment type">
-                <Select
-                  value={form.employment_type || undefined}
-                  onValueChange={set('employment_type')}
-                >
-                  <SelectTrigger aria-label="Employment type">
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EMPLOYMENT_TYPES.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t.replace('_', ' ')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Start date">
-                <Input
-                  type="date"
-                  value={form.start_date}
-                  onChange={(e) => set('start_date')(e.target.value)}
-                  aria-label="Start date"
-                />
-              </Field>
-              <Field label="Employee no">
-                <Input
-                  value={form.employee_no}
-                  onChange={(e) => set('employee_no')(e.target.value)}
-                  aria-label="Employee no"
-                />
-              </Field>
-              <Field label="Department" className="col-span-2">
-                <Combobox
-                  value={form.org_unit_id || null}
-                  onChange={(v) => set('org_unit_id')(v ?? '')}
-                  options={orgOptions}
-                  placeholder="No department"
-                  searchPlaceholder="Search departments…"
-                  aria-label="Department"
-                  modal
-                />
-              </Field>
-            </div>
-          </Section>
+                <Section title="Employment">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="Job title"
+                      value={form.job_title}
+                      onChange={(value) => set('job_title')(value)}
+                    />
+                    <Selector
+                      label="Employment type"
+                      options={EMPLOYMENT_TYPES.map((t) => ({
+                        value: t,
+                        label: t.replace('_', ' '),
+                      }))}
+                      value={form.employment_type || undefined}
+                      onChange={set('employment_type')}
+                      placeholder="—"
+                    />
+                    <DateInput
+                      label="Start date"
+                      value={form.start_date || undefined}
+                      onChange={(v) => set('start_date')(v ?? '')}
+                    />
+                    <Input
+                      label="Employee no"
+                      value={form.employee_no}
+                      onChange={(value) => set('employee_no')(value)}
+                    />
+                    <div className="col-span-2">
+                      <Typeahead
+                        label="Department"
+                        searchSource={orgSource}
+                        debounceMs={0}
+                        hasEntriesOnFocus
+                        value={orgValue}
+                        onChange={(item) => set('org_unit_id')(item?.id ?? '')}
+                        placeholder="No department"
+                      />
+                    </div>
+                  </div>
+                </Section>
 
-          <Section title="Skills">
-            <AsyncCombobox
-              multiple
-              search={searchSkills.search}
-              resolveByIds={searchSkills.resolveByIds}
-              value={skillIds}
-              onChange={setSkillIds}
-              placeholder="Add skills…"
-              aria-label="Skills"
-              modal
-            />
-            {suggestions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
-                {suggestions.map((s) => (
-                  <Badge key={s} variant="outline" className="border-dashed">
-                    {s}
-                  </Badge>
-                ))}
+                <Section title="Skills">
+                  <Tokenizer
+                    label="Skills"
+                    isLabelHidden
+                    searchSource={searchSkills.source}
+                    hasEntriesOnFocus
+                    value={skillItems}
+                    onChange={(items) => {
+                      setSkillItems(items);
+                      setSkillIds(items.map((i) => i.id));
+                    }}
+                    placeholder="Add skills…"
+                  />
+                  {suggestions.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-sm text-secondary">From CV, not in catalog:</span>
+                      {suggestions.map((s) => (
+                        <Badge key={s} variant="neutral" className="border-dashed" label={s} />
+                      ))}
+                    </div>
+                  )}
+                </Section>
+
+                {error && <Banner status="error" title={error} />}
               </div>
-            )}
-          </Section>
-
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => save.mutate()}
-              disabled={save.isPending || parse.isPending || !form.full_name.trim()}
-            >
-              {save.isPending ? 'Creating…' : 'Create'}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setOpen(false)} label="Cancel" />
+              <Button
+                variant="primary"
+                onClick={() => save.mutate()}
+                isDisabled={save.isPending || parse.isPending || !form.full_name.trim()}
+                icon={<Plus className="size-4" />}
+                label={save.isPending ? 'Creating…' : 'Create worker'}
+              />
+            </DialogFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }

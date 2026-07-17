@@ -1,23 +1,37 @@
 import {
   Badge,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
-  DataTable,
-  FilterPill,
+  Dialog,
+  DialogHeader,
+  EmptyState,
+  HStack,
   Input,
-  PageChrome,
-  PageChromeToolbar,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  pixel,
+  proportional,
+  Selector,
+  Skeleton,
+  Table,
+  type TableColumn,
+  type TableSortState,
+  Text,
+  Toolbar,
+  useTablePagination,
+  useTableSortable,
+  VStack,
 } from '@seta/shared-ui';
-import type {
-  ColumnDef,
-  ColumnFiltersState,
-  PaginationState,
-  Row,
-  SortingState,
-} from '@tanstack/react-table';
 import { Copy, Search } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { AuditRowDto } from '../api/audit-client.ts';
 import { useAuditEvents } from '../hooks/queries/use-audit-events.ts';
+
+// Astryx Table columns require `T extends Record<string, unknown>`; alias the
+// DTO locally rather than modifying the shared type.
+type AuditRow = AuditRowDto & Record<string, unknown>;
 
 const EVENT_TYPE_OPTIONS = [
   { value: 'identity.user.created', label: 'User created' },
@@ -74,10 +88,10 @@ function eventTone(eventType: string): 'success' | 'danger' | 'warning' | 'prima
 
 const TONE_DOT: Record<ReturnType<typeof eventTone>, string> = {
   success: 'bg-success',
-  danger: 'bg-danger',
+  danger: 'bg-error',
   warning: 'bg-warning',
-  primary: 'bg-primary',
-  info: 'bg-ink-tertiary',
+  primary: 'bg-accent-bg',
+  info: 'bg-disabled',
 };
 
 function EventTypeCell({ eventType }: { eventType: string }) {
@@ -85,7 +99,7 @@ function EventTypeCell({ eventType }: { eventType: string }) {
   return (
     <div className="flex items-center gap-2">
       <span aria-hidden className={`size-1.5 rounded-full ${TONE_DOT[tone]}`} />
-      <code className="font-mono text-body-sm text-ink">{eventType}</code>
+      <code className="font-mono text-base text-primary">{eventType}</code>
     </div>
   );
 }
@@ -95,17 +109,15 @@ function ActorCell({ actor }: { actor: AuditRowDto['actor'] }) {
   const label = actorLabel(actor);
   return (
     <div className="flex items-center gap-2">
-      <Badge variant={kind === 'user' ? 'default' : 'outline'} className="font-mono text-[10px]">
-        {kind}
-      </Badge>
-      <span className="truncate text-body-sm text-ink-muted">{label}</span>
+      <Badge variant="neutral" className="font-mono text-xs" label={kind} />
+      <span className="truncate text-base text-secondary">{label}</span>
     </div>
   );
 }
 
 function TraceCell({ traceId }: { traceId: string | null }) {
-  if (!traceId) return <span className="text-ink-tertiary">{'\u2014'}</span>;
-  return <code className="font-mono text-caption text-ink-subtle">{traceId.slice(0, 12)}…</code>;
+  if (!traceId) return <span className="text-disabled">{'\u2014'}</span>;
+  return <code className="font-mono text-sm text-secondary">{traceId.slice(0, 12)}…</code>;
 }
 
 function whenLabel(iso: string): { absolute: string; relative: string } {
@@ -127,46 +139,45 @@ function whenLabel(iso: string): { absolute: string; relative: string } {
   return { absolute: abs, relative: rel };
 }
 
-const columns: ColumnDef<AuditRowDto>[] = [
+const columns: TableColumn<AuditRow>[] = [
   {
-    id: 'occurred_at',
-    accessorKey: 'occurred_at',
+    key: 'occurred_at',
     header: 'When',
-    enableSorting: true,
-    cell: ({ row }) => {
-      const w = whenLabel(row.original.occurred_at);
+    sortable: true,
+    width: pixel(180),
+    renderCell: (r) => {
+      const w = whenLabel(r.occurred_at);
       return (
         <div className="flex flex-col leading-tight">
-          <span className="font-mono text-body-sm text-ink">{w.absolute}</span>
-          <span className="text-caption text-ink-subtle">{w.relative}</span>
+          <span className="font-mono text-base text-primary">{w.absolute}</span>
+          <span className="text-sm text-secondary">{w.relative}</span>
         </div>
       );
     },
   },
   {
-    id: 'actor',
+    key: 'actor',
     header: 'Actor',
-    enableSorting: false,
-    cell: ({ row }) => <ActorCell actor={row.original.actor} />,
+    width: proportional(2),
+    renderCell: (r) => <ActorCell actor={r.actor} />,
   },
   {
-    id: 'event_type',
-    accessorKey: 'event_type',
+    key: 'event_type',
     header: 'Event',
-    enableSorting: true,
-    cell: ({ row }) => <EventTypeCell eventType={row.original.event_type} />,
+    sortable: true,
+    width: proportional(2),
+    renderCell: (r) => <EventTypeCell eventType={r.event_type} />,
   },
   {
-    id: 'trace_id',
-    accessorKey: 'trace_id',
+    key: 'trace_id',
     header: 'Trace',
-    enableSorting: false,
-    cell: ({ row }) => <TraceCell traceId={row.original.trace_id} />,
+    width: pixel(160),
+    renderCell: (r) => <TraceCell traceId={r.trace_id} />,
   },
 ];
 
-function AuditDiffPanel({ row }: { row: Row<AuditRowDto> }) {
-  const json = JSON.stringify({ before: row.original.before, after: row.original.after }, null, 2);
+function AuditDiffPanel({ row }: { row: AuditRowDto }) {
+  const json = JSON.stringify({ before: row.before, after: row.after }, null, 2);
   const [copied, setCopied] = useState(false);
   const onCopy = useCallback(() => {
     navigator.clipboard.writeText(json).then(
@@ -178,17 +189,21 @@ function AuditDiffPanel({ row }: { row: Row<AuditRowDto> }) {
     );
   }, [json]);
   return (
-    <div className="overflow-hidden rounded-md border border-hairline bg-canvas">
-      <div className="flex items-center justify-between border-b border-hairline bg-surface-1 px-3 py-1.5">
-        <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+    <div className="overflow-hidden rounded-md border border-border bg-body">
+      <div className="flex items-center justify-between border-b border-border bg-card px-3 py-1.5">
+        <span className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">
           Payload diff
         </span>
-        <Button variant="ghost" size="sm" onClick={onCopy} className="h-6 gap-1.5">
-          <Copy className="size-3" />
-          {copied ? 'Copied' : 'Copy JSON'}
-        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCopy}
+          className="h-6 gap-1.5"
+          icon={<Copy className="size-3" />}
+          label={copied ? 'Copied' : 'Copy JSON'}
+        />
       </div>
-      <pre className="max-h-72 overflow-auto bg-canvas p-3 font-mono text-caption leading-relaxed text-ink">
+      <pre className="max-h-72 overflow-auto bg-body p-3 font-mono text-sm leading-relaxed text-primary">
         {json}
       </pre>
     </div>
@@ -215,18 +230,13 @@ export function AdminAudit({
   const pageSize = search.page_size ?? 25;
   const pageIndex = search.page_index ?? 0;
 
-  const sorting: SortingState = useMemo(() => {
-    if (!search.sort_by) return [];
-    return [{ id: search.sort_by, desc: (search.sort_dir ?? 'desc') === 'desc' }];
-  }, [search.sort_by, search.sort_dir]);
+  // Detail drawer replaces the old inline row-expansion: Astryx's rowExpansion
+  // plugin is a hierarchical (inherited-columns) model that can't render a
+  // full-width detail panel, so the payload diff opens in a side drawer — the
+  // brief-sanctioned restructure that keeps (and roomily improves) the
+  // "expand to see the before/after" capability.
+  const [detailRow, setDetailRow] = useState<AuditRow | null>(null);
 
-  const columnFilters: ColumnFiltersState = useMemo(() => {
-    const filters: ColumnFiltersState = [];
-    if (search.event_type) filters.push({ id: 'event_type', value: search.event_type });
-    return filters;
-  }, [search.event_type]);
-
-  const pagination: PaginationState = { pageIndex, pageSize };
   const fromIso = search.from;
   const rangeSelected = fromIsoToRange(fromIso);
 
@@ -240,9 +250,46 @@ export function AdminAudit({
     offset: pageIndex * pageSize,
   });
 
-  const rows = data?.rows ?? [];
+  const rows = (data?.rows ?? []) as AuditRow[];
   const total = data?.total ?? 0;
-  const pageCount = total === 0 ? 1 : Math.ceil(total / pageSize);
+
+  // Server sort state ↔ Astryx sort state (single-column).
+  const sortState: TableSortState = search.sort_by
+    ? [
+        {
+          sortKey: search.sort_by,
+          direction: (search.sort_dir ?? 'desc') === 'desc' ? 'descending' : 'ascending',
+        },
+      ]
+    : [];
+
+  const sortable = useTableSortable<AuditRow>({
+    sort: sortState,
+    onSortChange: (next) => {
+      const first = next[0];
+      onSearch((prev) => ({
+        ...prev,
+        sort_by: (first?.sortKey as 'occurred_at' | 'event_type' | undefined) ?? undefined,
+        sort_dir: first ? (first.direction === 'descending' ? 'desc' : 'asc') : undefined,
+        page_index: undefined,
+      }));
+    },
+  });
+
+  const pagination = useTablePagination<AuditRow>({
+    page: pageIndex + 1, // URL state is 0-based; the Astryx pager is 1-based.
+    onPageChange: (p) =>
+      onSearch((prev) => ({ ...prev, page_index: p - 1 > 0 ? p - 1 : undefined })),
+    totalItems: total,
+    pageSize,
+    onPageSizeChange: (s) =>
+      onSearch((prev) => ({
+        ...prev,
+        page_size: s === 25 ? undefined : s,
+        page_index: undefined,
+      })),
+    pageSizeOptions: [10, 25, 50, 100],
+  });
 
   const setEventType = (next: string | null) => {
     onSearch((prev) => ({ ...prev, event_type: next ?? undefined, page_index: undefined }));
@@ -255,26 +302,6 @@ export function AdminAudit({
       page_index: undefined,
     }));
   };
-  const onSortingChange = (updater: SortingState | ((s: SortingState) => SortingState)) => {
-    const next = typeof updater === 'function' ? updater(sorting) : updater;
-    const first = next[0];
-    onSearch((prev) => ({
-      ...prev,
-      sort_by: (first?.id as 'occurred_at' | 'event_type' | undefined) ?? undefined,
-      sort_dir: first ? (first.desc ? 'desc' : 'asc') : undefined,
-      page_index: undefined,
-    }));
-  };
-  const onPaginationChange = (
-    updater: PaginationState | ((p: PaginationState) => PaginationState),
-  ) => {
-    const next = typeof updater === 'function' ? updater(pagination) : updater;
-    onSearch((prev) => ({
-      ...prev,
-      page_index: next.pageIndex > 0 ? next.pageIndex : undefined,
-      page_size: next.pageSize === 25 ? undefined : next.pageSize,
-    }));
-  };
 
   const subtitle =
     total > 0
@@ -284,70 +311,140 @@ export function AdminAudit({
         : 'No events';
 
   return (
-    <PageChrome
-      breadcrumb={['Admin']}
-      title="Audit log"
-      subtitle={subtitle}
-      toolbar={
-        <PageChromeToolbar
-          left={
-            <>
-              <FilterPill
-                label="Event"
-                value={search.event_type ?? null}
-                options={EVENT_TYPE_OPTIONS}
-                onChange={setEventType}
-                anyLabel="All events"
-              />
-              <FilterPill<DateRange>
-                label="Range"
-                value={rangeSelected}
-                options={DATE_RANGE_OPTIONS}
-                onChange={setRange}
-                anyLabel="All time"
-              />
-            </>
-          }
-          right={
-            <div className="relative w-72">
-              <Search
-                aria-hidden
-                className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-subtle"
-              />
-              <Input
-                placeholder="Search trace id…"
-                className="h-8 pl-8 text-body-sm"
-                disabled
-                aria-label="Search trace id (coming soon)"
-              />
-            </div>
-          }
-        />
+    <Layout
+      height="fill"
+      header={
+        <>
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Audit log</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Audit log
+                  </Text>
+                  {subtitle && <Text color="secondary">{subtitle}</Text>}
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+          <LayoutHeader padding={0}>
+            <Toolbar
+              label="Audit log filters"
+              size="sm"
+              dividers={['bottom']}
+              startContent={
+                <>
+                  <Selector
+                    label="Event"
+                    isLabelHidden
+                    size="sm"
+                    placeholder="All events"
+                    hasClear
+                    options={[...EVENT_TYPE_OPTIONS]}
+                    value={search.event_type ?? null}
+                    onChange={setEventType}
+                  />
+                  <Selector
+                    label="Range"
+                    isLabelHidden
+                    size="sm"
+                    placeholder="All time"
+                    hasClear
+                    options={[...DATE_RANGE_OPTIONS]}
+                    value={rangeSelected}
+                    onChange={(v) => setRange(v as DateRange | null)}
+                  />
+                </>
+              }
+              endContent={
+                <Input
+                  label="Search trace id (coming soon)"
+                  isLabelHidden
+                  startIcon={<Search className="size-3.5" aria-hidden />}
+                  placeholder="Search trace id…"
+                  value=""
+                  onChange={() => {}}
+                  isDisabled
+                  className="w-72"
+                />
+              }
+            />
+          </LayoutHeader>
+        </>
       }
-    >
-      <div className="px-6 py-4">
-        <DataTable
-          mode="server"
-          data={rows}
-          columns={columns}
-          isLoading={isLoading}
-          sorting={sorting}
-          onSortingChange={onSortingChange}
-          columnFilters={columnFilters}
-          onColumnFiltersChange={() => undefined}
-          globalFilter=""
-          onGlobalFilterChange={() => undefined}
-          pagination={pagination}
-          onPaginationChange={onPaginationChange}
-          pageCount={pageCount}
-          rowCount={total}
-          enableExpansion
-          enableGlobalFilter={false}
-          enableColumnVisibility={false}
-          getRowCanExpand={() => true}
-          renderSubComponent={({ row }) => <AuditDiffPanel row={row} />}
-        />
-      </div>
-    </PageChrome>
+      content={
+        <LayoutContent padding={0}>
+          <div className="px-6 py-4">
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                  <Skeleton key={id} height={44} />
+                ))}
+              </div>
+            ) : (
+              <Table
+                data={rows}
+                columns={columns}
+                idKey="event_id"
+                emptyState={<EmptyState title="No events" />}
+                plugins={{
+                  sortable,
+                  pagination,
+                  // Click a row to open its payload-diff detail drawer; ignore
+                  // clicks originating from the row's own controls (e.g. the
+                  // sortable header lives in <thead>, so only body cells trigger).
+                  rowClick: {
+                    transformBodyRow: (props, item) => ({
+                      ...props,
+                      htmlProps: {
+                        ...props.htmlProps,
+                        style: { ...props.htmlProps.style, cursor: 'pointer' },
+                        onClick: (e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest('button, a, input, label')) return;
+                          setDetailRow(item);
+                        },
+                      },
+                    }),
+                  },
+                }}
+              />
+            )}
+          </div>
+
+          {/* Payload-diff detail drawer — the row-expansion replacement. */}
+          <Dialog
+            isOpen={detailRow !== null}
+            onOpenChange={(o) => {
+              if (!o) setDetailRow(null);
+            }}
+            purpose="info"
+            position={{ top: 0, right: 0, bottom: 0 }}
+            width={640}
+            maxHeight="100dvh"
+            aria-label={detailRow ? `Event detail: ${detailRow.event_type}` : 'Event detail'}
+          >
+            <Layout
+              header={
+                <DialogHeader
+                  title="Event detail"
+                  subtitle={detailRow?.event_type}
+                  onOpenChange={(o) => {
+                    if (!o) setDetailRow(null);
+                  }}
+                />
+              }
+              content={
+                <LayoutContent>{detailRow && <AuditDiffPanel row={detailRow} />}</LayoutContent>
+              }
+            />
+          </Dialog>
+        </LayoutContent>
+      }
+    />
   );
 }

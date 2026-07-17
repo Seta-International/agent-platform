@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { GroupsPage } from '../../src/groups/pages/Groups.tsx';
 
@@ -31,5 +31,24 @@ describe('GroupsPage', () => {
     // The detail pane renders the slug and the Roles section.
     expect(await screen.findByText('hr')).toBeInTheDocument();
     expect(await screen.findByText('Roles')).toBeInTheDocument();
+  });
+
+  it('renders the Admin → Groups breadcrumb trail with a navigable root crumb', async () => {
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <GroupsPage />
+      </QueryClientProvider>,
+    );
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Admin' });
+    expect(rootCrumb).toHaveAttribute('href', '/admin');
+    // The terminal crumb reflects the page but is not itself a link.
+    expect(within(nav).getByText('Groups').closest('a')).toBeNull();
+
+    // The h1 still carries the page's real heading semantics.
+    expect(screen.getByRole('heading', { level: 1, name: 'Groups' })).toBeInTheDocument();
   });
 });

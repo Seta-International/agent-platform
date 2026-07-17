@@ -1,7 +1,11 @@
+import { installDialogShim, installPopoverShim } from '@seta/shared-ui/testing';
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { toHaveNoViolations } from 'jest-axe';
 import { afterEach, expect, vi } from 'vitest';
+
+installPopoverShim();
+installDialogShim();
 
 // Node ≥ 24 exposes an experimental opt-in localStorage that resolves to undefined
 // unless --localstorage-file is passed. Shim it with an in-memory implementation so

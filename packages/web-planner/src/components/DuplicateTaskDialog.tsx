@@ -2,11 +2,10 @@ import {
   Button,
   Checkbox,
   Dialog,
-  DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
+  Layout,
+  LayoutContent,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import type { DuplicateOptions } from '../hooks/mutations/duplicate-task';
@@ -66,56 +65,51 @@ export function DuplicateTaskDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle>Duplicate task</DialogTitle>
-          <DialogDescription asChild>
-            <div className="space-y-2 text-body-sm text-ink-subtle">
+    <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+      <Layout
+        header={<DialogHeader title="Duplicate task" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-2 text-base text-secondary">
               <p>
-                A copy of <span className="text-ink">&ldquo;{taskTitle}&rdquo;</span> will be added
-                to the same bucket. Pick what to carry over:
+                A copy of <span className="text-primary">&ldquo;{taskTitle}&rdquo;</span> will be
+                added to the same bucket. Pick what to carry over:
               </p>
             </div>
-          </DialogDescription>
-        </DialogHeader>
 
-        <div className="space-y-3 py-2">
-          {FIELDS.map((f) => {
-            const id = `duplicate-task-${f.key}`;
-            const checked = options[f.key] ?? false;
-            return (
-              <label
-                key={f.key}
-                htmlFor={id}
-                className="flex cursor-pointer items-start gap-3 rounded-md px-2 py-1.5 hover:bg-surface-1"
-              >
-                <Checkbox
-                  id={id}
-                  checked={checked}
-                  onCheckedChange={(next) =>
-                    setOptions((prev) => ({ ...prev, [f.key]: next === true }))
-                  }
-                  className="mt-0.5"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-body-sm text-ink">{f.label}</span>
-                  <span className="block text-caption text-ink-subtle">{f.description}</span>
-                </span>
-              </label>
-            );
-          })}
-        </div>
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
-          <Button onClick={() => onConfirm(options)} disabled={pending}>
-            Duplicate
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+            <div className="space-y-3 py-2">
+              {FIELDS.map((f) => {
+                const checked = options[f.key] ?? false;
+                return (
+                  <Checkbox
+                    key={f.key}
+                    label={f.label}
+                    description={f.description}
+                    value={checked}
+                    onChange={(next) => setOptions((prev) => ({ ...prev, [f.key]: next }))}
+                  />
+                );
+              })}
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              label="Cancel"
+              onClick={() => onOpenChange(false)}
+              isDisabled={pending}
+            />
+            <Button
+              variant="primary"
+              label="Duplicate"
+              onClick={() => onConfirm(options)}
+              isDisabled={pending}
+            />
+          </DialogFooter>
+        }
+      />
     </Dialog>
   );
 }

@@ -1,31 +1,23 @@
 import {
-  Alert,
-  AlertDescription,
   Avatar,
-  AvatarFallback,
   Badge,
+  Banner,
   Button,
-  Calendar as DayPickerCalendar,
+  Calendar,
+  DateInput,
   DisabledActionTooltip,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   EmptyState,
+  IconButton,
   Input,
-  Label,
   Popover,
-  PopoverContent,
-  PopoverTrigger,
   RichTextDisplay,
   RichTextEditor,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
+  SegmentedControlItem,
+  Selector,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -77,10 +69,10 @@ const SECTIONS: { key: JdSectionKey; label: string }[] = [
 // application.stage badge colors on the applicants list — kept within the existing
 // success/primary/warning/neutral token set (no new accent color).
 const APPLICANT_STAGE_BADGE: Record<string, string> = {
-  new: 'bg-success-tint text-success-ink',
-  screening: 'bg-surface-2 text-ink-muted',
-  interview: 'bg-primary/12 text-primary',
-  offer: 'bg-warning-tint text-warning-ink',
+  new: 'bg-success-muted text-success',
+  screening: 'bg-surface text-secondary',
+  interview: 'bg-accent-bg/12 text-accent',
+  offer: 'bg-warning-muted text-warning',
 };
 
 // Display-only relabel: application.stage's first value is 'new' in the DB, but the
@@ -92,15 +84,6 @@ const APPLICANT_STAGE_LABEL: Record<string, string> = {
   interview: 'Interview',
   offer: 'Offer',
 };
-
-// The `date` column (and editRequisition's patch) wants a plain 'YYYY-MM-DD' string —
-// toISOString() shifts by the local UTC offset and can silently land on the wrong day.
-function toDateInputValue(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
 
 function daysSince(dateStr: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000));
@@ -118,15 +101,6 @@ function openDaysLabel(dateStr: string): string {
   if (days === 0) return 'Open today';
   if (days === 1) return 'Open 1 day';
   return `Open ${days} days`;
-}
-
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? '')
-    .join('');
 }
 
 // FUT-329: there's no variant switcher in the reference design, so this view picks
@@ -153,9 +127,9 @@ function emptySections(): SectionGrid {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 text-body-sm">
-      <span className="text-ink-muted">{label}</span>
-      <span className="font-medium text-ink">{value}</span>
+    <div className="flex items-center justify-between gap-3 text-base">
+      <span className="text-secondary">{label}</span>
+      <span className="font-medium text-primary">{value}</span>
     </div>
   );
 }
@@ -178,9 +152,9 @@ function DateField({
   const [open, setOpen] = useState(false);
   return (
     <div className="flex items-start gap-3">
-      <CalendarIcon className="mt-0.5 size-4 shrink-0 text-ink-subtle" aria-hidden />
+      <CalendarIcon className="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden />
       <div>
-        <div className="text-caption text-ink-muted">{label}</div>
+        <div className="text-sm text-secondary">{label}</div>
         <DisabledActionTooltip
           disabled={!editable}
           reason={
@@ -190,30 +164,31 @@ function DateField({
           }
         >
           {editable ? (
-            <Popover open={open} onOpenChange={setOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="text-body-sm font-medium text-ink underline decoration-dotted underline-offset-4 hover:text-primary"
-                >
-                  {value ? formatDate(value) : 'Set date'}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <DayPickerCalendar
+            <Popover
+              isOpen={open}
+              onOpenChange={setOpen}
+              alignment="start"
+              label="Set date"
+              content={
+                <Calendar
                   mode="single"
-                  selected={value ? new Date(value) : undefined}
-                  onSelect={(date) => {
-                    if (!date) return;
-                    onChange(toDateInputValue(date));
+                  value={value ?? undefined}
+                  onChange={(v) => {
+                    onChange(v);
                     setOpen(false);
                   }}
-                  className="w-[280px] p-3"
                 />
-              </PopoverContent>
+              }
+            >
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                label={value ? formatDate(value) : 'Set date'}
+              />
             </Popover>
           ) : (
-            <span className="text-body-sm font-medium text-ink">
+            <span className="text-base font-medium text-primary">
               {value ? formatDate(value) : '—'}
             </span>
           )}
@@ -242,8 +217,8 @@ function QuickAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex w-full flex-col items-center gap-2 rounded-lg border border-hairline px-2 py-3 text-center text-caption font-medium hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-        destructive ? 'text-danger-ink' : 'text-ink'
+      className={`flex w-full flex-col items-center gap-2 rounded-lg border border-border px-2 py-3 text-center text-sm font-medium hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 ${
+        destructive ? 'text-error' : 'text-primary'
       }`}
     >
       {icon}
@@ -259,6 +234,7 @@ interface Props {
 }
 
 export function RequisitionDetailView({ requisitionId, variant, onClose }: Props) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const canManage = usePermission('hiring.requisition.manage');
   const canClose = usePermission('hiring.requisition.close');
@@ -277,7 +253,6 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const [editVariant, setEditVariant] = useState<JdVariant>('external');
   const [sections, setSections] = useState<SectionGrid>(emptySections());
   const [skills, setSkills] = useState<PickedSkill[]>([]);
-  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [showFillConfirm, setShowFillConfirm] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -312,7 +287,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   };
 
   function onError(e: Error) {
-    on409(e, queryClient, hiringKeys.requisition(requisitionId));
+    on409(toast, e, queryClient, hiringKeys.requisition(requisitionId));
   }
 
   const pause = useMutation({
@@ -321,7 +296,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         expected_version: data?.requisition.version,
       }),
     onSuccess: () => {
-      toast.success('Requisition paused');
+      toast({ body: 'Requisition paused' });
       refresh();
     },
     onError,
@@ -332,7 +307,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         expected_version: data?.requisition.version,
       }),
     onSuccess: () => {
-      toast.success('Requisition resumed');
+      toast({ body: 'Requisition resumed' });
       refresh();
     },
     onError,
@@ -418,11 +393,11 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       }
     },
     onSuccess: () => {
-      toast.success('Saved');
+      toast({ body: 'Saved' });
       setEditing(false);
       refresh();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(requisitionId)),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisition(requisitionId)),
   });
 
   function startEditing() {
@@ -471,22 +446,20 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   function shareJob() {
     const url = `${window.location.origin}/hiring/requisitions?selectedRequisitionId=${requisitionId}`;
     void navigator.clipboard.writeText(url);
-    toast.success('Link copied to clipboard');
+    toast({ body: 'Link copied to clipboard' });
   }
 
   if (isLoading) {
     return (
       <div className="flex flex-col overflow-hidden">
-        <div className="p-6 text-ink-muted">Loading…</div>
+        <div className="p-6 text-secondary">Loading…</div>
       </div>
     );
   }
   if (error || !data) {
     return (
       <div className="flex flex-col overflow-hidden p-6">
-        <Alert variant="destructive">
-          <AlertDescription>{(error as Error)?.message ?? 'Not found'}</AlertDescription>
-        </Alert>
+        <Banner status="error" title={(error as Error)?.message ?? 'Not found'} />
       </div>
     );
   }
@@ -529,160 +502,137 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       <div
         className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
+        <header className="flex items-start justify-between gap-4 border-b border-border bg-body px-6 py-4">
           <div className="min-w-0">
-            <h1 className="truncate text-section-title font-semibold text-ink">{title}</h1>
+            <h1 className="truncate text-lg font-semibold text-primary">{title}</h1>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1.5">
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
                 variant="secondary"
+                label="Cancel"
                 onClick={cancelEditing}
-                disabled={save.isPending}
-              >
-                Cancel
-              </Button>
-              <Button size="sm" onClick={submitEdit} disabled={save.isPending}>
-                {save.isPending ? 'Updating…' : 'Update'}
-              </Button>
+                isDisabled={save.isPending}
+              />
+              <Button
+                size="sm"
+                variant="primary"
+                label={save.isPending ? 'Updating…' : 'Update'}
+                onClick={submitEdit}
+                isDisabled={save.isPending}
+              />
             </div>
-            {requiredError && <p className="text-caption text-danger-ink">{requiredError}</p>}
+            {requiredError && <p className="text-sm text-error">{requiredError}</p>}
           </div>
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
           <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
             <div className="space-y-1">
-              <Label htmlFor="jd-title">Job title *</Label>
-              <Input id="jd-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Input
+                label="Job title"
+                isRequired
+                value={title}
+                onChange={(value) => setTitle(value)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="jd-grade">Grade</Label>
-                <Select value={grade} onValueChange={setGrade}>
-                  <SelectTrigger id="jd-grade" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GRADES.map((g) => (
-                      <SelectItem key={g} value={g}>
-                        {g}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Selector
+                  label="Grade"
+                  options={GRADES.map((g) => ({ value: g, label: g }))}
+                  value={grade}
+                  onChange={setGrade}
+                />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="jd-type">Type</Label>
-                <Select value={kind} onValueChange={(v) => setKind(v as 'new' | 'replacement')}>
-                  <SelectTrigger id="jd-type" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">New</SelectItem>
-                    <SelectItem value="replacement">Replacement</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Selector
+                  label="Type"
+                  options={[
+                    { value: 'new', label: 'New' },
+                    { value: 'replacement', label: 'Replacement' },
+                  ]}
+                  value={kind}
+                  onChange={(v) => setKind(v as 'new' | 'replacement')}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="jd-account">Account</Label>
-                <Select
+                <Selector
+                  label="Account"
+                  options={(accounts ?? []).map((a) => ({ value: a.account_id, label: a.name }))}
                   value={accountId}
-                  onValueChange={(v) => {
+                  onChange={(v) => {
                     setAccountId(v);
                     setProjectId('');
                   }}
-                >
-                  <SelectTrigger id="jd-account" className="w-full">
-                    <SelectValue placeholder="No account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(accounts ?? []).map((a) => (
-                      <SelectItem key={a.account_id} value={a.account_id}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="No account"
+                />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="jd-project">Project</Label>
-                <Select value={projectId} onValueChange={setProjectId} disabled={!accountId}>
-                  <SelectTrigger id="jd-project" className="w-full">
-                    <SelectValue placeholder={accountId ? 'No project' : 'Pick an account first'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(projects ?? []).map((p) => (
-                      <SelectItem key={p.project_id} value={p.project_id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Selector
+                  label="Project"
+                  options={(projects ?? []).map((p) => ({ value: p.project_id, label: p.name }))}
+                  value={projectId}
+                  onChange={setProjectId}
+                  isDisabled={!accountId}
+                  placeholder={accountId ? 'No project' : 'Pick an account first'}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="jd-mode">Interview mode</Label>
-                <Select
+                <Selector
+                  label="Interview mode"
+                  options={[
+                    { value: 'online', label: 'Online (Teams)' },
+                    { value: 'onsite', label: 'Onsite' },
+                    { value: 'either', label: 'Either' },
+                  ]}
                   value={mode}
-                  onValueChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
-                >
-                  <SelectTrigger id="jd-mode" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="online">Online (Teams)</SelectItem>
-                    <SelectItem value="onsite">Onsite</SelectItem>
-                    <SelectItem value="either">Either</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="jd-start">Start date</Label>
-                <Input
-                  id="jd-start"
-                  type="date"
-                  value={start}
+                <DateInput
+                  label="Start date"
+                  value={start || undefined}
                   max={due || undefined}
-                  onChange={(e) => setStart(e.target.value)}
+                  onChange={(v) => setStart(v ?? '')}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="jd-due">Due date</Label>
-                <Input
-                  id="jd-due"
-                  type="date"
-                  value={due}
+                <DateInput
+                  label="Due date"
+                  value={due || undefined}
                   min={start || undefined}
-                  onChange={(e) => setDue(e.target.value)}
+                  onChange={(v) => setDue(v ?? '')}
                 />
               </div>
             </div>
-            {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
+            {dateError && <p className="text-base text-error">{dateError}</p>}
 
             <SkillPicker value={skills} onChange={setSkills} />
 
             <div className="flex items-center justify-between">
-              <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
+              <div className="text-sm font-semibold uppercase text-secondary">JD detail</div>
               <SegmentedControl
+                label="JD variant"
                 value={editVariant}
-                onValueChange={(v) => setEditVariant(v as JdVariant)}
-                options={[
-                  { value: 'external', label: 'External' },
-                  { value: 'internal', label: 'Internal' },
-                ]}
-              />
+                onChange={(v) => setEditVariant(v as JdVariant)}
+              >
+                <SegmentedControlItem value="external" label="External" />
+                <SegmentedControlItem value="internal" label="Internal" />
+              </SegmentedControl>
             </div>
 
             {SECTIONS.map((s) => (
               <div key={s.key}>
                 <div
-                  className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                  className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
                 >
                   {s.key === 'about' ? 'About the role *' : s.label}
                 </div>
@@ -707,26 +657,26 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     <div
       className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
     >
-      <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
+      <header className="flex items-start justify-between gap-4 border-b border-border bg-body px-6 py-4">
         <div className="flex min-w-0 items-start gap-3">
-          <button
+          <IconButton
             type="button"
+            variant="secondary"
             onClick={requestClose}
-            aria-label="Close dialog"
-            className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-hairline text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-          >
-            <X className="size-4" />
-          </button>
+            label="Close dialog"
+            icon={<X className="size-4" />}
+            className="mt-0.5 shrink-0"
+          />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="truncate text-section-title font-semibold text-ink">{req.title}</h1>
+              <h1 className="truncate text-lg font-semibold text-primary">{req.title}</h1>
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-caption font-medium ${STATUS_BADGE_CLASS[req.status]}`}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-medium ${STATUS_BADGE_CLASS[req.status]}`}
               >
                 {STATUS_LABEL[req.status]}
               </span>
             </div>
-            {subtitle && <p className="mt-0.5 truncate text-body-sm text-ink-muted">{subtitle}</p>}
+            {subtitle && <p className="mt-0.5 truncate text-base text-secondary">{subtitle}</p>}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -735,64 +685,59 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               disabled={!canManage && !canClose}
               reason={PERMISSION_DENIED.requisition.manage}
             >
-              <DropdownMenu open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="sm" disabled={!canManage && !canClose}>
-                    <MoreHorizontal className="mr-1.5 size-4" />
-                    More actions
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {req.status === 'open' && (
-                    <DropdownMenuItem disabled={!canManage} onSelect={() => pause.mutate()}>
-                      Pause
-                    </DropdownMenuItem>
-                  )}
-                  {req.status === 'on_hold' && (
-                    <DropdownMenuItem disabled={!canManage} onSelect={() => resume.mutate()}>
-                      Resume
-                    </DropdownMenuItem>
-                  )}
+              <DropdownMenu
+                placement="below"
+                button={{
+                  variant: 'secondary',
+                  size: 'sm',
+                  label: 'More actions',
+                  icon: <MoreHorizontal className="size-4" />,
+                  isDisabled: !canManage && !canClose,
+                }}
+              >
+                {req.status === 'open' && (
                   <DropdownMenuItem
-                    disabled={!canClose}
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setMoreActionsOpen(false);
-                      setTimeout(() => setShowFillConfirm(true), 150);
-                    }}
-                  >
-                    Mark filled
-                  </DropdownMenuItem>
+                    label="Pause"
+                    isDisabled={!canManage}
+                    onClick={() => pause.mutate()}
+                  />
+                )}
+                {req.status === 'on_hold' && (
                   <DropdownMenuItem
-                    disabled={!canClose}
-                    className="text-danger-ink"
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setMoreActionsOpen(false);
-                      setTimeout(() => setShowCancelDialog(true), 150);
-                    }}
-                  >
-                    Cancel
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+                    label="Resume"
+                    isDisabled={!canManage}
+                    onClick={() => resume.mutate()}
+                  />
+                )}
+                <DropdownMenuItem
+                  label="Mark filled"
+                  isDisabled={!canClose}
+                  onClick={() => setTimeout(() => setShowFillConfirm(true), 0)}
+                />
+                <DropdownMenuItem
+                  label="Cancel"
+                  isDisabled={!canClose}
+                  style={{ color: 'var(--color-text-red)' }}
+                  onClick={() => setTimeout(() => setShowCancelDialog(true), 0)}
+                />
               </DropdownMenu>
             </DisabledActionTooltip>
           )}
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto bg-surface-1">
+      <div className="min-h-0 flex-1 overflow-auto bg-card">
         <div className="grid grid-cols-1 gap-5 p-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-5">
             {/* Full job description */}
             <section
               id="full-job-description"
-              className="rounded-xl border border-hairline bg-canvas p-5"
+              className="rounded-xl border border-border bg-body p-5"
             >
-              <h1 className="mb-4 text-section-title font-semibold text-ink">Job description</h1>
+              <h1 className="mb-4 text-lg font-semibold text-primary">Job description</h1>
               {!hasAnyDetail ? (
                 req.note?.trim() ? (
-                  <p className="text-body-sm text-ink">{req.note}</p>
+                  <p className="text-base text-primary">{req.note}</p>
                 ) : (
                   <EmptyState
                     title="No job description yet"
@@ -803,17 +748,17 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 <div className="space-y-5">
                   {data.skills.length > 0 && (
                     <div>
-                      <div className="mb-2 font-semibold text-ink">Tech stack</div>
+                      <div className="mb-2 font-semibold text-primary">Tech stack</div>
                       <div className="flex flex-wrap gap-2">
                         {data.skills.map((s) => (
                           <Badge
                             key={s.skill_name}
-                            variant="secondary"
-                            className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
-                          >
-                            {s.skill_name}
-                            {s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
-                          </Badge>
+                            variant="neutral"
+                            className="rounded-md border border-border bg-surface px-3 py-1.5 text-base text-secondary"
+                            label={`${s.skill_name}${
+                              s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''
+                            }`}
+                          />
                         ))}
                       </div>
                     </div>
@@ -826,7 +771,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     return (
                       <div key={s.key}>
                         <div
-                          className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                          className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
                         >
                           {s.label}
                         </div>
@@ -836,41 +781,39 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   })}
                 </div>
               )}
-              <p className="mt-5 text-caption text-ink-subtle">
+              <p className="mt-5 text-sm text-secondary">
                 Posted {req.created_at.slice(0, 10)} · {openDaysLabel(req.created_at)}
               </p>
             </section>
 
             {/* Applicants */}
-            <section className="rounded-xl border border-hairline bg-canvas p-5">
+            <section className="rounded-xl border border-border bg-body p-5">
               <div className="mb-1 flex items-center justify-between">
-                <h2 className="font-semibold text-ink">Applicants ({data.applicants.length})</h2>
+                <h2 className="font-semibold text-primary">
+                  Applicants ({data.applicants.length})
+                </h2>
               </div>
               {applicantRows.length === 0 ? (
-                <p className="py-4 text-body-sm text-ink-subtle">No applicants yet.</p>
+                <p className="py-4 text-base text-secondary">No applicants yet.</p>
               ) : (
-                <div className="divide-y divide-hairline">
+                <div className="divide-y divide-border">
                   {applicantRows.slice(0, 5).map((a) => (
                     <div
                       key={`${a.name}-${a.applied_date}`}
                       className="flex items-center gap-3 py-3"
                     >
-                      <Avatar className="size-9">
-                        <AvatarFallback className="bg-primary/15 text-caption font-semibold text-primary">
-                          {initialsOf(a.name)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <Avatar name={a.name} size={36} />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium text-ink">{a.name}</div>
-                        <div className="truncate text-body-sm text-ink-muted">
+                        <div className="truncate font-medium text-primary">{a.name}</div>
+                        <div className="truncate text-base text-secondary">
                           {[a.role, `Applied ${relativeDays(a.applied_date)}`]
                             .filter(Boolean)
                             .join(' · ')}
                         </div>
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-caption font-medium ${
-                          APPLICANT_STAGE_BADGE[a.stage] ?? 'bg-surface-2 text-ink-muted'
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-medium ${
+                          APPLICANT_STAGE_BADGE[a.stage] ?? 'bg-surface text-secondary'
                         }`}
                       >
                         {APPLICANT_STAGE_LABEL[a.stage] ?? a.stage}
@@ -884,8 +827,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
           <div className="space-y-5">
             {/* Timeline */}
-            <section className="rounded-xl border border-hairline bg-canvas p-5">
-              <h2 className="mb-4 font-semibold text-ink">Timeline</h2>
+            <section className="rounded-xl border border-border bg-body p-5">
+              <h2 className="mb-4 font-semibold text-primary">Timeline</h2>
               <div className="space-y-4">
                 <DateField
                   label="Start date"
@@ -903,8 +846,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   extra={
                     req.due_date && (
                       <span
-                        className={`ml-1.5 text-body-sm ${
-                          daysLeft(req.due_date) < 0 ? 'text-danger-ink' : 'text-warning-ink'
+                        className={`ml-1.5 text-base ${
+                          daysLeft(req.due_date) < 0 ? 'text-error' : 'text-warning'
                         }`}
                       >
                         (
@@ -920,8 +863,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             </section>
 
             {/* Job details */}
-            <section className="rounded-xl border border-hairline bg-canvas p-5">
-              <h2 className="mb-3 font-semibold text-ink">Job details</h2>
+            <section className="rounded-xl border border-border bg-body p-5">
+              <h2 className="mb-3 font-semibold text-primary">Job details</h2>
               <div className="space-y-2.5">
                 <DetailRow label="Account" value={data.account_name ?? '—'} />
                 <DetailRow label="Project" value={data.project_name ?? '—'} />
@@ -933,8 +876,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             </section>
 
             {/* Quick actions */}
-            <section className="rounded-xl border border-hairline bg-canvas p-5">
-              <h2 className="mb-3 font-semibold text-ink">Quick actions</h2>
+            <section className="rounded-xl border border-border bg-body p-5">
+              <h2 className="mb-3 font-semibold text-primary">Quick actions</h2>
               <div className="grid grid-cols-2 gap-2">
                 <DisabledActionTooltip
                   disabled={!canManage}

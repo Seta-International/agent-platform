@@ -63,7 +63,10 @@ if [ -f "$STYLE_CSS" ]; then
   cp "$STYLE_CSS" "$BD/style.css"
   STYLE_ARGS=(--stylesheet style.css --body-class "")
 fi
-PDF_OPTIONS='{"format":"A4","printBackground":true,"margin":{"top":"20mm","bottom":"18mm","left":"16mm","right":"16mm"},"displayHeaderFooter":true,"headerTemplate":"<span></span>","footerTemplate":"<div style=\"font-size:8px;color:#9aa3b2;width:100%;text-align:center;padding:0 16mm;\"><span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span></div>"}'
+# Optional footer captions: PDF_FOOTER_LEFT / PDF_FOOTER_RIGHT env vars.
+FOOT_L="${PDF_FOOTER_LEFT:-}"
+FOOT_R="${PDF_FOOTER_RIGHT:-}"
+PDF_OPTIONS="{\"format\":\"A4\",\"printBackground\":true,\"margin\":{\"top\":\"20mm\",\"bottom\":\"18mm\",\"left\":\"16mm\",\"right\":\"16mm\"},\"displayHeaderFooter\":true,\"headerTemplate\":\"<span></span>\",\"footerTemplate\":\"<div style=\\\"font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:7.5px;letter-spacing:0.03em;color:#8a93a3;width:100%;display:flex;justify-content:space-between;align-items:center;padding:0 16mm;\\\"><span>$FOOT_L</span><span><span class=\\\"pageNumber\\\"></span> / <span class=\\\"totalPages\\\"></span></span><span>$FOOT_R</span></div>\"}"
 
 export PUPPETEER_SKIP_DOWNLOAD=1 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
 cd "$BD"

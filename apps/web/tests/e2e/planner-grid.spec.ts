@@ -28,12 +28,13 @@ test('Grid view: inline-edit title, shift-select rows, bulk-move to Done clears 
     .locator('input[type="checkbox"]')
     .click({ modifiers: ['Shift'] });
 
-  await expect(page.locator('.grid-bulk-action-footer')).toHaveText(/3 selected/);
+  const bulkFooter = page.getByRole('toolbar', { name: /tasks selected/ });
+  await expect(bulkFooter).toHaveText(/3 selected/);
 
   // Click Move in the bulk footer, then pick the "Done" bucket.
-  await page.locator('.grid-bulk-action-footer button').filter({ hasText: 'Move' }).click();
+  await bulkFooter.getByRole('button', { name: 'Move' }).click();
   await page.getByRole('option', { name: 'Done' }).click();
 
   // Moving clears the selection; the bulk footer disappears.
-  await expect(page.locator('.grid-bulk-action-footer')).toHaveCount(0);
+  await expect(bulkFooter).toHaveCount(0);
 });

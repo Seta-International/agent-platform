@@ -22,12 +22,12 @@ const PREFIX_WIDTH = LABEL_WIDTH + DATE_COL_WIDTH * 2;
 const MIN_MONTH_WIDTH = 56;
 
 const ROW_BAR_CLASSES = [
-  'bg-primary-tint text-primary-ink',
-  'bg-success-tint text-success-ink',
-  'bg-warning-tint text-warning-ink',
-  'bg-info-tint text-info-ink',
+  'bg-accent-muted text-accent',
+  'bg-success-muted text-success',
+  'bg-warning-muted text-warning',
+  'bg-blue-subtle text-blue-vivid',
 ];
-const ROW_DOT_CLASSES = ['bg-primary', 'bg-success', 'bg-warning', 'bg-info'];
+const ROW_DOT_CLASSES = ['bg-accent-bg', 'bg-success', 'bg-warning', 'bg-blue-subtle'];
 
 /**
  * Lightweight Gantt-style chart of a person's allocations: one bar per row
@@ -50,28 +50,28 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
 
   return (
     <div className="space-y-1.5">
-      <div className="text-caption text-ink-muted">
+      <div className="text-sm text-secondary">
         Allocation timeline{' '}
-        <span className="text-ink-subtle">
+        <span className="text-secondary">
           ({monthLabel(months[0] as string)} – {monthLabel(months.at(-1) as string)})
         </span>
       </div>
-      <div className="relative overflow-x-auto rounded-md border border-hairline">
-        <div className="grid w-full text-caption" style={{ gridTemplateColumns }}>
+      <div className="relative overflow-x-auto rounded-md border border-border">
+        <div className="grid w-full text-sm" style={{ gridTemplateColumns }}>
           <div
-            className="sticky left-0 z-10 border-b border-hairline bg-surface-1 px-2 py-1.5 font-medium text-ink"
+            className="sticky left-0 z-10 border-b border-border bg-card px-2 py-1.5 font-medium text-primary"
             style={{ gridColumn: 1, gridRow: 1 }}
           >
             Project
           </div>
           <div
-            className="border-b border-l border-hairline bg-surface-1 px-2 py-1.5 font-medium text-ink"
+            className="border-b border-l border-border bg-card px-2 py-1.5 font-medium text-primary"
             style={{ gridColumn: 2, gridRow: 1 }}
           >
             Start date
           </div>
           <div
-            className="border-b border-l border-hairline bg-surface-1 px-2 py-1.5 font-medium text-ink"
+            className="border-b border-l border-border bg-card px-2 py-1.5 font-medium text-primary"
             style={{ gridColumn: 3, gridRow: 1 }}
           >
             End date
@@ -79,7 +79,7 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
           {months.map((m, i) => (
             <div
               key={m}
-              className="border-b border-l border-hairline bg-surface-1 px-1 py-1.5 text-center font-medium text-ink"
+              className="border-b border-l border-border bg-card px-1 py-1.5 text-center font-medium text-primary"
               style={{ gridColumn: i + 4, gridRow: 1 }}
             >
               {monthLabel(m).split(' ')[0]}
@@ -93,27 +93,27 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
             return (
               <div className="contents" key={row.key}>
                 <div
-                  className="flex items-center gap-1.5 truncate border-b border-hairline px-2 py-2"
+                  className="flex items-center gap-1.5 truncate border-b border-border px-2 py-2"
                   style={{ gridColumn: 1, gridRow: rowIndex + 2 }}
                   title={row.label}
                 >
                   <span className={`size-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
-                  <span className="truncate text-ink">{row.label}</span>
+                  <span className="truncate text-primary">{row.label}</span>
                 </div>
                 <div
-                  className="whitespace-nowrap border-b border-l border-hairline px-2 py-2 font-mono text-ink-muted"
+                  className="whitespace-nowrap border-b border-l border-border px-2 py-2 font-mono text-secondary"
                   style={{ gridColumn: 2, gridRow: rowIndex + 2 }}
                 >
                   {formatDisplayDate(row.date_from)}
                 </div>
                 <div
-                  className="whitespace-nowrap border-b border-l border-hairline px-2 py-2 font-mono text-ink-muted"
+                  className="whitespace-nowrap border-b border-l border-border px-2 py-2 font-mono text-secondary"
                   style={{ gridColumn: 3, gridRow: rowIndex + 2 }}
                 >
                   {row.date_to ? formatDisplayDate(row.date_to) : '—'}
                 </div>
                 <div
-                  className="relative border-b border-hairline"
+                  className="relative border-b border-border"
                   style={{ gridColumn: `4 / ${months.length + 4}`, gridRow: rowIndex + 2 }}
                 >
                   <div
@@ -131,24 +131,24 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
           })}
 
           <div
-            className="border-t-2 border-hairline-strong bg-surface-1 px-2 py-2 font-medium text-ink"
+            className="border-t-2 border-border-strong bg-card px-2 py-2 font-medium text-primary"
             style={{ gridColumn: 1, gridRow: totalRow }}
           >
             Total allocation
           </div>
           <div
-            className="border-t-2 border-l border-hairline-strong bg-surface-1"
+            className="border-t-2 border-l border-border-strong bg-card"
             style={{ gridColumn: 2, gridRow: totalRow }}
           />
           <div
-            className="border-t-2 border-l border-hairline-strong bg-surface-1"
+            className="border-t-2 border-l border-border-strong bg-card"
             style={{ gridColumn: 3, gridRow: totalRow }}
           />
           {totals.map((t, i) => (
             <div
               key={`total-${months[i]}`}
-              className={`border-t-2 border-l border-hairline-strong px-1 py-2 text-center font-mono tabular-nums ${
-                t > 100 ? 'bg-danger-tint font-semibold text-danger-ink' : 'text-ink-muted'
+              className={`border-t-2 border-l border-border-strong px-1 py-2 text-center font-mono tabular-nums ${
+                t > 100 ? 'bg-error-muted font-semibold text-error' : 'text-secondary'
               }`}
               style={{ gridColumn: i + 4, gridRow: totalRow }}
             >
@@ -158,13 +158,13 @@ export function AllocationTimeline({ rows, todayIso }: { rows: TimelineRow[]; to
         </div>
 
         <div
-          className="pointer-events-none absolute top-0 bottom-0 border-l-2 border-dashed border-primary"
+          className="pointer-events-none absolute top-0 bottom-0 border-l-2 border-dashed border-accent-bg"
           style={{ left: todayLeft }}
           aria-hidden="true"
         />
       </div>
-      <div className="flex items-center gap-1.5 text-caption text-ink-subtle">
-        <span className="inline-block h-3 w-0 border-l-2 border-dashed border-primary" /> Today
+      <div className="flex items-center gap-1.5 text-sm text-secondary">
+        <span className="inline-block h-3 w-0 border-l-2 border-dashed border-accent-bg" /> Today
       </div>
     </div>
   );

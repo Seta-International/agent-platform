@@ -48,13 +48,19 @@ function renderDialog(overrides: Partial<typeof baseProps> = {}) {
 }
 
 describe('ResolvePlanConflictsDialog', () => {
-  it('renders title "Resolve sync conflicts" when open=true', () => {
+  // Astryx's real Dialog always mounts <dialog> + children regardless of `isOpen` — it does
+  // not unmount on close. purpose="form" renders role="dialog" (only purpose="required" maps
+  // to role="alertdialog"). DialogHeader doesn't wire aria-labelledby, so the dialog has no
+  // computed accessible name — assert the title via its heading instead.
+  it('exposes an accessible dialog with heading "Resolve sync conflicts" when open=true', () => {
     renderDialog();
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByText('Resolve sync conflicts')).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('heading', { name: 'Resolve sync conflicts' }),
+    ).toBeInTheDocument();
   });
 
-  it('does not render when open=false', () => {
+  it('is not exposed as a dialog when open=false', () => {
     renderDialog({ open: false });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });

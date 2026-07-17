@@ -6,10 +6,10 @@ import {
 } from '../../../src/plan/category-description-editor';
 
 const labels: CategoryLabel[] = [
-  { id: 'l1', name: 'bug', color: 'var(--color-danger)', category_slot: 1 },
+  { id: 'l1', name: 'bug', color: 'var(--color-error)', category_slot: 1 },
   { id: 'l2', name: 'customer', color: 'var(--color-info)', category_slot: 2 },
   { id: 'l3', name: 'perf', color: 'var(--color-warning)', category_slot: 5 },
-  { id: 'l4', name: 'design', color: 'var(--color-primary)', category_slot: null },
+  { id: 'l4', name: 'design', color: 'var(--color-accent)', category_slot: null },
 ];
 const taskCounts = { 1: 6, 2: 3, 5: 2 };
 

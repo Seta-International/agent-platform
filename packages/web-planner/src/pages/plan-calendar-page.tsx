@@ -1,5 +1,5 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { Button, DisabledActionTooltip, toast } from '@seta/shared-ui';
+import { Button, DisabledActionTooltip, useToast } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useEffect, useMemo, useState } from 'react';
 import { GridSkeleton } from '../components/board-skeleton';
@@ -64,6 +64,7 @@ export function PlanCalendarPage({
   onOpenTask,
   onSwitchToBoard,
 }: PlanCalendarPageProps) {
+  const toast = useToast();
   const hasRange = calFrom !== undefined && calTo !== undefined;
   useEffect(() => {
     if (!hasRange) {
@@ -144,7 +145,7 @@ export function PlanCalendarPage({
       });
     } catch {
       revert();
-      toast.error('Failed to reschedule task. Please try again.');
+      toast({ body: 'Failed to reschedule task. Please try again.', type: 'error' });
     }
   }
 
@@ -176,14 +177,14 @@ export function PlanCalendarPage({
           className="relative flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center"
           data-testid="calendar-empty-state"
         >
-          <h3 className="text-card-title text-ink">No tasks scheduled in this range</h3>
-          <p className="text-body-sm text-ink-subtle">
+          <h3 className="text-2xl font-medium text-primary">No tasks scheduled in this range</h3>
+          <p className="text-base text-secondary">
             Tasks with a start or due date inside the selected range appear here.
           </p>
           <div className="flex items-center gap-3">
             <DisabledActionTooltip disabled={!canCreateTask} reason={PERMISSION_DENIED.task.create}>
               <Button
-                disabled={!canCreateTask}
+                isDisabled={!canCreateTask}
                 onClick={(e) =>
                   setQuickCreate({
                     date: emptyStateDate,
@@ -191,13 +192,10 @@ export function PlanCalendarPage({
                     y: e.clientY,
                   })
                 }
-              >
-                Create task
-              </Button>
+                label="Create task"
+              />
             </DisabledActionTooltip>
-            <Button variant="ghost" onClick={onSwitchToBoard}>
-              Switch to Board
-            </Button>
+            <Button variant="ghost" label="Switch to Board" onClick={onSwitchToBoard} />
           </div>
           {quickCreate && (
             <div className="absolute left-1/2 top-2/3 z-20 -translate-x-1/2">

@@ -1,26 +1,30 @@
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
-  Label,
-  PageChrome,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  PageContainer,
   Skeleton,
+  Text,
   Textarea,
-  toast,
+  useSeededItems,
+  useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission, useSession } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import {
   bodApproveCharter,
@@ -31,7 +35,7 @@ import {
   rejectCharter,
   withdrawCharter,
 } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search';
+import { useWorkerSource } from '../api/worker-search';
 import { pmKeys } from '../state/query-keys.ts';
 import { CharterStaffingEditor } from './charter-staffing-editor.tsx';
 import { CharterStepper } from './charter-stepper.tsx';
@@ -42,17 +46,17 @@ const PRICING_LABEL: Record<string, string> = { fixed_price: 'Fixed-price', time
 function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="bg-surface p-3">
-      <div className="text-[10.5px] uppercase tracking-wide text-ink-muted">{label}</div>
-      <div className="mt-0.5 text-body-sm font-medium text-ink">{value ?? '—'}</div>
+      <div className="text-xs uppercase tracking-wide text-secondary">{label}</div>
+      <div className="mt-0.5 text-base font-medium text-primary">{value ?? '—'}</div>
     </div>
   );
 }
 
 function ScopeBox({ label, text }: { label: string; text?: string | null }) {
   return (
-    <div className="rounded-md border border-hairline bg-surface-2 p-3.5">
-      <div className="text-[12px] font-semibold text-ink">{label}</div>
-      <div className="mt-1 whitespace-pre-line text-body-sm leading-relaxed text-ink-muted">
+    <div className="rounded-md border border-border bg-surface p-3.5">
+      <div className="text-sm font-semibold text-primary">{label}</div>
+      <div className="mt-1 whitespace-pre-line text-base leading-relaxed text-secondary">
         {text?.trim() ? text : '—'}
       </div>
     </div>
@@ -61,13 +65,13 @@ function ScopeBox({ label, text }: { label: string; text?: string | null }) {
 
 const STATUS_META: Record<
   CharterDetail['status'],
-  { label: string; variant: 'secondary' | 'success' | 'destructive' | 'outline' }
+  { label: string; variant: 'neutral' | 'success' | 'error' }
 > = {
-  submitted: { label: 'Awaiting PMO review', variant: 'secondary' },
-  pmo_approved: { label: 'Awaiting BoD review', variant: 'secondary' },
+  submitted: { label: 'Awaiting PMO review', variant: 'neutral' },
+  pmo_approved: { label: 'Awaiting BoD review', variant: 'neutral' },
   approved: { label: 'Approved · created', variant: 'success' },
-  rejected: { label: 'Rejected', variant: 'destructive' },
-  withdrawn: { label: 'Withdrawn', variant: 'outline' },
+  rejected: { label: 'Rejected', variant: 'error' },
+  withdrawn: { label: 'Withdrawn', variant: 'neutral' },
 };
 
 export function CharterDetailPage({ charterId }: { charterId: string }) {
@@ -78,6 +82,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
   const canSubmit = usePermission('pm.charter.submit');
   const canManageProject = usePermission('pm.project.manage');
   const { user_id: currentUserId } = useSession();
+  const toast = useToast();
 
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
@@ -92,15 +97,11 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
   });
 
   const { data: accounts } = useQuery({ queryKey: pmKeys.accounts(), queryFn: fetchAccounts });
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
   const workerIds = [c?.pm_worker_id, c?.pmo_worker_id].filter((id): id is string => !!id);
-  const { data: resolvedWorkers } = useQuery({
-    queryKey: ['people', 'worker-resolve-charter', workerIds.slice().sort()],
-    queryFn: () => workerPicker.resolveByIds(workerIds),
-    enabled: workerIds.length > 0,
-  });
+  const [resolvedWorkers] = useSeededItems(workerIds, workerSource.seed);
   const workerName = (id: string | null) =>
-    id ? (resolvedWorkers?.find((o) => o.value === id)?.label ?? id.slice(0, 8)) : '—';
+    id ? (resolvedWorkers.find((o) => o.id === id)?.label ?? id.slice(0, 8)) : '—';
   const accountName = (id: string) =>
     accounts?.find((a) => a.account_id === id)?.name ?? id.slice(0, 8);
 
@@ -113,84 +114,124 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
   const pmoMutation = useMutation({
     mutationFn: () => pmoSignOffCharter(charterId, c?.version),
     onSuccess: () => {
-      toast.success('PMO sign-off recorded — sent to BoD');
+      toast({ body: 'PMO sign-off recorded — sent to BoD' });
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const bodMutation = useMutation({
     mutationFn: () => bodApproveCharter(charterId, c?.version),
     onSuccess: (r) => {
-      toast.success('Approved — project created');
+      toast({ body: 'Approved — project created' });
       invalidate();
       void navigate({ to: '/pm/projects/$projectId', params: { projectId: r.project_id } });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const rejectMutation = useMutation({
     mutationFn: () => rejectCharter(charterId, reason, c?.version),
     onSuccess: () => {
-      toast.success('Charter rejected');
+      toast({ body: 'Charter rejected' });
       setRejecting(false);
       setReason('');
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const withdrawMutation = useMutation({
     mutationFn: () => withdrawCharter(charterId, c?.version),
     onSuccess: () => {
-      toast.success('Charter withdrawn');
+      toast({ body: 'Charter withdrawn' });
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
-
-  const backLink = (
-    <Link
-      to="/pm/requests"
-      className="flex items-center gap-1 text-body-sm text-ink-muted hover:text-ink transition-colors"
-    >
-      <ChevronLeft className="size-4" />
-      Requests
-    </Link>
-  );
 
   if (isLoading) {
     return (
-      <PageChrome title="Request" breadcrumb={[backLink]}>
-        <div className="page-container p-6 space-y-4">
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-5 w-48" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                  <Skeleton key={i} className="h-4 w-full" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+                <BreadcrumbItem href="/pm/requests">Requests</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Request</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Request
+                  </Text>
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <PageContainer className="space-y-4">
+              <Card>
+                <Layout
+                  header={
+                    <LayoutHeader hasDivider>
+                      <Skeleton height={20} width={192} />
+                    </LayoutHeader>
+                  }
+                  content={
+                    <LayoutContent>
+                      <div className="space-y-3">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
+                          <Skeleton key={i} height={16} />
+                        ))}
+                      </div>
+                    </LayoutContent>
+                  }
+                />
+              </Card>
+            </PageContainer>
+          </LayoutContent>
+        }
+      />
     );
   }
 
   if (loadError || !c) {
     const msg = (loadError as Error | null)?.message ?? 'Charter not found';
     return (
-      <PageChrome title="Request" breadcrumb={[backLink]}>
-        <div className="page-container p-6">
-          <Alert variant="destructive">
-            <AlertDescription>{msg}</AlertDescription>
-          </Alert>
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+                <BreadcrumbItem href="/pm/requests">Requests</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Request</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Request
+                  </Text>
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <PageContainer>
+              <Banner status="error" title={msg} />
+            </PageContainer>
+          </LayoutContent>
+        }
+      />
     );
   }
 
@@ -210,148 +251,192 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
           <Button
             size="sm"
             variant="secondary"
+            label={withdrawMutation.isPending ? 'Withdrawing…' : 'Withdraw'}
             onClick={() => withdrawMutation.mutate()}
-            disabled={withdrawMutation.isPending}
-          >
-            {withdrawMutation.isPending ? 'Withdrawing…' : 'Withdraw'}
-          </Button>
+            isDisabled={withdrawMutation.isPending}
+          />
         )}
         {showReject && (
-          <Button size="sm" variant="secondary" onClick={() => setRejecting(true)}>
-            Reject
-          </Button>
+          <Button size="sm" variant="secondary" label="Reject" onClick={() => setRejecting(true)} />
         )}
         {showPmo && (
-          <Button size="sm" onClick={() => pmoMutation.mutate()} disabled={pmoMutation.isPending}>
-            {pmoMutation.isPending ? 'Signing off…' : 'PMO sign-off'}
-          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            label={pmoMutation.isPending ? 'Signing off…' : 'PMO sign-off'}
+            onClick={() => pmoMutation.mutate()}
+            isDisabled={pmoMutation.isPending}
+          />
         )}
         {showBod && (
-          <Button size="sm" onClick={() => bodMutation.mutate()} disabled={bodMutation.isPending}>
-            {bodMutation.isPending ? 'Approving…' : 'BoD approve · create project'}
-          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            label={bodMutation.isPending ? 'Approving…' : 'BoD approve · create project'}
+            onClick={() => bodMutation.mutate()}
+            isDisabled={bodMutation.isPending}
+          />
         )}
       </div>
     ) : undefined;
 
   return (
-    <PageChrome title={c.name} breadcrumb={[backLink]} actions={headerActions}>
-      <div className="page-container p-6 space-y-4">
-        <Card>
-          <CardContent className="p-4">
-            <CharterStepper status={c.status} rejectedStage={c.rejected_stage} />
-          </CardContent>
-        </Card>
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+              <BreadcrumbItem href="/pm/requests">Requests</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>{c.name}</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  {c.name}
+                </Text>
+              </HStack>
+              {headerActions}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <PageContainer className="space-y-4">
+            <Card padding={4}>
+              <CharterStepper status={c.status} rejectedStage={c.rejected_stage} />
+            </Card>
 
-        {c.status === 'rejected' && c.rejection_reason && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              Rejected at {c.rejected_stage === 'bod' ? 'BoD' : 'PMO'} review: {c.rejection_reason}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle>Charter</CardTitle>
-              <Badge variant={STATUS_META[c.status].variant}>{STATUS_META[c.status].label}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-hairline bg-hairline sm:grid-cols-4">
-              <Fact label="Account" value={accountName(c.account_id)} />
-              <Fact label="PM" value={workerName(c.pm_worker_id)} />
-              <Fact label="PMO" value={workerName(c.pmo_worker_id)} />
-              <Fact
-                label="Methodology"
-                value={c.methodology ? METHODOLOGY_LABEL[c.methodology] : null}
-              />
-              <Fact
-                label="Pricing"
-                value={c.pricing_model ? PRICING_LABEL[c.pricing_model] : null}
-              />
-              <Fact label="Team size" value={c.team_size != null ? String(c.team_size) : null} />
-              <Fact
-                label="Budget"
-                value={
-                  c.budget_bmm != null && Number(c.budget_bmm) > 0
-                    ? `${Number(c.budget_bmm)} BMM`
-                    : null
+            {c.status === 'rejected' && c.rejection_reason && (
+              <Banner
+                status="error"
+                title={
+                  <>
+                    Rejected at {c.rejected_stage === 'bod' ? 'BoD' : 'PMO'} review:{' '}
+                    {c.rejection_reason}
+                  </>
                 }
               />
-              <Fact
-                label="Timeline"
-                value={c.date_from ? `${c.date_from} → ${c.date_to ?? '?'}` : null}
-              />
-            </div>
+            )}
 
-            <ScopeBox label="Objective" text={c.objective} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <ScopeBox label="In scope" text={c.scope?.in} />
-              <ScopeBox label="Out of scope" text={c.scope?.out} />
-            </div>
+            <Card>
+              <Layout
+                header={
+                  <LayoutHeader hasDivider>
+                    <div className="flex items-center justify-between gap-3">
+                      <CardTitle>Charter</CardTitle>
+                      <Badge
+                        variant={STATUS_META[c.status].variant}
+                        label={STATUS_META[c.status].label}
+                      />
+                    </div>
+                  </LayoutHeader>
+                }
+                content={
+                  <LayoutContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-4">
+                        <Fact label="Account" value={accountName(c.account_id)} />
+                        <Fact label="PM" value={workerName(c.pm_worker_id)} />
+                        <Fact label="PMO" value={workerName(c.pmo_worker_id)} />
+                        <Fact
+                          label="Methodology"
+                          value={c.methodology ? METHODOLOGY_LABEL[c.methodology] : null}
+                        />
+                        <Fact
+                          label="Pricing"
+                          value={c.pricing_model ? PRICING_LABEL[c.pricing_model] : null}
+                        />
+                        <Fact
+                          label="Team size"
+                          value={c.team_size != null ? String(c.team_size) : null}
+                        />
+                        <Fact
+                          label="Budget"
+                          value={
+                            c.budget_bmm != null && Number(c.budget_bmm) > 0
+                              ? `${Number(c.budget_bmm)} BMM`
+                              : null
+                          }
+                        />
+                        <Fact
+                          label="Timeline"
+                          value={c.date_from ? `${c.date_from} → ${c.date_to ?? '?'}` : null}
+                        />
+                      </div>
+
+                      <ScopeBox label="Objective" text={c.objective} />
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <ScopeBox label="In scope" text={c.scope?.in} />
+                        <ScopeBox label="Out of scope" text={c.scope?.out} />
+                      </div>
+
+                      {c.status === 'approved' && c.project_id && (
+                        <Link
+                          to="/pm/projects/$projectId"
+                          params={{ projectId: c.project_id }}
+                          className="flex items-center justify-between rounded-md border border-border bg-surface px-3.5 py-3 text-base font-medium text-primary transition-colors hover:border-blue/40"
+                        >
+                          <span>Open live project</span>
+                          <ChevronRight className="size-4 text-secondary" />
+                        </Link>
+                      )}
+                    </div>
+                  </LayoutContent>
+                }
+              />
+            </Card>
 
             {c.status === 'approved' && c.project_id && (
-              <Link
-                to="/pm/projects/$projectId"
-                params={{ projectId: c.project_id }}
-                className="flex items-center justify-between rounded-md border border-hairline bg-surface-2 px-3.5 py-3 text-body-sm font-medium text-ink transition-colors hover:border-blue/40"
-              >
-                <span>Open live project</span>
-                <ChevronRight className="size-4 text-ink-muted" />
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-
-        {c.status === 'approved' && c.project_id && (
-          <CharterStaffingEditor
-            projectId={c.project_id}
-            dateFrom={c.date_from}
-            dateTo={c.date_to}
-            canManage={canManageProject}
-          />
-        )}
-      </div>
-
-      <Dialog open={rejecting} onOpenChange={setRejecting}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject charter</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <Label>Reason *</Label>
-              <Textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Explain the reason for rejection…"
-                className="min-h-[100px] resize-y"
+              <CharterStaffingEditor
+                projectId={c.project_id}
+                dateFrom={c.date_from}
+                dateTo={c.date_to}
+                canManage={canManageProject}
               />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setRejecting(false);
-                  setReason('');
-                }}
-                disabled={rejectMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => rejectMutation.mutate()}
-                disabled={rejectMutation.isPending || !reason.trim()}
-              >
-                {rejectMutation.isPending ? 'Rejecting…' : 'Reject'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </PageChrome>
+            )}
+          </PageContainer>
+
+          <Dialog isOpen={rejecting} onOpenChange={setRejecting} purpose="required">
+            <Layout
+              header={<DialogHeader title="Reject charter" onOpenChange={setRejecting} />}
+              content={
+                <LayoutContent>
+                  <Textarea
+                    label="Reason"
+                    isRequired
+                    value={reason}
+                    onChange={(value) => setReason(value)}
+                    placeholder="Explain the reason for rejection…"
+                    rows={4}
+                  />
+                </LayoutContent>
+              }
+              footer={
+                <DialogFooter>
+                  <Button
+                    variant="secondary"
+                    label="Cancel"
+                    onClick={() => {
+                      setRejecting(false);
+                      setReason('');
+                    }}
+                    isDisabled={rejectMutation.isPending}
+                  />
+                  <Button
+                    variant="destructive"
+                    label={rejectMutation.isPending ? 'Rejecting…' : 'Reject'}
+                    onClick={() => rejectMutation.mutate()}
+                    isDisabled={rejectMutation.isPending || !reason.trim()}
+                  />
+                </DialogFooter>
+              }
+            />
+          </Dialog>
+        </LayoutContent>
+      }
+    />
   );
 }

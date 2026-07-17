@@ -8,7 +8,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -262,10 +262,18 @@ describe('TaskDetailPage', () => {
     await user.click(screen.getByRole('button', { name: /more actions/i }));
     await user.click(await screen.findByRole('menuitem', { name: /^delete$/i }));
 
-    // Confirm dialog opens with the task title quoted in its body
-    const dialog = await screen.findByRole('dialog');
-    expect(await screen.findByRole('heading', { name: /delete this task\?/i })).toBeInTheDocument();
-    const { within } = await import('@testing-library/react');
+    // Confirm dialog opens with the task title quoted in its body. ConfirmDeleteTaskDialog uses
+    // purpose="required" (mandatory destructive confirm), so Astryx's Dialog renders
+    // role="alertdialog" rather than role="dialog" — that already disambiguates it from the
+    // Schedule card's two Astryx DateInput fields (Start/Due), which each always render their
+    // Calendar popover into the DOM as role="dialog" aria-label="Choose date" (jsdom doesn't
+    // implement the Popover API that keeps it visually/programmatically hidden until opened).
+    // Astryx's Dialog/DialogHeader don't wire aria-labelledby, so the alertdialog has no
+    // computed accessible name — assert the title via its heading instead of `{ name }`.
+    const dialog = await screen.findByRole('alertdialog');
+    expect(
+      within(dialog).getByRole('heading', { name: /delete this task\?/i }),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText(/wire telemetry/i)).toBeInTheDocument();
 
     await user.click(within(dialog).getByRole('button', { name: /delete task/i }));
@@ -341,5 +349,111 @@ describe('TaskDetailPage', () => {
     await waitFor(() => {
       expect(onDeleted).toHaveBeenCalledTimes(1);
     });
+  });
+
+  // The modal's plan crumb is behavior-carrying: it keeps an honest href (so middle-click
+  // still opens the board) but its click just closes the dialog, since the board is already
+  // mounted behind it and a navigation would lose its scroll/selection state.
+  it('modal variant: clicking the plan breadcrumb calls onClose instead of navigating', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    server.use(
+      http.get('/api/planner/v1/tasks/t9', () =>
+        HttpResponse.json(buildTaskDetail({ id: 't9', title: 'Ship it', version: 2 })),
+      ),
+      http.get('/api/planner/v1/plans/p1', () => HttpResponse.json(makePlan({ id: 'p1' }))),
+      http.get('/api/planner/v1/plans/p1/buckets', () => HttpResponse.json({ buckets: [] })),
+      http.get('/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
+    );
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const rootRoute = createRootRoute({ component: () => <Outlet /> });
+    const detailRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/planner/plans/$planId/tasks/$taskId',
+      component: () => <TaskDetailPage planId="p1" taskId="t9" variant="modal" onClose={onClose} />,
+    });
+    const routeTree = rootRoute.addChildren([detailRoute]);
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ['/planner/plans/p1/tasks/t9'] }),
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SessionProvider session={fxSession}>
+          <RouterProvider router={router} />
+        </SessionProvider>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByLabelText('Task title');
+
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    const planCrumb = within(nav).getByRole('link', { name: 'Q3 Launch' });
+    expect(planCrumb).toHaveAttribute('href', '/planner/plans/p1');
+
+    await user.click(planCrumb);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // The click is intercepted — the router must not have left the task route.
+    expect(router.state.location.pathname).toBe('/planner/plans/p1/tasks/t9');
+  });
+
+  it('modal variant: a cmd/ctrl/shift/alt-click on the plan breadcrumb falls through instead of calling onClose', async () => {
+    const onClose = vi.fn();
+    server.use(
+      http.get('/api/planner/v1/tasks/t9', () =>
+        HttpResponse.json(buildTaskDetail({ id: 't9', title: 'Ship it', version: 2 })),
+      ),
+      http.get('/api/planner/v1/plans/p1', () => HttpResponse.json(makePlan({ id: 'p1' }))),
+      http.get('/api/planner/v1/plans/p1/buckets', () => HttpResponse.json({ buckets: [] })),
+      http.get('/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
+      http.get('/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
+    );
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const rootRoute = createRootRoute({ component: () => <Outlet /> });
+    const detailRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/planner/plans/$planId/tasks/$taskId',
+      component: () => <TaskDetailPage planId="p1" taskId="t9" variant="modal" onClose={onClose} />,
+    });
+    const routeTree = rootRoute.addChildren([detailRoute]);
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ['/planner/plans/p1/tasks/t9'] }),
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SessionProvider session={fxSession}>
+          <RouterProvider router={router} />
+        </SessionProvider>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByLabelText('Task title');
+
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    const planCrumb = within(nav).getByRole('link', { name: 'Q3 Launch' });
+
+    for (const modifier of [
+      { metaKey: true },
+      { ctrlKey: true },
+      { shiftKey: true },
+      { altKey: true },
+    ]) {
+      onClose.mockClear();
+      // fireEvent.click returns the DOM dispatch result: false means preventDefault() was called;
+      // true means the browser's default action (navigation) is left to proceed.
+      const notPrevented = fireEvent.click(planCrumb, modifier);
+      expect(notPrevented).toBe(true);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(router.state.location.pathname).toBe('/planner/plans/p1/tasks/t9');
+    }
   });
 });

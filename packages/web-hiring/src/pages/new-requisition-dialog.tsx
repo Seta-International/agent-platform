@@ -1,24 +1,24 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
+  DateInput,
   Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
+  DialogHeader,
   DisabledActionTooltip,
+  HStack,
   Input,
-  Label,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
+  NumberInput,
   RichTextEditor,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
+  SegmentedControlItem,
+  Selector,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
   fetchAccounts,
@@ -43,6 +43,7 @@ const SECTIONS: { key: JdSectionKey; label: string }[] = [
 ];
 
 export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -116,6 +117,11 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     reset();
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
+  }
+
   const mutation = useMutation({
     mutationFn: () => {
       const jd_sections = SECTIONS.filter((s) => !isRichTextEmpty(jd[s.key])).map((s) => ({
@@ -142,7 +148,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
       });
     },
     onSuccess: () => {
-      toast.success('Requisition created');
+      toast({ body: 'Requisition created' });
       void queryClient.invalidateQueries({
         queryKey: hiringKeys.requisitions(),
       });
@@ -158,216 +164,194 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
+    <>
       <DisabledActionTooltip disabled={disabled} reason={PERMISSION_DENIED.requisition.create}>
-        <DialogTrigger asChild>
-          <Button size="sm" disabled={disabled}>
-            New requisition
-          </Button>
-        </DialogTrigger>
+        <Button
+          size="sm"
+          variant="primary"
+          icon={<Plus className="size-3.5" />}
+          label="New requisition"
+          isDisabled={disabled}
+          onClick={() => setOpen(true)}
+        />
       </DisabledActionTooltip>
-      <DialogContent
-        unstyled
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        className="w-[min(760px,94vw)]"
+      <Dialog
+        isOpen={open}
+        onOpenChange={handleOpenChange}
+        width={720}
+        maxHeight="88vh"
+        purpose="form"
       >
-        <DialogTitle className="sr-only">New requisition</DialogTitle>
-        <div className="flex max-h-[88vh] flex-col overflow-hidden rounded-xl">
-          <header className="border-b border-hairline bg-canvas px-6 py-3">
-            <h1 className="text-section-title font-semibold text-ink">New requisition</h1>
-          </header>
-          <div className="min-h-0 flex-1 overflow-auto">
-            <div className="space-y-5 px-6 pb-5 pt-3">
-              <div className="space-y-1">
-                <Label htmlFor="new-req-title">Job title *</Label>
-                <Input
-                  id="new-req-title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Senior Backend Engineer"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+        <Layout
+          header={
+            <DialogHeader title="New requisition" onOpenChange={handleOpenChange} hasDivider />
+          }
+          content={
+            <LayoutContent>
+              <div className="space-y-5">
                 <div className="space-y-1">
-                  <Label htmlFor="new-req-grade">Grade</Label>
-                  <Select value={grade} onValueChange={setGrade}>
-                    <SelectTrigger id="new-req-grade" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {GRADES.map((g) => (
-                        <SelectItem key={g} value={g}>
-                          {g}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="new-req-type">Type</Label>
-                  <Select value={kind} onValueChange={(v) => setKind(v as 'new' | 'replacement')}>
-                    <SelectTrigger id="new-req-type" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">New</SelectItem>
-                      <SelectItem value="replacement">Replacement</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="new-req-account">Account</Label>
-                  <Select
-                    value={accountId}
-                    onValueChange={(v) => {
-                      setAccountId(v);
-                      setProjectId('');
-                    }}
-                  >
-                    <SelectTrigger id="new-req-account" className="w-full">
-                      <SelectValue placeholder="No account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(accounts ?? []).map((a) => (
-                        <SelectItem key={a.account_id} value={a.account_id}>
-                          {a.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="new-req-project">Project</Label>
-                  <Select value={projectId} onValueChange={setProjectId} disabled={!accountId}>
-                    <SelectTrigger id="new-req-project" className="w-full">
-                      <SelectValue
-                        placeholder={accountId ? 'No project' : 'Pick an account first'}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(projects ?? []).map((p) => (
-                        <SelectItem key={p.project_id} value={p.project_id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="new-req-mode">Interview mode</Label>
-                  <Select
-                    value={mode}
-                    onValueChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
-                  >
-                    <SelectTrigger id="new-req-mode" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="online">Online (Teams)</SelectItem>
-                      <SelectItem value="onsite">Onsite</SelectItem>
-                      <SelectItem value="either">Either</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="new-req-headcount">Headcount (openings)</Label>
                   <Input
-                    id="new-req-headcount"
-                    type="number"
-                    min={1}
-                    value={headcount}
-                    onChange={(e) => setHeadcount(Math.max(1, Number(e.target.value) || 1))}
+                    label="Job title"
+                    isRequired
+                    value={title}
+                    onChange={(value) => setTitle(value)}
+                    placeholder="e.g. Senior Backend Engineer"
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="new-req-start">Start date</Label>
-                  <Input
-                    id="new-req-start"
-                    type="date"
-                    value={start}
-                    max={due || undefined}
-                    onChange={(e) => setStart(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="new-req-due">Due date</Label>
-                  <Input
-                    id="new-req-due"
-                    type="date"
-                    value={due}
-                    min={start || undefined}
-                    onChange={(e) => setDue(e.target.value)}
-                  />
-                </div>
-              </div>
-              {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
-
-              <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
-
-              <div className="flex items-center justify-between">
-                <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
-                <SegmentedControl
-                  value={variant}
-                  onValueChange={(v) => setVariant(v as JdVariant)}
-                  options={[
-                    { value: 'external', label: 'External' },
-                    { value: 'internal', label: 'Internal' },
-                  ]}
-                />
-              </div>
-
-              {SECTIONS.map((s) => (
-                <div key={s.key}>
-                  <div
-                    className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
-                  >
-                    {s.key === 'about' ? 'About the role *' : s.label}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Selector
+                      label="Grade"
+                      options={GRADES.map((g) => ({ value: g, label: g }))}
+                      value={grade}
+                      onChange={setGrade}
+                    />
                   </div>
-                  <RichTextEditor
-                    value={jd[s.key]}
-                    onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
-                    placeholder={
-                      s.key === 'about'
-                        ? 'Write the about section…'
-                        : `Write the ${s.label.toLowerCase()}…`
-                    }
+                  <div className="space-y-1">
+                    <Selector
+                      label="Type"
+                      options={[
+                        { value: 'new', label: 'New' },
+                        { value: 'replacement', label: 'Replacement' },
+                      ]}
+                      value={kind}
+                      onChange={(v) => setKind(v as 'new' | 'replacement')}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Selector
+                      label="Account"
+                      options={(accounts ?? []).map((a) => ({
+                        value: a.account_id,
+                        label: a.name,
+                      }))}
+                      value={accountId}
+                      onChange={(v) => {
+                        setAccountId(v);
+                        setProjectId('');
+                      }}
+                      placeholder="No account"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Selector
+                      label="Project"
+                      options={(projects ?? []).map((p) => ({
+                        value: p.project_id,
+                        label: p.name,
+                      }))}
+                      value={projectId}
+                      onChange={setProjectId}
+                      isDisabled={!accountId}
+                      placeholder={accountId ? 'No project' : 'Pick an account first'}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Selector
+                      label="Interview mode"
+                      options={[
+                        { value: 'online', label: 'Online (Teams)' },
+                        { value: 'onsite', label: 'Onsite' },
+                        { value: 'either', label: 'Either' },
+                      ]}
+                      value={mode}
+                      onChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
+                    />
+                  </div>
+                  <NumberInput
+                    label="Headcount (openings)"
+                    min={1}
+                    isIntegerOnly
+                    value={headcount}
+                    onChange={(v) => setHeadcount(Math.max(1, v || 1))}
                   />
                 </div>
-              ))}
-            </div>
-          </div>
-          <footer className="space-y-2 border-t border-hairline bg-canvas px-6 py-3">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-body-sm text-danger-ink">{requiredError}</p>
-              <div className="flex shrink-0 gap-2">
-                <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
-                  Cancel
-                </Button>
-                <Button onClick={submit} disabled={mutation.isPending}>
-                  {mutation.isPending ? 'Creating…' : 'Create'}
-                </Button>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <DateInput
+                      label="Start date"
+                      value={start || undefined}
+                      max={due || undefined}
+                      onChange={(v) => setStart(v ?? '')}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <DateInput
+                      label="Due date"
+                      value={due || undefined}
+                      min={start || undefined}
+                      onChange={(v) => setDue(v ?? '')}
+                    />
+                  </div>
+                </div>
+                {dateError && <p className="text-base text-error">{dateError}</p>}
+
+                <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
+
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold uppercase text-secondary">JD detail</div>
+                  <SegmentedControl
+                    label="JD variant"
+                    value={variant}
+                    onChange={(v) => setVariant(v as JdVariant)}
+                  >
+                    <SegmentedControlItem value="external" label="External" />
+                    <SegmentedControlItem value="internal" label="Internal" />
+                  </SegmentedControl>
+                </div>
+
+                {SECTIONS.map((s) => (
+                  <div key={s.key}>
+                    <div
+                      className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
+                    >
+                      {s.key === 'about' ? 'About the role *' : s.label}
+                    </div>
+                    <RichTextEditor
+                      value={jd[s.key]}
+                      onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
+                      placeholder={
+                        s.key === 'about'
+                          ? 'Write the about section…'
+                          : `Write the ${s.label.toLowerCase()}…`
+                      }
+                    />
+                  </div>
+                ))}
               </div>
-            </div>
-          </footer>
-        </div>
-      </DialogContent>
-    </Dialog>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <div className="space-y-2">
+                {error && <Banner status="error" title={error} />}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-base text-error">{requiredError}</p>
+                  <HStack gap={2} hAlign="end">
+                    <Button
+                      variant="secondary"
+                      label="Cancel"
+                      onClick={close}
+                      isDisabled={mutation.isPending}
+                    />
+                    <Button
+                      variant="primary"
+                      icon={<Plus className="size-4" />}
+                      label={mutation.isPending ? 'Creating…' : 'Create requisition'}
+                      onClick={submit}
+                      isDisabled={mutation.isPending}
+                    />
+                  </HStack>
+                </div>
+              </div>
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }

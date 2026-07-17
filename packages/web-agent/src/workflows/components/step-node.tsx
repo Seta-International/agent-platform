@@ -1,7 +1,7 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@seta/shared-ui';
+import { Dialog, DialogHeader, Layout, LayoutContent, Spinner } from '@seta/shared-ui';
 import type { Node } from '@xyflow/react';
 import { Handle, type NodeProps, Position } from '@xyflow/react';
-import { Ban, Check, CircleDashed, Loader2, PauseCircle, ShieldAlert, X } from 'lucide-react';
+import { Ban, Check, CircleDashed, PauseCircle, ShieldAlert, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { DefaultNodeData } from '../lib/build-graph.ts';
 import { stepStatusToRunStatus, tokenFor } from '../lib/status-tokens.ts';
@@ -30,15 +30,17 @@ function StepJsonDialog({ title, value, open, onClose }: StepJsonDialogProps) {
   }, [value]);
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl w-full p-0 overflow-hidden">
-        <DialogHeader className="px-4 pt-4 pb-2">
-          <DialogTitle className="font-mono text-sm">{title}</DialogTitle>
-        </DialogHeader>
-        <pre className="m-0 max-h-[60vh] overflow-auto whitespace-pre-wrap break-all bg-surface-1 px-4 py-3 font-mono text-[11.5px] leading-[1.55] text-ink border-t border-hairline">
-          {pretty}
-        </pre>
-      </DialogContent>
+    <Dialog isOpen={open} onOpenChange={onClose} width={720} purpose="info">
+      <Layout
+        header={<DialogHeader title={title} onOpenChange={onClose} />}
+        content={
+          <LayoutContent padding={0}>
+            <pre className="m-0 max-h-[60vh] overflow-auto whitespace-pre-wrap break-all bg-card px-4 py-3 font-mono text-sm leading-[1.55] text-primary border-t border-border">
+              {pretty}
+            </pre>
+          </LayoutContent>
+        }
+      />
     </Dialog>
   );
 }
@@ -47,36 +49,37 @@ function StatusIcon({ status }: { status: string }) {
   const cls = 'size-3.5 flex-none';
   switch (status) {
     case 'success':
-      return <Check className={`${cls} text-[var(--color-semantic-success)]`} />;
+      return <Check className={`${cls} text-[var(--color-success)]`} />;
     case 'failed':
-      return <X className={`${cls} text-[var(--color-destructive)]`} />;
+      return <X className={`${cls} text-[var(--color-error)]`} />;
     case 'running':
-      return <Loader2 className={`${cls} animate-spin text-[var(--color-primary)]`} />;
+      // size="md" is 14px, matching the size-3.5 of the sibling status icons.
+      return <Spinner size="md" className="flex-none" />;
     case 'paused':
     case 'suspended':
-      return <PauseCircle className={`${cls} text-[var(--color-semantic-warning)]`} />;
+      return <PauseCircle className={`${cls} text-[var(--color-warning)]`} />;
     case 'tripwire':
-      return <ShieldAlert className={`${cls} text-[var(--color-semantic-warning)]`} />;
+      return <ShieldAlert className={`${cls} text-[var(--color-warning)]`} />;
     case 'canceled':
-      return <Ban className={`${cls} text-[var(--color-ink-tertiary)]`} />;
+      return <Ban className={`${cls} text-[var(--color-text-disabled)]`} />;
     default:
-      return <CircleDashed className={`${cls} text-[var(--color-ink-tertiary)]`} />;
+      return <CircleDashed className={`${cls} text-[var(--color-text-disabled)]`} />;
   }
 }
 
 function nodeBorderColor(runStatus: string): string {
   switch (runStatus) {
     case 'running':
-      return 'var(--color-primary)';
+      return 'var(--color-accent)';
     case 'success':
-      return 'var(--color-semantic-success)';
+      return 'var(--color-success)';
     case 'failed':
-      return 'var(--color-destructive)';
+      return 'var(--color-error)';
     case 'paused':
     case 'tripwire':
-      return 'var(--color-semantic-warning)';
+      return 'var(--color-warning)';
     default:
-      return 'var(--color-hairline)';
+      return 'var(--color-border)';
   }
 }
 
@@ -97,24 +100,24 @@ export function DefaultNode({ data }: NodeProps<Node<DefaultNodeData>>) {
   return (
     <article
       aria-label={`Step ${data.stepId} (${runStatus})`}
-      className="w-[280px] overflow-hidden rounded-md border bg-[var(--color-surface-1)] shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-primary)]"
+      className="w-[280px] overflow-hidden rounded-md border bg-[var(--color-background-card)] shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
       style={{ borderColor: nodeBorderColor(runStatus) }}
     >
       <Handle
         type="target"
         position={Position.Top}
-        className="!h-2 !w-2 !bg-[var(--color-hairline)]"
+        className="!h-2 !w-2 !bg-[var(--color-border)]"
       />
 
       {/* Header */}
       <div className="flex items-start gap-2 px-3 pt-2.5 pb-1.5">
         <StatusIcon status={runStatus} />
         <div className="min-w-0 flex-1">
-          <span className="block truncate font-mono text-xs font-medium text-[var(--color-ink)]">
+          <span className="block truncate font-mono text-xs font-medium text-[var(--color-text-primary)]">
             {data.stepId}
           </span>
           {data.description ? (
-            <p className="mt-0.5 line-clamp-3 text-[11px] leading-[1.4] text-[var(--color-ink-subtle)]">
+            <p className="mt-0.5 line-clamp-3 text-xs leading-[1.4] text-[var(--color-text-secondary)]">
               {data.description}
             </p>
           ) : null}
@@ -125,15 +128,15 @@ export function DefaultNode({ data }: NodeProps<Node<DefaultNodeData>>) {
       <div aria-hidden className="h-0.5 w-full" style={{ background: t.bg }} />
       {hasActions && (
         <div
-          className="flex items-center gap-1 border-t border-[var(--color-hairline)] px-2 py-1.5"
-          style={{ background: 'var(--color-surface-2)' }}
+          className="flex items-center gap-1 border-t border-[var(--color-border)] px-2 py-1.5"
+          style={{ background: 'var(--color-background-surface)' }}
         >
           <div className="flex min-w-0 flex-1 items-center gap-1">
             {hasInput && (
               <>
                 <button
                   type="button"
-                  className="rounded border border-[var(--color-hairline)] px-2 py-0.5 text-xs hover:bg-[var(--color-surface-1)]"
+                  className="rounded border border-[var(--color-border)] px-2 py-0.5 text-xs hover:bg-[var(--color-background-card)]"
                   onClick={() => setInputOpen(true)}
                 >
                   Input
@@ -150,7 +153,7 @@ export function DefaultNode({ data }: NodeProps<Node<DefaultNodeData>>) {
               <>
                 <button
                   type="button"
-                  className="rounded border border-[var(--color-hairline)] px-2 py-0.5 text-xs hover:bg-[var(--color-surface-1)]"
+                  className="rounded border border-[var(--color-border)] px-2 py-0.5 text-xs hover:bg-[var(--color-background-card)]"
                   onClick={() => setOutputOpen(true)}
                 >
                   Output
@@ -167,7 +170,7 @@ export function DefaultNode({ data }: NodeProps<Node<DefaultNodeData>>) {
               <>
                 <button
                   type="button"
-                  className="rounded border border-[var(--color-hairline)] px-2 py-0.5 text-xs text-[var(--color-destructive)] hover:bg-[var(--color-surface-1)]"
+                  className="rounded border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-error)] hover:bg-[var(--color-background-card)]"
                   onClick={() => setErrorOpen(true)}
                 >
                   Error
@@ -195,7 +198,7 @@ export function DefaultNode({ data }: NodeProps<Node<DefaultNodeData>>) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!h-2 !w-2 !bg-[var(--color-hairline)]"
+        className="!h-2 !w-2 !bg-[var(--color-border)]"
       />
     </article>
   );

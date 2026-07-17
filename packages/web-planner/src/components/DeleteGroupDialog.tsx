@@ -1,12 +1,12 @@
 import type { GroupRow } from '@seta/planner';
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
+  Layout,
+  LayoutContent,
 } from '@seta/shared-ui';
 
 interface Props {
@@ -29,37 +29,43 @@ export function DeleteGroupDialog({
   const isM365 = group.external_source === 'm365';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete group?</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <p className="text-body-sm text-ink-subtle">
-            This group will be deleted. You can restore it later from the Archived filter.
-            {isM365 && (
-              <>
-                {' '}
-                It is linked to Microsoft 365 — deleting here pauses sync but does not remove the
-                group from Microsoft 365.
-              </>
-            )}
-          </p>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={isPending}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
-              Delete
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
+    <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="required">
+      <Layout
+        header={<DialogHeader title="Delete group?" onOpenChange={onOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-4">
+              <p className="text-base text-secondary">
+                This group will be deleted. You can restore it later from the Archived filter.
+                {isM365 && (
+                  <>
+                    {' '}
+                    It is linked to Microsoft 365 — deleting here pauses sync but does not remove
+                    the group from Microsoft 365.
+                  </>
+                )}
+              </p>
+              {error && <Banner status="error" title={error} />}
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              label="Cancel"
+              onClick={() => onOpenChange(false)}
+              isDisabled={isPending}
+            />
+            <Button
+              variant="destructive"
+              label="Delete"
+              onClick={onConfirm}
+              isDisabled={isPending}
+            />
+          </DialogFooter>
+        }
+      />
     </Dialog>
   );
 }

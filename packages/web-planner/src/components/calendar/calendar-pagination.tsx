@@ -15,7 +15,7 @@ export function CalendarPagination({ page, totalCount, hasNext, onPageChange }: 
   const to = Math.min(totalCount, page * CALENDAR_PAGE_SIZE);
   return (
     <div
-      className="flex items-center justify-end gap-2 border-t border-hairline px-7 py-2 text-caption text-ink-muted"
+      className="flex items-center justify-end gap-2 border-t border-border px-7 py-2 text-sm text-secondary"
       data-testid="calendar-pagination"
     >
       <span>
@@ -23,24 +23,24 @@ export function CalendarPagination({ page, totalCount, hasNext, onPageChange }: 
       </span>
       <Button
         variant="ghost"
-        size="icon"
-        aria-label="Previous page"
-        disabled={page <= 1}
+        size="sm"
+        isIconOnly
+        icon={<ChevronLeft className="size-3" />}
+        label="Previous page"
+        isDisabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
         className="size-7"
-      >
-        <ChevronLeft className="size-3" />
-      </Button>
+      />
       <Button
         variant="ghost"
-        size="icon"
-        aria-label="Next page"
-        disabled={!hasNext}
+        size="sm"
+        isIconOnly
+        icon={<ChevronRight className="size-3" />}
+        label="Next page"
+        isDisabled={!hasNext}
         onClick={() => onPageChange(page + 1)}
         className="size-7"
-      >
-        <ChevronRight className="size-3" />
-      </Button>
+      />
     </div>
   );
 }

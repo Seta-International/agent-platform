@@ -1,21 +1,23 @@
 import type { GroupRow } from '@seta/planner';
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
   DisabledActionTooltip,
+  Field,
   Input,
-  Label,
+  Layout,
+  LayoutContent,
   SegmentedControl,
+  SegmentedControlItem,
   Textarea,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { useState } from 'react';
+import { Check } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useUpdateGroup } from '../hooks/mutations/update-group';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { THEME_HEX } from './GroupPlansSection';
@@ -42,14 +44,133 @@ interface EditGroupDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-interface EditFormProps {
-  group: GroupRow;
-  onDone: () => void;
+interface EditGroupFieldsProps {
+  name: string;
+  onNameChange: (v: string) => void;
+  description: string;
+  onDescriptionChange: (v: string) => void;
+  theme: GroupTheme;
+  onThemeChange: (v: GroupTheme) => void;
+  visibility: GroupVisibility;
+  onVisibilityChange: (v: GroupVisibility) => void;
+  defaultRole: GroupDefaultRole;
+  onDefaultRoleChange: (v: GroupDefaultRole) => void;
+  isM365: boolean;
+  error: string | null;
+  onSubmit: () => void;
 }
 
-function EditForm({ group, onDone }: EditFormProps) {
+/**
+ * Presentational fields-only view — all state and the update mutation live in the parent
+ * `EditGroupDialog` now that the Cancel/Save actions render in the dialog's `footer` slot
+ * (Astryx `Layout`'s footer is a sibling of the content, so it can't reach into a
+ * self-contained form's local state without lifting it).
+ */
+function EditGroupFields({
+  name,
+  onNameChange,
+  description,
+  onDescriptionChange,
+  theme,
+  onThemeChange,
+  visibility,
+  onVisibilityChange,
+  defaultRole,
+  onDefaultRoleChange,
+  isM365,
+  error,
+  onSubmit,
+}: EditGroupFieldsProps) {
+  const themeId = useId();
+  const visibilityId = useId();
+  const defaultRoleId = useId();
+  return (
+    <div className="space-y-5">
+      {isM365 && (
+        <Banner
+          status="info"
+          title="Managed by Microsoft 365"
+          description="Name and description are pushed from M365 during sync and can't be edited here."
+        />
+      )}
+
+      <Input
+        label="Name"
+        value={name}
+        onChange={onNameChange}
+        onEnter={onSubmit}
+        isDisabled={isM365}
+      />
+
+      <Textarea
+        label="Description"
+        value={description}
+        onChange={onDescriptionChange}
+        rows={2}
+        placeholder="Optional description…"
+        isDisabled={isM365}
+      />
+
+      <Field label="Theme" inputID={themeId} labelID={themeId} isGroupLabel>
+        <fieldset aria-labelledby={themeId} className="flex flex-wrap gap-2">
+          {THEME_KEYS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              aria-label={t}
+              aria-pressed={theme === t}
+              onClick={() => onThemeChange(t)}
+              className={`flex size-7 items-center justify-center rounded-md text-white transition ${theme === t ? 'ring-2 ring-accent-bg ring-offset-2 ring-offset-card' : 'hover:scale-105'}`}
+              style={{ background: THEME_HEX[t] }}
+            >
+              {theme === t && <Check className="size-4" aria-hidden />}
+            </button>
+          ))}
+        </fieldset>
+      </Field>
+
+      <Field label="Visibility" inputID={visibilityId} labelID={visibilityId} isGroupLabel>
+        <SegmentedControl
+          label="Visibility"
+          value={visibility}
+          onChange={(v) => onVisibilityChange(v as GroupVisibility)}
+          size="md"
+          layout="fill"
+        >
+          {VISIBILITY_OPTIONS.map((o) => (
+            <SegmentedControlItem key={o.value} value={o.value} label={o.label} />
+          ))}
+        </SegmentedControl>
+      </Field>
+
+      <Field
+        label="Default role for new members"
+        inputID={defaultRoleId}
+        labelID={defaultRoleId}
+        isGroupLabel
+      >
+        <SegmentedControl
+          label="Default role for new members"
+          value={defaultRole}
+          onChange={(v) => onDefaultRoleChange(v as GroupDefaultRole)}
+          size="md"
+          layout="fill"
+        >
+          {DEFAULT_ROLE_OPTIONS.map((o) => (
+            <SegmentedControlItem key={o.value} value={o.value} label={o.label} />
+          ))}
+        </SegmentedControl>
+      </Field>
+
+      {error && <Banner status="error" title={error} />}
+    </div>
+  );
+}
+
+export function EditGroupDialog({ group, open, onOpenChange }: EditGroupDialogProps) {
   const updateGroup = useUpdateGroup(group.id);
   const canUpdateGroup = usePermission('planner.group.update');
+  const toast = useToast();
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description ?? '');
   const [theme, setTheme] = useState<GroupTheme>(group.theme);
@@ -58,6 +179,29 @@ function EditForm({ group, onDone }: EditFormProps) {
   const [error, setError] = useState<string | null>(null);
 
   const isM365 = group.external_source === 'm365';
+
+  // Astryx's `Dialog` always mounts its children regardless of `isOpen` — unlike the old
+  // Radix `{open && <EditForm .../>}` conditional mount, the fields no longer remount (and
+  // thus no longer reset) on every open. Reproduce the same "always fresh on open" behavior
+  // explicitly instead — but only on the closed→open transition, not on every render where
+  // `group` gets a new object reference while the dialog is already open. `group` comes from
+  // a react-query cache with default `refetchOnWindowFocus`; a background refetch that returns
+  // content-different data produces a new reference (structural sharing), and resetting on
+  // every such reference change would silently wipe an in-progress, unsaved edit. Track the
+  // previous `open` value in a ref so the reset only fires exactly once per open.
+  const wasOpen = useRef(open);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally excludes `group` — reset must fire only on the open transition, not on every `group` reference change while already open (see comment above).
+  useEffect(() => {
+    const justOpened = open && !wasOpen.current;
+    wasOpen.current = open;
+    if (!justOpened) return;
+    setName(group.name);
+    setDescription(group.description ?? '');
+    setTheme(group.theme);
+    setVisibility(group.visibility);
+    setDefaultRole(group.default_role);
+    setError(null);
+  }, [open]);
 
   const trimmedName = name.trim();
   const trimmedDesc = description.trim() || null;
@@ -77,7 +221,7 @@ function EditForm({ group, onDone }: EditFormProps) {
       return;
     }
     if (!hasChanges) {
-      onDone();
+      onOpenChange(false);
       return;
     }
     updateGroup.mutate(
@@ -87,8 +231,8 @@ function EditForm({ group, onDone }: EditFormProps) {
       },
       {
         onSuccess: () => {
-          toast('Group updated');
-          onDone();
+          toast({ body: 'Group updated' });
+          onOpenChange(false);
         },
         onError: (e) => setError(e instanceof Error ? e.message : "Couldn't update the group."),
       },
@@ -96,111 +240,47 @@ function EditForm({ group, onDone }: EditFormProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <Label htmlFor="edit-group-name">Name</Label>
-        <Input
-          id="edit-group-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submit();
-          }}
-          disabled={isM365}
-        />
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="edit-group-description">Description</Label>
-        <Textarea
-          id="edit-group-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          placeholder="Optional description…"
-          disabled={isM365}
-        />
-      </div>
-
-      {isM365 && (
-        <p className="text-xs text-ink-subtle">
-          Managed by Microsoft 365 — changes are pushed from M365 during sync.
-        </p>
-      )}
-
-      <div className="space-y-1.5">
-        <Label>Theme</Label>
-        <div className="flex gap-2">
-          {THEME_KEYS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              aria-label={t}
-              aria-pressed={theme === t}
-              onClick={() => setTheme(t)}
-              className={`size-6 rounded transition-shadow ${theme === t ? 'ring-2 ring-primary ring-offset-1' : 'hover:ring-1 hover:ring-hairline-strong'}`}
-              style={{ background: THEME_HEX[t] }}
+    <Dialog isOpen={open} onOpenChange={onOpenChange} width={560} purpose="form">
+      <Layout
+        header={<DialogHeader title="Edit group" onOpenChange={onOpenChange} />}
+        content={
+          <LayoutContent>
+            <EditGroupFields
+              name={name}
+              onNameChange={setName}
+              description={description}
+              onDescriptionChange={setDescription}
+              theme={theme}
+              onThemeChange={setTheme}
+              visibility={visibility}
+              onVisibilityChange={setVisibility}
+              defaultRole={defaultRole}
+              onDefaultRoleChange={setDefaultRole}
+              isM365={isM365}
+              error={error}
+              onSubmit={submit}
             />
-          ))}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        <Label>Visibility</Label>
-        <SegmentedControl
-          aria-label="Visibility"
-          value={visibility}
-          onValueChange={(v) => setVisibility(v as GroupVisibility)}
-          options={VISIBILITY_OPTIONS}
-          size="md"
-        />
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        <Label>Default role for new members</Label>
-        <SegmentedControl
-          aria-label="Default role"
-          value={defaultRole}
-          onValueChange={(v) => setDefaultRole(v as GroupDefaultRole)}
-          options={DEFAULT_ROLE_OPTIONS}
-          size="md"
-        />
-      </div>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      <div className="flex justify-end gap-2 pt-2">
-        <Button variant="secondary" onClick={onDone}>
-          Cancel
-        </Button>
-        <DisabledActionTooltip disabled={!canUpdateGroup} reason={PERMISSION_DENIED.group.edit}>
-          <Button
-            onClick={submit}
-            disabled={
-              !canUpdateGroup || !hasChanges || updateGroup.isPending || (!isM365 && !trimmedName)
-            }
-          >
-            Save
-          </Button>
-        </DisabledActionTooltip>
-      </div>
-    </div>
-  );
-}
-
-export function EditGroupDialog({ group, open, onOpenChange }: EditGroupDialogProps) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit group</DialogTitle>
-        </DialogHeader>
-        {open && <EditForm group={group} onDone={() => onOpenChange(false)} />}
-      </DialogContent>
+          </LayoutContent>
+        }
+        footer={
+          <DialogFooter>
+            <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
+            <DisabledActionTooltip disabled={!canUpdateGroup} reason={PERMISSION_DENIED.group.edit}>
+              <Button
+                variant="primary"
+                label="Save"
+                onClick={submit}
+                isDisabled={
+                  !canUpdateGroup ||
+                  !hasChanges ||
+                  updateGroup.isPending ||
+                  (!isM365 && !trimmedName)
+                }
+              />
+            </DisabledActionTooltip>
+          </DialogFooter>
+        }
+      />
     </Dialog>
   );
 }

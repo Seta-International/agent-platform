@@ -21,7 +21,7 @@ describe('GroupTile', () => {
   it('applies theme color via inline style', () => {
     const { container } = render(<GroupTile name="X" theme="green" size={28} />);
     const wrap = container.firstChild as HTMLElement;
-    expect(wrap.style.background).toBe('var(--color-group-theme-green)');
+    expect(wrap.style.background).toBe('var(--color-icon-green)');
   });
 
   it('scales size via inline style and uses smaller radius below 28px', () => {

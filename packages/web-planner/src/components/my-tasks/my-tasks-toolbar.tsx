@@ -1,4 +1,11 @@
-import { FilterPill, Input, SegmentedControl } from '@seta/shared-ui';
+import {
+  IconButton,
+  Input,
+  SegmentedControl,
+  SegmentedControlItem,
+  Selector,
+  Toolbar,
+} from '@seta/shared-ui';
 import { LayoutGrid, List, MoreHorizontal, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -31,27 +38,19 @@ const PRIORITY_OPTIONS = [
   { value: '3', label: 'Important' },
   { value: '5', label: 'Medium' },
   { value: '9', label: 'Low' },
-] as const;
+];
 
 const DUE_OPTIONS = [
   { value: 'overdue', label: 'Overdue' },
   { value: 'this_week', label: 'This week' },
   { value: 'no_date', label: 'No date' },
-] as const;
+];
 
+// Astryx's SegmentedControlItem has no per-item accessible-name override — the visible
+// `label` below (paired with the container's "View" label) is the item's accessible name.
 const VIEW_OPTIONS = [
-  {
-    value: 'list' as const,
-    label: 'List',
-    icon: <List className="size-3.5" />,
-    ariaLabel: 'List view',
-  },
-  {
-    value: 'grid' as const,
-    label: 'Grid',
-    icon: <LayoutGrid className="size-3.5" />,
-    ariaLabel: 'Grid view',
-  },
+  { value: 'list' as const, label: 'List', icon: <List className="size-3.5" /> },
+  { value: 'grid' as const, label: 'Grid', icon: <LayoutGrid className="size-3.5" /> },
 ];
 
 export function MyTasksToolbar({
@@ -79,82 +78,104 @@ export function MyTasksToolbar({
   }, [localSearch, onSearchChange, searchDebounceMs, isComposing]);
 
   return (
-    <div
+    <Toolbar
       data-testid="my-tasks-toolbar"
-      className="flex items-center gap-2 border-b border-hairline py-2"
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        <FilterPill
-          label="Plan"
-          value={value.planId ?? null}
-          options={planOptions.map((p) => ({ value: p.id, label: p.name }))}
-          onChange={(next) => onChange({ planId: next ?? undefined })}
-        />
-        <FilterPill
-          label="Group"
-          value={value.groupId ?? null}
-          options={groupOptions.map((g) => ({ value: g.id, label: g.name }))}
-          onChange={(next) => onChange({ groupId: next ?? undefined })}
-        />
-        <FilterPill
-          label="Priority"
-          value={value.priority !== undefined ? String(value.priority) : null}
-          options={PRIORITY_OPTIONS}
-          onChange={(next) => {
-            if (next === null) {
-              onChange({ priority: undefined });
-              return;
-            }
-            const n = Number(next);
-            if (n === 1 || n === 3 || n === 5 || n === 9) onChange({ priority: n });
-          }}
-        />
-        <FilterPill
-          label="Due"
-          value={value.due ?? null}
-          options={DUE_OPTIONS}
-          onChange={(next) => onChange({ due: next ?? undefined })}
-        />
-
-        <span aria-hidden="true" className="mx-1 h-5 border-l border-hairline" />
-
-        <SegmentedControl
-          aria-label="View"
-          value={value.view}
-          onValueChange={(next) => onChange({ view: next })}
-          options={VIEW_OPTIONS}
-        />
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        <div className="relative w-56">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-ink-subtle"
-          />
+      label="My tasks filters"
+      size="sm"
+      dividers={['bottom']}
+      startContent={
+        <>
           <Input
-            type="search"
+            type="text"
+            label="Search my tasks"
+            isLabelHidden
+            startIcon={<Search className="size-3.5" aria-hidden />}
+            hasClear
             placeholder="Search my tasks"
-            aria-label="Search my tasks"
             size="sm"
-            className="pl-7"
+            className="w-56"
             value={localSearch}
-            onChange={(e) => setLocalSearch(e.target.value)}
+            onChange={(v) => setLocalSearch(v)}
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={(e) => {
               setIsComposing(false);
-              setLocalSearch(e.currentTarget.value);
+              setLocalSearch((e.currentTarget as HTMLInputElement).value);
             }}
           />
-        </div>
-        <button
-          type="button"
-          aria-label="More toolbar options"
-          className="inline-flex size-7 items-center justify-center rounded-md text-ink-subtle hover:bg-surface-2 hover:text-ink"
-        >
-          <MoreHorizontal className="size-4" />
-        </button>
-      </div>
-    </div>
+          <Selector
+            label="Plan"
+            isLabelHidden
+            size="sm"
+            placeholder="Plan"
+            hasClear
+            hasSearch
+            searchPlaceholder="Search plans…"
+            options={planOptions.map((p) => ({ value: p.id, label: p.name }))}
+            value={value.planId ?? null}
+            onChange={(next) => onChange({ planId: next ?? undefined })}
+          />
+          <Selector
+            label="Group"
+            isLabelHidden
+            size="sm"
+            placeholder="Group"
+            hasClear
+            hasSearch
+            searchPlaceholder="Search groups…"
+            options={groupOptions.map((g) => ({ value: g.id, label: g.name }))}
+            value={value.groupId ?? null}
+            onChange={(next) => onChange({ groupId: next ?? undefined })}
+          />
+          <Selector
+            label="Priority"
+            isLabelHidden
+            size="sm"
+            placeholder="Priority"
+            hasClear
+            options={PRIORITY_OPTIONS}
+            value={value.priority !== undefined ? String(value.priority) : null}
+            onChange={(next) => {
+              if (next === null) {
+                onChange({ priority: undefined });
+                return;
+              }
+              const n = Number(next);
+              if (n === 1 || n === 3 || n === 5 || n === 9) onChange({ priority: n });
+            }}
+          />
+          <Selector
+            label="Due"
+            isLabelHidden
+            size="sm"
+            placeholder="Due"
+            hasClear
+            options={DUE_OPTIONS}
+            value={value.due ?? null}
+            onChange={(next) =>
+              onChange({ due: (next as MyTasksToolbarValue['due']) ?? undefined })
+            }
+          />
+        </>
+      }
+      endContent={
+        <>
+          <SegmentedControl
+            label="View"
+            value={value.view}
+            onChange={(next) => onChange({ view: next as MyTasksToolbarValue['view'] })}
+          >
+            {VIEW_OPTIONS.map((o) => (
+              <SegmentedControlItem key={o.value} value={o.value} label={o.label} icon={o.icon} />
+            ))}
+          </SegmentedControl>
+          <IconButton
+            variant="ghost"
+            size="sm"
+            label="More toolbar options"
+            icon={<MoreHorizontal className="size-4" />}
+          />
+        </>
+      }
+    />
   );
 }

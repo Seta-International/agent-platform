@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Switch } from '@seta/shared-ui';
+import { Banner, Switch } from '@seta/shared-ui';
 import { useState } from 'react';
 import { setLocalPasswordDisabled } from '../api/sso-client.ts';
 
@@ -9,7 +9,6 @@ interface SignInMethodsCardProps {
 }
 
 interface MethodRowProps {
-  switchId: string;
   title: string;
   description: React.ReactNode;
   enabled: boolean;
@@ -19,7 +18,6 @@ interface MethodRowProps {
 }
 
 function MethodRow({
-  switchId,
   title,
   description,
   enabled,
@@ -29,26 +27,27 @@ function MethodRow({
 }: MethodRowProps) {
   return (
     <div className="flex items-start justify-between gap-4 px-5 py-4">
-      <label htmlFor={switchId} className="min-w-0 flex-1 cursor-pointer">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-body font-medium text-ink">{title}</span>
+          <span className="text-base font-medium text-primary">{title}</span>
           <span
-            className={`inline-flex h-5 items-center rounded-full px-2 text-caption font-medium ${
+            className={`inline-flex h-5 items-center rounded-full px-2 text-sm font-medium ${
               enabled
-                ? 'border-0 bg-success-tint text-success'
-                : 'border border-hairline bg-surface-1 text-ink-muted'
+                ? 'border-0 bg-success-muted text-success'
+                : 'border border-border bg-card text-secondary'
             }`}
           >
             {enabled ? 'Enabled' : 'Disabled'}
           </span>
         </div>
-        <p className="m-0 mt-1 text-body-sm text-ink-subtle">{description}</p>
-      </label>
+        <p className="m-0 mt-1 text-base text-secondary">{description}</p>
+      </div>
       <Switch
-        id={switchId}
-        checked={enabled}
-        disabled={disabledSwitch || busy}
-        onCheckedChange={onToggle ? (v) => onToggle(!!v) : undefined}
+        label={title}
+        isLabelHidden
+        value={enabled}
+        isDisabled={disabledSwitch || busy}
+        onChange={onToggle ? (v) => onToggle(v) : undefined}
       />
     </div>
   );
@@ -85,19 +84,16 @@ export function SignInMethodsCard({
   const localDisableBlocked = localEnabled && !hasEnabledProvider;
 
   return (
-    <section className="overflow-hidden rounded-lg border border-hairline bg-canvas">
-      <header className="border-b border-hairline-tertiary px-5 py-4">
-        <h2 className="m-0 text-section-title font-semibold tracking-tight text-ink">
-          Sign-in methods
-        </h2>
-        <p className="m-0 mt-0.5 text-body-sm text-ink-subtle">
+    <section className="overflow-hidden rounded-lg border border-border bg-body">
+      <header className="border-b border-border px-5 py-4">
+        <h2 className="m-0 text-lg font-semibold tracking-tight text-primary">Sign-in methods</h2>
+        <p className="m-0 mt-0.5 text-base text-secondary">
           Choose how people in your organization sign in.
         </p>
       </header>
 
-      <div className="divide-y divide-hairline-tertiary">
+      <div className="divide-y divide-border">
         <MethodRow
-          switchId="local-password-switch"
           title="Password sign-in"
           description={
             localDisableBlocked
@@ -110,7 +106,6 @@ export function SignInMethodsCard({
           onToggle={handleToggle}
         />
         <MethodRow
-          switchId="sso-method-mirror"
           title="Single sign-on"
           description={
             hasEnabledProvider
@@ -123,10 +118,8 @@ export function SignInMethodsCard({
       </div>
 
       {error && (
-        <div className="border-t border-hairline-tertiary px-5 py-3">
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+        <div className="border-t border-border px-5 py-3">
+          <Banner status="error" title={error} />
         </div>
       )}
     </section>

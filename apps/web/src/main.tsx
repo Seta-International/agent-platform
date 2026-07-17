@@ -1,6 +1,6 @@
 import './styles/globals.css';
 
-import { ThemeProvider, Toaster } from '@seta/shared-ui';
+import { ThemeProvider, ToastViewport } from '@seta/shared-ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
@@ -21,10 +21,11 @@ createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="seta-theme">
-        <ErrorBoundary>
-          <RouterProvider router={router} />
-        </ErrorBoundary>
-        <Toaster />
+        <ToastViewport>
+          <ErrorBoundary>
+            <RouterProvider router={router} />
+          </ErrorBoundary>
+        </ToastViewport>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,

@@ -1,3 +1,4 @@
+import { ToastViewport } from '@seta/shared-ui';
 import type { SessionScopeProjection } from '@seta/web-identity';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -7,11 +8,11 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import type { ReactNode } from 'react';
+import { type ReactNode, StrictMode } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GroupDetailPage, type GroupTab } from '../../../src/pages/group-detail-page';
 import { makeGroup, makePlanWithRollups } from '../../../src/testing/fixtures';
@@ -133,6 +134,27 @@ function AdminPage({ tab, onTabChange }: { tab: GroupTab; onTabChange?: (t: Grou
 }
 
 describe('GroupDetailPage', () => {
+  // StrictMode double-invokes render, so this also pins the toast to an effect: raising it
+  // inline in the 403 render branch fires once per render pass and shows the user duplicates.
+  it('toasts once and redirects to the groups list when the group returns 403', async () => {
+    server.use(
+      http.get('*/api/planner/v1/groups/g1', () => new HttpResponse(null, { status: 403 })),
+      ...defaultHandlers().slice(1),
+    );
+    renderInRouter(
+      <StrictMode>
+        <ToastViewport>
+          <AdminPage tab="plans" />
+        </ToastViewport>
+      </StrictMode>,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "You don't have access to this group anymore.",
+    );
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
+
   it('renders header + stat row + tabs', async () => {
     server.use(...defaultHandlers());
     renderInRouter(<AdminPage tab="plans" />);
@@ -141,10 +163,11 @@ describe('GroupDetailPage', () => {
     expect(await screen.findByRole('heading', { name: 'Engineering' })).toBeInTheDocument();
 
     // Tabs are rendered
-    expect(screen.getByRole('tab', { name: /plans/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /members/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /activity/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /integrations/i })).toBeInTheDocument();
+    const tabs = within(screen.getByRole('navigation', { name: 'Group sections' }));
+    expect(tabs.getByRole('button', { name: /plans/i })).toBeInTheDocument();
+    expect(tabs.getByRole('button', { name: /members/i })).toBeInTheDocument();
+    expect(tabs.getByRole('button', { name: /activity/i })).toBeInTheDocument();
+    expect(tabs.getByRole('button', { name: /integrations/i })).toBeInTheDocument();
   });
 
   it('plans tab renders PlanCards + Rail', async () => {
@@ -215,7 +238,11 @@ describe('GroupDetailPage', () => {
     // Admin can see settings tab
     renderInRouter(<AdminPage tab="plans" />);
     await screen.findByRole('heading', { name: 'Engineering' });
-    expect(screen.getByRole('tab', { name: /settings/i })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Group sections' })).getByRole('button', {
+        name: /settings/i,
+      }),
+    ).toBeInTheDocument();
   });
 
   it('settings tab hidden when user is not admin or owner', async () => {
@@ -225,7 +252,11 @@ describe('GroupDetailPage', () => {
       <GroupDetailPage groupId="g1" tab="plans" onTabChange={() => {}} session={guestSession} />,
     );
     await screen.findByRole('heading', { name: 'Engineering' });
-    expect(screen.queryByRole('tab', { name: /settings/i })).toBeNull();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Group sections' })).queryByRole('button', {
+        name: /settings/i,
+      }),
+    ).toBeNull();
   });
 
   it('tab switch calls onTabChange', async () => {
@@ -236,7 +267,11 @@ describe('GroupDetailPage', () => {
     await screen.findByRole('heading', { name: 'Engineering' });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('tab', { name: /members/i }));
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Group sections' })).getByRole('button', {
+        name: /members/i,
+      }),
+    );
 
     expect(onTabChange).toHaveBeenCalledWith('members');
   });
@@ -255,6 +290,10 @@ describe('GroupDetailPage', () => {
     const inviteBtn = screen.getByRole('button', { name: /^invite$/i });
     await user.click(inviteBtn);
 
-    expect(screen.getByRole('dialog', { name: /add members/i })).toBeInTheDocument();
+    // Astryx's `DialogHeader` wires no `aria-labelledby`, so the dialog has no computed
+    // accessible name — scope with `within()` + a heading query instead of
+    // `getByRole('dialog', { name })` (established precedent from prior FUT-579 sub-tasks).
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Add members' })).toBeInTheDocument();
   });
 });

@@ -10,9 +10,9 @@ export function confidenceTier(score: number): Tier {
 }
 
 const TIER_CLASS: Record<Tier, string> = {
-  High: 'bg-success-tint text-success',
-  Medium: 'bg-warning-tint text-warning',
-  Uncertain: 'bg-surface-2 text-ink-muted',
+  High: 'bg-success-muted text-success',
+  Medium: 'bg-warning-muted text-warning',
+  Uncertain: 'bg-surface text-secondary',
 };
 
 interface TrustData {
@@ -27,18 +27,18 @@ export function DataTrustPart({ data }: { data: TrustData }) {
   const citations = data.evidenceCitations ?? [];
   const trace = data.reasoningTrace ?? [];
   return (
-    <div className="my-1 flex flex-col gap-1 text-caption">
+    <div className="my-1 flex flex-col gap-1 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`rounded px-1.5 py-0.5 font-medium ${TIER_CLASS[tier]}`}>
           {tier} confidence
         </span>
         {citations.length > 0 && (
-          <span className="text-ink-subtle">
+          <span className="text-secondary">
             Based on{' '}
             {citations.map((c, i) => (
               <span key={`${c.kind}-${c.id}`}>
                 {i > 0 ? ', ' : ''}
-                <span className="text-ink-muted">{c.label ?? `${c.kind}#${c.id}`}</span>
+                <span className="text-secondary">{c.label ?? `${c.kind}#${c.id}`}</span>
               </span>
             ))}
           </span>
@@ -48,17 +48,17 @@ export function DataTrustPart({ data }: { data: TrustData }) {
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className="text-primary hover:underline"
+            className="text-accent hover:underline"
           >
             Why?
           </button>
         )}
       </div>
       {open && trace.length > 0 && (
-        <ul className="ml-1 flex flex-col gap-0.5 border-l border-hairline pl-2 text-ink-subtle">
+        <ul className="ml-1 flex flex-col gap-0.5 border-l border-border pl-2 text-secondary">
           {trace.map((t) => (
             <li key={`${t.step}-${t.at}`}>
-              <span className="text-ink-muted">{t.step}</span>: {t.detail}
+              <span className="text-secondary">{t.step}</span>: {t.detail}
             </li>
           ))}
         </ul>

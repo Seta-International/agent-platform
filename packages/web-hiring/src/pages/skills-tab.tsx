@@ -1,4 +1,4 @@
-import { Button, toast } from '@seta/shared-ui';
+import { Button, useToast } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { type RequisitionDetail, setRequisitionSkills } from '../api/hiring-client.ts';
@@ -13,6 +13,7 @@ export function SkillsTab({
   detail: RequisitionDetail;
   canManage: boolean;
 }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const id = detail.requisition.id;
   const [skills, setSkills] = useState<PickedSkill[]>(
@@ -36,22 +37,22 @@ export function SkillsTab({
         })),
       }),
     onSuccess: () => {
-      toast.success('Skills saved');
+      toast({ body: 'Skills saved' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.requisition(id) });
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisition(id)),
   });
 
   if (!canManage) {
     return (
       <div className="flex flex-wrap gap-2">
         {detail.skills.length === 0 ? (
-          <span className="text-ink-muted">No skills set.</span>
+          <span className="text-secondary">No skills set.</span>
         ) : (
           detail.skills.map((s) => (
             <span
               key={s.skill_name}
-              className="rounded-full bg-surface-2 px-3 py-1 text-caption text-ink"
+              className="rounded-full bg-surface px-3 py-1 text-sm text-primary"
             >
               {s.skill_name}
               {s.min_level ? ` · ${s.min_level}` : ''}
@@ -66,9 +67,13 @@ export function SkillsTab({
     <div className="space-y-3">
       <SkillPicker value={skills} onChange={setSkills} />
       <div className="flex justify-end">
-        <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
-          {save.isPending ? 'Saving…' : 'Save skills'}
-        </Button>
+        <Button
+          size="sm"
+          variant="primary"
+          label={save.isPending ? 'Saving…' : 'Save skills'}
+          onClick={() => save.mutate()}
+          isDisabled={save.isPending}
+        />
       </div>
     </div>
   );

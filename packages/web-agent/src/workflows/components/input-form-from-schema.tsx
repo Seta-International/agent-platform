@@ -1,13 +1,4 @@
-import {
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@seta/shared-ui';
+import { Button, Input, NumberInput, Selector } from '@seta/shared-ui';
 import { dequal } from 'dequal';
 import { useState } from 'react';
 
@@ -155,6 +146,17 @@ export function InputFormFromSchema({
     }
   }
 
+  function handleNumberChange(leaf: LeafSpec, value: number | null) {
+    setValues((prev) => writePath(prev, leaf.path, value ?? undefined));
+    if (errors[leaf.path.join('.')]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[leaf.path.join('.')];
+        return next;
+      });
+    }
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const next: Errors = {};
@@ -183,58 +185,60 @@ export function InputFormFromSchema({
           !dequal(priorValue, raw);
         return (
           <div key={id} className="space-y-1.5">
-            <Label htmlFor={id}>
-              {labelFor(leaf)}
-              {leaf.required ? <span className="text-[var(--color-danger)]"> *</span> : null}
-              {showDiff ? (
-                <span className="ml-2 text-xs text-[var(--color-ink-subtle)] line-through">
-                  was: {formatPriorValue(priorValue)}
-                </span>
-              ) : null}
-            </Label>
             {leaf.enumValues ? (
-              <Select value={rawStr || undefined} onValueChange={(v) => handleChange(leaf, v)}>
-                <SelectTrigger id={id} aria-label={labelFor(leaf)} className="w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  {leaf.enumValues.map((v) => (
-                    <SelectItem key={v} value={v}>
-                      {v}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Selector
+                label={labelFor(leaf)}
+                isRequired={leaf.required}
+                description={showDiff ? `was: ${formatPriorValue(priorValue)}` : undefined}
+                status={error ? { type: 'error', message: error } : undefined}
+                options={leaf.enumValues.map((v) => ({ value: v, label: v }))}
+                value={rawStr || undefined}
+                onChange={(v) => handleChange(leaf, v)}
+                placeholder="—"
+              />
             ) : leaf.type === 'boolean' ? (
-              <Select value={rawStr || 'false'} onValueChange={(v) => handleChange(leaf, v)}>
-                <SelectTrigger id={id} aria-label={labelFor(leaf)} className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="false">false</SelectItem>
-                  <SelectItem value="true">true</SelectItem>
-                </SelectContent>
-              </Select>
+              <Selector
+                label={labelFor(leaf)}
+                isRequired={leaf.required}
+                description={showDiff ? `was: ${formatPriorValue(priorValue)}` : undefined}
+                status={error ? { type: 'error', message: error } : undefined}
+                options={[
+                  { value: 'false', label: 'false' },
+                  { value: 'true', label: 'true' },
+                ]}
+                value={rawStr || 'false'}
+                onChange={(v) => handleChange(leaf, v)}
+              />
+            ) : leaf.type === 'number' || leaf.type === 'integer' ? (
+              <NumberInput
+                label={labelFor(leaf)}
+                isRequired={leaf.required}
+                description={showDiff ? `was: ${formatPriorValue(priorValue)}` : undefined}
+                status={error ? { type: 'error', message: error } : undefined}
+                isIntegerOnly={leaf.type === 'integer'}
+                hasClear
+                value={typeof raw === 'number' ? raw : null}
+                onChange={(v) => handleNumberChange(leaf, v)}
+              />
             ) : (
               <Input
-                id={id}
-                aria-label={labelFor(leaf)}
-                type={leaf.type === 'number' || leaf.type === 'integer' ? 'number' : 'text'}
+                label={labelFor(leaf)}
+                isRequired={leaf.required}
+                description={showDiff ? `was: ${formatPriorValue(priorValue)}` : undefined}
+                status={error ? { type: 'error', message: error } : undefined}
                 value={rawStr}
-                onChange={(e) => handleChange(leaf, e.target.value)}
+                onChange={(value) => handleChange(leaf, value)}
               />
             )}
-            {error ? (
-              <p className="text-xs text-[var(--color-danger)]" role="alert">
-                {error}
-              </p>
-            ) : null}
           </div>
         );
       })}
-      <Button type="submit" disabled={submitting}>
-        {submitting ? 'Submitting…' : (submitLabel ?? 'Submit')}
-      </Button>
+      <Button
+        variant="primary"
+        type="submit"
+        isDisabled={submitting}
+        label={submitting ? 'Submitting…' : (submitLabel ?? 'Submit')}
+      />
     </form>
   );
 }

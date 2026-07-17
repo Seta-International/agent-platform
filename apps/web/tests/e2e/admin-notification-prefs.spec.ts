@@ -18,9 +18,9 @@ test('admin notification-prefs: toggle in-app off blocks delivery; toggle on res
   // Pick the row whose label is "Task assigned" and flip its in-app toggle off.
   const taskAssignedRow = page.locator('tr').filter({ hasText: 'Task assigned' });
   const inAppSwitch = taskAssignedRow.getByRole('switch').first();
-  await expect(inAppSwitch).toHaveAttribute('data-state', 'checked');
+  await expect(inAppSwitch).toBeChecked();
   await inAppSwitch.click();
-  await expect(inAppSwitch).toHaveAttribute('data-state', 'unchecked');
+  await expect(inAppSwitch).not.toBeChecked();
 
   // Reload to confirm persistence.
   await page.reload();
@@ -29,7 +29,7 @@ test('admin notification-prefs: toggle in-app off blocks delivery; toggle on res
     .filter({ hasText: 'Task assigned' })
     .getByRole('switch')
     .first();
-  await expect(inAppSwitchAfterReload).toHaveAttribute('data-state', 'unchecked');
+  await expect(inAppSwitchAfterReload).not.toBeChecked();
 
   // Synthesize a planner.task.assigned for the current user. With the pref off,
   // the in-app subscriber must drop the row.
@@ -47,7 +47,7 @@ test('admin notification-prefs: toggle in-app off blocks delivery; toggle on res
 
   // Re-enable and confirm a new synthesize gets through.
   await inAppSwitchAfterReload.click();
-  await expect(inAppSwitchAfterReload).toHaveAttribute('data-state', 'checked');
+  await expect(inAppSwitchAfterReload).toBeChecked();
 
   const res2 = await request.post('/api/notifications/v1/__dev/synthesize', {
     headers: { cookie: cookieHeader, 'content-type': 'application/json' },

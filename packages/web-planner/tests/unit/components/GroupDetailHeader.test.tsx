@@ -98,6 +98,12 @@ const baseProps = {
   onMenuAction: vi.fn(),
 };
 
+// Mirrors the TEXT table in shared-ui's sync-badge.tsx — keep in step if a
+// SyncState is added, or this absence check goes quietly vacuous. Anchored so
+// prose that merely mentions syncing ("…will keep the name … in sync.") cannot
+// match, which is what made the original /Sync/i query unusable.
+const SYNC_BADGE_LABEL = /^(Synced\b.*|Pulling…|Pushing…|Sync failed|Conflict)$/;
+
 describe('GroupDetailHeader', () => {
   it('renders the breadcrumb, tile, and title', async () => {
     renderInRouter(<GroupDetailHeader {...baseProps} />);
@@ -182,7 +188,7 @@ describe('GroupDetailHeader', () => {
       <GroupDetailHeader {...baseProps} group={{ ...baseGroup, external_source: 'native' }} />,
     );
     await screen.findByRole('heading', { name: 'Engineering' });
-    expect(screen.queryByText(/Sync/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(SYNC_BADGE_LABEL)).not.toBeInTheDocument();
   });
 
   it('does not show the auto-mirror info line for native groups', async () => {

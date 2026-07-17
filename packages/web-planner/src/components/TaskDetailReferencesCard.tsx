@@ -1,6 +1,7 @@
 import type { TaskDetailRow } from '@seta/planner';
-import { AddReferenceCombobox, ReferenceRow } from '@seta/shared-ui';
+import { classifyUrl, Input, ReferenceRow } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
+import { useState } from 'react';
 import { PlannerClientError } from '../api/planner-client';
 import { useAddTaskReference } from '../hooks/mutations/add-task-reference';
 import { useRemoveTaskReference } from '../hooks/mutations/remove-task-reference';
@@ -27,7 +28,7 @@ export function TaskDetailReferencesCard({ task, planId }: Props) {
 
   return (
     <section className="card" aria-label="References">
-      <header className="t-sm subtle mb-2">References</header>
+      <header className="text-sm text-secondary mb-2">References</header>
       <div className="flex flex-col gap-1.5">
         {task.references.map((r) => (
           <ReferenceRow
@@ -47,24 +48,50 @@ export function TaskDetailReferencesCard({ task, planId }: Props) {
         ))}
       </div>
       <div className="mt-2.5">
-        <AddReferenceCombobox
+        <ReferenceInput
           disabled={!canUpdate}
-          onAdd={(classified) =>
+          onAdd={(c) =>
             add.mutate({
               task_id: task.id,
-              url: classified.url,
-              alias: classified.alias,
-              type: classified.type,
+              url: c.url,
+              alias: c.alias,
+              type: c.type,
             })
           }
         />
         {errorMessage && (
-          <p role="alert" className="mt-1.5 text-caption text-destructive">
+          <p role="alert" className="mt-1.5 text-sm text-error">
             {errorMessage}
           </p>
         )}
       </div>
     </section>
+  );
+}
+
+function ReferenceInput({
+  disabled,
+  onAdd,
+}: {
+  disabled: boolean;
+  onAdd: (c: NonNullable<ReturnType<typeof classifyUrl>>) => void;
+}) {
+  const [url, setUrl] = useState('');
+  return (
+    <Input
+      label="Add reference URL"
+      isLabelHidden
+      value={url}
+      onChange={(v) => setUrl(v)}
+      placeholder="Paste a URL to attach a reference"
+      isDisabled={disabled}
+      onEnter={() => {
+        const c = classifyUrl(url);
+        if (!c) return;
+        onAdd(c);
+        setUrl('');
+      }}
+    />
   );
 }
 

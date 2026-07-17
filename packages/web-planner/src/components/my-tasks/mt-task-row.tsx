@@ -57,8 +57,8 @@ export function MtTaskRow({ task, dragHandleProps }: Props) {
       className={
         'group/row grid ' +
         'gap-3 items-center px-7 py-2 min-h-10 ' +
-        'border-b border-hairline-tertiary text-[13px] no-underline text-ink relative ' +
-        'hover:bg-surface-1 transition-colors'
+        'border-b border-border text-base no-underline text-primary relative ' +
+        'hover:bg-card transition-colors'
       }
     >
       <button
@@ -74,14 +74,14 @@ export function MtTaskRow({ task, dragHandleProps }: Props) {
         {...(dragHandleProps ?? {})}
         className="inline-flex items-center cursor-grab opacity-0 group-hover/row:opacity-60 bg-transparent border-0 p-0"
       >
-        <GripVertical size={12} className="text-ink-tertiary" />
+        <GripVertical size={12} className="text-disabled" />
       </button>
 
       <div className="min-w-0 flex items-center gap-2">
         <span className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">
           {task.title}
         </span>
-        <span className="text-ink-tertiary text-[11px]">·</span>
+        <span className="text-disabled text-xs">·</span>
         <StatusInline status={status} />
         {task.external_source === 'm365' && (
           <SyncBadge
@@ -91,7 +91,7 @@ export function MtTaskRow({ task, dragHandleProps }: Props) {
           />
         )}
         {daysLate !== undefined && daysLate > 0 ? (
-          <span className="text-[11px] text-danger font-medium whitespace-nowrap">
+          <span className="text-xs text-error font-medium whitespace-nowrap">
             · {daysLate}d late
           </span>
         ) : null}
@@ -99,9 +99,9 @@ export function MtTaskRow({ task, dragHandleProps }: Props) {
 
       <span
         data-testid="task-plan"
-        className="inline-flex items-center gap-1.5 text-ink-muted text-[12.5px] min-w-0"
+        className="inline-flex items-center gap-1.5 text-secondary text-sm min-w-0"
       >
-        <Layout size={11} className="text-primary shrink-0" aria-hidden />
+        <Layout size={11} className="text-accent shrink-0" aria-hidden />
         <span className="truncate">{task.plan.name}</span>
       </span>
 
@@ -112,8 +112,8 @@ export function MtTaskRow({ task, dragHandleProps }: Props) {
       <span
         data-testid="task-due"
         className={
-          'inline-flex items-center gap-1.5 text-[12.5px] ' +
-          (overdue ? 'text-danger font-medium' : 'text-ink-muted')
+          'inline-flex items-center gap-1.5 text-sm ' +
+          (overdue ? 'text-error font-medium' : 'text-secondary')
         }
       >
         <Calendar size={11} />

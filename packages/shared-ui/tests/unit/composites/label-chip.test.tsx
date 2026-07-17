@@ -11,14 +11,28 @@ describe('LabelChip', () => {
   it('honors an explicit color prop', () => {
     render(<LabelChip name="Feature" color="purple" />);
     const el = screen.getByText('Feature');
-    expect(el.className).toContain('label-chip--purple');
+    expect(el.getAttribute('data-variant')).toBe('purple');
   });
 
   it('assigns a deterministic color for the same name', () => {
     const { rerender } = render(<LabelChip name="Design" />);
-    const firstClass = screen.getByText('Design').className;
+    const firstVariant = screen.getByText('Design').getAttribute('data-variant');
 
     rerender(<LabelChip name="Design" />);
-    expect(screen.getByText('Design').className).toBe(firstClass);
+    expect(screen.getByText('Design').getAttribute('data-variant')).toBe(firstVariant);
+  });
+
+  it('exposes data-label-color matching an explicit color prop', () => {
+    render(<LabelChip name="Feature" color="purple" />);
+    expect(screen.getByText('Feature').getAttribute('data-label-color')).toBe('purple');
+  });
+
+  it('exposes a stable data-label-color for the hashed path (no color prop)', () => {
+    const { rerender } = render(<LabelChip name="Design" />);
+    const firstColor = screen.getByText('Design').getAttribute('data-label-color');
+    expect(firstColor).not.toBeNull();
+
+    rerender(<LabelChip name="Design" />);
+    expect(screen.getByText('Design').getAttribute('data-label-color')).toBe(firstColor);
   });
 });

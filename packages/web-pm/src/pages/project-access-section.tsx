@@ -1,22 +1,53 @@
 import {
-  AsyncCombobox,
   Button,
-  DataTable,
+  Checkbox,
+  type ColumnSettingsOption,
   EmptyState,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
+  Input,
+  Popover,
+  paginateData,
+  pixel,
+  proportional,
+  type SearchableItem,
+  Selector,
+  Skeleton,
+  Table,
+  type TableColumn,
+  Typeahead,
+  useSeededItems,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
+  useTableSortableState,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ShieldCheck } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Plus, Settings2, ShieldCheck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { fetchProjectAccess, type ProjectAccessRow, setProjectAccess } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search';
+import { useWorkerSource } from '../api/worker-search';
 import { pmKeys } from '../state/query-keys.ts';
+
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO
+// lacks an index signature, so alias locally (do not touch the shared DTO).
+type AccessRow = ProjectAccessRow & Record<string, unknown>;
+
+const PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
+// Universe of columns for the column-settings picker — the deleted DataTable
+// never disabled `enableColumnVisibility`/`enableHiding` here, so all 3
+// columns (including Actions) were genuinely hideable; preserved as-is.
+// "Actions" carries a real label here (old toolbar used the empty `header`
+// string verbatim, rendering an unlabeled checkbox — not reproduced, since an
+// unlabeled control is an accessibility bug, not a feature).
+const COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'worker_id', label: 'Worker' },
+  { key: 'level', label: 'Level' },
+  { key: 'actions', label: 'Actions' },
+];
+const DEFAULT_COLUMN_KEYS = COLUMN_OPTIONS.map((c) => c.key);
 
 export function ProjectAccessSection({
   projectId,
@@ -26,19 +57,24 @@ export function ProjectAccessSection({
   canManage: boolean;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const { data, isLoading } = useQuery({
     queryKey: pmKeys.projectAccess(projectId),
     queryFn: () => fetchProjectAccess(projectId),
   });
-  const [worker, setWorker] = useState('');
+  const [worker, setWorker] = useState<SearchableItem | null>(null);
   const [level, setLevel] = useState<ProjectAccessRow['level']>('view');
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
 
-  const { data: resolvedWorkers } = useQuery({
-    queryKey: ['people', 'worker-resolve-access', (data ?? []).map((g) => g.worker_id).sort()],
-    queryFn: () => workerPicker.resolveByIds((data ?? []).map((g) => g.worker_id)),
-    enabled: (data ?? []).length > 0,
-  });
+  const [resolvedWorkers] = useSeededItems(
+    (data ?? []).map((g) => g.worker_id),
+    workerSource.seed,
+  );
+
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_COLUMN_KEYS);
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: pmKeys.projectAccess(projectId) });
@@ -47,110 +83,212 @@ export function ProjectAccessSection({
   const save = useMutation({
     mutationFn: (grants: ProjectAccessRow[]) => setProjectAccess(projectId, grants),
     onSuccess: () => {
-      toast.success('Access updated');
-      setWorker('');
+      toast({ body: 'Access updated' });
+      setWorker(null);
       invalidate();
     },
     onError: (e: Error & { status?: number }) => {
-      toast.error(e.message);
+      toast({ body: e.message, type: 'error' });
     },
   });
 
-  const columns = useMemo(() => {
-    type CellCtx = { row: { original: ProjectAccessRow } };
-    function nameOf(id: string): string {
-      return resolvedWorkers?.find((o) => o.value === id)?.label ?? id;
-    }
-    return [
+  const nameOf = useMemo(() => {
+    const m = new Map(resolvedWorkers.map((o) => [o.id, o.label]));
+    return (id: string) => m.get(id) ?? id;
+  }, [resolvedWorkers]);
+
+  const rows = (data ?? []) as AccessRow[];
+
+  // The deleted DataTable defaulted `enableGlobalFilter` to `true` (this file
+  // never disabled it) — filter over the resolved worker name and level.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) =>
+      [nameOf(r.worker_id), r.level].some((v) => (v ?? '').toLowerCase().includes(q)),
+    );
+  }, [rows, search, nameOf]);
+
+  const { sortedData, sort, sortConfig } = useTableSortableState<AccessRow>({ data: filtered });
+  const sortable = useTableSortable<AccessRow>(sortConfig);
+
+  // Reset to page 1 on sort change — old TanStack autoResetPageIndex parity (see candidates-page).
+  // The search filter already resets page inline in its own onChange handler below.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sort is the intentional reset trigger, unread in the body.
+  useEffect(() => {
+    setPage(1);
+  }, [sort]);
+
+  const pageRows = useMemo(
+    () => paginateData(sortedData, page, pageSize),
+    [sortedData, page, pageSize],
+  );
+  const pagination = useTablePagination<AccessRow>({
+    page,
+    onPageChange: setPage,
+    totalItems: sortedData.length,
+    pageSize,
+    onPageSizeChange: (ps) => {
+      setPageSize(ps);
+      setPage(1);
+    },
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+  });
+
+  const columnSettingsState = useTableColumnSettingsState({
+    columns: COLUMN_OPTIONS,
+    activeColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+  });
+  const columnSettings = useTableColumnSettings<AccessRow>(
+    columnSettingsState.columnSettingsConfig,
+  );
+
+  const columns = useMemo<TableColumn<AccessRow>[]>(
+    () => [
       {
-        id: 'worker_id',
-        accessorKey: 'worker_id',
+        key: 'worker_id',
         header: 'Worker',
-        cell: ({ row }: CellCtx) => (
-          <span className="text-caption text-ink truncate block">
-            {nameOf(row.original.worker_id)}
-          </span>
+        width: proportional(2),
+        sortable: true,
+        renderCell: (r) => (
+          <span className="text-sm text-primary truncate block">{nameOf(r.worker_id)}</span>
         ),
       },
       {
-        id: 'level',
-        accessorKey: 'level',
+        key: 'level',
         header: 'Level',
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink capitalize">{row.original.level}</span>
-        ),
+        width: proportional(1),
+        sortable: true,
+        renderCell: (r) => <span className="text-primary capitalize">{r.level}</span>,
       },
       {
-        id: 'actions',
+        key: 'actions',
         header: '',
-        cell: ({ row }: CellCtx) =>
+        width: pixel(90),
+        align: 'end',
+        renderCell: (r) =>
           canManage ? (
             <Button
               size="sm"
               variant="ghost"
-              onClick={() =>
-                save.mutate((data ?? []).filter((g) => g.worker_id !== row.original.worker_id))
-              }
-            >
-              Remove
-            </Button>
+              label="Remove"
+              onClick={() => save.mutate((data ?? []).filter((g) => g.worker_id !== r.worker_id))}
+            />
           ) : null,
       },
-    ];
-  }, [canManage, data, resolvedWorkers, save]);
+    ],
+    [canManage, data, nameOf, save],
+  );
 
   return (
     <section className="space-y-3">
-      <h3 className="text-ink font-medium">Project access</h3>
-      <DataTable
-        columns={columns}
-        data={data ?? []}
-        isLoading={isLoading}
-        getRowId={(r: ProjectAccessRow) => r.worker_id}
-        emptyState={
-          <EmptyState
-            icon={<ShieldCheck className="size-6" />}
-            title="No grants"
-            description="Grant Owner/Edit/View to team members."
+      <h3 className="text-primary font-medium">Project access</h3>
+      <div className="flex items-center justify-between gap-2">
+        <Input
+          label="Search access"
+          isLabelHidden
+          className="max-w-sm"
+          placeholder="Search…"
+          value={search}
+          onChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
+        />
+        <Popover
+          placement="below"
+          alignment="end"
+          label="Toggle columns"
+          content={
+            <div className="flex min-w-[180px] flex-col gap-1 p-2">
+              <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
+                Toggle columns
+              </div>
+              {COLUMN_OPTIONS.map((col) => (
+                <Checkbox
+                  key={col.key}
+                  label={col.label}
+                  value={columnSettingsState.isColumnActive(col.key)}
+                  onChange={() => columnSettingsState.toggleColumn(col.key)}
+                />
+              ))}
+            </div>
+          }
+        >
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Settings2 className="size-3.5" />}
+            label="Columns"
           />
-        }
-      />
+        </Popover>
+      </div>
+      {isLoading ? (
+        <div className="space-y-2">
+          {['s0', 's1', 's2'].map((id) => (
+            <Skeleton key={id} height={36} />
+          ))}
+        </div>
+      ) : (
+        <Table
+          data={pageRows}
+          columns={columns}
+          idKey="worker_id"
+          plugins={{ pagination, sortable, columnSettings }}
+          emptyState={
+            search.trim() ? (
+              <EmptyState
+                title="No results match these filters"
+                description="Try removing a filter or clearing your search."
+                actions={<Button label="Clear filters" onClick={() => setSearch('')} />}
+              />
+            ) : (
+              <EmptyState
+                icon={<ShieldCheck className="size-6" />}
+                title="No grants"
+                description="Grant Owner/Edit/View to team members."
+              />
+            )
+          }
+        />
+      )}
       {canManage && (
         <div className="flex items-end gap-2">
           <div className="space-y-1 flex-1">
-            <Label>Worker</Label>
-            <AsyncCombobox
-              value={worker || null}
-              onChange={(v) => setWorker(v ?? '')}
-              search={workerPicker.search}
-              resolveByIds={workerPicker.resolveByIds}
+            <Typeahead
+              label="Worker"
+              searchSource={workerSource.source}
+              value={worker}
+              onChange={setWorker}
               placeholder="Search workers…"
             />
           </div>
           <div className="space-y-1 w-32">
-            <Label>Level</Label>
-            <Select value={level} onValueChange={(v) => setLevel(v as ProjectAccessRow['level'])}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="owner">Owner</SelectItem>
-                <SelectItem value="edit">Edit</SelectItem>
-                <SelectItem value="view">View</SelectItem>
-              </SelectContent>
-            </Select>
+            <Selector
+              label="Level"
+              options={[
+                { value: 'owner', label: 'Owner' },
+                { value: 'edit', label: 'Edit' },
+                { value: 'view', label: 'View' },
+              ]}
+              value={level}
+              onChange={(v) => setLevel(v as ProjectAccessRow['level'])}
+            />
           </div>
           <Button
-            onClick={() =>
+            variant="primary"
+            icon={<Plus className="size-4" />}
+            label="Add"
+            onClick={() => {
+              if (!worker) return;
               save.mutate([
-                ...(data ?? []).filter((g) => g.worker_id !== worker),
-                { worker_id: worker, level },
-              ])
-            }
-            disabled={save.isPending || !worker.trim()}
-          >
-            Add
-          </Button>
+                ...(data ?? []).filter((g) => g.worker_id !== worker.id),
+                { worker_id: worker.id, level },
+              ]);
+            }}
+            isDisabled={save.isPending || !worker}
+          />
         </div>
       )}
     </section>

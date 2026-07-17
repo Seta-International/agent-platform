@@ -1,26 +1,83 @@
 import type { LabelRow, TaskWithAssigneesRow } from '@seta/planner';
-import { Dialog, DialogContent, DialogTitle } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaskDetailLabelsCard } from '../../../src/components/TaskDetailLabelsCard';
 import { plannerKeys } from '../../../src/state/query-keys';
 import { makeTaskWithAssignees } from '../../../src/testing/fixtures';
+
+// The Astryx Tokenizer's onChange is discriminated by change.type ('add' /
+// 'remove' / 'create'), and asserting the exact vars passed to apply/unapply/
+// create/update requires observing the mutation hooks' `.mutate` calls
+// directly — MSW only sees the wire-level body (e.g. apply strips
+// label_name/label_color before the request), which can't carry the richer
+// assertions below. Mock the four label mutation hooks the same way
+// grid-bulk-action-footer.test.tsx mocks use-group-members.
+// The global test stub (tests/setup.ts) grants usePermission() === true for every test in this
+// package. This card must also gate the applied-label token's remove button on
+// usePermission('planner.task.update') (Astryx's Tokenizer doesn't gate a custom renderToken's
+// controls when isDisabled), so override the stub locally the same way
+// SyncControlsMenu.test.tsx does, letting individual tests flip it to false.
+let mockCanUpdate = true;
+vi.mock('@seta/web-identity', () => ({ usePermission: () => mockCanUpdate }));
+
+const { applySpy, unapplySpy, createSpy, updateSpy, deleteSpy } = vi.hoisted(() => ({
+  applySpy: vi.fn(),
+  unapplySpy: vi.fn(),
+  createSpy: vi.fn(async (v: { name: string; color: string }) => ({
+    id: 'new-label-id',
+    tenant_id: 't',
+    plan_id: 'p1',
+    name: v.name,
+    color: v.color,
+    category_slot: null,
+    created_at: '2026-05-01T00:00:00Z',
+    deleted_at: null,
+  })),
+  updateSpy: vi.fn((_vars: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.()),
+  deleteSpy: vi.fn(),
+}));
+
+vi.mock('../../../src/hooks/mutations/apply-label', () => ({
+  useApplyLabel: () => ({ mutate: applySpy, mutateAsync: applySpy, isPending: false }),
+}));
+vi.mock('../../../src/hooks/mutations/unapply-label', () => ({
+  useUnapplyLabel: () => ({ mutate: unapplySpy, mutateAsync: unapplySpy, isPending: false }),
+}));
+vi.mock('../../../src/hooks/mutations/create-label', () => ({
+  useCreateLabel: () => ({ mutate: createSpy, mutateAsync: createSpy, isPending: false }),
+}));
+vi.mock('../../../src/hooks/mutations/update-label', () => ({
+  useUpdateLabel: () => ({ mutate: updateSpy, mutateAsync: updateSpy, isPending: false }),
+}));
+vi.mock('../../../src/hooks/mutations/delete-label', () => ({
+  useDeleteLabel: () => ({ mutate: deleteSpy, mutateAsync: deleteSpy, isPending: false }),
+}));
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-function label(over: Partial<LabelRow> = {}): LabelRow {
+beforeEach(() => {
+  applySpy.mockClear();
+  unapplySpy.mockClear();
+  createSpy.mockClear();
+  updateSpy.mockClear();
+  deleteSpy.mockClear();
+  mockCanUpdate = true;
+});
+
+function fxLabel(id: string, name: string, over: Partial<LabelRow> = {}): LabelRow {
   return {
-    id: 'lbl1',
+    id,
     tenant_id: 't',
     plan_id: 'p1',
-    name: 'feature',
+    name,
     color: 'blue',
     category_slot: null,
     created_at: '',
@@ -36,53 +93,73 @@ function makeTask(
   return makeTaskWithAssignees({ id: 't1', labels, ...over });
 }
 
+const taskNoLabels = makeTask([]);
+const taskWithUrgent = makeTask([fxLabel('l-urgent', 'Urgent')]);
+
 function renderWithClient(node: ReactNode, planLabels?: LabelRow[]) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   if (planLabels) qc.setQueryData(plannerKeys.planLabels('p1'), planLabels);
-  return render(<QueryClientProvider client={qc}>{node}</QueryClientProvider>);
-}
-
-function renderInModalDialog(node: ReactNode, planLabels?: LabelRow[]) {
-  const qc = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  if (planLabels) qc.setQueryData(plannerKeys.planLabels('p1'), planLabels);
-  return render(
-    <QueryClientProvider client={qc}>
-      <Dialog open>
-        <DialogContent hideClose unstyled onOpenAutoFocus={(e) => e.preventDefault()}>
-          <DialogTitle className="sr-only">Task</DialogTitle>
-          {node}
-        </DialogContent>
-      </Dialog>
-    </QueryClientProvider>,
-  );
+  render(<QueryClientProvider client={qc}>{node}</QueryClientProvider>);
+  return { applySpy, unapplySpy, createSpy, updateSpy };
 }
 
 describe('TaskDetailLabelsCard', () => {
   it('renders applied labels as chips', () => {
-    const task = makeTask([
-      label({ id: 'l1', name: 'bug' }),
-      label({ id: 'l2', name: 'frontend' }),
-    ]);
+    const task = makeTask([fxLabel('l1', 'bug'), fxLabel('l2', 'frontend')]);
     renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" />);
     expect(screen.getByText('bug')).toBeInTheDocument();
     expect(screen.getByText('frontend')).toBeInTheDocument();
   });
 
-  it('opens a combobox listing plan labels when "Add" is clicked', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
+  it('lists slot-less plan labels in the tokenizer dropdown and applies on select', async () => {
     const user = userEvent.setup();
-    const task = makeTask([]);
-    renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" />, [
-      label({ id: 'la', name: 'alpha' }),
-      label({ id: 'lb', name: 'beta' }),
-    ]);
-    await user.click(screen.getByRole('button', { name: /Add label/i }));
-    await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
-    expect(screen.getByText('beta')).toBeInTheDocument();
+    const { applySpy } = renderWithClient(
+      <TaskDetailLabelsCard task={taskNoLabels} planId="p1" />,
+      [fxLabel('l-urgent', 'Urgent')],
+    );
+    const input = screen.getByPlaceholderText(/filter or create label/i);
+    await user.click(input);
+    await user.click(await screen.findByRole('option', { name: /Urgent/ }));
+    expect(applySpy).toHaveBeenCalledWith(
+      expect.objectContaining({ task_id: taskNoLabels.id, label_id: 'l-urgent' }),
+    );
+  });
+
+  it('creates a label on the fly when the typed name has no exact match', async () => {
+    const user = userEvent.setup();
+    const { createSpy } = renderWithClient(
+      <TaskDetailLabelsCard task={taskNoLabels} planId="p1" />,
+      [],
+    );
+    const input = screen.getByPlaceholderText(/filter or create label/i);
+    await user.type(input, 'Brand New');
+    await user.keyboard('{Enter}'); // hasCreate commits the typed value
+    expect(createSpy).toHaveBeenCalledWith(expect.objectContaining({ name: 'Brand New' }));
+  });
+
+  it('unapplies a label when its token is removed', async () => {
+    const user = userEvent.setup();
+    const { unapplySpy } = renderWithClient(
+      <TaskDetailLabelsCard task={taskWithUrgent} planId="p1" />,
+      [fxLabel('l-urgent', 'Urgent')],
+    );
+    await user.click(screen.getByRole('button', { name: /remove urgent/i }));
+    expect(unapplySpy).toHaveBeenCalledWith(expect.objectContaining({ label_id: 'l-urgent' }));
+  });
+
+  it('disables the token remove button and blocks unapply when the user lacks update permission', async () => {
+    mockCanUpdate = false;
+    const user = userEvent.setup();
+    const { unapplySpy } = renderWithClient(
+      <TaskDetailLabelsCard task={taskWithUrgent} planId="p1" />,
+      [fxLabel('l-urgent', 'Urgent')],
+    );
+    const removeButton = screen.getByRole('button', { name: /remove urgent/i });
+    expect(removeButton).toBeDisabled();
+    await user.click(removeButton);
+    expect(unapplySpy).not.toHaveBeenCalled();
   });
 
   it('renders a read-only category-slot pill when task has a category label', async () => {
@@ -96,7 +173,7 @@ describe('TaskDetailLabelsCard', () => {
         }),
       ),
     );
-    const task = makeTask([label({ id: 'lc', name: 'cat2', category_slot: 2 })]);
+    const task = makeTask([fxLabel('lc', 'cat2', { category_slot: 2 })]);
     renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" />);
     await waitFor(() => expect(screen.getByText(/Discovery & research/)).toBeInTheDocument());
     expect(screen.getByText(/cat 2/)).toBeInTheDocument();
@@ -105,234 +182,24 @@ describe('TaskDetailLabelsCard', () => {
   });
 
   it('hides the category-slot section when the task has no category label', () => {
-    const task = makeTask([label({ id: 'l1', name: 'plain', category_slot: null })]);
+    const task = makeTask([fxLabel('l1', 'plain', { category_slot: null })]);
     renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" />);
     expect(screen.queryByText(/cat /)).not.toBeInTheDocument();
   });
 
-  describe('inline create', () => {
-    it('shows a "Create" item when typed name has no exact match', async () => {
-      const { userEvent } = await import('@testing-library/user-event');
-      const user = userEvent.setup();
-      const task = makeTask([]);
-      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" />, []);
-      await user.click(screen.getByRole('button', { name: /Add label/i }));
-      const input = screen.getByLabelText(/Filter labels/i);
-      await user.type(input, 'shiny');
-      await waitFor(() =>
-        expect(screen.getByRole('option', { name: /Create.*shiny/i })).toBeInTheDocument(),
-      );
-    });
-
-    it('does NOT show a "Create" item when the typed name exactly matches an existing label', async () => {
-      const { userEvent } = await import('@testing-library/user-event');
-      const user = userEvent.setup();
-      const task = makeTask([]);
-      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" />, [
-        label({ id: 'la', name: 'alpha' }),
-      ]);
-      await user.click(screen.getByRole('button', { name: /Add label/i }));
-      const input = screen.getByLabelText(/Filter labels/i);
-      await user.type(input, 'alpha');
-      // existing label still selectable
-      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
-      expect(screen.queryByRole('option', { name: /Create.*alpha/i })).toBeNull();
-    });
-
-    it('POSTs createLabel then applyLabel when the create item is selected', async () => {
-      const { userEvent } = await import('@testing-library/user-event');
-      const user = userEvent.setup();
-
-      const createCalls: Array<Record<string, unknown>> = [];
-      const applyCalls: Array<{ taskId: string; body: Record<string, unknown> }> = [];
-
-      server.use(
-        http.post('/api/planner/v1/plans/p1/labels', async ({ request }) => {
-          const body = (await request.json()) as Record<string, unknown>;
-          createCalls.push(body);
-          return HttpResponse.json({
-            id: 'new-label-id',
-            tenant_id: 't',
-            plan_id: 'p1',
-            name: body.name,
-            color: body.color,
-            category_slot: null,
-            created_at: new Date().toISOString(),
-            deleted_at: null,
-          });
-        }),
-        http.post('/api/planner/v1/tasks/:taskId/labels', async ({ request, params }) => {
-          applyCalls.push({
-            taskId: String(params.taskId),
-            body: (await request.json()) as Record<string, unknown>,
-          });
-          return new HttpResponse(null, { status: 204 });
-        }),
-      );
-
-      const task = makeTask([]);
-      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" />, []);
-      await user.click(screen.getByRole('button', { name: /Add label/i }));
-      const input = screen.getByLabelText(/Filter labels/i);
-      await user.type(input, 'shiny');
-
-      const createItem = await screen.findByRole('option', { name: /Create.*shiny/i });
-      await user.click(createItem);
-
-      await waitFor(() => expect(createCalls.length).toBe(1));
-      expect(createCalls[0]).toMatchObject({ name: 'shiny' });
-      expect(typeof createCalls[0]?.color).toBe('string');
-
-      await waitFor(() => expect(applyCalls.length).toBe(1));
-      expect(applyCalls[0]?.taskId).toBe('t1');
-      expect(applyCalls[0]?.body).toMatchObject({ label_id: 'new-label-id' });
-    });
-  });
-
-  describe('isLinkedToM365=false (default behavior)', () => {
-    it('shows slot-less labels as enabled items with no "Local only" badge', async () => {
-      const { userEvent } = await import('@testing-library/user-event');
-      const user = userEvent.setup();
-      const task = makeTask([]);
-      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={false} />, [
-        label({ id: 'la', name: 'alpha' }),
-      ]);
-      await user.click(screen.getByRole('button', { name: /Add label/i }));
-      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
-      expect(screen.queryByText('Local only')).not.toBeInTheDocument();
-      const item = screen.getByRole('option', { name: /alpha/i });
-      expect(item).not.toHaveAttribute('aria-disabled', 'true');
-    });
-
-    it('calls apply mutation when a slot-less label is clicked', async () => {
-      const { userEvent } = await import('@testing-library/user-event');
-      const user = userEvent.setup();
-
-      const applyMutate = vi.fn();
-      server.use(
-        http.post('/api/planner/v1/tasks/t1/labels', async () => {
-          applyMutate();
-          return HttpResponse.json({});
-        }),
-      );
-
-      const task = makeTask([]);
-      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={false} />, [
-        label({ id: 'la', name: 'alpha' }),
-      ]);
-      await user.click(screen.getByRole('button', { name: /Add label/i }));
-      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
-      await user.click(screen.getByRole('option', { name: /alpha/i }));
-      await waitFor(() => expect(applyMutate).toHaveBeenCalledOnce());
-    });
-  });
-
   describe('isLinkedToM365=true', () => {
-    it('shows slot-less labels with "Local only" badge text', async () => {
-      const { userEvent } = await import('@testing-library/user-event');
+    it('offers no create and shows the sync note', async () => {
       const user = userEvent.setup();
-      const task = makeTask([]);
-      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={true} />, [
-        label({ id: 'la', name: 'alpha' }),
+      renderWithClient(<TaskDetailLabelsCard task={taskNoLabels} planId="p1" isLinkedToM365 />, [
+        fxLabel('l-x', 'X'),
       ]);
-      await user.click(screen.getByRole('button', { name: /Add label/i }));
-      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
-      expect(screen.getByText('Local only')).toBeInTheDocument();
-    });
-
-    it('marks slot-less label items as disabled (aria-disabled)', async () => {
-      const { userEvent } = await import('@testing-library/user-event');
-      const user = userEvent.setup();
-      const task = makeTask([]);
-      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={true} />, [
-        label({ id: 'la', name: 'alpha' }),
-      ]);
-      await user.click(screen.getByRole('button', { name: /Add label/i }));
-      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
-      const item = screen.getByRole('option', { name: /alpha/i });
-      expect(item).toHaveAttribute('aria-disabled', 'true');
-    });
-
-    it('does NOT call apply mutation when a disabled slot-less label is clicked', async () => {
-      const { userEvent } = await import('@testing-library/user-event');
-      const user = userEvent.setup();
-
-      const applyMutate = vi.fn();
-      server.use(
-        http.post('/api/planner/v1/tasks/t1/labels', async () => {
-          applyMutate();
-          return HttpResponse.json({});
-        }),
-      );
-
-      const task = makeTask([]);
-      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={true} />, [
-        label({ id: 'la', name: 'alpha' }),
-      ]);
-      await user.click(screen.getByRole('button', { name: /Add label/i }));
-      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
-
-      const item = screen.getByRole('option', { name: /alpha/i });
-      // pointer-events-none on disabled item means the click won't trigger onSelect
-      await user.click(item);
-      // Wait a tick to confirm mutation wasn't triggered
-      await new Promise((r) => setTimeout(r, 50));
-      expect(applyMutate).not.toHaveBeenCalled();
-    });
-
-    it('shows tooltip message when hovering a disabled slot-less label', async () => {
-      const { userEvent } = await import('@testing-library/user-event');
-      const user = userEvent.setup();
-      const task = makeTask([]);
-      renderWithClient(<TaskDetailLabelsCard task={task} planId="p1" isLinkedToM365={true} />, [
-        label({ id: 'la', name: 'alpha' }),
-      ]);
-      await user.click(screen.getByRole('button', { name: /Add label/i }));
-      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
-
-      // The tooltip trigger is the wrapper div around the disabled CommandItem
-      const option = screen.getByRole('option', { name: /alpha/i });
-      const trigger = option.closest('[data-radix-collection-item]')?.parentElement ?? option;
-      await user.hover(trigger);
-      await waitFor(() =>
-        expect(
-          screen.getAllByText(
-            'Assign this label to a category slot in Plan settings to send it to Microsoft Planner.',
-          ).length,
-        ).toBeGreaterThanOrEqual(1),
-      );
-    });
-  });
-
-  describe('inside modal Dialog', () => {
-    it('opens the picker via trigger click and applies a label', async () => {
-      const { userEvent } = await import('@testing-library/user-event');
-      const user = userEvent.setup();
-
-      const applyMutate = vi.fn();
-      server.use(
-        http.get('/api/planner/v1/plans/p1/categories', () =>
-          HttpResponse.json({
-            descriptions: {},
-            labels: [],
-            task_counts: {},
-            counts: { categories: 0 },
-          }),
-        ),
-        http.post('/api/planner/v1/tasks/t1/labels', async () => {
-          applyMutate();
-          return new HttpResponse(null, { status: 204 });
-        }),
-      );
-
-      const task = makeTask([]);
-      renderInModalDialog(<TaskDetailLabelsCard task={task} planId="p1" />, [
-        label({ id: 'la', name: 'alpha' }),
-      ]);
-      await user.click(screen.getByRole('button', { name: /Add label/i }));
-      await waitFor(() => expect(screen.getByText('alpha')).toBeInTheDocument());
-      await user.click(screen.getByRole('option', { name: /alpha/i }));
-      await waitFor(() => expect(applyMutate).toHaveBeenCalledOnce());
+      expect(screen.getByText(/sync from microsoft planner/i)).toBeInTheDocument();
+      const input = screen.queryByPlaceholderText(/filter or create label/i);
+      if (input) {
+        await user.type(input, 'Nope');
+        await user.keyboard('{Enter}');
+      }
+      expect(createSpy).not.toHaveBeenCalled();
     });
   });
 });

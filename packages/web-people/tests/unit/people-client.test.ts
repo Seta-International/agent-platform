@@ -91,7 +91,7 @@ describe('fetchWorkers', () => {
 describe('searchSkills', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('maps {id,name} rows to {value,label}', async () => {
+  it('source.search maps {id,name} rows to {id,label}', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -100,19 +100,19 @@ describe('searchSkills', () => {
       })),
     );
 
-    const out = await searchSkills.search('type');
-    expect(out).toEqual([{ value: 's1', label: 'TypeScript' }]);
+    const out = await searchSkills.source.search('type');
+    expect(out).toEqual([{ id: 's1', label: 'TypeScript' }]);
   });
 
-  it('resolveByIds sends ids param', async () => {
+  it('seed sends ids param', async () => {
     const f = vi.fn(async () => ({
       ok: true,
       json: async () => ({ rows: [{ id: 's1', name: 'TypeScript' }] }),
     }));
     vi.stubGlobal('fetch', f);
 
-    const out = await searchSkills.resolveByIds(['s1']);
-    expect(out).toEqual([{ value: 's1', label: 'TypeScript' }]);
+    const out = await searchSkills.seed(['s1']);
+    expect(out).toEqual([{ id: 's1', label: 'TypeScript' }]);
     expect(f.mock.calls[0]?.[0] as string).toContain('ids=s1');
   });
 });
@@ -120,7 +120,7 @@ describe('searchSkills', () => {
 describe('searchAccounts', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('maps {id,name} rows to {value,label}', async () => {
+  it('source.search maps {id,name} rows to {id,label}', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -129,15 +129,15 @@ describe('searchAccounts', () => {
       })),
     );
 
-    const out = await searchAccounts.search('acme');
-    expect(out).toEqual([{ value: 'a1', label: 'Acme Corp' }]);
+    const out = await searchAccounts.source.search('acme');
+    expect(out).toEqual([{ id: 'a1', label: 'Acme Corp' }]);
   });
 });
 
 describe('searchPeople', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('maps worker rows to {value: worker_id, label: full_name}', async () => {
+  it('source.search maps worker rows to {id: worker_id, label: full_name}', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -156,8 +156,8 @@ describe('searchPeople', () => {
       })),
     );
 
-    const out = await searchPeople.search('alice');
-    expect(out).toEqual([{ value: 'w1', label: 'Alice' }]);
+    const out = await searchPeople.source.search('alice');
+    expect(out).toEqual([{ id: 'w1', label: 'Alice' }]);
   });
 });
 
@@ -172,7 +172,7 @@ describe('searchProjects', () => {
     vi.stubGlobal('fetch', f);
 
     const out = await searchProjects('alpha', ['acc-1', 'acc-2']);
-    expect(out).toEqual([{ value: 'p1', label: 'Project Alpha' }]);
+    expect(out).toEqual([{ id: 'p1', label: 'Project Alpha' }]);
     const url = f.mock.calls[0]?.[0] as string;
     expect(url).toContain('/api/people/v1/projects');
     expect(url).toContain('account_id=acc-1%2Cacc-2');
@@ -195,21 +195,33 @@ describe('searchProjects', () => {
 describe('projectSearch', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('search passes account_id filter when accountIds provided', async () => {
+  it('source(accountIds).search passes account_id filter', async () => {
     const f = vi.fn(async () => ({
       ok: true,
       json: async () => ({ rows: [{ id: 'p1', name: 'Alpha' }] }),
     }));
     vi.stubGlobal('fetch', f);
 
-    const out = await projectSearch.search('alpha', ['acc-1']);
-    expect(out).toEqual([{ value: 'p1', label: 'Alpha' }]);
+    const out = await projectSearch.source(['acc-1']).search('alpha');
+    expect(out).toEqual([{ id: 'p1', label: 'Alpha' }]);
     const url = f.mock.calls[0]?.[0] as string;
     expect(url).toContain('account_id=acc-1');
     expect(url).toContain('search=alpha');
   });
 
-  it('resolveByIds hits ?ids=<csv> with no account_id filter', async () => {
+  it('source() without accountIds omits the account_id filter', async () => {
+    const f = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ rows: [] }),
+    }));
+    vi.stubGlobal('fetch', f);
+
+    await projectSearch.source().search('beta');
+    const url = f.mock.calls[0]?.[0] as string;
+    expect(url).not.toContain('account_id');
+  });
+
+  it('seed hits ?ids=<csv> with no account_id filter', async () => {
     const f = vi.fn(async () => ({
       ok: true,
       json: async () => ({
@@ -221,10 +233,10 @@ describe('projectSearch', () => {
     }));
     vi.stubGlobal('fetch', f);
 
-    const out = await projectSearch.resolveByIds(['p1', 'p2']);
+    const out = await projectSearch.seed(['p1', 'p2']);
     expect(out).toEqual([
-      { value: 'p1', label: 'Alpha' },
-      { value: 'p2', label: 'Beta' },
+      { id: 'p1', label: 'Alpha' },
+      { id: 'p2', label: 'Beta' },
     ]);
     const url = f.mock.calls[0]?.[0] as string;
     expect(url).toContain('/api/people/v1/projects');
@@ -232,11 +244,11 @@ describe('projectSearch', () => {
     expect(url).not.toContain('account_id');
   });
 
-  it('resolveByIds returns [] for empty ids without fetching', async () => {
+  it('seed returns [] for empty ids without fetching', async () => {
     const f = vi.fn();
     vi.stubGlobal('fetch', f);
 
-    const out = await projectSearch.resolveByIds([]);
+    const out = await projectSearch.seed([]);
     expect(out).toEqual([]);
     expect(f).not.toHaveBeenCalled();
   });

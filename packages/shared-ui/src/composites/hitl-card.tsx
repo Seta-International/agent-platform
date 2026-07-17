@@ -34,9 +34,9 @@ const RISK_LABEL: Record<RiskBadge, string> = {
   external: 'External',
 };
 const RISK_CLASS: Record<RiskBadge, string> = {
-  write: 'bg-primary/12 text-primary-ink',
-  destructive: 'bg-danger-tint text-danger-ink',
-  external: 'bg-warning-tint text-warning-ink',
+  write: 'bg-accent-bg/12 text-accent',
+  destructive: 'bg-error-muted text-error',
+  external: 'bg-warning-muted text-warning',
 };
 
 function formatRemaining(ms: number): { label: string; tier: 'ok' | 'soon' | 'urgent' } {
@@ -66,9 +66,9 @@ function blockKey(block: { kind: string }): string {
 }
 
 const countdownToneClass: Record<'ok' | 'soon' | 'urgent', string> = {
-  ok: 'text-primary-ink/80',
-  soon: 'text-warning-ink',
-  urgent: 'text-danger-ink',
+  ok: 'text-accent/80',
+  soon: 'text-warning',
+  urgent: 'text-error',
 };
 
 export function HitlCard({
@@ -124,23 +124,21 @@ export function HitlCard({
   return (
     <section
       aria-label={intent}
-      className="overflow-hidden rounded-xl border-[1.5px] border-primary-border bg-canvas shadow-[0_0_0_4px_var(--color-primary-tint),0_10px_24px_-14px_rgb(0_0_0/0.25)]"
+      className="overflow-hidden rounded-xl border-[1.5px] border-accent-bg bg-body shadow-[0_0_0_4px_var(--color-accent-muted),0_10px_24px_-14px_rgb(0_0_0/0.25)]"
     >
-      <header className="flex items-start gap-2.5 border-b border-primary-border bg-primary-tint px-3.5 py-2">
-        <Sparkles className="mt-[3px] size-3.5 shrink-0 text-primary" aria-hidden />
-        <h3 className="line-clamp-2 flex-1 text-body-sm font-semibold text-primary-ink">
-          {intent}
-        </h3>
+      <header className="flex items-start gap-2.5 border-b border-accent-bg bg-accent-muted px-3.5 py-2">
+        <Sparkles className="mt-[3px] size-3.5 shrink-0 text-accent" aria-hidden />
+        <h3 className="line-clamp-2 flex-1 text-base font-semibold text-accent">{intent}</h3>
         {card.riskBadge ? (
           <span
-            className={`shrink-0 rounded-sm px-1 text-[10px] font-medium uppercase tracking-wide ${RISK_CLASS[card.riskBadge] ?? ''}`}
+            className={`shrink-0 rounded-sm px-1 text-xs font-medium uppercase tracking-wide ${RISK_CLASS[card.riskBadge] ?? ''}`}
           >
             {RISK_LABEL[card.riskBadge] ?? card.riskBadge}
           </span>
         ) : null}
         {remaining ? (
           <span
-            className={`inline-flex shrink-0 items-center gap-1 font-mono text-caption tabular-nums ${countdownToneClass[remaining.tier]}`}
+            className={`inline-flex shrink-0 items-center gap-1 font-mono text-sm tabular-nums ${countdownToneClass[remaining.tier]}`}
             aria-live={remaining.tier === 'urgent' ? 'polite' : 'off'}
           >
             <Clock className="size-3" aria-hidden />
@@ -150,9 +148,7 @@ export function HitlCard({
       </header>
 
       <div className="px-3.5 py-3">
-        {card.summary ? (
-          <p className="mb-2.5 text-caption text-ink-subtle">{card.summary}</p>
-        ) : null}
+        {card.summary ? <p className="mb-2.5 text-sm text-secondary">{card.summary}</p> : null}
 
         <fieldset disabled={disabled} className="space-y-2.5">
           {card.details.map((block) => {
@@ -177,7 +173,7 @@ export function HitlCard({
               type="button"
               disabled={disabled}
               onClick={() => onDecide(toDecision('approve'))}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-body-sm font-semibold text-on-primary shadow-sm transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent-bg px-3 py-1.5 text-base font-semibold text-on-accent shadow-sm transition hover:bg-accent-bg disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Check className="size-3.5" aria-hidden />
               {pending ? 'Working…' : primaryLabel}
@@ -186,20 +182,20 @@ export function HitlCard({
               type="button"
               disabled={disabled}
               onClick={() => setRejectOpen(true)}
-              className="ml-auto rounded-md px-3 py-1.5 text-body-sm text-danger-ink hover:bg-danger-tint disabled:cursor-not-allowed disabled:opacity-50"
+              className="ml-auto rounded-md px-3 py-1.5 text-base text-error hover:bg-error-muted disabled:cursor-not-allowed disabled:opacity-50"
             >
               {card.decline.label}
             </button>
           </div>
         ) : (
-          <div className="mt-3.5 rounded-lg border border-hairline-strong bg-surface-1 p-2.5">
-            <label className="block text-caption text-ink-subtle">
+          <div className="mt-3.5 rounded-lg border border-border-strong bg-card p-2.5">
+            <label className="block text-sm text-secondary">
               Reason (optional)
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
-                className="mt-1 w-full resize-none rounded-md border border-hairline-strong bg-canvas px-2.5 py-1.5 text-body-sm text-ink placeholder:text-ink-tertiary focus:border-primary-border focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="mt-1 w-full resize-none rounded-md border border-border-strong bg-body px-2.5 py-1.5 text-base text-primary placeholder:text-disabled focus:border-accent-bg focus:outline-none focus:ring-2 focus:ring-accent-bg/20"
               />
             </label>
             <div className="mt-2 flex items-center justify-end gap-1.5">
@@ -209,7 +205,7 @@ export function HitlCard({
                   setRejectOpen(false);
                   setNote('');
                 }}
-                className="rounded-md px-2.5 py-1.5 text-body-sm text-ink-subtle hover:bg-surface-2 hover:text-ink"
+                className="rounded-md px-2.5 py-1.5 text-base text-secondary hover:bg-surface hover:text-primary"
               >
                 Cancel
               </button>
@@ -217,7 +213,7 @@ export function HitlCard({
                 type="button"
                 disabled={disabled}
                 onClick={() => onDecide(toDecision('reject', note.trim() || undefined))}
-                className="rounded-md bg-danger px-3 py-1.5 text-body-sm font-semibold text-on-destructive shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md bg-error px-3 py-1.5 text-base font-semibold text-on-error shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Confirm decline
               </button>
@@ -226,11 +222,11 @@ export function HitlCard({
         )}
 
         {!canAct ? (
-          <p className="mt-3 rounded-md bg-surface-2 px-2.5 py-1.5 text-caption text-ink-subtle">
+          <p className="mt-3 rounded-md bg-surface px-2.5 py-1.5 text-sm text-secondary">
             You don&apos;t have permission to decide this one.
           </p>
         ) : expired ? (
-          <p className="mt-3 rounded-md bg-danger-tint px-2.5 py-1.5 text-caption text-danger-ink">
+          <p className="mt-3 rounded-md bg-error-muted px-2.5 py-1.5 text-sm text-error">
             This approval has expired.
           </p>
         ) : null}

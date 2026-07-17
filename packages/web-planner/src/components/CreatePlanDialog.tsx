@@ -1,16 +1,16 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
   DisabledActionTooltip,
   Input,
-  Label,
+  Layout,
+  LayoutContent,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useCreatePlan } from '../hooks/mutations/create-plan';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
@@ -53,54 +53,49 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
     );
   }
 
+  function handleOpenChange(v: boolean) {
+    if (!v) reset();
+    onOpenChange(v);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (!v) reset();
-        onOpenChange(v);
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New plan</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-body-sm text-ink-subtle">
-            One plan = one stream of work, with its own buckets and tasks.
-          </p>
-          <div className="space-y-1">
-            <Label htmlFor="create-plan-name">Name</Label>
-            <Input
-              id="create-plan-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submit();
-              }}
-              placeholder="e.g. Q3 Launch"
-            />
-          </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+    <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+      <Layout
+        header={<DialogHeader title="New plan" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-3">
+              <p className="text-base text-secondary">
+                One plan = one stream of work, with its own buckets and tasks.
+              </p>
+              <div className="space-y-1">
+                <Input
+                  label="Name"
+                  value={name}
+                  onChange={(value) => setName(value)}
+                  onEnter={submit}
+                  placeholder="e.g. Q3 Launch"
+                />
+              </div>
+              {error && <Banner status="error" title={error} />}
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <DialogFooter>
+            <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <DisabledActionTooltip disabled={!canCreatePlan} reason={PERMISSION_DENIED.plan.create}>
               <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
+                label="Create plan"
                 onClick={submit}
-                disabled={!canCreatePlan || !name.trim() || createPlan.isPending}
-              >
-                Create plan
-              </Button>
+                isDisabled={!canCreatePlan || !name.trim() || createPlan.isPending}
+              />
             </DisabledActionTooltip>
-          </div>
-        </div>
-      </DialogContent>
+          </DialogFooter>
+        }
+      />
     </Dialog>
   );
 }

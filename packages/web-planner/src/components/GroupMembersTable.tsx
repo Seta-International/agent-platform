@@ -1,22 +1,28 @@
 import type { GroupMemberRow, GroupRow } from '@seta/planner';
 import {
   Avatar,
-  AvatarFallback,
+  Badge,
   Button,
-  cn,
-  DataTable,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+  EmptyState,
+  HoverCard,
+  Input,
+  paginateData,
+  Selector,
+  Table,
+  type TableColumn,
+  Toolbar,
+  useTablePagination,
+  useTableSelection,
+  useTableSelectionState,
+  useTableSortable,
+  useTableSortableState,
 } from '@seta/shared-ui';
-import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+
+// Astryx Table columns require `T extends Record<string, unknown>`; alias the
+// DTO locally rather than modifying the shared type.
+type Row = GroupMemberRow & Record<string, unknown>;
 
 interface Props {
   group: GroupRow;
@@ -28,11 +34,7 @@ interface Props {
   onRemoveMembers: (userIds: string[]) => void;
 }
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
-}
+const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
 const shortDateFmt = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -55,52 +57,49 @@ interface RoleControlProps {
 function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: RoleControlProps) {
   if (canEdit) {
     return (
-      <Select value={member.role} onValueChange={(v) => onChange(v as 'owner' | 'member')}>
-        <SelectTrigger aria-label={`Change role for ${member.display_name}`} className="w-28">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="owner">Owner</SelectItem>
-          <SelectItem value="member">Member</SelectItem>
-        </SelectContent>
-      </Select>
+      <Selector
+        label={`Change role for ${member.display_name}`}
+        isLabelHidden
+        options={[
+          { value: 'owner', label: 'Owner' },
+          { value: 'member', label: 'Member' },
+        ]}
+        value={member.role}
+        onChange={(v) => onChange(v as 'owner' | 'member')}
+      />
     );
   }
 
   const pill = (
-    <span
-      className={cn(
-        'inline-flex h-6 items-center rounded-full px-2 text-xs',
-        member.role === 'owner'
-          ? 'bg-primary-tint text-primary-ink'
-          : 'bg-surface-2 text-ink-muted',
-      )}
-    >
-      {member.role === 'owner' ? 'Owner' : 'Member'}
-    </span>
+    <Badge
+      variant={member.role === 'owner' ? 'info' : 'neutral'}
+      label={member.role === 'owner' ? 'Owner' : 'Member'}
+    />
   );
 
   if (isLinkedGroup) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {/* biome-ignore lint/a11y/noNoninteractiveTabindex: tooltip needs keyboard access */}
-          <span tabIndex={0}>{pill}</span>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Managed in Microsoft 365</p>
-          {externalId && (
-            <a
-              href={`https://entra.microsoft.com/#view/Microsoft_AAD_IAM/GroupDetailsMenuBlade/~/Overview/groupId/${externalId}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-0.5 block text-xs underline"
-            >
-              Open in Azure portal
-            </a>
-          )}
-        </TooltipContent>
-      </Tooltip>
+      <HoverCard
+        content={
+          <>
+            <p>Managed in Microsoft 365</p>
+            {externalId && (
+              <a
+                href={`https://entra.microsoft.com/#view/Microsoft_AAD_IAM/GroupDetailsMenuBlade/~/Overview/groupId/${externalId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-0.5 block text-xs underline"
+              >
+                Open in Azure portal
+              </a>
+            )}
+          </>
+        }
+        hasHoverIndication={false}
+      >
+        {/* biome-ignore lint/a11y/noNoninteractiveTabindex: hover card needs keyboard access */}
+        <span tabIndex={0}>{pill}</span>
+      </HoverCard>
     );
   }
 
@@ -121,132 +120,195 @@ export function GroupMembersTable({
   const isLinkedGroup = group.external_source !== 'native';
   const externalId = group.external_id;
 
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
 
-  const selectedIds = useMemo(
-    () =>
-      Object.entries(rowSelection)
-        .filter(([, selected]) => selected)
-        .map(([idx]) => members[Number(idx)]?.user_id)
-        .filter((id): id is string => !!id),
-    [rowSelection, members],
-  );
+  const rows = members as Row[];
 
-  const columns = useMemo<ColumnDef<GroupMemberRow>[]>(
+  // Consumer-owned global filter over the fields actually shown to the user
+  // (name/email/role label/formatted date) — case-insensitive substring match.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((m) => {
+      const roleLabel = m.role === 'owner' ? 'Owner' : 'Member';
+      return (
+        m.display_name.toLowerCase().includes(q) ||
+        m.email.toLowerCase().includes(q) ||
+        roleLabel.toLowerCase().includes(q) ||
+        shortDate(m.added_at).toLowerCase().includes(q)
+      );
+    });
+  }, [rows, search]);
+
+  const { sortedData, sort, sortConfig } = useTableSortableState<Row>({ data: filtered });
+  const sortable = useTableSortable<Row>(sortConfig);
+
+  // Reset to page 1 on sort change — old TanStack autoResetPageIndex parity (see candidates-page).
+  // The search filter already resets page inline in its own onChange handler above.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sort is the intentional reset trigger, unread in the body.
+  useEffect(() => {
+    setPage(1);
+  }, [sort]);
+
+  const pageRows = paginateData(sortedData, page, pageSize);
+
+  const pagination = useTablePagination<Row>({
+    page,
+    onPageChange: setPage,
+    totalItems: sortedData.length,
+    pageSize,
+    onPageSizeChange: (size) => {
+      setPageSize(size);
+      setPage(1);
+    },
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+  });
+
+  const { selectionConfig } = useTableSelectionState<Row>({
+    data: pageRows,
+    idKey: 'user_id',
+    selectedKeys,
+    setSelectedKeys,
+  });
+  const selection = useTableSelection<Row>(selectionConfig);
+
+  const selectedIds = useMemo(() => [...selectedKeys], [selectedKeys]);
+
+  const columns = useMemo<TableColumn<Row>[]>(
     () => [
       {
-        accessorKey: 'display_name',
+        key: 'display_name',
         header: 'Member',
-        cell: ({ row }) => (
+        sortable: true,
+        renderCell: (m) => (
           <div className="flex items-center gap-2.5">
-            <Avatar className="size-8 shrink-0">
-              <AvatarFallback className="text-[11px] font-semibold">
-                {initials(row.original.display_name)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="font-medium text-ink">{row.original.display_name}</span>
+            <Avatar name={m.display_name} size={32} />
+            <span className="font-medium text-primary">{m.display_name}</span>
           </div>
         ),
       },
       {
-        accessorKey: 'email',
+        key: 'email',
         header: 'Email',
-        cell: ({ getValue }) => <span className="text-ink-subtle">{String(getValue() ?? '')}</span>,
+        sortable: true,
+        renderCell: (m) => <span className="text-secondary">{m.email}</span>,
       },
       {
-        accessorKey: 'role',
+        key: 'role',
         header: 'Role',
-        enableSorting: false,
-        cell: ({ row }) => (
+        renderCell: (m) => (
           <RoleControl
-            member={row.original}
+            member={m}
             canEdit={canEditRoles}
             isLinkedGroup={isLinkedGroup}
             externalId={externalId}
-            onChange={(role) => onRoleChange({ user_id: row.original.user_id, role })}
+            onChange={(role) => onRoleChange({ user_id: m.user_id, role })}
           />
         ),
       },
       {
-        accessorKey: 'added_at',
+        key: 'added_at',
         header: 'Added',
-        cell: ({ getValue }) => (
-          <span className="whitespace-nowrap text-ink-subtle">
-            {shortDate(String(getValue() ?? ''))}
-          </span>
+        sortable: true,
+        renderCell: (m) => (
+          <span className="whitespace-nowrap text-secondary">{shortDate(m.added_at)}</span>
         ),
       },
       ...(canRemove
         ? ([
             {
-              id: 'actions',
-              header: () => null,
-              enableSorting: false,
-              enableHiding: false,
-              cell: ({ row }) => (
+              key: 'actions',
+              header: '',
+              renderCell: (m) => (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  label="Remove"
+                  className="text-error hover:text-error hover:bg-error/10"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onRemoveMember(row.original);
+                    onRemoveMember(m);
                   }}
-                >
-                  Remove
-                </Button>
+                />
               ),
             },
-          ] as ColumnDef<GroupMemberRow>[])
+          ] satisfies TableColumn<Row>[])
         : []),
     ],
     [canEditRoles, canRemove, isLinkedGroup, externalId, onRoleChange, onRemoveMember],
   );
 
   return (
-    <TooltipProvider>
-      <section className="rounded-lg border border-hairline bg-canvas overflow-hidden">
-        {selectedIds.length > 0 && (
-          <div className="flex items-center gap-3 border-b border-hairline bg-surface-1 px-4 py-2">
-            <span className="text-body-sm text-ink-subtle">
-              {selectedIds.length} {selectedIds.length === 1 ? 'member' : 'members'} selected
-            </span>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                onRemoveMembers(selectedIds);
-                setRowSelection({});
-              }}
-            >
-              Remove selected
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>
-              Clear selection
-            </Button>
-          </div>
-        )}
-        <div className="[&_>div]:space-y-0 [&_>div>div:first-child]:px-4 [&_>div>div:first-child]:pt-3 [&_>div>div:first-child]:pb-3 [&_>div>div:first-child]:border-b [&_>div>div:first-child]:border-hairline">
-          <DataTable
-            mode="client"
-            data={members as GroupMemberRow[]}
-            columns={columns}
-            enableGlobalFilter
-            globalFilterPlaceholder="Search members…"
-            enableColumnVisibility={false}
-            density="comfortable"
-            pagination={{ defaultPageSize: 20, pageSizeOptions: [20, 50, 100] }}
-            enableRowSelection={canRemove}
-            rowSelection={rowSelection}
-            onRowSelectionChange={setRowSelection}
-            emptyState={
-              <div className="px-4 py-12 text-center text-body-sm text-ink-subtle">
-                No members in this group yet.
-              </div>
-            }
+    <div className="flex flex-col">
+      {/* Search toolbar mirrors the Groups list: search at the start, sized sm, with a bottom
+          divider — no nested gray panel, so the table reads edge-to-edge like other screens. */}
+      <Toolbar
+        label="Member filters"
+        size="sm"
+        dividers={['bottom']}
+        startContent={
+          <Input
+            type="text"
+            label="Search members"
+            isLabelHidden
+            startIcon={<Search className="size-3.5" aria-hidden />}
+            hasClear
+            placeholder="Search members…"
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            className="w-[260px]"
+            size="sm"
+          />
+        }
+      />
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-3 border-b border-border px-4 py-2">
+          <span className="text-base text-secondary">
+            {selectedIds.length} {selectedIds.length === 1 ? 'member' : 'members'} selected
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            label="Remove selected"
+            onClick={() => {
+              onRemoveMembers(selectedIds);
+              setSelectedKeys(new Set());
+            }}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            label="Clear selection"
+            onClick={() => setSelectedKeys(new Set())}
           />
         </div>
-      </section>
-    </TooltipProvider>
+      )}
+      <Table
+        data={pageRows}
+        columns={columns}
+        idKey="user_id"
+        density="balanced"
+        plugins={{ pagination, sortable, ...(canRemove ? { selection } : {}) }}
+        emptyState={
+          search.trim() ? (
+            <EmptyState
+              title="No results match these filters"
+              description="Try removing a filter or clearing your search."
+              actions={<Button label="Clear filters" onClick={() => setSearch('')} />}
+            />
+          ) : (
+            <div className="px-4 py-12 text-center text-base text-secondary">
+              No members in this group yet.
+            </div>
+          )
+        }
+      />
+    </div>
   );
 }

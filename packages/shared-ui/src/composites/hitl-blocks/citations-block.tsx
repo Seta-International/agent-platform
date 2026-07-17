@@ -10,12 +10,12 @@ export function CitationsBlock({ block }: BlockProps) {
   const items = Array.isArray(block.items) ? (block.items as Citation[]) : [];
   if (items.length === 0) return null;
   return (
-    <span className="text-caption text-ink-subtle">
+    <span className="text-sm text-secondary">
       Based on{' '}
       {items.map((c, i) => (
         <span key={`${c.kind}-${c.id}`}>
           {i > 0 ? ', ' : ''}
-          <span className="text-ink-muted">{c.label ?? `${c.kind}#${c.id}`}</span>
+          <span className="text-secondary">{c.label ?? `${c.kind}#${c.id}`}</span>
         </span>
       ))}
     </span>

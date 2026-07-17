@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CandidateListItem } from '../../src/api/hiring-client.ts';
+import { COLUMN_EMPTY_COPY } from '../../src/pages/candidate-utils.ts';
 
 vi.mock('@seta/web-identity', () => ({ usePermission: () => true }));
 
@@ -37,6 +38,42 @@ const rows: CandidateListItem[] = [
   },
 ];
 
+// Two candidates, alphabetically reversed by name — gives "Sort by Candidate" something to prove.
+const twoRows: CandidateListItem[] = [
+  {
+    application_id: 'a1',
+    candidate_id: 'c1',
+    name: 'Zed Zephyr',
+    seniority: 'Senior',
+    source: 'Referral',
+    requisition_id: 'r1',
+    requisition_title: 'Backend Eng',
+    stage: 'new',
+    status: 'active',
+    rating: 0,
+    version: 1,
+    applied_at: '2024-01-01T00:00:00.000Z',
+    skills: [],
+    fit: { met: 1, required: 2, score: 0.5, strong: false },
+  },
+  {
+    application_id: 'a2',
+    candidate_id: 'c2',
+    name: 'Ada Lovelace',
+    seniority: 'Junior',
+    source: 'Referral',
+    requisition_id: 'r1',
+    requisition_title: 'Backend Eng',
+    stage: 'new',
+    status: 'active',
+    rating: 0,
+    version: 1,
+    applied_at: '2024-01-02T00:00:00.000Z',
+    skills: [],
+    fit: { met: 1, required: 2, score: 0.5, strong: false },
+  },
+];
+
 const wrap =
   (qc: QueryClient) =>
   ({ children }: { children: ReactNode }) => (
@@ -44,6 +81,19 @@ const wrap =
   );
 
 describe('CandidatesPage', () => {
+  it('renders the breadcrumb trail and page heading', async () => {
+    fetchCandidates.mockResolvedValue(rows);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Hiring Management' });
+    expect(rootCrumb).toHaveAttribute('href', '/hiring');
+    expect(within(nav).getByText('Candidates').closest('a')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Candidates' })).toBeInTheDocument();
+  });
+
   it('renders the board with the candidate card under New', async () => {
     fetchCandidates.mockResolvedValue(rows);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -57,12 +107,145 @@ describe('CandidatesPage', () => {
     expect(screen.getAllByText('Hired').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('shows the stage empty state via the column slot, not inside the droppable card list', async () => {
+    // Only the "new" stage is populated — interview/screening/offer/hired are empty and
+    // must show their stage copy through KanbanColumn's `emptyState` slot, not as a
+    // rendered card inside the droppable list (Task 8, FUT-725).
+    fetchCandidates.mockResolvedValue(rows);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+
+    expect(await screen.findByText(COLUMN_EMPTY_COPY.interview.title)).toBeInTheDocument();
+
+    const droppable = document.querySelector('[data-rfd-droppable-id="interview"]');
+    expect(droppable).not.toBeNull();
+    expect(
+      within(droppable as HTMLElement).queryByText(COLUMN_EMPTY_COPY.interview.title),
+    ).not.toBeInTheDocument();
+  });
+
   it('switches to list view', async () => {
     fetchCandidates.mockResolvedValue(rows);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidatesPage />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
-    await userEvent.click(screen.getByRole('tab', { name: 'List' }));
-    expect(screen.getByRole('columnheader', { name: 'Seniority' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: 'List' }));
+    const table = await screen.findByRole('table');
+    expect(within(table).getByRole('columnheader', { name: /seniority/i })).toBeInTheDocument();
+  });
+
+  it('clicking "Sort by Candidate" reorders the rows', async () => {
+    const user = userEvent.setup();
+    fetchCandidates.mockResolvedValue(twoRows);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Zed Zephyr')).toBeInTheDocument());
+    await user.click(screen.getByRole('radio', { name: 'List' }));
+
+    const table = await screen.findByRole('table');
+    // Server order (unsorted): Zed before Ada.
+    expect(screen.getAllByText(/Zed Zephyr|Ada Lovelace/)[0]).toHaveTextContent('Zed Zephyr');
+
+    await user.click(within(table).getByRole('button', { name: /sort by candidate/i }));
+
+    // Ascending by name: Ada before Zed.
+    expect(screen.getAllByText(/Zed Zephyr|Ada Lovelace/)[0]).toHaveTextContent('Ada Lovelace');
+  });
+
+  it('hiding the Seniority column via the Columns toggle removes it from the table', async () => {
+    const user = userEvent.setup();
+    fetchCandidates.mockResolvedValue(twoRows);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Zed Zephyr')).toBeInTheDocument());
+    await user.click(screen.getByRole('radio', { name: 'List' }));
+
+    const table = await screen.findByRole('table');
+    expect(within(table).getByRole('columnheader', { name: /seniority/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Columns' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Seniority' }));
+
+    expect(
+      within(table).queryByRole('columnheader', { name: /seniority/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('paginates client-side at 25/page', async () => {
+    const user = userEvent.setup();
+    const manyCandidates: CandidateListItem[] = Array.from({ length: 26 }, (_, i) => ({
+      application_id: `a${i}`,
+      candidate_id: `c${i}`,
+      name: `Candidate ${String(i).padStart(2, '0')}`,
+      seniority: 'Senior',
+      source: 'Referral',
+      requisition_id: 'r1',
+      requisition_title: 'Backend Eng',
+      stage: 'new',
+      status: 'active',
+      rating: 0,
+      version: 1,
+      applied_at: '2024-01-01T00:00:00.000Z',
+      skills: [],
+      fit: { met: 1, required: 2, score: 0.5, strong: false },
+    }));
+    fetchCandidates.mockResolvedValue(manyCandidates);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Candidate 00')).toBeInTheDocument());
+    await user.click(screen.getByRole('radio', { name: 'List' }));
+
+    await screen.findByRole('table');
+    expect(screen.getByText('Candidate 00')).toBeInTheDocument();
+    expect(screen.queryByText('Candidate 25')).not.toBeInTheDocument();
+
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: 'Go to page 2' }));
+
+    expect(screen.getByText('Candidate 25')).toBeInTheDocument();
+    expect(screen.queryByText('Candidate 00')).not.toBeInTheDocument();
+  });
+
+  it('resets to page 1 when the sort order changes while on page 2', async () => {
+    // Matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on
+    // `sorting` state changes too, not just filters (getSortedRowModel unconditionally calls
+    // `table._autoResetPageIndex()`).
+    const user = userEvent.setup();
+    const manyCandidates: CandidateListItem[] = Array.from({ length: 26 }, (_, i) => ({
+      application_id: `a${i}`,
+      candidate_id: `c${i}`,
+      name: `Candidate ${String(i).padStart(2, '0')}`,
+      seniority: 'Senior',
+      source: 'Referral',
+      requisition_id: 'r1',
+      requisition_title: 'Backend Eng',
+      stage: 'new',
+      status: 'active',
+      rating: 0,
+      version: 1,
+      applied_at: '2024-01-01T00:00:00.000Z',
+      skills: [],
+      fit: { met: 1, required: 2, score: 0.5, strong: false },
+    }));
+    fetchCandidates.mockResolvedValue(manyCandidates);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<CandidatesPage />, { wrapper: wrap(qc) });
+    await waitFor(() => expect(screen.getByText('Candidate 00')).toBeInTheDocument());
+    await user.click(screen.getByRole('radio', { name: 'List' }));
+
+    const table = await screen.findByRole('table');
+    const pager = screen.getByRole('navigation', { name: /table pagination/i });
+    await user.click(within(pager).getByRole('button', { name: 'Go to page 2' }));
+    expect(screen.getByText('Candidate 25')).toBeInTheDocument();
+
+    await user.click(within(table).getByRole('button', { name: /sort by candidate/i }));
+
+    expect(within(pager).getByRole('button', { name: 'Go to page 1' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByText('Candidate 00')).toBeInTheDocument();
+    expect(screen.queryByText('Candidate 25')).not.toBeInTheDocument();
   });
 });

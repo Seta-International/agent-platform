@@ -1,5 +1,5 @@
 import type { TaskWithAssigneesRow } from '@seta/planner';
-import { toast } from '@seta/shared-ui';
+import { ToastViewport } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -47,9 +47,15 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
+// ToastViewport hosts the toasts this page raises; mounting it per-render keeps each test
+// isolated (Astryx only drops a toast on a transitionend happy-dom never fires).
 function wrap(node: ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={qc}>{node}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={qc}>
+      <ToastViewport>{node}</ToastViewport>
+    </QueryClientProvider>
+  );
 }
 
 function makeTask(id: string, title: string, due_at: string | null) {
@@ -305,10 +311,6 @@ describe('PlanCalendarPage', () => {
       ),
       http.patch('/api/planner/v1/tasks/t1', () => new HttpResponse(null, { status: 500 })),
     );
-    const toastErrorSpy = vi
-      .spyOn(toast, 'error')
-      .mockReturnValue('id' as ReturnType<typeof toast.error>);
-
     render(wrap(<PlanCalendarPage {...baseProps} />));
     await screen.findByTestId('calendar-grid');
 
@@ -324,7 +326,8 @@ describe('PlanCalendarPage', () => {
     });
 
     expect(revert).toHaveBeenCalledOnce();
-    expect(toastErrorSpy).toHaveBeenCalledWith('Failed to reschedule task. Please try again.');
-    toastErrorSpy.mockRestore();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Failed to reschedule task. Please try again.',
+    );
   });
 });

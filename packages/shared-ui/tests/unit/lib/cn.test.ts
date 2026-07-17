@@ -12,6 +12,6 @@ describe('cn', () => {
 
   it('dedupes tailwind classes via twMerge', () => {
     expect(cn('p-2', 'p-4')).toBe('p-4');
-    expect(cn('text-ink', 'text-ink-muted')).toBe('text-ink-muted');
+    expect(cn('text-primary', 'text-secondary')).toBe('text-secondary');
   });
 });

@@ -1,36 +1,48 @@
 import {
-  Alert,
-  AlertDescription,
-  AsyncCombobox,
   Badge,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Card,
-  CardContent,
-  Combobox,
-  type ComboboxOption,
-  DataTable,
+  Checkbox,
+  type ColumnSettingsOption,
+  cn,
+  createStaticSource,
+  DateInput,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   EmptyState,
+  HStack,
   Input,
-  Label,
-  type OnChangeFn,
-  PageChrome,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  type SortingState,
-  toast,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  NumberInput,
+  Popover,
+  paginateData,
+  pixel,
+  proportional,
+  type SearchableItem,
+  Selector,
+  Skeleton,
+  Table,
+  type TableColumn,
+  type TableSortState,
+  Text,
+  Typeahead,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
+  useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { AlertCircle, ArrowRightLeft, CalendarRange, Plus, Users, X } from 'lucide-react';
+import { ArrowRightLeft, Plus, Settings2, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchAccounts,
@@ -39,7 +51,7 @@ import {
   type RaMonitoringAllocation,
   splitAllocation,
 } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search.ts';
+import { useWorkerSource } from '../api/worker-search.ts';
 import { pmKeys } from '../state/query-keys.ts';
 import { rowCalendarEffort } from '../utils/common.ts';
 import { type EffortWindow, overAllocatedWorkers, rollupKpis } from './ra-effort.ts';
@@ -66,19 +78,31 @@ export interface RaSearch {
   dir?: 'asc' | 'desc';
 }
 
-/** Volatile per-row edit state passed via the table `meta` so column defs stay
- *  stable across keystrokes — otherwise editable inputs remount and lose focus. */
-interface RaTableMeta {
-  canManage: boolean;
-  overWorkers: Set<string>;
-  /** Allocation ids that are the first row of their person's group — only
-   *  these show the Person/Seniority cell content; the rest render blank. */
-  firstInGroup: Set<string>;
-  onSplit: (r: RaMonitoringAllocation) => void;
-  /** Opens the group-level Reassign wizard for this row's whole person — only
-   *  rendered on a group's first row (see `firstInGroup`). */
-  onReassignGroup: (r: RaMonitoringAllocation) => void;
-}
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO
+// lacks an index signature, so alias locally (do not touch the shared DTO).
+type RaRow = RaMonitoringAllocation & Record<string, unknown>;
+
+// Universe of columns for the column-settings picker — the deleted DataTable
+// never disabled `enableColumnVisibility`/`enableHiding` here, so all 11
+// columns (including Person and Actions) were genuinely hideable; preserved
+// as-is. "Actions" carries a real label here (old toolbar used the empty
+// `header` string verbatim, rendering an unlabeled checkbox — not
+// reproduced, since an unlabeled control is an accessibility bug, not a
+// feature).
+const RA_COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'account', label: 'Account' },
+  { key: 'project', label: 'Project' },
+  { key: 'name', label: 'Person' },
+  { key: 'seniority', label: 'Seniority' },
+  { key: 'planned', label: 'Allocation' },
+  { key: 'start', label: 'Start' },
+  { key: 'end', label: 'End' },
+  { key: 'effort', label: 'Calendar effort' },
+  { key: 'bucket', label: 'Type' },
+  { key: 'note', label: 'Note' },
+  { key: 'actions', label: 'Actions' },
+];
+const DEFAULT_RA_COLUMN_KEYS = RA_COLUMN_OPTIONS.map((c) => c.key);
 
 function Kpi({
   label,
@@ -97,17 +121,15 @@ function Kpi({
       : tone === 'warning'
         ? 'var(--color-warning)'
         : tone === 'accent'
-          ? 'var(--color-danger)'
+          ? 'var(--color-error)'
           : undefined;
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-[11px] uppercase tracking-wide text-ink-muted">{label}</div>
-        <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
-          {value}
-        </div>
-        {sub ? <div className="text-[11px] text-ink-muted">{sub}</div> : null}
-      </CardContent>
+    <Card padding={4}>
+      <div className="text-xs uppercase tracking-wide text-secondary">{label}</div>
+      <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
+        {value}
+      </div>
+      {sub ? <div className="text-xs text-secondary">{sub}</div> : null}
     </Card>
   );
 }
@@ -123,58 +145,57 @@ function SelectEmployeeDialog({
 }: {
   onSelect: (worker: { id: string; name: string | null }) => void;
 }) {
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
   const [open, setOpen] = useState(false);
-  const [worker, setWorker] = useState<string | null>(null);
+  const [worker, setWorker] = useState<SearchableItem | null>(null);
 
-  async function handleNext() {
+  function handleNext() {
     if (!worker) return;
-    const [resolved] = await workerPicker.resolveByIds([worker]);
     setOpen(false);
+    onSelect({ id: worker.id, name: worker.label });
     setWorker(null);
-    onSelect({ id: worker, name: resolved?.label ?? null });
+  }
+
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (v) setWorker(null);
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (v) setWorker(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5">
-          <Plus className="size-4" />
-          Add allocation
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Select employee</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Employee</Label>
-            <AsyncCombobox
-              value={worker}
-              onChange={setWorker}
-              search={workerPicker.search}
-              resolveByIds={workerPicker.resolveByIds}
-              placeholder="Search people…"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button disabled={!worker} onClick={handleNext}>
-              Next
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button
+        size="sm"
+        variant="primary"
+        className="gap-1.5"
+        label="Add allocation"
+        icon={<Plus className="size-4" />}
+        onClick={() => setOpen(true)}
+      />
+      <Dialog isOpen={open} onOpenChange={handleOpenChange} width={560} purpose="form">
+        <Layout
+          header={<DialogHeader title="Select employee" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-1.5">
+                <Typeahead
+                  label="Employee"
+                  searchSource={workerSource.source}
+                  value={worker}
+                  onChange={setWorker}
+                  placeholder="Search people…"
+                />
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="ghost" label="Cancel" onClick={() => setOpen(false)} />
+              <Button variant="primary" label="Next" isDisabled={!worker} onClick={handleNext} />
+            </DialogFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }
 
@@ -187,6 +208,7 @@ function SplitAllocationDialog({
   onClose: () => void;
   onSplit: () => void;
 }) {
+  const toast = useToast();
   const [newEndDate, setNewEndDate] = useState('');
   const [continuationPct, setContinuationPct] = useState('100');
   const [continuationBucket, setContinuationBucket] = useState<Bucket>('billable');
@@ -216,99 +238,90 @@ function SplitAllocationDialog({
       }),
     onSuccess: (result) => {
       if (result.warning) {
-        toast.warning(
-          `Saved — but this now allocates ${target?.worker_name ?? 'this person'} to ${result.warning.peak_pct}% at the busiest point.`,
-        );
+        toast({
+          body: `Saved — but this now allocates ${target?.worker_name ?? 'this person'} to ${result.warning.peak_pct}% at the busiest point.`,
+        });
       } else {
-        toast.success('Allocation split');
+        toast({ body: 'Allocation split' });
       }
       onSplit();
       onClose();
     },
   });
 
+  function handleOpenChange(open: boolean) {
+    if (!open) onClose();
+  }
+
   return (
-    <Dialog
-      open={target !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>End early & continue</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          {mutation.isError ? (
-            <Alert variant="destructive">
-              <AlertCircle />
-              <AlertDescription>{mutation.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-          <div className="space-y-1.5">
-            <Label>New end date for this allocation</Label>
-            <Input
-              type="date"
-              min={target?.date_from ?? undefined}
-              max={target?.date_to ?? undefined}
-              value={newEndDate}
-              onChange={(e) => setNewEndDate(e.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Continuation allocation %</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={continuationPct}
-                onChange={(e) => setContinuationPct(e.target.value)}
-              />
+    <Dialog isOpen={target !== null} onOpenChange={handleOpenChange} width={560} purpose="form">
+      <Layout
+        header={<DialogHeader title="End early & continue" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-4">
+              {mutation.isError ? <Banner status="error" title={mutation.error.message} /> : null}
+              <div className="space-y-1.5">
+                <DateInput
+                  label="New end date for this allocation"
+                  min={target?.date_from ?? undefined}
+                  max={target?.date_to ?? undefined}
+                  value={newEndDate || undefined}
+                  onChange={(v) => setNewEndDate(v ?? '')}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <NumberInput
+                  label="Continuation allocation %"
+                  min={0}
+                  max={100}
+                  units="%"
+                  value={continuationPct === '' ? null : Number(continuationPct)}
+                  onChange={(v) => setContinuationPct(String(v))}
+                />
+                <div className="space-y-1.5">
+                  <Selector
+                    label="Continuation type"
+                    options={[
+                      { value: 'billable', label: 'Billable' },
+                      { value: 'internal', label: 'Internal' },
+                      { value: 'bench', label: 'Bench' },
+                    ]}
+                    value={continuationBucket}
+                    onChange={(v) => setContinuationBucket(v as Bucket)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <DateInput
+                  label="Continuation end date"
+                  value={continuationTo || undefined}
+                  onChange={(v) => setContinuationTo(v ?? '')}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Input
+                  label="Note"
+                  value={note}
+                  onChange={(value) => setNote(value)}
+                  placeholder="e.g. plan revised in March"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Continuation type</Label>
-              <Select
-                value={continuationBucket}
-                onValueChange={(v) => setContinuationBucket(v as Bucket)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="billable">Billable</SelectItem>
-                  <SelectItem value="internal">Internal</SelectItem>
-                  <SelectItem value="bench">Bench</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Continuation end date</Label>
-            <Input
-              type="date"
-              value={continuationTo}
-              onChange={(e) => setContinuationTo(e.target.value)}
+          </LayoutContent>
+        }
+        footer={
+          <DialogFooter>
+            <Button variant="ghost" label="Cancel" onClick={onClose} />
+            <Button
+              variant="primary"
+              label="Split"
+              isDisabled={!newEndDate || mutation.isPending}
+              onClick={() => mutation.mutate()}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Note</Label>
-            <Input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. plan revised in March"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button disabled={!newEndDate || mutation.isPending} onClick={() => mutation.mutate()}>
-              Split
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
+          </DialogFooter>
+        }
+      />
     </Dialog>
   );
 }
@@ -336,18 +349,24 @@ export function RaMonitoringPage() {
     });
   };
 
-  const sorting = useMemo<SortingState>(
-    () => (search.sort ? [{ id: search.sort, desc: search.dir !== 'asc' }] : []),
-    [search.sort, search.dir],
-  );
-  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
-    const next = typeof updater === 'function' ? updater(sorting) : updater;
-    const first = next[0];
-    update({
-      sort: first ? (first.id as RaSearch['sort']) : undefined,
-      dir: first ? (first.desc ? 'desc' : 'asc') : undefined,
-    });
-  };
+  // Sort-state mapping: existing {field, dir} query state <-> Astryx's
+  // [{ sortKey, direction }] shape. The actual reorder happens externally via
+  // `groupByPerson` below — Astryx's sortable plugin (like the old
+  // `sortingFn: () => 0` columns) never resorts `data` itself, it only owns
+  // the header button UI/interaction.
+  const sortState: TableSortState = search.sort
+    ? [{ sortKey: search.sort, direction: search.dir === 'asc' ? 'ascending' : 'descending' }]
+    : [];
+  const sortable = useTableSortable<RaRow>({
+    sort: sortState,
+    onSortChange: (s) => {
+      const first = s[0];
+      update({
+        sort: first ? (first.sortKey as RaSearch['sort']) : undefined,
+        dir: first ? (first.direction === 'descending' ? 'desc' : 'asc') : undefined,
+      });
+    },
+  });
 
   const win = useMemo<EffortWindow>(
     () => ({ from: activeFrom || undefined, to: activeTo || undefined }),
@@ -406,9 +425,8 @@ export function RaMonitoringPage() {
   );
   const firstInGroup = useMemo(() => firstInGroupIds(groupedRows), [groupedRows]);
   const rowClassName = useCallback(
-    (row: { original: RaMonitoringAllocation }) =>
-      firstInGroup.has(row.original.allocation_id) &&
-      row.original.allocation_id !== groupedRows[0]?.allocation_id
+    (item: RaMonitoringAllocation) =>
+      firstInGroup.has(item.allocation_id) && item.allocation_id !== groupedRows[0]?.allocation_id
         ? 'border-t-2 border-t-hairline-strong'
         : undefined,
     [firstInGroup, groupedRows],
@@ -425,14 +443,16 @@ export function RaMonitoringPage() {
     () => canManage && (projects ?? []).some((p) => p.can_manage),
     [canManage, projects],
   );
-  const accountOptions = useMemo<ComboboxOption[]>(
-    () => (accounts ?? []).map((a) => ({ value: a.account_id, label: a.name })),
+  const accountOptions = useMemo<SearchableItem[]>(
+    () => (accounts ?? []).map((a) => ({ id: a.account_id, label: a.name })),
     [accounts],
   );
-  const projectOptions = useMemo<ComboboxOption[]>(
-    () => visibleProjects.map((p) => ({ value: p.project_id, label: p.name })),
+  const projectOptions = useMemo<SearchableItem[]>(
+    () => visibleProjects.map((p) => ({ id: p.project_id, label: p.name })),
     [visibleProjects],
   );
+  const accountSource = useMemo(() => createStaticSource(accountOptions), [accountOptions]);
+  const projectSource = useMemo(() => createStaticSource(projectOptions), [projectOptions]);
   const kpis = useMemo(() => rollupKpis(allocations, win), [allocations, win]);
   const overWorkers = useMemo(() => overAllocatedWorkers(allocations, win), [allocations, win]);
   const hasFilters = Boolean(
@@ -444,333 +464,417 @@ export function RaMonitoringPage() {
   const [splitTarget, setSplitTarget] = useState<RaMonitoringAllocation | null>(null);
   const [wizardTarget, setWizardTarget] = useState<ReassignWizardTarget | null>(null);
 
-  const tableMeta = useMemo<RaTableMeta>(
-    () => ({
-      canManage,
-      overWorkers,
-      firstInGroup,
-      onSplit: (r) => setSplitTarget(r),
-      onReassignGroup: (r) =>
-        setWizardTarget({
-          worker_id: r.worker_id as string,
-          worker_name: r.worker_name,
-          worker_title: r.worker_title,
-        }),
-    }),
-    [canManage, overWorkers, firstInGroup],
+  // The deleted DataTable defaulted `enableColumnVisibility` to `true` (this
+  // file never disabled it) and, since no `pagination={false}` was passed
+  // either, `getPaginationRowModel` paginated `groupedRows` client-side at the
+  // default page size (25) — both were genuinely live, if undiscovered by the
+  // plan's matrix. Preserved here; global filter stays dead (explicit
+  // `enableGlobalFilter={false}` in the old code — the search Input above is
+  // a separate, server-driving control, untouched).
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_RA_COLUMN_KEYS);
+
+  // Matches TanStack's `autoResetPageIndex` default: a new fetch or a sort
+  // change resets to page 1.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: groupedRows is the intentional reset trigger
+  useEffect(() => {
+    setPage(1);
+  }, [groupedRows]);
+
+  const pageRows = useMemo(
+    () => paginateData(groupedRows, page, pageSize) as RaRow[],
+    [groupedRows, page, pageSize],
   );
+  const pagination = useTablePagination<RaRow>({
+    page,
+    onPageChange: setPage,
+    totalItems: groupedRows.length,
+    pageSize,
+    onPageSizeChange: (ps) => {
+      setPageSize(ps);
+      setPage(1);
+    },
+    pageSizeOptions: [10, 25, 50, 100],
+  });
 
-  // Column defs are static — Calendar effort is computed from each row's own dates against
-  // today, and all volatile edit state is read from `table.options.meta`, so typing in a cell
-  // never rebuilds the column defs (which would remount the inputs and drop focus).
-  const columns = useMemo(() => {
-    type Ctx = {
-      row: { original: RaMonitoringAllocation };
-      table: { options: { meta?: unknown } };
-    };
+  const columnSettingsState = useTableColumnSettingsState({
+    columns: RA_COLUMN_OPTIONS,
+    activeColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+  });
+  const columnSettings = useTableColumnSettings<RaRow>(columnSettingsState.columnSettingsConfig);
 
-    return [
+  const openReassignGroup = useCallback((r: RaMonitoringAllocation) => {
+    setWizardTarget({
+      worker_id: r.worker_id as string,
+      worker_name: r.worker_name,
+      worker_title: r.worker_title,
+    });
+  }, []);
+
+  // Column defs depend directly on the closures they read (canManage,
+  // overWorkers, firstInGroup, openReassignGroup) — no `table.options.meta`
+  // indirection needed: none of these cells contain a live-editable input, so
+  // there's no keystroke-remount concern the old `meta` plumbing guarded against.
+  const columns = useMemo<TableColumn<RaRow>[]>(
+    () => [
       {
-        id: 'account',
+        key: 'account',
         header: 'Account',
-        accessorFn: (r: RaMonitoringAllocation) => r.account_name,
-        enableSorting: true,
-        // Row order is pre-computed (grouped by person, then by the active
-        // sort field) — this just neutralizes the table's own re-sort so it
-        // doesn't undo that grouping while still driving the header's arrow.
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => <span className="text-ink-muted">{row.original.account_name}</span>,
+        width: proportional(1),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary">{r.account_name}</span>,
       },
       {
-        id: 'project',
+        key: 'project',
         header: 'Project',
-        accessorFn: (r: RaMonitoringAllocation) => r.project_name,
-        enableSorting: true,
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => <span className="text-ink">{row.original.project_name}</span>,
+        width: proportional(1),
+        sortable: true,
+        renderCell: (r) => <span className="text-primary">{r.project_name}</span>,
       },
       {
-        id: 'name',
+        key: 'name',
         header: 'Person',
-        accessorFn: (r: RaMonitoringAllocation) => r.worker_name ?? '',
-        enableSorting: false,
-        cell: ({ row, table }: Ctx) => {
-          const r = row.original;
-          const m = table.options.meta as RaTableMeta;
-          if (!m.firstInGroup.has(r.allocation_id)) return null;
+        width: proportional(2),
+        renderCell: (r) => {
+          if (!firstInGroup.has(r.allocation_id)) return null;
           return (
             <div className="flex items-center gap-2">
               {r.worker_name ? (
-                <span className="font-medium text-ink">{r.worker_name}</span>
+                <span className="font-medium text-primary">{r.worker_name}</span>
               ) : r.worker_id ? (
-                <span className="text-ink-subtle">Unknown</span>
+                <span className="text-secondary">Unknown</span>
               ) : (
-                <span className="italic text-ink-subtle">Unfilled (TBD)</span>
+                <span className="italic text-secondary">Unfilled (TBD)</span>
               )}
               {r.status !== 'committed' ? (
-                <Badge variant="outline" className="font-normal capitalize text-ink-subtle">
-                  {r.status}
-                </Badge>
+                <Badge
+                  variant="neutral"
+                  className="font-normal capitalize text-secondary"
+                  label={r.status}
+                />
               ) : null}
-              {r.worker_id && m.overWorkers.has(r.worker_id) ? (
-                <Badge variant="warning" className="font-normal">
-                  Over-allocated
-                </Badge>
+              {r.worker_id && overWorkers.has(r.worker_id) ? (
+                <Badge variant="warning" className="font-normal" label="Over-allocated" />
               ) : null}
             </div>
           );
         },
       },
       {
-        id: 'seniority',
+        key: 'seniority',
         header: 'Seniority',
-        accessorFn: (r: RaMonitoringAllocation) => r.worker_title ?? '',
-        enableSorting: false,
-        cell: ({ row, table }: Ctx) => {
-          const r = row.original;
-          const m = table.options.meta as RaTableMeta;
-          if (!m.firstInGroup.has(r.allocation_id)) return null;
-          return <span className="text-ink-muted">{r.worker_title ?? '—'}</span>;
+        width: proportional(1),
+        renderCell: (r) => {
+          if (!firstInGroup.has(r.allocation_id)) return null;
+          return <span className="text-secondary">{r.worker_title ?? '—'}</span>;
         },
       },
       {
-        id: 'planned',
+        key: 'planned',
         header: 'Allocation',
-        accessorFn: (r: RaMonitoringAllocation) => r.planned_pct ?? 0,
-        enableSorting: true,
-        sortingFn: () => 0,
+        width: pixel(100),
+        sortable: true,
         // Shown as a 0–1 fraction (e.g. 100% → 1.0, 40% → 0.4); stored value stays a percentage.
-        cell: ({ row }: Ctx) => (
-          <span className="font-mono tabular-nums text-ink">
-            {((row.original.planned_pct ?? 0) / 100).toFixed(1)}
+        renderCell: (r) => (
+          <span className="font-mono tabular-nums text-primary">
+            {((r.planned_pct ?? 0) / 100).toFixed(1)}
           </span>
         ),
       },
       {
-        id: 'start',
+        key: 'start',
         header: 'Start',
-        accessorFn: (r: RaMonitoringAllocation) => r.date_from ?? '',
-        enableSorting: true,
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => (
-          <span className="whitespace-nowrap font-mono text-caption text-ink-muted">
-            {row.original.date_from ? formatDisplayDate(row.original.date_from) : '—'}
+        width: pixel(100),
+        sortable: true,
+        renderCell: (r) => (
+          <span className="whitespace-nowrap font-mono text-sm text-secondary">
+            {r.date_from ? formatDisplayDate(r.date_from) : '—'}
           </span>
         ),
       },
       {
-        id: 'end',
+        key: 'end',
         header: 'End',
-        accessorFn: (r: RaMonitoringAllocation) => r.date_to ?? '',
-        enableSorting: true,
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => (
-          <span className="whitespace-nowrap font-mono text-caption text-ink-muted">
-            {row.original.date_to ? formatDisplayDate(row.original.date_to) : '—'}
+        width: pixel(100),
+        sortable: true,
+        renderCell: (r) => (
+          <span className="whitespace-nowrap font-mono text-sm text-secondary">
+            {r.date_to ? formatDisplayDate(r.date_to) : '—'}
           </span>
         ),
       },
       {
-        id: 'effort',
+        key: 'effort',
         header: 'Calendar effort',
-        accessorFn: (r: RaMonitoringAllocation) => rowCalendarEffort(r),
-        enableSorting: true,
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => (
-          <span className="font-mono font-semibold tabular-nums text-ink">
-            {rowCalendarEffort(row.original).toFixed(2)}
+        width: pixel(130),
+        sortable: true,
+        renderCell: (r) => (
+          <span className="font-mono font-semibold tabular-nums text-primary">
+            {rowCalendarEffort(r).toFixed(2)}
           </span>
         ),
       },
       {
-        id: 'bucket',
+        key: 'bucket',
         header: 'Type',
-        accessorFn: (r: RaMonitoringAllocation) => r.bucket,
-        enableSorting: true,
-        sortingFn: () => 0,
-        cell: ({ row }: Ctx) => bucketBadge(row.original.bucket),
+        width: pixel(100),
+        sortable: true,
+        renderCell: (r) => bucketBadge(r.bucket),
       },
       {
-        id: 'note',
+        key: 'note',
         header: 'Note',
-        cell: ({ row }: Ctx) => (
-          <span className="text-caption text-ink-muted">{row.original.note ?? '—'}</span>
-        ),
+        width: proportional(1),
+        renderCell: (r) => <span className="text-sm text-secondary">{r.note ?? '—'}</span>,
       },
       {
-        id: 'actions',
+        key: 'actions',
         header: '',
-        cell: ({ row, table }: Ctx) => {
-          const r = row.original;
-          const m = table.options.meta as RaTableMeta;
+        width: pixel(90),
+        align: 'end',
+        renderCell: (r) => {
           // Row-scoped (FUT-353): only projects the caller manages get edit actions; rows
           // visible through wider read scope stay read-only.
-          if (!r.can_manage || !m.firstInGroup.has(r.allocation_id)) return null;
+          if (!r.can_manage || !firstInGroup.has(r.allocation_id)) return null;
           return (
             <div className="flex justify-end gap-1">
               <Button
-                size="icon"
+                size="sm"
                 variant="secondary"
-                aria-label="Reassign"
-                onClick={() => m.onReassignGroup(r)}
-              >
-                <ArrowRightLeft className="size-4" />
-              </Button>
+                isIconOnly
+                label="Reassign"
+                onClick={() => openReassignGroup(r)}
+                icon={<ArrowRightLeft className="size-4" />}
+              />
             </div>
           );
         },
       },
-    ];
-  }, []);
+    ],
+    [firstInGroup, overWorkers, openReassignGroup],
+  );
 
   const scopeLabel = projectId
     ? (visibleProjects.find((p) => p.project_id === projectId)?.name ?? '1 project')
     : 'All projects';
 
   return (
-    <PageChrome
-      title="RA Monitoring"
-      actions={
-        canManageAny ? (
-          <SelectEmployeeDialog
-            onSelect={(worker) =>
-              setWizardTarget({
-                worker_id: worker.id,
-                worker_name: worker.name,
-                worker_title: null,
-              })
-            }
-          />
-        ) : undefined
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>RA Monitoring</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  RA Monitoring
+                </Text>
+              </HStack>
+              {canManageAny ? (
+                <SelectEmployeeDialog
+                  onSelect={(worker) =>
+                    setWizardTarget({
+                      worker_id: worker.id,
+                      worker_name: worker.name,
+                      worker_title: null,
+                    })
+                  }
+                />
+              ) : undefined}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
       }
-    >
-      <div className="space-y-5 p-6">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <Kpi
-            label="Calendar effort"
-            value={`${kpis.total_mm.toFixed(1)} MM`}
-            sub="in active window"
-          />
-          <Kpi
-            label="Billable"
-            value={`${kpis.billable_mm.toFixed(1)} MM`}
-            sub={`${kpis.billable_pct}% of effort`}
-            tone="positive"
-          />
-          <Kpi label="People allocated" value={String(kpis.people)} sub="distinct" />
-          <Kpi
-            label="Over-allocated"
-            value={String(overWorkers.size)}
-            sub=">100% in window"
-            tone={overWorkers.size > 0 ? 'accent' : undefined}
-          />
-          <Kpi label="Scope" value={scopeLabel} sub={`${visibleProjects.length} projects`} />
-        </div>
+      content={
+        <LayoutContent padding={0}>
+          <div className="space-y-5 p-6">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <Kpi
+                label="Calendar effort"
+                value={`${kpis.total_mm.toFixed(1)} MM`}
+                sub="in active window"
+              />
+              <Kpi
+                label="Billable"
+                value={`${kpis.billable_mm.toFixed(1)} MM`}
+                sub={`${kpis.billable_pct}% of effort`}
+                tone="positive"
+              />
+              <Kpi label="People allocated" value={String(kpis.people)} sub="distinct" />
+              <Kpi
+                label="Over-allocated"
+                value={String(overWorkers.size)}
+                sub=">100% in window"
+                tone={overWorkers.size > 0 ? 'accent' : undefined}
+              />
+              <Kpi label="Scope" value={scopeLabel} sub={`${visibleProjects.length} projects`} />
+            </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            className="h-8 w-56"
-            placeholder="Search person, project…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
-          <Combobox
-            className="h-8 w-44"
-            aria-label="Account"
-            placeholder="All accounts"
-            searchPlaceholder="Search accounts…"
-            options={accountOptions}
-            value={accountId || null}
-            onChange={(v) => update({ account: v ?? undefined, project: undefined })}
-          />
-          <Combobox
-            className="h-8 w-44"
-            aria-label="Project"
-            placeholder="All projects"
-            searchPlaceholder="Search projects…"
-            options={projectOptions}
-            value={projectId || null}
-            onChange={(v) => update({ project: v ?? undefined })}
-          />
-          <div className="flex h-8 items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2 text-ink-muted">
-            <CalendarRange className="size-3.5 text-ink-subtle" />
-            <Input
-              type="date"
-              aria-label="Active from"
-              className="h-7 w-[7.5rem] border-0 bg-transparent px-1 focus-visible:ring-0"
-              value={activeFrom}
-              onChange={(e) => update({ from: e.target.value || undefined })}
-            />
-            <span className="text-ink-subtle">→</span>
-            <Input
-              type="date"
-              aria-label="Active to"
-              className="h-7 w-[7.5rem] border-0 bg-transparent px-1 focus-visible:ring-0"
-              value={activeTo}
-              onChange={(e) => update({ to: e.target.value || undefined })}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                label="Search person, project"
+                isLabelHidden
+                className="w-56"
+                size="sm"
+                placeholder="Search person, project…"
+                value={searchInput}
+                onChange={(value) => setSearchInput(value)}
+              />
+              <Typeahead
+                label="Account"
+                isLabelHidden
+                className="h-8 w-44"
+                searchSource={accountSource}
+                debounceMs={0}
+                hasEntriesOnFocus
+                hasClear
+                placeholder="All accounts"
+                value={accountOptions.find((o) => o.id === accountId) ?? null}
+                onChange={(item) => update({ account: item?.id ?? undefined, project: undefined })}
+              />
+              <Typeahead
+                label="Project"
+                isLabelHidden
+                className="h-8 w-44"
+                searchSource={projectSource}
+                debounceMs={0}
+                hasEntriesOnFocus
+                hasClear
+                placeholder="All projects"
+                value={projectOptions.find((o) => o.id === projectId) ?? null}
+                onChange={(item) => update({ project: item?.id ?? undefined })}
+              />
+              <div className="flex items-center gap-1.5">
+                <DateInput
+                  label="Active from"
+                  isLabelHidden
+                  size="sm"
+                  value={activeFrom || undefined}
+                  onChange={(v) => update({ from: v })}
+                />
+                <span className="text-secondary">→</span>
+                <DateInput
+                  label="Active to"
+                  isLabelHidden
+                  size="sm"
+                  value={activeTo || undefined}
+                  onChange={(v) => update({ to: v })}
+                />
+              </div>
+              {hasFilters ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto h-8 gap-1 text-secondary"
+                  label="Clear"
+                  icon={<X className="size-3.5" />}
+                  onClick={() => {
+                    setSearchInput('');
+                    update({
+                      q: undefined,
+                      account: undefined,
+                      project: undefined,
+                      from: undefined,
+                      to: undefined,
+                    });
+                  }}
+                />
+              ) : null}
+            </div>
+
+            <div className="flex justify-end">
+              <Popover
+                placement="below"
+                alignment="end"
+                label="Toggle columns"
+                content={
+                  <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
+                    <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
+                      Toggle columns
+                    </div>
+                    {RA_COLUMN_OPTIONS.map((col) => (
+                      <Checkbox
+                        key={col.key}
+                        label={col.label}
+                        value={columnSettingsState.isColumnActive(col.key)}
+                        onChange={() => columnSettingsState.toggleColumn(col.key)}
+                      />
+                    ))}
+                  </div>
+                }
+              >
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Settings2 className="size-3.5" />}
+                  label="Columns"
+                />
+              </Popover>
+            </div>
+
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                  <Skeleton key={id} height={40} />
+                ))}
+              </div>
+            ) : (
+              <Table
+                data={pageRows}
+                columns={columns}
+                idKey="allocation_id"
+                density="compact"
+                plugins={{
+                  pagination,
+                  sortable,
+                  columnSettings,
+                  rowStyling: {
+                    transformBodyRow: (props, item) => ({
+                      ...props,
+                      htmlProps: {
+                        ...props.htmlProps,
+                        className: cn(props.htmlProps.className, rowClassName(item)),
+                      },
+                    }),
+                  },
+                }}
+                emptyState={
+                  <EmptyState
+                    icon={<Users className="size-6" />}
+                    title="No allocations in view"
+                    description={
+                      canManage
+                        ? 'Adjust the filters, or add an allocation to staff someone onto a project.'
+                        : 'Adjust the account, project, or active-period filters.'
+                    }
+                  />
+                }
+              />
+            )}
           </div>
-          {hasFilters ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto h-8 gap-1 text-ink-muted"
-              onClick={() => {
-                setSearchInput('');
-                update({
-                  q: undefined,
-                  account: undefined,
-                  project: undefined,
-                  from: undefined,
-                  to: undefined,
-                });
-              }}
-            >
-              <X className="size-3.5" />
-              Clear
-            </Button>
-          ) : null}
-        </div>
 
-        <DataTable
-          columns={columns}
-          data={groupedRows}
-          meta={tableMeta}
-          sorting={sorting}
-          onSortingChange={onSortingChange}
-          getRowClassName={rowClassName}
-          isLoading={isLoading}
-          enableGlobalFilter={false}
-          density="compact"
-          getRowId={(r: RaMonitoringAllocation) => r.allocation_id}
-          emptyState={
-            <EmptyState
-              icon={<Users className="size-6" />}
-              title="No allocations in view"
-              description={
-                canManage
-                  ? 'Adjust the filters, or add an allocation to staff someone onto a project.'
-                  : 'Adjust the account, project, or active-period filters.'
-              }
-            />
-          }
-        />
-      </div>
+          <SplitAllocationDialog
+            target={splitTarget}
+            onClose={() => setSplitTarget(null)}
+            onSplit={invalidate}
+          />
 
-      <SplitAllocationDialog
-        target={splitTarget}
-        onClose={() => setSplitTarget(null)}
-        onSplit={invalidate}
-      />
-
-      <ReassignWizardDialog
-        target={wizardTarget}
-        allocations={allocations.filter((a) => a.worker_id === wizardTarget?.worker_id)}
-        accountOptions={accountOptions}
-        projects={projects ?? []}
-        onClose={() => setWizardTarget(null)}
-        onReassigned={invalidate}
-      />
-    </PageChrome>
+          <ReassignWizardDialog
+            target={wizardTarget}
+            allocations={allocations.filter((a) => a.worker_id === wizardTarget?.worker_id)}
+            accountOptions={accountOptions}
+            projects={projects ?? []}
+            onClose={() => setWizardTarget(null)}
+            onReassigned={invalidate}
+          />
+        </LayoutContent>
+      }
+    />
   );
 }

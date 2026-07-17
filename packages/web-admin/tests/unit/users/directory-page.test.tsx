@@ -155,10 +155,14 @@ describe('Directory page', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<Harness />, { wrapper: wrap(qc) });
 
+    // Scoped to the table: a page-wide text query would also match the same
+    // strings sitting (hidden, but DOM-present) in the "Filter by account
+    // status" Selector's own option list.
     await waitFor(() => {
-      expect(screen.getByText('No account')).toBeInTheDocument();
-      expect(screen.getByText('Active')).toBeInTheDocument();
-      expect(screen.getByText('Suspended')).toBeInTheDocument();
+      const table = screen.getByRole('table');
+      expect(within(table).getByText('No account')).toBeInTheDocument();
+      expect(within(table).getByText('Active')).toBeInTheDocument();
+      expect(within(table).getByText('Suspended')).toBeInTheDocument();
     });
   });
 
@@ -195,9 +199,69 @@ describe('Directory page', () => {
     expect(mockMutate).toHaveBeenCalledWith('p1');
   });
 
+  it('Suspend action opens the confirm dialog and calls useSuspend().mutate on confirm', async () => {
+    const user = userEvent.setup();
+    const mockSuspend = vi.fn();
+    const hooks = await setupMocks({ canWrite: true });
+    (hooks.useSuspend as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: mockSuspend,
+      isPending: false,
+    });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<Harness />, { wrapper: wrap(qc) });
+
+    // Bob (u2) is the only 'active' account row → the only row with a Suspend action.
+    const trigger = await screen.findByRole('button', { name: /row actions for bob/i });
+    await user.click(trigger);
+    await user.click(await screen.findByRole('menuitem', { name: /suspend/i }));
+
+    // Astryx's real Dialog always mounts <dialog> + children regardless of `isOpen` — assert the
+    // open dialog via its accessible heading (DialogHeader wires no aria-labelledby), scoped with
+    // within() so it can't accidentally match the page's other (closed) bulk-add Dialog.
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Suspend account?' })).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Bob's access will be revoked immediately/),
+    ).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: /^suspend$/i }));
+
+    expect(mockSuspend).toHaveBeenCalledWith('u2');
+    // Confirm succeeds → the dialog closes (no longer in the a11y tree).
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('Suspend confirm dialog closes via Cancel without suspending', async () => {
+    const user = userEvent.setup();
+    const mockSuspend = vi.fn();
+    const hooks = await setupMocks({ canWrite: true });
+    (hooks.useSuspend as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: mockSuspend,
+      isPending: false,
+    });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<Harness />, { wrapper: wrap(qc) });
+
+    const trigger = await screen.findByRole('button', { name: /row actions for bob/i });
+    await user.click(trigger);
+    await user.click(await screen.findByRole('menuitem', { name: /suspend/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /cancel/i }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(mockSuspend).not.toHaveBeenCalled();
+  });
+
   it('bulk bar: shows count, excludes none-account rows, adds selection to a group on confirm', async () => {
     const user = userEvent.setup();
-    const mockAdd = vi.fn();
+    // Invokes onSuccess like the real mutation would, so the dialog's post-confirm close
+    // (driven by BulkGroupBar's onSuccess callback) is actually exercised below.
+    const mockAdd = vi.fn((_vars: unknown, opts?: { onSuccess?: () => void }) =>
+      opts?.onSuccess?.(),
+    );
     await setupMocks({ canWrite: true, addMutate: mockAdd });
 
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -225,6 +289,10 @@ describe('Directory page', () => {
     // Open + confirm the dialog
     await user.click(screen.getByRole('button', { name: /add to group/i }));
     const dialog = await screen.findByRole('dialog');
+    // Astryx's real Dialog always mounts <dialog> + children regardless of `isOpen` — assert the
+    // open dialog via its accessible heading (DialogHeader wires no aria-labelledby), scoped with
+    // within() so it can't accidentally match the page's other (closed) suspend-confirm Dialog.
+    expect(within(dialog).getByRole('heading', { name: 'Add to group?' })).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: /add to group/i }));
 
     expect(mockAdd).toHaveBeenCalledWith(
@@ -237,6 +305,8 @@ describe('Directory page', () => {
     const [calledBody] = mockAdd.mock.calls[0] as [{ user_ids: string[] }];
     expect(calledBody.user_ids).not.toContain(null);
     expect(calledBody.user_ids).toHaveLength(2);
+    // Confirm succeeds → the dialog closes (no longer in the a11y tree).
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   }, 15_000);
 
   it('bulk bar: selection persists across pagination (accumulator)', async () => {
@@ -307,5 +377,39 @@ describe('Directory page', () => {
     const dialog = await screen.findByRole('dialog');
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).getByText('alice@test.com')).toBeInTheDocument();
+  });
+
+  it('renders the Admin → Directory breadcrumb trail with a navigable root crumb', async () => {
+    await setupMocks();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<Harness />, { wrapper: wrap(qc) });
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'Admin' });
+    expect(rootCrumb).toHaveAttribute('href', '/admin');
+    // The terminal crumb reflects the page but is not itself a link.
+    expect(within(nav).getByText('Directory').closest('a')).toBeNull();
+
+    // The h1 still carries the page's real heading semantics.
+    expect(screen.getByRole('heading', { level: 1, name: 'Directory' })).toBeInTheDocument();
+  });
+
+  it('keeps the filter toolbar pinned outside the scrollable content region', async () => {
+    await setupMocks();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(<Harness />, { wrapper: wrap(qc) });
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Directory filters' });
+    // `.astryx-layout-content` is the Astryx `LayoutContent` component's own stable,
+    // documented base class (see `themeProps()` in the vendor package) — not a StyleX
+    // atomic-class hash, so it's safe to assert on. The page also nests a second,
+    // dialog-scoped `LayoutContent` inside the (always-mounted) detail sheet; that one
+    // is a descendant of this outer one, so it sorts after it in document order and
+    // `querySelector` (which returns the first match) reliably picks the outer,
+    // page-level scroll region here.
+    const content = container.querySelector('.astryx-layout-content');
+    expect(content).not.toBeNull();
+    // The toolbar must be pinned in the header, never scrolled away with the table.
+    expect(content?.contains(toolbar)).toBe(false);
   });
 });

@@ -2,12 +2,9 @@ import {
   Button,
   RichTextEditor,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
+  SegmentedControlItem,
+  Selector,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -35,6 +32,7 @@ function emptyGrid(): Grid {
 }
 
 export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canManage: boolean }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const id = detail.requisition.id;
   const initial = useMemo(() => {
@@ -61,10 +59,10 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
       return setRequisitionJd(id, { expected_version: detail.requisition.version, sections });
     },
     onSuccess: () => {
-      toast.success('Job description saved');
+      toast({ body: 'Job description saved' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.requisition(id) });
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisition(id)),
   });
 
   function applyTemplate(templateId: string) {
@@ -75,51 +73,51 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
       for (const s of t.sections) next[s.variant][s.section] = s.body;
       return next;
     });
-    toast.success('Template applied — review and save');
+    toast({ body: 'Template applied — review and save' });
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <SegmentedControl
+          label="JD variant"
           value={variant}
-          onValueChange={(v) => setVariant(v as JdVariant)}
-          options={[
-            { value: 'external', label: 'External' },
-            { value: 'internal', label: 'Internal' },
-          ]}
-        />
+          onChange={(v) => setVariant(v as JdVariant)}
+        >
+          <SegmentedControlItem value="external" label="External" />
+          <SegmentedControlItem value="internal" label="Internal" />
+        </SegmentedControl>
         {canManage && (
           <div className="flex items-center gap-2">
             {(templates.data?.length ?? 0) > 0 && (
-              <Select
+              <Selector
                 key={templatePickerKey}
-                onValueChange={(v) => {
+                label="Apply template"
+                isLabelHidden
+                options={(templates.data ?? []).map((t) => ({
+                  value: t.template.id,
+                  label: t.template.name,
+                }))}
+                onChange={(v) => {
                   applyTemplate(v);
                   setTemplatePickerKey((k) => k + 1);
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Apply template…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.data?.map((t) => (
-                    <SelectItem key={t.template.id} value={t.template.id}>
-                      {t.template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Apply template…"
+              />
             )}
-            <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
-              {save.isPending ? 'Saving…' : 'Save JD'}
-            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              label={save.isPending ? 'Saving…' : 'Save JD'}
+              onClick={() => save.mutate()}
+              isDisabled={save.isPending}
+            />
           </div>
         )}
       </div>
       {SECTIONS.map((s) => (
         <div key={s.key} className="space-y-1">
-          <div className="text-caption font-semibold text-ink">{s.label}</div>
+          <div className="text-sm font-semibold text-primary">{s.label}</div>
           <RichTextEditor
             value={grid[variant][s.key]}
             onChange={(html) =>

@@ -6,18 +6,17 @@ export default meta;
 type Story = StoryObj<typeof Badge>;
 
 export const Default: Story = {
-  render: () => <Badge>Default</Badge>,
+  render: () => <Badge label="Default" />,
 };
 
 export const AllVariants: Story = {
   render: () => (
     <div className="flex flex-wrap gap-2">
-      <Badge variant="default">Default</Badge>
-      <Badge variant="secondary">Secondary</Badge>
-      <Badge variant="destructive">Destructive</Badge>
-      <Badge variant="success">Success</Badge>
-      <Badge variant="warning">Warning</Badge>
-      <Badge variant="outline">Outline</Badge>
+      <Badge variant="neutral" label="Neutral" />
+      <Badge variant="info" label="Info" />
+      <Badge variant="success" label="Success" />
+      <Badge variant="warning" label="Warning" />
+      <Badge variant="error" label="Error" />
     </div>
   ),
 };

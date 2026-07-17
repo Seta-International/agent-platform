@@ -1,14 +1,6 @@
-import {
-  Badge,
-  Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
-} from '@seta/shared-ui';
+import { Badge, Button, Selector, useToast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
   addOpening,
@@ -28,6 +20,7 @@ export function OpeningsTab({
   detail: RequisitionDetail;
   canManage: boolean;
 }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const id = detail.requisition.id;
   const reasons = useQuery({ queryKey: hiringKeys.closeReasons(), queryFn: fetchCloseReasons });
@@ -38,10 +31,10 @@ export function OpeningsTab({
   const add = useMutation({
     mutationFn: () => addOpening(id, {}),
     onSuccess: () => {
-      toast.success('Opening added');
+      toast({ body: 'Opening added' });
       invalidate();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisition(id)),
   });
   const close = useMutation({
     mutationFn: (vars: { openingId: string; version: number; status: 'closed' | 'cancelled' }) =>
@@ -51,78 +44,71 @@ export function OpeningsTab({
         close_reason_id: reasonByOpening[vars.openingId] || undefined,
       }),
     onSuccess: () => {
-      toast.success('Opening updated');
+      toast({ body: 'Opening updated' });
       invalidate();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisition(id)),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisition(id)),
   });
 
   return (
     <div className="space-y-3">
       <div className="flex justify-between">
-        <div className="text-caption text-ink-muted">
+        <div className="text-sm text-secondary">
           {detail.openings.filter((o) => o.status === 'open').length} open ·{' '}
           {detail.openings.length} total
         </div>
         {canManage && (
           <Button
             size="sm"
-            variant="secondary"
+            variant="primary"
+            icon={<Plus className="size-3.5" />}
+            label="Add opening"
             onClick={() => add.mutate()}
-            disabled={add.isPending}
-          >
-            Add opening
-          </Button>
+            isDisabled={add.isPending}
+          />
         )}
       </div>
-      <div className="divide-y divide-hairline">
+      <div className="divide-y divide-border">
         {detail.openings.map((o) => (
           <div key={o.id} className="flex items-center justify-between gap-2 py-2">
-            <span className="font-mono text-caption text-ink">
+            <span className="font-mono text-sm text-primary">
               {detail.requisition.id.slice(0, 8)}-{o.seq}
             </span>
             <div className="flex items-center gap-2">
-              <Badge variant={o.status === 'open' ? 'default' : 'secondary'}>{o.status}</Badge>
+              <Badge variant="neutral" label={o.status} />
               {canManage && o.status === 'open' && (
                 <>
-                  <Select
+                  <Selector
+                    label="Close reason"
+                    isLabelHidden
+                    options={[
+                      { value: NONE, label: '—' },
+                      ...(reasons.data ?? [])
+                        .filter((r) => r.active)
+                        .map((r) => ({ value: r.id, label: r.label })),
+                    ]}
                     value={reasonByOpening[o.id] || NONE}
-                    onValueChange={(v) =>
+                    onChange={(v) =>
                       setReasonByOpening((m) => ({ ...m, [o.id]: v === NONE ? '' : v }))
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Reason…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      {reasons.data
-                        ?.filter((r) => r.active)
-                        .map((r) => (
-                          <SelectItem key={r.id} value={r.id}>
-                            {r.label}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Reason…"
+                  />
                   <Button
                     size="sm"
                     variant="secondary"
+                    label="Close"
                     onClick={() =>
                       close.mutate({ openingId: o.id, version: o.version, status: 'closed' })
                     }
-                  >
-                    Close
-                  </Button>
+                  />
                   <Button
                     size="sm"
                     variant="destructive"
+                    label="Cancel"
                     onClick={() =>
                       close.mutate({ openingId: o.id, version: o.version, status: 'cancelled' })
                     }
-                  >
-                    Cancel
-                  </Button>
+                  />
                 </>
               )}
             </div>

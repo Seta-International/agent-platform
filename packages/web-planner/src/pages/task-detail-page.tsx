@@ -1,17 +1,17 @@
 import {
+  BreadcrumbItem,
+  Breadcrumbs,
   DisabledActionTooltip,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   formatRelative,
   Skeleton,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useAgentContext } from '@seta/web-agent';
 import { usePermission, useSession } from '@seta/web-identity';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowRightLeft, ChevronRight, Copy, MoreHorizontal } from 'lucide-react';
+import { ArrowRightLeft, Copy, MoreHorizontal } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { PlannerClientError } from '../api/planner-client';
 import { ConfirmDeleteTaskDialog } from '../components/ConfirmDeleteTaskDialog';
@@ -54,6 +54,12 @@ interface Props {
    * The full-page variant navigates back to the plan board itself.
    */
   onDeleted?: () => void;
+  /**
+   * Modal variant only: closes the dialog, revealing the board underneath. The plan
+   * breadcrumb uses this instead of a router navigation — the board is already mounted
+   * behind the dialog, so closing preserves its scroll/selection state.
+   */
+  onClose?: () => void;
 }
 
 // Stable, monotonic-ish task number derived from the trailing UUID hex. The
@@ -85,8 +91,10 @@ export function TaskDetailPage({
   variant = 'page',
   modalHeaderActions,
   onDeleted,
+  onClose,
 }: Props) {
   const navigate = useNavigate();
+  const toast = useToast();
   const session = useSession();
   const currentUserId = session.user_id;
   const taskQ = useTaskDetail(taskId);
@@ -132,9 +140,9 @@ export function TaskDetailPage({
   const isForbidden = taskErr instanceof PlannerClientError && taskErr.status === 403;
   useEffect(() => {
     if (!isForbidden) return;
-    toast.error("You don't have access to this task anymore.");
+    toast({ body: "You don't have access to this task anymore.", type: 'error' });
     void navigate({ to: '/planner/groups' });
-  }, [isForbidden, navigate]);
+  }, [isForbidden, navigate, toast]);
 
   useAgentContext({
     kind: 'planner.task',
@@ -146,9 +154,9 @@ export function TaskDetailPage({
   if (taskQ.isPending) {
     return (
       <div role="status" aria-label="Loading task" className="p-7">
-        <Skeleton className="mb-4 h-8 w-1/3" />
-        <Skeleton className="mb-2 h-4 w-1/2" />
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="mb-4" height={32} width="33.3333%" />
+        <Skeleton className="mb-2" height={16} width="50%" />
+        <Skeleton height={256} />
       </div>
     );
   }
@@ -177,7 +185,7 @@ export function TaskDetailPage({
       {
         onSuccess: () => {
           setDeleteOpen(false);
-          toast.success('Task moved to Trash.');
+          toast({ body: 'Task moved to Trash.' });
           if (variant === 'modal') {
             onDeleted?.();
           } else {
@@ -204,7 +212,7 @@ export function TaskDetailPage({
       {
         onSuccess: () => {
           setMoveOpen(false);
-          toast(`Task moved to ${args.targetPlanName}.`);
+          toast({ body: `Task moved to ${args.targetPlanName}.` });
           if (variant === 'modal') {
             // Modal: close the dialog and bring the user to the target board
             // with the task pre-selected so context is preserved.
@@ -232,7 +240,7 @@ export function TaskDetailPage({
       {
         onSuccess: (created) => {
           setDuplicateOpen(false);
-          toast('Task duplicated.');
+          toast({ body: 'Task duplicated.' });
           if (variant === 'modal') {
             // Modal variant lives under a route that opens the dialog via the
             // `selectedTask` search param; swap it to the new task so the user
@@ -265,10 +273,10 @@ export function TaskDetailPage({
           bucketName={bucketName}
           titleSlot={<TaskTitleEditor task={task} planId={planId} />}
           onBack={() => void navigate({ to: '/planner/plans/$planId', params: { planId } })}
-          onAskAgent={() => toast('Agent is coming soon.')}
+          onAskAgent={() => toast({ body: 'Agent is coming soon.' })}
           onCopyLink={() => {
             void navigator.clipboard.writeText(window.location.href);
-            toast('Link copied.');
+            toast({ body: 'Link copied.' });
           }}
           onPrevious={() => prevTaskId && goToTask(prevTaskId)}
           onNext={() => nextTaskId && goToTask(nextTaskId)}
@@ -281,66 +289,78 @@ export function TaskDetailPage({
         />
       )}
       {variant === 'modal' && (
-        <header className="flex flex-col gap-2 border-b border-hairline bg-canvas px-5 pt-2.5 pb-3">
+        <header className="flex flex-col gap-2 border-b border-border bg-body px-5 pt-2.5 pb-3">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-1.5 text-caption text-ink-subtle">
-              <span className="truncate">{groupQ.data?.name ?? ''}</span>
-              <ChevronRight className="size-3 shrink-0 text-ink-tertiary" aria-hidden />
-              <span className="truncate text-primary">{plan?.name ?? ''}</span>
-              <ChevronRight className="size-3 shrink-0 text-ink-tertiary" aria-hidden />
-              <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-ink-muted">
-                T-{taskNumberFromId(task.id)}
-              </span>
+            <div className="min-w-0">
+              <Breadcrumbs variant="supporting">
+                {groupId ? (
+                  <BreadcrumbItem href={`/planner/groups/${groupId}`}>
+                    {groupQ.data?.name ?? ''}
+                  </BreadcrumbItem>
+                ) : (
+                  <BreadcrumbItem>{groupQ.data?.name ?? ''}</BreadcrumbItem>
+                )}
+                {/* Keeps a real href so the crumb is a genuine link; a modified click
+                    (cmd/ctrl/shift) falls through to real navigation, while a plain click closes
+                    the dialog in place — the board is already mounted behind it, so no navigation
+                    is needed to "go back" to it. */}
+                <BreadcrumbItem
+                  href={`/planner/plans/${planId}`}
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    e.preventDefault();
+                    onClose?.();
+                  }}
+                >
+                  {plan?.name ?? ''}
+                </BreadcrumbItem>
+                <BreadcrumbItem isCurrent>{`T-${taskNumberFromId(task.id)}`}</BreadcrumbItem>
+              </Breadcrumbs>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="More actions"
-                    className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-                  >
-                    <MoreHorizontal className="size-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DisabledActionTooltip
-                    disabled={Boolean(duplicateDisabledReason)}
-                    reason={duplicateDisabledReason}
-                  >
-                    <DropdownMenuItem
-                      onSelect={openFromMenu(() => setDuplicateOpen(true))}
-                      disabled={Boolean(duplicateDisabledReason)}
-                    >
-                      <Copy className="size-3.5" />
-                      Duplicate
-                    </DropdownMenuItem>
-                  </DisabledActionTooltip>
-                  <DisabledActionTooltip
-                    disabled={Boolean(moveDisabledReason)}
-                    reason={moveDisabledReason}
-                  >
-                    <DropdownMenuItem
-                      onSelect={openFromMenu(() => setMoveOpen(true))}
-                      disabled={Boolean(moveDisabledReason)}
-                    >
-                      <ArrowRightLeft className="size-3.5" />
-                      Move…
-                    </DropdownMenuItem>
-                  </DisabledActionTooltip>
-                  <DisabledActionTooltip
-                    disabled={Boolean(deleteDisabledReason)}
-                    reason={deleteDisabledReason}
-                  >
-                    <DropdownMenuItem
-                      onSelect={openFromMenu(() => setDeleteOpen(true))}
-                      disabled={Boolean(deleteDisabledReason)}
-                      className="text-semantic-danger"
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  </DisabledActionTooltip>
-                </DropdownMenuContent>
+              <DropdownMenu
+                placement="below"
+                button={{
+                  isIconOnly: true,
+                  icon: <MoreHorizontal className="size-4" />,
+                  variant: 'ghost',
+                  size: 'sm',
+                  label: 'More actions',
+                }}
+              >
+                <DisabledActionTooltip
+                  disabled={Boolean(duplicateDisabledReason)}
+                  reason={duplicateDisabledReason}
+                >
+                  <DropdownMenuItem
+                    icon={<Copy className="size-3.5" />}
+                    label="Duplicate"
+                    onClick={openFromMenu(() => setDuplicateOpen(true))}
+                    isDisabled={Boolean(duplicateDisabledReason)}
+                  />
+                </DisabledActionTooltip>
+                <DisabledActionTooltip
+                  disabled={Boolean(moveDisabledReason)}
+                  reason={moveDisabledReason}
+                >
+                  <DropdownMenuItem
+                    icon={<ArrowRightLeft className="size-3.5" />}
+                    label="Move…"
+                    onClick={openFromMenu(() => setMoveOpen(true))}
+                    isDisabled={Boolean(moveDisabledReason)}
+                  />
+                </DisabledActionTooltip>
+                <DisabledActionTooltip
+                  disabled={Boolean(deleteDisabledReason)}
+                  reason={deleteDisabledReason}
+                >
+                  <DropdownMenuItem
+                    label="Delete"
+                    style={{ color: 'var(--color-error)' }}
+                    onClick={openFromMenu(() => setDeleteOpen(true))}
+                    isDisabled={Boolean(deleteDisabledReason)}
+                  />
+                </DisabledActionTooltip>
               </DropdownMenu>
               {modalHeaderActions}
             </div>
@@ -371,7 +391,7 @@ export function TaskDetailPage({
         onConfirm={handleConfirmMove}
         pending={moveTask.isPending}
       />
-      <div className="min-h-0 flex-1 overflow-auto bg-surface-1">
+      <div className="min-h-0 flex-1 overflow-auto bg-card">
         <div
           className="mx-auto grid grid-cols-[minmax(640px,1fr)_320px] gap-[22px] px-7 pt-5 pb-10"
           style={{ maxWidth: 1180 }}
@@ -415,26 +435,26 @@ export function TaskDetailPage({
               }
             />
             <dl
-              className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-caption text-ink-subtle"
+              className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm text-secondary"
               aria-label="Task metadata"
             >
-              <dt className="text-ink-tertiary">Created</dt>
+              <dt className="text-disabled">Created</dt>
               <dd>
                 <time dateTime={task.created_at} title={task.created_at}>
                   {formatAbsoluteDate(task.created_at)}
                 </time>
                 {' · '}
-                <span className="text-ink-tertiary">{formatRelative(task.created_at)}</span>
+                <span className="text-disabled">{formatRelative(task.created_at)}</span>
                 <br />
-                by <span className="text-ink-muted">{creatorName}</span>
+                by <span className="text-secondary">{creatorName}</span>
               </dd>
-              <dt className="text-ink-tertiary">Updated</dt>
+              <dt className="text-disabled">Updated</dt>
               <dd>
                 <time dateTime={task.updated_at} title={task.updated_at}>
                   {formatAbsoluteDate(task.updated_at)}
                 </time>
                 {' · '}
-                <span className="text-ink-tertiary">{formatRelative(task.updated_at)}</span>
+                <span className="text-disabled">{formatRelative(task.updated_at)}</span>
               </dd>
             </dl>
           </aside>

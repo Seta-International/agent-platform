@@ -7,7 +7,8 @@ describe('GraphNodeCard', () => {
     render(<GraphNodeCard title="Vo Thi Huong" subtitle="Engagement Manager" />);
     expect(screen.getByText('Vo Thi Huong')).toBeInTheDocument();
     expect(screen.getByText('Engagement Manager')).toBeInTheDocument();
-    expect(screen.getByText('VT')).toBeInTheDocument();
+    // Avatar derives its own initials from the name and exposes it as an img.
+    expect(screen.getByRole('img', { name: 'Vo Thi Huong' })).toBeInTheDocument();
   });
 
   it('renders the type icon instead of initials when icon is provided', () => {

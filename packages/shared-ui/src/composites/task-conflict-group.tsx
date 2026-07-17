@@ -47,7 +47,7 @@ export function TaskConflictGroup(p: TaskConflictGroupProps) {
         >
           {p.taskTitle}
         </a>
-        <span className="text-xs text-ink-subtle shrink-0">
+        <span className="text-xs text-secondary shrink-0">
           {conflictLabel} · {chosen}/{total} chosen
         </span>
       </div>

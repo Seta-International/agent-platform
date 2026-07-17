@@ -1,4 +1,16 @@
-import { Alert, AlertDescription, PageChrome, Skeleton } from '@seta/shared-ui';
+import {
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  PageContainer,
+  Skeleton,
+  Text,
+  VStack,
+} from '@seta/shared-ui';
 import { NotificationPrefRow } from '../components/NotificationPrefRow';
 import { useNotificationPrefs, useSetNotificationPref } from '../hooks/usePrefs';
 
@@ -7,46 +19,62 @@ export function AdminNotificationPrefs() {
   const setPref = useSetNotificationPref();
 
   return (
-    <PageChrome
-      breadcrumb={['Admin']}
-      title="Notifications"
-      subtitle="Choose what your team gets notified about, and where."
-    >
-      <div className="page-container space-y-4">
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              Couldn&apos;t load notification settings: {(error as Error).message}
-            </AlertDescription>
-          </Alert>
-        )}
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Notifications</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Notifications
+                </Text>
+                <Text color="secondary">Choose what your team gets notified about, and where.</Text>
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <PageContainer className="space-y-4">
+            {error && (
+              <Banner
+                status="error"
+                title={<>Couldn&apos;t load notification settings: {(error as Error).message}</>}
+              />
+            )}
 
-        {isLoading || !data ? (
-          <Skeleton className="h-72 w-full rounded-lg" />
-        ) : (
-          <section className="overflow-hidden rounded-lg border border-hairline bg-canvas">
-            <header className="border-b border-hairline-tertiary px-5 py-4">
-              <h2 className="m-0 text-section-title font-semibold tracking-tight text-ink">
-                Events
-              </h2>
-              <p className="m-0 mt-0.5 text-body-sm text-ink-subtle">
-                Pick how each event reaches your team.
-              </p>
-            </header>
+            {isLoading || !data ? (
+              <Skeleton height={288} radius={3} />
+            ) : (
+              <section className="overflow-hidden rounded-lg border border-border bg-body">
+                <header className="border-b border-border px-5 py-4">
+                  <h2 className="m-0 text-lg font-semibold tracking-tight text-primary">Events</h2>
+                  <p className="m-0 mt-0.5 text-base text-secondary">
+                    Pick how each event reaches your team.
+                  </p>
+                </header>
 
-            <div className="divide-y divide-hairline-tertiary">
-              {data.rows.map((row) => (
-                <NotificationPrefRow
-                  key={row.event_type}
-                  row={row}
-                  onToggle={(input) => setPref.mutate(input)}
-                  disabled={setPref.isPending}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
-    </PageChrome>
+                <div className="divide-y divide-border">
+                  {data.rows.map((row) => (
+                    <NotificationPrefRow
+                      key={row.event_type}
+                      row={row}
+                      onToggle={(input) => setPref.mutate(input)}
+                      disabled={setPref.isPending}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </PageContainer>
+        </LayoutContent>
+      }
+    />
   );
 }

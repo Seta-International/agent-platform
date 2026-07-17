@@ -1,26 +1,15 @@
 import type { BucketRow, GroupRow, PlanRow } from '@seta/planner';
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
   Dialog,
-  DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+  Layout,
+  LayoutContent,
+  Selector,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
-import { Check, ChevronsUpDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { plannerClient } from '../api/planner-client';
 import { plannerKeys } from '../state/query-keys';
@@ -57,8 +46,6 @@ export function MoveTaskDialog({
 }: Props) {
   const [planId, setPlanId] = useState<string | null>(null);
   const [bucketId, setBucketId] = useState<string | null>(null);
-  const [planPickerOpen, setPlanPickerOpen] = useState(false);
-  const [bucketPickerOpen, setBucketPickerOpen] = useState(false);
 
   // Source-of-truth for "plans I can write to": every plan in every group the
   // caller has access to. The HTTP `listPlans` endpoint already filters by
@@ -124,14 +111,28 @@ export function MoveTaskDialog({
       .sort((a, b) => a.groupLabel.localeCompare(b.groupLabel));
   }, [eligiblePlans, groupName]);
 
+  const planOptions = useMemo(
+    () =>
+      plansByGroup.map(({ groupLabel, plans }) => ({
+        type: 'section' as const,
+        title: groupLabel,
+        options: plans.map((p) => ({
+          value: p.id,
+          label: p.external_source === 'm365' ? `${p.name} · M365` : p.name,
+        })),
+      })),
+    [plansByGroup],
+  );
+  const bucketOptions = useMemo(
+    () => orderedBuckets.map((b) => ({ value: b.id, label: b.name })),
+    [orderedBuckets],
+  );
+
   const selectedPlan = planId ? eligiblePlans.find((p) => p.id === planId) : null;
-  const selectedBucket = bucketId ? orderedBuckets.find((b) => b.id === bucketId) : null;
 
   function reset() {
     setPlanId(null);
     setBucketId(null);
-    setPlanPickerOpen(false);
-    setBucketPickerOpen(false);
   }
 
   function handleOpenChange(v: boolean) {
@@ -151,163 +152,82 @@ export function MoveTaskDialog({
   const submitDisabled = !planId || !bucketId || pending;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>Move task</DialogTitle>
-          <DialogDescription asChild>
-            <div className="space-y-2 text-body-sm text-ink-subtle">
+    <Dialog isOpen={open} onOpenChange={handleOpenChange} width={560} purpose="form">
+      <Layout
+        header={<DialogHeader title="Move task" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-2 text-base text-secondary">
               <p>
-                Move <span className="text-ink">&ldquo;{taskTitle}&rdquo;</span> to a different
+                Move <span className="text-primary">&ldquo;{taskTitle}&rdquo;</span> to a different
                 plan. Assignees, checklist items, references, dates, priority, and progress carry
                 over.
               </p>
             </div>
-          </DialogDescription>
-        </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {plansQ.isError && (
-            <Alert variant="destructive">
-              <AlertDescription>Couldn&rsquo;t load plans. Try again.</AlertDescription>
-            </Alert>
-          )}
+            <div className="space-y-4 py-2">
+              {plansQ.isError && <Banner status="error" title="Couldn’t load plans. Try again." />}
 
-          <div className="space-y-1.5">
-            <label htmlFor="move-task-plan-trigger" className="text-caption text-ink-subtle">
-              Target plan
-            </label>
-            <Popover open={planPickerOpen} onOpenChange={setPlanPickerOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  id="move-task-plan-trigger"
-                  type="button"
-                  variant="secondary"
-                  role="combobox"
-                  aria-expanded={planPickerOpen}
-                  aria-label="Select target plan"
-                  className="w-full justify-between"
-                  disabled={plansQ.isPending}
-                >
-                  <span className="truncate text-left">
-                    {selectedPlan
-                      ? `${groupName(selectedPlan.group_id)} — ${selectedPlan.name}`
-                      : plansQ.isPending
-                        ? 'Loading plans…'
-                        : 'Pick a plan…'}
-                  </span>
-                  <ChevronsUpDown className="ml-2 size-3.5 shrink-0 opacity-60" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
-                  <CommandInput aria-label="Filter plans" placeholder="Filter plans…" />
-                  <CommandList>
-                    <CommandEmpty>No plans available.</CommandEmpty>
-                    {plansByGroup.map(({ groupId: gid, groupLabel, plans }) => (
-                      <CommandGroup key={gid} heading={groupLabel}>
-                        {plans.map((p) => (
-                          <CommandItem
-                            key={p.id}
-                            // Include id suffix so cmdk treats every row as unique
-                            // even when group + plan names collide.
-                            value={`${groupLabel} ${p.name} ${p.id}`}
-                            onSelect={() => {
-                              setPlanId(p.id);
-                              setBucketId(null);
-                              setPlanPickerOpen(false);
-                            }}
-                            className="flex items-center gap-2"
-                          >
-                            <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                            {p.external_source === 'm365' && (
-                              <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-caption text-ink-subtle">
-                                M365
-                              </span>
-                            )}
-                            {planId === p.id && <Check className="size-3.5 opacity-80" />}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    ))}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
+              <div className="space-y-1.5">
+                <Selector
+                  label="Target plan"
+                  options={planOptions}
+                  value={planId ?? ''}
+                  onChange={(v) => {
+                    setPlanId(v || null);
+                    setBucketId(null);
+                  }}
+                  placeholder={plansQ.isPending ? 'Loading plans…' : 'Pick a plan…'}
+                  isDisabled={plansQ.isPending}
+                  hasSearch
+                />
+              </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="move-task-bucket-trigger" className="text-caption text-ink-subtle">
-              Target bucket
-            </label>
-            <Popover open={bucketPickerOpen} onOpenChange={setBucketPickerOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  id="move-task-bucket-trigger"
-                  type="button"
-                  variant="secondary"
-                  role="combobox"
-                  aria-expanded={bucketPickerOpen}
-                  aria-label="Select target bucket"
-                  className="w-full justify-between"
-                  disabled={!planId || bucketsQ.isPending}
-                >
-                  <span className="truncate text-left">
-                    {selectedBucket
-                      ? selectedBucket.name
-                      : !planId
-                        ? 'Pick a plan first'
-                        : bucketsQ.isPending
-                          ? 'Loading buckets…'
-                          : orderedBuckets.length === 0
-                            ? 'No buckets in this plan'
-                            : 'Pick a bucket…'}
-                  </span>
-                  <ChevronsUpDown className="ml-2 size-3.5 shrink-0 opacity-60" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
-                  <CommandInput aria-label="Filter buckets" placeholder="Filter buckets…" />
-                  <CommandList>
-                    <CommandEmpty>No buckets in this plan.</CommandEmpty>
-                    <CommandGroup>
-                      {orderedBuckets.map((b) => (
-                        <CommandItem
-                          key={b.id}
-                          value={b.name}
-                          onSelect={() => {
-                            setBucketId(b.id);
-                            setBucketPickerOpen(false);
-                          }}
-                        >
-                          <span className="truncate">{b.name}</span>
-                          {bucketId === b.id && <Check className="ml-auto size-3.5 opacity-80" />}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
+              <div className="space-y-1.5">
+                <Selector
+                  label="Target bucket"
+                  options={bucketOptions}
+                  value={bucketId ?? ''}
+                  onChange={(v) => setBucketId(v || null)}
+                  placeholder={
+                    !planId
+                      ? 'Pick a plan first'
+                      : bucketsQ.isPending
+                        ? 'Loading buckets…'
+                        : orderedBuckets.length === 0
+                          ? 'No buckets in this plan'
+                          : 'Pick a bucket…'
+                  }
+                  isDisabled={!planId || bucketsQ.isPending}
+                  hasSearch
+                />
+              </div>
 
-          {hasLabels && (
-            <p className="text-caption text-semantic-warning">
-              Labels on this task will be removed because they belong to the current plan.
-            </p>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={submitDisabled}>
-            Move
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+              {hasLabels && (
+                <p className="text-sm text-warning">
+                  Labels on this task will be removed because they belong to the current plan.
+                </p>
+              )}
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              label="Cancel"
+              onClick={() => handleOpenChange(false)}
+              isDisabled={pending}
+            />
+            <Button
+              variant="primary"
+              label="Move"
+              onClick={handleSubmit}
+              isDisabled={submitDisabled}
+            />
+          </DialogFooter>
+        }
+      />
     </Dialog>
   );
 }

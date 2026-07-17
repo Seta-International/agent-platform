@@ -1,10 +1,9 @@
 import type { CommentDto } from '@seta/planner';
 import {
+  Avatar,
   Button,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   formatRelative,
   Textarea,
 } from '@seta/shared-ui';
@@ -22,16 +21,6 @@ interface Props {
 }
 
 const MAX = 4000;
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((s) => s[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-}
 
 export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Props) {
   const [editing, setEditing] = useState(false);
@@ -55,79 +44,84 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
   }
 
   return (
-    <article className="flex gap-3">
-      <div
-        aria-hidden
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-2 text-caption font-medium text-ink-muted"
-      >
-        {initials(comment.author_display_name)}
-      </div>
+    <article className="group flex gap-3">
+      <Avatar name={comment.author_display_name} size={32} />
       <div className="min-w-0 flex-1">
-        <header className="flex items-center justify-between gap-2 text-caption">
-          <div className="flex items-center gap-2 text-ink-subtle">
-            <span className="font-medium text-ink">{comment.author_display_name}</span>
-            <time
-              title={new Date(comment.created_at).toLocaleString()}
-              dateTime={comment.created_at}
+        <header className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-primary">{comment.author_display_name}</span>
+          <time
+            className="text-xs text-disabled"
+            title={new Date(comment.created_at).toLocaleString()}
+            dateTime={comment.created_at}
+          >
+            {formatRelative(comment.created_at)}
+          </time>
+          {comment.edited_at && (
+            <span
+              className="text-xs text-disabled"
+              title={`edited ${new Date(comment.edited_at).toLocaleString()}`}
             >
-              {formatRelative(comment.created_at)}
-            </time>
-            {comment.edited_at && (
-              <span
-                className="text-ink-tertiary"
-                title={`edited ${new Date(comment.edited_at).toLocaleString()}`}
-              >
-                · edited
-              </span>
-            )}
-          </div>
+              · edited
+            </span>
+          )}
           {(canEdit || canDelete) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Comment actions"
-                  className="inline-flex size-6 items-center justify-center rounded text-ink-muted hover:bg-surface-2"
-                >
-                  <MoreHorizontal className="size-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {canEdit && (
-                  <DropdownMenuItem onSelect={() => setEditing(true)}>Edit</DropdownMenuItem>
-                )}
+            // Actions stay hidden until the row is hovered or focused, keeping
+            // the thread calm.
+            <div className="ml-auto opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+              <DropdownMenu
+                placement="below"
+                button={{
+                  isIconOnly: true,
+                  icon: <MoreHorizontal className="size-4" />,
+                  variant: 'ghost',
+                  size: 'sm',
+                  label: 'Comment actions',
+                }}
+              >
+                {canEdit && <DropdownMenuItem label="Edit" onClick={() => setEditing(true)} />}
                 {canDelete && (
                   <DropdownMenuItem
-                    onSelect={() => del.mutate({ taskId, commentId: comment.id })}
-                    className="text-semantic-danger"
-                  >
-                    Delete
-                  </DropdownMenuItem>
+                    label="Delete"
+                    style={{ color: 'var(--color-error)' }}
+                    onClick={() => del.mutate({ taskId, commentId: comment.id })}
+                  />
                 )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </DropdownMenu>
+            </div>
           )}
         </header>
         {editing ? (
-          <div className="mt-1 flex flex-col gap-2">
-            <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} />
+          <div className="mt-1.5 flex flex-col gap-2">
+            <Textarea
+              label="Edit comment"
+              isLabelHidden
+              value={draft}
+              onChange={(value) => setDraft(value)}
+              rows={3}
+            />
             <div className="flex justify-end gap-2">
               <Button
+                size="sm"
                 variant="ghost"
+                label="Cancel"
                 onClick={() => {
                   setDraft(comment.body);
                   setEditing(false);
                 }}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={update.isPending}>
-                Save
-              </Button>
+              />
+              <Button
+                size="sm"
+                variant="primary"
+                label="Save"
+                onClick={handleSave}
+                isDisabled={update.isPending}
+              />
             </div>
           </div>
         ) : (
-          <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink">{comment.body}</p>
+          <p className="mt-1 whitespace-pre-wrap text-base leading-relaxed text-primary">
+            {comment.body}
+          </p>
         )}
       </div>
     </article>

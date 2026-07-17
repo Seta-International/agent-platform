@@ -1,15 +1,4 @@
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  buttonVariants,
-  toast,
-} from '@seta/shared-ui';
+import { AlertDialog, useToast } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { closeRequisition } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
@@ -28,48 +17,33 @@ export function MarkFilledDialog({
   onOpenChange: (v: boolean) => void;
   onDone: () => void;
 }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: () =>
       closeRequisition(requisitionId, { expected_version: version, status: 'filled' }),
     onSuccess: () => {
-      toast.success('Requisition marked as filled');
+      toast({ body: 'Requisition marked as filled' });
       onOpenChange(false);
-      // Filling removes this row from the board query (see OPEN_BOARD_STATUSES) — invalidating
-      // immediately can unmount the row (and this dialog with it) mid-close-animation, which can
-      // leave Radix's body scroll/pointer-events lock stuck permanently on (page looks frozen
-      // until a refresh). Defer past the dialog's 200ms exit animation (duration-200 in
-      // alert-dialog.tsx) so Radix finishes tearing itself down cleanly first.
-      setTimeout(onDone, 250);
+      onDone();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.requisitions()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisitions()),
   });
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Mark requisition as filled?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This closes the requisition for good — it can&apos;t be reopened or moved back to a
-            stage afterwards.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={mutation.isPending}>Back</AlertDialogCancel>
-          <AlertDialogAction
-            className={buttonVariants({ variant: 'default' })}
-            disabled={mutation.isPending}
-            onClick={(e) => {
-              e.preventDefault();
-              mutation.mutate();
-            }}
-          >
-            {mutation.isPending ? 'Marking…' : 'Mark filled'}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <AlertDialog
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      title="Mark requisition as filled?"
+      description="This closes the requisition for good — it can't be reopened or moved back to a stage afterwards."
+      cancelLabel="Back"
+      actionLabel={mutation.isPending ? 'Marking…' : 'Mark filled'}
+      // Filling a requisition is a positive terminal outcome, not a destructive one — Astryx
+      // defaults actionVariant to 'destructive', so primary intent has to be explicit here.
+      actionVariant="primary"
+      isActionLoading={mutation.isPending}
+      onAction={() => mutation.mutate()}
+    />
   );
 }

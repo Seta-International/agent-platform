@@ -7,10 +7,10 @@ function ConfidenceBar({ score }: { score: number }) {
   return (
     <span
       aria-hidden
-      className="relative inline-block h-1 w-12 overflow-hidden rounded-full bg-hairline align-middle"
+      className="relative inline-block h-1 w-12 overflow-hidden rounded-full bg-border align-middle"
     >
       <span
-        className="absolute inset-y-0 left-0 rounded-full bg-primary"
+        className="absolute inset-y-0 left-0 rounded-full bg-accent-bg"
         style={{ width: `${pct}%` }}
       />
     </span>
@@ -30,7 +30,7 @@ function RowBody({
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
           {renderEntity?.(item)}
           {item.primary ? (
-            <span className="shrink-0 rounded-sm bg-primary/12 px-1 text-[10px] font-medium uppercase tracking-wide text-primary-ink">
+            <span className="shrink-0 rounded-sm bg-accent-bg/12 px-1 text-xs font-medium uppercase tracking-wide text-accent">
               top match
             </span>
           ) : null}
@@ -39,7 +39,7 @@ function RowBody({
       {typeof item.score === 'number' ? (
         <div className="mt-1 flex shrink-0 items-center gap-1.5">
           <ConfidenceBar score={item.score} />
-          <span className="w-10 text-right font-mono text-caption tabular-nums text-ink-subtle">
+          <span className="w-10 text-right font-mono text-sm tabular-nums text-secondary">
             {Math.round(item.score * 100)}%
           </span>
         </div>
@@ -75,8 +75,8 @@ export function EntityListBlock({ block, selectedIds, onToggle, renderEntity }: 
             <label
               className={`relative flex cursor-pointer items-start gap-2.5 rounded-md border px-2 py-2 transition ${
                 isSelected
-                  ? 'border-primary-border bg-primary-tint/60'
-                  : 'border-transparent hover:bg-surface-2'
+                  ? 'border-accent-bg bg-accent-muted/60'
+                  : 'border-transparent hover:bg-surface'
               }`}
             >
               <input
@@ -91,8 +91,8 @@ export function EntityListBlock({ block, selectedIds, onToggle, renderEntity }: 
                 aria-hidden
                 className={`mt-px grid size-4 shrink-0 place-items-center rounded border transition ${
                   isSelected
-                    ? 'border-primary bg-primary text-on-primary'
-                    : 'border-hairline-strong bg-canvas'
+                    ? 'border-accent-bg bg-accent-bg text-on-accent'
+                    : 'border-border-strong bg-body'
                 }`}
               >
                 {isSelected ? <Check className="size-3" strokeWidth={3} /> : null}

@@ -1,6 +1,10 @@
-// biome-ignore-all lint/a11y/noAutofocus: autoFocus is intentional UX on the inline compose input.
-import { X } from 'lucide-react';
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import * as stylex from '@stylexjs/stylex';
 import {
+  Children,
   type HTMLAttributes,
   type ReactNode,
   useCallback,
@@ -9,6 +13,32 @@ import {
   useState,
 } from 'react';
 import { DisabledActionTooltip } from './disabled-action-tooltip';
+
+const styles = stylex.create({
+  board: {
+    display: 'flex',
+    alignItems: 'stretch',
+    gap: 14,
+    padding: 'var(--spacing-4) var(--spacing-6)',
+    flex: 1,
+    minHeight: 0,
+    overflow: 'auto',
+    background: 'var(--color-background-card)',
+    scrollbarWidth: 'thin',
+    scrollbarColor: 'var(--color-text-disabled) transparent',
+  },
+  addTrigger: { flexShrink: 0, alignSelf: 'flex-start' },
+  compose: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--spacing-2)',
+    flexShrink: 0,
+    alignSelf: 'flex-start',
+    width: 280,
+  },
+  composeFooter: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
+  error: { color: 'var(--color-error)', margin: 0 },
+});
 
 export interface KanbanBoardProps {
   children: ReactNode;
@@ -28,6 +58,12 @@ export interface KanbanBoardProps {
     rootProps?: HTMLAttributes<HTMLElement>;
     placeholder?: ReactNode;
   };
+  /**
+   * Rendered instead of children + AddBucket when there are no columns. Pass a function to
+   * get a `startCompose` callback that opens the add-bucket input in one click instead of
+   * requiring the user to first reveal, then click, the "+ Add another bucket" trigger.
+   */
+  emptyState?: ReactNode | ((startCompose: () => void) => ReactNode);
 }
 
 export function KanbanBoard({
@@ -37,7 +73,9 @@ export function KanbanBoard({
   nameMaxLength,
   bucketCount,
   rootDroppable,
+  emptyState,
 }: KanbanBoardProps) {
+  const [composing, setComposing] = useState(false);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const rootDroppableRef = useRef(rootDroppable);
   rootDroppableRef.current = rootDroppable;
@@ -66,31 +104,48 @@ export function KanbanBoard({
       }
     : undefined;
 
+  const isEmpty = Children.count(children) === 0;
+
   return (
-    <div ref={setBoardRef} {...rootDroppable?.rootProps} className="kanban-board">
-      {children}
-      {rootDroppable?.placeholder}
-      {handleAddBucket && (
-        <AddBucket
-          onSubmit={handleAddBucket}
-          nameMaxLength={nameMaxLength}
-          disabledReason={addBucketDisabledReason}
-        />
+    <div ref={setBoardRef} {...rootDroppable?.rootProps} {...stylex.props(styles.board)}>
+      {isEmpty && emptyState && !composing ? (
+        typeof emptyState === 'function' ? (
+          emptyState(() => setComposing(true))
+        ) : (
+          emptyState
+        )
+      ) : (
+        <>
+          {children}
+          {rootDroppable?.placeholder}
+          {handleAddBucket && (
+            <AddBucket
+              composing={composing}
+              onComposingChange={setComposing}
+              onSubmit={handleAddBucket}
+              nameMaxLength={nameMaxLength}
+              disabledReason={addBucketDisabledReason}
+            />
+          )}
+        </>
       )}
     </div>
   );
 }
 
 function AddBucket({
+  composing,
+  onComposingChange,
   onSubmit,
   nameMaxLength,
   disabledReason,
 }: {
+  composing: boolean;
+  onComposingChange: (v: boolean) => void;
   onSubmit: (name: string) => void | Promise<void>;
   nameMaxLength?: number;
   disabledReason?: string;
 }) {
-  const [composing, setComposing] = useState(false);
   const [value, setValue] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,13 +157,18 @@ function AddBucket({
     function onPointerDown(e: PointerEvent) {
       const target = e.target as Node | null;
       if (target && composeRef.current && !composeRef.current.contains(target)) {
-        setComposing(false);
+        onComposingChange(false);
         setValue('');
         setNameError(null);
       }
     }
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [composing, onComposingChange]);
+
+  // Astryx TextInput has no autoFocus prop; focus imperatively when compose opens.
+  useEffect(() => {
+    if (composing) inputRef.current?.focus();
   }, [composing]);
 
   async function submit() {
@@ -133,7 +193,7 @@ function AddBucket({
   }
 
   function cancel() {
-    setComposing(false);
+    onComposingChange(false);
     setValue('');
     setNameError(null);
   }
@@ -141,28 +201,28 @@ function AddBucket({
   if (!composing) {
     return (
       <DisabledActionTooltip disabled={Boolean(disabledReason)} reason={disabledReason}>
-        <button
-          type="button"
-          className="kanban-board__add-bucket"
-          onClick={() => setComposing(true)}
-          disabled={Boolean(disabledReason)}
-        >
-          + Add another bucket
-        </button>
+        <Button
+          label="+ Add another bucket"
+          variant="ghost"
+          isDisabled={Boolean(disabledReason)}
+          onClick={() => onComposingChange(true)}
+          xstyle={styles.addTrigger}
+        />
       </DisabledActionTooltip>
     );
   }
 
   return (
-    <div ref={composeRef} className="kanban-board__add-bucket-compose">
-      <input
+    <Card ref={composeRef} padding={2} xstyle={styles.compose}>
+      <TextInput
         ref={inputRef}
-        autoFocus
+        label="New bucket name"
+        isLabelHidden
         placeholder="Enter bucket name…"
         value={value}
-        aria-invalid={!!nameError}
-        onChange={(e) => {
-          setValue(e.target.value);
+        status={nameError ? { type: 'error' } : undefined}
+        onChange={(v) => {
+          setValue(v);
           if (nameError) setNameError(null);
         }}
         onKeyDown={(e) => {
@@ -174,33 +234,29 @@ function AddBucket({
             cancel();
           }
         }}
-        aria-label="New bucket name"
       />
       {nameError ? (
-        <p role="alert" className="kanban-board__add-bucket-compose-error">
+        <Text as="p" role="alert" size="sm" weight="medium" xstyle={styles.error}>
           {nameError}
-        </p>
+        </Text>
       ) : null}
-      <div className="kanban-board__add-bucket-compose-footer">
-        <button
-          type="button"
-          className="kanban-board__add-bucket-compose-btn"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => void submit()}
-          disabled={!value.trim() || isSubmitting}
-        >
-          Add bucket
-        </button>
-        <button
-          type="button"
-          className="kanban-board__add-bucket-compose-cancel"
-          aria-label="Cancel adding bucket"
+      <div {...stylex.props(styles.composeFooter)}>
+        <Button
+          label="Cancel"
+          variant="ghost"
+          size="sm"
           onMouseDown={(e) => e.preventDefault()}
           onClick={cancel}
-        >
-          <X className="size-4" aria-hidden />
-        </button>
+        />
+        <Button
+          label="Add bucket"
+          variant="primary"
+          size="sm"
+          isDisabled={!value.trim() || isSubmitting}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => void submit()}
+        />
       </div>
-    </div>
+    </Card>
   );
 }

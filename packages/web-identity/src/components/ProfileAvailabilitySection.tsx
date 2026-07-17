@@ -1,12 +1,4 @@
-import {
-  Button,
-  Card,
-  CardContent,
-  Input,
-  Label,
-  RadioGroup,
-  RadioGroupItem,
-} from '@seta/shared-ui';
+import { Button, Card, DateInput, RadioGroup, RadioListItem } from '@seta/shared-ui';
 import { useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../api/client.ts';
 
@@ -57,49 +49,34 @@ export function ProfileAvailabilitySection({
     (oooUntil?.toISOString() ?? null) !== (profile.ooo_until ?? null);
 
   return (
-    <Card>
-      <CardContent className="space-y-4 pt-6">
-        <RadioGroup
-          value={status}
-          onValueChange={(v) => setStatus(v as typeof status)}
-          className="flex gap-4"
-        >
-          <Label className="flex items-center gap-2">
-            <RadioGroupItem value="available" />
-            Available
-          </Label>
-          <Label className="flex items-center gap-2">
-            <RadioGroupItem value="busy" />
-            Busy
-          </Label>
-          <Label className="flex items-center gap-2">
-            <RadioGroupItem value="ooo" />
-            Out of office
-          </Label>
-        </RadioGroup>
-        {status === 'ooo' && (
-          <div className="space-y-2">
-            <Label htmlFor="ooo-until">Until</Label>
-            <Input
-              id="ooo-until"
-              type="date"
-              min={todayInputValue()}
-              value={toDateInputValue(oooUntil)}
-              onChange={(e) => {
-                const v = e.target.value;
-                setOooUntil(v ? new Date(`${v}T00:00:00`) : null);
-              }}
-              className="w-56"
-              suppressHydrationWarning
-            />
-          </div>
-        )}
-        <div className="flex justify-end pt-1">
-          <Button onClick={save} disabled={saving || !dirty}>
-            Save changes
-          </Button>
+    <Card className="space-y-4 pt-6">
+      <RadioGroup
+        label="Availability status"
+        isLabelHidden
+        value={status}
+        onChange={(v) => setStatus(v as typeof status)}
+        orientation="horizontal"
+      >
+        <RadioListItem value="available" label="Available" />
+        <RadioListItem value="busy" label="Busy" />
+        <RadioListItem value="ooo" label="Out of office" />
+      </RadioGroup>
+      {status === 'ooo' && (
+        <div className="space-y-2">
+          <DateInput
+            label="Until"
+            min={todayInputValue()}
+            value={toDateInputValue(oooUntil) || undefined}
+            onChange={(v) => {
+              setOooUntil(v ? new Date(`${v}T00:00:00`) : null);
+            }}
+            width={224}
+          />
         </div>
-      </CardContent>
+      )}
+      <div className="flex justify-end pt-1">
+        <Button onClick={save} isDisabled={saving || !dirty} label="Save changes" />
+      </div>
     </Card>
   );
 }

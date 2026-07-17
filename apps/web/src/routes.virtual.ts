@@ -3,7 +3,6 @@ import { index, layout, physical, rootRoute, route } from '@tanstack/virtual-fil
 export const routes = rootRoute('routes/__root.tsx', [
   route('/login', 'routes/login.tsx'),
   route('/403', 'routes/403.tsx'),
-  physical('/dev', 'routes/dev'),
   layout('_authed', 'routes/_authed/route.tsx', [
     index('routes/_authed/index.tsx'),
     route('/settings', 'routes/_authed/settings/index.tsx'),

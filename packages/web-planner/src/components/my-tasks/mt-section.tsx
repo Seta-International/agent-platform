@@ -1,4 +1,5 @@
 import { Draggable, Droppable } from '@hello-pangea/dnd';
+import { StatusDot, type StatusDotVariant } from '@seta/shared-ui';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown } from 'lucide-react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
@@ -23,27 +24,28 @@ interface Props {
 }
 
 const TONE_BG: Record<SectionTone, string> = {
-  danger: 'var(--color-danger-tint)',
-  warning: 'var(--color-warning-tint)',
-  primary: 'var(--color-primary-tint)',
-  muted: 'var(--color-surface-2)',
-  success: 'var(--color-success-tint)',
+  danger: 'var(--color-error-muted)',
+  warning: 'var(--color-warning-muted)',
+  primary: 'var(--color-accent-muted)',
+  muted: 'var(--color-background-surface)',
+  success: 'var(--color-success-muted)',
 };
 
 const TONE_INK: Record<SectionTone, string> = {
-  danger: 'var(--color-danger)',
+  danger: 'var(--color-error)',
   warning: 'var(--color-warning)',
-  primary: 'var(--color-primary-ink)',
-  muted: 'var(--color-ink-muted)',
+  primary: 'var(--color-text-accent)',
+  muted: 'var(--color-text-secondary)',
   success: 'var(--color-success)',
 };
 
-const TONE_DOT: Record<SectionTone, string> = {
-  danger: 'dot--danger',
-  warning: 'dot--warning',
-  primary: 'dot--primary',
-  muted: 'dot--muted',
-  success: 'dot--success',
+// In Progress/primary = blue (the theme's accent is achromatic, so override the dot color).
+const TONE_DOT: Record<SectionTone, { variant: StatusDotVariant; color?: string }> = {
+  danger: { variant: 'error' },
+  warning: { variant: 'warning' },
+  primary: { variant: 'accent', color: 'var(--color-icon-blue)' },
+  muted: { variant: 'neutral' },
+  success: { variant: 'success' },
 };
 
 export const MT_COLUMNS = [
@@ -89,32 +91,43 @@ export function MtSection({ section, searchTerm }: Props) {
       data-testid="mt-section"
       data-section={section.key}
       style={gridVars}
-      className="border-b border-hairline last:border-b-0"
+      className="border-b border-border last:border-b-0"
     >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="w-full flex items-center gap-2.5 px-7 py-3 bg-transparent text-left hover:bg-surface-1 transition-colors"
+        className="w-full flex items-center gap-2.5 px-7 py-3 bg-transparent text-left hover:bg-card transition-colors"
       >
         <ChevronDown
           size={12}
-          className="text-ink-subtle transition-transform duration-150"
+          className="text-secondary transition-transform duration-150"
           style={{ transform: open ? 'none' : 'rotate(-90deg)' }}
         />
-        <span data-testid="section-tone-dot" className={`dot ${TONE_DOT[section.tone]}`} />
-        <span className="text-[13px] font-semibold -tracking-[0.005em]">{section.label}</span>
+        <span data-testid="section-tone-dot" data-tone={TONE_DOT[section.tone].variant}>
+          <StatusDot
+            variant={TONE_DOT[section.tone].variant}
+            label={section.label}
+            aria-hidden="true"
+            style={
+              TONE_DOT[section.tone].color
+                ? { backgroundColor: TONE_DOT[section.tone].color }
+                : undefined
+            }
+          />
+        </span>
+        <span className="text-base font-semibold -tracking-[0.005em]">{section.label}</span>
         <span
           data-testid="section-count"
-          className="text-[11px] font-semibold px-[7px] py-px rounded-full"
+          className="text-xs font-semibold px-[7px] py-px rounded-full"
           style={{ background: TONE_BG[section.tone], color: TONE_INK[section.tone] }}
         >
           {section.count}
         </span>
-        {section.hint && <span className="text-[11px] text-ink-subtle">· {section.hint}</span>}
+        {section.hint && <span className="text-xs text-secondary">· {section.hint}</span>}
         <div className="flex-1" />
         {open && taskCount > 0 && (
-          <span className="text-[11px] text-ink-subtle">Sorted by your priority</span>
+          <span className="text-xs text-secondary">Sorted by your priority</span>
         )}
       </button>
 
@@ -125,8 +138,8 @@ export function MtSection({ section, searchTerm }: Props) {
             style={gridColsStyle}
             className={
               'sticky top-0 z-10 grid ' +
-              'gap-3 px-7 py-2.5 text-[10.5px] font-medium uppercase tracking-wider ' +
-              'text-ink-subtle border-b border-hairline bg-canvas'
+              'gap-3 px-7 py-2.5 text-xs font-medium uppercase tracking-wider ' +
+              'text-secondary border-b border-border bg-body'
             }
           >
             {MT_COLUMNS.map((col) => (

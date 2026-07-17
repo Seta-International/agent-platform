@@ -1,10 +1,11 @@
-import { toast } from '@seta/shared-ui';
+import { useToast } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type DecideApprovalBody, workflowsApi } from '../api/workflows.ts';
 import { workflowsQueryKeys } from '../state/query-keys.ts';
 
 export function useDecideApproval(runId: string, opts?: { workflowHint?: string }) {
   const qc = useQueryClient();
+  const toast = useToast();
   const invalidateRun = () => {
     qc.invalidateQueries({ queryKey: workflowsQueryKeys.run(runId) });
     qc.invalidateQueries({ queryKey: workflowsQueryKeys.runSnapshot(runId) });
@@ -32,7 +33,7 @@ export function useDecideApproval(runId: string, opts?: { workflowHint?: string 
       } else {
         label = 'Decision applied — workflow is continuing.';
       }
-      toast.success('Decision applied', { description: label });
+      toast({ body: label });
     },
     onError: (err: unknown) => {
       const status = (err as { status?: number } | null)?.status;
@@ -41,11 +42,11 @@ export function useDecideApproval(runId: string, opts?: { workflowHint?: string 
       // worth fetching either way.
       invalidateRun();
       if (status === 409 || code === 'already_decided') {
-        toast.info('This approval was already decided. Refresh to see the latest state.');
+        toast({ body: 'This approval was already decided. Refresh to see the latest state.' });
         return;
       }
       const message = err instanceof Error ? err.message : 'Something went wrong.';
-      toast.error("Couldn't apply your decision", { description: message });
+      toast({ body: `Couldn't apply your decision — ${message}`, type: 'error' });
     },
   });
 }

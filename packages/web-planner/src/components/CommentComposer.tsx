@@ -1,6 +1,5 @@
-import { Button, DisabledActionTooltip, Textarea } from '@seta/shared-ui';
-import { usePermission } from '@seta/web-identity';
-import { TriangleAlert } from 'lucide-react';
+import { Avatar, Button, DisabledActionTooltip, Textarea } from '@seta/shared-ui';
+import { usePermission, useSession } from '@seta/web-identity';
 import { useState } from 'react';
 import { usePostComment } from '../hooks/mutations/post-comment';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
@@ -12,6 +11,7 @@ interface Props {
 const MAX = 4000;
 
 export function CommentComposer({ taskId }: Props) {
+  const session = useSession();
   const [body, setBody] = useState('');
   const [expanded, setExpanded] = useState(false);
   const postComment = usePostComment();
@@ -34,59 +34,62 @@ export function CommentComposer({ taskId }: Props) {
     );
   }
 
-  if (!expanded) {
-    return (
-      <DisabledActionTooltip disabled={!canComment} reason={PERMISSION_DENIED.task.comment}>
-        <button
-          type="button"
-          disabled={!canComment}
-          onClick={() => setExpanded(true)}
-          className="w-full rounded-md border border-hairline bg-surface-1 px-3 py-2 text-left text-sm text-ink-tertiary hover:bg-surface-2"
-        >
-          Write a comment…
-        </button>
-      </DisabledActionTooltip>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2">
-      <Textarea
-        autoFocus
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        placeholder="Write a comment…"
-        rows={3}
-        className="resize-y"
-      />
-      {(tooLong || body.length > MAX - 500) && (
-        <div className="flex items-center gap-2">
-          {tooLong && (
-            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
-              <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-              Comment cannot exceed {MAX} characters.
-            </p>
-          )}
-          <span
-            className={`ml-auto text-caption ${tooLong ? 'text-destructive' : 'text-ink-tertiary'}`}
+    <div className="flex gap-3">
+      <Avatar name={session.display_name} size={32} />
+      <div className="min-w-0 flex-1">
+        {expanded ? (
+          <div className="flex flex-col gap-2">
+            <Textarea
+              label="Comment"
+              isLabelHidden
+              hasAutoFocus
+              value={body}
+              onChange={(value) => setBody(value)}
+              placeholder="Write a comment…"
+              rows={3}
+              maxLength={MAX}
+              status={
+                tooLong
+                  ? { type: 'error', message: `Comment cannot exceed ${MAX} characters.` }
+                  : undefined
+              }
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                label="Cancel"
+                onClick={() => {
+                  setBody('');
+                  setExpanded(false);
+                }}
+              />
+              <Button
+                size="sm"
+                variant="primary"
+                label="Post"
+                onClick={handlePost}
+                isDisabled={!canPost}
+              />
+            </div>
+          </div>
+        ) : (
+          <DisabledActionTooltip
+            disabled={!canComment}
+            reason={PERMISSION_DENIED.task.comment}
+            className="w-full"
           >
-            {body.length} / {MAX}
-          </span>
-        </div>
-      )}
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="ghost"
-          onClick={() => {
-            setBody('');
-            setExpanded(false);
-          }}
-        >
-          Cancel
-        </Button>
-        <Button onClick={handlePost} disabled={!canPost}>
-          Post
-        </Button>
+            <button
+              type="button"
+              disabled={!canComment}
+              onClick={() => setExpanded(true)}
+              className="w-full rounded-md border border-border bg-card px-3 py-2 text-left text-base text-secondary transition-colors hover:border-accent-bg hover:bg-surface disabled:cursor-not-allowed"
+            >
+              Write a comment…
+            </button>
+          </DisabledActionTooltip>
+        )}
       </div>
     </div>
   );

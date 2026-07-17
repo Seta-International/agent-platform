@@ -1,4 +1,18 @@
-import { Combobox, PageChrome, SegmentedControl } from '@seta/shared-ui';
+import {
+  BreadcrumbItem,
+  Breadcrumbs,
+  createStaticSource,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  type SearchableItem,
+  SegmentedControl,
+  SegmentedControlItem,
+  Text,
+  Typeahead,
+  VStack,
+} from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useMemo } from 'react';
@@ -56,55 +70,54 @@ export function OrgChartPage() {
   const accounts = useMemo(() => deliveryQ.data?.accounts ?? [], [deliveryQ.data]);
   const units = useMemo(() => structureQ.data?.units ?? [], [structureQ.data]);
 
-  const accountOptions = useMemo(
-    () => accounts.map((a) => ({ value: a.account_id, label: a.name })),
+  const accountItems = useMemo<SearchableItem[]>(
+    () => accounts.map((a) => ({ id: a.account_id, label: a.name })),
     [accounts],
   );
-  const projectOptions = useMemo(
+  const accountSource = useMemo(() => createStaticSource(accountItems), [accountItems]);
+  const accountValue = accountItems.find((a) => a.id === account) ?? null;
+
+  const projectItems = useMemo<SearchableItem[]>(
     () =>
       accounts.flatMap((a) =>
-        a.projects.map((p) => ({ value: p.project_id, label: `${p.name} · ${a.name}` })),
+        a.projects.map((p) => ({ id: p.project_id, label: `${p.name} · ${a.name}` })),
       ),
     [accounts],
   );
-  const departmentOptions = useMemo(
-    () => units.map((u) => ({ value: u.id, label: u.name })),
+  const projectSource = useMemo(() => createStaticSource(projectItems), [projectItems]);
+  const projectValue = projectItems.find((p) => p.id === project) ?? null;
+
+  const departmentItems = useMemo<SearchableItem[]>(
+    () => units.map((u) => ({ id: u.id, label: u.name })),
     [units],
   );
+  const departmentSource = useMemo(() => createStaticSource(departmentItems), [departmentItems]);
+  const departmentValue = departmentItems.find((d) => d.id === department) ?? null;
 
   // Default the picker to the first option once data arrives, persisting it to the URL.
   useEffect(() => {
-    if (view === 'account' && !account && accountOptions.length > 0) {
+    if (view === 'account' && !account && accountItems.length > 0) {
       void navigate({
         to: '/people/org',
-        search: { view, project, department, account: accountOptions[0]?.value },
+        search: { view, project, department, account: accountItems[0]?.id },
         replace: true,
       });
     }
-    if (view === 'project' && !project && projectOptions.length > 0) {
+    if (view === 'project' && !project && projectItems.length > 0) {
       void navigate({
         to: '/people/org',
-        search: { view, account, department, project: projectOptions[0]?.value },
+        search: { view, account, department, project: projectItems[0]?.id },
         replace: true,
       });
     }
-    if (view === 'department' && !department && departmentOptions.length > 0) {
+    if (view === 'department' && !department && departmentItems.length > 0) {
       void navigate({
         to: '/people/org',
-        search: { view, account, project, department: departmentOptions[0]?.value },
+        search: { view, account, project, department: departmentItems[0]?.id },
         replace: true,
       });
     }
-  }, [
-    view,
-    account,
-    project,
-    department,
-    accountOptions,
-    projectOptions,
-    departmentOptions,
-    navigate,
-  ]);
+  }, [view, account, project, department, accountItems, projectItems, departmentItems, navigate]);
 
   const graph = useMemo(() => {
     if (view === 'company') return buildCompanyGraph(companyQ.data?.nodes ?? []);
@@ -144,82 +157,115 @@ export function OrgChartPage() {
   const isEmpty = graph.nodes.length === 0;
 
   return (
-    <PageChrome title="Org Chart">
-      <div className="flex h-[calc(100vh-9rem)] flex-col gap-3 p-4">
-        <div className="flex items-center gap-3">
-          <SegmentedControl
-            aria-label="Org chart view"
-            value={view}
-            onValueChange={(v) => setSearch({ view: v as OrgView })}
-            options={[
-              { value: 'company', label: 'Company' },
-              { value: 'department', label: 'Department' },
-              { value: 'account', label: 'Account' },
-              { value: 'project', label: 'Project' },
-            ]}
-          />
-          {view === 'account' ? (
-            <div className="w-64">
-              <Combobox
-                options={accountOptions}
-                value={account ?? null}
-                onChange={(v) => setSearch({ account: v ?? undefined })}
-                placeholder="Select account…"
-              />
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/people">People</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Org Chart</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Org Chart
+                </Text>
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="flex h-[calc(100vh-9rem)] flex-col gap-3 p-4">
+            <div className="flex items-center gap-3">
+              <SegmentedControl
+                label="Org chart view"
+                value={view}
+                onChange={(v) => setSearch({ view: v as OrgView })}
+              >
+                <SegmentedControlItem value="company" label="Company" />
+                <SegmentedControlItem value="department" label="Department" />
+                <SegmentedControlItem value="account" label="Account" />
+                <SegmentedControlItem value="project" label="Project" />
+              </SegmentedControl>
+              {view === 'account' ? (
+                <div className="w-64">
+                  <Typeahead
+                    label="Account"
+                    isLabelHidden
+                    searchSource={accountSource}
+                    debounceMs={0}
+                    hasEntriesOnFocus
+                    value={accountValue}
+                    onChange={(item) => setSearch({ account: item?.id ?? undefined })}
+                    placeholder="Select account…"
+                  />
+                </div>
+              ) : null}
+              {view === 'project' ? (
+                <div className="w-72">
+                  <Typeahead
+                    label="Project"
+                    isLabelHidden
+                    searchSource={projectSource}
+                    debounceMs={0}
+                    hasEntriesOnFocus
+                    value={projectValue}
+                    onChange={(item) => setSearch({ project: item?.id ?? undefined })}
+                    placeholder="Select project…"
+                  />
+                </div>
+              ) : null}
+              {view === 'department' ? (
+                <div className="w-64">
+                  <Typeahead
+                    label="Department"
+                    isLabelHidden
+                    searchSource={departmentSource}
+                    debounceMs={0}
+                    hasEntriesOnFocus
+                    value={departmentValue}
+                    onChange={(item) => setSearch({ department: item?.id ?? undefined })}
+                    placeholder="Select department…"
+                  />
+                </div>
+              ) : null}
+              <ChartLegend />
             </div>
-          ) : null}
-          {view === 'project' ? (
-            <div className="w-72">
-              <Combobox
-                options={projectOptions}
-                value={project ?? null}
-                onChange={(v) => setSearch({ project: v ?? undefined })}
-                placeholder="Select project…"
-              />
+            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border">
+              {isLoading ? (
+                <div className="grid h-full place-items-center text-sm text-secondary">
+                  Loading…
+                </div>
+              ) : isEmpty ? (
+                <div className="grid h-full place-items-center text-sm text-secondary">
+                  Nothing to show in your scope.
+                </div>
+              ) : (
+                <OrgChartCanvas nodes={graph.nodes} edges={graph.edges} onNodeClick={onNodeClick} />
+              )}
             </div>
-          ) : null}
-          {view === 'department' ? (
-            <div className="w-64">
-              <Combobox
-                options={departmentOptions}
-                value={department ?? null}
-                onChange={(v) => setSearch({ department: v ?? undefined })}
-                placeholder="Select department…"
-              />
-            </div>
-          ) : null}
-          <ChartLegend />
-        </div>
-        <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-hairline">
-          {isLoading ? (
-            <div className="grid h-full place-items-center text-caption text-ink-subtle">
-              Loading…
-            </div>
-          ) : isEmpty ? (
-            <div className="grid h-full place-items-center text-caption text-ink-subtle">
-              Nothing to show in your scope.
-            </div>
-          ) : (
-            <OrgChartCanvas nodes={graph.nodes} edges={graph.edges} onNodeClick={onNodeClick} />
-          )}
-        </div>
-      </div>
-    </PageChrome>
+          </div>
+        </LayoutContent>
+      }
+    />
   );
 }
 
 const LEGEND: Array<{ label: string; accent: string }> = [
-  { label: 'Department', accent: 'var(--color-ink-subtle)' },
-  { label: 'Account', accent: 'var(--color-group-theme-teal)' },
+  { label: 'Department', accent: 'var(--color-text-secondary)' },
+  { label: 'Account', accent: 'var(--color-icon-teal)' },
   { label: 'Project', accent: 'var(--color-warning)' },
-  { label: 'Person', accent: 'var(--color-primary)' },
+  { label: 'Person', accent: 'var(--color-accent)' },
 ];
 
 function ChartLegend() {
   return (
     <div className="ml-auto flex items-center gap-3">
       {LEGEND.map((l) => (
-        <span key={l.label} className="flex items-center gap-1.5 text-caption text-ink-subtle">
+        <span key={l.label} className="flex items-center gap-1.5 text-sm text-secondary">
           <span className="h-2.5 w-2.5 rounded-sm" style={{ background: l.accent }} />
           {l.label}
         </span>

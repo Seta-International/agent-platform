@@ -1,32 +1,31 @@
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  HStack,
   Input,
-  Label,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  PageContainer,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SegmentedControlItem,
+  Selector,
+  Text,
   Textarea,
-  toast,
+  useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
   archiveCloseReason,
@@ -53,6 +52,7 @@ const SECTIONS: { key: JdSectionKey; label: string }[] = [
 ];
 
 function NewTemplateDialog() {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -74,11 +74,15 @@ function NewTemplateDialog() {
     setError(null);
   }
 
-  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
-  // programmatically must reset explicitly or the next open shows stale data.
+  // Programmatic close must reset explicitly or the next open shows stale data.
   function close() {
     setOpen(false);
     reset();
+  }
+
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
   }
 
   const mutation = useMutation({
@@ -93,7 +97,7 @@ function NewTemplateDialog() {
         })),
       }),
     onSuccess: () => {
-      toast.success('Template created');
+      toast({ body: 'Template created' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.jdTemplates() });
       close();
     },
@@ -101,82 +105,90 @@ function NewTemplateDialog() {
   });
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm">New template</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New JD template</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-          <div className="space-y-1">
-            <Label>Name *</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Backend role"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Kind</Label>
-            <Select value={kind} onValueChange={(v) => setKind(v as 'role' | 'intro' | 'closing')}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="role">role</SelectItem>
-                <SelectItem value="intro">intro</SelectItem>
-                <SelectItem value="closing">closing</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-caption font-semibold uppercase text-ink-muted">Sections</div>
-            <SegmentedControl
-              value={variant}
-              onValueChange={(v) => setVariant(v as JdVariant)}
-              options={[
-                { value: 'external', label: 'External' },
-                { value: 'internal', label: 'Internal' },
-              ]}
-            />
-          </div>
-          {SECTIONS.map((s) => (
-            <div key={s.key} className="space-y-1">
-              <Label>{s.label}</Label>
-              <Textarea
-                value={jd[s.key]}
-                onChange={(e) => setJd((d) => ({ ...d, [s.key]: e.target.value }))}
+    <>
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New template"
+        onClick={() => setOpen(true)}
+      />
+      <Dialog
+        isOpen={open}
+        onOpenChange={handleOpenChange}
+        width={560}
+        maxHeight="70vh"
+        purpose="form"
+      >
+        <Layout
+          header={<DialogHeader title="New JD template" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Input
+                    label="Name"
+                    isRequired
+                    value={name}
+                    onChange={(value) => setName(value)}
+                    placeholder="e.g. Backend role"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Selector
+                    label="Kind"
+                    options={[
+                      { value: 'role', label: 'role' },
+                      { value: 'intro', label: 'intro' },
+                      { value: 'closing', label: 'closing' },
+                    ]}
+                    value={kind}
+                    onChange={(v) => setKind(v as 'role' | 'intro' | 'closing')}
+                  />
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <div className="text-sm font-semibold uppercase text-secondary">Sections</div>
+                  <SegmentedControl
+                    label="JD variant"
+                    value={variant}
+                    onChange={(v) => setVariant(v as JdVariant)}
+                  >
+                    <SegmentedControlItem value="external" label="External" />
+                    <SegmentedControlItem value="internal" label="Internal" />
+                  </SegmentedControl>
+                </div>
+                {SECTIONS.map((s) => (
+                  <Textarea
+                    key={s.key}
+                    label={s.label}
+                    value={jd[s.key]}
+                    onChange={(value) => setJd((d) => ({ ...d, [s.key]: value }))}
+                  />
+                ))}
+                {error && <Banner status="error" title={error} />}
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={close} />
+              <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
+                label={mutation.isPending ? 'Creating…' : 'Create template'}
+                onClick={() => mutation.mutate()}
+                isDisabled={mutation.isPending || !name.trim()}
               />
-            </div>
-          ))}
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={close}>
-              Cancel
-            </Button>
-            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !name.trim()}>
-              {mutation.isPending ? 'Creating…' : 'Create template'}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+            </DialogFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }
 
 function NewCloseReasonDialog() {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('');
@@ -187,17 +199,21 @@ function NewCloseReasonDialog() {
     setError(null);
   }
 
-  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
-  // programmatically must reset explicitly or the next open shows stale data.
+  // Programmatic close must reset explicitly or the next open shows stale data.
   function close() {
     setOpen(false);
     reset();
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
+  }
+
   const mutation = useMutation({
     mutationFn: () => createCloseReason({ label }),
     onSuccess: () => {
-      toast.success('Close reason created');
+      toast({ body: 'Close reason created' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.closeReasons() });
       close();
     },
@@ -205,48 +221,48 @@ function NewCloseReasonDialog() {
   });
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm">New close reason</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New close reason</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>Label *</Label>
-            <Input
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. Position cancelled"
-            />
-          </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={close}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !label.trim()}
-            >
-              {mutation.isPending ? 'Creating…' : 'Create'}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New close reason"
+        onClick={() => setOpen(true)}
+      />
+      <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+        <Layout
+          header={<DialogHeader title="New close reason" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Input
+                    label="Label"
+                    isRequired
+                    value={label}
+                    onChange={(value) => setLabel(value)}
+                    placeholder="e.g. Position cancelled"
+                  />
+                </div>
+                {error && <Banner status="error" title={error} />}
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={close} />
+              <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
+                label={mutation.isPending ? 'Creating…' : 'Create close reason'}
+                onClick={() => mutation.mutate()}
+                isDisabled={mutation.isPending || !label.trim()}
+              />
+            </DialogFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }
 
@@ -257,6 +273,7 @@ const REJECTION_CATEGORIES: { value: RejectionCategory; label: string }[] = [
 ];
 
 function NewRejectionReasonDialog() {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('');
@@ -269,17 +286,21 @@ function NewRejectionReasonDialog() {
     setError(null);
   }
 
-  // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
-  // programmatically must reset explicitly or the next open shows stale data.
+  // Programmatic close must reset explicitly or the next open shows stale data.
   function close() {
     setOpen(false);
     reset();
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
+  }
+
   const mutation = useMutation({
     mutationFn: () => createRejectionReason({ label, category }),
     onSuccess: () => {
-      toast.success('Rejection reason created');
+      toast({ body: 'Rejection reason created' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.rejectionReasons() });
       close();
     },
@@ -287,67 +308,61 @@ function NewRejectionReasonDialog() {
   });
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm">New rejection reason</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New rejection reason</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>Label *</Label>
-            <Input
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. Lacking required skills"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Category</Label>
-            <Select value={category} onValueChange={(v) => setCategory(v as RejectionCategory)}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REJECTION_CATEGORIES.map((c) => (
-                  <SelectItem key={c.value} value={c.value}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={close}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !label.trim()}
-            >
-              {mutation.isPending ? 'Creating…' : 'Create'}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New rejection reason"
+        onClick={() => setOpen(true)}
+      />
+      <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+        <Layout
+          header={<DialogHeader title="New rejection reason" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Input
+                    label="Label"
+                    isRequired
+                    value={label}
+                    onChange={(value) => setLabel(value)}
+                    placeholder="e.g. Lacking required skills"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Selector
+                    label="Category"
+                    options={REJECTION_CATEGORIES}
+                    value={category}
+                    onChange={(v) => setCategory(v as RejectionCategory)}
+                  />
+                </div>
+                {error && <Banner status="error" title={error} />}
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={close} />
+              <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
+                label={mutation.isPending ? 'Creating…' : 'Create rejection reason'}
+                onClick={() => mutation.mutate()}
+                isDisabled={mutation.isPending || !label.trim()}
+              />
+            </DialogFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }
 
 export function SettingsPage() {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const canManage = usePermission('hiring.jd_template.manage');
   const templates = useQuery({ queryKey: hiringKeys.jdTemplates(), queryFn: fetchJdTemplates });
@@ -356,19 +371,19 @@ export function SettingsPage() {
   const del = useMutation({
     mutationFn: (id: string) => deleteJdTemplate(id),
     onSuccess: () => {
-      toast.success('Template deleted');
+      toast({ body: 'Template deleted' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.jdTemplates() });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
   const archive = useMutation({
     mutationFn: (vars: { id: string; version: number }) =>
       archiveCloseReason(vars.id, { expected_version: vars.version }),
     onSuccess: () => {
-      toast.success('Close reason archived');
+      toast({ body: 'Close reason archived' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.closeReasons() });
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.closeReasons()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.closeReasons()),
   });
 
   const canManageRejections = usePermission('hiring.rejection_reason.manage');
@@ -380,130 +395,163 @@ export function SettingsPage() {
     mutationFn: (vars: { id: string; version: number }) =>
       archiveRejectionReason(vars.id, { expected_version: vars.version }),
     onSuccess: () => {
-      toast.success('Rejection reason archived');
+      toast({ body: 'Rejection reason archived' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.rejectionReasons() });
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.rejectionReasons()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.rejectionReasons()),
   });
 
   return (
-    <PageChrome
-      title="Hiring settings"
-      breadcrumb={[
-        <Link key="reqs" to="/hiring/requisitions">
-          Requisitions
-        </Link>,
-      ]}
-    >
-      <div className="page-container grid grid-cols-1 gap-6 p-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>JD templates</CardTitle>
-            {canManage && <NewTemplateDialog />}
-          </CardHeader>
-          <CardContent>
-            {templates.error ? (
-              <Alert variant="destructive">
-                <AlertDescription>{(templates.error as Error).message}</AlertDescription>
-              </Alert>
-            ) : templates.isLoading ? (
-              <div className="text-ink-muted">Loading…</div>
-            ) : (templates.data?.length ?? 0) === 0 ? (
-              <div className="text-ink-muted">No templates yet.</div>
-            ) : (
-              <div className="divide-y divide-hairline">
-                {templates.data?.map((t) => (
-                  <div key={t.template.id} className="flex items-center justify-between py-2">
-                    <span className="text-ink">
-                      {t.template.name} <Badge variant="secondary">{t.template.kind}</Badge>
-                    </span>
-                    {canManage && (
-                      <Button size="sm" variant="ghost" onClick={() => del.mutate(t.template.id)}>
-                        Delete
-                      </Button>
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/hiring">Hiring Management</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Hiring settings</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Hiring settings
+                </Text>
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <PageContainer className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <Card>
+              <Layout
+                header={
+                  <LayoutHeader hasDivider className="flex flex-row items-center justify-between">
+                    <CardTitle>JD templates</CardTitle>
+                    {canManage && <NewTemplateDialog />}
+                  </LayoutHeader>
+                }
+                content={
+                  <LayoutContent>
+                    {templates.error ? (
+                      <Banner status="error" title={(templates.error as Error).message} />
+                    ) : templates.isLoading ? (
+                      <div className="text-secondary">Loading…</div>
+                    ) : (templates.data?.length ?? 0) === 0 ? (
+                      <div className="text-secondary">No templates yet.</div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {templates.data?.map((t) => (
+                          <div
+                            key={t.template.id}
+                            className="flex items-center justify-between py-2"
+                          >
+                            <span className="text-primary">
+                              {t.template.name} <Badge variant="neutral" label={t.template.kind} />
+                            </span>
+                            {canManage && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                label="Delete"
+                                onClick={() => del.mutate(t.template.id)}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  </LayoutContent>
+                }
+              />
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Close reasons</CardTitle>
-            {canManage && <NewCloseReasonDialog />}
-          </CardHeader>
-          <CardContent>
-            {reasons.error ? (
-              <Alert variant="destructive">
-                <AlertDescription>{(reasons.error as Error).message}</AlertDescription>
-              </Alert>
-            ) : reasons.isLoading ? (
-              <div className="text-ink-muted">Loading…</div>
-            ) : (reasons.data?.length ?? 0) === 0 ? (
-              <div className="text-ink-muted">No close reasons yet.</div>
-            ) : (
-              <div className="divide-y divide-hairline">
-                {reasons.data?.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between py-2">
-                    <span className="text-ink">
-                      {r.label} {!r.active && <Badge variant="secondary">archived</Badge>}
-                    </span>
-                    {canManage && r.active && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => archive.mutate({ id: r.id, version: r.version })}
-                      >
-                        Archive
-                      </Button>
+            <Card>
+              <Layout
+                header={
+                  <LayoutHeader hasDivider className="flex flex-row items-center justify-between">
+                    <CardTitle>Close reasons</CardTitle>
+                    {canManage && <NewCloseReasonDialog />}
+                  </LayoutHeader>
+                }
+                content={
+                  <LayoutContent>
+                    {reasons.error ? (
+                      <Banner status="error" title={(reasons.error as Error).message} />
+                    ) : reasons.isLoading ? (
+                      <div className="text-secondary">Loading…</div>
+                    ) : (reasons.data?.length ?? 0) === 0 ? (
+                      <div className="text-secondary">No close reasons yet.</div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {reasons.data?.map((r) => (
+                          <div key={r.id} className="flex items-center justify-between py-2">
+                            <span className="text-primary">
+                              {r.label} {!r.active && <Badge variant="neutral" label="archived" />}
+                            </span>
+                            {canManage && r.active && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                label="Archive"
+                                onClick={() => archive.mutate({ id: r.id, version: r.version })}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  </LayoutContent>
+                }
+              />
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Candidate rejection-reasons</CardTitle>
-            {canManageRejections && <NewRejectionReasonDialog />}
-          </CardHeader>
-          <CardContent>
-            {rejections.error ? (
-              <Alert variant="destructive">
-                <AlertDescription>{(rejections.error as Error).message}</AlertDescription>
-              </Alert>
-            ) : rejections.isLoading ? (
-              <div className="text-ink-muted">Loading…</div>
-            ) : (rejections.data?.length ?? 0) === 0 ? (
-              <div className="text-ink-muted">No rejection reasons yet.</div>
-            ) : (
-              <div className="divide-y divide-hairline">
-                {rejections.data?.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between py-2">
-                    <span className="text-ink">
-                      {r.label} <Badge variant="secondary">{r.category}</Badge>
-                      {!r.active && <Badge variant="secondary">archived</Badge>}
-                    </span>
-                    {canManageRejections && r.active && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => archiveRejection.mutate({ id: r.id, version: r.version })}
-                      >
-                        Archive
-                      </Button>
+            <Card>
+              <Layout
+                header={
+                  <LayoutHeader hasDivider className="flex flex-row items-center justify-between">
+                    <CardTitle>Candidate rejection-reasons</CardTitle>
+                    {canManageRejections && <NewRejectionReasonDialog />}
+                  </LayoutHeader>
+                }
+                content={
+                  <LayoutContent>
+                    {rejections.error ? (
+                      <Banner status="error" title={(rejections.error as Error).message} />
+                    ) : rejections.isLoading ? (
+                      <div className="text-secondary">Loading…</div>
+                    ) : (rejections.data?.length ?? 0) === 0 ? (
+                      <div className="text-secondary">No rejection reasons yet.</div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {rejections.data?.map((r) => (
+                          <div key={r.id} className="flex items-center justify-between py-2">
+                            <span className="text-primary">
+                              {r.label} <Badge variant="neutral" label={r.category} />
+                              {!r.active && <Badge variant="neutral" label="archived" />}
+                            </span>
+                            {canManageRejections && r.active && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                label="Archive"
+                                onClick={() =>
+                                  archiveRejection.mutate({ id: r.id, version: r.version })
+                                }
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </PageChrome>
+                  </LayoutContent>
+                }
+              />
+            </Card>
+          </PageContainer>
+        </LayoutContent>
+      }
+    />
   );
 }

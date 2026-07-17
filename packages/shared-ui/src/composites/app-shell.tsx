@@ -1,16 +1,17 @@
+import { AppShell as AstryxAppShell } from '@astryxdesign/core/AppShell';
+import { MobileNav } from '@astryxdesign/core/MobileNav';
 import type { AppManifest } from '@seta/module-sdk';
 import * as React from 'react';
-
 import { cn } from '../lib/cn';
-import { Sheet, SheetContent } from '../primitives/sheet';
 import { AgentPanel } from './agent-panel';
 import { AppLauncher } from './app-launcher';
-import { LeftNav, type ShellLinkComponent } from './left-nav';
+import { LeftNav } from './left-nav';
+import { toSideNavSections } from './nav-sections';
+import { DefaultShellLink, type ShellLinkComponent } from './shell-link';
 import { TopBar } from './top-bar';
 
 export interface AppShellProps {
   userMenu?: React.ReactNode;
-  onSearchOpen?: () => void;
 
   apps: AppManifest[];
   activeAppId: string;
@@ -37,9 +38,28 @@ export interface AppShellProps {
   className?: string;
 }
 
+/**
+ * Computes the same [...app.nav, ...app.useNavExtensions()] merge LeftNav does internally, for
+ * the mobile drawer's content. A sibling component (not a direct call in AppShell) so the
+ * per-app useNavExtensions hook — a different implementation per app — gets its own component
+ * instance and remounts via `key` on app switch, matching LeftNav's own safety pattern.
+ */
+function MobileNavSections({
+  app,
+  activeItemId,
+  Link,
+}: {
+  app: AppManifest;
+  activeItemId: string | undefined;
+  Link: ShellLinkComponent;
+}) {
+  const extensions = app.useNavExtensions();
+  const sections = [...app.nav, ...extensions];
+  return <>{toSideNavSections(sections, activeItemId, Link)}</>;
+}
+
 export function AppShell({
   userMenu,
-  onSearchOpen,
   apps,
   activeAppId,
   activeItemId,
@@ -70,131 +90,70 @@ export function AppShell({
     [controlledAgentOpen, onAgentOpenChange],
   );
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
-  const [launcherOpen, setLauncherOpen] = React.useState(false);
+  const Link = linkComponent ?? DefaultShellLink;
   // No match → chrome-less (bare brand crumb, no left nav). Never silently
   // adopt the first app, which would mislabel global pages like Settings.
   const activeApp = apps.find((a) => a.id === activeAppId);
 
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
-      const target = e.target as HTMLElement;
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target.isContentEditable
-      )
-        return;
-      if (e.key === '\\') {
-        if (hideAgent) return;
-        e.preventDefault();
-        setAgentOpen(!agentOpen);
-      } else if (e.key === 'b' || e.key === 'B') {
-        if (e.shiftKey) return;
-        e.preventDefault();
-        setSidebarCollapsed((c) => !c);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [hideAgent, agentOpen, setAgentOpen]);
+  const sideNavContent = activeApp ? (
+    <LeftNav
+      key={activeApp.id}
+      app={activeApp}
+      activeItemId={activeItemId}
+      linkComponent={linkComponent}
+      collapsed={sidebarCollapsed}
+      onCollapsedChange={setSidebarCollapsed}
+      sessionFooter={sessionFooter}
+    />
+  ) : undefined;
 
   return (
-    <div
-      className={cn(
-        'flex h-screen w-screen flex-col overflow-hidden bg-canvas text-ink',
-        className,
-      )}
-    >
-      <TopBar
-        activeApp={activeApp}
-        linkComponent={linkComponent}
-        userMenu={userMenu}
-        onSearchOpen={onSearchOpen}
-        agentOpen={agentOpen}
-        agentAlert={agentAlert}
-        onAgentToggle={() => setAgentOpen(!agentOpen)}
-        hideAgentButton={hideAgent}
-        notificationPanel={notificationPanel}
-        onMobileNavOpen={() => setMobileNavOpen(true)}
-        onLauncherOpen={() => setLauncherOpen((o) => !o)}
-        launcherOpen={launcherOpen}
-      />
-      {launcherOpen && (
-        <>
-          <button
-            type="button"
-            aria-label="Close app launcher"
-            className="fixed inset-0 z-40 cursor-default"
-            onClick={() => setLauncherOpen(false)}
+    <div className={cn('relative h-screen w-screen', className)}>
+      <AstryxAppShell
+        height="fill"
+        topNav={
+          <TopBar
+            activeApp={activeApp}
+            linkComponent={linkComponent}
+            userMenu={userMenu}
+            agentOpen={agentOpen}
+            agentAlert={agentAlert}
+            onAgentToggle={() => setAgentOpen(!agentOpen)}
+            hideAgentButton={hideAgent}
+            notificationPanel={notificationPanel}
+            onMobileNavOpen={() => setMobileNavOpen(true)}
+            launcherContent={(close) => (
+              <AppLauncher
+                apps={apps}
+                currentAppId={activeAppId}
+                disabledAppIds={disabledAppIds}
+                onSelect={onAppSelect}
+                onClose={close}
+              />
+            )}
           />
-          <div
-            role="dialog"
-            aria-label="App launcher"
-            className="absolute left-2 top-14 z-50 w-[360px] overflow-hidden rounded-lg border border-hairline bg-surface-1 shadow-lg"
-          >
-            <div className="flex items-center justify-between border-b border-hairline px-4 py-2.5">
-              <span className="text-body-sm font-semibold text-ink">Apps</span>
-              <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
-                Seta Suite
-              </span>
-            </div>
-            <AppLauncher
-              apps={apps}
-              currentAppId={activeAppId}
-              disabledAppIds={disabledAppIds}
-              onSelect={(id) => {
-                setLauncherOpen(false);
-                onAppSelect(id);
-              }}
-            />
-          </div>
-        </>
-      )}
-      <div className="relative flex min-h-0 flex-1">
-        {activeApp && (
-          <div className="hidden md:flex">
-            <LeftNav
-              key={activeApp.id}
-              app={activeApp}
-              activeItemId={activeItemId}
-              linkComponent={linkComponent}
-              collapsed={sidebarCollapsed}
-              onCollapsedChange={setSidebarCollapsed}
-              sessionFooter={sessionFooter}
-            />
-          </div>
-        )}
-        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-          <SheetContent
-            side="left"
-            hideClose
-            className="w-[260px] border-r border-hairline bg-surface-1 p-0 sm:max-w-none md:hidden"
-          >
+        }
+        sideNav={sideNavContent}
+        mobileNav={
+          <MobileNav isOpen={mobileNavOpen} onOpenChange={setMobileNavOpen} header="Navigation">
             {activeApp && (
-              <LeftNav
+              <MobileNavSections
                 key={activeApp.id}
                 app={activeApp}
                 activeItemId={activeItemId}
-                linkComponent={linkComponent}
-                collapsed={false}
-                hideCollapse
-                sessionFooter={sessionFooter}
-                className="w-full border-r-0"
+                Link={Link}
               />
             )}
-          </SheetContent>
-        </Sheet>
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto bg-canvas">
-          {children}
-        </main>
-        {!hideAgent && agentOpen && (
-          <div className="absolute inset-y-0 right-0 z-20 hidden lg:flex">
-            <AgentPanel className="shadow-lg">{agentPanel}</AgentPanel>
-          </div>
-        )}
-      </div>
+          </MobileNav>
+        }
+      >
+        {children}
+      </AstryxAppShell>
+      {!hideAgent && agentOpen && (
+        <div className="absolute inset-y-0 right-0 z-20 hidden lg:flex">
+          <AgentPanel className="shadow-lg">{agentPanel}</AgentPanel>
+        </div>
+      )}
       {agentMobileSlot}
     </div>
   );

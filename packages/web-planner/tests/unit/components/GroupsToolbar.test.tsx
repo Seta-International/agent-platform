@@ -28,20 +28,23 @@ describe('GroupsToolbar', () => {
 
   it('renders Visibility, Owner, and View controls', () => {
     render(<GroupsToolbar {...baseProps} />);
-    expect(screen.getByRole('button', { name: /Visibility/i })).toBeInTheDocument();
+    // Filters are Astryx Selectors. A plain Selector trigger exposes the `combobox` role; a
+    // searchable one (Owner, `hasSearch`) is instead a `button` (the search input inside its
+    // dropdown becomes the combobox). Both are named by the visually hidden label.
+    expect(screen.getByRole('combobox', { name: /Visibility/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Owner/i })).toBeInTheDocument();
-    expect(screen.getByRole('tablist', { name: /View/i })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: /View/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Search groups/i)).toBeInTheDocument();
   });
 
   it('does NOT render the Source filter by default (PR2 native-only)', () => {
     render(<GroupsToolbar {...baseProps} />);
-    expect(screen.queryByRole('button', { name: /Source/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /Source/i })).not.toBeInTheDocument();
   });
 
   it('renders the Source filter when showSourceFilter=true', () => {
     render(<GroupsToolbar {...baseProps} showSourceFilter />);
-    expect(screen.getByRole('button', { name: /Source/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /Source/i })).toBeInTheDocument();
   });
 
   it('debounces search input by 250ms before calling onSearchChange', async () => {
@@ -60,7 +63,7 @@ describe('GroupsToolbar', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const onViewChange = vi.fn();
     render(<GroupsToolbar {...baseProps} onViewChange={onViewChange} />);
-    await user.click(screen.getByRole('tab', { name: /Grid/i }));
+    await user.click(screen.getByRole('radio', { name: /Grid/i }));
     expect(onViewChange).toHaveBeenCalledWith('grid');
   });
 
@@ -70,5 +73,19 @@ describe('GroupsToolbar', () => {
     expect(input.value).toBe('');
     rerender(<GroupsToolbar {...baseProps} searchQuery="reset" />);
     expect(input.value).toBe('reset');
+  });
+
+  it('clicking the clear ("×") button resets the search input without crashing', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<GroupsToolbar {...baseProps} />);
+    const input = screen.getByPlaceholderText(/Search groups/i) as HTMLInputElement;
+    await user.type(input, 'eng');
+    expect(input.value).toBe('eng');
+
+    // Astryx TextInput's clear button calls onChange('', null) — the event arg
+    // is null on this path. A handler that reads e.target.value crashes here.
+    await user.click(screen.getByRole('button', { name: /Clear Search groups/i }));
+
+    expect(input.value).toBe('');
   });
 });

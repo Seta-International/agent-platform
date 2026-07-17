@@ -1,26 +1,24 @@
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
   Button,
+  DateInput,
   Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-  Dropzone,
+  DialogHeader,
+  Field,
+  FileInput,
+  HStack,
   Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
+  Selector,
   Textarea,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { FileText, Plus, X } from 'lucide-react';
+import { useId, useMemo, useState } from 'react';
 import {
   addCandidate,
   editCandidate,
@@ -38,7 +36,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9()\-.\s]{7,20}$/;
 
 export function NewCandidateDialog() {
+  const toast = useToast();
   const queryClient = useQueryClient();
+  const skillsId = useId();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -111,6 +111,11 @@ export function NewCandidateDialog() {
     reset();
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) reset();
+  }
+
   const effectiveReq = reqId || openReqs[0]?.id || '';
   const missingRequired = !name.trim() || !effectiveReq;
   const requiredError =
@@ -138,9 +143,9 @@ export function NewCandidateDialog() {
         return [...prev, ...draft.skills.filter((s) => !have.has(s.skill_id))];
       });
       setSuggestions(draft.skill_suggestions);
-      toast.success('CV parsed — review the pre-filled fields before saving');
+      toast({ body: 'CV parsed — review the pre-filled fields before saving' });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const mutation = useMutation({
@@ -179,8 +184,8 @@ export function NewCandidateDialog() {
       return { cvWarning };
     },
     onSuccess: ({ cvWarning }) => {
-      toast.success('Candidate added');
-      if (cvWarning) toast.error(cvWarning);
+      toast({ body: 'Candidate added' });
+      if (cvWarning) toast({ body: cvWarning, type: 'error' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
       close();
     },
@@ -195,197 +200,179 @@ export function NewCandidateDialog() {
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm">New candidate</Button>
-      </DialogTrigger>
-      <DialogContent
-        unstyled
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        className="w-full max-w-lg"
+    <>
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New candidate"
+        onClick={() => setOpen(true)}
+      />
+      <Dialog
+        isOpen={open}
+        onOpenChange={handleOpenChange}
+        width={560}
+        maxHeight="85vh"
+        purpose="form"
       >
-        <DialogTitle className="sr-only">New candidate</DialogTitle>
-        <div className="flex max-h-[85vh] flex-col overflow-hidden rounded-lg">
-          <header className="border-b border-hairline bg-canvas px-6 py-4">
-            <h1 className="text-card-title font-semibold leading-none tracking-tight text-ink">
-              New candidate
-            </h1>
-          </header>
-          <div className="min-h-0 flex-1 overflow-auto">
-            <div className="space-y-3 px-6 py-4">
-              {cvFile ? (
-                <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-1 px-3 py-2 text-body-sm">
-                  <FileText className="size-4 flex-none text-ink-subtle" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
-                  {parse.isPending && <span className="text-ink-subtle">Parsing…</span>}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6"
-                    aria-label="Remove CV"
-                    onClick={() => {
-                      setCvFile(null);
-                      setSuggestions([]);
+        <Layout
+          header={<DialogHeader title="New candidate" onOpenChange={handleOpenChange} hasDivider />}
+          content={
+            <LayoutContent>
+              <div className="space-y-3">
+                {cvFile ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-base">
+                    <FileText className="size-4 flex-none text-secondary" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
+                    {parse.isPending && <span className="text-secondary">Parsing…</span>}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      isIconOnly
+                      icon={<X className="size-3.5" />}
+                      label="Remove CV"
+                      className="size-6"
+                      onClick={() => {
+                        setCvFile(null);
+                        setSuggestions([]);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <FileInput
+                    mode="dropzone"
+                    label="Upload CV to auto-fill"
+                    accept=".pdf,.docx"
+                    maxSize={10 * 1024 * 1024}
+                    value={null}
+                    onChange={(file) => {
+                      if (file instanceof File) {
+                        setCvFile(file);
+                        parse.mutate(file);
+                      }
                     }}
-                  >
-                    <X className="size-3.5" />
-                  </Button>
-                </div>
-              ) : (
-                <Dropzone
-                  accept=".pdf,.docx"
-                  maxBytes={10 * 1024 * 1024}
-                  label="Upload CV to auto-fill"
-                  hint="PDF or DOCX, up to 10MB — parsed fields stay editable"
-                  pendingLabel="Parsing CV…"
-                  isPending={parse.isPending}
-                  onFile={(f) => {
-                    setCvFile(f);
-                    parse.mutate(f);
-                  }}
-                />
-              )}
-              <div className="space-y-1">
-                <Label htmlFor="cand-name">Full name *</Label>
-                <Input id="cand-name" value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+                    isLoading={parse.isPending}
+                    isDisabled={parse.isPending}
+                    placeholder="Drop a CV here, or click to choose one"
+                    description="PDF or DOCX, up to 10MB — parsed fields stay editable"
+                  />
+                )}
                 <div className="space-y-1">
-                  <Label htmlFor="cand-email">Email</Label>
-                  <Input id="cand-email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                  {emailError && <p className="text-caption text-danger-ink">{emailError}</p>}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="cand-phone">Phone</Label>
-                  <Input id="cand-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                  {phoneError && <p className="text-caption text-danger-ink">{phoneError}</p>}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="cand-dob">Date of birth</Label>
                   <Input
-                    id="cand-dob"
-                    type="date"
-                    value={dob}
-                    onChange={(e) => setDob(e.target.value)}
+                    label="Full name"
+                    isRequired
+                    value={name}
+                    onChange={(value) => setName(value)}
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="cand-gender">Gender</Label>
-                  <Select
-                    value={gender || NONE}
-                    onValueChange={(v) => setGender(v === NONE ? '' : v)}
-                  >
-                    <SelectTrigger id="cand-gender" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Input
+                      type="email"
+                      label="Email"
+                      value={email}
+                      onChange={(value) => setEmail(value)}
+                    />
+                    {emailError && <p className="text-sm text-error">{emailError}</p>}
+                  </div>
+                  <div className="space-y-1">
+                    <Input label="Phone" value={phone} onChange={(value) => setPhone(value)} />
+                    {phoneError && <p className="text-sm text-error">{phoneError}</p>}
+                  </div>
+                  <div className="space-y-1">
+                    <DateInput
+                      label="Date of birth"
+                      value={dob || undefined}
+                      onChange={(v) => setDob(v ?? '')}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Selector
+                      label="Gender"
+                      options={[
+                        { value: NONE, label: '—' },
+                        { value: 'male', label: 'Male' },
+                        { value: 'female', label: 'Female' },
+                        { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+                      ]}
+                      value={gender || NONE}
+                      onChange={(v) => setGender(v === NONE ? '' : v)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Selector
+                      label="Seniority"
+                      options={[
+                        { value: NONE, label: '—' },
+                        ...seniorityOptions.map((s) => ({ value: s, label: s })),
+                      ]}
+                      value={seniority || NONE}
+                      onChange={(v) => setSeniority(v === NONE ? '' : v)}
+                      placeholder="Select seniority"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Selector
+                      label="Source"
+                      options={[
+                        { value: NONE, label: '—' },
+                        ...sourceOptions.map((s) => ({ value: s, label: s })),
+                      ]}
+                      value={source || NONE}
+                      onChange={(v) => setSource(v === NONE ? '' : v)}
+                      placeholder="Select source"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="cand-seniority">Seniority</Label>
-                  <Select
-                    value={seniority || NONE}
-                    onValueChange={(v) => setSeniority(v === NONE ? '' : v)}
-                  >
-                    <SelectTrigger id="cand-seniority" className="w-full">
-                      <SelectValue placeholder="Select seniority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      {seniorityOptions.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Selector
+                    label="Position applied"
+                    isRequired
+                    options={openReqs.map((r) => ({ value: r.id, label: r.title }))}
+                    value={effectiveReq}
+                    onChange={(v) => setReqId(v)}
+                    placeholder="Select a position"
+                  />
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="cand-source">Source</Label>
-                  <Select
-                    value={source || NONE}
-                    onValueChange={(v) => setSource(v === NONE ? '' : v)}
-                  >
-                    <SelectTrigger id="cand-source" className="w-full">
-                      <SelectValue placeholder="Select source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>—</SelectItem>
-                      {sourceOptions.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="cand-req">Position applied *</Label>
-                <Select value={effectiveReq} onValueChange={(v) => setReqId(v)}>
-                  <SelectTrigger id="cand-req" className="w-full">
-                    <SelectValue placeholder="Select a position" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {openReqs.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.title}
-                      </SelectItem>
+                <Field label="Skills" inputID={skillsId} labelID={skillsId} isGroupLabel>
+                  <fieldset aria-labelledby={skillsId}>
+                    <SkillPicker value={skills} onChange={setSkills} />
+                  </fieldset>
+                </Field>
+                <Textarea label="Notes" value={note} onChange={(value) => setNote(value)} />
+                {suggestions.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-sm text-secondary">From CV, not in catalog:</span>
+                    {suggestions.map((sg) => (
+                      <Badge key={sg} variant="neutral" className="border-dashed" label={sg} />
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                )}
               </div>
-              <div className="space-y-1">
-                <Label>Skills</Label>
-                <SkillPicker value={skills} onChange={setSkills} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="cand-note">Notes</Label>
-                <Textarea id="cand-note" value={note} onChange={(e) => setNote(e.target.value)} />
-              </div>
-              {suggestions.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-caption text-ink-subtle">From CV, not in catalog:</span>
-                  {suggestions.map((sg) => (
-                    <Badge key={sg} variant="outline" className="border-dashed">
-                      {sg}
-                    </Badge>
-                  ))}
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <div className="space-y-2">
+                {error && <Banner status="error" title={error} />}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-base text-error">{requiredError}</p>
+                  <HStack gap={2} hAlign="end">
+                    <Button variant="secondary" label="Cancel" onClick={close} />
+                    <Button
+                      variant="primary"
+                      icon={<Plus className="size-4" />}
+                      label={mutation.isPending ? 'Creating…' : 'Create candidate'}
+                      onClick={submit}
+                      isDisabled={mutation.isPending || parse.isPending}
+                    />
+                  </HStack>
                 </div>
-              )}
-            </div>
-          </div>
-          <footer className="space-y-2 border-t border-hairline bg-canvas px-6 py-3">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-body-sm text-danger-ink">{requiredError}</p>
-              <div className="flex shrink-0 gap-2">
-                <Button variant="secondary" onClick={close}>
-                  Cancel
-                </Button>
-                <Button onClick={submit} disabled={mutation.isPending || parse.isPending}>
-                  {mutation.isPending ? 'Saving…' : 'Save candidate'}
-                </Button>
               </div>
-            </div>
-          </footer>
-        </div>
-      </DialogContent>
-    </Dialog>
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }

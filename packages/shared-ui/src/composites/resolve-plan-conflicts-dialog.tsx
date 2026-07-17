@@ -1,13 +1,8 @@
 import { useState } from 'react';
 import { Button } from '../primitives/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../primitives/dialog';
+import { Dialog, DialogHeader } from '../primitives/dialog';
+import { Layout, LayoutContent } from '../primitives/layout';
+import { DialogFooter } from './dialog-footer';
 import { FieldConflictRow } from './field-conflict-row';
 import { TaskConflictGroup } from './task-conflict-group';
 
@@ -121,73 +116,98 @@ export function ResolvePlanConflictsDialog(p: ResolvePlanConflictsDialogProps) {
   }
 
   return (
-    <Dialog open={p.open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Resolve sync conflicts</DialogTitle>
-          <DialogDescription>
-            {totalFields} fields across {taskCount} task(s) have diverged between Seta and M365
-            Planner since the last sync. Pick which value to keep for each.
-          </DialogDescription>
-        </DialogHeader>
+    <Dialog
+      isOpen={p.open}
+      onOpenChange={handleOpenChange}
+      purpose="form"
+      width={720}
+      maxHeight="88vh"
+    >
+      <Layout
+        header={
+          <DialogHeader
+            title="Resolve sync conflicts"
+            subtitle={`${totalFields} fields across ${taskCount} task(s) have diverged between Seta and M365 Planner since the last sync. Pick which value to keep for each.`}
+            onOpenChange={handleOpenChange}
+          />
+        }
+        content={
+          <LayoutContent isScrollable={false}>
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="secondary"
+                size="sm"
+                label="Use Seta for all"
+                onClick={() => bulkChoose('local')}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                label="Use M365 for all"
+                onClick={() => bulkChoose('remote')}
+              />
+            </div>
 
-        <div className="flex gap-2 pt-1">
-          <Button variant="secondary" size="sm" onClick={() => bulkChoose('local')}>
-            Use Seta for all
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => bulkChoose('remote')}>
-            Use M365 for all
-          </Button>
-        </div>
+            <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-1">
+              {p.data.planLevelConflicts.length > 0 && (
+                <section>
+                  <h3 className="text-xs font-semibold text-secondary uppercase tracking-wide mb-2">
+                    Plan-level fields
+                  </h3>
+                  <div className="space-y-3">
+                    {p.data.planLevelConflicts.map((c) => (
+                      <FieldConflictRow
+                        key={c.field}
+                        field={c.field}
+                        local={c.local}
+                        remote={c.remote}
+                        snapshot={c.snapshot}
+                        choice={planDecisions[c.field] ?? null}
+                        onChoose={(choice) => handlePlanChoose(c.field, choice)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
 
-        <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-1">
-          {p.data.planLevelConflicts.length > 0 && (
-            <section>
-              <h3 className="text-xs font-semibold text-ink-subtle uppercase tracking-wide mb-2">
-                Plan-level fields
-              </h3>
-              <div className="space-y-3">
-                {p.data.planLevelConflicts.map((c) => (
-                  <FieldConflictRow
-                    key={c.field}
-                    field={c.field}
-                    local={c.local}
-                    remote={c.remote}
-                    snapshot={c.snapshot}
-                    choice={planDecisions[c.field] ?? null}
-                    onChoose={(choice) => handlePlanChoose(c.field, choice)}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {p.data.taskConflicts.map((t, i) => (
-            <TaskConflictGroup
-              key={t.taskId}
-              taskId={t.taskId}
-              taskTitle={t.taskTitle}
-              taskUrl={t.taskUrl}
-              fields={t.fields}
-              decisions={taskDecisions[t.taskId] ?? {}}
-              onChoose={(field, choice) => handleTaskChoose(t.taskId, field, choice)}
-              defaultOpen={i === 0}
+              {p.data.taskConflicts.map((t, i) => (
+                <TaskConflictGroup
+                  key={t.taskId}
+                  taskId={t.taskId}
+                  taskTitle={t.taskTitle}
+                  taskUrl={t.taskUrl}
+                  fields={t.fields}
+                  decisions={taskDecisions[t.taskId] ?? {}}
+                  onChoose={(field, choice) => handleTaskChoose(t.taskId, field, choice)}
+                  defaultOpen={i === 0}
+                />
+              ))}
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <DialogFooter
+            startContent={
+              <span className="text-xs text-secondary">
+                {unresolved} unresolved · {chosen} chosen
+              </span>
+            }
+          >
+            <Button
+              variant="secondary"
+              label="Cancel"
+              onClick={() => handleOpenChange(false)}
+              isDisabled={submitting}
             />
-          ))}
-        </div>
-
-        <DialogFooter className="items-center gap-2">
-          <span className="text-xs text-ink-subtle mr-auto">
-            {unresolved} unresolved · {chosen} chosen
-          </span>
-          <Button variant="secondary" onClick={() => handleOpenChange(false)} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleApply} disabled={chosen < totalFields || submitting}>
-            Apply
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+            <Button
+              variant="primary"
+              label="Apply"
+              onClick={handleApply}
+              isDisabled={chosen < totalFields || submitting}
+            />
+          </DialogFooter>
+        }
+      />
     </Dialog>
   );
 }

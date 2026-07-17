@@ -1,37 +1,24 @@
-import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import type { TaskWithAssigneesRow } from '@seta/planner';
 import {
   Avatar,
-  AvatarFallback,
   Button,
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  DisabledActionTooltip,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+  createStaticSource,
+  HoverCard,
+  IconButton,
+  type SearchableItem,
+  Skeleton,
+  Tokenizer,
 } from '@seta/shared-ui';
-import { usePermission, useSession } from '@seta/web-identity';
-import { GripVertical, Plus, Sparkles, X, Zap } from 'lucide-react';
-import { useState } from 'react';
+import { usePermission } from '@seta/web-identity';
+import { Sparkles, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useAssignTask } from '../hooks/mutations/assign-task';
-import { useMoveToTopOfMyList } from '../hooks/mutations/move-to-top-of-my-list';
-import { useReorderTaskAssignees } from '../hooks/mutations/reorder-task-assignees';
 import { useUnassignTask } from '../hooks/mutations/unassign-task';
 import { useAssigneeSuggestions } from '../hooks/queries/use-assignee-suggestions';
-import { useGroupMemberAssigneeSearch } from '../hooks/use-group-member-assignee-search';
+import { useGroupMembers } from '../hooks/queries/use-group-members';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
-import { computeAssigneeReorder } from './assignee-reorder';
 import { formatSuggestionReason, scorePercent } from './assignee-suggestion-format';
-import { SuggestionScoreTooltip } from './suggestion-score-tooltip';
+import { AI_GRADIENT, SuggestionScoreTooltip } from './suggestion-score-tooltip';
 
 interface Props {
   task: TaskWithAssigneesRow;
@@ -40,9 +27,9 @@ interface Props {
   isLinkedToM365?: boolean;
 }
 
-// Brand-cohesive "intelligence" gradient: Seta blue → indigo → cyan.
-// Signals the AI-matched zone without the cliché purple-on-white slop.
-const AI_GRADIENT = 'linear-gradient(120deg, #0047FF 0%, #6d5cff 46%, #22d3ee 100%)';
+// How many AI matches the Suggested results show before deferring the rest to
+// the search field.
+const MAX_SUGGESTIONS = 3;
 
 function initialsOf(name: string): string {
   const parts = name.split(/\s+/).filter(Boolean);
@@ -67,268 +54,257 @@ function userAvatarStyle(userId: string) {
   };
 }
 
+// Plain-language confidence band — leads the score pill so a reader sees the
+// verdict at a glance; the exact percentage stays as a secondary detail and in
+// the hover breakdown.
+function fitLabel(score: number): string {
+  if (score >= 0.85) return 'Great';
+  if (score >= 0.7) return 'Strong';
+  if (score >= 0.5) return 'Good';
+  return 'Fair';
+}
+
+// Assignees are managed as Tokenizer tokens; the search source and the applied
+// tokens share this shape. `isDriver` marks the first assignee (the driver).
+type AssigneeItem = SearchableItem<{ email?: string; isDriver?: boolean }>;
+
 export function TaskDetailAssigneesCard({
   task,
   planId,
   groupId,
   isLinkedToM365: _isLinkedToM365 = false,
 }: Props) {
-  const session = useSession();
-  const reorder = useReorderTaskAssignees();
-  const moveToTop = useMoveToTopOfMyList();
   const assign = useAssignTask(planId);
   const unassign = useUnassignTask(planId);
   const canAssign = usePermission('planner.task.assign');
   const noAssignReason = PERMISSION_DENIED.task.assign;
 
-  const isCurrentUserAssigned = task.assignees.some((a) => a.user_id === session.user_id);
+  const membersQ = useGroupMembers(groupId);
+  // Suggestions are user-initiated, not automatic: the ranking pipeline only
+  // runs once the user clicks "Suggest". This keeps the feature discoverable (an
+  // explicit action rather than silent background magic) and avoids running the
+  // pipeline on every task open.
+  const [hasTriggered, setHasTriggered] = useState(false);
+  const suggestionsQ = useAssigneeSuggestions(task.id, hasTriggered && canAssign);
 
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const memberQuery = useGroupMemberAssigneeSearch(groupId, search, pickerOpen);
-  const suggestionsQ = useAssigneeSuggestions(task.id, pickerOpen);
+  const assignedIds = useMemo(
+    () => new Set(task.assignees.map((a) => a.user_id)),
+    [task.assignees],
+  );
 
-  const filteredSuggestions = (suggestionsQ.data ?? []).filter((s) => {
-    const term = search.trim().toLowerCase();
-    return term.length === 0 || s.display_name.toLowerCase().includes(term);
-  });
+  // Top AI matches, shown in the Suggested results once the user asks. Capped so
+  // the panel stays compact.
+  const suggestions = useMemo(
+    () =>
+      (suggestionsQ.data ?? [])
+        .filter((s) => !assignedIds.has(s.user_id))
+        .slice(0, MAX_SUGGESTIONS),
+    [suggestionsQ.data, assignedIds],
+  );
+  const shownSuggestionIds = useMemo(
+    () => new Set(suggestions.map((s) => s.user_id)),
+    [suggestions],
+  );
 
-  const onDragEnd = (result: DropResult) => {
-    if (!canAssign) return;
-    if (!result.destination) return;
-    const ids = task.assignees.map((a) => a.user_id);
-    const newOrder = computeAssigneeReorder(ids, result.source.index, result.destination.index);
-    if (!newOrder) return;
-    reorder.mutate({ task_id: task.id, newOrder: newOrder.map((user_id) => ({ user_id })) });
+  // Applied assignees, rendered as Tokenizer tokens; the first is the driver.
+  const value: AssigneeItem[] = task.assignees.map((a, idx) => ({
+    id: a.user_id,
+    label: a.display_name,
+    auxiliaryData: { email: a.email ?? undefined, isDriver: idx === 0 },
+  }));
+
+  // Tokenizer search candidates: group members not already assigned or surfaced
+  // in the Suggested results below.
+  const memberItems: AssigneeItem[] = useMemo(
+    () =>
+      (membersQ.data?.members ?? [])
+        .filter((m) => !assignedIds.has(m.user_id) && !shownSuggestionIds.has(m.user_id))
+        .map((m) => ({ id: m.user_id, label: m.display_name, auxiliaryData: { email: m.email } })),
+    [membersQ.data, assignedIds, shownSuggestionIds],
+  );
+  const source = useMemo(
+    () =>
+      createStaticSource<AssigneeItem>(memberItems, {
+        keywords: (i) => (i.auxiliaryData?.email ? [i.auxiliaryData.email] : []),
+      }),
+    [memberItems],
+  );
+
+  // Suggestions are user-initiated: the first click enables the query (React
+  // Query fetches on enable); later clicks re-run it.
+  const runSuggest = () => {
+    if (hasTriggered) void suggestionsQ.refetch();
+    else setHasTriggered(true);
   };
 
   return (
     <section className="card" aria-label="Assignees">
       <header className="mb-2 flex items-center justify-between gap-2">
-        <span className="t-sm subtle">Assignees</span>
+        <span className="text-sm text-secondary">Assignees</span>
+        {canAssign && (
+          <Button
+            size="sm"
+            variant="ghost"
+            label="Suggest"
+            icon={<Sparkles className="size-3.5" style={{ color: '#6d5cff' }} />}
+            onClick={runSuggest}
+            isDisabled={suggestionsQ.isFetching}
+          />
+        )}
       </header>
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <Droppable droppableId={`assignees-${task.id}`} type="ASSIGNEES">
-          {(dp) => (
-            <div ref={dp.innerRef} {...dp.droppableProps} className="flex flex-col gap-1">
-              {task.assignees.map((a, idx) => (
-                <Draggable key={a.user_id} draggableId={a.user_id} index={idx}>
-                  {(dpc) => (
-                    <div
-                      ref={dpc.innerRef}
-                      {...dpc.draggableProps}
-                      className="flex items-center gap-2 rounded-sm px-1 py-1.5"
-                      style={dpc.draggableProps.style ?? undefined}
-                    >
-                      <button
-                        type="button"
-                        aria-label="Drag handle"
-                        {...(canAssign ? dpc.dragHandleProps : {})}
-                        disabled={!canAssign}
-                        className={`border-none bg-transparent p-0 text-ink-tertiary ${canAssign ? 'cursor-grab' : 'cursor-not-allowed opacity-40'}`}
-                      >
-                        <GripVertical className="size-3.5" />
-                      </button>
-                      <Avatar className="size-6">
-                        <AvatarFallback>{initialsOf(a.display_name)}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <div className="t-sm text-ink">{a.display_name}</div>
-                        <div className="t-xs subtle">{idx === 0 ? 'driver' : 'reviewer'}</div>
-                      </div>
-                      <DisabledActionTooltip
-                        disabled={!canAssign}
-                        reason={PERMISSION_DENIED.task.assign}
-                      >
-                        <button
-                          type="button"
-                          aria-label={`Remove ${a.display_name}`}
-                          onClick={() => unassign.mutate({ task_id: task.id, user_id: a.user_id })}
-                          disabled={!canAssign}
-                          className="cursor-pointer border-none bg-transparent p-1 text-ink-subtle disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </DisabledActionTooltip>
-                    </div>
-                  )}
-                </Draggable>
+      <Tokenizer<AssigneeItem>
+        label="Assignees"
+        isLabelHidden
+        placeholder="Search group members…"
+        searchSource={source}
+        debounceMs={0}
+        hasEntriesOnFocus
+        isDisabled={!canAssign}
+        disabledMessage={noAssignReason}
+        value={value}
+        onChange={(_items, change) => {
+          if (change.type === 'add') {
+            assign.mutate({
+              task_id: task.id,
+              user_id: change.item.id,
+              display_name: change.item.label,
+              email: change.item.auxiliaryData?.email,
+            });
+          } else if (change.type === 'remove') {
+            unassign.mutate({ task_id: task.id, user_id: change.item.id });
+          }
+        }}
+        renderToken={(item, onRemove) => (
+          <span
+            key={item.id}
+            className="inline-flex items-center gap-1.5 rounded-full bg-surface py-0.5 pr-0.5 pl-1"
+          >
+            <Avatar name={item.label} size={20} />
+            <span className="text-base text-primary">{item.label}</span>
+            {item.auxiliaryData?.isDriver && <span className="text-xs text-secondary">driver</span>}
+            <IconButton
+              variant="ghost"
+              size="sm"
+              label={`Remove ${item.label}`}
+              onClick={onRemove}
+              isDisabled={!canAssign}
+              icon={<X className="size-3" />}
+            />
+          </span>
+        )}
+        renderItem={(item) => (
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+              style={userAvatarStyle(item.id)}
+            >
+              {initialsOf(item.label)}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-base leading-tight text-primary">{item.label}</span>
+              <span className="truncate text-sm leading-tight text-secondary">
+                {item.auxiliaryData?.email}
+              </span>
+            </span>
+          </div>
+        )}
+      />
+
+      {/* AI suggestion results, below the assignees, once the user asks. */}
+      {canAssign && hasTriggered && (
+        <div className="mt-2">
+          <span className="mb-1 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide">
+            <Sparkles className="size-3" aria-hidden style={{ color: '#6d5cff' }} />
+            <span
+              className="bg-clip-text text-transparent"
+              style={{ backgroundImage: AI_GRADIENT }}
+            >
+              Suggested
+            </span>
+          </span>
+
+          {suggestionsQ.isLoading ? (
+            <div
+              className="flex flex-col gap-2 px-1.5 py-1"
+              role="status"
+              aria-label="Finding matches"
+            >
+              {[0, 1].map((i) => (
+                <div key={i} className="flex items-center gap-2.5">
+                  <Skeleton height={28} width={28} radius="rounded" />
+                  <div className="flex-1">
+                    <Skeleton height={12} width={i === 0 ? '70%' : '55%'} />
+                  </div>
+                </div>
               ))}
-              {dp.placeholder}
+            </div>
+          ) : suggestionsQ.isError ? (
+            <p className="px-1.5 py-1 text-xs text-secondary">
+              Couldn't load suggestions — click Suggest to retry.
+            </p>
+          ) : suggestions.length > 0 ? (
+            <div className="flex flex-col gap-0.5">
+              {suggestions.map((s) => (
+                // A full-width, left-aligned, two-line row with a trailing score
+                // pill — a shape Button can't express, so it stays a native button.
+                <button
+                  key={s.user_id}
+                  type="button"
+                  title={`Assign ${s.display_name}`}
+                  aria-label={`Assign ${s.display_name}`}
+                  onClick={() =>
+                    assign.mutate({
+                      task_id: task.id,
+                      user_id: s.user_id,
+                      display_name: s.display_name,
+                    })
+                  }
+                  className="group flex w-full cursor-pointer items-center gap-2.5 rounded-md border-none bg-transparent px-1.5 py-1.5 text-left transition-colors hover:bg-surface"
+                >
+                  <span
+                    aria-hidden
+                    className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                    style={userAvatarStyle(s.user_id)}
+                  >
+                    {initialsOf(s.display_name)}
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-base leading-tight text-primary">
+                      {s.display_name}
+                    </span>
+                    <span className="truncate text-sm leading-tight text-secondary">
+                      {formatSuggestionReason(s)}
+                    </span>
+                  </span>
+                  <HoverCard placement="start" content={<SuggestionScoreTooltip suggestion={s} />}>
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-muted px-1.5 py-0.5 text-xs font-semibold text-accent">
+                      {fitLabel(s.score)}
+                      <span className="text-secondary">·</span>
+                      {scorePercent(s)}%
+                    </span>
+                  </HoverCard>
+                  {/* Reveal-on-hover affordance; opacity keeps it in flow so the
+                      row doesn't reflow when it appears. */}
+                  <span
+                    aria-hidden
+                    className="shrink-0 text-xs font-semibold text-accent opacity-0 transition-opacity group-hover:opacity-100"
+                  >
+                    Add
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md border border-dashed border-border bg-surface px-3 py-2.5">
+              <p className="text-xs font-medium text-primary">No skill matches for this task yet</p>
+              <p className="mt-0.5 text-xs text-secondary">
+                Add a description or labels so suggestions can rank by skill.
+              </p>
             </div>
           )}
-        </Droppable>
-      </DragDropContext>
-
-      <div className="mt-1.5">
-        <Popover open={pickerOpen} onOpenChange={(o) => canAssign && setPickerOpen(o)}>
-          <DisabledActionTooltip disabled={!canAssign} reason={noAssignReason}>
-            <PopoverTrigger asChild disabled={!canAssign}>
-              <Button size="sm" variant="ghost" aria-label="Add assignee" disabled={!canAssign}>
-                <Plus className="size-3" />
-                Add assignee
-              </Button>
-            </PopoverTrigger>
-          </DisabledActionTooltip>
-          <PopoverContent align="start" className="w-80 p-0">
-            <Command shouldFilter={false}>
-              <CommandInput
-                aria-label="Search group members"
-                placeholder="Search group members"
-                value={search}
-                onValueChange={setSearch}
-              />
-              <CommandList>
-                <CommandEmpty>
-                  {memberQuery.isPending && search ? 'Searching…' : 'No group members found.'}
-                </CommandEmpty>
-                <TooltipProvider delayDuration={200}>
-                  <CommandGroup
-                    heading={
-                      <span className="inline-flex items-center gap-1.5 uppercase tracking-wide">
-                        <Sparkles
-                          className="size-3 animate-pulse"
-                          style={{ color: '#6d5cff' }}
-                          aria-hidden
-                        />
-                        <span
-                          className="bg-clip-text font-semibold text-transparent"
-                          style={{ backgroundImage: AI_GRADIENT }}
-                        >
-                          AI matches
-                        </span>
-                      </span>
-                    }
-                  >
-                    {suggestionsQ.isPending && (
-                      <div className="px-2 py-1.5 text-caption text-ink-subtle">
-                        Loading suggestions…
-                      </div>
-                    )}
-                    {suggestionsQ.isError && (
-                      <div className="px-2 py-1.5 text-caption text-ink-subtle">
-                        Couldn't load suggestions
-                      </div>
-                    )}
-                    {suggestionsQ.isSuccess && filteredSuggestions.length === 0 && (
-                      <div className="px-2 py-1.5 text-caption text-ink-subtle">
-                        No strong matches
-                      </div>
-                    )}
-                    {suggestionsQ.isSuccess &&
-                      filteredSuggestions.map((s) => {
-                        const already = task.assignees.some((a) => a.user_id === s.user_id);
-                        return (
-                          <CommandItem
-                            key={`suggested-${s.user_id}`}
-                            value={`suggested-${s.user_id}`}
-                            disabled={already}
-                            onSelect={() =>
-                              assign.mutate({
-                                task_id: task.id,
-                                user_id: s.user_id,
-                                display_name: s.display_name,
-                              })
-                            }
-                            className="flex items-center gap-2.5"
-                          >
-                            <span
-                              aria-hidden
-                              className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                              style={userAvatarStyle(s.user_id)}
-                            >
-                              {initialsOf(s.display_name)}
-                            </span>
-                            <span className="flex min-w-0 flex-1 flex-col">
-                              <span className="truncate text-body-sm leading-tight text-ink">
-                                {s.display_name}
-                              </span>
-                              <span className="truncate text-caption leading-tight text-ink-subtle">
-                                {formatSuggestionReason(s)}
-                              </span>
-                            </span>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="shrink-0 rounded-full bg-primary-tint px-1.5 py-0.5 text-caption font-semibold text-primary-ink">
-                                  {scorePercent(s)}%
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="left"
-                                align="center"
-                                collisionPadding={12}
-                                className="z-[200] px-3 py-2"
-                              >
-                                <SuggestionScoreTooltip suggestion={s} />
-                              </TooltipContent>
-                            </Tooltip>
-                            {already && (
-                              <span className="shrink-0 text-caption text-ink-subtle">Added</span>
-                            )}
-                          </CommandItem>
-                        );
-                      })}
-                  </CommandGroup>
-                </TooltipProvider>
-                <CommandGroup heading="All members">
-                  {memberQuery.members.map((m) => {
-                    const already = task.assignees.some((a) => a.user_id === m.user_id);
-                    return (
-                      <CommandItem
-                        key={m.user_id}
-                        value={m.user_id}
-                        disabled={already}
-                        onSelect={() => {
-                          assign.mutate({
-                            task_id: task.id,
-                            user_id: m.user_id,
-                            display_name: m.display_name,
-                            email: m.email,
-                          });
-                        }}
-                        className="flex items-center gap-2.5"
-                      >
-                        <span
-                          aria-hidden
-                          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                          style={userAvatarStyle(m.user_id)}
-                        >
-                          {initialsOf(m.display_name)}
-                        </span>
-                        <span className="flex min-w-0 flex-1 flex-col">
-                          <span className="truncate text-body-sm leading-tight text-ink">
-                            {m.display_name}
-                          </span>
-                          <span className="truncate text-caption leading-tight text-ink-subtle">
-                            {m.email}
-                          </span>
-                        </span>
-                        {already && (
-                          <span className="shrink-0 text-caption text-ink-subtle">Added</span>
-                        )}
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      {isCurrentUserAssigned && (
-        <DisabledActionTooltip disabled={!canAssign} reason={noAssignReason}>
-          <button
-            type="button"
-            onClick={() => moveToTop.mutate({ task_id: task.id })}
-            disabled={!canAssign}
-            className="mt-2.5 inline-flex items-center gap-1.5 rounded-md border border-dashed border-primary-border bg-primary-tint px-2.5 py-1.5 text-caption font-semibold text-primary-ink enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Zap className="size-3" />
-            Move to top of my list
-          </button>
-        </DisabledActionTooltip>
+        </div>
       )}
     </section>
   );

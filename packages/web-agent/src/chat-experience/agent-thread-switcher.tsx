@@ -1,4 +1,4 @@
-import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@seta/shared-ui';
+import { Divider, DropdownMenuItem, Text } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { useThreadList } from '../hooks/use-thread-list';
@@ -20,43 +20,42 @@ export function AgentThreadSwitcher({ onAfterSelect }: AgentThreadSwitcherProps)
   return (
     <>
       <DropdownMenuItem
-        onSelect={() => {
+        icon={<Plus className="size-3.5" aria-hidden />}
+        label="New chat"
+        onClick={() => {
           actions.startFreshThread();
           onAfterSelect?.();
         }}
-        className="gap-2"
-      >
-        <Plus className="size-3.5" aria-hidden />
-        New chat
-      </DropdownMenuItem>
-      {flat.length > 0 && <DropdownMenuSeparator />}
-      {flat.length > 0 && (
-        <DropdownMenuLabel className="text-caption uppercase tracking-wide text-ink-subtle">
-          Recent
-        </DropdownMenuLabel>
-      )}
+      />
+      {/* Astryx's DropdownMenu has no divider/label sub-components of its own (those only
+          exist for data-driven `items`); the general-purpose Divider renders fine interspersed
+          here since useListFocus's keyboard nav only queries `[role="menuitem"]`, not children shape. */}
+      {flat.length > 0 && <Divider label="Recent" />}
       {flat.map((t) => (
         <DropdownMenuItem
           key={t.id}
-          onSelect={() => {
+          label={<span className="truncate">{t.title || 'Untitled chat'}</span>}
+          style={
+            selection.threadId === t.id
+              ? { backgroundColor: 'var(--color-background-surface)' }
+              : undefined
+          }
+          onClick={() => {
             actions.setThreadId(t.id);
             onAfterSelect?.();
           }}
-          className={`gap-2 ${selection.threadId === t.id ? 'bg-surface-2' : ''}`}
-        >
-          <span className="truncate">{t.title || 'Untitled chat'}</span>
-        </DropdownMenuItem>
+        />
       ))}
-      <DropdownMenuSeparator />
+      <Divider />
       <DropdownMenuItem
-        onSelect={() => {
+        // A className on the DropdownMenuItem root can't reach Item's label — the label
+        // paints its own color in a child <span>, so the muted tone has to live there.
+        label={<Text color="secondary">Show all in /agent/chat</Text>}
+        onClick={() => {
           void navigate({ to: '/agent/chat', search: { thread: selection.threadId } });
           onAfterSelect?.();
         }}
-        className="gap-2 text-ink-muted"
-      >
-        Show all in /agent/chat
-      </DropdownMenuItem>
+      />
     </>
   );
 }

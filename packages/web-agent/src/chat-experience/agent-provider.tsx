@@ -17,6 +17,7 @@ import { useIsThreadFresh } from '../hooks/use-is-thread-fresh';
 import { useModelCatalog } from '../hooks/use-model-catalog';
 import { ThreadMessagesError, useThreadMessages } from '../hooks/use-thread-messages';
 import { markThreadFresh, markThreadKnown } from '../lib/fresh-thread-store';
+import type { EntityMention } from '../lib/mention-part';
 import { DensityProvider } from './use-density';
 
 const MODEL_STORAGE_KEY = 'seta.agent.model';
@@ -69,6 +70,13 @@ interface RuntimeContextValue {
   runError: string | null;
   /** Clear the last run error (e.g. when the user sends a new message). */
   clearRunError: () => void;
+  /**
+   * Mentions resolved by the composer for the next user message. The composer
+   * writes at submit time; `useAgentRuntime`'s `toCreateMessage` reads and
+   * drains it. A ref (not state) so filling it never re-renders the composer
+   * mid-send, mirroring `pageContextRef`.
+   */
+  mentionsRef: React.MutableRefObject<EntityMention[]>;
 }
 
 /**
@@ -334,7 +342,7 @@ function AgentRuntimeHost({ children }: { children: React.ReactNode }) {
   // alive for the lifetime of that (threadId × approvalRevision) pair.
   if (!historyReady) {
     return (
-      <div className="flex h-full min-h-0 flex-1 items-center justify-center text-caption text-ink-subtle">
+      <div className="flex h-full min-h-0 flex-1 items-center justify-center text-sm text-secondary">
         Loading chat…
       </div>
     );
@@ -377,16 +385,23 @@ function AgentRuntimeHostInner({
   const handleError = useCallback((error: Error) => setRunError(describeRunError(error)), []);
   const clearRunError = useCallback(() => setRunError(null), []);
 
+  // Lives here (not in AgentRuntimeHost like pageContextRef) because it mirrors
+  // no state — the composer writes it directly. Sharing the Inner's lifetime
+  // also means a thread switch remounts it empty, so a mention resolved for an
+  // abandoned draft can't leak onto the next thread's first message.
+  const mentionsRef = useRef<EntityMention[]>([]);
+
   const runtime = useAgentRuntime({
     threadId,
     modelKey,
     initialMessages,
     pageContextRef,
+    mentionsRef,
     onError: handleError,
   });
 
   const value = useMemo<RuntimeContextValue>(
-    () => ({ runtime, historyLoading, runError, clearRunError }),
+    () => ({ runtime, historyLoading, runError, clearRunError, mentionsRef }),
     [runtime, historyLoading, runError, clearRunError],
   );
 

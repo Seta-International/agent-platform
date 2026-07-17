@@ -2,12 +2,11 @@ import {
   Button,
   Checkbox,
   Dialog,
-  DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
   DisabledActionTooltip,
+  Layout,
+  LayoutContent,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useState } from 'react';
@@ -40,47 +39,47 @@ export function ConfirmDeletePlanDialog({
   const deleteDisabled = pending || !canDeletePlan || (isLinked && !acknowledged);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle>Delete this plan?</DialogTitle>
-          <DialogDescription asChild>
-            <div className="space-y-2 text-body-sm text-ink-subtle">
+    <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="required">
+      <Layout
+        header={<DialogHeader title="Delete this plan?" onOpenChange={handleOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-2 text-base text-secondary">
               <p>The plan is gone for good. Its tasks move to Trash.</p>
               {isLinked && (
-                <p className="font-medium text-ink">
+                <p className="font-medium text-primary">
                   This also deletes the matching plan in Microsoft Planner.
                 </p>
               )}
             </div>
-          </DialogDescription>
-        </DialogHeader>
-
-        {isLinked && (
-          <label
-            htmlFor="confirm-delete-m365"
-            className="flex items-center gap-2 text-body-sm text-ink cursor-pointer select-none"
-          >
-            <Checkbox
-              id="confirm-delete-m365"
-              checked={acknowledged}
-              onCheckedChange={(v) => setAcknowledged(v === true)}
+            {isLinked && (
+              <Checkbox
+                label="I understand this also deletes the matching Microsoft Planner plan."
+                value={acknowledged}
+                onChange={(v) => setAcknowledged(v)}
+              />
+            )}
+          </LayoutContent>
+        }
+        footer={
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              label="Cancel"
+              onClick={() => handleOpenChange(false)}
+              isDisabled={pending}
             />
-            I understand this also deletes the matching Microsoft Planner plan.
-          </label>
-        )}
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
-          <DisabledActionTooltip disabled={!canDeletePlan} reason={PERMISSION_DENIED.plan.delete}>
-            <Button variant="destructive" onClick={onConfirm} disabled={deleteDisabled}>
-              Delete
-            </Button>
-          </DisabledActionTooltip>
-        </DialogFooter>
-      </DialogContent>
+            <DisabledActionTooltip disabled={!canDeletePlan} reason={PERMISSION_DENIED.plan.delete}>
+              <Button
+                variant="destructive"
+                label="Delete"
+                onClick={onConfirm}
+                isDisabled={deleteDisabled}
+              />
+            </DisabledActionTooltip>
+          </DialogFooter>
+        }
+      />
     </Dialog>
   );
 }

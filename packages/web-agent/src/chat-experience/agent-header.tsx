@@ -1,10 +1,4 @@
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@seta/shared-ui';
+import { DropdownMenu, DropdownMenuItem, IconButton } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Menu, MessageSquare, MoreHorizontal, Pencil, Sparkles, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -19,6 +13,21 @@ interface AgentHeaderProps {
   showThreadSwitcher?: boolean;
   onOpenMobileNav?: () => void;
   onClose?: () => void;
+}
+
+// Astryx's compound DropdownMenuItem has no divider sub-component (data-driven only).
+function MenuDivider() {
+  return (
+    <hr
+      aria-hidden
+      style={{
+        height: 1,
+        margin: '4px 6px',
+        border: 'none',
+        backgroundColor: 'var(--color-border)',
+      }}
+    />
+  );
 }
 
 function useTitleFor(threadId: string | undefined): string {
@@ -81,24 +90,24 @@ export function AgentHeader({
 
   return (
     <header
-      className={`flex flex-none items-center gap-2 border-b border-hairline bg-canvas ${
+      className={`flex flex-none items-center gap-2 border-b border-border bg-body ${
         compact ? 'h-11 px-3' : 'h-14 px-6'
       }`}
     >
       {!compact && onOpenMobileNav && (
-        <button
+        <IconButton
           type="button"
+          variant="ghost"
           onClick={onOpenMobileNav}
-          aria-label="Open chats"
-          className="-ml-1 inline-flex size-8 flex-none items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink lg:hidden"
-        >
-          <Menu className="size-4" aria-hidden />
-        </button>
+          label="Open chats"
+          icon={<Menu className="size-4" aria-hidden />}
+          className="-ml-1 flex-none lg:hidden"
+        />
       )}
 
       <span
         aria-hidden
-        className="inline-flex size-5 flex-none items-center justify-center rounded-md bg-primary-tint text-primary"
+        className="inline-flex size-5 flex-none items-center justify-center rounded-md bg-accent-muted text-accent"
       >
         <Sparkles className="size-3" />
       </span>
@@ -120,7 +129,7 @@ export function AgentHeader({
               }
             }}
             aria-label="Chat name"
-            className="min-w-0 flex-1 bg-transparent text-body-sm font-semibold tracking-tight text-ink focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent text-base font-semibold tracking-tight text-primary focus:outline-none"
           />
         ) : (
           <button
@@ -128,11 +137,11 @@ export function AgentHeader({
             onClick={() => canEdit && startEdit()}
             disabled={!canEdit}
             title={canEdit ? 'Rename chat' : title}
-            className="group inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 -mx-1 text-left text-body-sm font-semibold tracking-tight text-ink hover:bg-surface-2 disabled:cursor-default disabled:hover:bg-transparent"
+            className="group inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 -mx-1 text-left text-base font-semibold tracking-tight text-primary hover:bg-surface disabled:cursor-default disabled:hover:bg-transparent"
           >
             <span className="truncate">{title}</span>
             <Pencil
-              className="size-3 flex-none text-ink-tertiary opacity-0 transition-opacity group-hover:opacity-100 group-disabled:hidden"
+              className="size-3 flex-none text-disabled opacity-0 transition-opacity group-hover:opacity-100 group-disabled:hidden"
               aria-hidden
             />
           </button>
@@ -141,61 +150,59 @@ export function AgentHeader({
 
       <div className="flex flex-none items-center gap-1">
         <DensityToggle />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Chat actions"
-              disabled={!canEdit && !compact}
-              className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <MoreHorizontal className="size-4" aria-hidden />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[220px]">
-            {compact && showThreadSwitcher && (
-              <>
-                <AgentThreadSwitcher />
-                <DropdownMenuSeparator />
-              </>
-            )}
-            {compact && !showThreadSwitcher && (
-              <>
-                <DropdownMenuItem
-                  onSelect={() => void navigate({ to: '/agent/chat' })}
-                  className="gap-2"
-                >
-                  <MessageSquare className="size-3.5" aria-hidden />
-                  View all chats
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
-            <DropdownMenuItem onSelect={startEdit} disabled={!canEdit} className="gap-2">
-              <Pencil className="size-3.5" aria-hidden />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={onDelete}
-              disabled={!canEdit}
-              className="gap-2 text-destructive focus:text-destructive"
-            >
-              <Trash2 className="size-3.5" aria-hidden />
-              Delete chat
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+        <DropdownMenu
+          placement="below"
+          menuWidth={220}
+          button={{
+            isIconOnly: true,
+            icon: <MoreHorizontal className="size-4" aria-hidden />,
+            variant: 'ghost',
+            size: 'sm',
+            label: 'Chat actions',
+            isDisabled: !canEdit && !compact,
+          }}
+        >
+          {compact && showThreadSwitcher && (
+            <>
+              <AgentThreadSwitcher />
+              <MenuDivider />
+            </>
+          )}
+          {compact && !showThreadSwitcher && (
+            <>
+              <DropdownMenuItem
+                icon={<MessageSquare className="size-3.5" aria-hidden />}
+                label="View all chats"
+                onClick={() => void navigate({ to: '/agent/chat' })}
+              />
+              <MenuDivider />
+            </>
+          )}
+          <DropdownMenuItem
+            icon={<Pencil className="size-3.5" aria-hidden />}
+            label="Rename"
+            isDisabled={!canEdit}
+            onClick={startEdit}
+          />
+          <MenuDivider />
+          <DropdownMenuItem
+            icon={<Trash2 className="size-3.5" aria-hidden />}
+            label="Delete chat"
+            style={{ color: 'var(--color-error)' }}
+            isDisabled={!canEdit}
+            onClick={onDelete}
+          />
         </DropdownMenu>
         {onClose && (
-          <button
+          <IconButton
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            aria-label="Close agent panel"
-            title="Close"
-            className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-          >
-            <X className="size-4" aria-hidden />
-          </button>
+            label="Close agent panel"
+            tooltip="Close"
+            icon={<X className="size-4" aria-hidden />}
+          />
         )}
       </div>
     </header>

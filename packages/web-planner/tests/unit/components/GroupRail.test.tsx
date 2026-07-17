@@ -131,10 +131,26 @@ describe('GroupRail', () => {
     expect(screen.queryByText(/See all/)).not.toBeInTheDocument();
   });
 
-  it('renders Owner pill with primary tint for role=owner', () => {
+  it('renders an Owner badge for role=owner', () => {
     const m = makeMember({ role: 'owner' });
     render(<GroupRail group={baseGroup} members={[m]} canManage onAddMember={vi.fn()} />);
-    const pill = screen.getByText('Owner');
-    expect(pill.className).toMatch(/bg-primary-tint/);
+    expect(screen.getByText('Owner')).toBeInTheDocument();
+  });
+
+  it('hides the member roster (keeps the header) when showMemberList=false', () => {
+    const members = Array.from({ length: 3 }, (_, i) =>
+      makeMember({ user_id: `u${i}`, display_name: `User ${i}` }),
+    );
+    render(
+      <GroupRail
+        group={baseGroup}
+        members={members}
+        canManage
+        showMemberList={false}
+        onAddMember={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText('User 0')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add member/i })).toBeInTheDocument();
   });
 });

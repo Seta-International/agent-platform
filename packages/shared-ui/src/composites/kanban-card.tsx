@@ -1,10 +1,75 @@
-import { CheckSquare } from 'lucide-react';
+import { Text } from '@astryxdesign/core/Text';
+import * as stylex from '@stylexjs/stylex';
+import { Calendar, CheckSquare } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { PRIORITY_BY_LEVEL } from '../lib/priority';
 import { AvatarStack } from './avatar-stack';
 import { KanbanCardShell, type KanbanCardShellProps } from './kanban-card-shell';
 import { LabelChip } from './label-chip';
-import { PriorityIcon } from './priority-icon';
 import { SyncBadge, type SyncState } from './sync-badge';
+
+// Mirrors priority-icon.tsx's LABEL map — the pill needs an accessible label since
+// color alone isn't sufficient.
+const LABEL: Record<KanbanCardTask['priority'], string> = {
+  urgent: 'Urgent priority',
+  important: 'Important priority',
+  medium: 'Medium priority',
+  low: 'Low priority',
+};
+
+const styles = stylex.create({
+  title: { display: 'flex', alignItems: 'center', gap: 6 },
+  completedTitle: { textDecoration: 'line-through', opacity: 0.5 },
+  blockedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+    background: 'var(--color-error)',
+    flexShrink: 0,
+    display: 'inline-block',
+  },
+  pill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    padding: '1px 8px',
+    borderRadius: 999,
+    fontSize: 'var(--font-size-xs)',
+    fontWeight: 600,
+  },
+  doneMarker: {
+    marginInlineStart: 'auto',
+    color: 'var(--color-success)',
+    fontSize: 'var(--font-size-xs)',
+    fontWeight: 600,
+  },
+  due: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 3,
+    color: 'var(--color-text-secondary)',
+    fontSize: 'var(--font-size-xs)',
+    whiteSpace: 'nowrap',
+  },
+  dueIcon: { width: 12, height: 12, flexShrink: 0 },
+  checklistChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 3,
+    padding: '1px 6px',
+    fontVariantNumeric: 'tabular-nums',
+    color: 'var(--color-text-secondary)',
+    background: 'var(--color-background-surface)',
+    borderRadius: 999,
+    fontSize: 'var(--font-size-xs)',
+  },
+  checklistChipComplete: {
+    color: 'var(--color-success)',
+    background: 'color-mix(in srgb, var(--color-success) 12%, transparent)',
+  },
+  syncBadge: { position: 'absolute', right: 8, top: 8 },
+  checkIcon: { width: 12, height: 12 },
+});
 
 export interface KanbanCardTask {
   id: string;
@@ -37,6 +102,49 @@ export interface KanbanCardProps {
 }
 
 export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: KanbanCardProps) {
+  const p = PRIORITY_BY_LEVEL[task.priority];
+  const header = (
+    <div {...stylex.props(styles.title)}>
+      <span
+        role="img"
+        aria-label={LABEL[task.priority]}
+        {...stylex.props(styles.pill)}
+        style={{ background: p.tint, color: p.ink }}
+      >
+        <span aria-hidden {...stylex.props(styles.blockedDot)} style={{ background: p.color }} />
+        {p.label}
+      </span>
+      {task.blocked && (
+        <span role="img" aria-label="Blocked" {...stylex.props(styles.blockedDot)} />
+      )}
+      {task.isCompleted && <span {...stylex.props(styles.doneMarker)}>✓ Done</span>}
+    </div>
+  );
+  const hasFooterContent = Boolean(
+    task.label ||
+      task.start_label ||
+      task.due_label ||
+      (task.checklist_summary && task.checklist_summary.total > 0) ||
+      task.assignees.length > 0,
+  );
+  const footer = hasFooterContent ? (
+    <>
+      {task.label && <LabelChip name={task.label.name} color={task.label.color} />}
+      {(task.due_label || task.start_label) && (
+        <span {...stylex.props(styles.due)}>
+          <Calendar aria-hidden {...stylex.props(styles.dueIcon)} />
+          {task.due_label ?? task.start_label}
+        </span>
+      )}
+      {task.checklist_summary && task.checklist_summary.total > 0 && (
+        <ChecklistChip
+          total={task.checklist_summary.total}
+          checked={task.checklist_summary.checked}
+        />
+      )}
+      <AvatarStack assignees={task.assignees} />
+    </>
+  ) : undefined;
   return (
     <KanbanCardShell
       ariaLabel={`Task: ${task.title}`}
@@ -45,41 +153,15 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
       recentlyMoved={task.recentlyMoved}
       saving={task.saving}
       draggable={draggable}
+      header={header}
+      footer={footer}
     >
-      <div className="kanban-card__title">
-        {task.blocked && (
-          <span
-            role="img"
-            aria-label="Blocked"
-            className="kanban-card__blocked-dot"
-            title="Blocked"
-          />
-        )}
-        <span className={task.isCompleted ? 'line-through opacity-50' : undefined}>
-          {task.title}
-        </span>
-      </div>
+      <Text size="sm" weight="medium" xstyle={task.isCompleted ? styles.completedTitle : undefined}>
+        {task.title}
+      </Text>
       {previewSlot}
-      <div className="kanban-card__meta">
-        <PriorityIcon level={task.priority} />
-        {task.label && <LabelChip name={task.label.name} color={task.label.color} />}
-        {(task.start_label || task.due_label) && (
-          <span className="kanban-card__due">
-            {task.start_label && task.due_label
-              ? `${task.start_label} → ${task.due_label}`
-              : (task.start_label ?? task.due_label)}
-          </span>
-        )}
-        {task.checklist_summary && task.checklist_summary.total > 0 && (
-          <ChecklistChip
-            total={task.checklist_summary.total}
-            checked={task.checklist_summary.checked}
-          />
-        )}
-        <AvatarStack assignees={task.assignees} />
-      </div>
       {task.external_source === 'm365' && (
-        <span style={{ position: 'absolute', right: 8, top: 8 }}>
+        <span {...stylex.props(styles.syncBadge)}>
           <SyncBadge
             state={task.sync_status ?? null}
             synced_at={task.external_synced_at ?? null}
@@ -97,9 +179,9 @@ function ChecklistChip({ total, checked }: { total: number; checked: number }) {
     <span
       role="img"
       aria-label={`Checklist ${checked} of ${total} done`}
-      className={`kanban-card__checklist-chip ${complete ? 'kanban-card__checklist-chip--complete' : ''}`}
+      {...stylex.props(styles.checklistChip, complete && styles.checklistChipComplete)}
     >
-      <CheckSquare className="size-3" aria-hidden />
+      <CheckSquare aria-hidden {...stylex.props(styles.checkIcon)} />
       {checked}/{total}
     </span>
   );

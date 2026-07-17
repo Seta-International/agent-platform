@@ -1,4 +1,5 @@
 import { Button, Input } from '@seta/shared-ui';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useCreateTask } from '../../hooks/mutations/create-task';
 import { apiTo, fromDateKey } from '../../lib/calendar-dates';
@@ -36,28 +37,32 @@ export function CalendarQuickCreate({ planId, dueDate, onClose }: Props) {
         e.preventDefault();
         submit();
       }}
-      className="flex w-64 flex-col gap-2 rounded-md border border-hairline bg-surface-1 p-2 shadow-lg"
+      className="flex w-64 flex-col gap-2 rounded-md border border-border bg-card p-2 shadow-lg"
     >
-      <span className="text-caption text-ink-muted">
+      <span className="text-sm text-secondary">
         New task — due {dateLabelFmt.format(fromDateKey(dueDate))}
       </span>
       <Input
-        autoFocus
-        aria-label="Task title"
+        hasAutoFocus
+        label="Task title"
+        isLabelHidden
         placeholder="Task title"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={(value) => setTitle(value)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') onClose();
         }}
       />
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button type="submit" size="sm" disabled={!title.trim() || createTask.isPending}>
-          Create
-        </Button>
+        <Button type="button" variant="ghost" size="sm" label="Cancel" onClick={onClose} />
+        <Button
+          type="submit"
+          size="sm"
+          variant="primary"
+          icon={<Plus className="size-3.5" />}
+          label="Create task"
+          isDisabled={!title.trim() || createTask.isPending}
+        />
       </div>
     </form>
   );

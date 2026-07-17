@@ -1,23 +1,29 @@
 import {
-  Alert,
-  AlertDescription,
-  AsyncCombobox,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
+  HStack,
   Input,
-  Label,
   LabelChip,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  PageContainer,
   Skeleton,
-  toast,
+  Text,
+  Tokenizer,
+  Typeahead,
+  useSeededItem,
+  useSeededItems,
+  useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
-import { ChevronLeft, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { useState } from 'react';
 import {
   type AccountPatch,
@@ -25,14 +31,14 @@ import {
   fetchAccount,
   setAccountRecruiters,
 } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search.ts';
+import { useWorkerSource } from '../api/worker-search.ts';
 import { pmKeys } from '../state/query-keys.ts';
 
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[140px_1fr] gap-2 items-start py-2 border-b border-hairline last:border-0">
-      <span className="text-body-sm text-ink-muted font-medium">{label}</span>
-      <span className="text-body-sm text-ink break-all">{value ?? '—'}</span>
+    <div className="grid grid-cols-[140px_1fr] gap-2 items-start py-2 border-b border-border last:border-0">
+      <span className="text-base text-secondary font-medium">{label}</span>
+      <span className="text-base text-primary break-all">{value ?? '—'}</span>
     </div>
   );
 }
@@ -40,6 +46,7 @@ function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
 export function AccountDetailPage({ accountId }: { accountId: string }) {
   const queryClient = useQueryClient();
   const canManage = usePermission('pm.account.manage');
+  const toast = useToast();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<AccountPatch>({});
@@ -50,7 +57,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
   const [recruiterIds, setRecruiterIds] = useState<string[]>([]);
   const [recruiterError, setRecruiterError] = useState<string | null>(null);
 
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
 
   const {
     data: account,
@@ -73,7 +80,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
       return editAccount(accountId, { expected_version: account.version, patch });
     },
     onSuccess: () => {
-      toast.success('Changes saved');
+      toast({ body: 'Changes saved' });
       setEditing(false);
       setDraft({});
       setEditError(null);
@@ -93,7 +100,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
   const saveRecruitersMutation = useMutation({
     mutationFn: (ids: string[]) => setAccountRecruiters(accountId, ids),
     onSuccess: (r) => {
-      toast.success(`Recruiters updated (${r.added} added, ${r.removed} removed)`);
+      toast({ body: `Recruiters updated (${r.added} added, ${r.removed} removed)` });
       setEditingRecruiters(false);
       setRecruiterError(null);
       void queryClient.invalidateQueries({ queryKey: pmKeys.account(accountId) });
@@ -107,7 +114,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
     setDraft({
       name: account.name,
       industry: account.industry ?? '',
-      am_worker_id: account.am_worker_id ?? '',
+      am_worker_id: account.am_worker_id ?? null,
     });
     setEditError(null);
     setEditing(true);
@@ -136,205 +143,288 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
     saveRecruitersMutation.mutate(recruiterIds);
   }
 
-  const recruiterLabels = useQuery({
-    queryKey: [
-      'people',
-      'worker-resolve',
-      [account?.am_worker_id, ...(account?.recruiter_worker_ids ?? [])].filter(Boolean).sort(),
-    ],
-    queryFn: () =>
-      workerPicker.resolveByIds(
-        [account?.am_worker_id, ...(account?.recruiter_worker_ids ?? [])].filter(
-          (x): x is string => !!x,
-        ),
-      ),
-    enabled: !!account,
-  });
-  const nameOf = (id: string) => recruiterLabels.data?.find((o) => o.value === id)?.label ?? id;
+  // Account Manager: seeded by the persisted id until the draft picks a different one — the
+  // same hook backs both the read-only display (`amWorkerItem?.label`) and the editing Typeahead.
+  const effectiveAmWorkerId =
+    draft.am_worker_id !== undefined ? draft.am_worker_id : (account?.am_worker_id ?? null);
+  const [amWorkerItem, setAmWorkerItem] = useSeededItem(effectiveAmWorkerId, workerSource.seed);
 
-  const backLink = (
-    <Link
-      to="/pm/accounts"
-      className="flex items-center gap-1 text-body-sm text-ink-muted hover:text-ink transition-colors"
-    >
-      <ChevronLeft className="size-4" />
-      Accounts
-    </Link>
+  // Recruiters: same pattern, multi — persisted ids until the in-progress edit takes over.
+  const effectiveRecruiterIds = editingRecruiters
+    ? recruiterIds
+    : (account?.recruiter_worker_ids ?? []);
+  const [recruiterItems, setRecruiterItems] = useSeededItems(
+    effectiveRecruiterIds,
+    workerSource.seed,
   );
 
   const headerActions =
     canManage && !editing && account ? (
-      <Button size="sm" onClick={startEdit}>
-        Edit
-      </Button>
+      <Button size="sm" label="Edit" onClick={startEdit} />
     ) : canManage && editing ? (
       <div className="flex items-center gap-2">
         <Button
           size="sm"
           variant="secondary"
+          label="Cancel"
           onClick={cancelEdit}
-          disabled={saveMutation.isPending}
-        >
-          Cancel
-        </Button>
-        <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? 'Saving…' : 'Save'}
-        </Button>
+          isDisabled={saveMutation.isPending}
+        />
+        <Button
+          size="sm"
+          variant="primary"
+          label={saveMutation.isPending ? 'Saving…' : 'Save'}
+          onClick={() => saveMutation.mutate()}
+          isDisabled={saveMutation.isPending}
+        />
       </div>
     ) : undefined;
 
   if (isLoading) {
     return (
-      <PageChrome title="Account" breadcrumb={[backLink]}>
-        <div className="page-container p-6 space-y-4">
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-5 w-48" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
-                  <Skeleton key={i} className="h-4 w-full" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+                <BreadcrumbItem href="/pm/accounts">Accounts</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Account</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Account
+                  </Text>
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <PageContainer className="space-y-4">
+              <Card>
+                <Layout
+                  header={
+                    <LayoutHeader hasDivider>
+                      <Skeleton height={20} width={192} />
+                    </LayoutHeader>
+                  }
+                  content={
+                    <LayoutContent>
+                      <div className="space-y-3">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are positional
+                          <Skeleton key={i} height={16} />
+                        ))}
+                      </div>
+                    </LayoutContent>
+                  }
+                />
+              </Card>
+            </PageContainer>
+          </LayoutContent>
+        }
+      />
     );
   }
 
   if (loadError || !account) {
     const msg = (loadError as Error | null)?.message ?? 'Account not found';
     return (
-      <PageChrome title="Account" breadcrumb={[backLink]}>
-        <div className="page-container p-6">
-          <Alert variant="destructive">
-            <AlertDescription>{msg}</AlertDescription>
-          </Alert>
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+                <BreadcrumbItem href="/pm/accounts">Accounts</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Account</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Account
+                  </Text>
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <PageContainer>
+              <Banner status="error" title={msg} />
+            </PageContainer>
+          </LayoutContent>
+        }
+      />
     );
   }
 
   return (
-    <PageChrome title={account.name} breadcrumb={[backLink]} actions={headerActions}>
-      <div className="page-container grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 p-6 items-start">
-        {/* Details card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{account.name}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {editError && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertDescription>{editError}</AlertDescription>
-              </Alert>
-            )}
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+              <BreadcrumbItem href="/pm/accounts">Accounts</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>{account.name}</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  {account.name}
+                </Text>
+              </HStack>
+              {headerActions}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <PageContainer className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
+            {/* Details card */}
+            <Card>
+              <Layout
+                header={
+                  <LayoutHeader hasDivider>
+                    <CardTitle>{account.name}</CardTitle>
+                  </LayoutHeader>
+                }
+                content={
+                  <LayoutContent>
+                    {editError && <Banner status="error" className="mb-4" title={editError} />}
 
-            {editing ? (
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <Label>Name *</Label>
-                  <Input
-                    value={draft.name ?? ''}
-                    onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Industry</Label>
-                  <Input
-                    value={draft.industry ?? ''}
-                    onChange={(e) => setDraft((d) => ({ ...d, industry: e.target.value || null }))}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Account Manager</Label>
-                  <AsyncCombobox
-                    value={draft.am_worker_id ?? null}
-                    onChange={(v) => setDraft((d) => ({ ...d, am_worker_id: v }))}
-                    search={workerPicker.search}
-                    resolveByIds={workerPicker.resolveByIds}
-                    placeholder="Search workers…"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div>
-                <FieldRow label="Name" value={account.name} />
-                <FieldRow label="Industry" value={account.industry} />
-                <FieldRow
-                  label="Account Manager"
-                  value={account.am_worker_id ? nameOf(account.am_worker_id) : null}
-                />
-                <FieldRow label="Version" value={String(account.version)} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    {editing ? (
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <Input
+                            label="Name"
+                            isRequired
+                            value={draft.name ?? ''}
+                            onChange={(value) => setDraft((d) => ({ ...d, name: value }))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Input
+                            label="Industry"
+                            value={draft.industry ?? ''}
+                            onChange={(value) =>
+                              setDraft((d) => ({ ...d, industry: value || null }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Typeahead
+                            label="Account Manager"
+                            searchSource={workerSource.source}
+                            value={amWorkerItem}
+                            onChange={(item) => {
+                              setAmWorkerItem(item);
+                              setDraft((d) => ({ ...d, am_worker_id: item?.id ?? null }));
+                            }}
+                            placeholder="Search workers…"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <FieldRow label="Name" value={account.name} />
+                        <FieldRow label="Industry" value={account.industry} />
+                        <FieldRow
+                          label="Account Manager"
+                          value={
+                            account.am_worker_id
+                              ? (amWorkerItem?.label ?? account.am_worker_id)
+                              : null
+                          }
+                        />
+                        <FieldRow label="Version" value={String(account.version)} />
+                      </div>
+                    )}
+                  </LayoutContent>
+                }
+              />
+            </Card>
 
-        {/* Recruiters card */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle className="flex items-center gap-2">
-                <Users className="size-4 text-ink-muted" />
-                Recruiters
-              </CardTitle>
-              {canManage && !editingRecruiters && (
-                <Button size="sm" variant="secondary" onClick={startEditRecruiters}>
-                  Edit
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {editingRecruiters ? (
-              <div className="space-y-3">
-                <AsyncCombobox
-                  multiple
-                  value={recruiterIds}
-                  onChange={setRecruiterIds}
-                  search={workerPicker.search}
-                  resolveByIds={workerPicker.resolveByIds}
-                  placeholder="Search workers…"
-                />
-                {recruiterError && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{recruiterError}</AlertDescription>
-                  </Alert>
-                )}
-                <div className="flex justify-end gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={cancelEditRecruiters}
-                    disabled={saveRecruitersMutation.isPending}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={submitRecruiters}
-                    disabled={saveRecruitersMutation.isPending}
-                  >
-                    {saveRecruitersMutation.isPending ? 'Saving…' : 'Save'}
-                  </Button>
-                </div>
-              </div>
-            ) : account.recruiter_worker_ids.length === 0 ? (
-              <p className="text-body-sm text-ink-muted">No recruiters assigned.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {account.recruiter_worker_ids.map((id) => (
-                  <LabelChip key={id} name={nameOf(id)} />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </PageChrome>
+            {/* Recruiters card */}
+            <Card>
+              <Layout
+                header={
+                  <LayoutHeader hasDivider>
+                    <div className="flex items-center justify-between gap-2">
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="size-4 text-secondary" />
+                        Recruiters
+                      </CardTitle>
+                      {canManage && !editingRecruiters && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          label="Edit"
+                          onClick={startEditRecruiters}
+                        />
+                      )}
+                    </div>
+                  </LayoutHeader>
+                }
+                content={
+                  <LayoutContent>
+                    {editingRecruiters ? (
+                      <div className="space-y-3">
+                        <Tokenizer
+                          label="Recruiters"
+                          isLabelHidden
+                          searchSource={workerSource.source}
+                          hasEntriesOnFocus
+                          value={recruiterItems}
+                          onChange={(items) => {
+                            setRecruiterItems(items);
+                            setRecruiterIds(items.map((i) => i.id));
+                          }}
+                          placeholder="Search workers…"
+                        />
+                        {recruiterError && <Banner status="error" title={recruiterError} />}
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            label="Cancel"
+                            onClick={cancelEditRecruiters}
+                            isDisabled={saveRecruitersMutation.isPending}
+                          />
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            label={saveRecruitersMutation.isPending ? 'Saving…' : 'Save'}
+                            onClick={submitRecruiters}
+                            isDisabled={saveRecruitersMutation.isPending}
+                          />
+                        </div>
+                      </div>
+                    ) : account.recruiter_worker_ids.length === 0 ? (
+                      <p className="text-base text-secondary">No recruiters assigned.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {recruiterItems.map((item) => (
+                          <LabelChip key={item.id} name={item.label} />
+                        ))}
+                      </div>
+                    )}
+                  </LayoutContent>
+                }
+              />
+            </Card>
+          </PageContainer>
+        </LayoutContent>
+      }
+    />
   );
 }

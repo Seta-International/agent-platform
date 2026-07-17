@@ -7,7 +7,11 @@ paths:
 
 # Frontend rules
 
-Stack: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), shadcn/ui, Tailwind 4, AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui (v6-paired). See [`DESIGN.md`](../../DESIGN.md) for design tokens and the `packages/shared-ui` contract. `../mastra/packages/playground-ui/` is the reference for chat/upload UX patterns in `apps/web`.
+**Any UI/UX work — new surfaces, visual changes, layout, look-and-feel — must invoke the
+`/frontend-design:frontend-design` skill first.** It is not optional and not only for greenfield
+design: reviews and refactors of existing UI count.
+
+Stack: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), Astryx (`@astryxdesign/core` + StyleX, `@astryxdesign/theme-neutral` unmodified) for components, Tailwind 4, AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui (v6-paired). Every `shared-ui` primitive is an Astryx re-export, and leaf packages build on those. The only deliberate non-Astryx UI deps are recharts (no Astryx charts) and lucide (icons). See [`DESIGN.md`](../../DESIGN.md) for design tokens and the `packages/shared-ui` contract. `../mastra/packages/playground-ui/` is the reference for chat/upload UX patterns in `apps/web`.
 
 ## App-tier boundaries (CI-gated: `pnpm depcruise`)
 
@@ -17,3 +21,74 @@ Stack: React 19, TanStack Router (suite-shell routing composed via `@tanstack/vi
 ## Styling (CI-gated: `pnpm lint:styles`)
 
 All styling lives in `packages/shared-ui/` — no `.css`, `tailwind.config.*`, or `@theme`/`@layer`/`@apply` anywhere else. The one allowed shim is `apps/web/src/styles/globals.css`.
+
+## Use the primitive, never hand-roll the native element
+
+**Reach for the `@seta/shared-ui` primitive before hand-rolling a native element** in a `web-*` package or `apps/web`. The primitive is the Astryx component under the repo's own name:
+
+| Don't hand-roll | Use |
+| --- | --- |
+| `<button>` | `Button` (icon-only → `IconButton`) |
+| `<input>` | `Input`, or `Checkbox` / `RadioGroup` / `FileInput` / `DateInput` / `NumberInput` |
+| `<textarea>` | `Textarea` |
+| `<h1>`–`<h6>` | `Heading level={n}` |
+| `<table>` | `Table` |
+| `<label>` | nothing — Astryx fields self-label via their required `label` prop |
+
+A raw element styled with Tailwind (`<button className="rounded px-2 py-1.5 …">`) is the specific anti-pattern: it bypasses the design system **and** puts styling outside `shared-ui`, so it violates the rule above too. Layout classes on a *surrounding wrapper* remain fine.
+
+**When auditing a surface, grep for the lowercase native tag (`<button`, `<input`), not just the component name.** A file whose imports look fully migrated can still hand-roll its markup — searching for `<Button` will never match a `<button>`.
+
+**This is not yet true everywhere** — roughly 100 raw elements remain (mostly overlay triggers and rows whose shape no primitive expresses, concentrated in `web-planner` and `web-agent`). New code follows the rule; converting the rest is ongoing. Don't treat an existing raw element as a bug to fix in an unrelated ticket.
+
+**When a primitive genuinely cannot express the shape, keep the native element and say why in a comment.** A conversion that has to fight the primitive is worse than none: consumer Tailwind and the component's own StyleX land at *equal specificity*, so the winner is stylesheet-order luck. Concretely, `Button` centres its label and owns its weight/size — a full-width, left-aligned, truncating list row is not a `Button` (see `SkillsCatalog.tsx`). Likewise `Input`'s `className` lands on the inner control, not the `Field` wrapper that is the flex item — use its `width` prop instead.
+
+Escape hatches, in order: a component prop → a `style`/`className` with tokens (`var(--color-*|--spacing-*|--radius-*)`) → `xstyle`.
+
+## Astryx design system
+
+**Repo-specific overrides of the generated block below** — it ships with the CLI and is wrong
+about this repo in four ways:
+- The StyleX compiler IS wired here (`@stylexjs/unplugin` in `apps/web/vite.config.ts` and
+  `packages/shared-ui/.storybook/main.ts`), so `xstyle` is supported. So are Tailwind utilities:
+  `@astryxdesign/core/tailwind-theme.css` bridges every Astryx token onto them.
+- Astryx CSS loads in the real app from `packages/shared-ui/src/styles/index.css`. The old
+  "Storybook only" isolation, and the token collision it dodged, are gone (FUT-725).
+- `astryx docs tokens` reports SYSTEM defaults, not the active theme. `theme-neutral` overrides
+  most of them — verify against `theme-neutral/dist/theme.css`, and don't `grep -o` it (that
+  flattens `@scope` and reports scoped values as root ones).
+- The theme is `@astryxdesign/theme-neutral`, unmodified. There is no `seta` theme and no build step.
+
+Type and spacing are fixed — see [`DESIGN.md`](../../DESIGN.md). **Never use `text-body`**: Astryx
+has no `--text-body`, so it resolves through the colour namespace and paints text in the page
+background. Never add arbitrary font sizes (`text-[11px]`).
+
+<!-- ASTRYX:START -->
+Astryx v0.0.1 · 90+ components
+CLI: run every command as `pnpm exec astryx <cmd>` (shown below as `astryx ...`).
+
+SETUP (once, in your app entry e.g. main.tsx) — without these, components render unstyled:
+  import "@astryxdesign/core/reset.css";
+  import "@astryxdesign/core/astryx.css";
+
+WORKFLOW — discover, don't guess. Before writing UI:
+1. `astryx build "<idea>"` — START HERE: returns a kit (closest [page] + [block]s + [component]s). No args = full playbook.
+2. `astryx template <name> [--skeleton]` — scaffold the [page]/[block]s it named, or study their layout. Templates are reference code.
+3. `astryx component <Name>` — props + examples for every component you use.
+
+RULES:
+- No <div> — components do all layout/spacing. Full page → AppShell; sidebar nav → SideNav.
+- Frame first: pick the shell (AppShell / Layout+LayoutPanel) and budget regions in px BEFORE writing content (`astryx docs layout`).
+- Dense data = rows (Table, List/Item) edge-to-edge — never Card-wrapped list items. Card = dashboard widgets, galleries, settings groups only.
+- Status → StatusDot/Token; Badge only for counts and enumerated states, never decoration.
+- Custom styling: component props first; else style/className with tokens — var(--color-*|--spacing-*|--radius-*). No raw hex/px. (No StyleX/Tailwind compiler here — don't use xstyle/utility classes.)
+- Tokens for every value (`astryx docs tokens`). Brand/accent via `astryx theme` — never override --color-* in :root.
+
+MORE CLI:
+  search "<query>"   find any component / hook / doc / template / block
+  component --list   90+ components by category
+  template --list    page + block recipes
+  docs <topic>       color, elevation, icons, illustrations, layout, migration, motion, principles, shape, spacing, styling, theme, tokens, typography
+  swizzle <Name>     eject component source for deep customization
+  upgrade --apply    run after any @astryxdesign/core bump
+<!-- ASTRYX:END -->

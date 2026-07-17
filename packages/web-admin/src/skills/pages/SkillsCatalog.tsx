@@ -1,15 +1,22 @@
 // biome-ignore-all lint/a11y/noAutofocus: inline rename inputs take focus when opened.
 import {
-  Alert,
-  AlertDescription,
   Badge,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   cn,
   EmptyState,
+  HStack,
   Input,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  PageContainer,
   Skeleton,
-  toast,
+  Text,
+  useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -36,6 +43,7 @@ function isConflict(e: unknown): boolean {
 
 export function SkillsCatalog() {
   const qc = useQueryClient();
+  const toast = useToast();
   const canManage = usePermission('core.skill.manage');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -83,7 +91,7 @@ export function SkillsCatalog() {
       setSelectedId(res.id);
       invalidateCats();
     },
-    onError: (e) => toast.error((e as Error).message),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
   });
 
   const renameCatMut = useMutation({
@@ -91,9 +99,10 @@ export function SkillsCatalog() {
       updateCategory(v.id, { name: v.name, expected_version: v.version }),
     onSuccess: invalidateCats,
     onError: (e) => {
-      toast.error(
-        isConflict(e) ? 'This category changed elsewhere. Refreshing…' : (e as Error).message,
-      );
+      toast({
+        body: isConflict(e) ? 'This category changed elsewhere. Refreshing…' : (e as Error).message,
+        type: 'error',
+      });
       invalidateCats();
     },
   });
@@ -105,9 +114,10 @@ export function SkillsCatalog() {
       invalidateCats();
     },
     onError: (e) => {
-      toast.error(
-        isConflict(e) ? 'This category changed elsewhere. Refreshing…' : (e as Error).message,
-      );
+      toast({
+        body: isConflict(e) ? 'This category changed elsewhere. Refreshing…' : (e as Error).message,
+        type: 'error',
+      });
       invalidateCats();
     },
   });
@@ -118,7 +128,7 @@ export function SkillsCatalog() {
       setNewSkillName('');
       invalidateSkills();
     },
-    onError: (e) => toast.error((e as Error).message),
+    onError: (e) => toast({ body: (e as Error).message, type: 'error' }),
   });
 
   const renameSkillMut = useMutation({
@@ -126,9 +136,10 @@ export function SkillsCatalog() {
       updateSkill(v.id, { name: v.name, expected_version: v.version }),
     onSuccess: invalidateSkills,
     onError: (e) => {
-      toast.error(
-        isConflict(e) ? 'This skill changed elsewhere. Refreshing…' : (e as Error).message,
-      );
+      toast({
+        body: isConflict(e) ? 'This skill changed elsewhere. Refreshing…' : (e as Error).message,
+        type: 'error',
+      });
       invalidateSkills();
     },
   });
@@ -137,9 +148,10 @@ export function SkillsCatalog() {
     mutationFn: (v: { id: string; version: number }) => archiveSkill(v.id, v.version),
     onSuccess: invalidateSkills,
     onError: (e) => {
-      toast.error(
-        isConflict(e) ? 'This skill changed elsewhere. Refreshing…' : (e as Error).message,
-      );
+      toast({
+        body: isConflict(e) ? 'This skill changed elsewhere. Refreshing…' : (e as Error).message,
+        type: 'error',
+      });
       invalidateSkills();
     },
   });
@@ -147,196 +159,212 @@ export function SkillsCatalog() {
   const loading = categoriesQ.isLoading || skillsQ.isLoading;
 
   return (
-    <PageChrome
-      breadcrumb={['Admin']}
-      title="Skills catalog"
-      subtitle="Categories and skills that can be assigned to roles and people."
-    >
-      <div className="page-container space-y-5">
-        {categoriesQ.error && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              Couldn&apos;t load the skills catalog: {(categoriesQ.error as Error).message}
-            </AlertDescription>
-          </Alert>
-        )}
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Skills catalog</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Skills catalog
+                </Text>
+                <Text color="secondary">
+                  Categories and skills that can be assigned to roles and people.
+                </Text>
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <PageContainer className="space-y-5">
+            {categoriesQ.error && (
+              <Banner
+                status="error"
+                title={
+                  <>Couldn&apos;t load the skills catalog: {(categoriesQ.error as Error).message}</>
+                }
+              />
+            )}
 
-        {!canManage && !loading && (
-          <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-4 py-2.5 text-body-sm text-ink-subtle">
-            <Lock className="size-3.5 shrink-0" aria-hidden />
-            <span>You can view the skills catalog but not make changes.</span>
-          </div>
-        )}
+            {!canManage && !loading && (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-base text-secondary">
+                <Lock className="size-3.5 shrink-0" aria-hidden />
+                <span>You can view the skills catalog but not make changes.</span>
+              </div>
+            )}
 
-        {loading ? (
-          <>
-            <div className="grid grid-cols-3 gap-3">
-              <Skeleton className="h-[68px] rounded-lg" />
-              <Skeleton className="h-[68px] rounded-lg" />
-              <Skeleton className="h-[68px] rounded-lg" />
-            </div>
-            <Skeleton className="h-96 w-full rounded-lg" />
-          </>
-        ) : (
-          <>
-            <StatStrip
-              categories={categories.length}
-              skills={skills.length}
-              largest={largestCategory(categories, countByCat)}
-            />
-
-            <div className="grid grid-cols-[280px_1fr] gap-5">
-              {/* Categories rail */}
-              <section className="flex min-w-0 flex-col gap-2">
-                <div className="flex items-center justify-between px-1">
-                  <h2 className="flex items-center gap-1.5 text-eyebrow uppercase tracking-[0.04em] text-ink-tertiary">
-                    <Layers className="size-3.5" aria-hidden />
-                    Categories
-                  </h2>
-                  <span className="text-caption tabular-nums text-ink-tertiary">
-                    {categories.length}
-                  </span>
+            {loading ? (
+              <>
+                <div className="grid grid-cols-3 gap-3">
+                  <Skeleton height={68} radius={3} />
+                  <Skeleton height={68} radius={3} />
+                  <Skeleton height={68} radius={3} />
                 </div>
+                <Skeleton height={384} radius={3} />
+              </>
+            ) : (
+              <>
+                <StatStrip
+                  categories={categories.length}
+                  skills={skills.length}
+                  largest={largestCategory(categories, countByCat)}
+                />
 
-                {canManage && (
-                  <AddRow
-                    placeholder="New category…"
-                    value={newCatName}
-                    onChange={setNewCatName}
-                    onSubmit={() => addCatMut.mutate()}
-                    pending={addCatMut.isPending}
-                  />
-                )}
+                <div className="grid grid-cols-[280px_1fr] gap-5">
+                  {/* Categories rail */}
+                  <section className="flex min-w-0 flex-col gap-2">
+                    <div className="flex items-center justify-between px-1">
+                      <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.04em] text-disabled">
+                        <Layers className="size-3.5" aria-hidden />
+                        Categories
+                      </h2>
+                      <span className="text-sm tabular-nums text-disabled">
+                        {categories.length}
+                      </span>
+                    </div>
 
-                <ul className="flex flex-col gap-0.5">
-                  {categories.map((cat) => (
-                    <CategoryRow
-                      key={cat.id}
-                      cat={cat}
-                      count={countByCat.get(cat.id) ?? 0}
-                      selected={cat.id === activeId && !searching}
-                      canManage={canManage}
-                      onSelect={() => {
-                        setSelectedId(cat.id);
-                        setSearch('');
-                      }}
-                      onRename={(name) =>
-                        renameCatMut.mutate({ id: cat.id, name, version: cat.version })
-                      }
-                      onArchive={() => archiveCatMut.mutate({ id: cat.id, version: cat.version })}
-                    />
-                  ))}
-                  {categories.length === 0 && (
-                    <li className="px-2 py-2 text-body-sm text-ink-tertiary">No categories yet.</li>
-                  )}
-                </ul>
-              </section>
-
-              {/* Skills pane */}
-              <section className="flex min-w-0 flex-col gap-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="flex items-center gap-2 text-body-sm font-semibold text-ink">
-                    {searching ? (
-                      <>
-                        Search results
-                        <Badge variant="secondary" className="tabular-nums">
-                          {visibleSkills.length}
-                        </Badge>
-                      </>
-                    ) : activeCat ? (
-                      <>
-                        {activeCat.name}
-                        <Badge variant="secondary" className="tabular-nums">
-                          {visibleSkills.length}
-                        </Badge>
-                      </>
-                    ) : (
-                      'Skills'
+                    {canManage && (
+                      <AddRow
+                        placeholder="New category…"
+                        value={newCatName}
+                        onChange={setNewCatName}
+                        onSubmit={() => addCatMut.mutate()}
+                        pending={addCatMut.isPending}
+                      />
                     )}
-                  </h2>
 
-                  <div className="relative w-56">
-                    <Search
-                      className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 size-3.5 text-ink-tertiary"
-                      aria-hidden
-                    />
-                    <Input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search all skills…"
-                      className="h-8 pl-8"
-                    />
-                    {searching && (
-                      <button
-                        type="button"
-                        aria-label="Clear search"
-                        onClick={() => setSearch('')}
-                        className="-translate-y-1/2 absolute top-1/2 right-2 text-ink-tertiary hover:text-ink"
-                      >
-                        <X className="size-3.5" />
-                      </button>
+                    <ul className="flex flex-col gap-0.5">
+                      {categories.map((cat) => (
+                        <CategoryRow
+                          key={cat.id}
+                          cat={cat}
+                          count={countByCat.get(cat.id) ?? 0}
+                          selected={cat.id === activeId && !searching}
+                          canManage={canManage}
+                          onSelect={() => {
+                            setSelectedId(cat.id);
+                            setSearch('');
+                          }}
+                          onRename={(name) =>
+                            renameCatMut.mutate({ id: cat.id, name, version: cat.version })
+                          }
+                          onArchive={() =>
+                            archiveCatMut.mutate({ id: cat.id, version: cat.version })
+                          }
+                        />
+                      ))}
+                      {categories.length === 0 && (
+                        <li className="px-2 py-2 text-base text-disabled">No categories yet.</li>
+                      )}
+                    </ul>
+                  </section>
+
+                  {/* Skills pane */}
+                  <section className="flex min-w-0 flex-col gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h2 className="flex items-center gap-2 text-base font-semibold text-primary">
+                        {searching ? (
+                          <>
+                            Search results
+                            <Badge
+                              variant="neutral"
+                              className="tabular-nums"
+                              label={visibleSkills.length}
+                            />
+                          </>
+                        ) : activeCat ? (
+                          <>
+                            {activeCat.name}
+                            <Badge
+                              variant="neutral"
+                              className="tabular-nums"
+                              label={visibleSkills.length}
+                            />
+                          </>
+                        ) : (
+                          'Skills'
+                        )}
+                      </h2>
+
+                      <Input
+                        label="Search skills"
+                        isLabelHidden
+                        startIcon={<Search className="size-3.5" aria-hidden />}
+                        hasClear
+                        value={search}
+                        onChange={(value) => setSearch(value)}
+                        placeholder="Search all skills…"
+                        className="w-56"
+                        size="sm"
+                      />
+                    </div>
+
+                    {canManage && activeCat && !searching && (
+                      <AddRow
+                        placeholder={`Add a skill to ${activeCat.name}…`}
+                        value={newSkillName}
+                        onChange={setNewSkillName}
+                        onSubmit={() => addSkillMut.mutate()}
+                        pending={addSkillMut.isPending}
+                      />
                     )}
-                  </div>
-                </div>
 
-                {canManage && activeCat && !searching && (
-                  <AddRow
-                    placeholder={`Add a skill to ${activeCat.name}…`}
-                    value={newSkillName}
-                    onChange={setNewSkillName}
-                    onSubmit={() => addSkillMut.mutate()}
-                    pending={addSkillMut.isPending}
-                  />
-                )}
-
-                {skillsQ.error ? (
-                  <Alert variant="destructive">
-                    <AlertDescription>
-                      Couldn&apos;t load skills: {(skillsQ.error as Error).message}
-                    </AlertDescription>
-                  </Alert>
-                ) : categories.length === 0 ? (
-                  <EmptyState
-                    icon={<Tags className="size-8" />}
-                    title="No categories yet"
-                    description="Create a category on the left to start building your skills catalog."
-                  />
-                ) : visibleSkills.length === 0 ? (
-                  <EmptyState
-                    icon={<Tags className="size-8" />}
-                    title={searching ? 'No matching skills' : 'No skills in this category'}
-                    description={
-                      searching
-                        ? `Nothing matches “${search.trim()}”.`
-                        : canManage
-                          ? 'Add the first skill using the field above.'
-                          : 'This category has no skills yet.'
-                    }
-                  />
-                ) : (
-                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    {visibleSkills.map((skill) => (
-                      <SkillCard
-                        key={skill.id}
-                        skill={skill}
-                        categoryLabel={searching ? catName(skill.category_id) : null}
-                        canManage={canManage}
-                        onRename={(name) =>
-                          renameSkillMut.mutate({ id: skill.id, name, version: skill.version })
-                        }
-                        onArchive={() =>
-                          archiveSkillMut.mutate({ id: skill.id, version: skill.version })
+                    {skillsQ.error ? (
+                      <Banner
+                        status="error"
+                        title={<>Couldn&apos;t load skills: {(skillsQ.error as Error).message}</>}
+                      />
+                    ) : categories.length === 0 ? (
+                      <EmptyState
+                        icon={<Tags className="size-8" />}
+                        title="No categories yet"
+                        description="Create a category on the left to start building your skills catalog."
+                      />
+                    ) : visibleSkills.length === 0 ? (
+                      <EmptyState
+                        icon={<Tags className="size-8" />}
+                        title={searching ? 'No matching skills' : 'No skills in this category'}
+                        description={
+                          searching
+                            ? `Nothing matches “${search.trim()}”.`
+                            : canManage
+                              ? 'Add the first skill using the field above.'
+                              : 'This category has no skills yet.'
                         }
                       />
-                    ))}
-                  </ul>
-                )}
-              </section>
-            </div>
-          </>
-        )}
-      </div>
-    </PageChrome>
+                    ) : (
+                      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                        {visibleSkills.map((skill) => (
+                          <SkillCard
+                            key={skill.id}
+                            skill={skill}
+                            categoryLabel={searching ? catName(skill.category_id) : null}
+                            canManage={canManage}
+                            onRename={(name) =>
+                              renameSkillMut.mutate({ id: skill.id, name, version: skill.version })
+                            }
+                            onArchive={() =>
+                              archiveSkillMut.mutate({ id: skill.id, version: skill.version })
+                            }
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </div>
+              </>
+            )}
+          </PageContainer>
+        </LayoutContent>
+      }
+    />
   );
 }
 
@@ -376,11 +404,11 @@ function StatStrip({
 
 function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-hairline bg-canvas px-4 py-3">
-      <div className="text-caption uppercase tracking-wide text-ink-subtle">{label}</div>
+    <div className="rounded-lg border border-border bg-body px-4 py-3">
+      <div className="text-sm uppercase tracking-wide text-secondary">{label}</div>
       <div className="mt-1 flex items-baseline gap-2">
-        <span className="text-2xl font-semibold tabular-nums text-ink">{value}</span>
-        {hint && <span className="truncate text-caption text-ink-tertiary">{hint}</span>}
+        <span className="text-2xl font-semibold tabular-nums text-primary">{value}</span>
+        {hint && <span className="truncate text-sm text-disabled">{hint}</span>}
       </div>
     </div>
   );
@@ -404,24 +432,25 @@ function AddRow({
   };
   return (
     <div className="flex gap-2">
-      <div className="relative flex-1">
-        <Plus
-          className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 size-3.5 text-ink-tertiary"
-          aria-hidden
-        />
-        <Input
-          value={value}
-          placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submit();
-          }}
-          className="h-8 pl-8"
-        />
-      </div>
-      <Button variant="secondary" size="sm" disabled={!value.trim() || pending} onClick={submit}>
-        Add
-      </Button>
+      <Input
+        label={placeholder}
+        isLabelHidden
+        startIcon={<Plus className="size-3.5" aria-hidden />}
+        value={value}
+        placeholder={placeholder}
+        onChange={(v) => onChange(v)}
+        onEnter={submit}
+        className="flex-1"
+        size="sm"
+      />
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={<Plus className="size-3.5" />}
+        label="Add"
+        isDisabled={!value.trim() || pending}
+        onClick={submit}
+      />
     </div>
   );
 }
@@ -469,15 +498,18 @@ function CategoryRow({
     <li
       className={cn(
         'group flex items-center gap-1 rounded-md border-l-2 py-1.5 pr-1 pl-2 transition-colors',
-        selected ? 'border-primary bg-surface-2' : 'border-transparent hover:bg-surface-2',
+        selected ? 'border-accent-bg bg-surface' : 'border-transparent hover:bg-surface',
       )}
     >
+      {/* Not an Astryx Button: this is a full-width, left-aligned, truncating
+          list row. Button centres its label and owns its own weight/size, so
+          expressing this shape means overriding its StyleX at equal specificity. */}
       <button
         type="button"
         onClick={onSelect}
         className={cn(
-          'min-w-0 flex-1 truncate text-left text-body-sm',
-          selected ? 'font-semibold text-ink' : 'text-ink-subtle',
+          'min-w-0 flex-1 truncate text-left text-base',
+          selected ? 'font-semibold text-primary' : 'text-secondary',
         )}
       >
         {cat.name}
@@ -488,29 +520,30 @@ function CategoryRow({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-1.5 text-destructive"
+            className="h-6 px-1.5 text-error"
+            icon={<Check className="size-3.5" aria-hidden />}
+            label="Archive"
             onClick={() => {
               setConfirming(false);
               onArchive();
             }}
-          >
-            <Check className="size-3.5" aria-hidden /> Archive
-          </Button>
+          />
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-1.5 text-ink-tertiary"
+            isIconOnly
+            className="h-6 px-1.5 text-disabled"
+            icon={<X className="size-3.5" aria-hidden />}
+            label="Cancel archive"
             onClick={() => setConfirming(false)}
-          >
-            <X className="size-3.5" aria-hidden />
-          </Button>
+          />
         </span>
       ) : (
         <>
           <span
             className={cn(
-              'min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-caption tabular-nums',
-              selected ? 'bg-surface-3 text-ink-subtle' : 'text-ink-tertiary',
+              'min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-sm tabular-nums',
+              selected ? 'bg-surface text-secondary' : 'text-disabled',
             )}
           >
             {count}
@@ -561,7 +594,7 @@ function SkillCard({
       if (v && v !== skill.name) onRename(v);
     };
     return (
-      <li className="rounded-md border border-hairline bg-surface-1 p-1.5">
+      <li className="rounded-md border border-border bg-card p-1.5">
         <InlineEditInput
           value={draft}
           onChange={setDraft}
@@ -573,12 +606,10 @@ function SkillCard({
   }
 
   return (
-    <li className="group flex items-center justify-between gap-2 rounded-md border border-hairline bg-surface-1 px-3 py-2 transition-colors hover:border-hairline-strong">
+    <li className="group flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2 transition-colors hover:border-border-strong">
       <div className="min-w-0">
-        <div className="truncate text-body-sm text-ink">{skill.name}</div>
-        {categoryLabel && (
-          <div className="truncate text-caption text-ink-tertiary">{categoryLabel}</div>
-        )}
+        <div className="truncate text-base text-primary">{skill.name}</div>
+        {categoryLabel && <div className="truncate text-sm text-disabled">{categoryLabel}</div>}
       </div>
 
       {canManage &&
@@ -587,22 +618,23 @@ function SkillCard({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-1.5 text-destructive"
+              className="h-6 px-1.5 text-error"
+              icon={<Check className="size-3.5" aria-hidden />}
+              label="Archive"
               onClick={() => {
                 setConfirming(false);
                 onArchive();
               }}
-            >
-              <Check className="size-3.5" aria-hidden /> Archive
-            </Button>
+            />
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-1.5 text-ink-tertiary"
+              isIconOnly
+              className="h-6 px-1.5 text-disabled"
+              icon={<X className="size-3.5" aria-hidden />}
+              label="Cancel archive"
               onClick={() => setConfirming(false)}
-            >
-              <X className="size-3.5" aria-hidden />
-            </Button>
+            />
           </span>
         ) : (
           <span className="flex flex-none items-center opacity-0 transition-opacity group-hover:opacity-100">
@@ -637,15 +669,17 @@ function InlineEditInput({
 }) {
   return (
     <Input
-      autoFocus
+      label="Name"
+      isLabelHidden
+      hasAutoFocus
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(v) => onChange(v)}
       onBlur={onCommit}
       onKeyDown={(e) => {
         if (e.key === 'Enter') onCommit();
         if (e.key === 'Escape') onCancel();
       }}
-      className="h-8"
+      size="sm"
     />
   );
 }
@@ -662,12 +696,12 @@ function IconBtn({
   return (
     <Button
       variant="ghost"
-      size="icon"
-      aria-label={label}
-      className="size-6 text-ink-tertiary hover:text-ink"
+      size="sm"
+      isIconOnly
+      icon={children}
+      label={label}
+      className="size-6 text-disabled hover:text-primary"
       onClick={onClick}
-    >
-      {children}
-    </Button>
+    />
   );
 }

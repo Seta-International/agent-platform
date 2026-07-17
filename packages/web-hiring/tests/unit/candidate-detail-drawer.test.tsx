@@ -1,3 +1,4 @@
+import { ToastViewport } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -5,13 +6,6 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CandidateDetail } from '../../src/api/hiring-client.ts';
 
-const { toast } = vi.hoisted(() => ({
-  toast: { success: vi.fn(), error: vi.fn() },
-}));
-vi.mock('@seta/shared-ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@seta/shared-ui')>()),
-  toast,
-}));
 const fetchCandidate = vi.fn();
 const moveApplicationStage = vi.fn();
 const editCandidate = vi.fn();
@@ -77,16 +71,47 @@ const detail: CandidateDetail = {
       created_at: '2026-06-20T10:00:00Z',
       actor_user_id: null,
     },
+    {
+      // A real actor id: hiring has no local name projection for it, so the
+      // timeline must label it honestly rather than guess a name.
+      id: 'e2',
+      kind: 'stage_changed',
+      summary: 'Moved to screening',
+      created_at: '2026-06-21T10:00:00Z',
+      actor_user_id: 'u-1',
+    },
   ],
 };
 
+// ToastViewport is mounted explicitly so useToast resolves through context rather than
+// self-mounting a fallback viewport, which warns and cannot be cleaned up between tests.
 const wrap =
   (qc: QueryClient) =>
   ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    <QueryClientProvider client={qc}>
+      <ToastViewport>{children}</ToastViewport>
+    </QueryClientProvider>
   );
 
 describe('CandidateDetailDrawer', () => {
+  // No `DialogHeader` is rendered here (special case — the drawer's own content renders its own
+  // visible header), so the dialog's accessible name comes directly from a dynamic `aria-label`
+  // ("Candidate: {name}") rather than a heading. Astryx's real Dialog always mounts <dialog> +
+  // children regardless of `isOpen`; `candidateId={null}` maps to `isOpen={false}`.
+  it('is not exposed as a dialog when candidateId is null, then opens labeled with the candidate name once loaded', async () => {
+    fetchCandidate.mockResolvedValue(detail);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { rerender } = render(<CandidateDetailDrawer candidateId={null} onClose={() => {}} />, {
+      wrapper: wrap(qc),
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    rerender(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />);
+    await waitFor(() =>
+      expect(screen.getByRole('dialog', { name: 'Candidate: Ada Lovelace' })).toBeInTheDocument(),
+    );
+  });
+
   it('shows profile, skills, fit, note, and the activity timeline', async () => {
     fetchCandidate.mockResolvedValue(detail);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -99,8 +124,11 @@ describe('CandidateDetailDrawer', () => {
     expect(screen.getByText('female')).toBeInTheDocument();
     expect(screen.getByText('Strong fundamentals')).toBeInTheDocument();
     expect(screen.getByText('3/5')).toBeInTheDocument();
-    // Fields with no schema support are labeled honestly instead of fabricated.
-    expect(screen.getAllByText('No Data').length).toBeGreaterThan(0);
+    // A null actor is a system event; an unresolvable one is labeled honestly
+    // rather than fabricated into a name. The label shares a text node with the
+    // timestamp ("by System · 20 Jun 2026"), so match on a substring.
+    expect(screen.getByText(/by System ·/)).toBeInTheDocument();
+    expect(screen.getByText(/by No Data ·/)).toBeInTheDocument();
   });
 
   it('shows CV file card when cv_storage_key exists', async () => {
@@ -157,7 +185,7 @@ describe('CandidateDetailDrawer', () => {
     const input = screen.getByLabelText('Replace') as HTMLInputElement;
     await userEvent.upload(input, big);
 
-    expect(toast.error).toHaveBeenCalledWith('CV must be under 10MB');
+    expect(await screen.findByRole('alert')).toHaveTextContent('CV must be under 10MB');
   });
 
   it('shows No CV on file when cv_storage_key is null', async () => {

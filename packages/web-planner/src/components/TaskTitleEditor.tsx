@@ -51,11 +51,11 @@ export function TaskTitleEditor({ task, planId }: Props) {
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: the input child is the actual focus target; wrapper has no own keyboard activation. */}
       <div
         className={[
-          'group relative flex items-center gap-2 rounded-md border bg-canvas px-3 py-2 transition-colors',
+          'group relative flex items-center gap-2 rounded-md border bg-body px-3 py-2 transition-colors',
           focused
-            ? 'border-primary shadow-[0_0_0_3px_var(--color-primary-tint)]'
-            : 'border-hairline',
-          canUpdate && !focused && 'hover:border-hairline-strong hover:bg-surface-1',
+            ? 'border-accent-bg shadow-[0_0_0_3px_var(--color-accent-muted)]'
+            : 'border-border',
+          canUpdate && !focused && 'hover:border-border-strong hover:bg-card',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -84,12 +84,12 @@ export function TaskTitleEditor({ task, planId }: Props) {
             setFocused(false);
             commit();
           }}
-          className="flex-1 border-0 bg-transparent text-[20px] font-semibold leading-tight tracking-tight text-ink outline-none placeholder:text-ink-tertiary disabled:cursor-not-allowed"
+          className="flex-1 border-0 bg-transparent text-xl font-semibold leading-tight tracking-tight text-primary outline-none placeholder:text-disabled disabled:cursor-not-allowed"
         />
         {!focused && canUpdate && (
           <Pencil
             aria-hidden
-            className="size-4 shrink-0 text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100"
+            className="size-4 shrink-0 text-secondary opacity-0 transition-opacity group-hover:opacity-100"
           />
         )}
       </div>

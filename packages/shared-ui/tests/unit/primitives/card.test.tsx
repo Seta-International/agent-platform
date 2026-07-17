@@ -1,32 +1,35 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { Card } from '../../../src/primitives/card';
+import { Card, CardDescription, CardTitle } from '../../../src/primitives/card';
 
 describe('Card', () => {
-  it('default variant uses surface-1 + rounded-md', () => {
-    const { container } = render(<Card data-testid="c">x</Card>);
-    const el = container.querySelector('[data-testid=c]');
-    expect(el?.className).toMatch(/\bbg-surface-1\b/);
-    expect(el?.className).toMatch(/\brounded-md\b/);
+  it('renders children', () => {
+    const { getByText } = render(<Card>Hello</Card>);
+    expect(getByText('Hello')).toBeInTheDocument();
   });
 
-  it('product variant uses rounded-lg', () => {
-    const { container } = render(
-      <Card variant="product" data-testid="c">
-        x
+  it('passes through Astryx props (variant, padding, width) without throwing', () => {
+    const { getByTestId } = render(
+      <Card variant="blue" padding={4} width={320} data-testid="c">
+        content
       </Card>,
     );
-    expect(container.querySelector('[data-testid=c]')?.className).toMatch(/\brounded-lg\b/);
+    expect(getByTestId('c')).toBeInTheDocument();
   });
+});
 
-  it('testimonial variant uses larger padding + body-lg', () => {
-    const { container } = render(
-      <Card variant="testimonial" data-testid="c">
-        x
-      </Card>,
-    );
-    const cls = container.querySelector('[data-testid=c]')?.className;
-    expect(cls).toMatch(/\bp-xl\b/);
-    expect(cls).toMatch(/\btext-body-lg\b/);
+describe('CardTitle', () => {
+  it('renders children with title typography classes', () => {
+    const { container } = render(<CardTitle>Title</CardTitle>);
+    expect(container.textContent).toBe('Title');
+    expect(container.querySelector('div')?.className).toMatch(/\btext-2xl\b/);
+  });
+});
+
+describe('CardDescription', () => {
+  it('renders children with description typography classes', () => {
+    const { container } = render(<CardDescription>Description</CardDescription>);
+    expect(container.textContent).toBe('Description');
+    expect(container.querySelector('div')?.className).toMatch(/\btext-base\b/);
   });
 });

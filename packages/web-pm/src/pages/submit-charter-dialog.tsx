@@ -1,24 +1,22 @@
 import {
-  Alert,
-  AlertDescription,
-  AsyncCombobox,
+  Banner,
   Button,
+  DateInput,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Layout,
+  LayoutContent,
+  NumberInput,
+  type SearchableItem,
+  Selector,
   Textarea,
-  toast,
+  Typeahead,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
   type AccountListRow,
@@ -26,7 +24,7 @@ import {
   type SubmitCharterBody,
   submitCharter,
 } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search';
+import { useWorkerSource } from '../api/worker-search';
 
 const NONE = '__none__';
 
@@ -61,11 +59,13 @@ const EMPTY: FormState = {
 };
 
 export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  const [pmWorker, setPmWorker] = useState<SearchableItem | null>(null);
 
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
 
   const { data: accounts } = useQuery<AccountListRow[]>({
     queryKey: ['pm', 'accounts'],
@@ -93,10 +93,11 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
       return submitCharter(body);
     },
     onSuccess: () => {
-      toast.success('Charter submitted');
+      toast({ body: 'Charter submitted' });
       onCreated();
       setOpen(false);
       setForm(EMPTY);
+      setPmWorker(null);
       setError(null);
     },
     onError: (e: Error) => setError(e.message),
@@ -112,176 +113,176 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
     form.account_id !== '' &&
     form.pm_worker_id.trim() !== '';
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) {
+      setForm(EMPTY);
+      setPmWorker(null);
+      setError(null);
+    }
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) {
-          setForm(EMPTY);
-          setError(null);
-        }
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm">New request</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Submit project charter</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>Account *</Label>
-            <Select value={form.account_id} onValueChange={(v) => set({ account_id: v })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select account" />
-              </SelectTrigger>
-              <SelectContent>
-                {(accounts ?? []).map((a) => (
-                  <SelectItem key={a.account_id} value={a.account_id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+    <>
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New request"
+        onClick={() => setOpen(true)}
+      />
+      <Dialog isOpen={open} onOpenChange={handleOpenChange} width={560} purpose="form">
+        <Layout
+          header={<DialogHeader title="Submit project charter" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Selector
+                    label="Account"
+                    isRequired
+                    options={(accounts ?? []).map((a) => ({
+                      value: a.account_id,
+                      label: a.name,
+                    }))}
+                    value={form.account_id || undefined}
+                    onChange={(v) => set({ account_id: v })}
+                    placeholder="Select account"
+                  />
+                </div>
 
-          <div className="space-y-1">
-            <Label>Project name *</Label>
-            <Input value={form.name} onChange={(e) => set({ name: e.target.value })} />
-          </div>
+                <div className="space-y-1">
+                  <Input
+                    label="Project name"
+                    isRequired
+                    value={form.name}
+                    onChange={(value) => set({ name: value })}
+                  />
+                </div>
 
-          <div className="space-y-1">
-            <Label>PM *</Label>
-            <AsyncCombobox
-              value={form.pm_worker_id || null}
-              onChange={(v) => set({ pm_worker_id: v ?? '' })}
-              search={workerPicker.search}
-              resolveByIds={workerPicker.resolveByIds}
-              placeholder="Search workers…"
-            />
-          </div>
+                <div className="space-y-1">
+                  <Typeahead
+                    label="PM"
+                    isRequired
+                    searchSource={workerSource.source}
+                    value={pmWorker}
+                    onChange={(item) => {
+                      setPmWorker(item);
+                      set({ pm_worker_id: item?.id ?? '' });
+                    }}
+                    placeholder="Search workers…"
+                  />
+                </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Methodology</Label>
-              <Select
-                value={form.methodology || NONE}
-                onValueChange={(v) =>
-                  set({
-                    methodology: (v === NONE ? '' : v) as SubmitCharterBody['methodology'] | '',
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>—</SelectItem>
-                  <SelectItem value="scrum">Scrum</SelectItem>
-                  <SelectItem value="kanban">Kanban</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Pricing</Label>
-              <Select
-                value={form.pricing_model || NONE}
-                onValueChange={(v) =>
-                  set({
-                    pricing_model: (v === NONE ? '' : v) as SubmitCharterBody['pricing_model'] | '',
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>—</SelectItem>
-                  <SelectItem value="fixed_price">Fixed-price</SelectItem>
-                  <SelectItem value="time_materials">Time &amp; materials</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Selector
+                      label="Methodology"
+                      options={[
+                        { value: NONE, label: '—' },
+                        { value: 'scrum', label: 'Scrum' },
+                        { value: 'kanban', label: 'Kanban' },
+                      ]}
+                      value={form.methodology || NONE}
+                      onChange={(v) =>
+                        set({
+                          methodology: (v === NONE ? '' : v) as
+                            | SubmitCharterBody['methodology']
+                            | '',
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Selector
+                      label="Pricing"
+                      options={[
+                        { value: NONE, label: '—' },
+                        { value: 'fixed_price', label: 'Fixed-price' },
+                        { value: 'time_materials', label: 'Time & materials' },
+                      ]}
+                      value={form.pricing_model || NONE}
+                      onChange={(v) =>
+                        set({
+                          pricing_model: (v === NONE ? '' : v) as
+                            | SubmitCharterBody['pricing_model']
+                            | '',
+                        })
+                      }
+                    />
+                  </div>
+                </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Team size</Label>
-              <Input
-                type="number"
-                min={0}
-                value={form.team_size}
-                onChange={(e) => set({ team_size: e.target.value })}
+                <div className="grid grid-cols-2 gap-3">
+                  <NumberInput
+                    label="Team size"
+                    min={0}
+                    isIntegerOnly
+                    value={form.team_size === '' ? null : Number(form.team_size)}
+                    onChange={(v) => set({ team_size: String(v) })}
+                  />
+                  <NumberInput
+                    label="Budget (BMM)"
+                    min={0}
+                    step={0.25}
+                    value={form.budget_bmm === '' ? null : Number(form.budget_bmm)}
+                    onChange={(v) => set({ budget_bmm: String(v) })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <DateInput
+                      label="Date from"
+                      value={form.date_from || undefined}
+                      onChange={(v) => set({ date_from: v ?? '' })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <DateInput
+                      label="Date to"
+                      value={form.date_to || undefined}
+                      onChange={(v) => set({ date_to: v ?? '' })}
+                    />
+                  </div>
+                </div>
+
+                <Textarea
+                  label="Objective"
+                  value={form.objective}
+                  onChange={(value) => set({ objective: value })}
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Textarea
+                    label="Scope (in)"
+                    value={form.scope_in}
+                    onChange={(value) => set({ scope_in: value })}
+                  />
+                  <Textarea
+                    label="Scope (out)"
+                    value={form.scope_out}
+                    onChange={(value) => set({ scope_out: value })}
+                  />
+                </div>
+
+                {error && <Banner status="error" title={error} />}
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
+              <Button
+                variant="primary"
+                label={mutation.isPending ? 'Submitting…' : 'Submit'}
+                onClick={() => mutation.mutate()}
+                isDisabled={!canSubmit}
               />
-            </div>
-            <div className="space-y-1">
-              <Label>Budget (BMM)</Label>
-              <Input
-                type="number"
-                min={0}
-                step="0.25"
-                value={form.budget_bmm}
-                onChange={(e) => set({ budget_bmm: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Date from</Label>
-              <Input
-                type="date"
-                value={form.date_from}
-                onChange={(e) => set({ date_from: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Date to</Label>
-              <Input
-                type="date"
-                value={form.date_to}
-                onChange={(e) => set({ date_to: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label>Objective</Label>
-            <Textarea value={form.objective} onChange={(e) => set({ objective: e.target.value })} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Scope (in)</Label>
-              <Textarea value={form.scope_in} onChange={(e) => set({ scope_in: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label>Scope (out)</Label>
-              <Textarea
-                value={form.scope_out}
-                onChange={(e) => set({ scope_out: e.target.value })}
-              />
-            </div>
-          </div>
-
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => mutation.mutate()} disabled={!canSubmit}>
-              {mutation.isPending ? 'Submitting…' : 'Submit'}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+            </DialogFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }

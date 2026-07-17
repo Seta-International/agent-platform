@@ -10,7 +10,7 @@ Contract for coding agents (Claude Code, Codex, any `AGENTS.md`-aware tool) in t
 
 ## Fixed foundations (do not propose alternatives)
 
-Node 24 LTS, Turborepo + pnpm workspaces, Vite. Postgres + pgvector with Drizzle ORM only — **no other ORM, no raw migration tool.** Event bus is a transactional outbox in `core.events` + `LISTEN/NOTIFY` + 2s fallback poll — **no SQS, no Kafka.** Backend: Hono, Mastra, graphile-worker. Frontend: React 19, TanStack Router, shadcn/ui, Tailwind 4, AI SDK v6, assistant-ui. Auth: better-auth + argon2id. Cloud: AWS — ECS Fargate (Graviton; lean `api` + isolated `worker`, autoscaling), Cloudflare Tunnel (zero inbound), RDS Postgres (single-AZ), S3 + CloudFront, Secrets Manager; Terraform in `infra/terraform/prod/`, single-region `ap-southeast-1`. See [`docs/hosting/aws.md`](docs/hosting/aws.md); k8s deferred.
+Node 24 LTS, Turborepo + pnpm workspaces, Vite. Postgres + pgvector with Drizzle ORM only — **no other ORM, no raw migration tool.** Event bus is a transactional outbox in `core.events` + `LISTEN/NOTIFY` + 2s fallback poll — **no SQS, no Kafka.** Backend: Hono, Mastra, graphile-worker. Frontend: React 19, TanStack Router, Astryx design system (`@astryxdesign/core` + StyleX, custom `seta` theme; foundation landed via FUT-562, migration in progress — `apps/web` still on the shadcn/Radix layer today), Tailwind 4, AI SDK v6, assistant-ui. Auth: better-auth + argon2id. Cloud: AWS — ECS Fargate (Graviton; lean `api` + isolated `worker`, autoscaling), Cloudflare Tunnel (zero inbound), RDS Postgres (single-AZ), S3 + CloudFront, Secrets Manager; Terraform in `infra/terraform/prod/`, single-region `ap-southeast-1`. See [`docs/hosting/aws.md`](docs/hosting/aws.md); k8s deferred.
 
 ## Module boundaries (CI-gated; full rule set in `.dependency-cruiser.cjs`)
 
@@ -33,3 +33,5 @@ Node 24 LTS, Turborepo + pnpm workspaces, Vite. Postgres + pgvector with Drizzle
 ## Always
 
 **Production-grade only, never quick hacks.** Diagnose the root cause and ship the optimized solution; "small patch now, real fix later" is rejected on review.
+
+Frontend Astryx guidance (CLI workflow, component rules, StyleX wiring caveat) lives in [`.claude/rules/frontend.md`](.claude/rules/frontend.md) — it loads automatically when you open frontend files.

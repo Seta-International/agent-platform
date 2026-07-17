@@ -45,16 +45,18 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
   if (editing) {
     return (
       <section className="card" aria-label="Description">
-        <header className="mb-2 text-body-sm text-ink-subtle">Description</header>
+        <header className="mb-2 text-base text-secondary">Description</header>
         <RichTextEditor value={draft} onChange={setDraft} onSave={save} onCancel={cancel} />
-        <div className="mt-1 text-caption text-ink-subtle">⌘↵ to save · Esc to cancel</div>
+        <div className="mt-1 text-sm text-secondary">⌘↵ to save · Esc to cancel</div>
         <div className="mt-2 flex justify-end gap-1.5">
-          <Button size="sm" variant="ghost" onClick={cancel}>
-            Cancel
-          </Button>
-          <Button size="sm" onClick={save} disabled={update.isPending}>
-            Save
-          </Button>
+          <Button size="sm" variant="ghost" label="Cancel" onClick={cancel} />
+          <Button
+            size="sm"
+            variant="primary"
+            label="Save"
+            onClick={save}
+            isDisabled={update.isPending}
+          />
         </div>
       </section>
     );
@@ -62,22 +64,22 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
 
   return (
     <section className="card" aria-label="Description">
-      <header className="mb-2 text-body-sm text-ink-subtle">Description</header>
+      <header className="mb-2 text-base text-secondary">Description</header>
       <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
         <button
           type="button"
           onClick={beginEdit}
           disabled={!canUpdate}
           aria-label="Edit description"
-          className="group relative flex w-full items-start gap-2 rounded-md border border-hairline bg-canvas px-3 py-2 text-left transition-colors enabled:hover:border-hairline-strong enabled:hover:bg-surface-1 disabled:cursor-not-allowed"
+          className="group relative flex w-full items-start gap-2 rounded-md border border-border bg-body px-3 py-2 text-left transition-colors enabled:hover:border-border-strong enabled:hover:bg-card disabled:cursor-not-allowed"
         >
           <div className="min-h-[40px] flex-1">
             {task.description ? (
-              <div className="text-body-sm leading-[1.55]">
+              <div className="text-base leading-[1.55]">
                 <RichTextDisplay value={task.description} />
               </div>
             ) : (
-              <span className="text-body-sm text-ink-subtle">
+              <span className="text-base text-secondary">
                 {canUpdate ? 'No description. Click to add.' : 'No description.'}
               </span>
             )}
@@ -85,7 +87,7 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
           {canUpdate && (
             <Pencil
               aria-hidden
-              className="size-4 shrink-0 text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100"
+              className="size-4 shrink-0 text-secondary opacity-0 transition-opacity group-hover:opacity-100"
             />
           )}
         </button>

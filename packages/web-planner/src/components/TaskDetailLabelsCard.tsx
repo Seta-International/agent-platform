@@ -1,42 +1,26 @@
 import type { LabelRow, TaskWithAssigneesRow } from '@seta/planner';
 import {
-  Badge,
-  Button,
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  DisabledActionTooltip,
-  Input,
+  createStaticSource,
+  IconButton,
   LabelChip,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  toast,
+  type SearchableItem,
+  Tokenizer,
+  useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
-import { Check, ChevronLeft, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
+import { X } from 'lucide-react';
+import { useMemo } from 'react';
 import { plannerClient } from '../api/planner-client';
 import { useApplyLabel } from '../hooks/mutations/apply-label';
 import { useCreateLabel } from '../hooks/mutations/create-label';
-import { useDeleteLabel } from '../hooks/mutations/delete-label';
 import { useUnapplyLabel } from '../hooks/mutations/unapply-label';
-import { useUpdateLabel } from '../hooks/mutations/update-label';
 import { usePlanCategories } from '../hooks/queries/use-plan-categories';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { plannerKeys } from '../state/query-keys';
-import { ConfirmDeleteLabelDialog } from './ConfirmDeleteLabelDialog';
 
-// Mirrors the keyword palette LabelChip understands; cycling by name hash so
-// the same label name picks the same swatch every time.
+// Mirrors the keyword palette LabelChip understands; hashing the name so a newly
+// created label gets a stable color derived from its own text.
 const LABEL_COLORS = ['blue', 'green', 'amber', 'red', 'purple', 'teal'] as const;
 
 function pickLabelColor(name: string): string {
@@ -51,11 +35,14 @@ interface Props {
   isLinkedToM365?: boolean;
 }
 
+type LabelItem = SearchableItem<{ color: string }>;
+
 export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: Props) {
   const apply = useApplyLabel(planId);
   const unapply = useUnapplyLabel(planId);
   const create = useCreateLabel(planId);
   const canUpdate = usePermission('planner.task.update');
+  const toast = useToast();
   const planLabelsQuery = useQuery({
     queryKey: plannerKeys.planLabels(planId),
     queryFn: () => plannerClient.listLabels(planId),
@@ -63,196 +50,115 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
   });
   const categoriesQuery = usePlanCategories(planId);
 
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [editingLabel, setEditingLabel] = useState<LabelRow | null>(null);
-
   const categoryLabel = task.labels.find((l) => l.category_slot != null) ?? null;
   const categoryDescription = categoryLabel
     ? (categoriesQuery.data?.descriptions[String(categoryLabel.category_slot)] ?? null)
     : null;
 
-  const appliedIds = new Set(task.labels.map((l) => l.id));
-  // The flyout is the management surface, so it lists every slot-less label
-  // (applied + unapplied). Category-slot labels are managed in Plan settings.
+  const appliedSlotless = task.labels.filter((l) => l.category_slot == null);
+  const appliedIds = new Set(appliedSlotless.map((l) => l.id));
   const slotlessLabels: LabelRow[] = (planLabelsQuery.data ?? []).filter(
     (l) => l.category_slot == null,
   );
 
-  const trimmedSearch = search.trim();
-  const filteredSlotlessLabels =
-    trimmedSearch.length > 0
-      ? slotlessLabels.filter((l) => l.name.toLowerCase().includes(trimmedSearch.toLowerCase()))
-      : slotlessLabels;
-  const hasExactMatch = (planLabelsQuery.data ?? []).some(
-    (l) => l.name.toLowerCase() === trimmedSearch.toLowerCase(),
-  );
-  // M365-linked plans only sync category-slot labels, so we hide the create
-  // affordance there — a fresh slot-less label would land disabled anyway.
-  const canCreate = !isLinkedToM365 && trimmedSearch.length > 0 && !hasExactMatch;
+  const value: LabelItem[] = appliedSlotless.map((l) => ({
+    id: l.id,
+    label: l.name,
+    auxiliaryData: { color: l.color || '' },
+  }));
 
-  const handleCreateAndApply = async () => {
-    const name = trimmedSearch;
-    if (!name) return;
-    const color = pickLabelColor(name);
+  // M365-linked plans sync only category-slot labels, so slot-less labels can't
+  // be applied and no ad-hoc create is offered.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keys on the raw query data/task labels/M365 flag; appliedIds and slotlessLabels are derived from those same deps each render, so listing them too would just be noise.
+  const source = useMemo(
+    () =>
+      createStaticSource<LabelItem>(
+        isLinkedToM365
+          ? []
+          : slotlessLabels
+              .filter((l) => !appliedIds.has(l.id))
+              .map((l) => ({ id: l.id, label: l.name, auxiliaryData: { color: l.color || '' } })),
+      ),
+    [planLabelsQuery.data, task.labels, isLinkedToM365],
+  );
+
+  const handleCreateAndApply = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const color = pickLabelColor(trimmed);
     try {
-      const created = await create.mutateAsync({ name, color });
+      const created = await create.mutateAsync({ name: trimmed, color });
       apply.mutate({
         task_id: task.id,
         label_id: created.id,
         label_name: created.name,
         label_color: created.color,
       });
-      setPickerOpen(false);
-      setSearch('');
     } catch {
-      toast.error("Couldn't create label.");
-    }
-  };
-
-  const toggleLabel = (l: LabelRow) => {
-    if (appliedIds.has(l.id)) {
-      unapply.mutate({ task_id: task.id, label_id: l.id });
-    } else {
-      apply.mutate({
-        task_id: task.id,
-        label_id: l.id,
-        label_name: l.name,
-        label_color: l.color,
-      });
-      setPickerOpen(false);
-      setSearch('');
+      toast({ body: "Couldn't create label.", type: 'error' });
     }
   };
 
   return (
     <section className="card" aria-label="Labels">
       <header className="mb-2">
-        <span className="t-sm subtle">Labels</span>
+        <span className="text-sm text-secondary">Labels</span>
       </header>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {task.labels
-          .filter((l) => l.category_slot == null)
-          .map((l) => (
-            <span key={l.id} className="inline-flex items-center gap-0.5">
-              <LabelChip name={l.name} color={l.color || undefined} />
-              <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
-                <button
-                  type="button"
-                  aria-label={`Remove ${l.name}`}
-                  onClick={() => unapply.mutate({ task_id: task.id, label_id: l.id })}
-                  disabled={!canUpdate}
-                  className="cursor-pointer border-none bg-transparent p-0.5 text-ink-subtle disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <X className="size-3" />
-                </button>
-              </DisabledActionTooltip>
-            </span>
-          ))}
-        <Popover
-          open={pickerOpen}
-          onOpenChange={(o) => {
-            if (!canUpdate) return;
-            setPickerOpen(o);
-            if (!o) setEditingLabel(null);
-          }}
-        >
-          <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
-            <PopoverTrigger asChild disabled={!canUpdate}>
-              <Button size="sm" variant="ghost" aria-label="Add label" disabled={!canUpdate}>
-                <Plus className="size-3" />
-                Add
-              </Button>
-            </PopoverTrigger>
-          </DisabledActionTooltip>
-          <PopoverContent align="start" className="w-72 p-0">
-            {editingLabel ? (
-              <LabelEditPanel
-                label={editingLabel}
-                planId={planId}
-                taskId={task.id}
-                onClose={() => setEditingLabel(null)}
-              />
-            ) : (
-              <Command shouldFilter={false}>
-                <CommandInput
-                  aria-label="Filter labels"
-                  placeholder="Filter or create label"
-                  value={search}
-                  onValueChange={setSearch}
-                />
-                <CommandList>
-                  <CommandEmpty>
-                    {canCreate ? null : isLinkedToM365 ? 'No labels.' : 'Type to create a label.'}
-                  </CommandEmpty>
-                  <CommandGroup>
-                    <TooltipProvider delayDuration={0}>
-                      {filteredSlotlessLabels.map((l) =>
-                        isLinkedToM365 ? (
-                          <Tooltip key={l.id}>
-                            <TooltipTrigger asChild>
-                              {/* Wrapper div captures hover events; CommandItem's pointer-events-none only blocks clicks */}
-                              <div>
-                                <CommandItem value={l.name} disabled className="opacity-50">
-                                  <LabelChip name={l.name} color={l.color || undefined} />
-                                  <Badge variant="outline" className="ml-auto shrink-0">
-                                    Local only
-                                  </Badge>
-                                </CommandItem>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>{LOCAL_ONLY_TOOLTIP}</TooltipContent>
-                          </Tooltip>
-                        ) : (
-                          <CommandItem key={l.id} value={l.name} onSelect={() => toggleLabel(l)}>
-                            {appliedIds.has(l.id) ? (
-                              <Check className="size-3 text-ink-subtle" />
-                            ) : (
-                              <span className="inline-block size-3" aria-hidden="true" />
-                            )}
-                            <LabelChip name={l.name} color={l.color || undefined} />
-                            <button
-                              type="button"
-                              aria-label={`Edit ${l.name}`}
-                              className="ml-auto cursor-pointer border-none bg-transparent p-0.5 text-ink-subtle"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingLabel(l);
-                              }}
-                            >
-                              <Pencil className="size-3" />
-                            </button>
-                          </CommandItem>
-                        ),
-                      )}
-                    </TooltipProvider>
-                    {canCreate ? (
-                      <CommandItem
-                        key="__create__"
-                        value={`__create__${trimmedSearch}`}
-                        onSelect={() => {
-                          void handleCreateAndApply();
-                        }}
-                      >
-                        <Plus className="size-3" />
-                        <span>
-                          Create <span className="font-medium">&ldquo;{trimmedSearch}&rdquo;</span>
-                        </span>
-                      </CommandItem>
-                    ) : null}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            )}
-          </PopoverContent>
-        </Popover>
-      </div>
+
+      <Tokenizer<LabelItem>
+        label="Labels"
+        isLabelHidden
+        placeholder="Filter or create label"
+        searchSource={source}
+        debounceMs={0}
+        hasEntriesOnFocus
+        hasCreate={!isLinkedToM365}
+        isDisabled={!canUpdate}
+        disabledMessage={PERMISSION_DENIED.task.edit}
+        value={value}
+        onChange={(_items, change) => {
+          if (change.type === 'add') {
+            apply.mutate({
+              task_id: task.id,
+              label_id: change.item.id,
+              label_name: change.item.label,
+              label_color: change.item.auxiliaryData?.color || '',
+            });
+          } else if (change.type === 'remove') {
+            unapply.mutate({ task_id: task.id, label_id: change.item.id });
+          } else if (change.type === 'create') {
+            void handleCreateAndApply(change.item.label);
+          }
+        }}
+        renderToken={(item, onRemove) => (
+          <span key={item.id} className="inline-flex items-center gap-0.5">
+            <LabelChip name={item.label} color={item.auxiliaryData?.color || undefined} />
+            <IconButton
+              variant="ghost"
+              size="sm"
+              label={`Remove ${item.label}`}
+              onClick={onRemove}
+              isDisabled={!canUpdate}
+              icon={<X className="size-3" />}
+            />
+          </span>
+        )}
+        renderItem={(item) => (
+          <LabelChip name={item.label} color={item.auxiliaryData?.color || undefined} />
+        )}
+      />
+
+      {isLinkedToM365 && (
+        <p className="mt-1.5 text-sm text-secondary">
+          Labels sync from Microsoft Planner category slots.
+        </p>
+      )}
 
       {categoryLabel && (
         <div className="mt-2.5">
-          <div className="t-xs subtle mb-1">Category</div>
-          <span className="t-sm inline-flex items-center gap-1.5 rounded-md bg-surface-2 px-2 py-1 text-ink">
-            <span className="mono">cat {categoryLabel.category_slot}</span>
+          <div className="text-xs text-secondary mb-1">Category</div>
+          <span className="text-sm inline-flex items-center gap-1.5 rounded-md bg-surface px-2 py-1 text-primary">
+            <span className="font-mono tabular-nums">cat {categoryLabel.category_slot}</span>
             <span aria-hidden="true">›</span>
             <span>{categoryDescription ?? categoryLabel.name}</span>
           </span>
@@ -261,143 +167,3 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
     </section>
   );
 }
-
-function LabelEditPanel({
-  label,
-  planId,
-  taskId,
-  onClose,
-}: {
-  label: LabelRow;
-  planId: string;
-  taskId: string;
-  onClose: () => void;
-}) {
-  const update = useUpdateLabel(planId);
-  const del = useDeleteLabel(planId);
-  const [name, setName] = useState(label.name);
-  const [color, setColor] = useState(label.color || 'blue');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  const trimmed = name.trim();
-  const dirty = trimmed !== label.name || color !== label.color;
-  const canSave = trimmed.length > 0 && dirty;
-
-  const handleSave = () => {
-    if (!dirty) {
-      onClose();
-      return;
-    }
-    if (!trimmed) return;
-    const patch: { name?: string; color?: string } = {};
-    if (trimmed !== label.name) patch.name = trimmed;
-    if (color !== label.color) patch.color = color;
-    update.mutate({ label_id: label.id, patch }, { onSuccess: onClose });
-  };
-
-  return (
-    <div className="space-y-3 p-3" data-testid="label-edit-panel">
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          aria-label="Back to labels"
-          onClick={onClose}
-          className="cursor-pointer border-none bg-transparent p-0.5 text-ink-subtle"
-        >
-          <ChevronLeft className="size-4" />
-        </button>
-        <span className="t-sm subtle">Edit label</span>
-      </div>
-
-      <Input
-        aria-label="Label name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            handleSave();
-          }
-        }}
-      />
-
-      <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Label color">
-        {LABEL_COLORS.map((c) => (
-          <label
-            key={c}
-            style={{
-              borderRadius: 9999,
-              cursor: 'pointer',
-              outline:
-                color === c ? '2px solid var(--color-primary)' : '1px solid var(--color-hairline)',
-              outlineOffset: 1,
-              display: 'inline-block',
-            }}
-          >
-            <input
-              type="radio"
-              name="label-color"
-              value={c}
-              checked={color === c}
-              onChange={() => setColor(c)}
-              aria-label={c}
-              className="sr-only"
-            />
-            <span
-              className={`label-chip label-chip--${c}`}
-              aria-hidden="true"
-              style={{ display: 'block', width: 18, height: 18, borderRadius: 9999, padding: 0 }}
-            >
-              &nbsp;
-            </span>
-          </label>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-between pt-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setConfirmOpen(true)}
-          disabled={update.isPending || del.isPending}
-        >
-          <Trash2 className="size-3" />
-          Delete
-        </Button>
-        <div className="flex gap-1.5">
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={del.isPending}>
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!canSave || update.isPending || del.isPending}
-          >
-            Save
-          </Button>
-        </div>
-      </div>
-
-      <ConfirmDeleteLabelDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        labelName={label.name}
-        pending={del.isPending}
-        onConfirm={() =>
-          del.mutate(
-            { label_id: label.id, task_id: taskId },
-            {
-              onSuccess: () => {
-                setConfirmOpen(false);
-                onClose();
-              },
-            },
-          )
-        }
-      />
-    </div>
-  );
-}
-
-const LOCAL_ONLY_TOOLTIP =
-  'Assign this label to a category slot in Plan settings to send it to Microsoft Planner.';

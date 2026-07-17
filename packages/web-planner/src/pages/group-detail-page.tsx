@@ -1,18 +1,18 @@
 import type { GroupMemberRow } from '@seta/planner';
 import {
+  Badge,
   Button,
   ComingSoon,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
   DisabledActionTooltip,
+  Layout,
+  LayoutContent,
   Skeleton,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  toast,
+  Tab,
+  TabList,
+  useToast,
 } from '@seta/shared-ui';
 import { type SessionScopeProjection, usePermission } from '@seta/web-identity';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -57,12 +57,12 @@ interface Props {
 function DetailSkeleton() {
   return (
     <div className="flex flex-col gap-4 p-6" data-testid="skeleton-detail">
-      <Skeleton className="h-16 w-full" />
-      <Skeleton className="h-14 w-full" />
-      <Skeleton className="h-8 w-64" />
+      <Skeleton height={64} />
+      <Skeleton height={56} />
+      <Skeleton height={32} width={256} />
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 mt-4">
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
+        <Skeleton height={256} />
+        <Skeleton height={256} />
       </div>
     </div>
   );
@@ -75,19 +75,14 @@ interface ErrorStateProps {
 function ErrorState({ onRetry }: ErrorStateProps) {
   return (
     <div className="flex flex-col items-center justify-center p-12 gap-4" role="alert">
-      <p className="text-body-sm text-ink-subtle">Couldn&apos;t load this group.</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="text-sm text-primary underline hover:no-underline"
-      >
-        Try again
-      </button>
+      <p className="text-base text-secondary">Couldn&apos;t load this group.</p>
+      <Button size="sm" variant="secondary" label="Try again" onClick={onRetry} />
     </div>
   );
 }
 
 export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
+  const toast = useToast();
   const groupQuery = useGroup(groupId);
   const membersQuery = useGroupMembers(groupId);
   const plansQuery = useGroupPlans(groupId);
@@ -127,6 +122,15 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
     }
   }, [groupQuery.data?.deleted_at, canUpdateGroup]);
 
+  // Raising a toast is a state update on the toast viewport, so it has to happen in an
+  // effect rather than inline in the 403 branch below.
+  const isForbidden = (groupQuery.error as { status?: number } | null)?.status === 403;
+  useEffect(() => {
+    if (!isForbidden) return;
+    toast({ body: "You don't have access to this group anymore.", type: 'error' });
+    void navigate({ to: '/planner/groups' });
+  }, [isForbidden, navigate, toast]);
+
   // Capability checks
   const roles = session.role_summary.roles;
   const isAdmin =
@@ -159,11 +163,8 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
   }
 
   if (groupQuery.isError) {
-    // 403 → redirect to groups list
-    const err = groupQuery.error as { status?: number } | null;
-    if (err?.status === 403) {
-      void navigate({ to: '/planner/groups' });
-      toast.error("You don't have access to this group anymore.");
+    // 403 → the effect above toasts and redirects to the groups list.
+    if (isForbidden) {
       return null;
     }
     return <ErrorState onRetry={() => void groupQuery.refetch()} />;
@@ -197,10 +198,14 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
       { expected_version: group.version },
       {
         onSuccess: () => {
-          toast('Group archived. You can restore it from the Archived filter.');
+          toast({ body: 'Group archived. You can restore it from the Archived filter.' });
           void navigate({ to: '/planner/groups' });
         },
-        onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't archive the group."),
+        onError: (e) =>
+          toast({
+            body: e instanceof Error ? e.message : "Couldn't archive the group.",
+            type: 'error',
+          }),
       },
     );
   }
@@ -212,7 +217,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
       {
         onSuccess: () => {
           setDeleteOpen(false);
-          toast('Group archived. You can restore it from the Archived filter.');
+          toast({ body: 'Group archived. You can restore it from the Archived filter.' });
           void navigate({ to: '/planner/groups' });
         },
         onError: (e) => {
@@ -226,8 +231,12 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
     restoreGroup.mutate(
       { group_id: groupId },
       {
-        onSuccess: () => toast('Group restored'),
-        onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't restore the group."),
+        onSuccess: () => toast({ body: 'Group restored' }),
+        onError: (e) =>
+          toast({
+            body: e instanceof Error ? e.message : "Couldn't restore the group.",
+            type: 'error',
+          }),
       },
     );
   }
@@ -243,7 +252,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         onMenuAction={handleMenuAction}
       />
       {group.deleted_at && (
-        <div className="flex flex-none items-center justify-between gap-4 border-b border-hairline bg-semantic-warning-tint px-6 py-2 text-body-sm text-semantic-warning">
+        <div className="flex flex-none items-center justify-between gap-4 border-b border-border bg-warning-muted px-6 py-2 text-base text-warning">
           <span>This group is archived.</span>
           <DisabledActionTooltip
             disabled={!canUpdateGroup}
@@ -252,125 +261,123 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
             <Button
               size="sm"
               variant="secondary"
+              label="Restore"
               onClick={doRestore}
-              disabled={!canUpdateGroup || restoreGroup.isPending}
-            >
-              Restore
-            </Button>
+              isDisabled={!canUpdateGroup || restoreGroup.isPending}
+            />
           </DisabledActionTooltip>
         </div>
       )}
-      <Tabs
-        value={tab}
-        onValueChange={(t) => onTabChange(t as GroupTab)}
-        className="flex flex-1 min-h-0 flex-col"
-      >
-        <TabsList className="flex border-b border-hairline px-6 justify-start gap-1 bg-canvas rounded-none">
-          <TabsTrigger
-            value="plans"
-            className="group gap-2 data-[state=active]:[&>span]:bg-primary-tint data-[state=active]:[&>span]:text-primary-ink"
+      <div className="flex flex-1 min-h-0 flex-col">
+        <div className="flex-none border-b border-border px-6">
+          <TabList
+            value={tab}
+            onChange={(t) => onTabChange(t as GroupTab)}
+            aria-label="Group sections"
           >
-            Plans
-            <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-[11px] font-medium text-ink-muted transition-colors">
-              {plans.length}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="members"
-            className="group gap-2 data-[state=active]:[&>span]:bg-primary-tint data-[state=active]:[&>span]:text-primary-ink"
-          >
-            Members
-            <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-[11px] font-medium text-ink-muted transition-colors">
-              {memberTotal}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="integrations">Integrations</TabsTrigger>
-          {canManage ? <TabsTrigger value="settings">Settings</TabsTrigger> : null}
-        </TabsList>
+            <Tab
+              value="plans"
+              label="Plans"
+              endContent={<Badge variant="neutral" label={plans.length} />}
+            />
+            <Tab
+              value="members"
+              label="Members"
+              endContent={<Badge variant="neutral" label={memberTotal} />}
+            />
+            <Tab value="activity" label="Activity" />
+            <Tab value="integrations" label="Integrations" />
+            {canManage ? <Tab value="settings" label="Settings" /> : null}
+          </TabList>
+        </div>
 
-        <TabsContent value="plans" className="@container flex-1 overflow-auto bg-surface-1">
-          <div className="page-container grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
-            <GroupPlansSection
-              groupName={group.name}
-              plans={plans}
-              themeColor={themeColor}
-              canCreatePlan={canCreatePlan}
-              onCreatePlan={() => setCreatePlanOpen(true)}
-              onPlanClick={(planId) =>
-                void navigate({
-                  to: '/planner/plans/$planId',
-                  params: { planId },
-                })
-              }
-            />
-            <GroupRail
-              group={group}
-              members={members}
-              totalMemberCount={memberTotal}
-              canManage={canManageMembers}
-              onAddMember={() => setAddMembersOpen(true)}
-              onSeeAllMembers={() => onTabChange('members')}
-              activityItems={
-                activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
-              }
-              pendingRequests={canManageMembers ? (joinRequestsQuery.data ?? []) : undefined}
-              onApproveRequest={(userId) =>
-                resolveRequestMutation.mutate({ userId, action: 'approved' })
-              }
-              onRejectRequest={(userId) =>
-                resolveRequestMutation.mutate({ userId, action: 'rejected' })
-              }
-            />
+        {tab === 'plans' && (
+          <div className="@container flex-1 overflow-auto bg-card">
+            <div className="grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start p-6">
+              <GroupPlansSection
+                groupName={group.name}
+                plans={plans}
+                themeColor={themeColor}
+                canCreatePlan={canCreatePlan}
+                onCreatePlan={() => setCreatePlanOpen(true)}
+                onPlanClick={(planId) =>
+                  void navigate({
+                    to: '/planner/plans/$planId',
+                    params: { planId },
+                  })
+                }
+              />
+              <GroupRail
+                group={group}
+                members={members}
+                totalMemberCount={memberTotal}
+                canManage={canManageMembers}
+                onAddMember={() => setAddMembersOpen(true)}
+                onSeeAllMembers={() => onTabChange('members')}
+                activityItems={
+                  activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
+                }
+                pendingRequests={canManageMembers ? (joinRequestsQuery.data ?? []) : undefined}
+                onApproveRequest={(userId) =>
+                  resolveRequestMutation.mutate({ userId, action: 'approved' })
+                }
+                onRejectRequest={(userId) =>
+                  resolveRequestMutation.mutate({ userId, action: 'rejected' })
+                }
+              />
+            </div>
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="members" className="@container flex-1 overflow-auto bg-surface-1">
-          <div className="page-container grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
-            <GroupMembersTable
-              group={group}
-              members={members}
-              canManageRoles={canManageRoles}
-              canRemoveMembers={canManageMembers}
-              onRoleChange={(v) => setMemberRoleMutation.mutate(v)}
-              onRemoveMember={(member) => setMemberToRemove(member)}
-              onRemoveMembers={(userIds) => setMembersToRemove(userIds)}
-            />
-            <GroupRail
-              group={group}
-              members={members}
-              totalMemberCount={memberTotal}
-              canManage={canManageMembers}
-              onAddMember={() => setAddMembersOpen(true)}
-              activityItems={
-                activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
-              }
-              pendingRequests={canManageMembers ? (joinRequestsQuery.data ?? []) : undefined}
-              onApproveRequest={(userId) =>
-                resolveRequestMutation.mutate({ userId, action: 'approved' })
-              }
-              onRejectRequest={(userId) =>
-                resolveRequestMutation.mutate({ userId, action: 'rejected' })
-              }
-            />
+        {tab === 'members' && (
+          <div className="@container flex-1 overflow-auto bg-card">
+            <div className="grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start p-6">
+              <GroupMembersTable
+                group={group}
+                members={members}
+                canManageRoles={canManageRoles}
+                canRemoveMembers={canManageMembers}
+                onRoleChange={(v) => setMemberRoleMutation.mutate(v)}
+                onRemoveMember={(member) => setMemberToRemove(member)}
+                onRemoveMembers={(userIds) => setMembersToRemove(userIds)}
+              />
+              <GroupRail
+                group={group}
+                members={members}
+                totalMemberCount={memberTotal}
+                canManage={canManageMembers}
+                showMemberList={false}
+                onAddMember={() => setAddMembersOpen(true)}
+                activityItems={
+                  activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
+                }
+                pendingRequests={canManageMembers ? (joinRequestsQuery.data ?? []) : undefined}
+                onApproveRequest={(userId) =>
+                  resolveRequestMutation.mutate({ userId, action: 'approved' })
+                }
+                onRejectRequest={(userId) =>
+                  resolveRequestMutation.mutate({ userId, action: 'rejected' })
+                }
+              />
+            </div>
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="activity" className="flex-1 overflow-auto bg-surface-1">
-          <div className="page-container">
-            <ActivityFeedTab groupId={groupId} />
+        {tab === 'activity' && (
+          <div className="flex-1 overflow-auto bg-card">
+            <div className="mx-auto w-full max-w-[64rem] p-6">
+              <ActivityFeedTab groupId={groupId} />
+            </div>
           </div>
-        </TabsContent>
-        <TabsContent value="integrations">
-          <ComingSoon feature="Integrations" />
-        </TabsContent>
+        )}
+        {tab === 'integrations' && <ComingSoon feature="Integrations" />}
 
-        {canManage ? (
-          <TabsContent value="settings" className="p-6">
-            <div className="text-sm text-ink-subtle">Group settings are coming soon.</div>
-          </TabsContent>
-        ) : null}
-      </Tabs>
+        {canManage && tab === 'settings' && (
+          <div className="p-6">
+            <div className="text-sm text-secondary">Group settings are coming soon.</div>
+          </div>
+        )}
+      </div>
 
       <CreatePlanDialog groupId={groupId} open={createPlanOpen} onOpenChange={setCreatePlanOpen} />
       <EditGroupDialog group={group} open={editOpen} onOpenChange={setEditOpen} />
@@ -382,62 +389,75 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         isPending={deleteGroup.isPending}
         error={deleteError}
       />
-      <Dialog open={archiveM365Open} onOpenChange={setArchiveM365Open}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Archive M365-linked group?</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-body-sm text-ink-subtle">
-              This group is linked to Microsoft 365. Archiving pauses sync here, but the group
-              remains in Microsoft 365.
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setArchiveM365Open(false)}>
-                Cancel
-              </Button>
+      <Dialog isOpen={archiveM365Open} onOpenChange={setArchiveM365Open} purpose="form">
+        <Layout
+          header={
+            <DialogHeader title="Archive M365-linked group?" onOpenChange={setArchiveM365Open} />
+          }
+          content={
+            <LayoutContent>
+              <p className="text-base text-secondary">
+                This group is linked to Microsoft 365. Archiving pauses sync here, but the group
+                remains in Microsoft 365.
+              </p>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
               <Button
+                variant="secondary"
+                label="Cancel"
+                onClick={() => setArchiveM365Open(false)}
+              />
+              <Button
+                variant="primary"
+                label="Archive anyway"
                 onClick={() => {
                   setArchiveM365Open(false);
                   doArchive();
                 }}
-              >
-                Archive anyway
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
+              />
+            </DialogFooter>
+          }
+        />
       </Dialog>
-      <Dialog open={restorePromptOpen} onOpenChange={setRestorePromptOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>This group is archived</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-body-sm text-ink-subtle">
-              This group has been archived. Would you like to restore it so it becomes active again?
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setRestorePromptOpen(false)}>
-                View anyway
-              </Button>
+      <Dialog isOpen={restorePromptOpen} onOpenChange={setRestorePromptOpen} purpose="info">
+        <Layout
+          header={
+            <DialogHeader title="This group is archived" onOpenChange={setRestorePromptOpen} />
+          }
+          content={
+            <LayoutContent>
+              <p className="text-base text-secondary">
+                This group has been archived. Would you like to restore it so it becomes active
+                again?
+              </p>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
+              <Button
+                variant="secondary"
+                label="View anyway"
+                onClick={() => setRestorePromptOpen(false)}
+              />
               <DisabledActionTooltip
                 disabled={!canUpdateGroup}
                 reason={PERMISSION_DENIED.group.restore}
               >
                 <Button
+                  variant="primary"
+                  label="Restore group"
                   onClick={() => {
                     setRestorePromptOpen(false);
                     doRestore();
                   }}
-                  disabled={!canUpdateGroup || restoreGroup.isPending}
-                >
-                  Restore group
-                </Button>
+                  isDisabled={!canUpdateGroup || restoreGroup.isPending}
+                />
               </DisabledActionTooltip>
-            </div>
-          </div>
-        </DialogContent>
+            </DialogFooter>
+          }
+        />
       </Dialog>
       <AddGroupMembersDialog
         groupId={groupId}

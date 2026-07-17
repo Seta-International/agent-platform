@@ -13,7 +13,7 @@ import type * as React from 'react';
  */
 export function StatBar({ children }: { children: React.ReactNode }) {
   return (
-    <div className="inline-flex items-stretch divide-x divide-hairline overflow-hidden rounded-lg border border-hairline bg-surface-1">
+    <div className="inline-flex items-stretch divide-x divide-border overflow-hidden rounded-lg border border-border bg-card">
       {children}
     </div>
   );
@@ -30,18 +30,16 @@ export function StatChip({
 }) {
   return (
     <div className="flex items-center gap-2.5 px-4 py-2.5">
-      <span className="text-ink-tertiary">{icon}</span>
-      <span className="text-card-title font-semibold leading-none tabular-nums text-ink">
-        {value}
-      </span>
-      <span className="text-caption uppercase tracking-[0.04em] text-ink-tertiary">{label}</span>
+      <span className="text-disabled">{icon}</span>
+      <span className="text-2xl font-semibold leading-none tabular-nums text-primary">{value}</span>
+      <span className="text-sm uppercase tracking-[0.04em] text-disabled">{label}</span>
     </div>
   );
 }
 
 export function RailHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border-b border-hairline px-3 py-2 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+    <div className="border-b border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
       {children}
     </div>
   );
@@ -65,24 +63,25 @@ export function RailItem({ title, active, onClick, count, subtitle }: RailItemPr
       aria-current={active ? 'true' : undefined}
       className={cn(
         'group relative w-full rounded-md px-3 py-2 text-left transition-colors',
-        active ? 'bg-surface-3' : 'hover:bg-surface-2',
+        active ? 'bg-surface' : 'hover:bg-surface',
       )}
     >
       {active && (
-        <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded bg-primary" aria-hidden />
+        <span
+          className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded bg-accent-bg"
+          aria-hidden
+        />
       )}
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-body-sm font-medium text-ink">{title}</span>
+        <span className="truncate text-base font-medium text-primary">{title}</span>
         {count != null && (
-          <span className="inline-flex h-5 min-w-5 flex-none items-center justify-center rounded-full bg-surface-1 px-1.5 text-caption tabular-nums text-ink-subtle">
+          <span className="inline-flex h-5 min-w-5 flex-none items-center justify-center rounded-full bg-card px-1.5 text-sm tabular-nums text-secondary">
             {count}
           </span>
         )}
       </div>
       {subtitle != null && (
-        <div className="mt-1 flex items-center gap-1.5 text-caption text-ink-tertiary">
-          {subtitle}
-        </div>
+        <div className="mt-1 flex items-center gap-1.5 text-sm text-disabled">{subtitle}</div>
       )}
     </button>
   );

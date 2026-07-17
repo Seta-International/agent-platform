@@ -1,4 +1,5 @@
 import type { BucketRow, TaskWithAssigneesRow } from '@seta/planner';
+import type { ShowToastFn } from '@seta/shared-ui';
 import { QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -10,12 +11,9 @@ import { plannerKeys } from '../../../src/state/query-keys';
 import { __resetRingForTests, rememberEventId } from '../../../src/state/recent-mutation-event-ids';
 import { makeTaskWithAssignees } from '../../../src/testing/fixtures';
 
-vi.mock('@seta/shared-ui', async () => {
-  const actual = await vi.importActual<typeof import('@seta/shared-ui')>('@seta/shared-ui');
-  return { ...actual, toast: vi.fn() };
-});
-
-import { toast } from '@seta/shared-ui';
+// applyPlannerEvent is a plain reducer, not a component — it takes the show-toast fn as a
+// parameter, so a bare spy is enough here (no render, no viewport).
+const toast = vi.fn<ShowToastFn>();
 
 function makeEvent(over: Partial<StreamEvent> = {}): StreamEvent {
   return {
@@ -60,25 +58,25 @@ describe('applyPlannerEvent', () => {
     qc = new QueryClient();
     __resetRingForTests();
     __resetSkippedCountersForTests();
-    vi.mocked(toast).mockClear();
+    toast.mockClear();
   });
 
   it('planner.group.created invalidates plannerKeys.groups()', () => {
     const spy = vi.spyOn(qc, 'invalidateQueries');
-    applyPlannerEvent(qc, makeEvent());
+    applyPlannerEvent(qc, makeEvent(), toast);
     expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.groups() });
   });
 
   it("planner.group.member.added invalidates the group's members cache", () => {
     const spy = vi.spyOn(qc, 'invalidateQueries');
-    applyPlannerEvent(qc, makeEvent({ eventType: 'planner.group.member.added' }));
+    applyPlannerEvent(qc, makeEvent({ eventType: 'planner.group.member.added' }), toast);
     expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.groupMembers('g1') });
   });
 
   it('skips its own echo when isOwnEcho returns true', () => {
     rememberEventId('echo-1');
     const spy = vi.spyOn(qc, 'invalidateQueries');
-    applyPlannerEvent(qc, makeEvent({ id: 'echo-1' }));
+    applyPlannerEvent(qc, makeEvent({ id: 'echo-1' }), toast);
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -106,6 +104,7 @@ describe('applyPlannerEvent', () => {
             version_after: 4,
           },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
@@ -149,6 +148,7 @@ describe('applyPlannerEvent', () => {
             },
           },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
@@ -201,8 +201,8 @@ describe('applyPlannerEvent', () => {
           },
         },
       });
-      applyPlannerEvent(qc, ev);
-      applyPlannerEvent(qc, { ...ev, id: 'e-created-2' });
+      applyPlannerEvent(qc, ev, toast);
+      applyPlannerEvent(qc, { ...ev, id: 'e-created-2' }, toast);
       expect(qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)).toHaveLength(1);
     });
   });
@@ -228,6 +228,7 @@ describe('applyPlannerEvent', () => {
             version_after: 2,
           },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
@@ -261,6 +262,7 @@ describe('applyPlannerEvent', () => {
             deleted_at: '2026-05-20T00:00:00Z',
           },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
@@ -282,6 +284,7 @@ describe('applyPlannerEvent', () => {
           aggregateType: 'planner.task',
           payload: { task_id: 't1', plan_id: PLAN, version_after: 2 },
         }),
+        toast,
       );
 
       // cache unchanged
@@ -307,6 +310,7 @@ describe('applyPlannerEvent', () => {
           aggregateType: 'planner.task',
           payload: { task_id: 't1', plan_id: PLAN, user_id: 'u9' },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
@@ -325,8 +329,8 @@ describe('applyPlannerEvent', () => {
         aggregateType: 'planner.task',
         payload: { task_id: 't1', plan_id: PLAN, user_id: 'u9' },
       });
-      applyPlannerEvent(qc, ev);
-      applyPlannerEvent(qc, { ...ev, id: 'e-assign-2' });
+      applyPlannerEvent(qc, ev, toast);
+      applyPlannerEvent(qc, { ...ev, id: 'e-assign-2' }, toast);
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
       expect(after[0]!.assignees).toHaveLength(1);
     });
@@ -358,6 +362,7 @@ describe('applyPlannerEvent', () => {
           aggregateType: 'planner.task',
           payload: { task_id: 't1', plan_id: PLAN, user_id: 'u9' },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
@@ -384,6 +389,7 @@ describe('applyPlannerEvent', () => {
             completed_at: '2026-05-20T00:00:00Z',
           },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
@@ -403,6 +409,7 @@ describe('applyPlannerEvent', () => {
           aggregateType: 'planner.task',
           payload: { task_id: 't1', plan_id: PLAN, version_after: 3 },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
@@ -432,6 +439,7 @@ describe('applyPlannerEvent', () => {
             },
           },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<BucketRow[]>(bucketsKey)!;
@@ -462,6 +470,7 @@ describe('applyPlannerEvent', () => {
             version_after: 2,
           },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<BucketRow[]>(bucketsKey)!;
@@ -480,6 +489,7 @@ describe('applyPlannerEvent', () => {
           aggregateType: 'planner.task',
           payload: { task_id: 't1', plan_id: PLAN, url: 'https://x', alias: null, type: 'web' },
         }),
+        toast,
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.task('t1') });
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.plan(PLAN) });
@@ -497,6 +507,7 @@ describe('applyPlannerEvent', () => {
           aggregateType: 'planner.task',
           payload: { task_id: 't1', plan_id: PLAN, url: 'https://x' },
         }),
+        toast,
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.task('t1') });
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.plan(PLAN) });
@@ -514,6 +525,7 @@ describe('applyPlannerEvent', () => {
           aggregateType: 'planner.plan',
           payload: { plan_id: PLAN, slot: 1, before: null, after: 'Backend' },
         }),
+        toast,
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planCategories(PLAN) });
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.plan(PLAN) });
@@ -531,6 +543,7 @@ describe('applyPlannerEvent', () => {
           aggregateType: 'planner.label',
           payload: { plan_id: PLAN, label_id: 'l1', before: null, after: 2 },
         }),
+        toast,
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planCategories(PLAN) });
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planLabels(PLAN) });
@@ -585,6 +598,7 @@ describe('applyPlannerEvent', () => {
             version_after: 2,
           },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<TaskWithAssigneesRow[]>(tasksKey)!;
@@ -622,6 +636,7 @@ describe('applyPlannerEvent', () => {
             deleted_task_ids: ['t1', 't2'],
           },
         }),
+        toast,
       );
 
       const after = qc.getQueryData<BucketRow[]>(bucketsKey)!;
@@ -645,6 +660,7 @@ describe('applyPlannerEvent', () => {
             after_status: 'idle',
           },
         }),
+        toast,
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planSyncStatus(PLAN) });
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.plan(PLAN) });
@@ -682,81 +698,81 @@ describe('applyPlannerEvent', () => {
 
     it('resets counter when pull starts (after_status=pulling)', () => {
       // Pre-load a count so the reset is observable
-      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'), toast);
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'), toast);
       // Now finishing the pull with no further skipped events — no toast expected
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'), toast);
       expect(toast).not.toHaveBeenCalled();
     });
 
     it('accumulates 3 skipped events and fires toast when pull completes', () => {
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
-      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
-      applyPlannerEvent(qc, skippedEvent(PLAN, 't2', 'e-s2'));
-      applyPlannerEvent(qc, skippedEvent(PLAN, 't3', 'e-s3'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'), toast);
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'), toast);
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't2', 'e-s2'), toast);
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't3', 'e-s3'), toast);
       expect(toast).not.toHaveBeenCalled();
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'), toast);
       expect(toast).toHaveBeenCalledTimes(1);
-      expect(toast).toHaveBeenCalledWith(
-        'Synced — 3 Microsoft 365 users skipped. Ask an admin to add them here. (Settings → Users)',
-      );
+      expect(toast).toHaveBeenCalledWith({
+        body: 'Synced — 3 Microsoft 365 users skipped. Ask an admin to add them here. (Settings → Users)',
+      });
     });
 
     it('does not fire toast when counter is 0 after idle', () => {
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'), toast);
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'), toast);
       expect(toast).not.toHaveBeenCalled();
     });
 
     it('resets counter after toast fires so a second idle does not re-fire', () => {
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
-      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle1'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'), toast);
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'), toast);
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle1'), toast);
       expect(toast).toHaveBeenCalledTimes(1);
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle2'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle2'), toast);
       expect(toast).toHaveBeenCalledTimes(1);
     });
 
     it('tracks skipped events for different plans independently', () => {
       const P2 = 'p2';
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull1'));
-      applyPlannerEvent(qc, syncStatusEvent(P2, 'pulling', 'e-pull2'));
-      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
-      applyPlannerEvent(qc, skippedEvent(PLAN, 't2', 'e-s2'));
-      applyPlannerEvent(qc, skippedEvent(P2, 't3', 'e-s3'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull1'), toast);
+      applyPlannerEvent(qc, syncStatusEvent(P2, 'pulling', 'e-pull2'), toast);
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'), toast);
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't2', 'e-s2'), toast);
+      applyPlannerEvent(qc, skippedEvent(P2, 't3', 'e-s3'), toast);
       // Finish p2 first — only 1 skip
-      applyPlannerEvent(qc, syncStatusEvent(P2, 'idle', 'e-idle-p2'));
+      applyPlannerEvent(qc, syncStatusEvent(P2, 'idle', 'e-idle-p2'), toast);
       expect(toast).toHaveBeenCalledTimes(1);
-      expect(toast).toHaveBeenCalledWith(
-        'Synced — 1 Microsoft 365 user skipped. Ask an admin to add them here. (Settings → Users)',
-      );
-      vi.mocked(toast).mockClear();
+      expect(toast).toHaveBeenCalledWith({
+        body: 'Synced — 1 Microsoft 365 user skipped. Ask an admin to add them here. (Settings → Users)',
+      });
+      toast.mockClear();
       // Finish p1 — 2 skips
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle-p1'));
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle-p1'), toast);
       expect(toast).toHaveBeenCalledTimes(1);
-      expect(toast).toHaveBeenCalledWith(
-        'Synced — 2 Microsoft 365 users skipped. Ask an admin to add them here. (Settings → Users)',
-      );
+      expect(toast).toHaveBeenCalledWith({
+        body: 'Synced — 2 Microsoft 365 users skipped. Ask an admin to add them here. (Settings → Users)',
+      });
     });
 
     it('uses singular "user" for exactly 1 skip', () => {
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
-      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
-      expect(toast).toHaveBeenCalledWith(
-        'Synced — 1 Microsoft 365 user skipped. Ask an admin to add them here. (Settings → Users)',
-      );
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'), toast);
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'), toast);
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'), toast);
+      expect(toast).toHaveBeenCalledWith({
+        body: 'Synced — 1 Microsoft 365 user skipped. Ask an admin to add them here. (Settings → Users)',
+      });
     });
 
     it('uses plural "users" for 3 skips', () => {
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'));
-      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'));
-      applyPlannerEvent(qc, skippedEvent(PLAN, 't2', 'e-s2'));
-      applyPlannerEvent(qc, skippedEvent(PLAN, 't3', 'e-s3'));
-      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'));
-      expect(toast).toHaveBeenCalledWith(
-        'Synced — 3 Microsoft 365 users skipped. Ask an admin to add them here. (Settings → Users)',
-      );
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'pulling', 'e-pull'), toast);
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't1', 'e-s1'), toast);
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't2', 'e-s2'), toast);
+      applyPlannerEvent(qc, skippedEvent(PLAN, 't3', 'e-s3'), toast);
+      applyPlannerEvent(qc, syncStatusEvent(PLAN, 'idle', 'e-idle'), toast);
+      expect(toast).toHaveBeenCalledWith({
+        body: 'Synced — 3 Microsoft 365 users skipped. Ask an admin to add them here. (Settings → Users)',
+      });
     });
   });
 
@@ -776,6 +792,7 @@ describe('applyPlannerEvent', () => {
             after_status: 'idle',
           },
         }),
+        toast,
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.taskSyncStatus('t1') });
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.task('t1') });
@@ -798,6 +815,7 @@ describe('applyPlannerEvent', () => {
             field: 'title',
           },
         }),
+        toast,
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planConflicts(PLAN) });
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planSyncStatus(PLAN) });
@@ -820,6 +838,7 @@ describe('applyPlannerEvent', () => {
             field: 'title',
           },
         }),
+        toast,
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planConflicts(PLAN) });
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.taskSyncStatus('t1') });
@@ -842,6 +861,7 @@ describe('applyPlannerEvent', () => {
             resolved_field: 'title',
           },
         }),
+        toast,
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planConflicts(PLAN) });
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.planSyncStatus(PLAN) });
@@ -870,6 +890,7 @@ describe('applyPlannerEvent', () => {
             group_id: 'g1',
           },
         }),
+        toast,
       );
       expect(spy).toHaveBeenCalledWith({ queryKey: plannerKeys.taskComments('t1') });
     });
@@ -883,6 +904,7 @@ describe('applyPlannerEvent', () => {
           aggregateType: 'planner.comment',
           payload: { actor: { type: 'user', user_id: 'u1' }, group_id: 'g1' },
         }),
+        toast,
       );
       expect(spy).not.toHaveBeenCalledWith({ queryKey: plannerKeys.taskComments('t1') });
     });
@@ -911,6 +933,7 @@ describe('applyPlannerEvent', () => {
       applyPlannerEvent(
         qc,
         makeEvent({ eventType: type, payload: { plan_id: 'p1', task_id: 't1', user_id: 'u1' } }),
+        toast,
       );
       const calls = spy.mock.calls;
       const matched = calls.some((c) => {
@@ -933,6 +956,7 @@ describe('applyPlannerEvent', () => {
       applyPlannerEvent(
         qc,
         makeEvent({ eventType: 'planner.plan.updated', payload: { plan_id: 'p1' } }),
+        toast,
       );
       const calls = spy.mock.calls;
       const matched = calls.some((c) => {

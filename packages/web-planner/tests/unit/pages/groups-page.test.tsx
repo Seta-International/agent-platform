@@ -6,7 +6,7 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -89,6 +89,29 @@ function renderWithRouter(node: ReactNode) {
 }
 
 describe('GroupsPage', () => {
+  it('renders the Planner → Groups breadcrumb trail and a single h1', async () => {
+    server.use(makeGroupsHandler([makeGroupWithCounts({ id: 'g1', name: 'Engineering' })]));
+    renderWithRouter(<GroupsPage />);
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).getByRole('link', { name: 'Planner' })).toHaveAttribute('href', '/planner');
+    expect(within(nav).getByText('Groups')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { level: 1, name: 'Groups' })).toBeInTheDocument();
+  });
+
+  it('keeps the groups toolbar pinned outside the scrollable content region', async () => {
+    server.use(makeGroupsHandler([makeGroupWithCounts({ id: 'g1', name: 'Engineering' })]));
+    const { container } = renderWithRouter(<GroupsPage />);
+    await screen.findByText('Engineering');
+
+    const toolbar = screen.getByTestId('groups-toolbar');
+    // `.astryx-layout-content` is the Astryx `LayoutContent` component's own stable, documented
+    // base class (see `themeProps()` in the vendor package) — not a StyleX atomic-class hash, so
+    // it's safe to assert on. This is the same gate used for web-admin's Directory page.
+    const content = container.querySelector('.astryx-layout-content');
+    expect(content).not.toBeNull();
+    expect(content?.contains(toolbar)).toBe(false);
+  });
+
   it('renders skeleton while loading', async () => {
     server.use(makeGroupsHandlerWithDelay([]));
     renderWithRouter(<GroupsPage />);
@@ -137,7 +160,7 @@ describe('GroupsPage', () => {
     expect(screen.getByText('Group')).toBeInTheDocument();
 
     // Switch to grid
-    await user.click(screen.getByRole('tab', { name: /Grid/i }));
+    await user.click(screen.getByRole('radio', { name: /Grid/i }));
 
     // Grid shows plan/member counts in card format (no column headers)
     // The card-specific text (from GroupsGrid) exists; column headers from table are gone
@@ -193,8 +216,11 @@ describe('GroupsPage', () => {
     if (!newGroupBtn) throw new Error('No "New group" button found');
     await user.click(newGroupBtn);
 
-    // Dialog should open
-    expect(await screen.findByRole('dialog', { name: /New group/i })).toBeInTheDocument();
+    // Dialog should open. Astryx's `DialogHeader` wires no `aria-labelledby`, so the dialog
+    // has no computed accessible name — scope with `within()` + a heading query instead of
+    // `getByRole('dialog', { name })` (established precedent from prior FUT-579 sub-tasks).
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'New group' })).toBeInTheDocument();
     expect(screen.getByLabelText(/Group name/i)).toBeInTheDocument();
   });
 
@@ -217,8 +243,8 @@ describe('GroupsPage', () => {
     renderWithRouter(<GroupsPage />);
 
     await screen.findByRole('link', { name: 'Native' });
-    // Source filter pill should appear because at least one m365 group exists
-    expect(screen.getByRole('button', { name: /Source/i })).toBeInTheDocument();
+    // Source filter (an Astryx Selector) should appear because at least one m365 group exists.
+    expect(screen.getByRole('combobox', { name: /Source/i })).toBeInTheDocument();
   });
 
   it('source filter "Native" shows only native groups', async () => {
@@ -232,8 +258,8 @@ describe('GroupsPage', () => {
 
     await screen.findByRole('link', { name: 'Native Group' });
 
-    await user.click(screen.getByRole('button', { name: /Source/i }));
-    await user.click(screen.getByRole('button', { name: 'Internal' }));
+    await user.click(screen.getByRole('combobox', { name: /Source/i }));
+    await user.click(await screen.findByRole('option', { name: 'Internal' }));
 
     await waitFor(() => expect(screen.queryByText('M365 Group')).not.toBeInTheDocument());
     expect(screen.getByText('Native Group')).toBeInTheDocument();
@@ -250,8 +276,8 @@ describe('GroupsPage', () => {
 
     await screen.findByRole('link', { name: 'Native Group' });
 
-    await user.click(screen.getByRole('button', { name: /Source/i }));
-    await user.click(screen.getByRole('button', { name: 'Microsoft 365' }));
+    await user.click(screen.getByRole('combobox', { name: /Source/i }));
+    await user.click(await screen.findByRole('option', { name: 'Microsoft 365' }));
 
     await waitFor(() => expect(screen.queryByText('Native Group')).not.toBeInTheDocument());
     expect(screen.getByText('M365 Group')).toBeInTheDocument();
@@ -268,14 +294,14 @@ describe('GroupsPage', () => {
 
     await screen.findByRole('link', { name: 'Native Group' });
 
-    // Apply a filter then clear it
-    await user.click(screen.getByRole('button', { name: /Source/i }));
-    await user.click(screen.getByRole('button', { name: 'Internal' }));
+    // Apply a filter then clear it.
+    await user.click(screen.getByRole('combobox', { name: /Source/i }));
+    await user.click(await screen.findByRole('option', { name: 'Internal' }));
     await waitFor(() => expect(screen.queryByText('M365 Group')).not.toBeInTheDocument());
 
-    // Clear filter via "Any"
-    await user.click(screen.getByRole('button', { name: /Source/i }));
-    await user.click(screen.getByRole('button', { name: /Any/i }));
+    // The Selector's `hasClear` control (aria-label `Clear <label>`) resets the value to null,
+    // which the page treats as "Any" — both groups return.
+    await user.click(screen.getByRole('button', { name: /Clear Source/i }));
 
     await waitFor(() => expect(screen.getByText('M365 Group')).toBeInTheDocument());
     expect(screen.getByText('Native Group')).toBeInTheDocument();
@@ -300,7 +326,13 @@ describe('GroupsPage', () => {
     expect(screen.getByRole('button', { name: /New group/i })).toBeDisabled();
   });
 
-  it('clicking "Sync from IdP" opens the group selector dialog', async () => {
+  // Occlusion smoke test (plan Task 2 Step 6, second candidate): the "Sync from IdP" dialog
+  // hosts an Astryx `Selector` (the group picker) inside the new Astryx `Dialog`. Astryx's
+  // `Dialog` renders a native <dialog> (top-layer); `DialogHeader` wires no aria-labelledby,
+  // so the dialog has no computed accessible name — scope with `within()` + a heading query
+  // instead of `getByRole('dialog', { name })`. This proves the Selector's dropdown still
+  // opens and its options remain reachable when hosted inside the modal.
+  it('clicking "Sync from IdP" opens the group selector dialog, and its Selector opens with reachable options', async () => {
     const groups = [
       makeGroupWithCounts({ id: 'g1', name: 'Engineering', external_source: 'native' }),
     ];
@@ -311,10 +343,12 @@ describe('GroupsPage', () => {
     await screen.findByText('Engineering');
     await user.click(screen.getByRole('button', { name: /Sync from IdP/i }));
 
+    const dialog = await screen.findByRole('dialog');
     expect(
-      await screen.findByRole('dialog', { name: /Select group to link to M365/i }),
+      within(dialog).getByRole('heading', { name: 'Select group to link to M365' }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('combobox', { name: /Select a group/i }));
+
+    await user.click(within(dialog).getByRole('combobox', { name: /Select a group/i }));
     expect(await screen.findByRole('option', { name: 'Engineering' })).toBeInTheDocument();
   });
 });

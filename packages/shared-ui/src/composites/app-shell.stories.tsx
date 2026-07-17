@@ -16,7 +16,7 @@ import {
   Workflow,
 } from 'lucide-react';
 
-import { Avatar, AvatarFallback } from '../primitives/avatar';
+import { Avatar } from '../primitives/avatar';
 import { AppShell } from './app-shell';
 
 const NAV_MODULES: AppManifest[] = [
@@ -142,23 +142,17 @@ const NAV_MODULES: AppManifest[] = [
 function SessionFooter() {
   return (
     <div className="flex items-center gap-2">
-      <Avatar className="size-6">
-        <AvatarFallback className="text-eyebrow font-semibold">JD</AvatarFallback>
-      </Avatar>
+      <Avatar name="Jane Doe" size={24} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-caption font-medium text-ink">Jane Doe</div>
-        <div className="truncate text-eyebrow text-ink-subtle">org.admin</div>
+        <div className="truncate text-sm font-medium text-primary">Jane Doe</div>
+        <div className="truncate text-xs font-medium text-secondary">org.admin</div>
       </div>
     </div>
   );
 }
 
 function UserMenuDemo() {
-  return (
-    <Avatar className="size-6">
-      <AvatarFallback className="text-eyebrow font-semibold">JD</AvatarFallback>
-    </Avatar>
-  );
+  return <Avatar name="Jane Doe" size={24} />;
 }
 
 const meta: Meta<typeof AppShell> = {
@@ -180,8 +174,8 @@ export const Default: Story = {
     sessionFooter: <SessionFooter />,
     children: (
       <div className="p-6">
-        <h1 className="text-card-title font-semibold text-ink">Audit log</h1>
-        <p className="mt-2 text-body-sm text-ink-muted">
+        <h1 className="text-2xl font-semibold text-primary">Audit log</h1>
+        <p className="mt-2 text-base text-secondary">
           Page content goes here. The shell wires up the topbar, sidebar accordion, agent toggle,
           and resizable agent panel.
         </p>

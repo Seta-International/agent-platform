@@ -1,4 +1,5 @@
-type Level = 'urgent' | 'important' | 'medium' | 'low';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
+import { type PriorityLevel as Level, PRIORITY_BY_LEVEL } from '../lib/priority';
 
 export interface PriorityIconProps {
   level: Level;
@@ -14,10 +15,11 @@ const LABEL: Record<Level, string> = {
 
 export function PriorityIcon({ level, className }: PriorityIconProps) {
   return (
-    <span
-      role="img"
-      aria-label={LABEL[level]}
-      className={`priority-icon priority-icon--${level} ${className ?? ''}`.trim()}
+    <StatusDot
+      variant="neutral"
+      label={LABEL[level]}
+      className={className}
+      style={{ backgroundColor: PRIORITY_BY_LEVEL[level].color }}
     />
   );
 }

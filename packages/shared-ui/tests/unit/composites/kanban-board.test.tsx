@@ -39,12 +39,19 @@ describe('KanbanBoard', () => {
     const input = screen.getByLabelText(/new bucket name/i) as HTMLInputElement;
 
     fireEvent.change(input, { target: { value: 'Backlog' } });
+    // Blur before submitting so the post-submit assertion below only passes if
+    // `submit()` actively refocuses the input, not because focus was never lost.
+    // fireEvent.blur only dispatches the event — it doesn't move activeElement —
+    // so call the native method directly.
+    input.blur();
+    expect(input).not.toHaveFocus();
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(onAddBucket).toHaveBeenNthCalledWith(1, 'Backlog'));
 
     // Input stays open and is cleared, ready for the next bucket.
     expect(screen.getByLabelText(/new bucket name/i)).toBeInTheDocument();
     expect((screen.getByLabelText(/new bucket name/i) as HTMLInputElement).value).toBe('');
+    expect(screen.getByLabelText(/new bucket name/i)).toHaveFocus();
 
     fireEvent.change(screen.getByLabelText(/new bucket name/i), {
       target: { value: 'In progress' },
@@ -119,6 +126,46 @@ describe('KanbanBoard', () => {
     expect(onAddBucket).not.toHaveBeenCalled();
     expect(screen.queryByLabelText(/new bucket name/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add another bucket/i })).toBeInTheDocument();
+  });
+
+  it('a pointerdown outside the compose closes it without submitting', () => {
+    const onAddBucket = vi.fn();
+
+    render(
+      <KanbanBoard onAddBucket={onAddBucket}>
+        <div />
+      </KanbanBoard>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /add another bucket/i }));
+    const input = screen.getByLabelText(/new bucket name/i);
+    fireEvent.change(input, { target: { value: 'Done' } });
+
+    fireEvent.pointerDown(document.body);
+
+    expect(onAddBucket).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/new bucket name/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add another bucket/i })).toBeInTheDocument();
+  });
+
+  it('renders the Add bucket trigger disabled with the given reason and blocks opening the compose', () => {
+    const onAddBucket = vi.fn();
+
+    render(
+      <KanbanBoard
+        onAddBucket={onAddBucket}
+        addBucketDisabledReason="You don't have permission to add buckets"
+      >
+        <div />
+      </KanbanBoard>,
+    );
+
+    const trigger = screen.getByRole('button', { name: '+ Add another bucket' });
+    expect(trigger).toBeDisabled();
+
+    fireEvent.click(trigger);
+    expect(screen.queryByLabelText(/new bucket name/i)).not.toBeInTheDocument();
+    expect(onAddBucket).not.toHaveBeenCalled();
   });
 
   it('shows an inline error and keeps compose open when name exceeds nameMaxLength', async () => {
@@ -241,6 +288,42 @@ describe('KanbanBoard', () => {
       );
 
       expect(scrollToSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('emptyState slot', () => {
+    it('renders emptyState when there are no columns', () => {
+      render(<KanbanBoard emptyState={<div>Start your board</div>}>{null}</KanbanBoard>);
+      expect(screen.getByText('Start your board')).toBeInTheDocument();
+    });
+
+    it('renders children when columns exist', () => {
+      render(
+        <KanbanBoard emptyState={<div>Start your board</div>}>
+          <div>col</div>
+        </KanbanBoard>,
+      );
+      expect(screen.queryByText('Start your board')).toBeNull();
+      expect(screen.getByText('col')).toBeInTheDocument();
+    });
+
+    it('a render-prop emptyState exposes startCompose, opening the add-bucket input in one click', () => {
+      render(
+        <KanbanBoard
+          onAddBucket={vi.fn()}
+          emptyState={(start) => (
+            <button type="button" onClick={start}>
+              go
+            </button>
+          )}
+        >
+          {null}
+        </KanbanBoard>,
+      );
+
+      fireEvent.click(screen.getByText('go'));
+
+      expect(screen.getByPlaceholderText('Enter bucket name…')).toBeInTheDocument();
     });
   });
 });

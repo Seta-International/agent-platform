@@ -1,20 +1,19 @@
 import { PRODUCTS } from '@seta/shared-rbac';
 import {
   Badge,
-  Combobox,
   cn,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
+  createStaticSource,
+  Dialog,
+  DialogHeader,
+  Layout,
+  LayoutContent,
+  type SearchableItem,
+  Selector,
+  Tokenizer,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Boxes, ShieldCheck, UsersRound } from 'lucide-react';
+import { useMemo } from 'react';
 import { PersonAvatar } from '../../components/person-avatar.tsx';
 import {
   clearUserProductOverride,
@@ -33,11 +32,11 @@ import { WorkSection } from './WorkSection.tsx';
 
 const ACCOUNT_STATUS_BADGE: Record<
   DirectoryRow['account_status'],
-  'outline' | 'success' | 'destructive'
+  'neutral' | 'success' | 'error'
 > = {
-  none: 'outline',
+  none: 'neutral',
   active: 'success',
-  suspended: 'destructive',
+  suspended: 'error',
 };
 
 const ACCOUNT_STATUS_LABEL: Record<DirectoryRow['account_status'], string> = {
@@ -46,9 +45,9 @@ const ACCOUNT_STATUS_LABEL: Record<DirectoryRow['account_status'], string> = {
   suspended: 'Suspended',
 };
 
-const EMPLOYMENT_BADGE: Record<DirectoryRow['employment_status'], 'success' | 'secondary'> = {
+const EMPLOYMENT_BADGE: Record<DirectoryRow['employment_status'], 'success' | 'neutral'> = {
   active: 'success',
-  terminated: 'secondary',
+  terminated: 'neutral',
 };
 
 const EMPLOYMENT_LABEL: Record<DirectoryRow['employment_status'], string> = {
@@ -62,32 +61,46 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+type GroupItem = SearchableItem<{ keywords: string[] }>;
+
 function GroupsSection({ userId }: { userId: string }) {
   const { data: userGroups = [] } = useUserGroups(userId);
   const { data: allGroups = [] } = useGroupsQuery();
   const { add, remove } = useGroupMembersMutations();
 
-  const value = userGroups.map((g) => g.group_id);
-  const options = allGroups.map((g) => ({ value: g.group_id, label: g.name, keywords: [g.slug] }));
-
-  const handleChange = (next: string[]) => {
-    const before = new Set(value);
-    const after = new Set(next);
-    for (const id of next) if (!before.has(id)) add.mutate({ id, user_ids: [userId] });
-    for (const id of value) if (!after.has(id)) remove.mutate({ id, userId });
-  };
+  const groupItems = useMemo<GroupItem[]>(
+    () =>
+      allGroups.map((g) => ({
+        id: g.group_id,
+        label: g.name,
+        auxiliaryData: { keywords: [g.slug] },
+      })),
+    [allGroups],
+  );
+  const source = useMemo(
+    () =>
+      createStaticSource(groupItems, { keywords: (item) => item.auxiliaryData?.keywords ?? [] }),
+    [groupItems],
+  );
+  const selectedGroups = useMemo(
+    () => groupItems.filter((item) => userGroups.some((g) => g.group_id === item.id)),
+    [groupItems, userGroups],
+  );
 
   return (
     <Field label="Groups">
-      <Combobox
-        multiple
-        value={value}
-        onChange={handleChange}
-        options={options}
+      <Tokenizer
+        label="Groups"
+        isLabelHidden
+        searchSource={source}
+        debounceMs={0}
+        hasEntriesOnFocus
+        value={selectedGroups}
+        onChange={(_items, change) => {
+          if (change.type === 'add') add.mutate({ id: change.item.id, user_ids: [userId] });
+          else if (change.type === 'remove') remove.mutate({ id: change.item.id, userId });
+        }}
         placeholder="Add to group…"
-        searchPlaceholder="Search groups…"
-        aria-label="Groups"
-        modal
       />
     </Field>
   );
@@ -114,7 +127,7 @@ function RolesSection({ userId }: { userId: string }) {
           {roles.map((r) => (
             <span
               key={r}
-              className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-caption text-ink-subtle"
+              className="inline-flex items-center gap-1 rounded-md bg-surface px-1.5 py-0.5 font-mono text-sm text-secondary"
             >
               <ShieldCheck className="size-3" aria-hidden />
               {r}
@@ -122,7 +135,7 @@ function RolesSection({ userId }: { userId: string }) {
           ))}
         </div>
       ) : (
-        <span className="text-ink-tertiary">No roles</span>
+        <span className="text-disabled">No roles</span>
       )}
     </Field>
   );
@@ -191,42 +204,38 @@ function ProductsSection({ userId }: { userId: string }) {
             key={p.id}
             className={cn(
               'flex items-center justify-between gap-3 rounded-lg border px-3 py-2',
-              isOverride ? 'border-primary/40 bg-primary/[0.04]' : 'border-hairline bg-surface-1',
+              isOverride ? 'border-accent-bg/40 bg-accent-bg/[0.04]' : 'border-border bg-card',
             )}
           >
             <div className="flex min-w-0 items-center gap-2.5">
               <span
                 className={cn(
                   'size-1.5 flex-none rounded-full',
-                  granted ? 'bg-success' : 'bg-ink-tertiary/50',
+                  granted ? 'bg-success' : 'bg-disabled/50',
                 )}
                 aria-hidden
               />
               <div className="min-w-0">
-                <span className="block truncate text-body-sm font-medium text-ink">{p.label}</span>
-                <span className="block truncate text-caption text-ink-subtle">{source}</span>
+                <span className="block truncate text-base font-medium text-primary">{p.label}</span>
+                <span className="block truncate text-sm text-secondary">{source}</span>
               </div>
             </div>
-            <Select
+            <Selector
+              label={`${p.label} access`}
+              isLabelHidden
+              size="sm"
               value={overrideValue}
-              onValueChange={(v) => {
+              onChange={(v) => {
                 if (busy) return;
                 if (v === 'inherit') clearOverride.mutate({ productId: p.id });
                 else setOverride.mutate({ productId: p.id, effect: v as 'grant' | 'revoke' });
               }}
-            >
-              <SelectTrigger
-                aria-label={`${p.label} access`}
-                className="h-8 w-28 flex-none text-body-sm"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="inherit">Auto</SelectItem>
-                <SelectItem value="grant">Grant</SelectItem>
-                <SelectItem value="revoke">Revoke</SelectItem>
-              </SelectContent>
-            </Select>
+              options={[
+                { value: 'inherit', label: 'Auto' },
+                { value: 'grant', label: 'Grant' },
+                { value: 'revoke', label: 'Revoke' },
+              ]}
+            />
           </div>
         );
       })}
@@ -236,57 +245,73 @@ function ProductsSection({ userId }: { userId: string }) {
 
 export function UserDetailSheet({ row, open, onOpenChange }: Props) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[27rem] overflow-y-auto sm:max-w-[27rem]">
-        <SheetHeader className="mb-6">
-          <div className="flex items-center gap-3">
-            <PersonAvatar
-              name={row?.full_name ?? '?'}
-              className="size-10 text-body-sm font-semibold"
-            />
-            <div className="min-w-0">
-              <SheetTitle className="truncate">{row?.full_name ?? '—'}</SheetTitle>
-              {row?.work_email && (
-                <p className="truncate text-caption text-ink-subtle">{row.work_email}</p>
-              )}
-            </div>
-          </div>
-        </SheetHeader>
-
-        {row && (
-          <div className="flex flex-col gap-5">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Employment">
-                <Badge variant={EMPLOYMENT_BADGE[row.employment_status]}>
-                  {EMPLOYMENT_LABEL[row.employment_status]}
-                </Badge>
-              </Field>
-              <Field label="Account">
-                <Badge variant={ACCOUNT_STATUS_BADGE[row.account_status]}>
-                  {ACCOUNT_STATUS_LABEL[row.account_status]}
-                </Badge>
-              </Field>
-            </div>
-
-            <WorkSection workerId={row.person_id} employmentStatus={row.employment_status} />
-
-            {row.user_id && (
-              <div className="mt-1 flex flex-col gap-4">
-                <SectionTitle icon={<UsersRound className="size-4" />}>Access</SectionTitle>
-
-                <GroupsSection userId={row.user_id} />
-
-                <RolesSection userId={row.user_id} />
-
-                <div className="flex flex-col gap-3">
-                  <SectionTitle icon={<Boxes className="size-4" />}>Product overrides</SectionTitle>
-                  <ProductsSection userId={row.user_id} />
+    <Dialog
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      purpose="info"
+      position={{ top: 0, right: 0, bottom: 0 }}
+      width={432}
+      maxHeight="100dvh"
+      // Astryx's Dialog does not label itself from DialogHeader (only AlertDialog does),
+      // so name it explicitly to keep the accessible name the drawer has always had.
+      aria-label={row?.full_name ?? 'User details'}
+    >
+      <Layout
+        header={
+          <DialogHeader
+            title={row?.full_name ?? '—'}
+            subtitle={row?.work_email ?? undefined}
+            startContent={
+              <PersonAvatar
+                name={row?.full_name ?? '?'}
+                className="size-10 text-base font-semibold"
+              />
+            }
+            onOpenChange={onOpenChange}
+          />
+        }
+        content={
+          <LayoutContent>
+            {row && (
+              <div className="flex flex-col gap-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Employment">
+                    <Badge
+                      variant={EMPLOYMENT_BADGE[row.employment_status]}
+                      label={EMPLOYMENT_LABEL[row.employment_status]}
+                    />
+                  </Field>
+                  <Field label="Account">
+                    <Badge
+                      variant={ACCOUNT_STATUS_BADGE[row.account_status]}
+                      label={ACCOUNT_STATUS_LABEL[row.account_status]}
+                    />
+                  </Field>
                 </div>
+
+                <WorkSection workerId={row.person_id} employmentStatus={row.employment_status} />
+
+                {row.user_id && (
+                  <div className="mt-1 flex flex-col gap-4">
+                    <SectionTitle icon={<UsersRound className="size-4" />}>Access</SectionTitle>
+
+                    <GroupsSection userId={row.user_id} />
+
+                    <RolesSection userId={row.user_id} />
+
+                    <div className="flex flex-col gap-3">
+                      <SectionTitle icon={<Boxes className="size-4" />}>
+                        Product overrides
+                      </SectionTitle>
+                      <ProductsSection userId={row.user_id} />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
-      </SheetContent>
-    </Sheet>
+          </LayoutContent>
+        }
+      />
+    </Dialog>
   );
 }

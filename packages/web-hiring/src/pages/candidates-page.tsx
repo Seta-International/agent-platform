@@ -1,21 +1,35 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import {
-  Alert,
-  AlertDescription,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
-  DataTable,
+  Checkbox,
+  type ColumnSettingsOption,
   EmptyState,
+  HStack,
   Input,
   KanbanBoard,
   KanbanColumn,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  Popover,
+  paginateData,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
+  SegmentedControlItem,
+  Selector,
+  Skeleton,
+  Table,
+  type TableColumn,
+  Text,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
+  useTableSortableState,
+  useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -24,12 +38,15 @@ import {
   CalendarClock,
   Download,
   Handshake,
+  LayoutGrid,
+  List,
   ListChecks,
   Search,
+  Settings2,
   Users,
 } from 'lucide-react';
 import type { HTMLAttributes, ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   type CandidateListItem,
   type CandidateStageCounts,
@@ -70,6 +87,25 @@ const STAGE_COUNT_SEGMENTS: { key: keyof CandidateStageCounts; label: string }[]
   { key: 'hired', label: 'Hired' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
+
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO lacks an index
+// signature, so alias locally (do not touch the shared DTO).
+type Row = CandidateListItem & Record<string, unknown>;
+
+// Universe of columns for the column-settings picker. The deleted DataTable never disabled
+// `enableColumnVisibility` here (and no column set `enableHiding: false`), so every column —
+// including "Candidate" — was genuinely hideable; preserved as-is (no `isAlwaysVisible`).
+const CANDIDATE_COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'name', label: 'Candidate' },
+  { key: 'requisition_title', label: 'Position' },
+  { key: 'seniority', label: 'Seniority' },
+  { key: 'source', label: 'Source' },
+  { key: 'stage', label: 'Stage' },
+  { key: 'rating', label: 'Rating' },
+  { key: 'fit', label: 'Fit' },
+];
+const DEFAULT_CANDIDATE_COLUMN_KEYS = CANDIDATE_COLUMN_OPTIONS.map((c) => c.key);
+const CANDIDATE_PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 function toCsvCell(value: string | number): string {
   const s = String(value);
@@ -129,6 +165,7 @@ export function onBoardDragEnd(
 }
 
 export function CandidatesPage() {
+  const toast = useToast();
   const canCreate = usePermission('hiring.candidate.create');
   const [view, setView] = useState<'board' | 'list'>('board');
   const [q, setQ] = useState('');
@@ -136,6 +173,9 @@ export function CandidatesPage() {
   const [seniorityFilter, setSeniorityFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_CANDIDATE_COLUMN_KEYS);
 
   const { data, isLoading, error } = useQuery({
     queryKey: hiringKeys.candidates(),
@@ -159,6 +199,41 @@ export function CandidatesPage() {
     }
     return r;
   }, [data, q, reqFilter, seniorityFilter, sourceFilter]);
+
+  const { sortedData, sort, sortConfig } = useTableSortableState<Row>({ data: rows as Row[] });
+  const sortable = useTableSortable<Row>(sortConfig);
+
+  // Reset to page 1 whenever a filter narrows/widens the result set, or the sort order changes —
+  // matches the deleted DataTable's TanStack `autoResetPageIndex` default, which fired on both
+  // `columnFilters`/`globalFilter` AND `sorting` state changes (getSortedRowModel calls
+  // `table._autoResetPageIndex()` unconditionally; `manualPagination` was never set here).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the filters and sort are the intentional reset triggers, unread in the body.
+  useEffect(() => {
+    setPage(1);
+  }, [q, reqFilter, seniorityFilter, sourceFilter, sort]);
+
+  const pageRows = useMemo(
+    () => paginateData(sortedData, page, pageSize),
+    [sortedData, page, pageSize],
+  );
+  const pagination = useTablePagination<Row>({
+    page,
+    onPageChange: setPage,
+    totalItems: sortedData.length,
+    pageSize,
+    onPageSizeChange: (ps) => {
+      setPageSize(ps);
+      setPage(1);
+    },
+    pageSizeOptions: CANDIDATE_PAGE_SIZE_OPTIONS,
+  });
+
+  const columnSettingsState = useTableColumnSettingsState({
+    columns: CANDIDATE_COLUMN_OPTIONS,
+    activeColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+  });
+  const columnSettings = useTableColumnSettings<Row>(columnSettingsState.columnSettingsConfig);
 
   const reqOptions = useMemo(() => {
     const seen = new Map<string, string>();
@@ -185,283 +260,330 @@ export function CandidatesPage() {
     }) =>
       moveApplicationStage(m.application_id, { expected_version: m.expected_version, to: m.to }),
     onSuccess: () => {
-      toast.success('Stage updated');
+      toast({ body: 'Stage updated' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidateStageCounts() });
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.candidates()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.candidates()),
   });
   const handleDragEnd = onBoardDragEnd(rows, (m) => stageMove.mutate(m));
 
   const groups = boardColumns(rows);
 
-  const columns = useMemo(() => {
-    type Ctx = { row: { original: CandidateListItem } };
-    return [
+  const columns = useMemo<TableColumn<Row>[]>(
+    () => [
       {
-        id: 'name',
-        accessorKey: 'name',
+        key: 'name',
         header: 'Candidate',
-        cell: ({ row }: Ctx) => <span className="font-medium text-ink">{row.original.name}</span>,
+        sortable: true,
+        renderCell: (r) => <span className="font-medium text-primary">{r.name}</span>,
       },
       {
-        id: 'requisition_title',
-        accessorKey: 'requisition_title',
+        key: 'requisition_title',
         header: 'Position',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.requisition_title}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary">{r.requisition_title}</span>,
       },
       {
-        id: 'seniority',
-        accessorKey: 'seniority',
+        key: 'seniority',
         header: 'Seniority',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.seniority ?? '—'}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary">{r.seniority ?? '—'}</span>,
       },
       {
-        id: 'source',
-        accessorKey: 'source',
+        key: 'source',
         header: 'Source',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.source ?? '—'}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary">{r.source ?? '—'}</span>,
       },
       {
-        id: 'stage',
-        accessorKey: 'stage',
+        key: 'stage',
         header: 'Stage',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted capitalize">{row.original.stage}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary capitalize">{r.stage}</span>,
       },
       {
-        id: 'rating',
-        accessorKey: 'rating',
+        key: 'rating',
         header: 'Rating',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.rating ?? 0}/5</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary">{r.rating ?? 0}/5</span>,
       },
       {
-        id: 'fit',
-        accessorKey: 'fit',
+        // The old column had accessorKey 'fit' (an object, not a primitive) and never disabled
+        // sorting — reproduced as `sortable: true` for parity, even though the default
+        // string/number comparator treats a non-primitive value as empty and never reorders
+        // (matches the old, equally non-functional, TanStack default sortingFn behavior here).
+        key: 'fit',
         header: 'Fit',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{fitLabel(row.original.fit).text}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary">{fitLabel(r.fit).text}</span>,
       },
-    ];
-  }, []);
+    ],
+    [],
+  );
 
   return (
-    <PageChrome
-      title="Candidates"
-      subtitle="Every applicant tracked from CV to offer — open a card to move it through the pipeline, schedule interviews, and keep the funnel moving."
-      actions={
-        <>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={rows.length === 0}
-            onClick={() => exportCandidatesCsv(rows)}
-          >
-            <Download className="size-4" />
-            Export
-          </Button>
-          {canCreate ? <NewCandidateDialog /> : undefined}
-        </>
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/hiring">Hiring Management</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Candidates</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Candidates
+                </Text>
+              </HStack>
+              <HStack gap={2} vAlign="center">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  label="Export"
+                  icon={<Download className="size-4" />}
+                  isDisabled={rows.length === 0}
+                  onClick={() => exportCandidatesCsv(rows)}
+                />
+                {canCreate ? <NewCandidateDialog /> : undefined}
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
       }
-    >
-      <div className="space-y-4 p-6">
-        <div className="grid grid-cols-3 divide-x divide-hairline rounded-lg border border-hairline bg-surface-1 sm:grid-cols-6">
-          {STAGE_COUNT_SEGMENTS.map((seg) => (
-            <div key={seg.key} className="px-4 py-3">
-              <div className="text-headline font-bold" style={{ color: STAGE_COLOR[seg.key] }}>
-                {stageCounts?.[seg.key] ?? 0}
-              </div>
-              <div className="text-caption text-ink-muted">{seg.label}</div>
+      content={
+        <LayoutContent padding={0}>
+          <div className="flex h-full min-h-0 flex-col gap-4 p-6">
+            <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border bg-card sm:grid-cols-6">
+              {STAGE_COUNT_SEGMENTS.map((seg) => (
+                <div key={seg.key} className="px-4 py-3">
+                  <div className="text-3xl font-bold" style={{ color: STAGE_COLOR[seg.key] }}>
+                    {stageCounts?.[seg.key] ?? 0}
+                  </div>
+                  <div className="text-sm text-secondary">{seg.label}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative max-w-xs flex-1">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-subtle"
-            />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search by name, skill, seniority…"
-              className="pl-8"
-            />
-          </div>
-          <Select
-            value={reqFilter || NONE}
-            onValueChange={(v) => setReqFilter(v === NONE ? '' : v)}
-          >
-            <SelectTrigger aria-label="Filter by role" className="w-40">
-              <SelectValue placeholder="All roles" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>All roles</SelectItem>
-              {reqOptions.map(([id, title]) => (
-                <SelectItem key={id} value={id}>
-                  {title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={seniorityFilter || NONE}
-            onValueChange={(v) => setSeniorityFilter(v === NONE ? '' : v)}
-          >
-            <SelectTrigger aria-label="Filter by seniority" className="w-36">
-              <SelectValue placeholder="Seniority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>All seniority</SelectItem>
-              {seniorityOptions.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={sourceFilter || NONE}
-            onValueChange={(v) => setSourceFilter(v === NONE ? '' : v)}
-          >
-            <SelectTrigger aria-label="Filter by source" className="w-36">
-              <SelectValue placeholder="Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>All sources</SelectItem>
-              {sourceOptions.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="ml-auto">
-            <SegmentedControl
-              value={view}
-              onValueChange={(v) => setView(v as 'board' | 'list')}
-              options={[
-                { value: 'board', label: 'Board' },
-                { value: 'list', label: 'List' },
-              ]}
-            />
-          </div>
-        </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Input
+                label="Search candidates"
+                isLabelHidden
+                startIcon={<Search className="size-3.5" aria-hidden />}
+                value={q}
+                onChange={(value) => setQ(value)}
+                placeholder="Search by name, skill, seniority…"
+                className="max-w-xs flex-1"
+              />
+              <Selector
+                label="Filter by role"
+                isLabelHidden
+                options={[
+                  { value: NONE, label: 'All roles' },
+                  ...reqOptions.map(([id, title]) => ({ value: id, label: title })),
+                ]}
+                value={reqFilter || NONE}
+                onChange={(v) => setReqFilter(v === NONE ? '' : v)}
+                placeholder="All roles"
+              />
+              <Selector
+                label="Filter by seniority"
+                isLabelHidden
+                options={[
+                  { value: NONE, label: 'All seniority' },
+                  ...seniorityOptions.map((s) => ({ value: s, label: s })),
+                ]}
+                value={seniorityFilter || NONE}
+                onChange={(v) => setSeniorityFilter(v === NONE ? '' : v)}
+                placeholder="Seniority"
+              />
+              <Selector
+                label="Filter by source"
+                isLabelHidden
+                options={[
+                  { value: NONE, label: 'All sources' },
+                  ...sourceOptions.map((s) => ({ value: s, label: s })),
+                ]}
+                value={sourceFilter || NONE}
+                onChange={(v) => setSourceFilter(v === NONE ? '' : v)}
+                placeholder="Source"
+              />
+              <div className="ml-auto">
+                <SegmentedControl
+                  label="Candidates view"
+                  value={view}
+                  onChange={(v) => setView(v as 'board' | 'list')}
+                >
+                  <SegmentedControlItem
+                    value="board"
+                    label="Board"
+                    icon={<LayoutGrid aria-hidden="true" />}
+                  />
+                  <SegmentedControlItem
+                    value="list"
+                    label="List"
+                    icon={<List aria-hidden="true" />}
+                  />
+                </SegmentedControl>
+              </div>
+            </div>
 
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
-        ) : view === 'list' ? (
-          <DataTable
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            getRowId={(r: CandidateListItem) => r.application_id}
-            enableGlobalFilter={false}
-            pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
-            emptyState={
+            {error ? (
+              <Banner status="error" title={(error as Error).message} />
+            ) : view === 'list' ? (
+              <div className="space-y-3">
+                <div className="flex justify-end">
+                  <Popover
+                    placement="below"
+                    alignment="end"
+                    label="Toggle columns"
+                    content={
+                      <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
+                        <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
+                          Toggle columns
+                        </div>
+                        {CANDIDATE_COLUMN_OPTIONS.map((col) => (
+                          <Checkbox
+                            key={col.key}
+                            label={col.label}
+                            value={columnSettingsState.isColumnActive(col.key)}
+                            onChange={() => columnSettingsState.toggleColumn(col.key)}
+                          />
+                        ))}
+                      </div>
+                    }
+                  >
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Settings2 className="size-3.5" />}
+                      label="Columns"
+                    />
+                  </Popover>
+                </div>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                      <Skeleton key={id} height={40} />
+                    ))}
+                  </div>
+                ) : (
+                  <Table
+                    data={pageRows}
+                    columns={columns}
+                    idKey="application_id"
+                    plugins={{
+                      pagination,
+                      sortable,
+                      columnSettings,
+                      rowClick: {
+                        transformBodyRow: (props, item) => ({
+                          ...props,
+                          htmlProps: {
+                            ...props.htmlProps,
+                            style: { ...props.htmlProps.style, cursor: 'pointer' },
+                            onClick: () => setSelected(item.candidate_id),
+                          },
+                        }),
+                      },
+                    }}
+                    emptyState={
+                      <EmptyState
+                        icon={<Users className="size-6" />}
+                        title="No candidates yet"
+                        description="Add a candidate to get started."
+                      />
+                    }
+                  />
+                )}
+              </div>
+            ) : isLoading ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="h-40 animate-pulse rounded-lg border border-border bg-surface"
+                  />
+                ))}
+              </div>
+            ) : (data ?? []).length === 0 ? (
               <EmptyState
                 icon={<Users className="size-6" />}
                 title="No candidates yet"
                 description="Add a candidate to get started."
               />
-            }
-            onRowClick={(row) => setSelected(row.original.candidate_id)}
-          />
-        ) : isLoading ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-5">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
-              />
-            ))}
-          </div>
-        ) : (data ?? []).length === 0 ? (
-          <EmptyState
-            icon={<Users className="size-6" />}
-            title="No candidates yet"
-            description="Add a candidate to get started."
-          />
-        ) : (
-          // Why: narrows each column below the shared kanban-column default (280px) so all
-          // 4 stages fit one screen without horizontal scrolling.
-          <div className="[&_.kanban-column]:basis-[220px]!">
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <KanbanBoard>
-                {BOARD_COLUMNS.map((col) => (
-                  <Droppable
-                    key={col.id}
-                    droppableId={col.id}
-                    isDropDisabled={col.id === 'hired' || !canManage}
-                  >
-                    {(provided, snapshot) => (
-                      <KanbanColumn
-                        name={col.label}
-                        count={groups[col.id].length}
-                        color={STAGE_COLOR[col.id]}
-                        droppable={{
-                          ref: provided.innerRef,
-                          // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
-                          rootProps:
-                            provided.droppableProps as unknown as HTMLAttributes<HTMLElement>,
-                          isDraggingOver: snapshot.isDraggingOver,
-                          placeholder: provided.placeholder,
-                        }}
+            ) : (
+              <div className="-mx-6 flex min-h-0 flex-1 flex-col">
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <KanbanBoard>
+                    {BOARD_COLUMNS.map((col) => (
+                      <Droppable
+                        key={col.id}
+                        droppableId={col.id}
+                        isDropDisabled={col.id === 'hired' || !canManage}
                       >
-                        {groups[col.id].length === 0 ? (
-                          <EmptyState
-                            className="py-4"
-                            icon={COLUMN_EMPTY_ICON[col.id]}
-                            title={COLUMN_EMPTY_COPY[col.id].title}
-                            description={COLUMN_EMPTY_COPY[col.id].description}
-                          />
-                        ) : (
-                          groups[col.id].map((item, idx) => (
-                            <Draggable
-                              key={item.application_id}
-                              draggableId={item.application_id}
-                              index={idx}
-                              isDragDisabled={!canManage}
-                            >
-                              {(dp, ds) => (
-                                <CandidateCard
-                                  item={item}
-                                  onSelect={setSelected}
-                                  draggable={{
-                                    ref: dp.innerRef,
-                                    rootProps: dp.draggableProps,
-                                    handleProps: dp.dragHandleProps ?? undefined,
-                                    isDragging: ds.isDragging,
-                                    extraStyle: dp.draggableProps.style,
-                                  }}
-                                />
-                              )}
-                            </Draggable>
-                          ))
+                        {(provided, snapshot) => (
+                          <KanbanColumn
+                            name={col.label}
+                            count={groups[col.id].length}
+                            color={STAGE_COLOR[col.id]}
+                            // Why: narrows each column below the shared default (280px) —
+                            // now a min-width floor (Task 8, FUT-725), so the column still
+                            // flexes to fill the board row above it.
+                            width={210}
+                            emptyState={
+                              <EmptyState
+                                className="py-4"
+                                icon={COLUMN_EMPTY_ICON[col.id]}
+                                title={COLUMN_EMPTY_COPY[col.id].title}
+                                description={COLUMN_EMPTY_COPY[col.id].description}
+                              />
+                            }
+                            droppable={{
+                              ref: provided.innerRef,
+                              // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
+                              rootProps:
+                                provided.droppableProps as unknown as HTMLAttributes<HTMLElement>,
+                              isDraggingOver: snapshot.isDraggingOver,
+                              placeholder: provided.placeholder,
+                            }}
+                          >
+                            {groups[col.id].map((item, idx) => (
+                              <Draggable
+                                key={item.application_id}
+                                draggableId={item.application_id}
+                                index={idx}
+                                isDragDisabled={!canManage}
+                              >
+                                {(dp, ds) => (
+                                  <CandidateCard
+                                    item={item}
+                                    onSelect={setSelected}
+                                    draggable={{
+                                      ref: dp.innerRef,
+                                      rootProps: dp.draggableProps,
+                                      handleProps: dp.dragHandleProps ?? undefined,
+                                      isDragging: ds.isDragging,
+                                      extraStyle: dp.draggableProps.style,
+                                    }}
+                                  />
+                                )}
+                              </Draggable>
+                            ))}
+                          </KanbanColumn>
                         )}
-                      </KanbanColumn>
-                    )}
-                  </Droppable>
-                ))}
-              </KanbanBoard>
-            </DragDropContext>
+                      </Droppable>
+                    ))}
+                  </KanbanBoard>
+                </DragDropContext>
+              </div>
+            )}
+            <TalentPoolCard onOpenCandidate={setSelected} />
           </div>
-        )}
-        <TalentPoolCard onOpenCandidate={setSelected} />
-      </div>
-      <CandidateDetailDrawer candidateId={selected} onClose={() => setSelected(null)} />
-    </PageChrome>
+          <CandidateDetailDrawer candidateId={selected} onClose={() => setSelected(null)} />
+        </LayoutContent>
+      }
+    />
   );
 }

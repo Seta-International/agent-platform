@@ -1,21 +1,19 @@
 import {
-  AsyncCombobox,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  NumberInput,
+  type SearchableItem,
+  Selector,
+  Typeahead,
+  useSeededItems,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Pencil, Trash2, X } from 'lucide-react';
+import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   type AllocationRow,
@@ -27,7 +25,7 @@ import {
   setProjectAccess,
   updateAllocation,
 } from '../api/pm-client.ts';
-import { useWorkerSearch } from '../api/worker-search';
+import { useWorkerSource } from '../api/worker-search';
 import { pmKeys } from '../state/query-keys.ts';
 
 const ROLES = ['Developer', 'Tech Lead', 'PM', 'QA', 'BA', 'PMO'] as const;
@@ -36,45 +34,53 @@ type AccessLevel = ProjectAccessRow['level'];
 function LevelSelect({
   value,
   onChange,
+  isLabelHidden = true,
 }: {
   value: AccessLevel;
   onChange: (v: AccessLevel) => void;
+  isLabelHidden?: boolean;
 }) {
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as AccessLevel)}>
-      <SelectTrigger className="h-8">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="owner">Owner</SelectItem>
-        <SelectItem value="edit">Edit</SelectItem>
-        <SelectItem value="view">View</SelectItem>
-      </SelectContent>
-    </Select>
+    <Selector
+      label="Access"
+      isLabelHidden={isLabelHidden}
+      size="sm"
+      options={[
+        { value: 'owner', label: 'Owner' },
+        { value: 'edit', label: 'Edit' },
+        { value: 'view', label: 'View' },
+      ]}
+      value={value}
+      onChange={(v) => onChange(v as AccessLevel)}
+    />
   );
 }
 
-function RoleSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function RoleSelect({
+  value,
+  onChange,
+  isLabelHidden = true,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  isLabelHidden?: boolean;
+}) {
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-8">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {ROLES.map((r) => (
-          <SelectItem key={r} value={r}>
-            {r}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Selector
+      label="Role"
+      isLabelHidden={isLabelHidden}
+      size="sm"
+      options={ROLES.map((r) => ({ value: r, label: r }))}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 
 const LEVEL_TONE: Record<AccessLevel, string> = {
-  owner: 'var(--color-primary)',
+  owner: 'var(--color-accent)',
   edit: 'var(--color-success)',
-  view: 'var(--color-ink-muted)',
+  view: 'var(--color-text-secondary)',
 };
 
 export function CharterStaffingEditor({
@@ -89,7 +95,8 @@ export function CharterStaffingEditor({
   canManage: boolean;
 }) {
   const queryClient = useQueryClient();
-  const workerPicker = useWorkerSearch();
+  const workerSource = useWorkerSource();
+  const toast = useToast();
 
   const allocations = useQuery({
     queryKey: pmKeys.projectAllocations(projectId),
@@ -104,14 +111,10 @@ export function CharterStaffingEditor({
     () => (allocations.data ?? []).map((a) => a.worker_id).filter((id): id is string => !!id),
     [allocations.data],
   );
-  const { data: resolvedWorkers } = useQuery({
-    queryKey: ['people', 'worker-resolve-staffing', workerIds.slice().sort()],
-    queryFn: () => workerPicker.resolveByIds(workerIds),
-    enabled: workerIds.length > 0,
-  });
+  const [resolvedWorkers] = useSeededItems(workerIds, workerSource.seed);
 
   const nameOf = (id: string | null) =>
-    (id && resolvedWorkers?.find((o) => o.value === id)?.label) || id?.slice(0, 8) || '—';
+    (id && resolvedWorkers.find((o) => o.id === id)?.label) || id?.slice(0, 8) || '—';
   const levelOf = (id: string | null): AccessLevel | null =>
     (access.data?.find((g) => g.worker_id === id)?.level as AccessLevel | undefined) ?? null;
 
@@ -121,35 +124,36 @@ export function CharterStaffingEditor({
   }
 
   // ── add ────────────────────────────────────────────────────────────────
-  const [worker, setWorker] = useState('');
+  const [worker, setWorker] = useState<SearchableItem | null>(null);
   const [role, setRole] = useState<string>('Developer');
   const [pct, setPct] = useState(100);
   const [level, setLevel] = useState<AccessLevel>('edit');
 
   const add = useMutation({
     mutationFn: async () => {
+      if (!worker) throw new Error('No worker selected');
       await createAllocation({
         project_id: projectId,
-        worker_id: worker,
+        worker_id: worker.id,
         role,
         planned_pct: pct,
         date_from: dateFrom ?? new Date().toISOString().slice(0, 10),
         date_to: dateTo,
       });
       const next = (access.data ?? [])
-        .filter((g) => g.worker_id !== worker)
-        .concat({ worker_id: worker, level });
+        .filter((g) => g.worker_id !== worker.id)
+        .concat({ worker_id: worker.id, level });
       await setProjectAccess(projectId, next);
     },
     onSuccess: () => {
-      toast.success('Staffed & access granted');
-      setWorker('');
+      toast({ body: 'Staffed & access granted' });
+      setWorker(null);
       setRole('Developer');
       setPct(100);
       setLevel('edit');
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   // ── inline edit ──────────────────────────────────────────────────────────
@@ -176,11 +180,11 @@ export function CharterStaffingEditor({
       }
     },
     onSuccess: () => {
-      toast.success('Member updated');
+      toast({ body: 'Member updated' });
       setEditId(null);
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const remove = useMutation({
@@ -194,10 +198,10 @@ export function CharterStaffingEditor({
       }
     },
     onSuccess: () => {
-      toast.success('Member removed');
+      toast({ body: 'Member removed' });
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const rows = allocations.data ?? [];
@@ -206,163 +210,178 @@ export function CharterStaffingEditor({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Staffing &amp; Access (R&amp;R)</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="overflow-hidden rounded-md border border-hairline">
-          <table className="w-full text-body-sm">
-            <thead>
-              <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-wide text-ink-muted">
-                <th className="px-3 py-2 font-medium">Member</th>
-                <th className="px-3 py-2 font-medium">Role</th>
-                <th className="px-3 py-2 text-center font-medium">RA %</th>
-                <th className="px-3 py-2 font-medium">Access</th>
-                {canManage && <th className="px-3 py-2" />}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((a) => {
-                const editing = editId === a.allocation_id;
-                const lvl = levelOf(a.worker_id);
-                return (
-                  <tr key={a.allocation_id} className="border-t border-hairline align-middle">
-                    <td className="px-3 py-2 font-medium text-ink">{nameOf(a.worker_id)}</td>
-                    <td className="px-3 py-2">
-                      {editing ? (
-                        <div className="w-36">
-                          <RoleSelect value={draftRole} onChange={setDraftRole} />
-                        </div>
-                      ) : (
-                        (a.role ?? '—')
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-center font-mono">
-                      {editing ? (
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={draftPct}
-                          onChange={(e) => setDraftPct(Number(e.target.value))}
-                          className="mx-auto h-8 w-20"
-                        />
-                      ) : (
-                        `${a.planned_pct ?? '—'}%`
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {editing ? (
-                        <div className="w-28">
-                          <LevelSelect value={draftLevel} onChange={setDraftLevel} />
-                        </div>
-                      ) : (
-                        <span
-                          className="font-medium capitalize"
-                          style={lvl ? { color: LEVEL_TONE[lvl] } : undefined}
-                        >
-                          {lvl ?? '—'}
-                        </span>
-                      )}
-                    </td>
-                    {canManage && (
-                      <td className="px-3 py-2">
-                        <div className="flex justify-end gap-1">
-                          {editing ? (
-                            <>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label="Save"
-                                disabled={save.isPending}
-                                onClick={() => save.mutate(a)}
+      <Layout
+        header={
+          <LayoutHeader hasDivider>
+            <CardTitle>Staffing &amp; Access (R&amp;R)</CardTitle>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent>
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-md border border-border">
+                <table className="w-full text-base">
+                  <thead>
+                    <tr className="bg-surface text-left text-xs uppercase tracking-wide text-secondary">
+                      <th className="px-3 py-2 font-medium">Member</th>
+                      <th className="px-3 py-2 font-medium">Role</th>
+                      <th className="px-3 py-2 text-center font-medium">RA %</th>
+                      <th className="px-3 py-2 font-medium">Access</th>
+                      {canManage && <th className="px-3 py-2" />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((a) => {
+                      const editing = editId === a.allocation_id;
+                      const lvl = levelOf(a.worker_id);
+                      return (
+                        <tr key={a.allocation_id} className="border-t border-border align-middle">
+                          <td className="px-3 py-2 font-medium text-primary">
+                            {nameOf(a.worker_id)}
+                          </td>
+                          <td className="px-3 py-2">
+                            {editing ? (
+                              <div className="w-36">
+                                <RoleSelect value={draftRole} onChange={setDraftRole} />
+                              </div>
+                            ) : (
+                              (a.role ?? '—')
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-center font-mono">
+                            {editing ? (
+                              <NumberInput
+                                label="RA %"
+                                isLabelHidden
+                                min={0}
+                                max={100}
+                                units="%"
+                                width={80}
+                                value={draftPct}
+                                onChange={(v) => setDraftPct(v)}
+                                className="mx-auto"
+                              />
+                            ) : (
+                              `${a.planned_pct ?? '—'}%`
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {editing ? (
+                              <div className="w-28">
+                                <LevelSelect value={draftLevel} onChange={setDraftLevel} />
+                              </div>
+                            ) : (
+                              <span
+                                className="font-medium capitalize"
+                                style={lvl ? { color: LEVEL_TONE[lvl] } : undefined}
                               >
-                                <Check className="size-4 text-[var(--color-success)]" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label="Cancel"
-                                onClick={() => setEditId(null)}
-                              >
-                                <X className="size-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label="Edit member"
-                                disabled={busy}
-                                onClick={() => startEdit(a)}
-                              >
-                                <Pencil className="size-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                aria-label="Remove member"
-                                disabled={busy}
-                                onClick={() => remove.mutate(a)}
-                              >
-                                <Trash2 className="size-4 text-[var(--color-danger)]" />
-                              </Button>
-                            </>
+                                {lvl ?? '—'}
+                              </span>
+                            )}
+                          </td>
+                          {canManage && (
+                            <td className="px-3 py-2">
+                              <div className="flex justify-end gap-1">
+                                {editing ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      isIconOnly
+                                      label="Save"
+                                      isDisabled={save.isPending}
+                                      onClick={() => save.mutate(a)}
+                                      icon={
+                                        <Check className="size-4 text-[var(--color-success)]" />
+                                      }
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      isIconOnly
+                                      label="Cancel"
+                                      onClick={() => setEditId(null)}
+                                      icon={<X className="size-4" />}
+                                    />
+                                  </>
+                                ) : (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      isIconOnly
+                                      label="Edit member"
+                                      isDisabled={busy}
+                                      onClick={() => startEdit(a)}
+                                      icon={<Pencil className="size-4" />}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      isIconOnly
+                                      label="Remove member"
+                                      isDisabled={busy}
+                                      onClick={() => remove.mutate(a)}
+                                      icon={<Trash2 className="size-4 text-[var(--color-error)]" />}
+                                    />
+                                  </>
+                                )}
+                              </div>
+                            </td>
                           )}
-                        </div>
-                      </td>
+                        </tr>
+                      );
+                    })}
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={cols} className="px-3 py-4 text-center text-secondary">
+                          No one staffed yet.
+                        </td>
+                      </tr>
                     )}
-                  </tr>
-                );
-              })}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={cols} className="px-3 py-4 text-center text-ink-muted">
-                    No one staffed yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                  </tbody>
+                </table>
+              </div>
 
-        {canManage && (
-          <div className="flex flex-wrap items-end gap-2 border-t border-hairline pt-4">
-            <div className="min-w-[200px] flex-1 space-y-1">
-              <Label>Add member</Label>
-              <AsyncCombobox
-                value={worker || null}
-                onChange={(v) => setWorker(v ?? '')}
-                search={workerPicker.search}
-                resolveByIds={workerPicker.resolveByIds}
-                placeholder="Search workers…"
-              />
+              {canManage && (
+                <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
+                  <div className="min-w-[200px] flex-1 space-y-1">
+                    <Typeahead
+                      label="Add member"
+                      searchSource={workerSource.source}
+                      value={worker}
+                      onChange={setWorker}
+                      placeholder="Search workers…"
+                    />
+                  </div>
+                  <div className="w-36 space-y-1">
+                    <RoleSelect value={role} onChange={setRole} isLabelHidden={false} />
+                  </div>
+                  <NumberInput
+                    label="RA %"
+                    min={0}
+                    max={100}
+                    units="%"
+                    width={96}
+                    value={pct}
+                    onChange={(v) => setPct(v)}
+                  />
+                  <div className="w-28 space-y-1">
+                    <LevelSelect value={level} onChange={setLevel} isLabelHidden={false} />
+                  </div>
+                  <Button
+                    variant="primary"
+                    icon={<Plus className="size-4" />}
+                    label={add.isPending ? 'Adding…' : 'Add'}
+                    onClick={() => add.mutate()}
+                    isDisabled={!worker || add.isPending}
+                  />
+                </div>
+              )}
             </div>
-            <div className="w-36 space-y-1">
-              <Label>Role</Label>
-              <RoleSelect value={role} onChange={setRole} />
-            </div>
-            <div className="w-24 space-y-1">
-              <Label>RA %</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={pct}
-                onChange={(e) => setPct(Number(e.target.value))}
-              />
-            </div>
-            <div className="w-28 space-y-1">
-              <Label>Access</Label>
-              <LevelSelect value={level} onChange={setLevel} />
-            </div>
-            <Button onClick={() => add.mutate()} disabled={!worker.trim() || add.isPending}>
-              {add.isPending ? 'Adding…' : 'Add'}
-            </Button>
-          </div>
-        )}
-      </CardContent>
+          </LayoutContent>
+        }
+      />
     </Card>
   );
 }

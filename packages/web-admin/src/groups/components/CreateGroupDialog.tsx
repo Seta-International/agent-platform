@@ -1,13 +1,11 @@
 import {
   Button,
   Dialog,
-  DialogContent,
-  DialogDescription,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   Input,
-  Label,
+  Layout,
+  LayoutContent,
   Textarea,
 } from '@seta/shared-ui';
 import { Plus } from 'lucide-react';
@@ -52,78 +50,80 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
     );
   };
 
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) reset();
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) reset();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="size-4" aria-hidden />
-          New group
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create group</DialogTitle>
-          <DialogDescription>
-            Groups bundle roles and members. Assign people to a group instead of granting roles one
-            by one.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 pt-1">
-          <div className="space-y-1.5">
-            <Label htmlFor="group-name">Name</Label>
-            <Input
-              id="group-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="HR Team"
-              autoFocus
+    <>
+      <Button
+        size="sm"
+        variant="primary"
+        label="New group"
+        icon={<Plus className="size-4" aria-hidden />}
+        onClick={() => setOpen(true)}
+      />
+      <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+        <Layout
+          header={
+            <DialogHeader
+              title="Create group"
+              subtitle="Groups bundle roles and members. Assign people to a group instead of granting roles one by one."
+              onOpenChange={handleOpenChange}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="group-slug">Slug</Label>
-            <Input
-              id="group-slug"
-              value={effectiveSlug}
-              onChange={(e) => {
-                setSlugDirty(true);
-                setSlug(slugify(e.target.value));
-              }}
-              placeholder="hr-team"
-              className="font-mono text-body-sm"
-            />
-            <p className="text-caption text-ink-tertiary">
-              A stable identifier. Lowercase letters, numbers, and hyphens.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="group-description">Description</Label>
-            <Textarea
-              id="group-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What this group is for (optional)"
-              rows={2}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={!effectiveSlug || !name.trim() || createGroup.isPending}
-            >
-              {createGroup.isPending ? 'Creating…' : 'Create group'}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+          }
+          content={
+            <LayoutContent>
+              <div className="space-y-4 pt-1">
+                <div className="space-y-1.5">
+                  <Input
+                    label="Name"
+                    value={name}
+                    onChange={(value) => setName(value)}
+                    placeholder="HR Team"
+                    hasAutoFocus
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Input
+                    label="Slug"
+                    value={effectiveSlug}
+                    onChange={(value) => {
+                      setSlugDirty(true);
+                      setSlug(slugify(value));
+                    }}
+                    placeholder="hr-team"
+                    className="font-mono text-base"
+                  />
+                  <p className="text-sm text-disabled">
+                    A stable identifier. Lowercase letters, numbers, and hyphens.
+                  </p>
+                </div>
+                <Textarea
+                  label="Description"
+                  value={description}
+                  onChange={(value) => setDescription(value)}
+                  placeholder="What this group is for (optional)"
+                  rows={2}
+                />
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
+              <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
+                label={createGroup.isPending ? 'Creating…' : 'Create group'}
+                onClick={handleSubmit}
+                isDisabled={!effectiveSlug || !name.trim() || createGroup.isPending}
+              />
+            </DialogFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }

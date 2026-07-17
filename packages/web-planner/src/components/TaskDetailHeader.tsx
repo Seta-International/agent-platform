@@ -1,21 +1,13 @@
 import {
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   DisabledActionTooltip,
+  Divider,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-  KbdHint,
 } from '@seta/shared-ui';
-import { Link } from '@tanstack/react-router';
-import {
-  ArrowRightLeft,
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  MoreHorizontal,
-  Sparkles,
-} from 'lucide-react';
+import { ArrowRightLeft, Copy, MoreHorizontal, Sparkles } from 'lucide-react';
 import { type ReactNode, useEffect } from 'react';
 
 interface Props {
@@ -86,150 +78,124 @@ export function TaskDetailHeader({
   }, [onPrevious, onNext]);
 
   return (
-    <header className="border-b border-hairline overflow-x-auto">
+    <header className="border-b border-border overflow-x-auto">
       <div className="min-w-[1040px] px-7 pt-4 pb-3">
-        <div className="mb-3 flex items-center gap-2 text-xs text-ink-subtle">
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="Back to board"
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-surface-1"
-          >
-            <ChevronLeft className="size-3" />
-            Back to board
-          </button>
-          <span>·</span>
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1">
-            <Link
-              to="/planner/groups"
-              className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-            >
-              Planner
-            </Link>
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
+        <div className="mb-3">
+          <Breadcrumbs variant="supporting">
+            <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
             {groupId ? (
-              <Link
-                to="/planner/groups/$groupId"
-                params={{ groupId }}
-                className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-              >
-                {groupName}
-              </Link>
+              <BreadcrumbItem href={`/planner/groups/${groupId}`}>{groupName}</BreadcrumbItem>
             ) : (
-              <span>{groupName}</span>
+              <BreadcrumbItem>{groupName}</BreadcrumbItem>
             )}
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
             {planId ? (
-              <Link
-                to="/planner/plans/$planId"
-                params={{ planId }}
-                className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+              // Keeps a real href so the crumb is a genuine link; a modified click (cmd/ctrl/shift)
+              // falls through to real navigation (new tab / new window), while a plain click
+              // intercepts and returns to the board in place instead of navigating.
+              <BreadcrumbItem
+                href={`/planner/plans/${planId}`}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                  e.preventDefault();
+                  onBack();
+                }}
               >
                 {planName}
-              </Link>
+              </BreadcrumbItem>
             ) : (
-              <span>{planName}</span>
+              <BreadcrumbItem>{planName}</BreadcrumbItem>
             )}
-            {bucketName && (
-              <>
-                <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-                <span className="text-primary">{bucketName}</span>
-              </>
-            )}
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-            <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-ink-muted">
-              T-{taskNumber}
-            </span>
-          </nav>
+            {bucketName && <BreadcrumbItem>{bucketName}</BreadcrumbItem>}
+            <BreadcrumbItem isCurrent>{`T-${taskNumber}`}</BreadcrumbItem>
+          </Breadcrumbs>
         </div>
 
         <div className="flex items-start gap-4">
           <div className="min-w-0 flex-1">{titleSlot}</div>
 
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="secondary" onClick={onAskAgent}>
-              <Sparkles className="size-3" />
-              Ask agent
-            </Button>
-            <Button size="sm" variant="secondary" onClick={onCopyLink}>
-              <Copy className="size-3" />
-              Copy link
-            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Sparkles className="size-3" />}
+              label="Ask agent"
+              onClick={onAskAgent}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Copy className="size-3" />}
+              label="Copy link"
+              onClick={onCopyLink}
+            />
             {(onDuplicate || onMove || onDelete) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="More actions"
-                    className="inline-flex items-center justify-center rounded p-1 text-ink-subtle hover:bg-surface-1 hover:text-ink"
+              <DropdownMenu
+                placement="below"
+                button={{
+                  isIconOnly: true,
+                  icon: <MoreHorizontal className="size-4" />,
+                  variant: 'ghost',
+                  size: 'sm',
+                  label: 'More actions',
+                }}
+              >
+                {onDuplicate && (
+                  <DisabledActionTooltip
+                    disabled={Boolean(duplicateDisabledReason)}
+                    reason={duplicateDisabledReason}
                   >
-                    <MoreHorizontal className="size-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {onDuplicate && (
-                    <DisabledActionTooltip
-                      disabled={Boolean(duplicateDisabledReason)}
-                      reason={duplicateDisabledReason}
-                    >
-                      <DropdownMenuItem
-                        onSelect={() => onDuplicate()}
-                        disabled={Boolean(duplicateDisabledReason)}
-                      >
-                        <Copy className="size-3.5" />
-                        Duplicate
-                      </DropdownMenuItem>
-                    </DisabledActionTooltip>
-                  )}
-                  {onMove && (
-                    <DisabledActionTooltip
-                      disabled={Boolean(moveDisabledReason)}
-                      reason={moveDisabledReason}
-                    >
-                      <DropdownMenuItem
-                        onSelect={() => onMove()}
-                        disabled={Boolean(moveDisabledReason)}
-                      >
-                        <ArrowRightLeft className="size-3.5" />
-                        Move…
-                      </DropdownMenuItem>
-                    </DisabledActionTooltip>
-                  )}
-                  {onDelete && (
-                    <DisabledActionTooltip
-                      disabled={Boolean(deleteDisabledReason)}
-                      reason={deleteDisabledReason}
-                    >
-                      <DropdownMenuItem
-                        onSelect={() => onDelete()}
-                        disabled={Boolean(deleteDisabledReason)}
-                        className="text-semantic-danger"
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DisabledActionTooltip>
-                  )}
-                </DropdownMenuContent>
+                    <DropdownMenuItem
+                      icon={<Copy className="size-3.5" />}
+                      label="Duplicate"
+                      onClick={() => onDuplicate()}
+                      isDisabled={Boolean(duplicateDisabledReason)}
+                    />
+                  </DisabledActionTooltip>
+                )}
+                {onMove && (
+                  <DisabledActionTooltip
+                    disabled={Boolean(moveDisabledReason)}
+                    reason={moveDisabledReason}
+                  >
+                    <DropdownMenuItem
+                      icon={<ArrowRightLeft className="size-3.5" />}
+                      label="Move…"
+                      onClick={() => onMove()}
+                      isDisabled={Boolean(moveDisabledReason)}
+                    />
+                  </DisabledActionTooltip>
+                )}
+                {onDelete && (
+                  <DisabledActionTooltip
+                    disabled={Boolean(deleteDisabledReason)}
+                    reason={deleteDisabledReason}
+                  >
+                    <DropdownMenuItem
+                      label="Delete"
+                      style={{ color: 'var(--color-error)' }}
+                      onClick={() => onDelete()}
+                      isDisabled={Boolean(deleteDisabledReason)}
+                    />
+                  </DisabledActionTooltip>
+                )}
               </DropdownMenu>
             )}
-            <span aria-hidden="true" className="h-5 w-px bg-hairline" />
+            <Divider orientation="vertical" style={{ height: 20 }} />
             <button
               type="button"
               onClick={onPrevious}
               aria-label="Previous task"
-              className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-ink-subtle hover:bg-surface-1 hover:text-ink"
+              className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-secondary hover:bg-card hover:text-primary"
             >
-              <KbdHint keys={['K']} />
               <span>Prev</span>
             </button>
             <button
               type="button"
               onClick={onNext}
               aria-label="Next task"
-              className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-ink-subtle hover:bg-surface-1 hover:text-ink"
+              className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-secondary hover:bg-card hover:text-primary"
             >
               <span>Next</span>
-              <KbdHint keys={['J']} />
             </button>
           </div>
         </div>

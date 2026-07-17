@@ -1,29 +1,29 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
   DisabledActionTooltip,
   EmptyState,
-  KbdHint,
-  PageChrome,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  Selector,
   Skeleton,
-  toast,
+  Text,
+  useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Cloud, Plus, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { CreateGroupDialog } from '../components/CreateGroupDialog';
 import { GroupsGrid } from '../components/GroupsGrid';
-import { GroupsTable } from '../components/GroupsTable';
+import { type GroupSort, GroupsTable } from '../components/GroupsTable';
 import { GroupsToolbar } from '../components/GroupsToolbar';
 import { LinkToM365Dialog } from '../components/LinkToM365Dialog';
 import { useRestoreGroup } from '../hooks/mutations/restore-group';
@@ -43,19 +43,25 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   const [source, setSource] = useState<'native' | 'm365' | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   const [status, setStatus] = useState<'active' | 'archived' | null>(null);
+  const [sort, setSort] = useState<GroupSort>({ field: 'group', dir: 'asc' });
   const q = useGroupsWithCounts({ includeDeleted: status !== 'active' });
   const memberSummary = useGroupMemberSummary();
   const restoreGroup = useRestoreGroup();
+  const toast = useToast();
 
   function handleRestore(groupId: string) {
     restoreGroup.mutate(
       { group_id: groupId },
       {
         onSuccess: () => {
-          toast('Group restored');
+          toast({ body: 'Group restored' });
           void q.refetch();
         },
-        onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't restore the group."),
+        onError: (e) =>
+          toast({
+            body: e instanceof Error ? e.message : "Couldn't restore the group.",
+            type: 'error',
+          }),
       },
     );
   }
@@ -97,30 +103,65 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
 
   if (q.isPending) {
     return (
-      <PageChrome breadcrumb={['Planner']} title="Groups">
-        <div data-testid="groups-page-skeleton" className="space-y-3 p-6">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Groups</BreadcrumbItem>
+              </Breadcrumbs>
+              <Text as="h1" size="lg" weight="semibold">
+                Groups
+              </Text>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <div data-testid="groups-page-skeleton" className="space-y-3 p-6">
+              <Skeleton height={48} />
+              <Skeleton height={48} />
+              <Skeleton height={48} />
+            </div>
+          </LayoutContent>
+        }
+      />
     );
   }
 
   if (q.isError) {
     return (
-      <PageChrome breadcrumb={['Planner']} title="Groups">
-        <div className="p-6">
-          <Alert variant="destructive">
-            <AlertDescription className="flex items-center justify-between gap-3">
-              <span>Couldn't load groups.</span>
-              <Button size="sm" variant="secondary" onClick={() => q.refetch()}>
-                Retry
-              </Button>
-            </AlertDescription>
-          </Alert>
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Groups</BreadcrumbItem>
+              </Breadcrumbs>
+              <Text as="h1" size="lg" weight="semibold">
+                Groups
+              </Text>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <div className="p-6">
+              <Banner
+                status="error"
+                title="Couldn't load groups."
+                endContent={
+                  <Button size="sm" variant="secondary" label="Retry" onClick={() => q.refetch()} />
+                }
+              />
+            </div>
+          </LayoutContent>
+        }
+      />
     );
   }
 
@@ -128,24 +169,47 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
 
   if (groups.length === 0) {
     return (
-      <PageChrome breadcrumb={['Planner']} title="Groups">
-        <div className="p-6">
-          <EmptyState
-            title="No groups yet"
-            description={
-              canCreateGroup
-                ? 'Create a group to organize plans and people.'
-                : 'Ask an admin to create a group and invite you to it.'
-            }
-            action={
-              canCreateGroup
-                ? { label: 'New group', onClick: () => setCreateOpen(true) }
-                : undefined
-            }
-          />
-          <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
-        </div>
-      </PageChrome>
+      <Layout
+        height="fill"
+        header={
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Groups</BreadcrumbItem>
+              </Breadcrumbs>
+              <Text as="h1" size="lg" weight="semibold">
+                Groups
+              </Text>
+            </VStack>
+          </LayoutHeader>
+        }
+        content={
+          <LayoutContent padding={0}>
+            <div className="p-6">
+              <EmptyState
+                title="No groups yet"
+                description={
+                  canCreateGroup
+                    ? 'Create a group to organize plans and people.'
+                    : 'Ask an admin to create a group and invite you to it.'
+                }
+                actions={
+                  canCreateGroup ? (
+                    <Button
+                      variant="primary"
+                      icon={<Plus className="size-4" />}
+                      label="New group"
+                      onClick={() => setCreateOpen(true)}
+                    />
+                  ) : undefined
+                }
+              />
+              <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
+            </div>
+          </LayoutContent>
+        }
+      />
     );
   }
 
@@ -168,137 +232,200 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
     return true;
   });
 
+  // Stable, deterministic order so the list never reshuffles between loads. Default is
+  // group name ascending; the table headers re-drive `sort` for the other columns.
+  const dir = sort.dir === 'asc' ? 1 : -1;
+  const byText = (a?: string | null, b?: string | null) =>
+    (a ?? '').localeCompare(b ?? '', undefined, { sensitivity: 'base' });
+  const ordered = [...filtered].sort((a, b) => {
+    switch (sort.field) {
+      case 'owner':
+        return dir * byText(a.owner_display_name, b.owner_display_name);
+      case 'plans':
+        return dir * (a.plan_count - b.plan_count);
+      case 'members':
+        return dir * (a.member_count - b.member_count);
+      case 'visibility':
+        return dir * byText(a.visibility, b.visibility);
+      case 'activity':
+        return dir * (new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
+      default:
+        return dir * byText(a.name, b.name);
+    }
+  });
+
   const totalPlans = groups.reduce((s, g) => s + g.plan_count, 0);
   const totalMembers = memberSummary.data?.distinct_member_count ?? 0;
   const syncedCount = groups.filter((g) => g.external_source !== 'native').length;
 
   return (
-    <PageChrome
-      breadcrumb={['Planner']}
-      title="Groups"
-      subtitle={`${groups.length} ${groups.length === 1 ? 'group' : 'groups'} · ${totalPlans} plans · ${totalMembers} members`}
-      actions={
+    <Layout
+      height="fill"
+      header={
         <>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void navigate({ to: '/planner/groups/discover' })}
-          >
-            <Search className="size-4 mr-2" />
-            Find a Workspace group
-          </Button>
-          <DisabledActionTooltip disabled={!canCreateGroup} reason={PERMISSION_DENIED.group.create}>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setSyncFromIdPOpen(true)}
-              disabled={!canCreateGroup}
-            >
-              <Cloud className="size-3" /> Sync from IdP
-            </Button>
-          </DisabledActionTooltip>
-          <DisabledActionTooltip disabled={!canCreateGroup} reason={PERMISSION_DENIED.group.create}>
-            <Button size="sm" onClick={() => setCreateOpen(true)} disabled={!canCreateGroup}>
-              <Plus className="size-3" /> New group
-            </Button>
-          </DisabledActionTooltip>
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Groups</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Groups
+                  </Text>
+                  <Text color="secondary">{`${groups.length} ${groups.length === 1 ? 'group' : 'groups'} · ${totalPlans} plans · ${totalMembers} members`}</Text>
+                </HStack>
+                <HStack gap={2} vAlign="center">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Search className="size-4" />}
+                    label="Find a Workspace group"
+                    onClick={() => void navigate({ to: '/planner/groups/discover' })}
+                  />
+                  <DisabledActionTooltip
+                    disabled={!canCreateGroup}
+                    reason={PERMISSION_DENIED.group.create}
+                  >
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={<Cloud className="size-3" />}
+                      label="Sync from IdP"
+                      onClick={() => setSyncFromIdPOpen(true)}
+                      isDisabled={!canCreateGroup}
+                    />
+                  </DisabledActionTooltip>
+                  <DisabledActionTooltip
+                    disabled={!canCreateGroup}
+                    reason={PERMISSION_DENIED.group.create}
+                  >
+                    <Button
+                      size="sm"
+                      icon={<Plus className="size-3" />}
+                      label="New group"
+                      onClick={() => setCreateOpen(true)}
+                      isDisabled={!canCreateGroup}
+                    />
+                  </DisabledActionTooltip>
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+          {/* The Toolbar owns its own height and bottom divider, so it sits directly in a
+              padding-free header row — no extra wrapper chrome. It stays outside the scroll
+              container, keeping the filters pinned above the table. */}
+          <LayoutHeader padding={0}>
+            <GroupsToolbar
+              view={view}
+              onViewChange={setView}
+              searchQuery={search}
+              onSearchChange={setSearch}
+              visibility={visibility}
+              onVisibilityChange={setVisibility}
+              source={source}
+              onSourceChange={setSource}
+              owner={owner}
+              onOwnerChange={setOwner}
+              ownerOptions={ownerOptions}
+              showSourceFilter={showSourceFilter}
+              status={status}
+              onStatusChange={setStatus}
+            />
+          </LayoutHeader>
         </>
       }
-      toolbar={
-        <GroupsToolbar
-          view={view}
-          onViewChange={setView}
-          searchQuery={search}
-          onSearchChange={setSearch}
-          visibility={visibility}
-          onVisibilityChange={setVisibility}
-          source={source}
-          onSourceChange={setSource}
-          owner={owner}
-          onOwnerChange={setOwner}
-          ownerOptions={ownerOptions}
-          showSourceFilter={showSourceFilter}
-          status={status}
-          onStatusChange={setStatus}
-        />
-      }
-    >
-      <div className="flex h-full flex-col">
-        <div className="flex-1 overflow-auto">
-          {view === 'list' ? (
-            <GroupsTable
-              groups={filtered}
-              onRestore={status === 'archived' ? handleRestore : undefined}
+      content={
+        <LayoutContent padding={0}>
+          <div className="flex h-full flex-col">
+            <div className="flex-1 overflow-auto">
+              {view === 'list' ? (
+                <GroupsTable
+                  groups={ordered}
+                  onRestore={status === 'archived' ? handleRestore : undefined}
+                  sort={sort}
+                  onSortChange={setSort}
+                />
+              ) : (
+                <GroupsGrid
+                  groups={ordered}
+                  onRestore={status === 'archived' ? handleRestore : undefined}
+                />
+              )}
+            </div>
+            <footer className="flex h-11 flex-none items-center justify-between border-t border-border bg-body px-6 text-xs text-secondary">
+              <span>
+                Showing {filtered.length} of {groups.length}
+                {syncedCount > 0
+                  ? ` · ${syncedCount} ${syncedCount === 1 ? 'group' : 'groups'} synced from IdP`
+                  : ''}
+              </span>
+            </footer>
+          </div>
+          <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
+          <Dialog isOpen={syncFromIdPOpen} onOpenChange={setSyncFromIdPOpen} purpose="form">
+            <Layout
+              header={
+                <DialogHeader
+                  title="Select group to link to M365"
+                  onOpenChange={setSyncFromIdPOpen}
+                />
+              }
+              content={
+                <LayoutContent>
+                  {/* Astryx's Dialog always mounts its Layout/LayoutContent children regardless of
+                  `isOpen`, and Selector renders its full option list into the DOM (hidden, but
+                  still text-matchable) as soon as it mounts. Gating the Selector on
+                  `syncFromIdPOpen` keeps group names out of the DOM entirely while this dialog
+                  is closed, so they don't collide with the same names rendered elsewhere on the
+                  page (e.g. the groups table). */}
+                  {syncFromIdPOpen && (
+                    <Selector
+                      label="Select a group"
+                      isLabelHidden
+                      placeholder="— choose a group —"
+                      options={groups
+                        .filter((g) => g.external_source === 'native')
+                        .map((g) => ({ value: g.id, label: g.name }))}
+                      value={groupToLink ?? undefined}
+                      onChange={(v) => setGroupToLink(v)}
+                    />
+                  )}
+                </LayoutContent>
+              }
+              footer={
+                <DialogFooter>
+                  <Button
+                    variant="secondary"
+                    label="Cancel"
+                    onClick={() => setSyncFromIdPOpen(false)}
+                  />
+                  <Button
+                    variant="primary"
+                    label="Next"
+                    isDisabled={!groupToLink}
+                    onClick={() => {
+                      setSyncFromIdPOpen(false);
+                      setLinkDialogOpen(true);
+                    }}
+                  />
+                </DialogFooter>
+              }
             />
-          ) : (
-            <GroupsGrid
-              groups={filtered}
-              onRestore={status === 'archived' ? handleRestore : undefined}
+          </Dialog>
+          {groupToLink && (
+            <LinkToM365Dialog
+              groupId={groupToLink}
+              open={linkDialogOpen}
+              onOpenChange={(v) => {
+                setLinkDialogOpen(v);
+                if (!v) setGroupToLink(null);
+              }}
             />
           )}
-        </div>
-        <footer className="flex h-11 flex-none items-center justify-between border-t border-hairline bg-canvas px-6 text-xs text-ink-muted">
-          <span>
-            Showing {filtered.length} of {groups.length}
-            {syncedCount > 0
-              ? ` · ${syncedCount} ${syncedCount === 1 ? 'group' : 'groups'} synced from IdP`
-              : ''}
-          </span>
-          {canCreateGroup ? (
-            <span className="inline-flex items-center gap-1 text-ink-subtle">
-              Press <KbdHint keys={['N']} /> to create a new group
-            </span>
-          ) : null}
-        </footer>
-      </div>
-      <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
-      <Dialog open={syncFromIdPOpen} onOpenChange={setSyncFromIdPOpen}>
-        <DialogContent className="max-w-[440px]">
-          <DialogHeader>
-            <DialogTitle>Select group to link to M365</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Select value={groupToLink ?? undefined} onValueChange={(v) => setGroupToLink(v)}>
-              <SelectTrigger aria-label="Select a group" className="w-full">
-                <SelectValue placeholder="— choose a group —" />
-              </SelectTrigger>
-              <SelectContent>
-                {groups
-                  .filter((g) => g.external_source === 'native')
-                  .map((g) => (
-                    <SelectItem key={g.id} value={g.id}>
-                      {g.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setSyncFromIdPOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={!groupToLink}
-                onClick={() => {
-                  setSyncFromIdPOpen(false);
-                  setLinkDialogOpen(true);
-                }}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-      {groupToLink && (
-        <LinkToM365Dialog
-          groupId={groupToLink}
-          open={linkDialogOpen}
-          onOpenChange={(v) => {
-            setLinkDialogOpen(v);
-            if (!v) setGroupToLink(null);
-          }}
-        />
-      )}
-    </PageChrome>
+        </LayoutContent>
+      }
+    />
   );
 }

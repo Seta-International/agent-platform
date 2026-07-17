@@ -1,12 +1,4 @@
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@seta/shared-ui';
+import { Button, Dialog, DialogFooter, DialogHeader, Layout } from '@seta/shared-ui';
 
 interface Props {
   open: boolean;
@@ -24,33 +16,32 @@ export function ConfirmRemoveMembersDialog({
   isPending = false,
 }: Props) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-[480px]"
-        onEscapeKeyDown={(e) => {
-          if (isPending) e.preventDefault();
-        }}
-        onInteractOutside={(e) => {
-          if (isPending) e.preventDefault();
-        }}
-      >
-        <DialogHeader>
-          <DialogTitle>
-            Remove {count} {count === 1 ? 'member' : 'members'}?
-          </DialogTitle>
-          <DialogDescription>
-            They will lose access to this group and its plans immediately.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isPending}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
-            Remove
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+    <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="required">
+      <Layout
+        header={
+          <DialogHeader
+            title={`Remove ${count} ${count === 1 ? 'member' : 'members'}?`}
+            subtitle="They will lose access to this group and its plans immediately."
+            onOpenChange={onOpenChange}
+          />
+        }
+        footer={
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              label="Cancel"
+              onClick={() => onOpenChange(false)}
+              isDisabled={isPending}
+            />
+            <Button
+              variant="destructive"
+              label="Remove"
+              onClick={onConfirm}
+              isDisabled={isPending}
+            />
+          </DialogFooter>
+        }
+      />
     </Dialog>
   );
 }

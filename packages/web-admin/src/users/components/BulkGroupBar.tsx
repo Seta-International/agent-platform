@@ -1,17 +1,18 @@
 import {
   Button,
-  Combobox,
+  createStaticSource,
   Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
+  Layout,
+  type SearchableItem,
+  Typeahead,
 } from '@seta/shared-ui';
-import { UsersRound } from 'lucide-react';
+import { Plus, UsersRound } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useGroupMembersMutations, useGroupsQuery } from '../../groups/hooks/useGroups.ts';
+
+type GroupItem = SearchableItem<{ keywords: string[] }>;
 
 interface Props {
   selectedUserIds: string[];
@@ -24,33 +25,38 @@ interface Props {
  * directly — per-user role grants are the exception, handled in user detail.
  */
 export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
-  const [groupId, setGroupId] = useState<string | null>(null);
+  const [group, setGroup] = useState<GroupItem | null>(null);
   const [confirming, setConfirming] = useState(false);
 
   const { data: groups } = useGroupsQuery();
   const { add } = useGroupMembersMutations();
 
-  const groupOptions = useMemo(
+  const groupItems = useMemo<GroupItem[]>(
     () =>
       (groups ?? []).map((g) => ({
-        value: g.group_id,
+        id: g.group_id,
         label: g.name,
-        keywords: [g.slug, ...g.roles.map((r) => r.role_slug)],
+        auxiliaryData: { keywords: [g.slug, ...g.roles.map((r) => r.role_slug)] },
       })),
     [groups],
   );
+  const source = useMemo(
+    () =>
+      createStaticSource(groupItems, { keywords: (item) => item.auxiliaryData?.keywords ?? [] }),
+    [groupItems],
+  );
 
-  const groupName = groups?.find((g) => g.group_id === groupId)?.name ?? '';
+  const groupName = group?.label ?? '';
   const count = selectedUserIds.length;
 
   function handleConfirm() {
-    if (!groupId) return;
+    if (!group) return;
     add.mutate(
-      { id: groupId, user_ids: selectedUserIds },
+      { id: group.id, user_ids: selectedUserIds },
       {
         onSuccess: () => {
           setConfirming(false);
-          setGroupId(null);
+          setGroup(null);
           onClearSelection();
         },
       },
@@ -59,50 +65,55 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
 
   return (
     <>
-      <div className="flex items-center gap-3 border-b border-hairline bg-surface-2 px-6 py-2">
-        <span className="text-body-sm font-medium text-ink">{count} selected</span>
-        <Button variant="tertiary" size="sm" onClick={onClearSelection}>
-          Clear
-        </Button>
+      <div className="flex items-center gap-3 border-b border-border bg-surface px-6 py-2">
+        <span className="text-base font-medium text-primary">{count} selected</span>
+        <Button variant="ghost" size="sm" label="Clear" onClick={onClearSelection} />
         <div className="ml-auto flex items-center gap-2">
-          <Combobox
-            value={groupId}
-            onChange={setGroupId}
-            options={groupOptions}
+          <Typeahead
+            label="Group"
+            isLabelHidden
+            searchSource={source}
+            debounceMs={0}
+            hasEntriesOnFocus
+            value={group}
+            onChange={setGroup}
             placeholder="Add to group…"
-            searchPlaceholder="Search groups…"
             className="w-56"
-            aria-label="Group"
           />
           <Button
             size="sm"
-            disabled={!groupId || add.isPending}
+            isDisabled={!group || add.isPending}
             onClick={() => setConfirming(true)}
-          >
-            <UsersRound className="size-4" aria-hidden />
-            Add to group
-          </Button>
+            icon={<UsersRound className="size-4" aria-hidden />}
+            label="Add to group"
+          />
         </div>
       </div>
 
-      <Dialog open={confirming} onOpenChange={setConfirming}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add to group?</DialogTitle>
-            <DialogDescription>
-              Add {count} {count === 1 ? 'person' : 'people'} to “{groupName}”. They inherit the
-              group’s roles and product access immediately.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary">Cancel</Button>
-            </DialogClose>
-            <Button disabled={add.isPending} onClick={handleConfirm}>
-              {add.isPending ? 'Adding…' : 'Add to group'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+      {/* Reversible action (people can be removed from the group afterward) — "form" purpose,
+          not "required": mirrors the plan's "archive M365 group" precedent. */}
+      <Dialog isOpen={confirming} onOpenChange={setConfirming} purpose="form">
+        <Layout
+          header={
+            <DialogHeader
+              title="Add to group?"
+              subtitle={`Add ${count} ${count === 1 ? 'person' : 'people'} to “${groupName}”. They inherit the group’s roles and product access immediately.`}
+              onOpenChange={setConfirming}
+            />
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={() => setConfirming(false)} />
+              <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
+                label={add.isPending ? 'Adding…' : 'Add to group'}
+                isDisabled={add.isPending}
+                onClick={handleConfirm}
+              />
+            </DialogFooter>
+          }
+        />
       </Dialog>
     </>
   );

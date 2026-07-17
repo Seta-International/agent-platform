@@ -1,20 +1,34 @@
 import {
   Avatar,
-  AvatarFallback,
   Badge,
   formatRelative,
   KanbanCardShell,
   type KanbanCardShellProps,
 } from '@seta/shared-ui';
-import { User } from 'lucide-react';
 import type { CandidateListItem } from '../api/hiring-client.ts';
 import { fitScoreBadge } from './candidate-utils.ts';
 
-const VISIBLE_SKILLS = 3;
+const VISIBLE_SKILLS = 4;
 
 function appliedLabel(appliedAt: string): string {
   const rel = formatRelative(appliedAt);
   return rel === 'now' ? 'just now' : `${rel} ago`;
+}
+
+function StarRating({ value }: { value: number | null }) {
+  if (value == null) return <span className="text-sm text-secondary">Not rated yet</span>;
+  const full = Math.round(value);
+  return (
+    <span
+      role="img"
+      aria-label={`Rating ${full} of 5`}
+      className="text-sm"
+      style={{ color: 'var(--color-icon-orange)' }}
+    >
+      {'★'.repeat(full)}
+      <span style={{ color: 'var(--color-border-emphasized)' }}>{'★'.repeat(5 - full)}</span>
+    </span>
+  );
 }
 
 export function CandidateCard({
@@ -29,38 +43,41 @@ export function CandidateCard({
   const fit = fitScoreBadge(item.fit);
   const visibleSkills = item.skills.slice(0, VISIBLE_SKILLS);
   const hiddenSkillCount = item.skills.length - visibleSkills.length;
+
+  const header = (
+    <div className="flex items-start gap-2.5">
+      <Avatar name={item.name} size={40} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate font-medium text-primary">{item.name}</span>
+          {item.seniority && <Badge variant="neutral" label={item.seniority} />}
+        </div>
+        <div className="truncate text-sm text-secondary">{item.requisition_title}</div>
+      </div>
+      <Badge variant={fit.variant} className="flex-none" label={fit.text} />
+    </div>
+  );
+  const footer = (
+    <span className="text-sm text-secondary">
+      {item.source ?? '—'} · {appliedLabel(item.applied_at)}
+    </span>
+  );
+
   return (
     <KanbanCardShell
       ariaLabel={`Candidate: ${item.name}`}
       onOpen={() => onSelect(item.candidate_id)}
       draggable={draggable}
+      header={header}
+      footer={footer}
     >
-      <div className="flex items-start gap-2.5">
-        <Avatar className="size-9">
-          <AvatarFallback>
-            <User className="size-4" />
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-medium text-ink">{item.name}</div>
-          <div className="mt-1 truncate text-caption text-ink-muted">{item.requisition_title}</div>
-          <div className="mt-1 text-caption text-ink-subtle">
-            {item.source ?? '—'} · {appliedLabel(item.applied_at)}
-          </div>
-        </div>
-        <Badge variant={fit.variant} className="flex-none">
-          {fit.text}
-        </Badge>
-      </div>
-
+      <StarRating value={item.rating} />
       {item.skills.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1">
           {visibleSkills.map((s) => (
-            <Badge key={s.skill_id} variant="secondary">
-              {s.skill_name}
-            </Badge>
+            <Badge key={s.skill_id} variant="neutral" label={s.skill_name} />
           ))}
-          {hiddenSkillCount > 0 && <Badge variant="secondary">+{hiddenSkillCount}</Badge>}
+          {hiddenSkillCount > 0 && <Badge variant="neutral" label={`+${hiddenSkillCount}`} />}
         </div>
       )}
     </KanbanCardShell>

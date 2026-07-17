@@ -1,4 +1,5 @@
-import { Search, X } from 'lucide-react';
+import { Input } from '@seta/shared-ui';
+import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Props {
@@ -35,38 +36,29 @@ export function PlanSearchInput({ value, onChange, placeholder = 'Search tasksâ€
     return () => clearTimeout(timer);
   }, [localValue, value, onChange, isComposing]);
 
-  const handleClear = () => {
-    setLocalValue('');
-    onChange('');
-  };
-
   return (
-    <div className="plan-search-input">
-      <Search aria-hidden="true" className="plan-search-input__icon" />
-      <input
-        type="search"
-        value={localValue}
-        placeholder={placeholder}
-        aria-label="Search tasks in this plan"
-        onChange={(e) => setLocalValue(e.target.value)}
-        onCompositionStart={() => setIsComposing(true)}
-        onCompositionEnd={(e) => {
-          setIsComposing(false);
-          // Capture the finalized composition; clearing isComposing resumes the
-          // debounce effect, which then propagates the committed value.
-          setLocalValue(e.currentTarget.value);
-        }}
-      />
-      {localValue && (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={handleClear}
-          className="plan-search-input__clear"
-        >
-          <X aria-hidden="true" className="size-3" />
-        </button>
-      )}
-    </div>
+    <Input
+      label="Search tasks in this plan"
+      isLabelHidden
+      size="sm"
+      width={240}
+      startIcon={<Search className="size-3.5" aria-hidden="true" />}
+      hasClear
+      value={localValue}
+      placeholder={placeholder}
+      onChange={(v) => {
+        setLocalValue(v);
+        // Clearing is a discrete action, not typing â€” propagate it past the debounce.
+        if (v === '') onChange('');
+      }}
+      onCompositionStart={() => setIsComposing(true)}
+      onCompositionEnd={(e) => {
+        setIsComposing(false);
+        // Capture the finalized composition; clearing isComposing resumes the
+        // debounce effect, which then propagates the committed value.
+        // TextInput extends BaseProps<HTMLElement>, so currentTarget needs narrowing.
+        setLocalValue((e.currentTarget as HTMLInputElement).value);
+      }}
+    />
   );
 }

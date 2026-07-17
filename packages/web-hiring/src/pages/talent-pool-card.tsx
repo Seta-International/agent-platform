@@ -1,30 +1,18 @@
 import {
-  Alert,
-  AlertDescription,
   Avatar,
-  AvatarFallback,
   Badge,
+  Banner,
   Button,
   Card,
-  CardContent,
-  CardHeader,
   CardTitle,
+  HStack,
+  Text,
+  VStack,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { fetchTalentPool } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
-
-function initials(name: string): string {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase() ?? '')
-      .join('') || '?'
-  );
-}
 
 export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: string) => void }) {
   const [show, setShow] = useState(false);
@@ -35,45 +23,53 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
   });
 
   return (
-    <Card className="mt-6">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Talent pool</CardTitle>
-        <Button size="sm" variant="ghost" onClick={() => setShow((v) => !v)}>
-          {show ? 'Hide' : 'Show'}
-        </Button>
-      </CardHeader>
+    <Card padding={4}>
+      <HStack hAlign="between" vAlign="center" gap={2}>
+        <VStack gap={0}>
+          <CardTitle>Talent pool</CardTitle>
+          <Text size="sm" color="secondary">
+            Re-match past and alumni candidates to your open roles.
+          </Text>
+        </VStack>
+        <Button
+          size="sm"
+          variant="secondary"
+          label={show ? 'Hide' : 'Show'}
+          onClick={() => setShow((v) => !v)}
+        />
+      </HStack>
+
       {show && (
-        <CardContent>
+        <div className="mt-4 border-border border-t pt-4">
           {pool.error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{(pool.error as Error).message}</AlertDescription>
-            </Alert>
+            <Banner status="error" title={(pool.error as Error).message} />
           ) : pool.isLoading ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="h-24 animate-pulse rounded-lg border border-hairline bg-surface-2"
+                  className="h-24 animate-pulse rounded-lg border border-border bg-surface"
                 />
               ))}
             </div>
           ) : (pool.data?.length ?? 0) === 0 ? (
-            <div className="text-ink-muted">No past candidates to re-match yet.</div>
+            <Text size="sm" color="secondary">
+              No past candidates to re-match yet.
+            </Text>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {pool.data?.map((c) => (
-                <div key={c.candidate_id} className="rounded-lg border border-hairline p-3">
-                  <button
-                    type="button"
-                    className="flex items-center gap-2 text-left"
-                    onClick={() => onOpenCandidate(c.candidate_id)}
-                  >
-                    <Avatar className="size-8">
-                      <AvatarFallback>{initials(c.name)}</AvatarFallback>
-                    </Avatar>
-                    <span>
-                      <span className="block font-semibold text-ink">{c.name}</span>
-                      <span className="block text-caption text-ink-muted">
+                <button
+                  key={c.candidate_id}
+                  type="button"
+                  className="flex flex-col gap-2 rounded-lg border border-border p-3 text-left transition-colors hover:border-border-emphasized"
+                  onClick={() => onOpenCandidate(c.candidate_id)}
+                >
+                  <span className="flex items-center gap-2">
+                    <Avatar name={c.name} size={32} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-primary">{c.name}</span>
+                      <span className="block truncate text-sm text-secondary">
                         {c.seniority ?? '—'}
                         {c.segment === 'alumni'
                           ? ' · alumni'
@@ -84,31 +80,21 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                               : ' · past candidate'}
                       </span>
                     </span>
-                  </button>
+                  </span>
                   {c.recommended.length > 0 ? (
-                    <div className="mt-2">
-                      <span className="text-caption text-ink-muted">Recommended for</span>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {c.recommended.map((r) => (
-                          <Badge
-                            key={r.requisition_id}
-                            variant={r.fit.strong ? 'default' : 'secondary'}
-                          >
-                            {r.title}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
+                    <span className="flex flex-wrap gap-1">
+                      {c.recommended.map((r) => (
+                        <Badge key={r.requisition_id} variant="neutral" label={r.title} />
+                      ))}
+                    </span>
                   ) : (
-                    <div className="mt-2 text-caption text-ink-muted">
-                      No matching open role right now
-                    </div>
+                    <span className="text-sm text-secondary">No matching open role right now</span>
                   )}
-                </div>
+                </button>
               ))}
             </div>
           )}
-        </CardContent>
+        </div>
       )}
     </Card>
   );

@@ -1,12 +1,8 @@
-import { cn } from '../lib/cn';
+import { Skeleton as AstryxSkeleton } from '@astryxdesign/core/Skeleton';
+import type { ComponentProps } from 'react';
 
-function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn('animate-pulse rounded-md bg-surface-2 motion-reduce:animate-none', className)}
-      {...props}
-    />
-  );
+export type SkeletonProps = ComponentProps<typeof AstryxSkeleton>;
+
+export function Skeleton(props: SkeletonProps) {
+  return <AstryxSkeleton {...props} />;
 }
-
-export { Skeleton };

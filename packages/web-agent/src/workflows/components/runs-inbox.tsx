@@ -1,11 +1,4 @@
-import {
-  Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@seta/shared-ui';
+import { Button, Selector } from '@seta/shared-ui';
 import { useState } from 'react';
 import { useWorkflowRuns } from '../hooks/use-workflow-runs.ts';
 import type { WorkflowRunScope } from '../state/query-keys.ts';
@@ -25,44 +18,43 @@ export function RunsInbox({ definitionId = null }: RunsInboxProps) {
 
   return (
     <section className="flex h-full flex-col">
-      <header className="flex h-11 flex-none items-center justify-between border-b border-hairline px-4 text-[11px] font-medium uppercase tracking-wider text-ink-subtle">
+      <header className="flex h-11 flex-none items-center justify-between border-b border-border px-4 text-xs font-medium uppercase tracking-wider text-secondary">
         <span>Runs</span>
-        <span className="inline-flex items-center gap-1.5 text-xs font-normal normal-case tracking-normal text-ink-subtle">
+        <span className="inline-flex items-center gap-1.5 text-xs font-normal normal-case tracking-normal text-secondary">
           Show
-          <Select value={scope} onValueChange={(v) => setScope(v as WorkflowRunScope)}>
-            <SelectTrigger className="h-7 w-auto px-2 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="self">Mine</SelectItem>
-              <SelectItem value="tenant">Everyone</SelectItem>
-            </SelectContent>
-          </Select>
+          <Selector
+            label="Show runs"
+            isLabelHidden
+            size="sm"
+            options={[
+              { value: 'self', label: 'Mine' },
+              { value: 'tenant', label: 'Everyone' },
+            ]}
+            value={scope}
+            onChange={(v) => setScope(v as WorkflowRunScope)}
+          />
         </span>
       </header>
       <div className="flex-1 overflow-auto">
         {isLoading
           ? ['s0', 's1', 's2', 's3', 's4', 's5'].map((k) => (
-              <div
-                key={k}
-                className="h-12 animate-pulse border-b border-hairline-tertiary bg-surface-2"
-              />
+              <div key={k} className="h-12 animate-pulse border-b border-border bg-surface" />
             ))
           : null}
         {isError ? (
           <div className="p-4 text-sm">
-            <span className="text-destructive">Couldn&apos;t load runs.</span>{' '}
+            <span className="text-error">Couldn&apos;t load runs.</span>{' '}
             <button
               type="button"
               onClick={() => refetch()}
-              className="font-medium text-primary hover:underline"
+              className="font-medium text-accent hover:underline"
             >
               Try again
             </button>
           </div>
         ) : null}
         {!isLoading && data && rows.length === 0 ? (
-          <div className="flex h-full items-center justify-center p-8 text-center text-sm text-ink-subtle">
+          <div className="flex h-full items-center justify-center p-8 text-center text-sm text-secondary">
             {definitionId
               ? 'Nothing has run here yet.'
               : 'Nothing has run yet. Create a task to kick one off.'}
@@ -73,7 +65,7 @@ export function RunsInbox({ definitionId = null }: RunsInboxProps) {
         ))}
       </div>
       {data && rows.length > 0 ? (
-        <footer className="flex h-11 flex-none items-center justify-between border-t border-hairline bg-canvas px-4 text-xs text-ink-muted">
+        <footer className="flex h-11 flex-none items-center justify-between border-t border-border bg-body px-4 text-xs text-secondary">
           <span>
             {totalLoaded} {totalLoaded === 1 ? 'run' : 'runs'} loaded
           </span>
@@ -82,12 +74,11 @@ export function RunsInbox({ definitionId = null }: RunsInboxProps) {
               size="sm"
               variant="secondary"
               onClick={() => void fetchNextPage()}
-              disabled={isFetchingNextPage}
-            >
-              {isFetchingNextPage ? 'Loading…' : 'Load more'}
-            </Button>
+              isDisabled={isFetchingNextPage}
+              label={isFetchingNextPage ? 'Loading…' : 'Load more'}
+            />
           ) : (
-            <span className="text-ink-subtle">No more runs</span>
+            <span className="text-secondary">No more runs</span>
           )}
         </footer>
       ) : null}

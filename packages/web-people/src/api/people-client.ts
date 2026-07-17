@@ -1,4 +1,4 @@
-import { createHttpEntitySearch } from '@seta/shared-ui';
+import { createHttpEntitySource, type SearchableItem, type SearchSource } from '@seta/shared-ui';
 
 export const GENDER_OPTIONS = [
   { value: 'male', label: 'Male' },
@@ -221,47 +221,53 @@ export async function removeWorkerSkill(workerId: string, skill_id: string): Pro
 
 type NameRow = { id: string; name: string };
 
-export const searchSkills = createHttpEntitySearch<NameRow>({
+function mapNameRow(r: NameRow): SearchableItem {
+  return { id: r.id, label: r.name };
+}
+
+export const searchSkills = createHttpEntitySource<NameRow>({
   path: '/api/people/v1/skills',
   extract: (j) => (j as { rows: NameRow[] }).rows,
-  mapRow: (r) => ({ value: r.id, label: r.name }),
+  mapRow: mapNameRow,
 });
 
-export const searchAccounts = createHttpEntitySearch<NameRow>({
+export const searchAccounts = createHttpEntitySource<NameRow>({
   path: '/api/people/v1/accounts',
   extract: (j) => (j as { rows: NameRow[] }).rows,
-  mapRow: (r) => ({ value: r.id, label: r.name }),
+  mapRow: mapNameRow,
 });
 
-export const searchPeople = createHttpEntitySearch<WorkerListRow>({
+export const searchPeople = createHttpEntitySource<WorkerListRow>({
   path: '/api/people/v1/workers',
   extract: (j) => (j as { rows: WorkerListRow[] }).rows,
-  mapRow: (w) => ({ value: w.worker_id, label: w.full_name }),
+  mapRow: (w) => ({ id: w.worker_id, label: w.full_name }),
 });
 
-export function searchProjects(
-  q: string,
-  accountIds?: string[],
-): Promise<{ value: string; label: string }[]> {
+export async function searchProjects(q: string, accountIds?: string[]): Promise<SearchableItem[]> {
   const extraParams: Record<string, string> = accountIds?.length
     ? { account_id: accountIds.join(',') }
     : {};
-  const searcher = createHttpEntitySearch<NameRow>({
+  return createHttpEntitySource<NameRow>({
     path: '/api/people/v1/projects',
     extract: (j) => (j as { rows: NameRow[] }).rows,
-    mapRow: (r) => ({ value: r.id, label: r.name }),
+    mapRow: mapNameRow,
     extraParams,
-  });
-  return searcher.search(q);
+  }).source.search(q);
 }
 
+// Cascading project picker: `source` is rebuilt whenever the selected account ids change
+// so suggestions stay scoped to those accounts, while `seed` resolves persisted project
+// ids to labels across the full catalog (a selection was already account-scoped when made).
 export const projectSearch = {
-  search: (q: string, accountIds?: string[]) => searchProjects(q, accountIds),
-  resolveByIds: createHttpEntitySearch<NameRow>({
+  source: (accountIds?: string[]): SearchSource<SearchableItem> => ({
+    search: (q) => searchProjects(q, accountIds),
+    bootstrap: () => searchProjects('', accountIds),
+  }),
+  seed: createHttpEntitySource<NameRow>({
     path: '/api/people/v1/projects',
     extract: (j) => (j as { rows: NameRow[] }).rows,
-    mapRow: (r) => ({ value: r.id, label: r.name }),
-  }).resolveByIds,
+    mapRow: mapNameRow,
+  }).seed,
 };
 
 // ---- CV parse & storage ----

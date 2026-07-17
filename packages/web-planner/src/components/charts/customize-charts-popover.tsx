@@ -1,4 +1,4 @@
-import { Button, Checkbox, Popover, PopoverContent, PopoverTrigger } from '@seta/shared-ui';
+import { Button, Checkbox, Popover } from '@seta/shared-ui';
 import { Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { CHART_REGISTRY, type ChartId, DEFAULT_VISIBLE } from './chart-registry';
@@ -18,74 +18,67 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="secondary" size="sm" className="h-7 gap-1.5" aria-label="Customize charts">
-          <Settings2 className="size-3.5 opacity-70" />
-          <span className="font-medium">Customize</span>
-          <span className="text-ink-subtle">
-            {visible.length}/{enabledTotal}
-          </span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-2">
-        <div className="px-1 pb-2">
-          <p className="text-body-sm font-medium text-ink">Customize charts</p>
-          <p className="text-xs text-ink-subtle">
-            Pick what shows on this tab. Saved to your view.
-          </p>
-        </div>
-        <ul className="flex flex-col">
-          {CHART_REGISTRY.map((c) => (
-            <li key={c.id}>
-              <label
-                htmlFor={`chart-toggle-${c.id}`}
-                className={`flex items-start gap-2 rounded px-1 py-1.5 ${
-                  c.disabled ? 'opacity-50' : 'cursor-pointer hover:bg-surface-2'
-                }`}
-              >
+    <Popover
+      isOpen={open}
+      onOpenChange={setOpen}
+      alignment="end"
+      width={288}
+      label="Customize charts"
+      content={
+        <>
+          <div className="px-1 pb-2">
+            <p className="text-base font-medium text-primary">Customize charts</p>
+            <p className="text-xs text-secondary">
+              Pick what shows on this tab. Saved to your view.
+            </p>
+          </div>
+          <ul className="flex flex-col">
+            {CHART_REGISTRY.map((c) => (
+              <li key={c.id} className="flex items-center gap-2 rounded px-1 py-1.5">
                 <Checkbox
-                  id={`chart-toggle-${c.id}`}
-                  className="mt-0.5"
-                  checked={visibleSet.has(c.id)}
-                  disabled={c.disabled}
-                  onCheckedChange={() => {
+                  label={c.title}
+                  description={c.subtitle}
+                  value={visibleSet.has(c.id)}
+                  isDisabled={c.disabled}
+                  onChange={() => {
                     if (!c.disabled) toggle(c.id);
                   }}
                 />
-                <span className="min-w-0">
-                  <span className="flex items-center gap-1.5 text-sm text-ink">
-                    {c.title}
+                {(c.default || c.disabled) && (
+                  <span className="flex items-center gap-1.5">
                     {c.default && (
-                      <span className="rounded border border-hairline px-1 text-[10px] uppercase tracking-wide text-ink-subtle">
+                      <span className="rounded border border-border px-1 text-xs uppercase tracking-wide text-secondary">
                         Default
                       </span>
                     )}
                     {c.disabled && (
-                      <span className="text-[10px] uppercase tracking-wide text-ink-subtle">
+                      <span className="text-xs uppercase tracking-wide text-secondary">
                         Coming soon
                       </span>
                     )}
                   </span>
-                  <span className="block text-xs text-ink-subtle">{c.subtitle}</span>
-                </span>
-              </label>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-2 flex items-center justify-between border-t border-hairline pt-2">
-          <button
-            type="button"
-            className="text-xs text-ink-subtle hover:text-ink"
-            onClick={() => onChange(DEFAULT_VISIBLE)}
-          >
-            Reset to defaults
-          </button>
-          <Button variant="secondary" size="sm" className="h-7" onClick={() => setOpen(false)}>
-            Done
-          </Button>
-        </div>
-      </PopoverContent>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              label="Reset to defaults"
+              onClick={() => onChange(DEFAULT_VISIBLE)}
+            />
+            <Button variant="secondary" size="sm" label="Done" onClick={() => setOpen(false)} />
+          </div>
+        </>
+      }
+    >
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={<Settings2 className="size-3.5 opacity-70" />}
+        label={`Customize ${visible.length}/${enabledTotal}`}
+      />
     </Popover>
   );
 }

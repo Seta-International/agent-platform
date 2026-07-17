@@ -1,10 +1,10 @@
-import { Sheet, SheetContent } from '@seta/shared-ui';
+import { Dialog, Layout, LayoutContent } from '@seta/shared-ui';
 import { useEffect, useState } from 'react';
-import { AgentComposer } from './chat-experience/agent-composer';
+import { AgentConversation } from './chat-experience/agent-conversation';
 import { AgentHeader } from './chat-experience/agent-header';
 import { useAgentRuntimeContext, useAgentSelection } from './chat-experience/agent-provider';
 import { AgentThreadRail } from './chat-experience/agent-thread-rail';
-import { AgentTranscript } from './chat-experience/agent-transcript';
+import { useIsMobile } from './lib/use-is-mobile';
 
 export interface ChatScreenProps {
   threadId?: string;
@@ -14,6 +14,9 @@ export function ChatScreen({ threadId }: ChatScreenProps) {
   const { selection, actions } = useAgentSelection();
   const { historyLoading } = useAgentRuntimeContext();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // The old Radix sheet hid itself on desktop with `lg:hidden` on its content; Astryx
+  // components take no Tailwind, so gate the mount instead.
+  const isMobile = useIsMobile();
 
   // Sync route param → provider selection. Provider is the source of truth;
   // /agent/chat keeps a search param for shareable links. The route's
@@ -26,7 +29,7 @@ export function ChatScreen({ threadId }: ChatScreenProps) {
 
   if (historyLoading) {
     return (
-      <div className="flex h-full min-h-0 flex-1 items-center justify-center text-caption text-ink-subtle">
+      <div className="flex h-full min-h-0 flex-1 items-center justify-center text-sm text-secondary">
         Loading chat…
       </div>
     );
@@ -37,23 +40,38 @@ export function ChatScreen({ threadId }: ChatScreenProps) {
       <div className="hidden lg:flex">
         <AgentThreadRail activeThreadId={selection.threadId} />
       </div>
-      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-        <SheetContent
-          side="left"
-          hideClose
-          className="w-[280px] border-r border-hairline bg-surface-1 p-0 sm:max-w-none lg:hidden"
+      {isMobile && (
+        <Dialog
+          isOpen={mobileNavOpen}
+          onOpenChange={setMobileNavOpen}
+          purpose="info"
+          position={{ top: 0, left: 0, bottom: 0 }}
+          width={280}
+          maxHeight="100dvh"
+          padding={0}
+          aria-label="Chat navigation"
         >
-          <AgentThreadRail
-            activeThreadId={selection.threadId}
-            onAfterNavigate={() => setMobileNavOpen(false)}
-            className="w-full border-r-0 lg:w-full"
+          {/*
+           * Headerless: the rail is the whole surface — light-dismiss and picking a thread
+           * close it, mirroring the old sheet's `hideClose`.
+           */}
+          <Layout
+            padding={0}
+            content={
+              <LayoutContent padding={0}>
+                <AgentThreadRail
+                  activeThreadId={selection.threadId}
+                  onAfterNavigate={() => setMobileNavOpen(false)}
+                  className="w-full border-r-0 lg:w-full"
+                />
+              </LayoutContent>
+            }
           />
-        </SheetContent>
-      </Sheet>
+        </Dialog>
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
         <AgentHeader onOpenMobileNav={() => setMobileNavOpen(true)} />
-        <AgentTranscript />
-        <AgentComposer />
+        <AgentConversation />
       </div>
     </div>
   );

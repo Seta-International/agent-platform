@@ -1,32 +1,33 @@
 import {
   Badge,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
-  cn,
-  DataTable,
   Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
+  EmptyState,
+  HStack,
   Input,
-  PageChrome,
-  PageChromeToolbar,
-  type RowSelectionState,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  pixel,
+  proportional,
+  Selector,
+  Skeleton,
+  Table,
+  type TableColumn,
+  Text,
+  Toolbar,
+  useTablePagination,
+  useTableSelection,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import type { ColumnDef, OnChangeFn, PaginationState, Row } from '@tanstack/react-table';
-import { MoreHorizontal, X } from 'lucide-react';
+import { MoreHorizontal, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PersonAvatar } from '../../components/person-avatar.tsx';
 import { useGroupsQuery } from '../../groups/hooks/useGroups.ts';
@@ -52,40 +53,34 @@ const EMPLOYMENT_OPTIONS = [
 
 function FilterSelect({
   value,
-  onValueChange,
+  onChange,
   options,
   ariaLabel,
-  className,
 }: {
   value: string;
-  onValueChange: (v: string) => void;
+  onChange: (v: string) => void;
   options: ReadonlyArray<{ value: string; label: string }>;
   ariaLabel: string;
-  className?: string;
 }) {
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger aria-label={ariaLabel} className={cn('h-8 text-body-sm', className)}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Selector
+      label={ariaLabel}
+      isLabelHidden
+      size="sm"
+      value={value}
+      onChange={onChange}
+      options={[...options]}
+    />
   );
 }
 
 const ACCOUNT_STATUS_BADGE: Record<
   DirectoryRow['account_status'],
-  'outline' | 'success' | 'destructive'
+  'neutral' | 'success' | 'error'
 > = {
-  none: 'outline',
+  none: 'neutral',
   active: 'success',
-  suspended: 'destructive',
+  suspended: 'error',
 };
 
 const ACCOUNT_STATUS_LABEL: Record<DirectoryRow['account_status'], string> = {
@@ -94,9 +89,9 @@ const ACCOUNT_STATUS_LABEL: Record<DirectoryRow['account_status'], string> = {
   suspended: 'Suspended',
 };
 
-const EMPLOYMENT_BADGE: Record<DirectoryRow['employment_status'], 'success' | 'secondary'> = {
+const EMPLOYMENT_BADGE: Record<DirectoryRow['employment_status'], 'success' | 'neutral'> = {
   active: 'success',
-  terminated: 'secondary',
+  terminated: 'neutral',
 };
 
 const EMPLOYMENT_LABEL: Record<DirectoryRow['employment_status'], string> = {
@@ -106,19 +101,19 @@ const EMPLOYMENT_LABEL: Record<DirectoryRow['employment_status'], string> = {
 
 const DEFAULT_PAGE_SIZE = 25;
 
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO
+// lacks an index signature, so alias locally (do not touch the shared DTO).
+type DirectoryTableRow = DirectoryRow & Record<string, unknown>;
+
 /** Compact chip list for name collections (groups, accounts, projects) with +N overflow. */
 function ChipList({ items }: { items: string[] }) {
-  if (items.length === 0) return <span className="text-ink-tertiary">{'—'}</span>;
+  if (items.length === 0) return <span className="text-disabled">{'—'}</span>;
   return (
     <div className="flex flex-wrap items-center gap-1">
       {items.slice(0, 2).map((label) => (
-        <Badge key={label} variant="secondary">
-          {label}
-        </Badge>
+        <Badge key={label} variant="neutral" label={label} />
       ))}
-      {items.length > 2 && (
-        <span className="text-caption text-ink-tertiary">+{items.length - 2}</span>
-      )}
+      {items.length > 2 && <span className="text-sm text-disabled">+{items.length - 2}</span>}
     </div>
   );
 }
@@ -131,7 +126,6 @@ interface DirectoryProps {
 export function Directory({ search, onSearch }: DirectoryProps) {
   const [selectedRow, setSelectedRow] = useState<DirectoryRow | null>(null);
   const [suspendTarget, setSuspendTarget] = useState<DirectoryRow | null>(null);
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const canWrite = usePermission('identity.user.update');
 
@@ -191,177 +185,178 @@ export function Directory({ search, onSearch }: DirectoryProps) {
   const suspend = useSuspend();
   const reactivate = useReactivate();
 
-  const rows = data?.rows ?? [];
+  const rows = (data?.rows ?? []) as DirectoryTableRow[];
 
   // Work enrichment (department, accounts, projects) joins people projections onto the page rows.
   const personIds = useMemo(() => rows.map((r) => r.person_id), [rows]);
   const { data: briefs = [] } = useWorkersBrief(personIds);
   const briefById = useMemo(() => new Map(briefs.map((b) => [b.worker_id, b])), [briefs]);
 
-  // Accumulator: person_id → user_id, surviving pagination. rowSelection drives
-  // the table checkboxes per page; selectedUsers is the durable cross-page set.
+  // Only account-holding rows are selectable (a 'none' row has no user_id).
+  const selectableRows = useMemo(() => rows.filter((r) => r.account_status !== 'none'), [rows]);
+
+  // Accumulator: person_id → user_id, surviving pagination. This durable
+  // cross-page map is the single source of truth for the checkboxes; the
+  // selection plugin reads it via getIsItemSelected.
   const [selectedUsers, setSelectedUsers] = useState<Record<string, string>>({});
 
-  const handleRowSelectionChange = useCallback<OnChangeFn<RowSelectionState>>(
-    (updater) => {
-      setRowSelection((prev) => {
-        const next = typeof updater === 'function' ? updater(prev) : updater;
-        setSelectedUsers((acc) => {
-          const merged = { ...acc };
-          // Newly selected on this page → resolve user_id from the visible rows.
-          for (const personId of Object.keys(next)) {
-            if (next[personId] && !prev[personId]) {
-              const userId = rows.find((r) => r.person_id === personId)?.user_id;
-              if (userId) merged[personId] = userId;
-            }
+  // Select adds person_id→user_id, deselect removes it.
+  const handleRowToggle = useCallback((row: DirectoryTableRow, isSelected: boolean) => {
+    setSelectedUsers((acc) => {
+      const next = { ...acc };
+      if (isSelected) {
+        if (row.user_id) next[row.person_id] = row.user_id;
+      } else {
+        delete next[row.person_id];
+      }
+      return next;
+    });
+  }, []);
+
+  // Select-all operates on the current page's selectable rows only.
+  const handleSelectAllOnPage = useCallback(
+    (selectAll: boolean) => {
+      setSelectedUsers((acc) => {
+        const next = { ...acc };
+        for (const r of selectableRows) {
+          if (selectAll) {
+            if (r.user_id) next[r.person_id] = r.user_id;
+          } else {
+            delete next[r.person_id];
           }
-          // Newly deselected on this page → drop from accumulator.
-          for (const personId of Object.keys(prev)) {
-            if (prev[personId] && !next[personId]) delete merged[personId];
-          }
-          return merged;
-        });
+        }
         return next;
       });
     },
-    [rows],
+    [selectableRows],
   );
 
   const selectedUserIds = useMemo(() => Object.values(selectedUsers), [selectedUsers]);
 
   function clearSelection() {
-    setRowSelection({});
     setSelectedUsers({});
   }
 
-  const rowCount = data?.total ?? 0;
-  const pageCount = Math.max(1, Math.ceil(rowCount / pageSize));
+  function handleSuspendDialogOpenChange(o: boolean) {
+    if (!o) setSuspendTarget(null);
+  }
 
-  const columns = useMemo<ColumnDef<DirectoryRow>[]>(
+  const rowCount = data?.total ?? 0;
+
+  const columns = useMemo<TableColumn<DirectoryTableRow>[]>(
     () => [
       {
-        id: 'full_name',
-        accessorKey: 'full_name',
+        key: 'full_name',
         header: 'Name',
-        cell: ({ row }) => (
+        width: proportional(2),
+        renderCell: (r) => (
           <div className="flex items-center gap-2.5">
-            <PersonAvatar name={row.original.full_name} />
+            <PersonAvatar name={r.full_name} />
             <div className="flex min-w-0 flex-col">
-              <span className="truncate font-medium text-ink">{row.original.full_name}</span>
-              {row.original.work_email && (
-                <span className="truncate text-caption text-ink-tertiary">
-                  {row.original.work_email}
-                </span>
+              <span className="truncate font-medium text-primary">{r.full_name}</span>
+              {r.work_email && (
+                <span className="truncate text-sm text-disabled">{r.work_email}</span>
               )}
             </div>
           </div>
         ),
       },
       {
-        id: 'job_title',
-        accessorKey: 'job_title',
+        key: 'job_title',
         header: 'Position',
-        cell: ({ row }) => {
-          const department = briefById.get(row.original.person_id)?.org_unit_name;
+        width: proportional(2),
+        renderCell: (r) => {
+          const department = briefById.get(r.person_id)?.org_unit_name;
           return (
             <div className="flex min-w-0 flex-col">
-              {row.original.job_title ? (
-                <span className="truncate">{row.original.job_title}</span>
+              {r.job_title ? (
+                <span className="truncate">{r.job_title}</span>
               ) : (
-                <span className="text-ink-tertiary">{'—'}</span>
+                <span className="text-disabled">{'—'}</span>
               )}
-              {department && (
-                <span className="truncate text-caption text-ink-tertiary">{department}</span>
-              )}
+              {department && <span className="truncate text-sm text-disabled">{department}</span>}
             </div>
           );
         },
       },
       {
-        id: 'employment_status',
+        key: 'employment_status',
         header: 'Employment',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <Badge variant={EMPLOYMENT_BADGE[row.original.employment_status]}>
-            {EMPLOYMENT_LABEL[row.original.employment_status]}
-          </Badge>
+        width: pixel(140),
+        renderCell: (r) => (
+          <Badge
+            variant={EMPLOYMENT_BADGE[r.employment_status]}
+            label={EMPLOYMENT_LABEL[r.employment_status]}
+          />
         ),
       },
       {
-        id: 'account_status',
+        key: 'account_status',
         header: 'Account status',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <Badge variant={ACCOUNT_STATUS_BADGE[row.original.account_status]}>
-            {ACCOUNT_STATUS_LABEL[row.original.account_status]}
-          </Badge>
+        width: pixel(140),
+        renderCell: (r) => (
+          <Badge
+            variant={ACCOUNT_STATUS_BADGE[r.account_status]}
+            label={ACCOUNT_STATUS_LABEL[r.account_status]}
+          />
         ),
       },
       {
-        id: 'accounts',
+        key: 'accounts',
         header: 'Accounts',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <ChipList
-            items={(briefById.get(row.original.person_id)?.accounts ?? []).map((a) => a.name)}
-          />
+        width: proportional(1),
+        renderCell: (r) => (
+          <ChipList items={(briefById.get(r.person_id)?.accounts ?? []).map((a) => a.name)} />
         ),
       },
       {
-        id: 'projects',
+        key: 'projects',
         header: 'Projects',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <ChipList
-            items={(briefById.get(row.original.person_id)?.projects ?? []).map((p) => p.name)}
-          />
+        width: proportional(1),
+        renderCell: (r) => (
+          <ChipList items={(briefById.get(r.person_id)?.projects ?? []).map((p) => p.name)} />
         ),
       },
       {
-        id: 'groups',
+        key: 'groups',
         header: 'Groups',
-        enableSorting: false,
-        cell: ({ row }) => <ChipList items={row.original.groups ?? []} />,
+        width: proportional(1),
+        renderCell: (r) => <ChipList items={r.groups ?? []} />,
       },
       {
-        id: 'actions',
+        key: 'actions',
         header: '',
-        enableSorting: false,
-        cell: ({ row }) => {
+        width: pixel(56),
+        align: 'end',
+        renderCell: (r) => {
           if (!canWrite) return null;
-          const r = row.original;
           return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="tertiary"
-                  size="icon"
-                  aria-label={`Row actions for ${r.full_name}`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {r.account_status === 'none' && (
-                  <DropdownMenuItem onSelect={() => provision.mutate(r.person_id)}>
-                    Provision
-                  </DropdownMenuItem>
-                )}
-                {r.account_status === 'active' && r.user_id && (
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onSelect={() => setSuspendTarget(r)}
-                  >
-                    Suspend
-                  </DropdownMenuItem>
-                )}
-                {r.account_status === 'suspended' && r.user_id && (
-                  <DropdownMenuItem onSelect={() => reactivate.mutate(r.user_id ?? '')}>
-                    Reactivate
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
+            <DropdownMenu
+              placement="below"
+              button={{
+                variant: 'ghost',
+                size: 'sm',
+                isIconOnly: true,
+                label: `Row actions for ${r.full_name}`,
+                icon: <MoreHorizontal className="size-4" />,
+              }}
+            >
+              {r.account_status === 'none' && (
+                <DropdownMenuItem label="Provision" onClick={() => provision.mutate(r.person_id)} />
+              )}
+              {r.account_status === 'active' && r.user_id && (
+                <DropdownMenuItem
+                  label="Suspend"
+                  style={{ color: 'var(--color-error)' }}
+                  onClick={() => setSuspendTarget(r)}
+                />
+              )}
+              {r.account_status === 'suspended' && r.user_id && (
+                <DropdownMenuItem
+                  label="Reactivate"
+                  onClick={() => reactivate.mutate(r.user_id ?? '')}
+                />
+              )}
             </DropdownMenu>
           );
         },
@@ -370,157 +365,222 @@ export function Directory({ search, onSearch }: DirectoryProps) {
     [canWrite, provision, reactivate, briefById],
   );
 
+  const pagination = useTablePagination<DirectoryTableRow>({
+    page: page + 1, // URL state is 0-based; the Astryx pager is 1-based.
+    onPageChange: (p) => setPage(p - 1),
+    totalItems: rowCount,
+    pageSize,
+    onPageSizeChange: setPageSize,
+    pageSizeOptions: [10, 25, 50, 100],
+  });
+
+  const selection = useTableSelection<DirectoryTableRow>({
+    getIsItemSelected: (r) => !!selectedUsers[r.person_id],
+    onSelectItem: ({ item, isSelected }) => handleRowToggle(item, isSelected),
+    onSelectAll: ({ isAllSelected }) => handleSelectAllOnPage(isAllSelected),
+    getIsAllSelected: () =>
+      selectableRows.length > 0 && selectableRows.every((r) => !!selectedUsers[r.person_id]),
+    getIsIndeterminate: () =>
+      selectableRows.some((r) => !!selectedUsers[r.person_id]) &&
+      !selectableRows.every((r) => !!selectedUsers[r.person_id]),
+    getIsItemEnabled: (r) => r.account_status !== 'none',
+  });
+
   const subtitle = isLoading
     ? 'Loading…'
     : data
       ? `${rowCount.toLocaleString()} ${rowCount === 1 ? 'person' : 'people'}`
       : undefined;
 
-  const pagination: PaginationState = { pageIndex: page, pageSize };
-
   return (
-    <PageChrome
-      breadcrumb={['Admin']}
-      title="Directory"
-      subtitle={subtitle}
-      toolbar={
-        <PageChromeToolbar
-          left={
-            <div className="flex flex-wrap items-center gap-2">
-              <FilterSelect
-                ariaLabel="Filter by group"
-                value={group}
-                onValueChange={(v) => applyFilter({ group: v === 'all' ? undefined : v })}
-                options={groupOptions}
-                className="w-44"
-              />
-              <FilterSelect
-                ariaLabel="Filter by account status"
-                value={status}
-                onValueChange={(v) =>
-                  applyFilter({
-                    status: v === 'all' ? undefined : (v as DirectorySearch['status']),
-                  })
-                }
-                options={STATUS_OPTIONS}
-                className="w-40"
-              />
-              <FilterSelect
-                ariaLabel="Filter by employment"
-                value={employment}
-                onValueChange={(v) =>
-                  applyFilter({
-                    employment: v === 'all' ? undefined : (v as DirectorySearch['employment']),
-                  })
-                }
-                options={EMPLOYMENT_OPTIONS}
-                className="w-40"
-              />
-              {hasFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 text-ink-subtle"
-                  onClick={() => {
-                    setQInput('');
-                    onSearch(() => ({}));
+    <Layout
+      height="fill"
+      header={
+        <>
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>Directory</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack hAlign="between" vAlign="center" gap={2}>
+                <HStack gap={2} vAlign="center">
+                  <Text as="h1" size="lg" weight="semibold">
+                    Directory
+                  </Text>
+                  {subtitle && <Text color="secondary">{subtitle}</Text>}
+                </HStack>
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+          <LayoutHeader padding={0}>
+            <Toolbar
+              label="Directory filters"
+              size="sm"
+              dividers={['bottom']}
+              startContent={
+                <div className="flex flex-wrap items-center gap-2">
+                  <FilterSelect
+                    ariaLabel="Filter by group"
+                    value={group}
+                    onChange={(v) => applyFilter({ group: v === 'all' ? undefined : v })}
+                    options={groupOptions}
+                  />
+                  <FilterSelect
+                    ariaLabel="Filter by account status"
+                    value={status}
+                    onChange={(v) =>
+                      applyFilter({
+                        status: v === 'all' ? undefined : (v as DirectorySearch['status']),
+                      })
+                    }
+                    options={STATUS_OPTIONS}
+                  />
+                  <FilterSelect
+                    ariaLabel="Filter by employment"
+                    value={employment}
+                    onChange={(v) =>
+                      applyFilter({
+                        employment: v === 'all' ? undefined : (v as DirectorySearch['employment']),
+                      })
+                    }
+                    options={EMPLOYMENT_OPTIONS}
+                  />
+                  {hasFilters && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-secondary"
+                      onClick={() => {
+                        setQInput('');
+                        onSearch(() => ({}));
+                      }}
+                      icon={<X className="size-3.5" aria-hidden />}
+                      label="Clear"
+                    />
+                  )}
+                </div>
+              }
+              endContent={
+                <Input
+                  label="Search people"
+                  isLabelHidden
+                  startIcon={<Search className="size-3.5" aria-hidden />}
+                  placeholder="Search people…"
+                  value={qInput}
+                  onChange={(value) => {
+                    setQInput(value);
+                    applyFilter({ q: value.trim() || undefined });
                   }}
-                >
-                  <X className="size-3.5" aria-hidden />
-                  Clear
-                </Button>
-              )}
-            </div>
-          }
-          right={
-            <Input
-              placeholder="Search people…"
-              value={qInput}
-              onChange={(e) => {
-                setQInput(e.target.value);
-                applyFilter({ q: e.target.value.trim() || undefined });
-              }}
-              className="h-8 w-64 text-body-sm"
-              aria-label="Search people"
+                  className="w-64"
+                  size="sm"
+                />
+              }
             />
-          }
-        />
+          </LayoutHeader>
+        </>
       }
-    >
-      {canWrite && selectedUserIds.length > 0 && (
-        <BulkGroupBar selectedUserIds={selectedUserIds} onClearSelection={clearSelection} />
-      )}
-      <div className="px-6 py-4">
-        <DataTable
-          mode="server"
-          data={rows}
-          columns={columns}
-          isLoading={isLoading}
-          enableRowSelection={(row: Row<DirectoryRow>) => row.original.account_status !== 'none'}
-          rowSelection={rowSelection}
-          onRowSelectionChange={handleRowSelectionChange}
-          enableGlobalFilter={false}
-          enableColumnVisibility={false}
-          sorting={[]}
-          onSortingChange={() => undefined}
-          columnFilters={[]}
-          onColumnFiltersChange={() => undefined}
-          globalFilter=""
-          onGlobalFilterChange={() => undefined}
-          pagination={pagination}
-          onPaginationChange={(updater) => {
-            const next = typeof updater === 'function' ? updater(pagination) : updater;
-            if (next.pageSize !== pageSize) setPageSize(next.pageSize);
-            else setPage(next.pageIndex);
-          }}
-          pageCount={pageCount}
-          rowCount={rowCount}
-          getRowId={(r) => r.person_id}
-          onRowClick={(row) => setSelectedRow(row.original)}
-        />
-      </div>
+      content={
+        <LayoutContent padding={0}>
+          {canWrite && selectedUserIds.length > 0 && (
+            <BulkGroupBar selectedUserIds={selectedUserIds} onClearSelection={clearSelection} />
+          )}
+          <div className="px-6 py-4">
+            {isLoading ? (
+              <div className="space-y-2">
+                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                  <Skeleton key={id} height={44} />
+                ))}
+              </div>
+            ) : (
+              <Table
+                data={rows}
+                columns={columns}
+                idKey="person_id"
+                emptyState={<EmptyState title="No results" />}
+                plugins={{
+                  selection,
+                  pagination,
+                  // Row click opens the detail sheet. Guard against clicks that
+                  // originate from the row's own interactive controls (selection
+                  // checkbox, the actions menu trigger) so they don't also
+                  // navigate — the deleted DataTable did this via stopPropagation.
+                  rowClick: {
+                    transformBodyRow: (props, item) => ({
+                      ...props,
+                      htmlProps: {
+                        ...props.htmlProps,
+                        style: { ...props.htmlProps.style, cursor: 'pointer' },
+                        onClick: (e) => {
+                          const target = e.target as HTMLElement;
+                          if (
+                            target.closest(
+                              'button, a, input, label, [role="checkbox"], [role="menuitem"]',
+                            )
+                          )
+                            return;
+                          setSelectedRow(item);
+                        },
+                      },
+                    }),
+                  },
+                }}
+              />
+            )}
+          </div>
 
-      {/* Suspend confirm dialog */}
-      <Dialog
-        open={suspendTarget !== null}
-        onOpenChange={(o) => {
-          if (!o) setSuspendTarget(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Suspend account?</DialogTitle>
-            <DialogDescription>
-              {suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at
-              any time.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary">Cancel</Button>
-            </DialogClose>
-            <Button
-              variant="default"
-              className="bg-destructive text-on-primary hover:bg-destructive/90"
-              onClick={() => {
-                if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
-                setSuspendTarget(null);
-              }}
-            >
-              Suspend
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {/* Suspend confirm dialog. "form" purpose, not "required": this action is recoverable, not
+          terminal, and Astryx's `purpose="form"` already blocks backdrop-click dismissal (only
+          Escape is allowed) — closer to `"required"`'s risk profile than the name suggests, so
+          there's little value in going further. The strongest signal is this file's own history:
+          before this migration it used a plain Radix `Dialog` here, never `AlertDialog`, unlike
+          `GroupDetail.tsx`'s genuinely terminal group-delete flow (irreversible, deletes roles)
+          which *does* use `AlertDialog` in the same package — the original author already judged
+          suspend as non-terminal. The copy ("You can reactivate at any time") corroborates that
+          judgment but isn't the primary evidence. */}
+          <Dialog
+            isOpen={suspendTarget !== null}
+            onOpenChange={handleSuspendDialogOpenChange}
+            purpose="form"
+          >
+            <Layout
+              header={
+                <DialogHeader
+                  title="Suspend account?"
+                  subtitle={`${suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at any time.`}
+                  onOpenChange={handleSuspendDialogOpenChange}
+                />
+              }
+              footer={
+                <DialogFooter>
+                  <Button
+                    variant="secondary"
+                    label="Cancel"
+                    onClick={() => setSuspendTarget(null)}
+                  />
+                  <Button
+                    variant="destructive"
+                    label="Suspend"
+                    onClick={() => {
+                      if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
+                      setSuspendTarget(null);
+                    }}
+                  />
+                </DialogFooter>
+              }
+            />
+          </Dialog>
 
-      {/* Detail sheet */}
-      <UserDetailSheet
-        row={selectedRow}
-        open={selectedRow !== null}
-        onOpenChange={(o) => {
-          if (!o) setSelectedRow(null);
-        }}
-      />
-    </PageChrome>
+          {/* Detail sheet */}
+          <UserDetailSheet
+            row={selectedRow}
+            open={selectedRow !== null}
+            onOpenChange={(o) => {
+              if (!o) setSelectedRow(null);
+            }}
+          />
+        </LayoutContent>
+      }
+    />
   );
 }

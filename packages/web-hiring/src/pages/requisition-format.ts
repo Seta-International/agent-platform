@@ -15,10 +15,10 @@ export const STATUS_LABEL: Record<ReqStatus, string> = {
   cancelled: 'Cancelled',
 };
 export const STATUS_BADGE_CLASS: Record<ReqStatus, string> = {
-  open: 'border-transparent bg-success-tint text-success-ink',
-  on_hold: 'border-transparent bg-warning-tint text-warning-ink',
-  filled: 'border-transparent bg-primary/12 text-primary',
-  cancelled: 'border-transparent bg-danger-tint text-danger-ink',
+  open: 'border-transparent bg-success-muted text-success',
+  on_hold: 'border-transparent bg-warning-muted text-warning',
+  filled: 'border-transparent bg-accent-bg/12 text-accent',
+  cancelled: 'border-transparent bg-error-muted text-error',
 };
 
 // application.stage has no 'sourcing' value (it starts at 'new') — map it onto the

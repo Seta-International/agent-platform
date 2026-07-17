@@ -1,18 +1,14 @@
 import {
   Button,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
   Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Layout,
+  LayoutContent,
+  Selector,
   Textarea,
-  toast,
+  useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -33,6 +29,7 @@ export function RejectDialog({
   onOpenChange: (v: boolean) => void;
   onDone: () => void;
 }) {
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [reasonId, setReasonId] = useState('');
   const [tags, setTags] = useState('');
@@ -57,63 +54,53 @@ export function RejectDialog({
         note: note.trim() || undefined,
       }),
     onSuccess: () => {
-      toast.success('Candidate rejected');
+      toast({ body: 'Candidate rejected' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
       onOpenChange(false);
       onDone();
     },
-    onError: (e: Error) => on409(e, queryClient, hiringKeys.candidates()),
+    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.candidates()),
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Reject candidate</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="reject-reason">Reason</Label>
-            <Select value={effectiveReason} onValueChange={(v) => setReasonId(v)}>
-              <SelectTrigger id="reject-reason" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {active.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="reject-tags">Tags — comma-separated</Label>
-            <Input
-              id="reject-tags"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="e.g. frontend, junior"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="reject-note">Note</Label>
-            <Textarea id="reject-note" value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+    <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="required">
+      <Layout
+        header={<DialogHeader title="Reject candidate" onOpenChange={onOpenChange} />}
+        content={
+          <LayoutContent>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Selector
+                  label="Reason"
+                  options={active.map((r) => ({ value: r.id, label: r.label }))}
+                  value={effectiveReason}
+                  onChange={(v) => setReasonId(v)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Input
+                  label="Tags — comma-separated"
+                  value={tags}
+                  onChange={(value) => setTags(value)}
+                  placeholder="e.g. frontend, junior"
+                />
+              </div>
+              <Textarea label="Note" value={note} onChange={(value) => setNote(value)} />
+            </div>
+          </LayoutContent>
+        }
+        footer={
+          <DialogFooter>
+            <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <Button
               variant="destructive"
+              label={mutation.isPending ? 'Rejecting…' : 'Reject'}
               onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || !effectiveReason}
-            >
-              {mutation.isPending ? 'Rejecting…' : 'Reject'}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
+              isDisabled={mutation.isPending || !effectiveReason}
+            />
+          </DialogFooter>
+        }
+      />
     </Dialog>
   );
 }

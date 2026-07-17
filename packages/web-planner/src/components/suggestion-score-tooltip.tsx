@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { AssigneeSuggestion } from '../api/planner-client';
 import {
   displayedSkills,
@@ -6,44 +7,45 @@ import {
   scorePercent,
 } from './assignee-suggestion-format';
 
-// Shared with the score pill / AI-matches heading in TaskDetailAssigneesCard.
-const AI_GRADIENT = 'linear-gradient(120deg, #0047FF 0%, #6d5cff 46%, #22d3ee 100%)';
+// Brand-cohesive "intelligence" gradient (Seta blue → indigo → cyan) for the
+// AI-matches heading, which sits on the light page surface. No token expresses
+// a multi-stop brand gradient, so it stays a literal here.
+export const AI_GRADIENT = 'linear-gradient(120deg, #0047FF 0%, #6d5cff 46%, #22d3ee 100%)';
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <span className="text-ink-subtle">{label}</span>
-      <span className="text-right font-medium text-ink">{value}</span>
+      <span className="text-secondary">{label}</span>
+      <span className="text-right font-medium text-primary">{value}</span>
     </div>
   );
 }
 
-/** Rich, structured hover card explaining why a person was suggested. */
+/** Rich, structured breakdown explaining why a person was suggested. Rendered
+ *  inside a light HoverCard surface, so it uses the page theme tokens. */
 export function SuggestionScoreTooltip({ suggestion: s }: { suggestion: AssigneeSuggestion }) {
   const pct = scorePercent(s);
   const skills = displayedSkills(s);
   return (
-    <div className="flex w-56 flex-col gap-2 py-1 text-caption">
+    <div className="text-xs flex w-56 flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
-        <span className="font-semibold text-ink">{matchLabel(s.score)}</span>
-        <span
-          className="bg-clip-text text-sm font-bold tabular-nums text-transparent"
-          style={{ backgroundImage: AI_GRADIENT }}
-        >
-          {pct}%
-        </span>
+        <span className="font-semibold text-primary">{matchLabel(s.score)}</span>
+        <span className="text-sm font-bold tabular-nums text-accent">{pct}%</span>
       </div>
 
-      <div className="h-1 w-full overflow-hidden rounded-full bg-surface-1">
+      <div
+        className="h-1 w-full overflow-hidden rounded-full"
+        style={{ background: 'var(--color-border)' }}
+      >
         <div
           className="h-full rounded-full"
-          style={{ width: `${pct}%`, backgroundImage: AI_GRADIENT }}
+          style={{ width: `${pct}%`, background: 'var(--color-accent)' }}
         />
       </div>
 
-      <p className="text-ink-muted">{matchRationale(s)}</p>
+      <p className="text-secondary">{matchRationale(s)}</p>
 
-      <div className="flex flex-col gap-1 border-t border-hairline pt-1.5">
+      <div className="flex flex-col gap-1 border-t border-border pt-1.5">
         {skills.length > 0 && (
           <Row
             label="Skills"
@@ -51,7 +53,7 @@ export function SuggestionScoreTooltip({ suggestion: s }: { suggestion: Assignee
               <span className="inline-flex flex-wrap justify-end gap-1">
                 {skills.join(', ')}
                 {s.exact_overlap > 0 && (
-                  <span className="rounded bg-primary-tint px-1 font-semibold text-primary-ink">
+                  <span className="rounded bg-accent-muted px-1 font-semibold text-accent">
                     {s.exact_overlap} exact
                   </span>
                 )}

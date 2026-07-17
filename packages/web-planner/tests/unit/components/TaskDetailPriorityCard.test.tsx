@@ -25,16 +25,19 @@ describe('TaskDetailPriorityCard', () => {
     const user = userEvent.setup();
     const task = makeTaskWithAssignees({ id: 't1', priority_number: 3 });
     renderWithClient(<TaskDetailPriorityCard task={task} planId="p1" />);
-    expect(screen.getByText('Priority')).toBeInTheDocument();
-    // Trigger shows the current option's label.
-    const trigger = screen.getByRole('button', { name: 'Priority' });
+    // "Priority" appears twice: the section header and the Selector's
+    // visually-hidden accessible label.
+    expect(screen.getAllByText('Priority').length).toBeGreaterThan(0);
+    // Astryx Selector: trigger is a combobox named by its (hidden) label and
+    // shows the current option's label.
+    const trigger = screen.getByRole('combobox', { name: /priority/i });
     expect(trigger).toHaveTextContent('Important');
     // Opening the dropdown reveals all four options.
     await user.click(trigger);
-    expect(await screen.findByRole('menuitem', { name: 'Urgent' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Important' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Medium' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Low' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'Urgent' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Important' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Medium' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Low' })).toBeInTheDocument();
   });
 
   it('sends priority_number only (no priority enum) when a stop is clicked', async () => {
@@ -50,8 +53,8 @@ describe('TaskDetailPriorityCard', () => {
 
     const task = makeTaskWithAssignees({ id: 't1', priority_number: 5, version: 3 });
     renderWithClient(<TaskDetailPriorityCard task={task} planId="p1" />);
-    await user.click(screen.getByRole('button', { name: 'Priority' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Urgent' }));
+    await user.click(screen.getByRole('combobox', { name: /priority/i }));
+    await user.click(await screen.findByRole('option', { name: 'Urgent' }));
 
     const body = captured.mock.calls[0]?.[0] as { patch: Record<string, unknown> };
     expect(body.patch).toEqual({ priority_number: 1 });

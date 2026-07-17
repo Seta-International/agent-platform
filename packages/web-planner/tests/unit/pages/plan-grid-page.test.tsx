@@ -441,7 +441,7 @@ describe('PlanGridPage (via PlanBoardShell)', () => {
 
     const user = userEvent.setup();
     await user.click(screen.getAllByRole('checkbox')[0]!);
-    await user.click(await screen.findByRole('button', { name: 'Assign' }));
+    await user.click(await screen.findByPlaceholderText(/assign to/i));
     await user.click(await screen.findByRole('option', { name: /Alice/i }));
 
     expect(assignCalls).toContainEqual({ taskId: 't1', user_id: 'u1' });
@@ -501,6 +501,8 @@ describe('PlanGridPage (via PlanBoardShell)', () => {
     );
 
     expect(await screen.findByTestId('plan-calendar-page')).toBeInTheDocument();
-    expect(screen.getByLabelText('Calendar view')).toBeInTheDocument();
+    // The switcher is a SegmentedControl (radiogroup), so the active view is
+    // assertable as the checked segment rather than just a present label.
+    expect(screen.getByRole('radio', { name: 'Calendar' })).toBeChecked();
   });
 });

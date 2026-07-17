@@ -26,14 +26,14 @@ export function ChartCard({
     <section
       data-testid={testId}
       className={cn(
-        'flex min-w-0 flex-col gap-3 rounded-lg border border-hairline bg-canvas p-4',
+        'flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-body p-4',
         className,
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-body-sm font-medium text-ink">{title}</h3>
-          {subtitle && <p className="text-xs text-ink-subtle">{subtitle}</p>}
+          <h3 className="text-base font-medium text-primary">{title}</h3>
+          {subtitle && <p className="text-xs text-secondary">{subtitle}</p>}
         </div>
         {action}
       </div>

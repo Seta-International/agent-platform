@@ -54,14 +54,14 @@ export function NotificationPopoverContainer({
   const trigger = (
     <button
       type="button"
-      className="relative inline-flex size-8 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+      className="relative inline-flex size-8 items-center justify-center rounded-md text-secondary transition-colors hover:bg-surface hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
       aria-label={count > 0 ? `Notifications (${count})` : 'Notifications'}
       title="Notifications"
     >
       <Bell className="size-4" aria-hidden />
       {count > 0 && (
         <span
-          className="absolute right-0.5 top-0.5 flex min-w-[16px] items-center justify-center rounded-full bg-primary px-0.5 py-px text-[10px] font-bold leading-none text-white ring-2 ring-canvas"
+          className="absolute right-0.5 top-0.5 flex min-w-[16px] items-center justify-center rounded-full bg-accent-bg px-0.5 py-px text-xs font-bold leading-none text-white ring-2 ring-body"
           aria-hidden
         >
           {count > 9 ? '9+' : count}

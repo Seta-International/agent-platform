@@ -27,6 +27,6 @@ describe('PriorityIcon', () => {
     render(<PriorityIcon level="urgent" className="custom" />);
     const el = screen.getByRole('img', { name: 'Urgent priority' });
     expect(el.className).toContain('custom');
-    expect(el.className).toContain('priority-icon--urgent');
+    expect(el.style.backgroundColor).toBe('var(--color-icon-red)');
   });
 });

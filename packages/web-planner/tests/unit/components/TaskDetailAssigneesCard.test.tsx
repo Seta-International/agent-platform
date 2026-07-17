@@ -1,10 +1,9 @@
 import type { AssigneeRow, TaskWithAssigneesRow } from '@seta/planner';
-import { Dialog, DialogContent, DialogTitle } from '@seta/shared-ui';
 import type { SessionScopeProjection } from '@seta/web-identity';
 import { SessionProvider } from '@seta/web-identity';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
-import { delay, HttpResponse, http } from 'msw';
+import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -89,24 +88,6 @@ function renderWithClient(node: ReactNode, session: SessionScopeProjection = fxS
   );
 }
 
-function renderInModalDialog(node: ReactNode, session: SessionScopeProjection = fxSession) {
-  const qc = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={qc}>
-      <SessionProvider session={session}>
-        <Dialog open>
-          <DialogContent hideClose unstyled onOpenAutoFocus={(e) => e.preventDefault()}>
-            <DialogTitle className="sr-only">Task</DialogTitle>
-            {node}
-          </DialogContent>
-        </Dialog>
-      </SessionProvider>
-    </QueryClientProvider>,
-  );
-}
-
 describe('TaskDetailAssigneesCard', () => {
   it('renders one row per assignee with name', () => {
     const task = withAssignees([
@@ -120,20 +101,117 @@ describe('TaskDetailAssigneesCard', () => {
     expect(screen.getByText('Carol')).toBeInTheDocument();
   });
 
-  it('lists group members when the picker is first opened with an empty search', async () => {
+  it('fetches nothing until the user clicks "Suggest assignees"', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    const suggestHit = vi.fn();
+    server.use(
+      http.get('/api/planner/v1/tasks/:taskId/assignee-suggestions', () => {
+        suggestHit();
+        return HttpResponse.json([
+          { user_id: 'u42', display_name: 'Zara', score: 0.92, skills: [], exact_overlap: 0 },
+        ]);
+      }),
+    );
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
+
+    // The trigger is present; no suggestion request has fired and Zara isn't shown.
+    const trigger = screen.getByRole('button', { name: 'Suggest' });
+    expect(suggestHit).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /assign zara/i })).toBeNull();
+
+    await user.click(trigger);
+
+    // After the click, suggestions are fetched and rendered with a fit band + %.
+    const suggestBtn = await screen.findByRole('button', { name: /assign zara/i });
+    expect(suggestBtn).toHaveTextContent('Zara');
+    expect(suggestBtn).toHaveTextContent('92%');
+    expect(suggestHit).toHaveBeenCalled();
+  });
+
+  it('assigns an AI suggestion when its row is clicked', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    const assignBody = vi.fn();
+    server.use(
+      http.post('/api/planner/v1/tasks/t1/assign', async ({ request }) => {
+        assignBody(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
+    await user.click(screen.getByRole('button', { name: 'Suggest' }));
+    await user.click(await screen.findByRole('button', { name: /assign zara/i }));
+
+    await waitFor(() =>
+      expect(assignBody).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'u42' })),
+    );
+  });
+
+  it('shows a no-match message when the trigger returns no suggestions', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    server.use(
+      http.get('/api/planner/v1/tasks/:taskId/assignee-suggestions', () => HttpResponse.json([])),
+    );
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
+    await user.click(screen.getByRole('button', { name: 'Suggest' }));
+
+    expect(await screen.findByText(/no skill matches for this task yet/i)).toBeInTheDocument();
+  });
+
+  it('lists plain group members in the search picker', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
 
     const task = withAssignees([]);
     renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
+    await user.click(screen.getByPlaceholderText(/search group members/i));
 
-    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
+    const options = await screen.findAllByRole('option');
+    expect(options.some((o) => o.textContent?.includes('Dora'))).toBe(true);
   });
 
-  it('filters group members when searching', async () => {
+  it('assigns the picked user and stays usable for another add', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
+
+    const assignBody = vi.fn();
+    server.use(
+      http.post('/api/planner/v1/tasks/t1/assign', async ({ request }) => {
+        assignBody(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
+    const input = screen.getByPlaceholderText(/search group members/i);
+    await user.click(input);
+    await user.click(await screen.findByRole('option', { name: /Dora/ }));
+
+    await waitFor(() =>
+      expect(assignBody).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'u9' })),
+    );
+    // field remains present for another add
+    expect(screen.getByPlaceholderText(/search group members/i)).toBeInTheDocument();
+  });
+
+  it('excludes already-assigned users from the picker', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    // Two members so the exclusion is observable: Dora (assigned) must drop out
+    // while Eve (free) remains selectable.
     server.use(
       http.get('/api/planner/v1/groups/g1/members', () =>
         HttpResponse.json({
@@ -151,8 +229,8 @@ describe('TaskDetailAssigneesCard', () => {
               group_id: 'g1',
               user_id: 'u10',
               role: 'member',
-              display_name: 'Dan',
-              email: 'dan@x',
+              display_name: 'Eve',
+              email: 'eve@x',
               added_at: '2026-05-20T00:00:00Z',
               added_by: 'u1',
             },
@@ -162,146 +240,15 @@ describe('TaskDetailAssigneesCard', () => {
       ),
     );
 
-    const task = withAssignees([]);
+    const task = withAssignees([assignee({ user_id: 'u9', display_name: 'Dora' })]);
     renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-    const search = screen.getByLabelText(/Search group members/i);
-    await user.type(search, 'dan');
-    await waitFor(() => {
-      expect(screen.getByText('Dan')).toBeInTheDocument();
-      expect(screen.queryByText('Dora')).not.toBeInTheDocument();
-    });
-  });
+    // Dora is already a token, so the Tokenizer hides its placeholder — open the
+    // picker via the combobox role instead.
+    await user.click(screen.getByRole('combobox', { name: /assignees/i }));
 
-  it('calls moveToTopOfMyList when "Move to top of my list" is clicked', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-    const captured = vi.fn();
-    server.use(
-      http.put('/api/planner/v1/tasks/t1/assignee-priority', async () => {
-        captured();
-        return HttpResponse.json({ id: 't1', version: 2 });
-      }),
-    );
-    const task = withAssignees([assignee()]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    await user.click(screen.getByRole('button', { name: /Move to top of my list/i }));
-    await waitFor(() => expect(captured).toHaveBeenCalled());
-  });
-
-  it('hides "Move to top of my list" when the current user is not assigned', () => {
-    const task = withAssignees([assignee({ user_id: 'u-other', display_name: 'Other' })]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    expect(screen.queryByRole('button', { name: /Move to top of my list/i })).toBeNull();
-  });
-
-  it('inside modal Dialog: opens picker via trigger click and assigns a group member', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-
-    const assignMutate = vi.fn();
-    server.use(
-      http.post('/api/planner/v1/tasks/t1/assign', async () => {
-        assignMutate();
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-
-    const task = withAssignees([]);
-    renderInModalDialog(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
-    await user.click(screen.getByRole('option', { name: /Dora/i }));
-    await waitFor(() => expect(assignMutate).toHaveBeenCalledOnce());
-  });
-
-  it('renders an AI matches group above an "All members" group', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-
-    const task = withAssignees([]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText('AI matches')).toBeInTheDocument();
-      expect(screen.getByText('Zara')).toBeInTheDocument();
-      expect(screen.getByText('92%')).toBeInTheDocument();
-    });
-    expect(screen.getByText('All members')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText('Dora')).toBeInTheDocument());
-  });
-
-  it('shows a loading indicator while suggestions are pending', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-    server.use(
-      http.get('/api/planner/v1/tasks/:taskId/assignee-suggestions', async () => {
-        await delay('infinite');
-        return HttpResponse.json([]);
-      }),
-    );
-
-    const task = withAssignees([]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-
-    await waitFor(() => expect(screen.getByText('Loading suggestions…')).toBeInTheDocument());
-  });
-
-  it('shows "No strong matches" when suggestions resolve empty', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-    server.use(
-      http.get('/api/planner/v1/tasks/:taskId/assignee-suggestions', () => HttpResponse.json([])),
-    );
-
-    const task = withAssignees([]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-
-    await waitFor(() => expect(screen.getByText('No strong matches')).toBeInTheDocument());
-  });
-
-  it('shows an error message when suggestions fail to load', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-    server.use(
-      http.get('/api/planner/v1/tasks/:taskId/assignee-suggestions', () =>
-        HttpResponse.json({ message: 'boom' }, { status: 500 }),
-      ),
-    );
-
-    const task = withAssignees([]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-
-    await waitFor(() => expect(screen.getByText("Couldn't load suggestions")).toBeInTheDocument());
-  });
-
-  it('clicking a suggested row assigns the user and keeps the popover open', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-
-    const assignBody = vi.fn();
-    server.use(
-      http.post('/api/planner/v1/tasks/t1/assign', async ({ request }) => {
-        assignBody(await request.json());
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-
-    const task = withAssignees([]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    await user.click(screen.getByRole('button', { name: /Add assignee/i }));
-    await waitFor(() => expect(screen.getByText('Zara')).toBeInTheDocument());
-
-    await user.click(screen.getByRole('option', { name: /Zara/i }));
-
-    await waitFor(() =>
-      expect(assignBody).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'u42' })),
-    );
-    expect(screen.getByLabelText(/Search group members/i)).toBeInTheDocument();
+    const options = await screen.findAllByRole('option');
+    expect(options.some((o) => o.textContent?.includes('Eve'))).toBe(true);
+    expect(options.some((o) => o.textContent?.includes('Dora'))).toBe(false);
   });
 });
 

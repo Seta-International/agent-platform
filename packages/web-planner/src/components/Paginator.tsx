@@ -1,12 +1,5 @@
-import {
-  Button,
-  cn,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@seta/shared-ui';
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button, cn, DropdownMenu, DropdownMenuItem } from '@seta/shared-ui';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Props {
   pageIndex: number;
@@ -58,7 +51,7 @@ export function Paginator({
   return (
     <div
       className={cn(
-        'flex h-11 items-center justify-between border-t border-hairline bg-canvas px-4 text-caption text-ink-muted',
+        'flex h-11 items-center justify-between border-t border-border bg-body px-4 text-sm text-secondary',
         className,
       )}
     >
@@ -74,44 +67,52 @@ export function Paginator({
       </span>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="text-ink-subtle">Rows per page</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-ink">
-                {pageSize}
-                <ChevronDown className="size-3 text-ink-subtle" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[5rem]">
-              {pageSizeOptions.map((s) => (
-                <DropdownMenuItem
-                  key={s}
-                  onClick={() => onPageSizeChange(s)}
-                  className={cn(s === pageSize && 'bg-surface-2 text-ink')}
-                >
-                  {s}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
+          <span className="text-secondary">Rows per page</span>
+          <DropdownMenu
+            placement="below"
+            menuWidth={80}
+            hasChevron
+            button={{
+              variant: 'ghost',
+              size: 'sm',
+              label: `${pageSize} rows per page`,
+              children: pageSize,
+            }}
+          >
+            {pageSizeOptions.map((s) => (
+              <DropdownMenuItem
+                key={s}
+                label={String(s)}
+                onClick={() => onPageSizeChange(s)}
+                style={
+                  s === pageSize
+                    ? {
+                        backgroundColor: 'var(--color-background-surface)',
+                        color: 'var(--color-text-primary)',
+                      }
+                    : undefined
+                }
+              />
+            ))}
           </DropdownMenu>
         </div>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
-            size="icon"
-            aria-label="Previous page"
-            disabled={!canPrev}
+            size="sm"
+            isIconOnly
+            icon={<ChevronLeft className="size-3" />}
+            label="Previous page"
+            isDisabled={!canPrev}
             onClick={() => onPageChange(safePageIndex - 1)}
             className="size-7"
-          >
-            <ChevronLeft className="size-3" />
-          </Button>
+          />
           {pages.map((p, i) =>
             p === 'ellipsis' ? (
               <span
                 key={`ellipsis-${pages[i - 1] ?? 'start'}-${pages[i + 1] ?? 'end'}`}
                 aria-hidden
-                className="px-1 text-ink-subtle"
+                className="px-1 text-secondary"
               >
                 …
               </span>
@@ -120,12 +121,12 @@ export function Paginator({
                 key={p}
                 variant="ghost"
                 size="sm"
-                aria-label={`Page ${p + 1}`}
+                label={`Page ${p + 1}`}
                 aria-current={p === safePageIndex ? 'page' : undefined}
                 onClick={() => onPageChange(p)}
                 className={cn(
-                  'h-7 min-w-7 px-2 text-ink-muted',
-                  p === safePageIndex && 'bg-surface-2 text-ink',
+                  'h-7 min-w-7 px-2 text-secondary',
+                  p === safePageIndex && 'bg-surface text-primary',
                 )}
               >
                 {p + 1}
@@ -134,14 +135,14 @@ export function Paginator({
           )}
           <Button
             variant="ghost"
-            size="icon"
-            aria-label="Next page"
-            disabled={!canNext}
+            size="sm"
+            isIconOnly
+            icon={<ChevronRight className="size-3" />}
+            label="Next page"
+            isDisabled={!canNext}
             onClick={() => onPageChange(safePageIndex + 1)}
             className="size-7"
-          >
-            <ChevronRight className="size-3" />
-          </Button>
+          />
         </div>
       </div>
     </div>

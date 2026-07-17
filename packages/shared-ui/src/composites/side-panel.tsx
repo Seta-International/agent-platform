@@ -1,6 +1,5 @@
 import type * as React from 'react';
 import { cn } from '../lib/cn';
-import { ScrollArea } from '../primitives/scroll-area';
 
 export interface SidePanelProps {
   header?: React.ReactNode;
@@ -10,15 +9,15 @@ export interface SidePanelProps {
 
 export function SidePanel({ header, children, className }: SidePanelProps) {
   return (
-    <aside className={cn('flex h-full flex-col border-r border-hairline bg-surface-1', className)}>
+    <aside className={cn('flex h-full flex-col border-r border-border bg-card', className)}>
       {header && (
-        <div className="flex items-center justify-between border-b border-hairline px-md py-sm text-body-sm">
+        <div className="flex items-center justify-between border-b border-border px-md py-sm text-base">
           {header}
         </div>
       )}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="p-md">{children}</div>
-      </ScrollArea>
+      </div>
     </aside>
   );
 }

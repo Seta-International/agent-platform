@@ -1,26 +1,38 @@
 import {
-  Alert,
-  AlertDescription,
   Avatar,
-  AvatarFallback,
   Badge,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
+  Button,
+  Checkbox,
+  type ColumnSettingsOption,
   CounterBadgePopover,
-  DataTable,
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   EmptyState,
+  HStack,
   Input,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  Popover,
+  pixel,
+  proportional,
   SegmentedControl,
+  SegmentedControlItem,
+  Skeleton,
+  Table,
+  type TableColumn,
+  type TableSortState,
+  Text,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { OnChangeFn, PaginationState, SortingState } from '@tanstack/react-table';
 import { LayoutGrid, List, Settings2, User, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -34,47 +46,44 @@ import { PeopleCardGrid } from '../components/people-card-grid.tsx';
 import { PeopleFilterBar } from '../components/people-filter-bar.tsx';
 import { peopleKeys } from '../state/query-keys.ts';
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((s) => s[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO
+// lacks an index signature, so alias locally (do not touch the shared DTO).
+type WorkerRow = WorkerListRow & Record<string, unknown>;
 
 function LifecycleBadge({ stage }: { stage: string | null }) {
-  const variantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    active: 'default',
-    onboarding: 'secondary',
-    offboarding: 'outline',
-    terminated: 'destructive',
-    leave: 'outline',
+  const variantMap: Record<string, 'neutral' | 'error'> = {
+    active: 'neutral',
+    onboarding: 'neutral',
+    offboarding: 'neutral',
+    terminated: 'error',
+    leave: 'neutral',
   };
-  const variant = (stage ? variantMap[stage] : undefined) ?? 'secondary';
-  return (
-    <Badge variant={variant} className="capitalize">
-      {stage}
-    </Badge>
-  );
+  const variant = (stage ? variantMap[stage] : undefined) ?? 'neutral';
+  return <Badge variant={variant} className="capitalize" label={stage} />;
 }
 
-const HIDEABLE_COLUMNS = [
-  { id: 'accounts', label: 'Account' },
-  { id: 'work_email', label: 'Work email' },
-  { id: 'manager_name', label: 'Direct manager' },
-  { id: 'lifecycle_stage', label: 'Status' },
-  { id: 'onboarding_date', label: 'Onboarding' },
-  { id: 'offboarding_date', label: 'Offboarding' },
-  { id: 'phone', label: 'Phone' },
-  { id: 'gender', label: 'Gender' },
-  { id: 'skills', label: 'Techstack' },
+// Universe of columns for the column-settings picker. 'full_name' is the only
+// always-visible one (matches the old bespoke popover, which never listed it).
+const COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'full_name', label: 'Employee', isAlwaysVisible: true },
+  { key: 'accounts', label: 'Account' },
+  { key: 'work_email', label: 'Work email' },
+  { key: 'manager_name', label: 'Direct manager' },
+  { key: 'lifecycle_stage', label: 'Status' },
+  { key: 'onboarding_date', label: 'Onboarding' },
+  { key: 'offboarding_date', label: 'Offboarding' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'gender', label: 'Gender' },
+  { key: 'skills', label: 'Techstack' },
 ];
+const HIDEABLE_COLUMN_KEYS = COLUMN_OPTIONS.filter((c) => !c.isAlwaysVisible);
+const DEFAULT_COLUMN_KEYS = COLUMN_OPTIONS.map((c) => c.key);
 
 export function PeoplePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canProvision = usePermission('people.worker.create');
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
+  const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_COLUMN_KEYS);
   const [query, setQuery] = useState<WorkersQuery>({ page: 1, pageSize: 25 });
   const [view, setView] = useState<'list' | 'cards'>('list');
 
@@ -121,153 +130,162 @@ export function PeoplePage() {
     placeholderData: keepPreviousData,
   });
 
-  const rows = data?.rows ?? [];
+  const rows = (data?.rows ?? []) as WorkerRow[];
   const total = data?.total ?? 0;
   const pageSize = query.pageSize ?? 25;
-  const pagination: PaginationState = { pageIndex: (query.page ?? 1) - 1, pageSize };
-  const sorting: SortingState = query.sort
-    ? [{ id: query.sort.field, desc: query.sort.dir === 'desc' }]
+
+  // Sort-state mapping: existing {field, dir} query state <-> Astryx's
+  // [{ sortKey, direction }] shape.
+  const sortState: TableSortState = query.sort
+    ? [
+        {
+          sortKey: query.sort.field,
+          direction: query.sort.dir === 'desc' ? 'descending' : 'ascending',
+        },
+      ]
     : [];
+  const sortable = useTableSortable<WorkerRow>({
+    sort: sortState,
+    onSortChange: (s) => {
+      const entry = s[0];
+      setQuery((q) => ({
+        ...q,
+        sort: entry
+          ? { field: entry.sortKey, dir: entry.direction === 'descending' ? 'desc' : 'asc' }
+          : undefined,
+      }));
+    },
+  });
 
-  const onPaginationChange: OnChangeFn<PaginationState> = (u) =>
-    setQuery((q) => {
-      const cur = { pageIndex: (q.page ?? 1) - 1, pageSize: q.pageSize ?? 25 };
-      const next = typeof u === 'function' ? u(cur) : u;
-      return { ...q, page: next.pageIndex + 1, pageSize: next.pageSize };
-    });
+  // query.page is already 1-based, matching the Astryx pager's contract directly.
+  const pagination = useTablePagination<WorkerRow>({
+    page: query.page ?? 1,
+    onPageChange: (p) => setQuery((q) => ({ ...q, page: p })),
+    totalItems: total,
+    pageSize,
+    onPageSizeChange: (ps) => setQuery((q) => ({ ...q, pageSize: ps })),
+    pageSizeOptions: [25, 50, 100],
+  });
 
-  const onSortingChange: OnChangeFn<SortingState> = (u) =>
-    setQuery((q) => {
-      const cur = q.sort ? [{ id: q.sort.field, desc: q.sort.dir === 'desc' }] : [];
-      const next = typeof u === 'function' ? u(cur) : u;
-      const s = next[0];
-      return { ...q, sort: s ? { field: s.id, dir: s.desc ? 'desc' : 'asc' } : undefined };
-    });
+  const columnSettingsState = useTableColumnSettingsState({
+    columns: COLUMN_OPTIONS,
+    activeColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+  });
+  const columnSettings = useTableColumnSettings<WorkerRow>(
+    columnSettingsState.columnSettingsConfig,
+  );
 
-  const columns = useMemo(() => {
-    type CellCtx = { row: { original: WorkerListRow } };
-    return [
+  const columns = useMemo<TableColumn<WorkerRow>[]>(
+    () => [
       {
-        id: 'full_name',
-        accessorKey: 'full_name',
+        key: 'full_name',
         header: 'Employee',
-        enableSorting: true,
-        cell: ({ row }: CellCtx) => (
+        width: proportional(2),
+        sortable: true,
+        renderCell: (r) => (
           <div className="flex items-center gap-2.5 min-w-0">
-            <Avatar className="size-7 shrink-0">
-              <AvatarFallback>{initials(row.original.full_name)}</AvatarFallback>
-            </Avatar>
+            <Avatar name={r.full_name} size={32} />
             <div className="min-w-0">
-              <div className="truncate font-medium">{row.original.full_name}</div>
-              {row.original.job_title && (
-                <div className="truncate text-[11px] text-ink-muted leading-tight">
-                  {row.original.job_title}
-                </div>
+              <div className="truncate font-medium">{r.full_name}</div>
+              {r.job_title && (
+                <div className="truncate text-xs text-secondary leading-tight">{r.job_title}</div>
               )}
             </div>
           </div>
         ),
       },
       {
-        id: 'accounts',
+        key: 'accounts',
         header: 'Account',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) =>
-          row.original.accounts.length > 0 ? (
+        width: proportional(1),
+        renderCell: (r) =>
+          r.accounts.length > 0 ? (
             <div className="flex items-center gap-1 overflow-hidden h-5 max-w-[200px]">
-              {row.original.accounts.map((a) => (
+              {r.accounts.map((a) => (
                 <Badge
                   key={a.id}
-                  variant="outline"
-                  className="text-[11px] px-1.5 py-0 whitespace-nowrap"
-                >
-                  {a.name}
-                </Badge>
+                  variant="neutral"
+                  className="text-xs px-1.5 py-0 whitespace-nowrap"
+                  label={a.name}
+                />
               ))}
             </div>
           ) : (
-            <div className="flex items-center h-5 text-ink-muted">—</div>
+            <div className="flex items-center h-5 text-secondary">—</div>
           ),
       },
       {
-        id: 'work_email',
-        accessorKey: 'work_email',
+        key: 'work_email',
         header: 'Work email',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
-          <span className="font-mono text-[12.5px] text-ink-muted truncate block">
-            {row.original.work_email || '—'}
+        width: proportional(2),
+        renderCell: (r) => (
+          <span className="font-mono text-sm text-secondary truncate block">
+            {r.work_email || '—'}
           </span>
         ),
       },
       {
-        id: 'manager_name',
+        key: 'manager_name',
         header: 'Direct manager',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted whitespace-nowrap">
-            {row.original.manager_name || '—'}
-          </span>
+        width: proportional(1),
+        renderCell: (r) => (
+          <span className="text-secondary whitespace-nowrap">{r.manager_name || '—'}</span>
         ),
       },
       {
-        id: 'lifecycle_stage',
+        key: 'lifecycle_stage',
         header: 'Status',
-        enableSorting: true,
-        cell: ({ row }: CellCtx) => <LifecycleBadge stage={row.original.lifecycle_stage} />,
+        width: pixel(110),
+        sortable: true,
+        renderCell: (r) => <LifecycleBadge stage={r.lifecycle_stage} />,
       },
       {
-        id: 'onboarding_date',
+        key: 'onboarding_date',
         header: 'Onboarding',
-        enableSorting: true,
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted">{row.original.onboarding_date || '—'}</span>
-        ),
+        width: pixel(110),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary">{r.onboarding_date || '—'}</span>,
       },
       {
-        id: 'offboarding_date',
+        key: 'offboarding_date',
         header: 'Offboarding',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted">{row.original.offboarding_date || '—'}</span>
-        ),
+        width: pixel(110),
+        renderCell: (r) => <span className="text-secondary">{r.offboarding_date || '—'}</span>,
       },
       {
-        id: 'phone',
+        key: 'phone',
         header: 'Phone',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted tabular-nums whitespace-nowrap">
-            {row.original.phone || '—'}
-          </span>
+        width: pixel(120),
+        renderCell: (r) => (
+          <span className="text-secondary tabular-nums whitespace-nowrap">{r.phone || '—'}</span>
         ),
       },
       {
-        id: 'gender',
+        key: 'gender',
         header: 'Gender',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
-          <span className="text-ink-muted whitespace-nowrap">
-            {genderLabel(row.original.gender)}
-          </span>
+        width: pixel(90),
+        renderCell: (r) => (
+          <span className="text-secondary whitespace-nowrap">{genderLabel(r.gender)}</span>
         ),
       },
       {
-        id: 'skills',
+        key: 'skills',
         header: 'Techstack',
-        enableSorting: false,
-        cell: ({ row }: CellCtx) => (
+        width: proportional(1),
+        renderCell: (r) => (
           <CounterBadgePopover
-            items={row.original.skills}
+            items={r.skills}
             title="Techstack"
             limit={2}
             type="badge"
-            badgeVariant="secondary"
+            badgeVariant="neutral"
           />
         ),
       },
-    ];
-  }, []);
+    ],
+    [],
+  );
 
   const actions = canProvision ? (
     <CreateWorkerDialog
@@ -278,159 +296,190 @@ export function PeoplePage() {
   ) : undefined;
 
   return (
-    <PageChrome title="People" actions={actions}>
-      <div className="w-full space-y-4 p-6">
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
-        ) : (
-          <>
-            {/* Control & Filter Layout */}
-            <div className="flex flex-col gap-4">
-              {/* Row 1: Search & Controls */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Input
-                    className="h-9 w-64"
-                    placeholder="Search people…"
-                    value={searchText}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                  />
-                  <span className="text-ink-tertiary select-none">|</span>
-                  {activeFiltersCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleClearFilters}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
-                    >
-                      <X className="size-3.5" />
-                      Clear filters ({activeFiltersCount})
-                    </button>
-                  )}
-                  <div className="flex items-center gap-2 text-body-sm text-ink-muted">
-                    <span className="font-medium text-ink flex items-center gap-1">
-                      <User className="size-3.5 text-ink-muted" />
-                      {total} {total === 1 ? 'person' : 'people'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {view === 'list' && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-1 px-2.5 py-1 text-xs font-medium text-ink hover:bg-surface-2 transition-colors h-7 focus:outline-none"
-                        >
-                          <Settings2 className="size-3.5" />
-                          Columns
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {HIDEABLE_COLUMNS.map((col) => {
-                          const isVisible = columnVisibility[col.id] ?? true;
-                          return (
-                            <DropdownMenuCheckboxItem
-                              key={col.id}
-                              checked={isVisible}
-                              onSelect={(e) => e.preventDefault()}
-                              onCheckedChange={(checked) => {
-                                setColumnVisibility((prev) => ({
-                                  ...prev,
-                                  [col.id]: checked,
-                                }));
-                              }}
-                            >
-                              {col.label}
-                            </DropdownMenuCheckboxItem>
-                          );
-                        })}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                  <SegmentedControl
-                    aria-label="Directory view"
-                    value={view}
-                    onValueChange={setView}
-                    options={[
-                      { value: 'list', label: 'List', icon: <List className="size-3.5" /> },
-                      { value: 'cards', label: 'Cards', icon: <LayoutGrid className="size-3.5" /> },
-                    ]}
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Dropdown Filters */}
-              <PeopleFilterBar query={query} onChange={patchQuery} />
-            </div>
-            {view === 'list' ? (
-              <DataTable
-                mode="server"
-                columns={columns}
-                data={rows}
-                isLoading={isLoading}
-                density="compact"
-                sorting={sorting}
-                onSortingChange={onSortingChange}
-                globalFilter=""
-                onGlobalFilterChange={() => {}}
-                enableGlobalFilter={false}
-                enableColumnVisibility={false}
-                columnVisibility={columnVisibility}
-                onColumnVisibilityChange={setColumnVisibility}
-                columnFilters={[]}
-                onColumnFiltersChange={() => {}}
-                pagination={pagination}
-                onPaginationChange={onPaginationChange}
-                pageCount={Math.max(1, Math.ceil(total / pageSize))}
-                rowCount={total}
-                getRowId={(r: WorkerListRow) => r.worker_id}
-                getRowClassName={() => 'h-12'}
-                enableRowSelection={false}
-                rowSelection={{}}
-                onRowSelectionChange={() => {}}
-                emptyState={
-                  <EmptyState
-                    icon={<Users className="size-6" />}
-                    title="No workers yet"
-                    description="Add a worker to get started."
-                  />
-                }
-                noResultsState={
-                  <EmptyState
-                    icon={<Users className="size-6" />}
-                    title="No matching people"
-                    description="Try adjusting your search or filters."
-                  />
-                }
-                onRowClick={(row) =>
-                  void navigate({
-                    to: '/people/employees/$workerId',
-                    params: { workerId: row.original.worker_id },
-                  })
-                }
-              />
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/people">People</BreadcrumbItem>
+              {/* Deliberate exception to the title-wins rule: the page's h1 is "People", which
+                  collides with the app root crumb above. "Employees" is the manifest nav label
+                  for /people/employees — the item a user actually clicks to reach this page —
+                  and keeps this trail consistent with worker-profile-page's middle crumb. */}
+              <BreadcrumbItem isCurrent>Employees</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  People
+                </Text>
+              </HStack>
+              {actions}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="w-full space-y-4 p-6">
+            {error ? (
+              <Banner status="error" title={(error as Error).message} />
             ) : (
-              <PeopleCardGrid
-                rows={rows}
-                total={total}
-                isLoading={isLoading}
-                query={query}
-                setQuery={setQuery}
-                onRowClick={(row) =>
-                  void navigate({
-                    to: '/people/employees/$workerId',
-                    params: { workerId: row.worker_id },
-                  })
-                }
-              />
+              <>
+                {/* Control & Filter Layout */}
+                <div className="flex flex-col gap-4">
+                  {/* Row 1: Search & Controls */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Input
+                        label="Search people"
+                        isLabelHidden
+                        className="w-64"
+                        size="sm"
+                        placeholder="Search people…"
+                        value={searchText}
+                        onChange={(value) => handleSearchChange(value)}
+                      />
+                      <span className="text-disabled select-none">|</span>
+                      {activeFiltersCount > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleClearFilters}
+                          icon={<X className="size-3.5" />}
+                          label={`Clear filters (${activeFiltersCount})`}
+                        />
+                      )}
+                      <div className="flex items-center gap-2 text-base text-secondary">
+                        <span className="font-medium text-primary flex items-center gap-1">
+                          <User className="size-3.5 text-secondary" />
+                          {total} {total === 1 ? 'person' : 'people'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {view === 'list' && (
+                        <Popover
+                          placement="below"
+                          alignment="end"
+                          label="Toggle columns"
+                          content={
+                            <div className="flex min-w-[180px] flex-col gap-1 p-2">
+                              <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
+                                Toggle columns
+                              </div>
+                              {HIDEABLE_COLUMN_KEYS.map((col) => (
+                                <Checkbox
+                                  key={col.key}
+                                  label={col.label}
+                                  value={columnSettingsState.isColumnActive(col.key)}
+                                  onChange={() => columnSettingsState.toggleColumn(col.key)}
+                                />
+                              ))}
+                            </div>
+                          }
+                        >
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<Settings2 className="size-3.5" />}
+                            label="Columns"
+                          />
+                        </Popover>
+                      )}
+                      <SegmentedControl
+                        label="Directory view"
+                        value={view}
+                        onChange={(v) => setView(v as 'list' | 'cards')}
+                      >
+                        <SegmentedControlItem
+                          value="list"
+                          label="List"
+                          icon={<List className="size-3.5" />}
+                        />
+                        <SegmentedControlItem
+                          value="cards"
+                          label="Cards"
+                          icon={<LayoutGrid className="size-3.5" />}
+                        />
+                      </SegmentedControl>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Dropdown Filters */}
+                  <PeopleFilterBar query={query} onChange={patchQuery} />
+                </div>
+                {view === 'list' ? (
+                  isLoading ? (
+                    <div className="space-y-2">
+                      {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                        <Skeleton key={id} height={44} />
+                      ))}
+                    </div>
+                  ) : (
+                    <Table
+                      data={rows}
+                      columns={columns}
+                      idKey="worker_id"
+                      density="compact"
+                      plugins={{
+                        pagination,
+                        sortable,
+                        columnSettings,
+                        rowClick: {
+                          transformBodyRow: (props, item) => ({
+                            ...props,
+                            htmlProps: {
+                              ...props.htmlProps,
+                              style: { ...props.htmlProps.style, cursor: 'pointer' },
+                              onClick: () =>
+                                void navigate({
+                                  to: '/people/employees/$workerId',
+                                  params: { workerId: item.worker_id },
+                                }),
+                            },
+                          }),
+                        },
+                      }}
+                      emptyState={
+                        searchText || activeFiltersCount > 0 ? (
+                          <EmptyState
+                            icon={<Users className="size-6" />}
+                            title="No matching people"
+                            description="Try adjusting your search or filters."
+                          />
+                        ) : (
+                          <EmptyState
+                            icon={<Users className="size-6" />}
+                            title="No workers yet"
+                            description="Add a worker to get started."
+                          />
+                        )
+                      }
+                    />
+                  )
+                ) : (
+                  <PeopleCardGrid
+                    rows={rows}
+                    total={total}
+                    isLoading={isLoading}
+                    query={query}
+                    setQuery={setQuery}
+                    onRowClick={(row) =>
+                      void navigate({
+                        to: '/people/employees/$workerId',
+                        params: { workerId: row.worker_id },
+                      })
+                    }
+                  />
+                )}
+              </>
             )}
-          </>
-        )}
-      </div>
-    </PageChrome>
+          </div>
+        </LayoutContent>
+      }
+    />
   );
 }

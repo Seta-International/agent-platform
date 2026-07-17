@@ -27,15 +27,13 @@ export function InboxList({ items, selectedId, onSelect, className }: InboxListP
               aria-current={isSelected ? 'true' : 'false'}
               onClick={() => onSelect(item.id)}
               className={cn(
-                'flex w-full flex-col items-start gap-1 border-b border-hairline px-md py-sm text-left transition-colors hover:bg-surface-2',
-                isSelected && 'bg-surface-2',
+                'flex w-full flex-col items-start gap-1 border-b border-border px-md py-sm text-left transition-colors hover:bg-surface',
+                isSelected && 'bg-surface',
               )}
             >
-              <span className="text-body-sm text-ink">{item.title}</span>
-              {item.subtitle && (
-                <span className="text-caption text-ink-subtle">{item.subtitle}</span>
-              )}
-              {item.meta && <span className="text-caption text-ink-tertiary">{item.meta}</span>}
+              <span className="text-base text-primary">{item.title}</span>
+              {item.subtitle && <span className="text-sm text-secondary">{item.subtitle}</span>}
+              {item.meta && <span className="text-sm text-disabled">{item.meta}</span>}
             </button>
           </li>
         );

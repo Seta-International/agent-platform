@@ -16,16 +16,16 @@ function Card({
   accent?: string;
 }) {
   return (
-    <div className="rounded-lg border border-hairline bg-canvas px-4 py-3">
-      <div className="text-xs font-medium uppercase tracking-wide text-ink-subtle">{label}</div>
+    <div className="rounded-lg border border-border bg-body px-4 py-3">
+      <div className="text-xs font-medium uppercase tracking-wide text-secondary">{label}</div>
       <div className="mt-1 flex items-baseline gap-2">
         <span
-          className="text-2xl font-semibold tabular-nums text-ink"
+          className="text-2xl font-semibold tabular-nums text-primary"
           style={accent ? { color: accent } : undefined}
         >
           {value}
         </span>
-        {sub && <span className="text-xs text-ink-subtle">{sub}</span>}
+        {sub && <span className="text-xs text-secondary">{sub}</span>}
       </div>
     </div>
   );
@@ -39,9 +39,14 @@ export function KpiStrip({ kpis }: { kpis: ChartData['kpis'] }) {
     >
       <Card label="Total" value={kpis.total} />
       <Card label="Completed" value={kpis.completed} sub={pct(kpis.completed, kpis.total)} />
-      <Card label="In progress" value={kpis.in_progress} sub={pct(kpis.in_progress, kpis.total)} />
+      <Card
+        label="In progress"
+        value={kpis.in_progress}
+        sub={pct(kpis.in_progress, kpis.total)}
+        accent="var(--color-icon-blue)"
+      />
       <Card label="Open" value={kpis.open} />
-      <Card label="Late" value={kpis.late} sub="overdue" accent="var(--color-danger)" />
+      <Card label="Late" value={kpis.late} sub="overdue" accent="var(--color-error)" />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
@@ -21,6 +21,20 @@ function renderPage() {
 }
 
 describe('TrashPage', () => {
+  it('renders the Planner → Trash breadcrumb trail and a single h1', async () => {
+    server.use(
+      http.get('*/api/planner/v1/groups', () => HttpResponse.json({ groups: [] })),
+      http.get('*/api/planner/v1/plans', () => HttpResponse.json({ plans: [] })),
+      http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
+    );
+    renderPage();
+    await screen.findByText(/Trash is empty/i);
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).getByRole('link', { name: 'Planner' })).toHaveAttribute('href', '/planner');
+    expect(within(nav).getByText('Trash')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { level: 1, name: 'Trash' })).toBeInTheDocument();
+  });
+
   it('shows empty state when trash is empty', async () => {
     server.use(
       http.get('*/api/planner/v1/groups', () => HttpResponse.json({ groups: [] })),
@@ -28,7 +42,7 @@ describe('TrashPage', () => {
       http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
     );
     renderPage();
-    expect(await screen.findByText(/No deleted items/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Trash is empty/i)).toBeInTheDocument();
   });
 
   it('lists deleted items + supports Restore', async () => {
@@ -70,7 +84,9 @@ describe('TrashPage', () => {
     );
     renderPage();
     expect(await screen.findByText('Old task')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /restore/i }));
+    // Row actions live in an overflow menu — open it, then pick Restore.
+    fireEvent.click(screen.getByRole('button', { name: /actions for old task/i }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /restore/i }));
     await waitFor(() => expect(screen.queryByText('Old task')).toBeInTheDocument());
   });
 

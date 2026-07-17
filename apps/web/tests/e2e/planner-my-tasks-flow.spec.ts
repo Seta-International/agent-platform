@@ -37,7 +37,7 @@ test('My Tasks: List → Grid swap via segmented control persists in URL', async
   await page.goto('/planner/my-tasks');
   await expect(page.getByRole('heading', { name: /my tasks/i })).toBeVisible();
 
-  await page.getByRole('tab', { name: /grid view/i }).click();
+  await page.getByRole('radio', { name: /^Grid$/i }).click();
   await page.waitForURL(/view=grid/);
 
   // Grid only renders when there is at least one task; if the tenant is empty,

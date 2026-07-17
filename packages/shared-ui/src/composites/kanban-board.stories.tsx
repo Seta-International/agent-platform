@@ -5,11 +5,14 @@ const meta = { component: KanbanBoard } satisfies Meta<typeof KanbanBoard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+// Stand-ins for real KanbanColumns — only the board's own row layout is under test here.
+const placeholderColumn = { flex: '0 0 280px' } as const;
+
 const placeholderColumns = (
   <>
-    <div className="kanban-column">Todo</div>
-    <div className="kanban-column">In Progress</div>
-    <div className="kanban-column">Done</div>
+    <div style={placeholderColumn}>Todo</div>
+    <div style={placeholderColumn}>In Progress</div>
+    <div style={placeholderColumn}>Done</div>
   </>
 );
 
@@ -33,5 +36,13 @@ export const WithRootDroppable: Story = {
     rootDroppable: {
       placeholder: <div style={{ width: 280 }} aria-hidden="true" />,
     },
+  },
+};
+
+export const Empty: Story = {
+  args: {
+    children: null,
+    onAddBucket: () => console.log('add bucket'),
+    emptyState: <div>Start your board — add a bucket to get going.</div>,
   },
 };

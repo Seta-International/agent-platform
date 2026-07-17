@@ -1,32 +1,20 @@
 import { ASSIGNABLE_ROLES, PRODUCTS, productForNamespace } from '@seta/shared-rbac';
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-  AsyncCombobox,
   Badge,
   Button,
   Checkbox,
   cn,
   Dialog,
-  DialogContent,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
   Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Layout,
+  LayoutContent,
+  Selector,
   Textarea,
+  Typeahead,
+  useSeededItem,
 } from '@seta/shared-ui';
 import { Boxes, Layers, Pencil, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -80,9 +68,9 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="text-ink-subtle">{icon}</span>
-      <h3 className="text-body font-semibold tracking-tight text-ink">{title}</h3>
-      {hint && <span className="text-caption text-ink-tertiary">{hint}</span>}
+      <span className="text-secondary">{icon}</span>
+      <h3 className="text-base font-semibold tracking-tight text-primary">{title}</h3>
+      {hint && <span className="text-sm text-disabled">{hint}</span>}
     </div>
   );
 }
@@ -101,54 +89,57 @@ function RenameDialog({ group }: { group: Group }) {
   }, [open, group.name]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        <Pencil className="size-3.5" aria-hidden />
-        Edit
-      </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit group</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 pt-1">
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-group-name">Name</Label>
-            <Input
-              id="edit-group-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-group-description">Description</Label>
-            <Textarea
-              id="edit-group-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What this group is for (optional)"
-              rows={2}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="secondary" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            disabled={!name.trim() || update.isPending}
-            onClick={() =>
-              update.mutate(
-                { id: group.group_id, name: name.trim(), description: description.trim() },
-                { onSuccess: () => setOpen(false) },
-              )
-            }
-          >
-            Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => setOpen(true)}
+        label="Edit"
+        icon={<Pencil className="size-3.5" aria-hidden />}
+      />
+      <Dialog isOpen={open} onOpenChange={setOpen} purpose="form">
+        <Layout
+          header={<DialogHeader title="Edit group" onOpenChange={setOpen} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-4 pt-1">
+                <div className="space-y-1.5">
+                  <Input
+                    label="Name"
+                    value={name}
+                    onChange={(value) => setName(value)}
+                    hasAutoFocus
+                  />
+                </div>
+                <Textarea
+                  label="Description"
+                  value={description}
+                  onChange={(value) => setDescription(value)}
+                  placeholder="What this group is for (optional)"
+                  rows={2}
+                />
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
+              <Button
+                variant="primary"
+                label="Save"
+                isDisabled={!name.trim() || update.isPending}
+                onClick={() =>
+                  update.mutate(
+                    { id: group.group_id, name: name.trim(), description: description.trim() },
+                    { onSuccess: () => setOpen(false) },
+                  )
+                }
+              />
+            </DialogFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }
 
@@ -158,6 +149,11 @@ const SCOPE_LABEL: Record<GroupRole['scope_kind'], string> = {
   self: 'Self',
 };
 
+const SCOPE_OPTIONS = (Object.keys(SCOPE_LABEL) as GroupRole['scope_kind'][]).map((value) => ({
+  value,
+  label: SCOPE_LABEL[value],
+}));
+
 /** Inline scope control for one checked role row: scope kind + (when org_unit) unit picker. */
 function RoleScopeControl({
   role,
@@ -166,35 +162,41 @@ function RoleScopeControl({
   role: GroupRole;
   onChange: (scope_kind: GroupRole['scope_kind'], scope_id: string | null) => void;
 }) {
+  // The role only carries a persisted scope_id — resolve it into a labelled item on
+  // mount (and whenever the scope changes to a different org unit) so the picker shows
+  // a name. Matched BY ID: the org-units endpoint ignores the `ids` filter and returns
+  // the tenant's full list, so the first result is not necessarily the right one.
+  const [scopeItem, setScopeItem] = useSeededItem(
+    role.scope_kind === 'org_unit' ? role.scope_id : null,
+    orgUnitSearch.seed,
+  );
+
   return (
     <div className="flex flex-none items-center gap-1.5">
-      <Select
+      <Selector
+        label={`${role.role_slug} scope`}
+        isLabelHidden
+        size="sm"
         value={role.scope_kind}
-        onValueChange={(v) => {
+        onChange={(v) => {
           const scope_kind = v as GroupRole['scope_kind'];
           onChange(scope_kind, scope_kind === 'org_unit' ? role.scope_id : null);
         }}
-      >
-        <SelectTrigger
-          aria-label={`${role.role_slug} scope`}
-          className="h-7 w-[8.5rem] flex-none text-caption"
-        >
-          <SelectValue>{SCOPE_LABEL[role.scope_kind]}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="tenant">Tenant-wide</SelectItem>
-          <SelectItem value="org_unit">Org unit</SelectItem>
-          <SelectItem value="self">Self</SelectItem>
-        </SelectContent>
-      </Select>
+        options={SCOPE_OPTIONS}
+      />
       {role.scope_kind === 'org_unit' && (
-        <AsyncCombobox
-          value={role.scope_id}
-          onChange={(scope_id) => onChange('org_unit', scope_id)}
-          search={orgUnitSearch.search}
-          resolveByIds={orgUnitSearch.resolveByIds}
+        <Typeahead
+          label={`${role.role_slug} org unit`}
+          isLabelHidden
+          searchSource={orgUnitSearch.source}
+          hasEntriesOnFocus
+          value={scopeItem}
+          onChange={(item) => {
+            setScopeItem(item);
+            onChange('org_unit', item?.id ?? null);
+          }}
           placeholder="Org unit…"
-          className="h-7 w-40 flex-none text-caption"
+          className="h-7 w-40 flex-none text-sm"
         />
       )}
     </div>
@@ -203,32 +205,27 @@ function RoleScopeControl({
 
 function DeleteGroupButton({ group, onDeleted }: { group: Group; onDeleted: () => void }) {
   const del = useDeleteGroup();
+  const [isOpen, setIsOpen] = useState(false);
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-ink-tertiary hover:text-destructive">
-          <Trash2 className="size-3.5" aria-hidden />
-          Delete
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete “{group.name}”?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Members lose the roles and product access this group grants. This can’t be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            className="bg-destructive text-on-primary hover:bg-destructive/90"
-            onClick={() => del.mutate(group.group_id, { onSuccess: onDeleted })}
-          >
-            Delete group
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-disabled hover:text-error"
+        label="Delete"
+        icon={<Trash2 className="size-3.5" aria-hidden />}
+        onClick={() => setIsOpen(true)}
+      />
+      <AlertDialog
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}
+        title={`Delete “${group.name}”?`}
+        description="Members lose the roles and product access this group grants. This can’t be undone."
+        actionLabel="Delete group"
+        isActionLoading={del.isPending}
+        onAction={() => del.mutate(group.group_id, { onSuccess: onDeleted })}
+      />
+    </>
   );
 }
 
@@ -272,13 +269,13 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 space-y-1">
             <div className="flex items-center gap-2">
-              <h2 className="truncate text-card-title font-semibold tracking-tight text-ink">
+              <h2 className="truncate text-2xl font-semibold tracking-tight text-primary">
                 {group.name}
               </h2>
-              {group.is_base && <Badge variant="secondary">Base</Badge>}
-              {group.kind === 'default' && <Badge variant="outline">Default</Badge>}
+              {group.is_base && <Badge variant="neutral" label="Base" />}
+              {group.kind === 'default' && <Badge variant="neutral" label="Default" />}
             </div>
-            <p className="font-mono text-caption text-ink-tertiary">{group.slug}</p>
+            <p className="font-mono text-sm text-disabled">{group.slug}</p>
           </div>
           <div className="flex flex-none items-center gap-2">
             {editable && <RenameDialog group={group} />}
@@ -310,20 +307,22 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
             title="Roles"
             hint="Tick the roles everyone in this group inherits"
           />
-          <div className="overflow-hidden rounded-lg border border-hairline">
+          <div className="overflow-hidden rounded-lg border border-border">
             {ROLE_GROUPS.map(({ module, product, roles }) => (
-              <div key={module} className="border-b border-hairline last:border-b-0">
-                <div className="flex items-center gap-2 border-b border-hairline-tertiary bg-surface-1 px-3.5 py-2">
-                  <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+              <div key={module} className="border-b border-border last:border-b-0">
+                <div className="flex items-center gap-2 border-b border-border bg-card px-3.5 py-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">
                     {moduleDisplay(module)}
                   </span>
                   {product && (
-                    <Badge variant="outline" className="font-normal">
-                      {PRODUCT_LABEL.get(product) ?? product}
-                    </Badge>
+                    <Badge
+                      variant="neutral"
+                      className="font-normal"
+                      label={PRODUCT_LABEL.get(product) ?? product}
+                    />
                   )}
                 </div>
-                <ul className="divide-y divide-hairline-tertiary">
+                <ul className="divide-y divide-border">
                   {roles.map((r) => {
                     const entry = roleEntries.find((e) => e.role_slug === r.slug);
                     const checked = entry != null;
@@ -333,34 +332,31 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                           className={cn(
                             'flex items-center gap-3 px-3.5 py-2.5 transition-colors',
                             checked
-                              ? 'bg-primary/[0.06] hover:bg-primary/10'
-                              : 'hover:bg-surface-2',
+                              ? 'bg-accent-bg/[0.06] hover:bg-accent-bg/10'
+                              : 'hover:bg-surface',
                           )}
                         >
-                          <label
-                            htmlFor={`grouprole-${r.slug}`}
-                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3"
-                          >
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
                             <Checkbox
-                              id={`grouprole-${r.slug}`}
-                              checked={checked}
-                              onCheckedChange={(v) => toggleRole(r.slug, v === true)}
-                              aria-label={r.label}
+                              label={r.label}
+                              isLabelHidden
+                              value={checked}
+                              onChange={(v) => toggleRole(r.slug, v)}
                             />
                             <div className="min-w-0 flex-1">
-                              <span className="text-body-sm font-medium text-ink">
+                              <span className="text-base font-medium text-primary">
                                 {roleTail(r.slug)}
                               </span>
                               {r.description && (
-                                <p className="mt-0.5 truncate text-caption text-ink-subtle">
+                                <p className="mt-0.5 truncate text-sm text-secondary">
                                   {r.description}
                                 </p>
                               )}
                             </div>
-                            <span className="flex-none font-mono text-caption text-ink-tertiary">
+                            <span className="flex-none font-mono text-sm text-disabled">
                               {r.slug}
                             </span>
-                          </label>
+                          </div>
                           {entry && (
                             <RoleScopeControl
                               role={entry}
@@ -388,14 +384,16 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
           {products.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {products.map((p) => (
-                <Badge key={p} variant="secondary">
-                  <Layers className="size-3" aria-hidden />
-                  {PRODUCT_LABEL.get(p) ?? p}
-                </Badge>
+                <Badge
+                  key={p}
+                  variant="neutral"
+                  icon={<Layers className="size-3" aria-hidden />}
+                  label={PRODUCT_LABEL.get(p) ?? p}
+                />
               ))}
             </div>
           ) : (
-            <p className="text-body-sm text-ink-tertiary">
+            <p className="text-base text-disabled">
               No products yet — assign a product role above to grant app access.
             </p>
           )}

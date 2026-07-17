@@ -1,26 +1,39 @@
 import {
-  Alert,
-  AlertDescription,
-  DataTable,
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
+  Button,
+  Checkbox,
+  type ColumnSettingsOption,
   EmptyState,
+  HStack,
   Input,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  PageContainer,
+  Popover,
+  paginateData,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SegmentedControlItem,
+  Selector,
+  Skeleton,
+  Table,
+  type TableColumn,
+  Text,
   Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+  useTableColumnSettings,
+  useTableColumnSettingsState,
+  useTablePagination,
+  useTableSortable,
+  useTableSortableState,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { Briefcase, Layers, Pause, Search, Users } from 'lucide-react';
-import { type ReactNode, useMemo, useState } from 'react';
+import { Briefcase, Layers, Pause, Search, Settings2, Users } from 'lucide-react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   fetchOpenRequisitions,
   type OpenRequisitionsBoard,
@@ -45,6 +58,27 @@ const STATUS_LABEL: Record<string, string> = {
   filled: 'Filled',
   cancelled: 'Cancelled',
 };
+
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO lacks an index
+// signature, so alias locally (do not touch the shared DTO).
+type Row = RequisitionListRow & Record<string, unknown>;
+
+// Universe of columns for the column-settings picker. The deleted DataTable never disabled
+// `enableColumnVisibility` here (and no column set `enableHiding: false`), so every column —
+// including "Position" — was genuinely hideable; preserved as-is (no `isAlwaysVisible`).
+const REQ_COLUMN_OPTIONS: ColumnSettingsOption[] = [
+  { key: 'title', label: 'Position' },
+  { key: 'account_name', label: 'Account' },
+  { key: 'project_name', label: 'Project' },
+  { key: 'grade', label: 'Grade' },
+  { key: 'kind', label: 'Type' },
+  { key: 'stage', label: 'Stage' },
+  { key: 'applicants_count', label: 'Applicants' },
+  { key: 'status', label: 'Status' },
+  { key: 'due_date', label: 'Due' },
+];
+const DEFAULT_REQ_COLUMN_KEYS = REQ_COLUMN_OPTIONS.map((c) => c.key);
+const REQ_PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 export function RequisitionsPage() {
   const navigate = useNavigate();
@@ -72,6 +106,9 @@ export function RequisitionsPage() {
   const [accountFilter, setAccountFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [kindFilter, setKindFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [activeColumnKeys, setActiveColumnKeys] = useState<string[]>(DEFAULT_REQ_COLUMN_KEYS);
 
   const { data, isLoading, error } = useQuery<OpenRequisitionsBoard>({
     queryKey: hiringKeys.requisitions(),
@@ -121,132 +158,140 @@ export function RequisitionsPage() {
     });
   }, [rows, query, statusFilter, accountFilter, projectFilter, kindFilter]);
 
+  const { sortedData, sort, sortConfig } = useTableSortableState<Row>({
+    data: filteredRows as Row[],
+  });
+  const sortable = useTableSortable<Row>(sortConfig);
+
+  // Reset to page 1 on filter/sort change — old TanStack autoResetPageIndex parity (see candidates-page).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the filters and sort are the intentional reset triggers, unread in the body.
+  useEffect(() => {
+    setPage(1);
+  }, [query, statusFilter, accountFilter, projectFilter, kindFilter, sort]);
+
+  const pageRows = useMemo(
+    () => paginateData(sortedData, page, pageSize),
+    [sortedData, page, pageSize],
+  );
+  const pagination = useTablePagination<Row>({
+    page,
+    onPageChange: setPage,
+    totalItems: sortedData.length,
+    pageSize,
+    onPageSizeChange: (ps) => {
+      setPageSize(ps);
+      setPage(1);
+    },
+    pageSizeOptions: REQ_PAGE_SIZE_OPTIONS,
+  });
+
+  const columnSettingsState = useTableColumnSettingsState({
+    columns: REQ_COLUMN_OPTIONS,
+    activeColumnKeys,
+    onChangeActiveColumnKeys: (keys) => setActiveColumnKeys([...keys]),
+  });
+  const columnSettings = useTableColumnSettings<Row>(columnSettingsState.columnSettingsConfig);
+
   const stat = (
     label: string,
     value: number,
     icon: ReactNode,
     iconClass: string,
-    valueClass = 'text-ink',
+    valueClass = 'text-primary',
   ) => (
-    <div className="flex items-center gap-4 rounded-lg border border-hairline bg-surface-1 px-5 py-4">
+    <div className="flex items-center gap-4 rounded-lg border border-border bg-card px-5 py-4">
       <div
         className={`flex size-11 shrink-0 items-center justify-center rounded-full ${iconClass}`}
       >
         {icon}
       </div>
       <div>
-        <div className={`text-display-md font-semibold tabular-nums ${valueClass}`}>{value}</div>
-        <div className="mt-1 text-caption text-ink-muted">{label}</div>
+        <div className={`text-5xl font-semibold tabular-nums ${valueClass}`}>{value}</div>
+        <div className="mt-1 text-sm text-secondary">{label}</div>
       </div>
     </div>
   );
 
-  const columns = useMemo(() => {
-    type Ctx = { row: { original: RequisitionListRow } };
-    return [
+  const columns = useMemo<TableColumn<Row>[]>(
+    () => [
       {
-        id: 'title',
-        accessorKey: 'title',
+        key: 'title',
         header: 'Position',
-        cell: ({ row }: Ctx) => (
+        sortable: true,
+        renderCell: (r) => (
           <div className="min-w-[240px] max-w-[420px]">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="line-clamp-2 break-words font-medium text-ink">
-                    {row.original.title}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>{row.original.title}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip content={r.title} hasHoverIndication={false}>
+              <div className="line-clamp-2 break-words font-medium text-primary">{r.title}</div>
+            </Tooltip>
           </div>
         ),
       },
       {
-        id: 'account_name',
-        accessorKey: 'account_name',
+        key: 'account_name',
         header: 'Account',
-        cell: ({ row }: Ctx) => (
-          <span className="whitespace-nowrap text-ink-muted">
-            {row.original.account_name ?? '—'}
-          </span>
+        sortable: true,
+        renderCell: (r) => (
+          <span className="whitespace-nowrap text-secondary">{r.account_name ?? '—'}</span>
         ),
       },
       {
-        id: 'project_name',
-        accessorKey: 'project_name',
+        key: 'project_name',
         header: 'Project',
-        cell: ({ row }: Ctx) => (
-          <span className="whitespace-nowrap text-ink-muted">
-            {row.original.project_name ?? '—'}
-          </span>
+        sortable: true,
+        renderCell: (r) => (
+          <span className="whitespace-nowrap text-secondary">{r.project_name ?? '—'}</span>
         ),
       },
       {
-        id: 'grade',
-        accessorKey: 'grade',
+        key: 'grade',
         header: 'Grade',
-        cell: ({ row }: Ctx) =>
-          row.original.grade ? (
+        sortable: true,
+        renderCell: (r) =>
+          r.grade ? (
             <div className="max-w-[160px]">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="truncate text-ink-muted">{row.original.grade}</div>
-                  </TooltipTrigger>
-                  <TooltipContent>{row.original.grade}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip content={r.grade} hasHoverIndication={false}>
+                <div className="truncate text-secondary">{r.grade}</div>
+              </Tooltip>
             </div>
           ) : (
-            <span className="text-ink-muted">—</span>
+            <span className="text-secondary">—</span>
           ),
       },
       {
-        id: 'kind',
-        accessorKey: 'kind',
+        key: 'kind',
         header: 'Type',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted capitalize">{row.original.kind}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary capitalize">{r.kind}</span>,
       },
       {
-        id: 'stage',
-        accessorKey: 'stage',
+        key: 'stage',
         header: 'Stage',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{STAGE_LABEL[row.original.stage]}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary">{STAGE_LABEL[r.stage]}</span>,
       },
       {
-        id: 'applicants',
-        accessorKey: 'applicants_count',
+        key: 'applicants_count',
         header: 'Applicants',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{row.original.applicants_count}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary">{r.applicants_count}</span>,
       },
       {
-        id: 'status',
-        accessorKey: 'status',
+        key: 'status',
         header: 'Status',
-        cell: ({ row }: Ctx) => (
-          <span className="text-ink-muted">{STATUS_LABEL[row.original.status]}</span>
-        ),
+        sortable: true,
+        renderCell: (r) => <span className="text-secondary">{STATUS_LABEL[r.status]}</span>,
       },
       {
-        id: 'due_date',
-        accessorKey: 'due_date',
+        key: 'due_date',
         header: 'Due',
-        cell: ({ row }: Ctx) => (
-          <span className="font-mono text-caption text-ink-muted">
-            {row.original.due_date ?? '—'}
-          </span>
+        sortable: true,
+        renderCell: (r) => (
+          <span className="font-mono text-sm text-secondary">{r.due_date ?? '—'}</span>
         ),
       },
-    ];
-  }, []);
+    ],
+    [],
+  );
 
   // The board only carries non-filled requisitions (status open | on_hold).
   const openCount = rows.filter((r) => r.status === 'open').length;
@@ -254,137 +299,223 @@ export function RequisitionsPage() {
   const totalApplicants = rows.reduce((n, r) => n + r.applicants_count, 0);
 
   return (
-    <PageChrome
-      breadcrumb={['Hiring management', 'Open positions']}
-      title="Requisitions"
-      subtitle="Live open positions across every account — track hiring status and let internal staff browse and apply."
-      actions={<NewRequisitionDialog disabled={!canCreate} />}
-    >
-      <div className="page-container space-y-4 p-6">
-        {scopeNote && (
-          <Alert variant="info">
-            <AlertDescription>{scopeNote}</AlertDescription>
-          </Alert>
-        )}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {stat(
-            'Open positions',
-            openCount,
-            <Briefcase className="size-5" aria-hidden />,
-            'bg-primary/12 text-primary',
-          )}
-          {stat(
-            'Applicants',
-            totalApplicants,
-            <Users className="size-5" aria-hidden />,
-            'bg-success-tint text-success-ink',
-          )}
-          {stat(
-            'On hold',
-            onHold,
-            <Pause className="size-5" aria-hidden />,
-            'bg-warning-tint text-warning-ink',
-            'text-warning',
-          )}
-          {stat(
-            'Total open',
-            rows.length,
-            <Layers className="size-5" aria-hidden />,
-            'bg-primary/12 text-primary',
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[220px] max-w-sm flex-1">
-            <Search
-              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-ink-subtle"
-              aria-hidden
-            />
-            <Input
-              placeholder="Search requisitions…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          {/* Filters cluster — grouped tighter (gap-2) than the gap-3 that separates this
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/hiring">Hiring Management</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Requisitions</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Requisitions
+                </Text>
+                <Text color="secondary">
+                  Live open positions across every account — track hiring status and let internal
+                  staff browse and apply.
+                </Text>
+              </HStack>
+              <NewRequisitionDialog disabled={!canCreate} />
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <PageContainer className="space-y-4">
+            {scopeNote && <Banner status="info" title={scopeNote} />}
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {stat(
+                'Open positions',
+                openCount,
+                <Briefcase className="size-5" aria-hidden />,
+                'bg-accent-bg/12 text-accent',
+              )}
+              {stat(
+                'Applicants',
+                totalApplicants,
+                <Users className="size-5" aria-hidden />,
+                'bg-success-muted text-success',
+              )}
+              {stat(
+                'On hold',
+                onHold,
+                <Pause className="size-5" aria-hidden />,
+                'bg-warning-muted text-warning',
+                'text-warning',
+              )}
+              {stat(
+                'Total open',
+                rows.length,
+                <Layers className="size-5" aria-hidden />,
+                'bg-accent-bg/12 text-accent',
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Input
+                label="Search requisitions"
+                isLabelHidden
+                startIcon={<Search className="size-3.5" aria-hidden />}
+                placeholder="Search requisitions…"
+                value={query}
+                onChange={(value) => setQuery(value)}
+                className="min-w-[220px] max-w-sm flex-1"
+              />
+              {/* Filters cluster — grouped tighter (gap-2) than the gap-3 that separates this
               cluster from the search box and the view toggle, so proximity signals the
               relationship: search finds, filters narrow, toggle changes layout. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Status</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="on_hold">On hold</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={accountFilter} onValueChange={onAccountFilterChange}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Account</SelectItem>
-                {accountOptions.map((a) => (
-                  <SelectItem key={a} value={a}>
-                    {a}
-                  </SelectItem>
+              <div className="flex flex-wrap items-center gap-2">
+                <Selector
+                  label="Filter by status"
+                  isLabelHidden
+                  options={[
+                    { value: 'all', label: 'Status' },
+                    { value: 'open', label: 'Open' },
+                    { value: 'on_hold', label: 'On hold' },
+                  ]}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                />
+                <Selector
+                  label="Filter by account"
+                  isLabelHidden
+                  options={[
+                    { value: 'all', label: 'Account' },
+                    ...accountOptions.map((a) => ({ value: a, label: a })),
+                  ]}
+                  value={accountFilter}
+                  onChange={onAccountFilterChange}
+                />
+                <Selector
+                  label="Filter by project"
+                  isLabelHidden
+                  options={[
+                    { value: 'all', label: 'Project' },
+                    ...projectOptions.map((p) => ({ value: p, label: p })),
+                  ]}
+                  value={projectFilter}
+                  onChange={setProjectFilter}
+                  isDisabled={accountFilter === 'all'}
+                  placeholder="Project"
+                />
+                <Selector
+                  label="Filter by type"
+                  isLabelHidden
+                  options={[
+                    { value: 'all', label: 'More filters' },
+                    { value: 'new', label: 'New' },
+                    { value: 'replacement', label: 'Replacement' },
+                  ]}
+                  value={kindFilter}
+                  onChange={setKindFilter}
+                />
+              </div>
+              <div className="ml-auto">
+                <SegmentedControl
+                  label="Requisitions view"
+                  value={view}
+                  onChange={(v) => setView(v as 'board' | 'list')}
+                >
+                  <SegmentedControlItem value="board" label="Board" />
+                  <SegmentedControlItem value="list" label="List" />
+                </SegmentedControl>
+              </div>
+            </div>
+            {error ? (
+              <Banner status="error" title={(error as Error).message} />
+            ) : view === 'list' ? (
+              <div className="space-y-3">
+                <div className="flex justify-end">
+                  <Popover
+                    placement="below"
+                    alignment="end"
+                    label="Toggle columns"
+                    content={
+                      <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
+                        <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
+                          Toggle columns
+                        </div>
+                        {REQ_COLUMN_OPTIONS.map((col) => (
+                          <Checkbox
+                            key={col.key}
+                            label={col.label}
+                            value={columnSettingsState.isColumnActive(col.key)}
+                            onChange={() => columnSettingsState.toggleColumn(col.key)}
+                          />
+                        ))}
+                      </div>
+                    }
+                  >
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Settings2 className="size-3.5" />}
+                      label="Columns"
+                    />
+                  </Popover>
+                </div>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                      <Skeleton key={id} height={40} />
+                    ))}
+                  </div>
+                ) : (
+                  <Table
+                    data={pageRows}
+                    columns={columns}
+                    idKey="id"
+                    plugins={{
+                      pagination,
+                      sortable,
+                      columnSettings,
+                      rowClick: {
+                        transformBodyRow: (props, item) => ({
+                          ...props,
+                          htmlProps: {
+                            ...props.htmlProps,
+                            style: { ...props.htmlProps.style, cursor: 'pointer' },
+                            onClick: () =>
+                              void navigate({
+                                to: '/hiring/requisitions',
+                                search: (prev: Record<string, unknown>) => ({
+                                  ...prev,
+                                  selectedRequisitionId: item.id,
+                                }),
+                              }),
+                          },
+                        }),
+                      },
+                    }}
+                    emptyState={
+                      <EmptyState
+                        icon={<Briefcase className="size-6" />}
+                        title={
+                          rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'
+                        }
+                        description={
+                          rows.length === 0
+                            ? 'Open a requisition to get started.'
+                            : 'Try different filters.'
+                        }
+                      />
+                    }
+                  />
+                )}
+              </div>
+            ) : isLoading ? (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-40 animate-pulse rounded-lg border border-border bg-surface"
+                  />
                 ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={projectFilter}
-              onValueChange={setProjectFilter}
-              disabled={accountFilter === 'all'}
-            >
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Project" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Project</SelectItem>
-                {projectOptions.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={kindFilter} onValueChange={setKindFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">More filters</SelectItem>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="replacement">Replacement</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="ml-auto">
-            <SegmentedControl
-              value={view}
-              onValueChange={(v) => setView(v as 'board' | 'list')}
-              options={[
-                { value: 'board', label: 'Board' },
-                { value: 'list', label: 'List' },
-              ]}
-            />
-          </div>
-        </div>
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{(error as Error).message}</AlertDescription>
-          </Alert>
-        ) : view === 'list' ? (
-          <DataTable
-            columns={columns}
-            data={filteredRows}
-            isLoading={isLoading}
-            getRowId={(r: RequisitionListRow) => r.id}
-            enableGlobalFilter={false}
-            pagination={{ defaultPageSize: 25, pageSizeOptions: [25, 50, 100] }}
-            emptyState={
+              </div>
+            ) : filteredRows.length === 0 ? (
               <EmptyState
                 icon={<Briefcase className="size-6" />}
                 title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
@@ -394,77 +525,51 @@ export function RequisitionsPage() {
                     : 'Try different filters.'
                 }
               />
-            }
-            onRowClick={(row) =>
-              void navigate({
-                to: '/hiring/requisitions',
-                search: (prev: Record<string, unknown>) => ({
-                  ...prev,
-                  selectedRequisitionId: row.original.id,
-                }),
-              })
-            }
-          />
-        ) : isLoading ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {[0, 1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
-              />
-            ))}
-          </div>
-        ) : filteredRows.length === 0 ? (
-          <EmptyState
-            icon={<Briefcase className="size-6" />}
-            title={rows.length === 0 ? 'No requisitions yet' : 'No matching requisitions'}
-            description={
-              rows.length === 0 ? 'Open a requisition to get started.' : 'Try different filters.'
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {filteredRows.map((r) => (
-              <RequisitionCard
-                key={r.id}
-                r={r}
-                canManage={canManage}
-                canClose={canClose}
-                onRequestMarkFilled={() => setFillTarget({ id: r.id, version: r.version })}
-                onRequestCancel={() => setCancelTarget({ id: r.id, version: r.version })}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-      {fillTarget && (
-        <MarkFilledDialog
-          requisitionId={fillTarget.id}
-          version={fillTarget.version}
-          open
-          onOpenChange={(v) => {
-            if (!v) setFillTarget(null);
-          }}
-          onDone={() => {
-            invalidate();
-            setFillTarget(null);
-          }}
-        />
-      )}
-      {cancelTarget && (
-        <CancelRequisitionDialog
-          requisitionId={cancelTarget.id}
-          version={cancelTarget.version}
-          open
-          onOpenChange={(v) => {
-            if (!v) setCancelTarget(null);
-          }}
-          onDone={() => {
-            invalidate();
-            setCancelTarget(null);
-          }}
-        />
-      )}
-    </PageChrome>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {filteredRows.map((r) => (
+                  <RequisitionCard
+                    key={r.id}
+                    r={r}
+                    canManage={canManage}
+                    canClose={canClose}
+                    onRequestMarkFilled={() => setFillTarget({ id: r.id, version: r.version })}
+                    onRequestCancel={() => setCancelTarget({ id: r.id, version: r.version })}
+                  />
+                ))}
+              </div>
+            )}
+          </PageContainer>
+          {fillTarget && (
+            <MarkFilledDialog
+              requisitionId={fillTarget.id}
+              version={fillTarget.version}
+              open
+              onOpenChange={(v) => {
+                if (!v) setFillTarget(null);
+              }}
+              onDone={() => {
+                invalidate();
+                setFillTarget(null);
+              }}
+            />
+          )}
+          {cancelTarget && (
+            <CancelRequisitionDialog
+              requisitionId={cancelTarget.id}
+              version={cancelTarget.version}
+              open
+              onOpenChange={(v) => {
+                if (!v) setCancelTarget(null);
+              }}
+              onDone={() => {
+                invalidate();
+                setCancelTarget(null);
+              }}
+            />
+          )}
+        </LayoutContent>
+      }
+    />
   );
 }

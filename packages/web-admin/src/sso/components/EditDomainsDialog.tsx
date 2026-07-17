@@ -1,14 +1,12 @@
 import {
-  Alert,
-  AlertDescription,
+  Banner,
   Button,
   Dialog,
-  DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   Input,
-  Label,
+  Layout,
+  LayoutContent,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import { DomainsField } from '../../components/DomainsField.tsx';
@@ -54,50 +52,41 @@ export function EditDomainsDialog({
     }
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) resetState();
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) resetState();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button variant="secondary" size="sm">
-          Edit domains
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit email domains</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="edit-domains-tenant-id">Entra tenant ID</Label>
-            <Input
-              id="edit-domains-tenant-id"
-              value={entraTenantId ?? ''}
-              placeholder="Configured via the Microsoft 365 integration"
-              readOnly
-              className="text-muted-foreground"
-            />
-          </div>
-          <DomainsField domains={domains} onChange={setDomains} idPrefix="edit-domains" />
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={submit} disabled={submitting}>
-              Save
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button variant="secondary" size="sm" label="Edit domains" onClick={() => setOpen(true)} />
+      <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
+        <Layout
+          header={<DialogHeader title="Edit email domains" onOpenChange={handleOpenChange} />}
+          content={
+            <LayoutContent>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Input
+                    label="Entra tenant ID"
+                    value={entraTenantId ?? ''}
+                    placeholder="Configured via the Microsoft 365 integration"
+                    isDisabled
+                  />
+                </div>
+                <DomainsField domains={domains} onChange={setDomains} />
+                {error && <Banner status="error" title={error} />}
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
+              <Button variant="primary" label="Save" onClick={submit} isDisabled={submitting} />
+            </DialogFooter>
+          }
+        />
+      </Dialog>
+    </>
   );
 }

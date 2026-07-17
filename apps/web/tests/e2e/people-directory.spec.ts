@@ -184,7 +184,7 @@ test('pagination controls are present for the seeded roster', async ({ page }) =
   await page.goto('/people/employees');
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
 
-  // The DataTablePagination renders "Showing X–Y of Z" text and Previous/Next buttons.
+  // The Astryx Table pager renders "Showing X–Y of Z" text and Previous/Next buttons.
   // We assert the pager renders; if only 1 page exists the "Next" button will be disabled.
   await expect(page.getByText(/showing \d+/i)).toBeVisible({ timeout: 8_000 });
   await expect(page.getByRole('button', { name: 'Previous' })).toBeVisible();
@@ -227,15 +227,15 @@ test('card/list toggle: switching to Cards view shows worker card', async ({ pag
   await page.getByPlaceholder('Search people…').fill(WORKER_NAME);
   await expect(page.getByText(WORKER_NAME)).toBeVisible({ timeout: 5_000 });
 
-  // The SegmentedControl renders role="tablist" with "List" and "Cards" tab buttons.
-  const directoryControl = page.getByRole('tablist', { name: 'Directory view' });
-  await directoryControl.getByRole('tab', { name: 'Cards' }).click();
+  // The SegmentedControl renders role="radiogroup" with "List" and "Cards" radio buttons.
+  const directoryControl = page.getByRole('radiogroup', { name: 'Directory view' });
+  await directoryControl.getByRole('radio', { name: 'Cards' }).click();
 
   // Card view renders worker cards — the worker's name should still be visible.
   await expect(page.getByText(WORKER_NAME)).toBeVisible({ timeout: 5_000 });
 
   // Toggle back to List.
-  await directoryControl.getByRole('tab', { name: 'List' }).click();
+  await directoryControl.getByRole('radio', { name: 'List' }).click();
   // The column header should reappear (table is restored).
   await expect(page.getByRole('columnheader', { name: 'Employee' })).toBeVisible();
 });

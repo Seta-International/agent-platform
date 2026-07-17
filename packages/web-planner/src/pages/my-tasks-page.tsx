@@ -1,6 +1,20 @@
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
 import type { MyTasksResult } from '@seta/planner';
-import { Alert, AlertDescription, Button, EmptyState, PageChrome, Skeleton } from '@seta/shared-ui';
+import {
+  Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
+  Button,
+  EmptyState,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  PageContainer,
+  Skeleton,
+  Text,
+  VStack,
+} from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useNavigate } from '@tanstack/react-router';
 import { generateKeyBetween } from 'fractional-indexing';
@@ -116,86 +130,116 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
   const total = q.data ? totalCount(q.data) : 0;
 
   return (
-    <PageChrome
-      breadcrumb={['Planner']}
-      title="My tasks"
-      subtitle={subtitle}
-      toolbar={
-        <MyTasksToolbar
-          value={{
-            planId: filters.planId,
-            groupId: filters.groupId,
-            priority: filters.priority,
-            due: filters.due,
-            view: filters.view ?? 'list',
-            search: filters.search,
-          }}
-          planOptions={planOptions}
-          groupOptions={groupOptions}
-          onChange={(patch) => onFiltersChange({ ...filters, ...patch })}
-          onSearchChange={(s) => onFiltersChange({ ...filters, search: s || undefined })}
-        />
+    <Layout
+      height="fill"
+      header={
+        <>
+          <LayoutHeader hasDivider padding={4}>
+            <VStack gap={1}>
+              <Breadcrumbs variant="supporting">
+                <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+                <BreadcrumbItem isCurrent>My tasks</BreadcrumbItem>
+              </Breadcrumbs>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  My tasks
+                </Text>
+                {subtitle && <Text color="secondary">{subtitle}</Text>}
+              </HStack>
+            </VStack>
+          </LayoutHeader>
+          {/* The Toolbar owns its own height, inline padding, and bottom divider, so it sits
+              directly in a padding-free header row — no gray `bg-body` wrapper. It stays outside
+              the scroll container, keeping the filters pinned above the list. */}
+          <LayoutHeader padding={0}>
+            <MyTasksToolbar
+              value={{
+                planId: filters.planId,
+                groupId: filters.groupId,
+                priority: filters.priority,
+                due: filters.due,
+                view: filters.view ?? 'list',
+                search: filters.search,
+              }}
+              planOptions={planOptions}
+              groupOptions={groupOptions}
+              onChange={(patch) => onFiltersChange({ ...filters, ...patch })}
+              onSearchChange={(s) => onFiltersChange({ ...filters, search: s || undefined })}
+            />
+          </LayoutHeader>
+        </>
       }
-    >
-      {q.isPending && (
-        <PageBody>
-          <MyTasksSkeleton />
-        </PageBody>
-      )}
-      {q.isError && (
-        <PageBody>
-          <MyTasksError onRetry={() => void q.refetch()} />
-        </PageBody>
-      )}
-      {hasData && total === 0 && (
-        <PageBody>
-          <MyTasksEmpty onBrowse={() => void navigate({ to: '/planner/groups' })} />
-        </PageBody>
-      )}
-      {hasData && total > 0 && q.data && filters.view === 'grid' && (
-        <div className="flex h-full flex-col">
-          <div className="flex-1 overflow-auto">
-            <MyTasksGrid data={q.data} />
-          </div>
-          <MyTasksFooter data={q.data} total={total} />
-        </div>
-      )}
-      {hasData && total > 0 && q.data && filters.view !== 'grid' && (
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex h-full flex-col">
-            <div className="flex-1 overflow-auto">
-              <div className="min-w-min">
-                {SECTION_SPECS.map((spec) => (
-                  <MtSection
-                    key={spec.key}
-                    section={mapSection(spec, q.data)}
-                    searchTerm={filters.search}
-                  />
-                ))}
+      content={
+        <LayoutContent padding={0}>
+          {q.isPending && (
+            <PageBody>
+              <MyTasksSkeleton />
+            </PageBody>
+          )}
+          {q.isError && (
+            <PageBody>
+              <MyTasksError onRetry={() => void q.refetch()} />
+            </PageBody>
+          )}
+          {hasData && total === 0 && (
+            <PageBody>
+              <MyTasksEmpty onBrowse={() => void navigate({ to: '/planner/groups' })} />
+            </PageBody>
+          )}
+          {hasData && total > 0 && q.data && filters.view === 'grid' && (
+            <div className="flex h-full flex-col">
+              <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+                <MyTasksGrid
+                  data={q.data}
+                  onOpenTask={(task) =>
+                    void navigate({
+                      to: '/planner/plans/$planId/tasks/$taskId',
+                      params: { planId: task.plan_id, taskId: task.id },
+                    })
+                  }
+                />
               </div>
+              <MyTasksFooter data={q.data} total={total} />
             </div>
-            <MyTasksFooter data={q.data} total={total} />
-          </div>
-        </DragDropContext>
-      )}
-    </PageChrome>
+          )}
+          {hasData && total > 0 && q.data && filters.view !== 'grid' && (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="flex h-full flex-col">
+                <div className="flex-1 overflow-auto">
+                  <div className="min-w-min">
+                    {SECTION_SPECS.map((spec) => (
+                      <MtSection
+                        key={spec.key}
+                        section={mapSection(spec, q.data)}
+                        searchTerm={filters.search}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <MyTasksFooter data={q.data} total={total} />
+              </div>
+            </DragDropContext>
+          )}
+        </LayoutContent>
+      }
+    />
   );
 }
 
 function PageBody({ children }: { children: React.ReactNode }) {
-  return <div className="page-container">{children}</div>;
+  return <PageContainer>{children}</PageContainer>;
 }
 
 function MyTasksFooter({ data, total }: { data: MyTasksResult; total: number }) {
   const open =
     data.late.length + data.dueThisWeek.length + data.inProgress.length + data.notStarted.length;
   return (
-    <footer className="flex h-11 flex-none items-center justify-between border-t border-hairline bg-canvas px-6 text-xs text-ink-muted">
+    <footer className="flex h-11 flex-none items-center justify-between border-t border-border bg-body px-6 text-xs text-secondary">
       <span>
         {open} open · {data.late.length} late · {data.dueThisWeek.length} due this week ·{' '}
         {data.recentlyCompleted.length} recently completed
       </span>
-      <span className="text-ink-subtle">
+      <span className="text-secondary">
         {total} {total === 1 ? 'task' : 'tasks'} assigned to you
       </span>
     </footer>
@@ -209,10 +253,10 @@ function MyTasksSkeleton() {
         <div
           key={i}
           data-testid="mt-section-skeleton"
-          className="rounded-md border border-hairline overflow-hidden"
+          className="rounded-md border border-border overflow-hidden"
         >
-          <Skeleton className="h-9 w-full" />
-          {i < 2 && <Skeleton className="h-11 w-full mt-px" />}
+          <Skeleton height={36} />
+          {i < 2 && <Skeleton className="mt-px" height={44} />}
         </div>
       ))}
     </div>
@@ -221,14 +265,12 @@ function MyTasksSkeleton() {
 
 function MyTasksError({ onRetry }: { onRetry: () => void }) {
   return (
-    <Alert variant="destructive" data-testid="my-tasks-error">
-      <AlertDescription className="flex items-center justify-between gap-3">
-        <span>Couldn&apos;t load your tasks.</span>
-        <Button size="sm" variant="secondary" onClick={onRetry}>
-          Try again
-        </Button>
-      </AlertDescription>
-    </Alert>
+    <Banner
+      status="error"
+      data-testid="my-tasks-error"
+      title="Couldn&apos;t load your tasks."
+      endContent={<Button size="sm" variant="secondary" label="Try again" onClick={onRetry} />}
+    />
   );
 }
 
@@ -239,7 +281,7 @@ function MyTasksEmpty({ onBrowse }: { onBrowse?: () => void }) {
         icon={<CheckCircle2 className="size-8" />}
         title="You&apos;re all caught up"
         description="Nothing is assigned to you right now. Pick up something from a plan."
-        action={onBrowse ? { label: 'Browse plans', onClick: onBrowse } : undefined}
+        actions={onBrowse ? <Button label="Browse plans" onClick={onBrowse} /> : undefined}
       />
     </div>
   );

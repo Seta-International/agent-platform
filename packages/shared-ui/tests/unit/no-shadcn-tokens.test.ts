@@ -4,25 +4,24 @@ import { describe, expect, it } from 'vitest';
 
 const primitivesDir = resolve(__dirname, '../../src/primitives');
 
+// Only names shadcn owns exclusively. `bg-card`, `bg-popover`, `bg-muted`,
+// `bg-accent`, `bg-secondary` and `border-border` used to sit here too, but the
+// Astryx Tailwind bridge now generates all six — forbidding them would ban the
+// design system's own vocabulary. shadcn's `-foreground` pairing is the part
+// that stayed unique to it.
 const FORBIDDEN_CLASSES = [
   'bg-background',
   'text-background',
   'bg-foreground',
   'text-foreground',
-  'bg-card',
   'text-card-foreground',
-  'bg-popover',
   'text-popover-foreground',
-  'bg-muted',
   'text-muted-foreground',
-  'bg-secondary ',
   'text-secondary-foreground',
-  'bg-accent',
   'text-accent-foreground',
   'text-primary-foreground',
   'text-destructive-foreground',
   'border-input',
-  'border-border',
   'ring-ring',
   'ring-offset-background',
 ];
