@@ -3,35 +3,31 @@ import { describe, expect, it } from 'vitest';
 import { ProgressBar } from '../../../../src/components/my-tasks/progress-bar';
 
 describe('ProgressBar (my-tasks page-local)', () => {
-  it('renders pct in the tail and as width on the fill', () => {
+  it('renders pct as aria-valuenow and as the visible value label', () => {
     render(<ProgressBar pct={60} status="In Progress" />);
+    const progressbar = screen.getByRole('progressbar');
+    expect(progressbar).toHaveAttribute('aria-valuenow', '60');
     expect(screen.getByText('60%')).toBeInTheDocument();
-    const fill = screen.getByTestId('progress-bar-fill');
-    expect(fill.style.width).toBe('60%');
   });
 
-  it('uses success fill when status Done or pct 100', () => {
-    const { unmount } = render(<ProgressBar pct={100} status="Done" />);
-    expect(screen.getByTestId('progress-bar-fill').style.background).toContain('color-success');
+  it('uses success variant when status Done or pct 100', () => {
+    const { container, unmount } = render(<ProgressBar pct={100} status="Done" />);
+    expect(container.firstElementChild).toHaveAttribute('data-variant', 'success');
     unmount();
-    render(<ProgressBar pct={100} status="In Progress" />);
-    expect(screen.getByTestId('progress-bar-fill').style.background).toContain('color-success');
+    const { container: container2 } = render(<ProgressBar pct={100} status="In Progress" />);
+    expect(container2.firstElementChild).toHaveAttribute('data-variant', 'success');
   });
 
-  it('uses tertiary fill when status Not started or pct 0', () => {
-    const { unmount } = render(<ProgressBar pct={0} status="Not started" />);
-    expect(screen.getByTestId('progress-bar-fill').style.background).toContain(
-      'color-ink-tertiary',
-    );
+  it('uses neutral variant when status Not started or pct 0', () => {
+    const { container, unmount } = render(<ProgressBar pct={0} status="Not started" />);
+    expect(container.firstElementChild).toHaveAttribute('data-variant', 'neutral');
     unmount();
-    render(<ProgressBar pct={0} status="In Progress" />);
-    expect(screen.getByTestId('progress-bar-fill').style.background).toContain(
-      'color-ink-tertiary',
-    );
+    const { container: container2 } = render(<ProgressBar pct={0} status="In Progress" />);
+    expect(container2.firstElementChild).toHaveAttribute('data-variant', 'neutral');
   });
 
-  it('uses primary fill in the in-between case', () => {
-    render(<ProgressBar pct={42} status="In Progress" />);
-    expect(screen.getByTestId('progress-bar-fill').style.background).toContain('color-primary');
+  it('uses accent variant in the in-between case', () => {
+    const { container } = render(<ProgressBar pct={42} status="In Progress" />);
+    expect(container.firstElementChild).toHaveAttribute('data-variant', 'accent');
   });
 });
