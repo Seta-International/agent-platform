@@ -14,7 +14,7 @@ const styles = stylex.create({
     width: '100%',
     textAlign: 'left',
     cursor: 'grab',
-    transition: 'border-color 80ms ease-out, box-shadow 80ms ease-out',
+    transition: 'border-color 80ms ease-out, box-shadow 80ms ease-out, transform 80ms ease-out',
     ':focus-visible': { outline: '2px solid var(--color-accent)', outlineOffset: '2px' },
   },
   dragging: { cursor: 'grabbing', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.18)' },
@@ -33,6 +33,22 @@ const styles = stylex.create({
     },
   },
   body: { display: 'flex', flexDirection: 'column', gap: 8 },
+  hover: {
+    transform: { default: null, ':hover': 'translateY(-1px)' },
+    boxShadow: { default: null, ':hover': 'var(--shadow-med)' },
+    '@media (prefers-reduced-motion: reduce)': { transform: 'none' },
+  },
+  footer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-2)',
+    marginTop: 'var(--spacing-1)',
+    paddingTop: 'var(--spacing-2)',
+    // Reach the card edges (Card padding is 3 -> 12px).
+    marginInline: 'calc(-1 * var(--spacing-3))',
+    paddingInline: 'var(--spacing-3)',
+    borderTop: '1px solid var(--color-border)',
+  },
   savingDot: {
     position: 'absolute',
     top: 'var(--spacing-1)',
@@ -52,6 +68,10 @@ export interface KanbanCardShellProps {
   selected?: boolean;
   recentlyMoved?: boolean;
   saving?: boolean;
+  /** Optional top row (priority pill / status / trailing content), rendered above the body. */
+  header?: ReactNode;
+  /** Optional meta row, rendered under a hairline divider only when present. */
+  footer?: ReactNode;
   /** Render slots fed by the app layer's @hello-pangea/dnd wiring. shared-ui stays DnD-agnostic. */
   draggable: {
     ref?: (el: HTMLDivElement | null) => void;
@@ -70,6 +90,8 @@ export function KanbanCardShell({
   recentlyMoved,
   saving,
   draggable,
+  header,
+  footer,
 }: KanbanCardShellProps) {
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (!onOpen) return;
@@ -91,6 +113,7 @@ export function KanbanCardShell({
       tabIndex={0}
       xstyle={[
         styles.card,
+        styles.hover,
         draggable.isDragging && styles.dragging,
         selected && styles.selected,
         recentlyMoved && styles.recentlyMoved,
@@ -103,7 +126,15 @@ export function KanbanCardShell({
       data-selected={selected ? 'true' : undefined}
       data-recently-moved={recentlyMoved ? 'true' : undefined}
     >
-      <div {...stylex.props(styles.body)}>{children}</div>
+      <div {...stylex.props(styles.body)}>
+        {header}
+        {children}
+        {footer != null && (
+          <div data-role="card-footer" {...stylex.props(styles.footer)}>
+            {footer}
+          </div>
+        )}
+      </div>
       {saving && (
         <span
           data-testid="saving-indicator"
