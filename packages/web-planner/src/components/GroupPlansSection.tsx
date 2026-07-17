@@ -48,8 +48,8 @@ export function GroupPlansSection({
 
   if (total === 0 && !canCreatePlan) {
     return (
-      <section className="rounded-lg border border-hairline bg-canvas">
-        <div className="px-4 py-16 text-center text-body-sm text-ink-subtle">
+      <section className="rounded-lg border border-border bg-body">
+        <div className="px-4 py-16 text-center text-body-sm text-secondary">
           No plans yet in this group.
         </div>
       </section>
@@ -64,7 +64,7 @@ export function GroupPlansSection({
   const showCreateTile = safePageIndex === pageCount - 1;
 
   return (
-    <section className="@container rounded-lg border border-hairline bg-canvas overflow-hidden">
+    <section className="@container rounded-lg border border-border bg-body overflow-hidden">
       <div className="p-3">
         <div className="grid grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 gap-3 items-start">
           {pageSlice.map((plan) => (
@@ -89,7 +89,7 @@ export function GroupPlansSection({
               onClick={onCreatePlan}
               disabled={!canCreatePlan}
               title={canCreatePlan ? undefined : PERMISSION_DENIED.plan.create}
-              className="min-h-[158px] border border-dashed border-hairline-strong rounded-lg bg-transparent flex flex-col items-center justify-center gap-1.5 text-ink-subtle text-sm cursor-pointer hover:bg-surface-1 transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+              className="min-h-[158px] border border-dashed border-border-strong rounded-lg bg-transparent flex flex-col items-center justify-center gap-1.5 text-secondary text-sm cursor-pointer hover:bg-card transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
             >
               <Plus className="size-4" />
               <span>Create a plan in {groupName}</span>

@@ -36,7 +36,7 @@ export function FilterPill<T extends string>({
         <>
           <button
             type="button"
-            className="flex w-full items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-surface-2"
+            className="flex w-full items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-surface"
             onClick={() => {
               onChange(null);
               setOpen(false);
@@ -49,7 +49,7 @@ export function FilterPill<T extends string>({
             <button
               key={o.value}
               type="button"
-              className="flex w-full items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-surface-2"
+              className="flex w-full items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-surface"
               onClick={() => {
                 onChange(o.value);
                 setOpen(false);
@@ -68,7 +68,7 @@ export function FilterPill<T extends string>({
         className="h-7 gap-1"
         label={`${label}${selected ? `: ${selected.label}` : ''} filter`}
       >
-        <span className="text-ink-muted">{label}</span>
+        <span className="text-secondary">{label}</span>
         {selected ? <span className="font-medium">{selected.label}</span> : null}
         <ChevronDown className="size-3 opacity-60" />
       </Button>
@@ -115,7 +115,7 @@ export function MultiFilterPill<T extends string>({
       label={`${label} filter options`}
       content={
         options.length === 0 ? (
-          <p className="p-2 text-sm text-ink-subtle">No options.</p>
+          <p className="p-2 text-sm text-secondary">No options.</p>
         ) : (
           options.map((o) => {
             const checked = valueSet.has(o.value);
@@ -125,11 +125,11 @@ export function MultiFilterPill<T extends string>({
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked={checked}
-                className="flex w-full items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-surface-2"
+                className="flex w-full items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-surface"
                 onClick={() => toggle(o.value)}
               >
                 <span>{o.label}</span>
-                {checked ? <Check className="size-3 text-primary" /> : null}
+                {checked ? <Check className="size-3 text-accent" /> : null}
               </button>
             );
           })
@@ -139,16 +139,16 @@ export function MultiFilterPill<T extends string>({
       <Button
         variant="secondary"
         size="sm"
-        className={`h-7 gap-1 ${active ? 'border-primary text-ink' : ''}`}
+        className={`h-7 gap-1 ${active ? 'border-accent-bg text-primary' : ''}`}
         label={`${label} filter`}
       >
-        <span className="text-ink-muted">{label}</span>
+        <span className="text-secondary">{label}</span>
         <span className="font-medium">{summary}</span>
         {active ? (
           <button
             type="button"
             aria-label={`Clear ${label} filter`}
-            className="ml-1 inline-flex size-4 items-center justify-center rounded hover:bg-surface-3"
+            className="ml-1 inline-flex size-4 items-center justify-center rounded hover:bg-surface"
             onClick={(e) => {
               e.stopPropagation();
               onChange([]);

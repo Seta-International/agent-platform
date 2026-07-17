@@ -50,14 +50,14 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
     <article className="flex gap-3">
       <div
         aria-hidden
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-2 text-caption font-medium text-ink-muted"
+        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-caption font-medium text-secondary"
       >
         {initials(comment.author_display_name)}
       </div>
       <div className="min-w-0 flex-1">
         <header className="flex items-center justify-between gap-2 text-caption">
-          <div className="flex items-center gap-2 text-ink-subtle">
-            <span className="font-medium text-ink">{comment.author_display_name}</span>
+          <div className="flex items-center gap-2 text-secondary">
+            <span className="font-medium text-primary">{comment.author_display_name}</span>
             <time
               title={new Date(comment.created_at).toLocaleString()}
               dateTime={comment.created_at}
@@ -66,7 +66,7 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
             </time>
             {comment.edited_at && (
               <span
-                className="text-ink-tertiary"
+                className="text-disabled"
                 title={`edited ${new Date(comment.edited_at).toLocaleString()}`}
               >
                 · edited
@@ -88,7 +88,7 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
               {canDelete && (
                 <DropdownMenuItem
                   label="Delete"
-                  style={{ color: 'var(--color-danger)' }}
+                  style={{ color: 'var(--color-error)' }}
                   onClick={() => del.mutate({ taskId, commentId: comment.id })}
                 />
               )}
@@ -117,7 +117,7 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
             </div>
           </div>
         ) : (
-          <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink">{comment.body}</p>
+          <p className="mt-0.5 whitespace-pre-wrap text-sm text-primary">{comment.body}</p>
         )}
       </div>
     </article>

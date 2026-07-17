@@ -54,7 +54,7 @@ export function CharterStepper({
         const done = i < doneCount;
         const isActive = i === active;
         const marker = failed
-          ? { background: 'var(--color-danger)', borderColor: 'var(--color-danger)', color: '#fff' }
+          ? { background: 'var(--color-error)', borderColor: 'var(--color-error)', color: '#fff' }
           : done
             ? {
                 background: 'var(--color-success)',
@@ -63,11 +63,11 @@ export function CharterStepper({
               }
             : isActive
               ? {
-                  borderColor: 'var(--color-primary)',
-                  color: 'var(--color-primary)',
-                  boxShadow: '0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent)',
+                  borderColor: 'var(--color-accent)',
+                  color: 'var(--color-accent)',
+                  boxShadow: '0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent)',
                 }
-              : { borderColor: 'var(--color-hairline)', color: 'var(--color-ink-muted)' };
+              : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' };
         return (
           <div key={label} className="flex items-center" style={{ minWidth }}>
             <div className="flex items-center gap-2">
@@ -82,22 +82,22 @@ export function CharterStepper({
                   className={compact ? 'text-[11px] font-medium' : 'text-[12px] font-semibold'}
                   style={
                     failed
-                      ? { color: 'var(--color-danger)' }
+                      ? { color: 'var(--color-error)' }
                       : isActive
-                        ? { color: 'var(--color-primary)' }
+                        ? { color: 'var(--color-accent)' }
                         : undefined
                   }
                 >
                   {label}
                 </div>
-                {!compact && <div className="text-[10.5px] text-ink-muted">{sub}</div>}
+                {!compact && <div className="text-[10.5px] text-secondary">{sub}</div>}
               </div>
             </div>
             {i < STEPS.length - 1 && (
               <div
                 className={`${compact ? 'mx-2 min-w-[14px]' : 'mx-[10px] min-w-[18px]'} h-[2px] flex-1`}
                 style={{
-                  background: i < doneCount - 1 ? 'var(--color-success)' : 'var(--color-hairline)',
+                  background: i < doneCount - 1 ? 'var(--color-success)' : 'var(--color-border)',
                 }}
               />
             )}

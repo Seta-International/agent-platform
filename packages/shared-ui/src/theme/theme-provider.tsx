@@ -1,4 +1,7 @@
 import { Theme as AstryxTheme } from '@astryxdesign/core/theme';
+// The pre-built theme pairs with the theme.css loaded in styles/index.css; the
+// source export would inject the same styles a second time at runtime.
+import { neutralTheme } from '@astryxdesign/theme-neutral/built';
 import {
   createContext,
   type ReactNode,
@@ -8,7 +11,6 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { setaTheme } from './astryx-seta.theme';
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -70,7 +72,7 @@ export function ThemeProvider({
 
   return (
     <ThemeContext.Provider value={value}>
-      <AstryxTheme theme={setaTheme} mode={resolvedTheme}>
+      <AstryxTheme theme={neutralTheme} mode={resolvedTheme}>
         {children}
       </AstryxTheme>
     </ThemeContext.Provider>

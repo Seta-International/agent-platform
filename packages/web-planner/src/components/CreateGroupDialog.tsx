@@ -142,7 +142,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
           }
           content={
             <LayoutContent>
-              <div className="text-eyebrow uppercase tracking-wide text-ink-subtle">
+              <div className="text-eyebrow uppercase tracking-wide text-secondary">
                 New group · Planner
               </div>
 
@@ -166,7 +166,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="What does this group work on?"
-                    className="block w-full min-h-[52px] resize-y rounded-md border border-hairline bg-canvas px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                    className="block w-full min-h-[52px] resize-y rounded-md border border-border bg-body px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-bg"
                   />
                 </Field>
 
@@ -181,10 +181,10 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                             aria-label={c}
                             onClick={() => setTheme(c)}
                             style={{
-                              background: `var(--color-group-theme-${c})`,
+                              background: `var(--color-icon-${c})`,
                               boxShadow:
                                 theme === c
-                                  ? `0 0 0 2px var(--color-canvas), 0 0 0 4px var(--color-group-theme-${c})`
+                                  ? `0 0 0 2px var(--color-background-body), 0 0 0 4px var(--color-icon-${c})`
                                   : undefined,
                             }}
                             className="size-7 rounded-md border-0"
@@ -247,17 +247,17 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                             className={cn(
                               'rounded-md border p-3 text-left',
                               active
-                                ? 'border-primary shadow-[0_0_0_3px_var(--color-primary-tint)]'
-                                : 'border-hairline',
+                                ? 'border-accent-bg shadow-[0_0_0_3px_var(--color-accent-muted)]'
+                                : 'border-border',
                             )}
                           >
                             <div className="mb-1 flex items-center gap-2">
                               <Icon
-                                className={cn('size-4', active ? 'text-primary' : 'text-ink-muted')}
+                                className={cn('size-4', active ? 'text-accent' : 'text-secondary')}
                               />
                               <span className="font-medium">{v.title}</span>
                             </div>
-                            <div className="text-xs text-ink-subtle">{v.body}</div>
+                            <div className="text-xs text-secondary">{v.body}</div>
                           </button>
                         </React.Fragment>
                       );
@@ -267,8 +267,8 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
 
                 {/* IdP callout — "Link…" only picks an M365 group; the group is created
                   (and then linked) when "Create group" is pressed. */}
-                <div className="flex items-center gap-3 rounded-md border border-hairline bg-surface-1 px-3 py-2.5">
-                  <Link2 className="size-3.5 text-ink-muted" />
+                <div className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5">
+                  <Link2 className="size-3.5 text-secondary" />
                   {m365Selection ? (
                     <>
                       <span className="flex-1 text-sm">
@@ -300,7 +300,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
 
                 {/* Members chip-input is deferred — identity.searchUsers API is not yet exposed to the
                   planner module. Members can be added from the group page after creation. */}
-                <p className="text-xs text-ink-subtle italic">
+                <p className="text-xs text-secondary italic">
                   You can add members from the group page after you create it.
                 </p>
               </div>
@@ -315,7 +315,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
                   onChange={(checked) => setCreateStarterPlan(checked)}
                 />
                 <div className="flex gap-2 items-center">
-                  <span className="text-xs text-ink-tertiary">⌘ Return</span>
+                  <span className="text-xs text-disabled">⌘ Return</span>
                   <Button
                     variant="secondary"
                     label="Cancel"

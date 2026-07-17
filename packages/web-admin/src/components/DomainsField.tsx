@@ -46,7 +46,7 @@ export function DomainsField({ domains, onChange }: DomainsFieldProps) {
                   {d}
                   <button
                     type="button"
-                    className="ml-1 hover:text-destructive"
+                    className="ml-1 hover:text-error"
                     onClick={() => remove(d)}
                     aria-label={`Remove ${d}`}
                   >

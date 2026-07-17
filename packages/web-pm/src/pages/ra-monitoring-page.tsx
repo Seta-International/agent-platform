@@ -121,15 +121,15 @@ function Kpi({
       : tone === 'warning'
         ? 'var(--color-warning)'
         : tone === 'accent'
-          ? 'var(--color-danger)'
+          ? 'var(--color-error)'
           : undefined;
   return (
     <Card padding={4}>
-      <div className="text-[11px] uppercase tracking-wide text-ink-muted">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-secondary">{label}</div>
       <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
         {value}
       </div>
-      {sub ? <div className="text-[11px] text-ink-muted">{sub}</div> : null}
+      {sub ? <div className="text-[11px] text-secondary">{sub}</div> : null}
     </Card>
   );
 }
@@ -522,14 +522,14 @@ export function RaMonitoringPage() {
         header: 'Account',
         width: proportional(1),
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{r.account_name}</span>,
+        renderCell: (r) => <span className="text-secondary">{r.account_name}</span>,
       },
       {
         key: 'project',
         header: 'Project',
         width: proportional(1),
         sortable: true,
-        renderCell: (r) => <span className="text-ink">{r.project_name}</span>,
+        renderCell: (r) => <span className="text-primary">{r.project_name}</span>,
       },
       {
         key: 'name',
@@ -540,16 +540,16 @@ export function RaMonitoringPage() {
           return (
             <div className="flex items-center gap-2">
               {r.worker_name ? (
-                <span className="font-medium text-ink">{r.worker_name}</span>
+                <span className="font-medium text-primary">{r.worker_name}</span>
               ) : r.worker_id ? (
-                <span className="text-ink-subtle">Unknown</span>
+                <span className="text-secondary">Unknown</span>
               ) : (
-                <span className="italic text-ink-subtle">Unfilled (TBD)</span>
+                <span className="italic text-secondary">Unfilled (TBD)</span>
               )}
               {r.status !== 'committed' ? (
                 <Badge
                   variant="neutral"
-                  className="font-normal capitalize text-ink-subtle"
+                  className="font-normal capitalize text-secondary"
                   label={r.status}
                 />
               ) : null}
@@ -566,7 +566,7 @@ export function RaMonitoringPage() {
         width: proportional(1),
         renderCell: (r) => {
           if (!firstInGroup.has(r.allocation_id)) return null;
-          return <span className="text-ink-muted">{r.worker_title ?? '—'}</span>;
+          return <span className="text-secondary">{r.worker_title ?? '—'}</span>;
         },
       },
       {
@@ -576,7 +576,7 @@ export function RaMonitoringPage() {
         sortable: true,
         // Shown as a 0–1 fraction (e.g. 100% → 1.0, 40% → 0.4); stored value stays a percentage.
         renderCell: (r) => (
-          <span className="font-mono tabular-nums text-ink">
+          <span className="font-mono tabular-nums text-primary">
             {((r.planned_pct ?? 0) / 100).toFixed(1)}
           </span>
         ),
@@ -587,7 +587,7 @@ export function RaMonitoringPage() {
         width: pixel(100),
         sortable: true,
         renderCell: (r) => (
-          <span className="whitespace-nowrap font-mono text-caption text-ink-muted">
+          <span className="whitespace-nowrap font-mono text-caption text-secondary">
             {r.date_from ? formatDisplayDate(r.date_from) : '—'}
           </span>
         ),
@@ -598,7 +598,7 @@ export function RaMonitoringPage() {
         width: pixel(100),
         sortable: true,
         renderCell: (r) => (
-          <span className="whitespace-nowrap font-mono text-caption text-ink-muted">
+          <span className="whitespace-nowrap font-mono text-caption text-secondary">
             {r.date_to ? formatDisplayDate(r.date_to) : '—'}
           </span>
         ),
@@ -609,7 +609,7 @@ export function RaMonitoringPage() {
         width: pixel(130),
         sortable: true,
         renderCell: (r) => (
-          <span className="font-mono font-semibold tabular-nums text-ink">
+          <span className="font-mono font-semibold tabular-nums text-primary">
             {rowCalendarEffort(r).toFixed(2)}
           </span>
         ),
@@ -625,7 +625,7 @@ export function RaMonitoringPage() {
         key: 'note',
         header: 'Note',
         width: proportional(1),
-        renderCell: (r) => <span className="text-caption text-ink-muted">{r.note ?? '—'}</span>,
+        renderCell: (r) => <span className="text-caption text-secondary">{r.note ?? '—'}</span>,
       },
       {
         key: 'actions',
@@ -756,7 +756,7 @@ export function RaMonitoringPage() {
                   value={activeFrom || undefined}
                   onChange={(v) => update({ from: v })}
                 />
-                <span className="text-ink-subtle">→</span>
+                <span className="text-secondary">→</span>
                 <DateInput
                   label="Active to"
                   isLabelHidden
@@ -769,7 +769,7 @@ export function RaMonitoringPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="ml-auto h-8 gap-1 text-ink-muted"
+                  className="ml-auto h-8 gap-1 text-secondary"
                   label="Clear"
                   icon={<X className="size-3.5" />}
                   onClick={() => {
@@ -793,7 +793,7 @@ export function RaMonitoringPage() {
                 label="Toggle columns"
                 content={
                   <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
                       Toggle columns
                     </div>
                     {RA_COLUMN_OPTIONS.map((col) => (

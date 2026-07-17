@@ -29,7 +29,7 @@ export function CounterBadgePopover({
   className,
 }: CounterBadgePopoverProps) {
   if (!items || items.length === 0) {
-    return <span className="text-caption text-ink-tertiary">—</span>;
+    return <span className="text-caption text-disabled">—</span>;
   }
 
   const visibleItems = items.slice(0, limit);
@@ -44,7 +44,7 @@ export function CounterBadgePopover({
         key={item.id}
         variant={badgeVariant}
         className={cn(
-          'text-[11px] px-1.5 py-0 whitespace-nowrap font-medium rounded-sm border-hairline',
+          'text-[11px] px-1.5 py-0 whitespace-nowrap font-medium rounded-sm border-border',
           isPopoverList ? 'h-auto py-0.5' : 'h-5',
         )}
         label={item.name}
@@ -65,11 +65,11 @@ export function CounterBadgePopover({
           hasHoverIndication={false}
           content={
             <div className="w-64 flex flex-col gap-2">
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-ink-muted leading-none">
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-secondary leading-none">
                 <span>{title}</span>
-                <span className="text-ink-tertiary font-mono">{items.length}</span>
+                <span className="text-disabled font-mono">{items.length}</span>
               </div>
-              <div className="border-l border-hairline pl-3 flex flex-col gap-1.5 items-start mt-1 max-h-[150px] overflow-y-auto w-full pr-1.5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-ink-muted/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-ink-muted/50">
+              <div className="border-l border-border pl-3 flex flex-col gap-1.5 items-start mt-1 max-h-[150px] overflow-y-auto w-full pr-1.5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-secondary/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-secondary/50">
                 {items.map((item) => renderTag(item, true))}
               </div>
             </div>
@@ -77,7 +77,7 @@ export function CounterBadgePopover({
         >
           <button
             type="button"
-            className="inline-flex items-center justify-center h-5 px-1.5 rounded-sm border border-hairline bg-surface-2 text-ink hover:bg-surface-3 transition-colors text-[11px] font-semibold cursor-pointer whitespace-nowrap focus:outline-none"
+            className="inline-flex items-center justify-center h-5 px-1.5 rounded-sm border border-border bg-surface text-primary hover:bg-surface transition-colors text-[11px] font-semibold cursor-pointer whitespace-nowrap focus:outline-none"
           >
             +{hiddenItemsCount}
           </button>

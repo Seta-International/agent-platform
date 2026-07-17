@@ -24,7 +24,7 @@ function MenuDivider() {
         height: 1,
         margin: '4px 6px',
         border: 'none',
-        backgroundColor: 'var(--color-hairline)',
+        backgroundColor: 'var(--color-border)',
       }}
     />
   );
@@ -90,7 +90,7 @@ export function AgentHeader({
 
   return (
     <header
-      className={`flex flex-none items-center gap-2 border-b border-hairline bg-canvas ${
+      className={`flex flex-none items-center gap-2 border-b border-border bg-body ${
         compact ? 'h-11 px-3' : 'h-14 px-6'
       }`}
     >
@@ -107,7 +107,7 @@ export function AgentHeader({
 
       <span
         aria-hidden
-        className="inline-flex size-5 flex-none items-center justify-center rounded-md bg-primary-tint text-primary"
+        className="inline-flex size-5 flex-none items-center justify-center rounded-md bg-accent-muted text-accent"
       >
         <Sparkles className="size-3" />
       </span>
@@ -129,7 +129,7 @@ export function AgentHeader({
               }
             }}
             aria-label="Chat name"
-            className="min-w-0 flex-1 bg-transparent text-body-sm font-semibold tracking-tight text-ink focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent text-body-sm font-semibold tracking-tight text-primary focus:outline-none"
           />
         ) : (
           <button
@@ -137,11 +137,11 @@ export function AgentHeader({
             onClick={() => canEdit && startEdit()}
             disabled={!canEdit}
             title={canEdit ? 'Rename chat' : title}
-            className="group inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 -mx-1 text-left text-body-sm font-semibold tracking-tight text-ink hover:bg-surface-2 disabled:cursor-default disabled:hover:bg-transparent"
+            className="group inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 -mx-1 text-left text-body-sm font-semibold tracking-tight text-primary hover:bg-surface disabled:cursor-default disabled:hover:bg-transparent"
           >
             <span className="truncate">{title}</span>
             <Pencil
-              className="size-3 flex-none text-ink-tertiary opacity-0 transition-opacity group-hover:opacity-100 group-disabled:hidden"
+              className="size-3 flex-none text-disabled opacity-0 transition-opacity group-hover:opacity-100 group-disabled:hidden"
               aria-hidden
             />
           </button>
@@ -188,7 +188,7 @@ export function AgentHeader({
           <DropdownMenuItem
             icon={<Trash2 className="size-3.5" aria-hidden />}
             label="Delete chat"
-            style={{ color: 'var(--color-destructive)' }}
+            style={{ color: 'var(--color-error)' }}
             isDisabled={!canEdit}
             onClick={onDelete}
           />

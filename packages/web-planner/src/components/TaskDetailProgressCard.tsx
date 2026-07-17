@@ -95,7 +95,7 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
           role="radiogroup"
           aria-label="Progress"
           aria-disabled={disabled || undefined}
-          className="inline-flex w-full items-center gap-0.5 rounded-md border border-hairline bg-surface-1 p-0.5"
+          className="inline-flex w-full items-center gap-0.5 rounded-md border border-border bg-card p-0.5"
         >
           {PROGRESS_OPTIONS.map((opt, idx) => {
             const selected = opt.value === current;
@@ -120,12 +120,12 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
                 onKeyDown={(event) => onKeyDown(event, idx)}
                 className={cn(
                   'flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg',
                   'disabled:cursor-not-allowed disabled:opacity-60',
-                  selected && isCompleted && 'bg-semantic-success text-white shadow-sm',
-                  selected && isInProgress && 'bg-primary text-white shadow-sm',
-                  selected && !isCompleted && !isInProgress && 'bg-surface-3 text-ink shadow-sm',
-                  !selected && 'text-ink-subtle hover:text-ink hover:bg-surface-2',
+                  selected && isCompleted && 'bg-success text-white shadow-sm',
+                  selected && isInProgress && 'bg-accent-bg text-white shadow-sm',
+                  selected && !isCompleted && !isInProgress && 'bg-surface text-primary shadow-sm',
+                  !selected && 'text-secondary hover:text-primary hover:bg-surface',
                 )}
               >
                 {opt.label}
@@ -151,7 +151,7 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
           />
         </DisabledActionTooltip>
         <div className="flex flex-col">
-          <span className="t-sm text-ink">On hold</span>
+          <span className="t-sm text-primary">On hold</span>
           <span className="t-xs subtle">Pause this task and hide it from active views.</span>
         </div>
       </div>

@@ -11,7 +11,7 @@ export function DensityToggle() {
     <div
       role="radiogroup"
       aria-label="Response detail level"
-      className="inline-flex items-center gap-0.5 rounded-md border border-hairline bg-surface-1 p-0.5"
+      className="inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5"
     >
       {OPTIONS.map((o) => {
         const active = density === o.value;
@@ -19,7 +19,7 @@ export function DensityToggle() {
           <label
             key={o.value}
             className={`cursor-pointer rounded px-2 py-0.5 text-caption transition-colors ${
-              active ? 'bg-primary-tint text-primary' : 'text-ink-muted hover:text-ink'
+              active ? 'bg-accent-muted text-accent' : 'text-secondary hover:text-primary'
             }`}
           >
             <input

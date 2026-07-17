@@ -74,10 +74,10 @@ function ConfidenceBar({ score }: { score: number }) {
   return (
     <span
       aria-hidden
-      className="relative inline-block h-1 w-12 overflow-hidden rounded-full bg-hairline align-middle"
+      className="relative inline-block h-1 w-12 overflow-hidden rounded-full bg-border align-middle"
     >
       <span
-        className="absolute inset-y-0 left-0 rounded-full bg-primary"
+        className="absolute inset-y-0 left-0 rounded-full bg-accent-bg"
         style={{ width: `${pct}%` }}
       />
     </span>
@@ -101,9 +101,9 @@ function formatRemaining(ms: number): { label: string; tier: 'ok' | 'soon' | 'ur
 }
 
 const countdownToneClass: Record<'ok' | 'soon' | 'urgent', string> = {
-  ok: 'text-primary-ink/80',
-  soon: 'text-warning-ink',
-  urgent: 'text-danger-ink',
+  ok: 'text-accent/80',
+  soon: 'text-warning',
+  urgent: 'text-error',
 };
 
 function setsEqual(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
@@ -199,11 +199,11 @@ export function HitlApprovalCard({
     return (
       <section
         aria-label="Duplicate check"
-        className="overflow-hidden rounded-xl border-[1.5px] border-primary-border bg-canvas shadow-[0_0_0_4px_var(--color-primary-tint),0_10px_24px_-14px_rgb(0_0_0/0.25)]"
+        className="overflow-hidden rounded-xl border-[1.5px] border-accent-bg bg-body shadow-[0_0_0_4px_var(--color-accent-muted),0_10px_24px_-14px_rgb(0_0_0/0.25)]"
       >
-        <header className="flex items-start gap-2.5 border-b border-primary-border bg-primary-tint px-3.5 py-2">
-          <Sparkles className="mt-[3px] size-3.5 shrink-0 text-primary" aria-hidden />
-          <h3 className="line-clamp-2 flex-1 text-body-sm font-semibold text-primary-ink">
+        <header className="flex items-start gap-2.5 border-b border-accent-bg bg-accent-muted px-3.5 py-2">
+          <Sparkles className="mt-[3px] size-3.5 shrink-0 text-accent" aria-hidden />
+          <h3 className="line-clamp-2 flex-1 text-body-sm font-semibold text-accent">
             {cardIntent}
           </h3>
           <span
@@ -218,10 +218,10 @@ export function HitlApprovalCard({
         <div className="px-3.5 py-3">
           {candidates.length > 0 ? (
             <fieldset disabled={disabled} className="space-y-0.5">
-              <legend className="mb-1.5 flex w-full items-center justify-between text-eyebrow uppercase text-ink-subtle">
+              <legend className="mb-1.5 flex w-full items-center justify-between text-eyebrow uppercase text-secondary">
                 <span>Possible duplicates — select to link</span>
                 {selectedLinks.size > 0 ? (
-                  <span className="font-mono text-caption normal-case tracking-normal text-ink-tertiary">
+                  <span className="font-mono text-caption normal-case tracking-normal text-disabled">
                     {selectedLinks.size} selected
                   </span>
                 ) : null}
@@ -234,8 +234,8 @@ export function HitlApprovalCard({
                       <label
                         className={`relative flex cursor-pointer items-start gap-2.5 rounded-md border px-2 py-2 transition ${
                           isSelected
-                            ? 'border-primary-border bg-primary-tint/60'
-                            : 'border-transparent hover:bg-surface-2'
+                            ? 'border-accent-bg bg-accent-muted/60'
+                            : 'border-transparent hover:bg-surface'
                         } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
                       >
                         <input
@@ -249,18 +249,18 @@ export function HitlApprovalCard({
                           aria-hidden
                           className={`mt-px grid size-4 shrink-0 place-items-center rounded border transition ${
                             isSelected
-                              ? 'border-primary bg-primary text-on-primary'
-                              : 'border-hairline-strong bg-canvas'
+                              ? 'border-accent-bg bg-accent-bg text-on-accent'
+                              : 'border-border-strong bg-body'
                           }`}
                         >
                           {isSelected ? <Check className="size-3" strokeWidth={3} /> : null}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <span className="block text-body-sm font-medium leading-snug text-ink">
+                          <span className="block text-body-sm font-medium leading-snug text-primary">
                             {c.label}
                           </span>
                           {c.secondary ? (
-                            <span className="mt-0.5 block text-caption leading-snug text-ink-subtle">
+                            <span className="mt-0.5 block text-caption leading-snug text-secondary">
                               {c.secondary}
                             </span>
                           ) : null}
@@ -268,7 +268,7 @@ export function HitlApprovalCard({
                         {typeof c.score === 'number' ? (
                           <div className="mt-1 flex shrink-0 items-center gap-1.5">
                             <ConfidenceBar score={c.score} />
-                            <span className="w-10 text-right font-mono text-caption tabular-nums text-ink-subtle">
+                            <span className="w-10 text-right font-mono text-caption tabular-nums text-secondary">
                               {Math.round(c.score * 100)}%
                             </span>
                           </div>
@@ -319,11 +319,11 @@ export function HitlApprovalCard({
           </div>
 
           {!canAct ? (
-            <p className="mt-3 rounded-md bg-surface-2 px-2.5 py-1.5 text-caption text-ink-subtle">
+            <p className="mt-3 rounded-md bg-surface px-2.5 py-1.5 text-caption text-secondary">
               You don&apos;t have permission to decide this one.
             </p>
           ) : expired ? (
-            <p className="mt-3 rounded-md bg-danger-tint px-2.5 py-1.5 text-caption text-danger-ink">
+            <p className="mt-3 rounded-md bg-error-muted px-2.5 py-1.5 text-caption text-error">
               This approval has expired. Cancel the run and try again.
             </p>
           ) : null}
@@ -335,13 +335,11 @@ export function HitlApprovalCard({
   return (
     <section
       aria-label="Your input needed"
-      className="overflow-hidden rounded-xl border-[1.5px] border-primary-border bg-canvas shadow-[0_0_0_4px_var(--color-primary-tint),0_10px_24px_-14px_rgb(0_0_0/0.25)]"
+      className="overflow-hidden rounded-xl border-[1.5px] border-accent-bg bg-body shadow-[0_0_0_4px_var(--color-accent-muted),0_10px_24px_-14px_rgb(0_0_0/0.25)]"
     >
-      <header className="flex items-start gap-2.5 border-b border-primary-border bg-primary-tint px-3.5 py-2">
-        <Sparkles className="mt-[3px] size-3.5 shrink-0 text-primary" aria-hidden />
-        <h3 className="line-clamp-2 flex-1 text-body-sm font-semibold text-primary-ink">
-          {cardIntent}
-        </h3>
+      <header className="flex items-start gap-2.5 border-b border-accent-bg bg-accent-muted px-3.5 py-2">
+        <Sparkles className="mt-[3px] size-3.5 shrink-0 text-accent" aria-hidden />
+        <h3 className="line-clamp-2 flex-1 text-body-sm font-semibold text-accent">{cardIntent}</h3>
         <span
           className={`inline-flex shrink-0 items-center gap-1 font-mono text-caption tabular-nums ${countdownToneClass[remaining.tier]}`}
           aria-live={remaining.tier === 'urgent' ? 'polite' : 'off'}
@@ -354,9 +352,9 @@ export function HitlApprovalCard({
       <div className="px-3.5 py-3">
         {candidates.length > 0 ? (
           <fieldset disabled={disabled} className="space-y-0.5">
-            <legend className="mb-1.5 flex w-full items-center justify-between text-eyebrow uppercase text-ink-subtle">
+            <legend className="mb-1.5 flex w-full items-center justify-between text-eyebrow uppercase text-secondary">
               <span>Pick one or more teammates</span>
-              <span className="font-mono text-caption normal-case tracking-normal text-ink-tertiary">
+              <span className="font-mono text-caption normal-case tracking-normal text-disabled">
                 {selected.size} selected
               </span>
             </legend>
@@ -369,8 +367,8 @@ export function HitlApprovalCard({
                     <label
                       className={`relative flex cursor-pointer items-start gap-2.5 rounded-md border px-2 py-2 transition ${
                         isSelected
-                          ? 'border-primary-border bg-primary-tint/60'
-                          : 'border-transparent hover:bg-surface-2'
+                          ? 'border-accent-bg bg-accent-muted/60'
+                          : 'border-transparent hover:bg-surface'
                       } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
                     >
                       <input
@@ -384,8 +382,8 @@ export function HitlApprovalCard({
                         aria-hidden
                         className={`mt-px grid size-4 shrink-0 place-items-center rounded border transition ${
                           isSelected
-                            ? 'border-primary bg-primary text-on-primary'
-                            : 'border-hairline-strong bg-canvas'
+                            ? 'border-accent-bg bg-accent-bg text-on-accent'
+                            : 'border-border-strong bg-body'
                         }`}
                       >
                         {isSelected ? <Check className="size-3" strokeWidth={3} /> : null}
@@ -393,17 +391,17 @@ export function HitlApprovalCard({
                       <CandidateAvatar id={c.id} label={c.label} />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-                          <span className="truncate text-body-sm font-medium text-ink">
+                          <span className="truncate text-body-sm font-medium text-primary">
                             {c.label}
                           </span>
                           {isPrimary ? (
-                            <span className="shrink-0 rounded-sm bg-primary/12 px-1 text-[10px] font-medium uppercase tracking-wide text-primary-ink">
+                            <span className="shrink-0 rounded-sm bg-accent-bg/12 px-1 text-[10px] font-medium uppercase tracking-wide text-accent">
                               top match
                             </span>
                           ) : null}
                         </div>
                         {c.secondary ? (
-                          <div className="mt-0.5 text-caption leading-snug text-ink-subtle">
+                          <div className="mt-0.5 text-caption leading-snug text-secondary">
                             {c.secondary}
                           </div>
                         ) : null}
@@ -411,7 +409,7 @@ export function HitlApprovalCard({
                       {typeof c.score === 'number' ? (
                         <div className="mt-1 flex shrink-0 items-center gap-1.5">
                           <ConfidenceBar score={c.score} />
-                          <span className="w-10 text-right font-mono text-caption tabular-nums text-ink-subtle">
+                          <span className="w-10 text-right font-mono text-caption tabular-nums text-secondary">
                             {Math.round(c.score * 100)}%
                           </span>
                         </div>
@@ -423,7 +421,7 @@ export function HitlApprovalCard({
             </ul>
           </fieldset>
         ) : (
-          <div className="rounded-md border border-dashed border-hairline-strong bg-surface-2 px-3 py-2.5 text-body-sm text-ink-subtle">
+          <div className="rounded-md border border-dashed border-border-strong bg-surface px-3 py-2.5 text-body-sm text-secondary">
             {card?.summary ?? "We couldn't load the suggestions for this run."}
             {!card ? (
               <div className="mt-1 text-caption">
@@ -434,10 +432,10 @@ export function HitlApprovalCard({
         )}
 
         {selectedRows.length > 0 ? (
-          <div className="mt-2 flex flex-wrap items-baseline gap-1 text-caption text-ink-subtle">
+          <div className="mt-2 flex flex-wrap items-baseline gap-1 text-caption text-secondary">
             <span>Will assign to:</span>
             {selectedRows.map((c, i) => (
-              <span key={c.id} className="text-ink">
+              <span key={c.id} className="text-primary">
                 {c.label}
                 {i < selectedRows.length - 1 ? ',' : ''}
               </span>
@@ -446,7 +444,7 @@ export function HitlApprovalCard({
               <button
                 type="button"
                 onClick={() => setSelected(new Set<string>(primaryIds))}
-                className="ml-1 text-primary-ink hover:underline"
+                className="ml-1 text-accent hover:underline"
               >
                 Reset to top match
               </button>
@@ -465,7 +463,7 @@ export function HitlApprovalCard({
               label={pending ? 'Approving…' : 'Approve'}
               endContent={
                 selected.size > 1 ? (
-                  <span className="rounded-full bg-canvas/25 px-1.5 py-px font-mono text-[10px] tabular-nums">
+                  <span className="rounded-full bg-body/25 px-1.5 py-px font-mono text-[10px] tabular-nums">
                     {selected.size}
                   </span>
                 ) : undefined
@@ -481,15 +479,15 @@ export function HitlApprovalCard({
             />
           </div>
         ) : (
-          <div className="mt-3.5 rounded-lg border border-hairline-strong bg-surface-1 p-2.5">
-            <label className="block text-caption text-ink-subtle">
+          <div className="mt-3.5 rounded-lg border border-border-strong bg-card p-2.5">
+            <label className="block text-caption text-secondary">
               Reason (optional)
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
                 placeholder="e.g. nobody on the bench has the right skills…"
-                className="mt-1 w-full resize-none rounded-md border border-hairline-strong bg-canvas px-2.5 py-1.5 text-body-sm text-ink placeholder:text-ink-tertiary focus:border-primary-border focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="mt-1 w-full resize-none rounded-md border border-border-strong bg-body px-2.5 py-1.5 text-body-sm text-primary placeholder:text-disabled focus:border-accent-bg focus:outline-none focus:ring-2 focus:ring-accent-bg/20"
               />
             </label>
             <div className="mt-2 flex items-center justify-end gap-1.5">
@@ -514,11 +512,11 @@ export function HitlApprovalCard({
         )}
 
         {!canAct ? (
-          <p className="mt-3 rounded-md bg-surface-2 px-2.5 py-1.5 text-caption text-ink-subtle">
+          <p className="mt-3 rounded-md bg-surface px-2.5 py-1.5 text-caption text-secondary">
             You don&apos;t have permission to decide this one.
           </p>
         ) : expired ? (
-          <p className="mt-3 rounded-md bg-danger-tint px-2.5 py-1.5 text-caption text-danger-ink">
+          <p className="mt-3 rounded-md bg-error-muted px-2.5 py-1.5 text-caption text-error">
             This approval has expired. Cancel the run and try again.
           </p>
         ) : null}

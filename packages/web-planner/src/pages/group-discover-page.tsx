@@ -7,6 +7,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Skeleton,
   Text,
   useToast,
@@ -67,7 +68,7 @@ export function GroupDiscoverPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container max-w-2xl py-8">
+          <PageContainer>
             <form onSubmit={handleSearch} className="flex gap-2 mb-8">
               <Input
                 label="Search by group name"
@@ -94,7 +95,7 @@ export function GroupDiscoverPage() {
             )}
 
             {searchQuery.data && searchQuery.data.length === 0 && (
-              <p className="text-sm text-ink-muted">
+              <p className="text-sm text-secondary">
                 No public groups match &ldquo;{submittedQ}&rdquo;.
               </p>
             )}
@@ -106,16 +107,16 @@ export function GroupDiscoverPage() {
                   return (
                     <li
                       key={group.id}
-                      className="flex items-start justify-between gap-4 rounded-lg border bg-surface-1 p-4"
+                      className="flex items-start justify-between gap-4 rounded-lg border bg-card p-4"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold truncate">{group.name}</p>
                         {group.description && (
-                          <p className="text-sm text-ink-muted mt-1 truncate">
+                          <p className="text-sm text-secondary mt-1 truncate">
                             {group.description}
                           </p>
                         )}
-                        <p className="text-xs text-ink-subtle mt-1">
+                        <p className="text-xs text-secondary mt-1">
                           {group.member_count} member
                           {group.member_count !== 1 ? 's' : ''}
                           {group.owner_display_name ? ` · Owner: ${group.owner_display_name}` : ''}
@@ -137,7 +138,7 @@ export function GroupDiscoverPage() {
                 })}
               </ul>
             )}
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

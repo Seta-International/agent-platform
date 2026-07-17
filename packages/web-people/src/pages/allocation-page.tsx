@@ -59,11 +59,12 @@ type AllocationRow = AllocationGridRow & Record<string, unknown>;
 function heatStyle(v: number | null | undefined): CSSProperties {
   if (v == null || v === 0) return {};
   if (v >= 100)
-    return { background: 'var(--color-success-tint)', color: 'var(--color-success-ink)' };
-  if (v >= 75) return { background: 'var(--color-info-tint)', color: 'var(--color-info-ink)' };
+    return { background: 'var(--color-success-muted)', color: 'var(--color-text-green)' };
+  if (v >= 75)
+    return { background: 'var(--color-background-blue)', color: 'var(--color-text-blue)' };
   if (v >= 50)
-    return { background: 'var(--color-warning-tint)', color: 'var(--color-warning-ink)' };
-  return { background: 'var(--color-danger-tint)', color: 'var(--color-danger-ink)' };
+    return { background: 'var(--color-warning-muted)', color: 'var(--color-text-yellow)' };
+  return { background: 'var(--color-error-muted)', color: 'var(--color-text-red)' };
 }
 
 function formatLoad(pct: number): string {
@@ -80,7 +81,7 @@ const HEAT_LEVELS = [
 
 function HeatLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-ink-muted">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-secondary">
       <span className="font-medium">Planned load</span>
       {HEAT_LEVELS.map((l) => (
         <span key={l.label} className="inline-flex items-center gap-1.5">
@@ -95,7 +96,7 @@ function HeatLegend() {
         </span>
       ))}
       <span className="inline-flex items-center gap-1.5">
-        <span className="size-2.5 rounded-[3px]" style={{ background: 'var(--color-danger)' }} />
+        <span className="size-2.5 rounded-[3px]" style={{ background: 'var(--color-error)' }} />
         over 100%
       </span>
     </div>
@@ -119,15 +120,15 @@ function Kpi({
       : tone === 'warning'
         ? 'var(--color-warning)'
         : tone === 'accent'
-          ? 'var(--color-danger)'
+          ? 'var(--color-error)'
           : undefined;
   return (
     <Card padding={4}>
-      <div className="text-[11px] uppercase tracking-wide text-ink-muted">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-secondary">{label}</div>
       <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
         {value}
       </div>
-      {sub && <div className="text-[11px] text-ink-muted">{sub}</div>}
+      {sub && <div className="text-[11px] text-secondary">{sub}</div>}
     </Card>
   );
 }
@@ -289,7 +290,7 @@ export function AllocationPage() {
         const total = totalsByWorker.get(r.worker_id)?.[mi];
         // Over-allocated months are filled solid danger (not outlined); otherwise the heat fill.
         const style: CSSProperties = isOver
-          ? { background: 'var(--color-danger)', color: '#fff' }
+          ? { background: 'var(--color-error)', color: '#fff' }
           : heatStyle(v);
         return (
           <div className="flex justify-center">
@@ -310,7 +311,7 @@ export function AllocationPage() {
         header: 'Employee ID',
         width: pixel(100),
         renderCell: (r) => (
-          <span className="font-mono text-[11px] text-ink-muted">{r.employee_no ?? '—'}</span>
+          <span className="font-mono text-[11px] text-secondary">{r.employee_no ?? '—'}</span>
         ),
       },
       {
@@ -337,7 +338,7 @@ export function AllocationPage() {
         renderCell: (r) =>
           // AMs manage the whole account, not a single project — show that instead of a sub-project.
           r.is_account_am ? (
-            <span className="text-[12px] text-ink-subtle italic">Account management</span>
+            <span className="text-[12px] text-secondary italic">Account management</span>
           ) : (
             <div className="max-w-[200px] truncate">{r.project_name ?? '—'}</div>
           ),
@@ -414,7 +415,7 @@ export function AllocationPage() {
         <LayoutContent padding={0}>
           <div className="space-y-4 p-6">
             {error ? (
-              <Card className="p-4 text-body-sm text-[color:var(--color-danger)]">
+              <Card className="p-4 text-body-sm text-[color:var(--color-error)]">
                 {(error as Error).message}
               </Card>
             ) : (
@@ -451,7 +452,7 @@ export function AllocationPage() {
                         value={searchInput}
                         onChange={(value) => setSearchInput(value)}
                       />
-                      <span className="hidden text-ink-tertiary select-none sm:inline">|</span>
+                      <span className="hidden text-disabled select-none sm:inline">|</span>
                       {activeFiltersCount > 0 && (
                         <Button
                           type="button"
@@ -471,9 +472,9 @@ export function AllocationPage() {
                           label={`Clear filters (${activeFiltersCount})`}
                         />
                       )}
-                      <div className="flex items-center gap-2 text-body-sm text-ink-muted">
-                        <span className="flex items-center gap-1 font-medium text-ink">
-                          <User className="size-3.5 text-ink-muted" />
+                      <div className="flex items-center gap-2 text-body-sm text-secondary">
+                        <span className="flex items-center gap-1 font-medium text-primary">
+                          <User className="size-3.5 text-secondary" />
                           {rowCount} {rowCount === 1 ? 'row' : 'rows'}
                         </span>
                       </div>
@@ -485,7 +486,7 @@ export function AllocationPage() {
                         label="Toggle columns"
                         content={
                           <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                            <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                            <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
                               Toggle columns
                             </div>
                             {ALLOCATION_HIDEABLE_COLUMNS.map((col) => (
@@ -589,7 +590,7 @@ export function AllocationPage() {
                             ...props.htmlProps,
                             className: cn(
                               props.htmlProps.className,
-                              (workerBand.get(item.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1',
+                              (workerBand.get(item.worker_id) ?? 0) % 2 === 1 && 'bg-card',
                             ),
                             style: { ...props.htmlProps.style, cursor: 'pointer' },
                             onClick: () =>
@@ -610,7 +611,7 @@ export function AllocationPage() {
                     }
                   />
                 )}
-                <p className="text-[11px] text-ink-muted">
+                <p className="text-[11px] text-secondary">
                   Solid red = that person is over 100% allocated that month.
                 </p>
                 <UtilizationPanel />

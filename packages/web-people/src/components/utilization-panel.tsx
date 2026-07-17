@@ -108,11 +108,11 @@ export function UtilizationPanel() {
       </div>
 
       {error ? (
-        <div className="text-body-sm text-[color:var(--color-danger)]">
+        <div className="text-body-sm text-[color:var(--color-error)]">
           {(error as Error).message}
         </div>
       ) : isLoading ? (
-        <div className="text-body-sm text-ink-muted">Loading…</div>
+        <div className="text-body-sm text-secondary">Loading…</div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Gauge className="size-6" />}
@@ -126,7 +126,7 @@ export function UtilizationPanel() {
             {slice.map((r: UtilizationRow) => {
               const free = r.total_pct < 100 ? 100 - r.total_pct : 0;
               const totalColor = r.over_allocated
-                ? 'var(--color-danger)'
+                ? 'var(--color-error)'
                 : r.total_pct >= 70
                   ? 'var(--color-success)'
                   : 'var(--color-warning)';
@@ -149,7 +149,7 @@ export function UtilizationPanel() {
                     >
                       {r.full_name}
                     </span>
-                    <span className="flex h-3 flex-1 overflow-hidden rounded-full bg-surface-2">
+                    <span className="flex h-3 flex-1 overflow-hidden rounded-full bg-surface">
                       {segmentKeys(r.segments).map(({ key, seg }) => (
                         <span
                           key={key}
@@ -171,7 +171,7 @@ export function UtilizationPanel() {
                       {r.total_pct}%{r.over_allocated ? ' ⚠' : ''}
                     </span>
                   </div>
-                  <div className="mt-0.5 pl-[172px] text-[11px] text-ink-subtle">
+                  <div className="mt-0.5 pl-[172px] text-[11px] text-secondary">
                     billable {r.split.billable}% · internal {r.split.internal}% · bench{' '}
                     {r.split.bench}%
                   </div>
@@ -179,7 +179,7 @@ export function UtilizationPanel() {
               );
             })}
           </div>
-          <div className="flex items-center justify-between text-body-sm text-ink-muted">
+          <div className="flex items-center justify-between text-body-sm text-secondary">
             <span>{filtered.length} people</span>
             <Pagination
               page={safePage}

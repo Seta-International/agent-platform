@@ -10,9 +10,9 @@ export function ReconnectingBanner() {
       data-testid="reconnecting-banner"
       className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-md text-sm font-medium shadow-md border"
       style={{
-        background: 'var(--color-semantic-warning-tint)',
-        borderColor: 'var(--color-semantic-warning)',
-        color: 'var(--color-ink)',
+        background: 'var(--color-warning-muted)',
+        borderColor: 'var(--color-warning)',
+        color: 'var(--color-text-primary)',
       }}
     >
       Reconnecting…

@@ -37,10 +37,10 @@ function pickLabelColor(name: string): string {
 // Swatch background tints — mirrors the LabelChip palette so the picker preview
 // matches the rendered chip. Kept local: this is a color-swatch picker, not a chip.
 const SWATCH_BACKGROUND: Record<(typeof LABEL_COLORS)[number], string> = {
-  blue: 'var(--color-info-tint)',
-  green: 'var(--color-success-tint)',
-  amber: 'var(--color-warning-tint)',
-  red: 'var(--color-danger-tint)',
+  blue: 'var(--color-background-blue)',
+  green: 'var(--color-success-muted)',
+  amber: 'var(--color-warning-muted)',
+  red: 'var(--color-error-muted)',
   purple: 'rgba(168, 85, 247, 0.10)',
   teal: 'rgba(20, 184, 166, 0.10)',
 };
@@ -168,7 +168,7 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
       />
 
       {isLinkedToM365 && (
-        <p className="mt-1.5 text-caption text-ink-subtle">
+        <p className="mt-1.5 text-caption text-secondary">
           Labels sync from Microsoft Planner category slots.
         </p>
       )}
@@ -176,7 +176,7 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
       {categoryLabel && (
         <div className="mt-2.5">
           <div className="t-xs subtle mb-1">Category</div>
-          <span className="t-sm inline-flex items-center gap-1.5 rounded-md bg-surface-2 px-2 py-1 text-ink">
+          <span className="t-sm inline-flex items-center gap-1.5 rounded-md bg-surface px-2 py-1 text-primary">
             <span className="mono">cat {categoryLabel.category_slot}</span>
             <span aria-hidden="true">›</span>
             <span>{categoryDescription ?? categoryLabel.name}</span>
@@ -197,7 +197,7 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
             }}
           />
           {managing && (
-            <div className="mt-2 rounded-md border border-hairline p-2" data-testid="manage-labels">
+            <div className="mt-2 rounded-md border border-border p-2" data-testid="manage-labels">
               {editingLabel ? (
                 <LabelEditPanel
                   label={editingLabel}
@@ -293,7 +293,7 @@ function LabelEditPanel({
               borderRadius: 9999,
               cursor: 'pointer',
               outline:
-                color === c ? '2px solid var(--color-primary)' : '1px solid var(--color-hairline)',
+                color === c ? '2px solid var(--color-accent)' : '1px solid var(--color-border)',
               outlineOffset: 1,
               display: 'inline-block',
             }}

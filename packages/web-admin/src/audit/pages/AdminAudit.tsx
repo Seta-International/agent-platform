@@ -88,10 +88,10 @@ function eventTone(eventType: string): 'success' | 'danger' | 'warning' | 'prima
 
 const TONE_DOT: Record<ReturnType<typeof eventTone>, string> = {
   success: 'bg-success',
-  danger: 'bg-danger',
+  danger: 'bg-error',
   warning: 'bg-warning',
-  primary: 'bg-primary',
-  info: 'bg-ink-tertiary',
+  primary: 'bg-accent-bg',
+  info: 'bg-disabled',
 };
 
 function EventTypeCell({ eventType }: { eventType: string }) {
@@ -99,7 +99,7 @@ function EventTypeCell({ eventType }: { eventType: string }) {
   return (
     <div className="flex items-center gap-2">
       <span aria-hidden className={`size-1.5 rounded-full ${TONE_DOT[tone]}`} />
-      <code className="font-mono text-body-sm text-ink">{eventType}</code>
+      <code className="font-mono text-body-sm text-primary">{eventType}</code>
     </div>
   );
 }
@@ -110,14 +110,14 @@ function ActorCell({ actor }: { actor: AuditRowDto['actor'] }) {
   return (
     <div className="flex items-center gap-2">
       <Badge variant="neutral" className="font-mono text-[10px]" label={kind} />
-      <span className="truncate text-body-sm text-ink-muted">{label}</span>
+      <span className="truncate text-body-sm text-secondary">{label}</span>
     </div>
   );
 }
 
 function TraceCell({ traceId }: { traceId: string | null }) {
-  if (!traceId) return <span className="text-ink-tertiary">{'\u2014'}</span>;
-  return <code className="font-mono text-caption text-ink-subtle">{traceId.slice(0, 12)}…</code>;
+  if (!traceId) return <span className="text-disabled">{'\u2014'}</span>;
+  return <code className="font-mono text-caption text-secondary">{traceId.slice(0, 12)}…</code>;
 }
 
 function whenLabel(iso: string): { absolute: string; relative: string } {
@@ -149,8 +149,8 @@ const columns: TableColumn<AuditRow>[] = [
       const w = whenLabel(r.occurred_at);
       return (
         <div className="flex flex-col leading-tight">
-          <span className="font-mono text-body-sm text-ink">{w.absolute}</span>
-          <span className="text-caption text-ink-subtle">{w.relative}</span>
+          <span className="font-mono text-body-sm text-primary">{w.absolute}</span>
+          <span className="text-caption text-secondary">{w.relative}</span>
         </div>
       );
     },
@@ -189,9 +189,9 @@ function AuditDiffPanel({ row }: { row: AuditRowDto }) {
     );
   }, [json]);
   return (
-    <div className="overflow-hidden rounded-md border border-hairline bg-canvas">
-      <div className="flex items-center justify-between border-b border-hairline bg-surface-1 px-3 py-1.5">
-        <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+    <div className="overflow-hidden rounded-md border border-border bg-body">
+      <div className="flex items-center justify-between border-b border-border bg-card px-3 py-1.5">
+        <span className="text-eyebrow uppercase tracking-[0.04em] text-secondary">
           Payload diff
         </span>
         <Button
@@ -203,7 +203,7 @@ function AuditDiffPanel({ row }: { row: AuditRowDto }) {
           label={copied ? 'Copied' : 'Copy JSON'}
         />
       </div>
-      <pre className="max-h-72 overflow-auto bg-canvas p-3 font-mono text-caption leading-relaxed text-ink">
+      <pre className="max-h-72 overflow-auto bg-body p-3 font-mono text-caption leading-relaxed text-primary">
         {json}
       </pre>
     </div>

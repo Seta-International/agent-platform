@@ -39,7 +39,7 @@ const EDGE_DEFAULTS = {
     type: MarkerType.ArrowClosed,
     width: 16,
     height: 16,
-    color: 'var(--color-ink-subtle)',
+    color: 'var(--color-text-secondary)',
   },
 };
 

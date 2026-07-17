@@ -1,0 +1,18 @@
+@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "@astryxdesign/core/reset.css";
+@import "@astryxdesign/core/astryx.css";
+@import "@astryxdesign/theme-neutral/theme.css";
+/* Registers Astryx's tokens as Tailwind theme variables, so `bg-surface` and
+   `text-secondary` resolve to the live theme. Must sit after the theme and
+   before Tailwind's utilities. */
+@import "@astryxdesign/core/tailwind-theme.css";
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@source '../**/*.{ts,tsx}';
+/* Suite apps live in sibling @seta/web-* packages, outside this Tailwind root's
+   auto-detection base (the apps/web Vite root). Register them explicitly so their
+   utility classes are generated; the glob auto-covers future apps (People/PM). */
+@source '../../../web-*/src/**/*.{ts,tsx}';

@@ -105,7 +105,7 @@ function EditGroupFields({
       />
 
       {isM365 && (
-        <p className="text-xs text-ink-subtle">
+        <p className="text-xs text-secondary">
           Managed by Microsoft 365 — changes are pushed from M365 during sync.
         </p>
       )}
@@ -119,7 +119,7 @@ function EditGroupFields({
               aria-label={t}
               aria-pressed={theme === t}
               onClick={() => onThemeChange(t)}
-              className={`size-6 rounded transition-shadow ${theme === t ? 'ring-2 ring-primary ring-offset-1' : 'hover:ring-1 hover:ring-hairline-strong'}`}
+              className={`size-6 rounded transition-shadow ${theme === t ? 'ring-2 ring-accent-bg ring-offset-1' : 'hover:ring-1 hover:ring-border-strong'}`}
               style={{ background: THEME_HEX[t] }}
             />
           ))}

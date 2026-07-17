@@ -23,18 +23,18 @@ interface Props {
 }
 
 const TONE_BG: Record<SectionTone, string> = {
-  danger: 'var(--color-danger-tint)',
-  warning: 'var(--color-warning-tint)',
-  primary: 'var(--color-primary-tint)',
-  muted: 'var(--color-surface-2)',
-  success: 'var(--color-success-tint)',
+  danger: 'var(--color-error-muted)',
+  warning: 'var(--color-warning-muted)',
+  primary: 'var(--color-accent-muted)',
+  muted: 'var(--color-background-surface)',
+  success: 'var(--color-success-muted)',
 };
 
 const TONE_INK: Record<SectionTone, string> = {
-  danger: 'var(--color-danger)',
+  danger: 'var(--color-error)',
   warning: 'var(--color-warning)',
-  primary: 'var(--color-primary-ink)',
-  muted: 'var(--color-ink-muted)',
+  primary: 'var(--color-text-accent)',
+  muted: 'var(--color-text-secondary)',
   success: 'var(--color-success)',
 };
 
@@ -89,17 +89,17 @@ export function MtSection({ section, searchTerm }: Props) {
       data-testid="mt-section"
       data-section={section.key}
       style={gridVars}
-      className="border-b border-hairline last:border-b-0"
+      className="border-b border-border last:border-b-0"
     >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="w-full flex items-center gap-2.5 px-7 py-3 bg-transparent text-left hover:bg-surface-1 transition-colors"
+        className="w-full flex items-center gap-2.5 px-7 py-3 bg-transparent text-left hover:bg-card transition-colors"
       >
         <ChevronDown
           size={12}
-          className="text-ink-subtle transition-transform duration-150"
+          className="text-secondary transition-transform duration-150"
           style={{ transform: open ? 'none' : 'rotate(-90deg)' }}
         />
         <span data-testid="section-tone-dot" className={`dot ${TONE_DOT[section.tone]}`} />
@@ -111,10 +111,10 @@ export function MtSection({ section, searchTerm }: Props) {
         >
           {section.count}
         </span>
-        {section.hint && <span className="text-[11px] text-ink-subtle">· {section.hint}</span>}
+        {section.hint && <span className="text-[11px] text-secondary">· {section.hint}</span>}
         <div className="flex-1" />
         {open && taskCount > 0 && (
-          <span className="text-[11px] text-ink-subtle">Sorted by your priority</span>
+          <span className="text-[11px] text-secondary">Sorted by your priority</span>
         )}
       </button>
 
@@ -126,7 +126,7 @@ export function MtSection({ section, searchTerm }: Props) {
             className={
               'sticky top-0 z-10 grid ' +
               'gap-3 px-7 py-2.5 text-[10.5px] font-medium uppercase tracking-wider ' +
-              'text-ink-subtle border-b border-hairline bg-canvas'
+              'text-secondary border-b border-border bg-body'
             }
           >
             {MT_COLUMNS.map((col) => (

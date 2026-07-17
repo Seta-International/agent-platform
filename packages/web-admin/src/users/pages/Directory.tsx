@@ -107,15 +107,13 @@ type DirectoryTableRow = DirectoryRow & Record<string, unknown>;
 
 /** Compact chip list for name collections (groups, accounts, projects) with +N overflow. */
 function ChipList({ items }: { items: string[] }) {
-  if (items.length === 0) return <span className="text-ink-tertiary">{'—'}</span>;
+  if (items.length === 0) return <span className="text-disabled">{'—'}</span>;
   return (
     <div className="flex flex-wrap items-center gap-1">
       {items.slice(0, 2).map((label) => (
         <Badge key={label} variant="neutral" label={label} />
       ))}
-      {items.length > 2 && (
-        <span className="text-caption text-ink-tertiary">+{items.length - 2}</span>
-      )}
+      {items.length > 2 && <span className="text-caption text-disabled">+{items.length - 2}</span>}
     </div>
   );
 }
@@ -255,9 +253,9 @@ export function Directory({ search, onSearch }: DirectoryProps) {
           <div className="flex items-center gap-2.5">
             <PersonAvatar name={r.full_name} />
             <div className="flex min-w-0 flex-col">
-              <span className="truncate font-medium text-ink">{r.full_name}</span>
+              <span className="truncate font-medium text-primary">{r.full_name}</span>
               {r.work_email && (
-                <span className="truncate text-caption text-ink-tertiary">{r.work_email}</span>
+                <span className="truncate text-caption text-disabled">{r.work_email}</span>
               )}
             </div>
           </div>
@@ -274,10 +272,10 @@ export function Directory({ search, onSearch }: DirectoryProps) {
               {r.job_title ? (
                 <span className="truncate">{r.job_title}</span>
               ) : (
-                <span className="text-ink-tertiary">{'—'}</span>
+                <span className="text-disabled">{'—'}</span>
               )}
               {department && (
-                <span className="truncate text-caption text-ink-tertiary">{department}</span>
+                <span className="truncate text-caption text-disabled">{department}</span>
               )}
             </div>
           );
@@ -351,7 +349,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
               {r.account_status === 'active' && r.user_id && (
                 <DropdownMenuItem
                   label="Suspend"
-                  style={{ color: 'var(--color-destructive)' }}
+                  style={{ color: 'var(--color-error)' }}
                   onClick={() => setSuspendTarget(r)}
                 />
               )}
@@ -454,7 +452,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 text-ink-subtle"
+                      className="h-8 text-secondary"
                       onClick={() => {
                         setQInput('');
                         onSearch(() => ({}));

@@ -153,13 +153,13 @@ export function TaskDetailAssigneesCard({
                         aria-label="Drag handle"
                         {...(canAssign ? dpc.dragHandleProps : {})}
                         disabled={!canAssign}
-                        className={`border-none bg-transparent p-0 text-ink-tertiary ${canAssign ? 'cursor-grab' : 'cursor-not-allowed opacity-40'}`}
+                        className={`border-none bg-transparent p-0 text-disabled ${canAssign ? 'cursor-grab' : 'cursor-not-allowed opacity-40'}`}
                       >
                         <GripVertical className="size-3.5" />
                       </button>
                       <Avatar name={a.display_name} size={24} />
                       <div className="min-w-0 flex-1">
-                        <div className="t-sm text-ink">{a.display_name}</div>
+                        <div className="t-sm text-primary">{a.display_name}</div>
                         <div className="t-xs subtle">{idx === 0 ? 'driver' : 'reviewer'}</div>
                       </div>
                       <DisabledActionTooltip
@@ -217,15 +217,17 @@ export function TaskDetailAssigneesCard({
                 {initialsOf(item.label)}
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-body-sm leading-tight text-ink">{item.label}</span>
-                <span className="truncate text-caption leading-tight text-ink-subtle">
+                <span className="truncate text-body-sm leading-tight text-primary">
+                  {item.label}
+                </span>
+                <span className="truncate text-caption leading-tight text-secondary">
                   {item.auxiliaryData?.isAiMatch
                     ? item.auxiliaryData.reason
                     : item.auxiliaryData?.email}
                 </span>
               </span>
               {item.auxiliaryData?.isAiMatch && (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary-tint px-1.5 py-0.5 text-caption font-semibold text-primary-ink">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-muted px-1.5 py-0.5 text-caption font-semibold text-accent">
                   <Sparkles className="size-3" aria-hidden style={{ color: '#6d5cff' }} />
                   {item.auxiliaryData.scorePct}%
                 </span>

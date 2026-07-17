@@ -24,7 +24,7 @@ export function AgentMobileSheet() {
         type="button"
         aria-label="Open agent"
         onClick={() => setPanelOpen(true)}
-        className="fixed bottom-4 right-4 z-40 inline-flex size-12 items-center justify-center rounded-full bg-primary text-on-primary shadow-lg"
+        className="fixed bottom-4 right-4 z-40 inline-flex size-12 items-center justify-center rounded-full bg-accent-bg text-on-accent shadow-lg"
       >
         <Sparkles className="size-5" aria-hidden />
       </button>

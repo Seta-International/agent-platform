@@ -70,10 +70,10 @@ export function DuplicateTaskDialog({
         header={<DialogHeader title="Duplicate task" onOpenChange={handleOpenChange} />}
         content={
           <LayoutContent>
-            <div className="space-y-2 text-body-sm text-ink-subtle">
+            <div className="space-y-2 text-body-sm text-secondary">
               <p>
-                A copy of <span className="text-ink">&ldquo;{taskTitle}&rdquo;</span> will be added
-                to the same bucket. Pick what to carry over:
+                A copy of <span className="text-primary">&ldquo;{taskTitle}&rdquo;</span> will be
+                added to the same bucket. Pick what to carry over:
               </p>
             </div>
 

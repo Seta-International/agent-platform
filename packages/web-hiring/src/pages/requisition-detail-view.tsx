@@ -69,10 +69,10 @@ const SECTIONS: { key: JdSectionKey; label: string }[] = [
 // application.stage badge colors on the applicants list — kept within the existing
 // success/primary/warning/neutral token set (no new accent color).
 const APPLICANT_STAGE_BADGE: Record<string, string> = {
-  new: 'bg-success-tint text-success-ink',
-  screening: 'bg-surface-2 text-ink-muted',
-  interview: 'bg-primary/12 text-primary',
-  offer: 'bg-warning-tint text-warning-ink',
+  new: 'bg-success-muted text-success',
+  screening: 'bg-surface text-secondary',
+  interview: 'bg-accent-bg/12 text-accent',
+  offer: 'bg-warning-muted text-warning',
 };
 
 // Display-only relabel: application.stage's first value is 'new' in the DB, but the
@@ -128,8 +128,8 @@ function emptySections(): SectionGrid {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 text-body-sm">
-      <span className="text-ink-muted">{label}</span>
-      <span className="font-medium text-ink">{value}</span>
+      <span className="text-secondary">{label}</span>
+      <span className="font-medium text-primary">{value}</span>
     </div>
   );
 }
@@ -152,9 +152,9 @@ function DateField({
   const [open, setOpen] = useState(false);
   return (
     <div className="flex items-start gap-3">
-      <CalendarIcon className="mt-0.5 size-4 shrink-0 text-ink-subtle" aria-hidden />
+      <CalendarIcon className="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden />
       <div>
-        <div className="text-caption text-ink-muted">{label}</div>
+        <div className="text-caption text-secondary">{label}</div>
         <DisabledActionTooltip
           disabled={!editable}
           reason={
@@ -188,7 +188,7 @@ function DateField({
               />
             </Popover>
           ) : (
-            <span className="text-body-sm font-medium text-ink">
+            <span className="text-body-sm font-medium text-primary">
               {value ? formatDate(value) : '—'}
             </span>
           )}
@@ -217,8 +217,8 @@ function QuickAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex w-full flex-col items-center gap-2 rounded-lg border border-hairline px-2 py-3 text-center text-caption font-medium hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-        destructive ? 'text-danger-ink' : 'text-ink'
+      className={`flex w-full flex-col items-center gap-2 rounded-lg border border-border px-2 py-3 text-center text-caption font-medium hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 ${
+        destructive ? 'text-error' : 'text-primary'
       }`}
     >
       {icon}
@@ -452,7 +452,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   if (isLoading) {
     return (
       <div className="flex flex-col overflow-hidden">
-        <div className="p-6 text-ink-muted">Loading…</div>
+        <div className="p-6 text-secondary">Loading…</div>
       </div>
     );
   }
@@ -502,9 +502,9 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       <div
         className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
+        <header className="flex items-start justify-between gap-4 border-b border-border bg-body px-6 py-4">
           <div className="min-w-0">
-            <h1 className="truncate text-section-title font-semibold text-ink">{title}</h1>
+            <h1 className="truncate text-section-title font-semibold text-primary">{title}</h1>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1.5">
             <div className="flex items-center gap-2">
@@ -522,7 +522,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 isDisabled={save.isPending}
               />
             </div>
-            {requiredError && <p className="text-caption text-danger-ink">{requiredError}</p>}
+            {requiredError && <p className="text-caption text-error">{requiredError}</p>}
           </div>
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
@@ -612,12 +612,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 />
               </div>
             </div>
-            {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
+            {dateError && <p className="text-body-sm text-error">{dateError}</p>}
 
             <SkillPicker value={skills} onChange={setSkills} />
 
             <div className="flex items-center justify-between">
-              <div className="text-caption font-semibold uppercase text-ink-muted">JD detail</div>
+              <div className="text-caption font-semibold uppercase text-secondary">JD detail</div>
               <SegmentedControl
                 label="JD variant"
                 value={editVariant}
@@ -631,7 +631,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             {SECTIONS.map((s) => (
               <div key={s.key}>
                 <div
-                  className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                  className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
                 >
                   {s.key === 'about' ? 'About the role *' : s.label}
                 </div>
@@ -656,7 +656,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     <div
       className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
     >
-      <header className="flex items-start justify-between gap-4 border-b border-hairline bg-canvas px-6 py-4">
+      <header className="flex items-start justify-between gap-4 border-b border-border bg-body px-6 py-4">
         <div className="flex min-w-0 items-start gap-3">
           <IconButton
             type="button"
@@ -668,14 +668,16 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="truncate text-section-title font-semibold text-ink">{req.title}</h1>
+              <h1 className="truncate text-section-title font-semibold text-primary">
+                {req.title}
+              </h1>
               <span
                 className={`shrink-0 rounded-full px-2.5 py-1 text-caption font-medium ${STATUS_BADGE_CLASS[req.status]}`}
               >
                 {STATUS_LABEL[req.status]}
               </span>
             </div>
-            {subtitle && <p className="mt-0.5 truncate text-body-sm text-ink-muted">{subtitle}</p>}
+            {subtitle && <p className="mt-0.5 truncate text-body-sm text-secondary">{subtitle}</p>}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -716,7 +718,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 <DropdownMenuItem
                   label="Cancel"
                   isDisabled={!canClose}
-                  style={{ color: 'var(--color-danger-ink)' }}
+                  style={{ color: 'var(--color-text-red)' }}
                   onClick={() => setTimeout(() => setShowCancelDialog(true), 0)}
                 />
               </DropdownMenu>
@@ -725,18 +727,20 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto bg-surface-1">
+      <div className="min-h-0 flex-1 overflow-auto bg-card">
         <div className="grid grid-cols-1 gap-5 p-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-5">
             {/* Full job description */}
             <section
               id="full-job-description"
-              className="rounded-xl border border-hairline bg-canvas p-5"
+              className="rounded-xl border border-border bg-body p-5"
             >
-              <h1 className="mb-4 text-section-title font-semibold text-ink">Job description</h1>
+              <h1 className="mb-4 text-section-title font-semibold text-primary">
+                Job description
+              </h1>
               {!hasAnyDetail ? (
                 req.note?.trim() ? (
-                  <p className="text-body-sm text-ink">{req.note}</p>
+                  <p className="text-body-sm text-primary">{req.note}</p>
                 ) : (
                   <EmptyState
                     title="No job description yet"
@@ -747,13 +751,13 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 <div className="space-y-5">
                   {data.skills.length > 0 && (
                     <div>
-                      <div className="mb-2 font-semibold text-ink">Tech stack</div>
+                      <div className="mb-2 font-semibold text-primary">Tech stack</div>
                       <div className="flex flex-wrap gap-2">
                         {data.skills.map((s) => (
                           <Badge
                             key={s.skill_name}
                             variant="neutral"
-                            className="rounded-md border border-hairline bg-surface-2 px-3 py-1.5 text-body-sm text-ink-muted"
+                            className="rounded-md border border-border bg-surface px-3 py-1.5 text-body-sm text-secondary"
                             label={`${s.skill_name}${
                               s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''
                             }`}
@@ -770,7 +774,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     return (
                       <div key={s.key}>
                         <div
-                          className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-ink-muted' : 'text-ink'}`}
+                          className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
                         >
                           {s.label}
                         </div>
@@ -780,20 +784,22 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   })}
                 </div>
               )}
-              <p className="mt-5 text-caption text-ink-subtle">
+              <p className="mt-5 text-caption text-secondary">
                 Posted {req.created_at.slice(0, 10)} · {openDaysLabel(req.created_at)}
               </p>
             </section>
 
             {/* Applicants */}
-            <section className="rounded-xl border border-hairline bg-canvas p-5">
+            <section className="rounded-xl border border-border bg-body p-5">
               <div className="mb-1 flex items-center justify-between">
-                <h2 className="font-semibold text-ink">Applicants ({data.applicants.length})</h2>
+                <h2 className="font-semibold text-primary">
+                  Applicants ({data.applicants.length})
+                </h2>
               </div>
               {applicantRows.length === 0 ? (
-                <p className="py-4 text-body-sm text-ink-subtle">No applicants yet.</p>
+                <p className="py-4 text-body-sm text-secondary">No applicants yet.</p>
               ) : (
-                <div className="divide-y divide-hairline">
+                <div className="divide-y divide-border">
                   {applicantRows.slice(0, 5).map((a) => (
                     <div
                       key={`${a.name}-${a.applied_date}`}
@@ -801,8 +807,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     >
                       <Avatar name={a.name} size={36} />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium text-ink">{a.name}</div>
-                        <div className="truncate text-body-sm text-ink-muted">
+                        <div className="truncate font-medium text-primary">{a.name}</div>
+                        <div className="truncate text-body-sm text-secondary">
                           {[a.role, `Applied ${relativeDays(a.applied_date)}`]
                             .filter(Boolean)
                             .join(' · ')}
@@ -810,7 +816,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                       </div>
                       <span
                         className={`shrink-0 rounded-full px-2.5 py-1 text-caption font-medium ${
-                          APPLICANT_STAGE_BADGE[a.stage] ?? 'bg-surface-2 text-ink-muted'
+                          APPLICANT_STAGE_BADGE[a.stage] ?? 'bg-surface text-secondary'
                         }`}
                       >
                         {APPLICANT_STAGE_LABEL[a.stage] ?? a.stage}
@@ -824,8 +830,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
           <div className="space-y-5">
             {/* Timeline */}
-            <section className="rounded-xl border border-hairline bg-canvas p-5">
-              <h2 className="mb-4 font-semibold text-ink">Timeline</h2>
+            <section className="rounded-xl border border-border bg-body p-5">
+              <h2 className="mb-4 font-semibold text-primary">Timeline</h2>
               <div className="space-y-4">
                 <DateField
                   label="Start date"
@@ -844,7 +850,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                     req.due_date && (
                       <span
                         className={`ml-1.5 text-body-sm ${
-                          daysLeft(req.due_date) < 0 ? 'text-danger-ink' : 'text-warning-ink'
+                          daysLeft(req.due_date) < 0 ? 'text-error' : 'text-warning'
                         }`}
                       >
                         (
@@ -860,8 +866,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             </section>
 
             {/* Job details */}
-            <section className="rounded-xl border border-hairline bg-canvas p-5">
-              <h2 className="mb-3 font-semibold text-ink">Job details</h2>
+            <section className="rounded-xl border border-border bg-body p-5">
+              <h2 className="mb-3 font-semibold text-primary">Job details</h2>
               <div className="space-y-2.5">
                 <DetailRow label="Account" value={data.account_name ?? '—'} />
                 <DetailRow label="Project" value={data.project_name ?? '—'} />
@@ -873,8 +879,8 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             </section>
 
             {/* Quick actions */}
-            <section className="rounded-xl border border-hairline bg-canvas p-5">
-              <h2 className="mb-3 font-semibold text-ink">Quick actions</h2>
+            <section className="rounded-xl border border-border bg-body p-5">
+              <h2 className="mb-3 font-semibold text-primary">Quick actions</h2>
               <div className="grid grid-cols-2 gap-2">
                 <DisabledActionTooltip
                   disabled={!canManage}

@@ -40,7 +40,7 @@ export function CommentComposer({ taskId }: Props) {
           type="button"
           disabled={!canComment}
           onClick={() => setExpanded(true)}
-          className="w-full rounded-md border border-hairline bg-surface-1 px-3 py-2 text-left text-sm text-ink-tertiary hover:bg-surface-2"
+          className="w-full rounded-md border border-border bg-card px-3 py-2 text-left text-sm text-disabled hover:bg-surface"
         >
           Write a comment…
         </button>

@@ -168,7 +168,7 @@ describe('MtTaskRow', () => {
   it('due renders in danger color when daysLate > 0', async () => {
     renderInRouter(<MtTaskRow task={fxTask({ daysLate: 3 })} />);
     const due = await screen.findByTestId('task-due');
-    expect(due.className).toContain('text-danger');
+    expect(due.className).toContain('text-error');
   });
 
   it('reads priority_number for the chip (not a dropped priority field)', async () => {

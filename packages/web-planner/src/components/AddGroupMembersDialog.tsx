@@ -116,7 +116,7 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
                 {selected.map((s) => (
                   <span
                     key={s.user_id}
-                    className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs"
+                    className="inline-flex items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-xs"
                   >
                     {s.display_name}
                     <IconButton
@@ -140,12 +140,12 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
               hasAutoFocus
             />
 
-            <div className="max-h-[260px] overflow-y-auto divide-y divide-hairline rounded-md border border-hairline">
+            <div className="max-h-[260px] overflow-y-auto divide-y divide-border rounded-md border border-border">
               {candidatesQuery.isPending && (
-                <p className="py-4 text-center text-sm text-ink-subtle">Searching…</p>
+                <p className="py-4 text-center text-sm text-secondary">Searching…</p>
               )}
               {!candidatesQuery.isPending && candidates.length === 0 && (
-                <p className="py-4 text-center text-sm text-ink-subtle">
+                <p className="py-4 text-center text-sm text-secondary">
                   {debouncedSearch
                     ? 'No matching users.'
                     : 'All workspace members are already in this group.'}
@@ -158,7 +158,7 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
                     key={c.user_id}
                     type="button"
                     onClick={() => toggle(c)}
-                    className="flex w-full items-center gap-3 px-3 py-2.5 hover:bg-surface-1 text-left"
+                    className="flex w-full items-center gap-3 px-3 py-2.5 hover:bg-card text-left"
                   >
                     <Checkbox
                       label={`Select ${c.display_name}`}
@@ -169,7 +169,7 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
                     <Avatar name={c.display_name} size={32} />
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{c.display_name}</p>
-                      <p className="text-xs text-ink-subtle truncate">{c.email}</p>
+                      <p className="text-xs text-secondary truncate">{c.email}</p>
                     </div>
                   </button>
                 );

@@ -95,7 +95,7 @@ function AddAllocationForm({
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface-1 p-3">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <Field label="Account">
         <Typeahead
           label="Account"
@@ -189,7 +189,7 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
     return (
       <div className="flex flex-col gap-4">
         <SectionTitle icon={<Briefcase className="size-4" />}>Work</SectionTitle>
-        <p className="text-body-sm text-ink-tertiary">Couldn't load the work profile.</p>
+        <p className="text-body-sm text-disabled">Couldn't load the work profile.</p>
       </div>
     );
   }
@@ -234,14 +234,14 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
 
       <div className="flex flex-col gap-2">
         <div className="flex h-6 items-center justify-between">
-          <span className="text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+          <span className="text-eyebrow uppercase tracking-[0.04em] text-secondary">
             Accounts · projects
           </span>
           {allocationsEditable && !adding && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 gap-1 px-1.5 text-ink-subtle"
+              className="h-6 gap-1 px-1.5 text-secondary"
               onClick={() => setAdding(true)}
               icon={<Plus className="size-3.5" aria-hidden />}
               label="Add project"
@@ -265,7 +265,7 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
           </div>
         ) : groups.length === 0 ? (
           !adding && (
-            <p className="rounded-lg border border-dashed border-hairline px-3 py-4 text-center text-body-sm text-ink-tertiary">
+            <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-body-sm text-disabled">
               No project allocations
             </p>
           )
@@ -274,13 +274,13 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
             {groups.map((group) => {
               const total = allocationTotal(group.rows);
               return (
-                <div key={group.id} className="rounded-lg border border-hairline bg-surface-1">
-                  <div className="flex items-center justify-between gap-2 border-b border-hairline px-3 py-1.5">
-                    <span className="truncate text-caption font-semibold uppercase tracking-[0.04em] text-ink-subtle">
+                <div key={group.id} className="rounded-lg border border-border bg-card">
+                  <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+                    <span className="truncate text-caption font-semibold uppercase tracking-[0.04em] text-secondary">
                       {group.name}
                     </span>
                     {total !== null && (
-                      <span className="flex-none text-caption tabular-nums text-ink-subtle">
+                      <span className="flex-none text-caption tabular-nums text-secondary">
                         {total}% total
                       </span>
                     )}
@@ -289,15 +289,15 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
                     {group.rows.map((a) => (
                       <li
                         key={a.allocation_id}
-                        className="flex items-center gap-2.5 border-b border-hairline px-3 py-2 last:border-b-0"
+                        className="flex items-center gap-2.5 border-b border-border px-3 py-2 last:border-b-0"
                       >
-                        <FolderKanban className="size-4 flex-none text-ink-subtle" aria-hidden />
+                        <FolderKanban className="size-4 flex-none text-secondary" aria-hidden />
                         <div className="min-w-0 flex-1">
-                          <span className="block truncate text-body-sm font-medium text-ink">
+                          <span className="block truncate text-body-sm font-medium text-primary">
                             {a.project_name}
                           </span>
                           {(a.role || a.status !== 'committed') && (
-                            <span className="block truncate text-caption text-ink-subtle">
+                            <span className="block truncate text-caption text-secondary">
                               {[a.role, a.status !== 'committed' ? a.status : null]
                                 .filter(Boolean)
                                 .join(' · ')}
@@ -305,7 +305,7 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
                           )}
                         </div>
                         {a.planned_pct !== null && (
-                          <span className="flex-none text-body-sm tabular-nums text-ink-subtle">
+                          <span className="flex-none text-body-sm tabular-nums text-secondary">
                             {a.planned_pct}%
                           </span>
                         )}
@@ -314,7 +314,7 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
                             variant="ghost"
                             size="sm"
                             isIconOnly
-                            className="size-6 flex-none text-ink-subtle hover:text-destructive"
+                            className="size-6 flex-none text-secondary hover:text-error"
                             label={`Remove ${a.project_name}`}
                             isDisabled={removeAllocation.isPending}
                             onClick={() => removeAllocation.mutate(a.allocation_id)}

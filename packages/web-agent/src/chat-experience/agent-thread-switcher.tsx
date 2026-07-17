@@ -36,7 +36,9 @@ export function AgentThreadSwitcher({ onAfterSelect }: AgentThreadSwitcherProps)
           key={t.id}
           label={<span className="truncate">{t.title || 'Untitled chat'}</span>}
           style={
-            selection.threadId === t.id ? { backgroundColor: 'var(--color-surface-2)' } : undefined
+            selection.threadId === t.id
+              ? { backgroundColor: 'var(--color-background-surface)' }
+              : undefined
           }
           onClick={() => {
             actions.setThreadId(t.id);

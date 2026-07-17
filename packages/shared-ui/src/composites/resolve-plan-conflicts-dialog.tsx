@@ -150,7 +150,7 @@ export function ResolvePlanConflictsDialog(p: ResolvePlanConflictsDialogProps) {
             <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-1">
               {p.data.planLevelConflicts.length > 0 && (
                 <section>
-                  <h3 className="text-xs font-semibold text-ink-subtle uppercase tracking-wide mb-2">
+                  <h3 className="text-xs font-semibold text-secondary uppercase tracking-wide mb-2">
                     Plan-level fields
                   </h3>
                   <div className="space-y-3">
@@ -187,7 +187,7 @@ export function ResolvePlanConflictsDialog(p: ResolvePlanConflictsDialogProps) {
         footer={
           <LayoutFooter hasDivider>
             <div className="flex w-full items-center justify-between">
-              <span className="text-xs text-ink-subtle">
+              <span className="text-xs text-secondary">
                 {unresolved} unresolved · {chosen} chosen
               </span>
               <div className="flex gap-2">

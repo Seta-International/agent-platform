@@ -44,9 +44,9 @@ const RETENTION_DAYS = 30;
 const GRID_TEMPLATE = '120px 1.7fr 160px 130px 220px';
 
 const KIND_META: Record<TrashKind, { label: string; Icon: typeof Users; iconClass: string }> = {
-  group: { label: 'Group', Icon: Users, iconClass: 'text-primary' },
-  plan: { label: 'Plan', Icon: Layers, iconClass: 'text-info' },
-  task: { label: 'Task', Icon: CheckSquare, iconClass: 'text-ink-subtle' },
+  group: { label: 'Group', Icon: Users, iconClass: 'text-accent' },
+  plan: { label: 'Plan', Icon: Layers, iconClass: 'text-blue-vivid' },
+  task: { label: 'Task', Icon: CheckSquare, iconClass: 'text-secondary' },
 };
 
 function daysRemaining(deletedAt: string | null): number | null {
@@ -58,7 +58,7 @@ function daysRemaining(deletedAt: string | null): number | null {
 
 function DaysBadge({ days }: { days: number | null }) {
   if (days === null) {
-    return <span className="text-ink-tertiary">—</span>;
+    return <span className="text-disabled">—</span>;
   }
   if (days === 0) {
     return <Badge variant="error" label="Expiring" />;
@@ -229,7 +229,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
       content={
         <LayoutContent padding={0}>
           <div className="flex flex-col">
-            <div className="border-b border-hairline px-7 pt-4">
+            <div className="border-b border-border px-7 pt-4">
               <TabList value={tab} onChange={setTab} aria-label="Trash">
                 <Tab
                   value="deleted"
@@ -262,7 +262,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                 <div role="table" aria-label="Deleted items" className="w-full">
                   <div
                     role="row"
-                    className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
+                    className="sticky top-0 z-10 grid items-center gap-2 border-b border-border bg-body px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-secondary"
                     style={{ gridTemplateColumns: GRID_TEMPLATE }}
                   >
                     <div role="columnheader">Type</div>
@@ -282,19 +282,19 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                         <div
                           role="row"
                           key={`${r.kind}:${r.id}`}
-                          className="grid items-center gap-2 border-b border-hairline-tertiary px-7 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
+                          className="grid items-center gap-2 border-b border-border px-7 py-3 text-sm text-primary transition-colors hover:bg-card"
                           style={{ gridTemplateColumns: GRID_TEMPLATE }}
                         >
-                          <div role="cell" className="flex items-center gap-2 text-ink-subtle">
+                          <div role="cell" className="flex items-center gap-2 text-secondary">
                             <Icon className={`size-3.5 shrink-0 ${meta.iconClass}`} aria-hidden />
                             <span className="text-xs">{meta.label}</span>
                           </div>
                           <div role="cell" className="min-w-0 pr-4">
-                            <p className="truncate font-medium text-ink">{r.name}</p>
+                            <p className="truncate font-medium text-primary">{r.name}</p>
                           </div>
                           <div
                             role="cell"
-                            className="text-xs text-ink-muted"
+                            className="text-xs text-secondary"
                             suppressHydrationWarning
                           >
                             {r.deleted_at ? formatRelative(r.deleted_at) : '—'}
@@ -323,7 +323,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-semantic-danger hover:text-semantic-danger"
+                                className="text-error hover:text-error"
                                 icon={<Trash2 className="size-3" aria-hidden />}
                                 label="Delete"
                                 onClick={() => setConfirmingPurge(r)}
@@ -350,7 +350,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                 <div role="table" aria-label="Archived plans" className="w-full">
                   <div
                     role="row"
-                    className="sticky top-0 z-10 grid items-center gap-2 border-b border-hairline bg-canvas px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-ink-subtle"
+                    className="sticky top-0 z-10 grid items-center gap-2 border-b border-border bg-body px-7 py-2.5 text-[11px] font-medium uppercase tracking-wider text-secondary"
                     style={{ gridTemplateColumns: '120px 1.7fr 160px 220px' }}
                   >
                     <div role="columnheader">Type</div>
@@ -365,19 +365,19 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                       <div
                         role="row"
                         key={`archived:${r.id}`}
-                        className="grid items-center gap-2 border-b border-hairline-tertiary px-7 py-3 text-sm text-ink transition-colors hover:bg-surface-1"
+                        className="grid items-center gap-2 border-b border-border px-7 py-3 text-sm text-primary transition-colors hover:bg-card"
                         style={{ gridTemplateColumns: '120px 1.7fr 160px 220px' }}
                       >
-                        <div role="cell" className="flex items-center gap-2 text-ink-subtle">
-                          <Layers className="size-3.5 shrink-0 text-info" aria-hidden />
+                        <div role="cell" className="flex items-center gap-2 text-secondary">
+                          <Layers className="size-3.5 shrink-0 text-blue-vivid" aria-hidden />
                           <span className="text-xs">Plan</span>
                         </div>
                         <div role="cell" className="min-w-0 pr-4">
-                          <p className="truncate font-medium text-ink">{r.name}</p>
+                          <p className="truncate font-medium text-primary">{r.name}</p>
                         </div>
                         <div
                           role="cell"
-                          className="text-xs text-ink-muted"
+                          className="text-xs text-secondary"
                           suppressHydrationWarning
                         >
                           {r.archived_at ? formatRelative(r.archived_at) : '—'}
@@ -403,7 +403,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-semantic-danger hover:text-semantic-danger"
+                              className="text-error hover:text-error"
                               icon={<Trash2 className="size-3" aria-hidden />}
                               label="Delete"
                               onClick={() =>

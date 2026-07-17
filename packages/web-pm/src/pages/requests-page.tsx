@@ -13,6 +13,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Popover,
   paginateData,
   pixel,
@@ -151,7 +152,7 @@ function Kpi({
       ? 'var(--color-warning)'
       : tone === 'positive'
         ? 'var(--color-success)'
-        : 'var(--color-ink-muted)';
+        : 'var(--color-text-secondary)';
   return (
     <button
       type="button"
@@ -167,7 +168,7 @@ function Kpi({
         ].join(' ')}
       >
         <div className="min-w-0">
-          <div className="text-[10.5px] font-medium uppercase tracking-wide text-ink-muted">
+          <div className="text-[10.5px] font-medium uppercase tracking-wide text-secondary">
             {label}
           </div>
           <div
@@ -176,7 +177,7 @@ function Kpi({
           >
             {value}
           </div>
-          {sub && <div className="mt-1.5 text-[11px] text-ink-muted">{sub}</div>}
+          {sub && <div className="mt-1.5 text-[11px] text-secondary">{sub}</div>}
         </div>
         <span
           className="grid size-9 flex-shrink-0 place-items-center rounded-[10px]"
@@ -196,8 +197,8 @@ const STATUS_ACCENT: Record<CharterListRow['status'], string> = {
   submitted: 'var(--color-warning)',
   pmo_approved: 'var(--color-warning)',
   approved: 'var(--color-success)',
-  rejected: 'var(--color-danger)',
-  withdrawn: 'var(--color-hairline)',
+  rejected: 'var(--color-error)',
+  withdrawn: 'var(--color-border)',
 };
 
 function RequestCard({
@@ -230,28 +231,28 @@ function RequestCard({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[10.5px] text-ink-muted">
+              <span className="font-mono text-[10.5px] text-secondary">
                 #{row.charter_id.slice(0, 8)}
               </span>
               <Badge variant={status.variant} label={status.label} />
-              <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">
+              <span className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-secondary">
                 {accountName}
               </span>
             </div>
-            <div className="mt-1.5 truncate text-[15px] font-semibold text-ink">{row.name}</div>
-            <div className="mt-0.5 truncate text-body-sm text-ink-muted">{meta}</div>
+            <div className="mt-1.5 truncate text-[15px] font-semibold text-primary">{row.name}</div>
+            <div className="mt-0.5 truncate text-body-sm text-secondary">{meta}</div>
           </div>
           <div className="flex flex-shrink-0 items-start gap-2">
             <div className="text-right">
-              <div className="text-[10px] uppercase tracking-wide text-ink-muted">Submitted</div>
-              <div className="font-mono text-[13px] font-semibold text-ink">
+              <div className="text-[10px] uppercase tracking-wide text-secondary">Submitted</div>
+              <div className="font-mono text-[13px] font-semibold text-primary">
                 {row.created_at.slice(0, 10)}
               </div>
             </div>
-            <ChevronRight className="mt-0.5 size-4 text-ink-muted opacity-0 transition-opacity group-hover:opacity-100" />
+            <ChevronRight className="mt-0.5 size-4 text-secondary opacity-0 transition-opacity group-hover:opacity-100" />
           </div>
         </div>
-        <div className="border-t border-hairline pt-3">
+        <div className="border-t border-border pt-3">
           <CharterStepper
             status={row.status}
             rejectedStage={row.rejected_stage}
@@ -407,26 +408,26 @@ export function RequestsPage() {
         header: 'Project',
         width: proportional(2),
         sortable: true,
-        renderCell: (r) => <span className="font-medium text-ink">{r.name}</span>,
+        renderCell: (r) => <span className="font-medium text-primary">{r.name}</span>,
       },
       {
         key: 'account',
         header: 'Account',
         width: proportional(1),
-        renderCell: (r) => <span className="text-ink-muted">{accountName(r.account_id)}</span>,
+        renderCell: (r) => <span className="text-secondary">{accountName(r.account_id)}</span>,
       },
       {
         key: 'pm',
         header: 'PM',
         width: proportional(1),
-        renderCell: (r) => <span className="text-ink-muted">{pmName(r.pm_worker_id)}</span>,
+        renderCell: (r) => <span className="text-secondary">{pmName(r.pm_worker_id)}</span>,
       },
       {
         key: 'budget',
         header: 'Budget',
         width: pixel(110),
         renderCell: (r) => (
-          <span className="font-mono text-caption text-ink-muted">
+          <span className="font-mono text-caption text-secondary">
             {r.budget_bmm != null ? `${Number(r.budget_bmm)} BMM` : '—'}
           </span>
         ),
@@ -446,7 +447,7 @@ export function RequestsPage() {
         header: 'Submitted',
         width: pixel(110),
         renderCell: (r) => (
-          <span className="font-mono text-caption text-ink-muted">{r.created_at.slice(0, 10)}</span>
+          <span className="font-mono text-caption text-secondary">{r.created_at.slice(0, 10)}</span>
         ),
       },
     ],
@@ -489,7 +490,7 @@ export function RequestsPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container space-y-4 p-6">
+          <PageContainer className="space-y-4">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Kpi label="Total requests" value={String(summary?.total ?? 0)} icon={FileText} />
               <Kpi
@@ -632,7 +633,7 @@ export function RequestsPage() {
                     label="Toggle columns"
                     content={
                       <div className="flex min-w-[180px] flex-col gap-1 p-2">
-                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
                           Toggle columns
                         </div>
                         {TABLE_COLUMN_OPTIONS.map((col) => (
@@ -710,7 +711,7 @@ export function RequestsPage() {
 
             {pageCount > 1 && (
               <div className="flex items-center justify-end gap-3">
-                <span className="text-caption text-ink-muted">
+                <span className="text-caption text-secondary">
                   Page {page} of {pageCount} · {total} total
                 </span>
                 <Button
@@ -733,7 +734,7 @@ export function RequestsPage() {
                 />
               </div>
             )}
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

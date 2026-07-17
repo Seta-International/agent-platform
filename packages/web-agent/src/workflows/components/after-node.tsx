@@ -18,13 +18,13 @@ export function AfterNode({ data }: NodeProps<Node<AfterData>>) {
       <Handle
         type="target"
         position={Position.Top}
-        className="!h-2 !w-2 !bg-[var(--color-hairline)]"
+        className="!h-2 !w-2 !bg-[var(--color-border)]"
       />
       <span className="size-1.5 rounded-full" style={{ background: t.dot }} />
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!h-2 !w-2 !bg-[var(--color-hairline)]"
+        className="!h-2 !w-2 !bg-[var(--color-border)]"
       />
     </div>
   );

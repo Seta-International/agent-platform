@@ -157,9 +157,9 @@ export function MoveTaskDialog({
         header={<DialogHeader title="Move task" onOpenChange={handleOpenChange} />}
         content={
           <LayoutContent>
-            <div className="space-y-2 text-body-sm text-ink-subtle">
+            <div className="space-y-2 text-body-sm text-secondary">
               <p>
-                Move <span className="text-ink">&ldquo;{taskTitle}&rdquo;</span> to a different
+                Move <span className="text-primary">&ldquo;{taskTitle}&rdquo;</span> to a different
                 plan. Assignees, checklist items, references, dates, priority, and progress carry
                 over.
               </p>
@@ -204,7 +204,7 @@ export function MoveTaskDialog({
               </div>
 
               {hasLabels && (
-                <p className="text-caption text-semantic-warning">
+                <p className="text-caption text-warning">
                   Labels on this task will be removed because they belong to the current plan.
                 </p>
               )}

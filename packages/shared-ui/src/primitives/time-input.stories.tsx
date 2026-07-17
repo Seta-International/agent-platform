@@ -31,7 +31,7 @@ export const WorkingHoursPair: Story = {
           value={start}
           onChange={setStart}
         />
-        <span className="text-ink-muted text-sm">to</span>
+        <span className="text-secondary text-sm">to</span>
         <TimeInput
           label="Working hours end"
           isLabelHidden

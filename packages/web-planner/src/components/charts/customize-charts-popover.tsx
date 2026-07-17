@@ -27,8 +27,8 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
       content={
         <>
           <div className="px-1 pb-2">
-            <p className="text-body-sm font-medium text-ink">Customize charts</p>
-            <p className="text-xs text-ink-subtle">
+            <p className="text-body-sm font-medium text-primary">Customize charts</p>
+            <p className="text-xs text-secondary">
               Pick what shows on this tab. Saved to your view.
             </p>
           </div>
@@ -47,12 +47,12 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
                 {(c.default || c.disabled) && (
                   <span className="flex items-center gap-1.5">
                     {c.default && (
-                      <span className="rounded border border-hairline px-1 text-[10px] uppercase tracking-wide text-ink-subtle">
+                      <span className="rounded border border-border px-1 text-[10px] uppercase tracking-wide text-secondary">
                         Default
                       </span>
                     )}
                     {c.disabled && (
-                      <span className="text-[10px] uppercase tracking-wide text-ink-subtle">
+                      <span className="text-[10px] uppercase tracking-wide text-secondary">
                         Coming soon
                       </span>
                     )}
@@ -61,7 +61,7 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
               </li>
             ))}
           </ul>
-          <div className="mt-2 flex items-center justify-between border-t border-hairline pt-2">
+          <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
             <Button
               variant="ghost"
               size="sm"
@@ -87,7 +87,7 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
         icon={<Settings2 className="size-3.5 opacity-70" />}
       >
         <span className="font-medium">Customize</span>
-        <span className="text-ink-subtle">
+        <span className="text-secondary">
           {visible.length}/{enabledTotal}
         </span>
       </Button>

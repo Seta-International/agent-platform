@@ -36,9 +36,9 @@ export function CalendarQuickCreate({ planId, dueDate, onClose }: Props) {
         e.preventDefault();
         submit();
       }}
-      className="flex w-64 flex-col gap-2 rounded-md border border-hairline bg-surface-1 p-2 shadow-lg"
+      className="flex w-64 flex-col gap-2 rounded-md border border-border bg-card p-2 shadow-lg"
     >
-      <span className="text-caption text-ink-muted">
+      <span className="text-caption text-secondary">
         New task — due {dateLabelFmt.format(fromDateKey(dueDate))}
       </span>
       <Input

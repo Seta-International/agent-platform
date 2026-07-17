@@ -62,7 +62,7 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="px-7 pt-4 pb-0 border-b border-hairline bg-canvas">
+      <header className="px-7 pt-4 pb-0 border-b border-border bg-body">
         <div className="mb-2">
           <Breadcrumbs variant="supporting">
             <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
@@ -76,7 +76,7 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
         <Heading level={1} className="mb-1">
           Categories{planName ? ` · ${planName}` : ''}
         </Heading>
-        <p className="mb-3 text-body-sm text-ink-subtle" data-testid="categories-sync-subhead">
+        <p className="mb-3 text-body-sm text-secondary" data-testid="categories-sync-subhead">
           {planForGroup?.external_source === 'm365'
             ? 'Synced with Microsoft Planner'
             : 'Just for this plan'}
@@ -87,7 +87,7 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
           onTabChange={onTabChange}
         />
       </header>
-      <div className="flex-1 overflow-auto bg-surface-1">
+      <div className="flex-1 overflow-auto bg-card">
         <div
           className="mx-auto"
           style={{
@@ -124,10 +124,10 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
             }}
           />
           <div
-            className="rounded-md border border-hairline bg-canvas p-3 text-sm text-ink-subtle"
+            className="rounded-md border border-border bg-body p-3 text-sm text-secondary"
             role="note"
           >
-            <strong className="block text-ink text-xs uppercase tracking-wide mb-1">
+            <strong className="block text-primary text-xs uppercase tracking-wide mb-1">
               Heads up
             </strong>
             Categories without a label show as plain names — they won&apos;t filter tasks until you

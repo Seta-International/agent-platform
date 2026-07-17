@@ -8,12 +8,13 @@ interface Props {
 
 export function GridGroupBySelector({ value, onChange }: Props) {
   return (
-    <span className="grid-group-by">
+    <span className="inline-flex items-center gap-1 whitespace-nowrap text-body-sm text-secondary">
       Grouped by{' '}
       <Selector
         label="Group by"
         isLabelHidden
         size="sm"
+        width="7rem"
         options={[
           { value: 'bucket', label: 'Bucket' },
           { value: 'assignee', label: 'Assignee' },

@@ -274,37 +274,37 @@ export function CandidatesPage() {
         key: 'name',
         header: 'Candidate',
         sortable: true,
-        renderCell: (r) => <span className="font-medium text-ink">{r.name}</span>,
+        renderCell: (r) => <span className="font-medium text-primary">{r.name}</span>,
       },
       {
         key: 'requisition_title',
         header: 'Position',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{r.requisition_title}</span>,
+        renderCell: (r) => <span className="text-secondary">{r.requisition_title}</span>,
       },
       {
         key: 'seniority',
         header: 'Seniority',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{r.seniority ?? '—'}</span>,
+        renderCell: (r) => <span className="text-secondary">{r.seniority ?? '—'}</span>,
       },
       {
         key: 'source',
         header: 'Source',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{r.source ?? '—'}</span>,
+        renderCell: (r) => <span className="text-secondary">{r.source ?? '—'}</span>,
       },
       {
         key: 'stage',
         header: 'Stage',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted capitalize">{r.stage}</span>,
+        renderCell: (r) => <span className="text-secondary capitalize">{r.stage}</span>,
       },
       {
         key: 'rating',
         header: 'Rating',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{r.rating ?? 0}/5</span>,
+        renderCell: (r) => <span className="text-secondary">{r.rating ?? 0}/5</span>,
       },
       {
         // The old column had accessorKey 'fit' (an object, not a primitive) and never disabled
@@ -314,7 +314,7 @@ export function CandidatesPage() {
         key: 'fit',
         header: 'Fit',
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{fitLabel(r.fit).text}</span>,
+        renderCell: (r) => <span className="text-secondary">{fitLabel(r.fit).text}</span>,
       },
     ],
     [],
@@ -358,13 +358,13 @@ export function CandidatesPage() {
       content={
         <LayoutContent padding={0}>
           <div className="space-y-4 p-6">
-            <div className="grid grid-cols-3 divide-x divide-hairline rounded-lg border border-hairline bg-surface-1 sm:grid-cols-6">
+            <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border bg-card sm:grid-cols-6">
               {STAGE_COUNT_SEGMENTS.map((seg) => (
                 <div key={seg.key} className="px-4 py-3">
                   <div className="text-headline font-bold" style={{ color: STAGE_COLOR[seg.key] }}>
                     {stageCounts?.[seg.key] ?? 0}
                   </div>
-                  <div className="text-caption text-ink-muted">{seg.label}</div>
+                  <div className="text-caption text-secondary">{seg.label}</div>
                 </div>
               ))}
             </div>
@@ -434,7 +434,7 @@ export function CandidatesPage() {
                     label="Toggle columns"
                     content={
                       <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
                           Toggle columns
                         </div>
                         {CANDIDATE_COLUMN_OPTIONS.map((col) => (
@@ -497,7 +497,7 @@ export function CandidatesPage() {
                 {[0, 1, 2, 3, 4].map((i) => (
                   <div
                     key={i}
-                    className="h-40 animate-pulse rounded-lg border border-hairline bg-surface-2"
+                    className="h-40 animate-pulse rounded-lg border border-border bg-surface"
                   />
                 ))}
               </div>

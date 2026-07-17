@@ -22,7 +22,7 @@ function MenuDivider() {
         height: 1,
         margin: '4px 6px',
         border: 'none',
-        backgroundColor: 'var(--color-hairline)',
+        backgroundColor: 'var(--color-border)',
       }}
     />
   );
@@ -61,13 +61,13 @@ export function UserMenu({ onSignOut }: { onSignOut?: () => void } = {}) {
       {theme && (
         <>
           <MenuDivider />
-          <div className="px-2 py-1.5 text-caption uppercase tracking-wide text-ink-subtle">
+          <div className="px-2 py-1.5 text-caption uppercase tracking-wide text-secondary">
             Appearance
           </div>
           {APPEARANCE.map(({ value, label, Icon }) => (
             <DropdownMenuItem
               key={value}
-              icon={<Icon className="size-3.5 text-ink-muted" aria-hidden />}
+              icon={<Icon className="size-3.5 text-secondary" aria-hidden />}
               label={label}
               endContent={
                 theme.theme === value ? <Check className="size-3.5" aria-hidden /> : undefined

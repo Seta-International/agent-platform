@@ -99,7 +99,7 @@ export function GroupsToolbar({
   return (
     <div
       data-testid="groups-toolbar"
-      className="flex items-center gap-3 border-b border-hairline px-7 py-3"
+      className="flex items-center gap-3 border-b border-border px-7 py-3"
     >
       {/* Left cluster */}
       <FilterPill

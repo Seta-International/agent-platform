@@ -123,7 +123,7 @@ function bodyForSource(task: PreviewBodyTask, source: PickedSource) {
 }
 
 function ReferenceBody({ refRow }: { refRow: PreviewReference }) {
-  const color = REFERENCE_TYPE_COLOR[refRow.type] ?? 'var(--color-info)';
+  const color = REFERENCE_TYPE_COLOR[refRow.type] ?? 'var(--color-icon-blue)';
   return (
     <div style={refBoxStyle}>
       <span aria-hidden="true" style={{ ...refDotStyle, background: color }} />
@@ -214,8 +214,8 @@ function formatDay(iso: string): string {
 }
 
 const cardShell: CSSProperties = {
-  background: 'var(--color-canvas)',
-  border: '1px solid var(--color-hairline)',
+  background: 'var(--color-background-body)',
+  border: '1px solid var(--color-border)',
   borderRadius: 6,
   padding: '10px 12px',
   boxShadow: 'var(--shadow-sm)',
@@ -235,9 +235,9 @@ const refBoxStyle: CSSProperties = {
   alignItems: 'center',
   gap: 6,
   padding: '6px 8px',
-  background: 'var(--color-surface-1)',
+  background: 'var(--color-background-card)',
   borderRadius: 4,
-  border: '1px solid var(--color-hairline-tertiary)',
+  border: '1px solid var(--color-border)',
   fontSize: 11.5,
 };
 const refDotStyle: CSSProperties = {
@@ -257,14 +257,14 @@ const refAliasStyle: CSSProperties = {
 const descHtmlClampStyle: CSSProperties = {
   fontSize: 12,
   lineHeight: 1.5,
-  color: 'var(--color-ink-muted)',
+  color: 'var(--color-text-secondary)',
   maxHeight: '4.5em',
   overflow: 'hidden',
 };
 const descClampStyle: CSSProperties = {
   fontSize: 12,
   lineHeight: 1.5,
-  color: 'var(--color-ink-muted)',
+  color: 'var(--color-text-secondary)',
   display: '-webkit-box',
   WebkitLineClamp: 2,
   WebkitBoxOrient: 'vertical',
@@ -275,9 +275,9 @@ const checklistBoxStyle: CSSProperties = {
   flexDirection: 'column',
   gap: 4,
   padding: '6px 8px',
-  background: 'var(--color-surface-1)',
+  background: 'var(--color-background-card)',
   borderRadius: 4,
-  border: '1px solid var(--color-hairline-tertiary)',
+  border: '1px solid var(--color-border)',
 };
 const checklistRowStyle: CSSProperties = {
   display: 'flex',
@@ -297,19 +297,19 @@ const checklistEmptySquare: CSSProperties = {
   width: 11,
   height: 11,
   borderRadius: 3,
-  border: '1px solid var(--color-hairline-strong)',
+  border: '1px solid var(--color-border-emphasized)',
   display: 'inline-block',
   flexShrink: 0,
 };
 const checklistText: CSSProperties = {
-  color: 'var(--color-ink)',
+  color: 'var(--color-text-primary)',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
 };
 const checklistTextDone: CSSProperties = {
   ...checklistText,
-  color: 'var(--color-ink-subtle)',
+  color: 'var(--color-text-secondary)',
   textDecoration: 'line-through',
 };
 const footerStyle: CSSProperties = {

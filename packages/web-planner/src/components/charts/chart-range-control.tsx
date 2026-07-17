@@ -44,7 +44,7 @@ export function ChartRangeControl({ from, to, onChange }: Props) {
       <Button
         variant="secondary"
         size="sm"
-        className={`h-7 gap-1.5 ${active ? 'border-primary text-ink' : ''}`}
+        className={`h-7 gap-1.5 ${active ? 'border-accent-bg text-primary' : ''}`}
         label="Date range filter"
         icon={<CalendarDays className="size-3.5 opacity-70" />}
         endContent={<ChevronDown className="size-3 opacity-60" />}

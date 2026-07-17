@@ -9,6 +9,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   RadioGroup,
   RadioListItem,
   Switch,
@@ -176,7 +177,7 @@ export function MailTransport() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container space-y-4">
+          <PageContainer className="space-y-4">
             {error && <Banner status="error" title={(error as Error).message} />}
 
             <Card className="p-5 space-y-5">
@@ -211,7 +212,7 @@ export function MailTransport() {
               </div>
 
               {form.kind === 'graph' ? (
-                <div className="flex items-start gap-3 rounded-md border border-hairline p-3">
+                <div className="flex items-start gap-3 rounded-md border border-border p-3">
                   <Switch
                     label="Application access policy acknowledged"
                     isLabelHidden
@@ -219,10 +220,10 @@ export function MailTransport() {
                     onChange={(v) => setForm((s) => ({ ...s, graphPolicyAcked: v }))}
                   />
                   <div className="min-w-0">
-                    <div className="font-medium text-ink">
+                    <div className="font-medium text-primary">
                       Application access policy is in place
                     </div>
-                    <p className="text-body-sm text-ink-muted">
+                    <p className="text-body-sm text-secondary">
                       Confirm an ApplicationAccessPolicy limits the Entra app to sending only from
                       this mailbox. Required before you can turn on Graph send.
                     </p>
@@ -300,8 +301,8 @@ export function MailTransport() {
 
             <Card className="p-5 space-y-3">
               <div>
-                <div className="font-medium text-ink">Send a test email</div>
-                <p className="text-body-sm text-ink-muted">
+                <div className="font-medium text-primary">Send a test email</div>
+                <p className="text-body-sm text-secondary">
                   Send yourself a message to make sure your setup actually delivers.
                 </p>
               </div>
@@ -340,7 +341,7 @@ export function MailTransport() {
               )}
               {verify.error && <Banner status="error" title={(verify.error as Error).message} />}
             </Card>
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

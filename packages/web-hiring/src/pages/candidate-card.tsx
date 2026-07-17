@@ -36,9 +36,9 @@ export function CandidateCard({
       <div className="flex items-start gap-2.5">
         <Avatar name={item.name} size={36} />
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium text-ink">{item.name}</div>
-          <div className="mt-1 truncate text-caption text-ink-muted">{item.requisition_title}</div>
-          <div className="mt-1 text-caption text-ink-subtle">
+          <div className="truncate font-medium text-primary">{item.name}</div>
+          <div className="mt-1 truncate text-caption text-secondary">{item.requisition_title}</div>
+          <div className="mt-1 text-caption text-secondary">
             {item.source ?? '—'} · {appliedLabel(item.applied_at)}
           </div>
         </div>

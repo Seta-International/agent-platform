@@ -13,11 +13,11 @@ interface Props {
 
 function ShimmerRow() {
   return (
-    <div className="flex items-start gap-3 py-4 border-b border-hairline animate-pulse">
-      <div className="h-8 w-8 rounded-full bg-surface-2 shrink-0" />
+    <div className="flex items-start gap-3 py-4 border-b border-border animate-pulse">
+      <div className="h-8 w-8 rounded-full bg-surface shrink-0" />
       <div className="flex-1 space-y-2">
-        <div className="h-4 w-3/4 rounded bg-surface-2" />
-        <div className="h-3 w-1/4 rounded bg-surface-2" />
+        <div className="h-4 w-3/4 rounded bg-surface" />
+        <div className="h-3 w-1/4 rounded bg-surface" />
       </div>
     </div>
   );
@@ -34,17 +34,17 @@ function ActivityRow({ item }: { item: GroupActivityItem }) {
     : '?';
 
   return (
-    <div className="flex items-start gap-3 py-4 border-b border-hairline">
+    <div className="flex items-start gap-3 py-4 border-b border-border">
       <div
-        className="h-8 w-8 rounded-full bg-primary-tint text-primary-ink flex items-center justify-center text-xs font-semibold shrink-0"
+        className="h-8 w-8 rounded-full bg-accent-muted text-accent flex items-center justify-center text-xs font-semibold shrink-0"
         aria-hidden="true"
       >
         {initials}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-body-sm text-ink">{buildActivityLabel(item)}</p>
+        <p className="text-body-sm text-primary">{buildActivityLabel(item)}</p>
         <p
-          className="text-caption text-ink-subtle mt-0.5"
+          className="text-caption text-secondary mt-0.5"
           title={absoluteActivityTime(item.occurred_at)}
         >
           {formatRelative(item.occurred_at)}
@@ -131,7 +131,7 @@ export function ActivityFeedTab({ groupId }: Props) {
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3" role="alert">
-        <p className="text-body-sm text-ink-subtle">Failed to load activity.</p>
+        <p className="text-body-sm text-secondary">Failed to load activity.</p>
         <Button size="sm" variant="secondary" label="Try again" onClick={() => void refetch()} />
       </div>
     );
@@ -140,7 +140,7 @@ export function ActivityFeedTab({ groupId }: Props) {
   if (items.length === 0) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-body-sm text-ink-subtle">No activity yet in this group.</p>
+        <p className="text-body-sm text-secondary">No activity yet in this group.</p>
       </div>
     );
   }
@@ -160,7 +160,7 @@ export function ActivityFeedTab({ groupId }: Props) {
           className="sticky top-2 z-10 mx-auto rounded-full shadow-sm"
         />
       ) : (
-        <p className="text-caption text-ink-subtle">All events · live</p>
+        <p className="text-caption text-secondary">All events · live</p>
       )}
 
       <div

@@ -1,6 +1,7 @@
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import type { BucketRow, PlanRow, TaskWithAssigneesRow } from '@seta/planner';
 import {
+  Button,
   KanbanBoard,
   KanbanCard,
   KanbanCardList,
@@ -260,17 +261,20 @@ export function PlanPage({
   return (
     <>
       {hasActiveFilters && totalVisible === 0 && (
-        <div role="status" className="plan-no-results">
+        <div
+          role="status"
+          className="flex items-center gap-3 px-6 py-3 text-body-sm text-secondary"
+        >
           <p>No tasks match what you&apos;re filtering for.</p>
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="ghost"
+            label="Clear filters"
             onClick={() => {
               onFiltersChange({ assignee_ids: [], label_ids: [] });
               onQChange?.('');
             }}
-          >
-            Clear filters
-          </button>
+          />
         </div>
       )}
 

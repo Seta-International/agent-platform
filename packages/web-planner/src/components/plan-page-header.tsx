@@ -11,6 +11,7 @@ import {
   Copy,
   ExternalLink,
   Link as LinkIcon,
+  MoreHorizontal,
   Pencil,
   RefreshCw,
   RotateCcw,
@@ -115,7 +116,7 @@ export function PlanPageHeader({
     hasSyncItems;
 
   return (
-    <header className="plan-page-header">
+    <header className="flex flex-col gap-1 px-6 pt-4 pb-2">
       {groupName && (
         <Breadcrumbs variant="supporting">
           <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
@@ -141,7 +142,7 @@ export function PlanPageHeader({
             }}
           />
         ) : (
-          <h1>
+          <h1 className="m-0 text-body-lg font-semibold leading-[1.3]">
             {canRename ? (
               <button
                 type="button"
@@ -181,10 +182,11 @@ export function PlanPageHeader({
             }}
             hasChevron={false}
             button={{
-              label: 'Plan actions',
+              isIconOnly: true,
+              icon: <MoreHorizontal className="size-4" />,
               variant: 'ghost',
-              className: 'plan-page-header__overflow',
-              children: '⋯',
+              size: 'sm',
+              label: 'Plan actions',
             }}
           >
             {onRename && (
@@ -242,10 +244,10 @@ export function PlanPageHeader({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 'var(--spacing-xxs)',
-                  padding: 'var(--spacing-xxs) var(--spacing-xs)',
+                  gap: 'var(--spacing-1)',
+                  padding: 'var(--spacing-1) var(--spacing-2)',
                   borderRadius: 'var(--radius-sm)',
-                  color: 'var(--color-ink)',
+                  color: 'var(--color-text-primary)',
                   textDecoration: 'none',
                 }}
               >
@@ -256,7 +258,7 @@ export function PlanPageHeader({
               <DropdownMenuItem
                 icon={<Unlink aria-hidden />}
                 label="Unlink from Microsoft 365…"
-                style={{ color: 'var(--color-danger)' }}
+                style={{ color: 'var(--color-error)' }}
                 onClick={onUnlinkFromM365}
               />
             )}
@@ -274,7 +276,7 @@ export function PlanPageHeader({
                   height: 1,
                   margin: '4px 6px',
                   border: 'none',
-                  backgroundColor: 'var(--color-hairline)',
+                  backgroundColor: 'var(--color-border)',
                 }}
               />
             )}
@@ -297,7 +299,7 @@ export function PlanPageHeader({
               <DropdownMenuItem
                 icon={<X aria-hidden />}
                 label="Delete plan"
-                style={{ color: 'var(--color-danger)' }}
+                style={{ color: 'var(--color-error)' }}
                 isDisabled={!canDelete}
                 onClick={onDelete}
               />
@@ -305,7 +307,7 @@ export function PlanPageHeader({
           </DropdownMenu>
         )}
       </div>
-      <p>
+      <p className="t-xs subtle mt-0.5 mb-0">
         {bucketCount} buckets · {taskCount} tasks
         {typeof myTaskCount === 'number' && <> · {myTaskCount} assigned to you</>}
       </p>

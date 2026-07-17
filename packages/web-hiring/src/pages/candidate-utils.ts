@@ -39,12 +39,12 @@ export function fitScoreBadge(fit: Fit): {
  * stat bar's segment numbers so the two stay visually in sync. 6 distinct tokens, one per
  * stage/outcome (no two stages share a color). */
 export const STAGE_COLOR: Record<CandStage | 'hired' | 'cancelled', string> = {
-  new: 'var(--color-primary)',
+  new: 'var(--color-accent)',
   screening: 'var(--color-success)',
-  interview: 'var(--color-group-theme-purple)',
-  offer: 'var(--color-group-theme-orange)',
-  hired: 'var(--color-group-theme-teal)',
-  cancelled: 'var(--color-danger)',
+  interview: 'var(--color-icon-purple)',
+  offer: 'var(--color-icon-orange)',
+  hired: 'var(--color-icon-teal)',
+  cancelled: 'var(--color-error)',
 };
 
 export const COLUMN_EMPTY_COPY: Record<

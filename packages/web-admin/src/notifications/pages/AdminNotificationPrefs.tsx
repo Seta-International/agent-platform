@@ -6,6 +6,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Skeleton,
   Text,
   VStack,
@@ -40,7 +41,7 @@ export function AdminNotificationPrefs() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container space-y-4">
+          <PageContainer className="space-y-4">
             {error && (
               <Banner
                 status="error"
@@ -51,17 +52,17 @@ export function AdminNotificationPrefs() {
             {isLoading || !data ? (
               <Skeleton height={288} radius={3} />
             ) : (
-              <section className="overflow-hidden rounded-lg border border-hairline bg-canvas">
-                <header className="border-b border-hairline-tertiary px-5 py-4">
-                  <h2 className="m-0 text-section-title font-semibold tracking-tight text-ink">
+              <section className="overflow-hidden rounded-lg border border-border bg-body">
+                <header className="border-b border-border px-5 py-4">
+                  <h2 className="m-0 text-section-title font-semibold tracking-tight text-primary">
                     Events
                   </h2>
-                  <p className="m-0 mt-0.5 text-body-sm text-ink-subtle">
+                  <p className="m-0 mt-0.5 text-body-sm text-secondary">
                     Pick how each event reaches your team.
                   </p>
                 </header>
 
-                <div className="divide-y divide-hairline-tertiary">
+                <div className="divide-y divide-border">
                   {data.rows.map((row) => (
                     <NotificationPrefRow
                       key={row.event_type}
@@ -73,7 +74,7 @@ export function AdminNotificationPrefs() {
                 </div>
               </section>
             )}
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

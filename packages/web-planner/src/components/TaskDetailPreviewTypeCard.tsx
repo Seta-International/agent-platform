@@ -41,7 +41,7 @@ export function TaskDetailPreviewTypeCard({ task, planId }: Props) {
             children: (
               <span className="flex flex-col items-start">
                 <span>{current.label}</span>
-                <span className="text-caption text-ink-subtle">{current.desc}</span>
+                <span className="text-caption text-secondary">{current.desc}</span>
               </span>
             ),
           }}

@@ -68,9 +68,9 @@ function DetailCard({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-hairline bg-surface-1 p-4">
+    <section className="rounded-lg border border-border bg-card p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-body-sm font-semibold text-ink">{title}</h3>
+        <h3 className="text-body-sm font-semibold text-primary">{title}</h3>
         {action}
       </div>
       {children}
@@ -90,12 +90,12 @@ function DetailRow({
   onCopy?: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-hairline py-2 last:border-b-0">
-      <span className="flex items-center gap-1.5 text-caption text-ink-muted">
+    <div className="flex items-center justify-between gap-3 border-b border-border py-2 last:border-b-0">
+      <span className="flex items-center gap-1.5 text-caption text-secondary">
         {icon}
         {label}
       </span>
-      <span className="flex items-center gap-1.5 text-body-sm text-ink">
+      <span className="flex items-center gap-1.5 text-body-sm text-primary">
         {value}
         {onCopy && (
           <IconButton
@@ -116,9 +116,9 @@ function PipelineStepper({ stage }: { stage: CandStage | undefined }) {
   const curIdx = stage ? STAGES.findIndex((s) => s.id === stage) : -1;
   return (
     <div className="relative">
-      <div className="absolute inset-x-[12.5%] top-[9px] h-px bg-hairline-strong" />
+      <div className="absolute inset-x-[12.5%] top-[9px] h-px bg-border-strong" />
       <div
-        className="absolute inset-y-0 left-[12.5%] top-[9px] h-px bg-primary transition-[width]"
+        className="absolute inset-y-0 left-[12.5%] top-[9px] h-px bg-accent-bg transition-[width]"
         style={{ width: curIdx <= 0 ? 0 : `${(curIdx / (STAGES.length - 1)) * 75}%` }}
       />
       <div className="relative flex justify-between">
@@ -127,14 +127,14 @@ function PipelineStepper({ stage }: { stage: CandStage | undefined }) {
           return (
             <div key={s.id} className="flex flex-col items-center gap-1.5">
               <span
-                className={`flex size-[18px] items-center justify-center rounded-full text-on-primary ${
-                  reached ? 'bg-primary' : 'border-2 border-hairline-strong bg-canvas'
+                className={`flex size-[18px] items-center justify-center rounded-full text-on-accent ${
+                  reached ? 'bg-accent-bg' : 'border-2 border-border-strong bg-body'
                 }`}
               >
                 {reached && <Check className="size-2.5" aria-hidden />}
               </span>
               <span
-                className={`text-caption font-medium ${i === curIdx ? 'text-ink' : 'text-ink-subtle'}`}
+                className={`text-caption font-medium ${i === curIdx ? 'text-primary' : 'text-secondary'}`}
               >
                 {s.label}
               </span>
@@ -212,21 +212,21 @@ export function CandidateDetailDrawer({
           <LayoutContent padding={0} isScrollable={false}>
             <div className="flex max-h-[90vh] flex-col">
               {isLoading || !data ? (
-                <div className="p-6 text-ink-muted">Loading…</div>
+                <div className="p-6 text-secondary">Loading…</div>
               ) : (
                 <>
-                  <div className="flex items-start justify-between gap-4 border-b border-hairline px-6 py-5">
+                  <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
                     <div className="flex items-start gap-3">
                       <Avatar name={data.candidate.name} size={60} />
                       <div>
-                        <div className="text-card-title font-semibold text-ink">
+                        <div className="text-card-title font-semibold text-primary">
                           {data.candidate.name}
                         </div>
-                        <div className="text-body-sm text-ink-muted">
+                        <div className="text-body-sm text-secondary">
                           {data.candidate.seniority ?? '—'} · applying for{' '}
                           {app?.requisition_title ?? '—'}
                         </div>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-caption text-ink-subtle">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-caption text-secondary">
                           <span className="inline-flex items-center gap-1">
                             <Building2 className="size-3.5" aria-hidden />
                             {data.candidate.source ?? '—'}
@@ -259,7 +259,7 @@ export function CandidateDetailDrawer({
                           {canReject && !terminal && (
                             <DropdownMenuItem
                               label="Reject"
-                              style={{ color: 'var(--color-destructive)' }}
+                              style={{ color: 'var(--color-error)' }}
                               onClick={() => setRejectOpen(true)}
                             />
                           )}
@@ -276,16 +276,16 @@ export function CandidateDetailDrawer({
                     </div>
                   </div>
 
-                  <div className="border-b border-hairline px-6 py-4">
+                  <div className="border-b border-border px-6 py-4">
                     <PipelineStepper stage={app?.stage} />
                     {terminal && (
-                      <p className="mt-3 text-caption text-ink-muted">
+                      <p className="mt-3 text-caption text-secondary">
                         This candidate is {app?.status} and can no longer be moved.
                       </p>
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-6 py-3">
+                  <div className="flex flex-wrap items-center gap-2 border-b border-border px-6 py-3">
                     <DropdownMenu
                       placement="below"
                       hasChevron
@@ -364,7 +364,7 @@ export function CandidateDetailDrawer({
                       >
                         <div className="flex flex-wrap gap-1.5">
                           {data.skills.length === 0 ? (
-                            <span className="text-caption text-ink-muted">No skills recorded.</span>
+                            <span className="text-caption text-secondary">No skills recorded.</span>
                           ) : (
                             data.skills.map((s) => (
                               <Badge
@@ -398,9 +398,9 @@ export function CandidateDetailDrawer({
 
                       <DetailCard title="Notes">
                         {app?.note ? (
-                          <p className="text-body-sm text-ink">{app.note}</p>
+                          <p className="text-body-sm text-primary">{app.note}</p>
                         ) : (
-                          <p className="text-caption text-ink-muted">No notes yet.</p>
+                          <p className="text-caption text-secondary">No notes yet.</p>
                         )}
                       </DetailCard>
                     </div>
@@ -525,19 +525,19 @@ function CandidateCvActions({
           type="button"
           disabled={download.isPending}
           onClick={() => download.mutate()}
-          className="flex flex-1 items-center gap-3 rounded-lg border border-hairline bg-canvas p-4 cursor-pointer text-left transition-colors hover:bg-surface-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex flex-1 items-center gap-3 rounded-lg border border-border bg-body p-4 cursor-pointer text-left transition-colors hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <div className="flex size-10 flex-none items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <div className="flex size-10 flex-none items-center justify-center rounded-lg bg-accent-bg/10 text-accent">
             <FileText className="size-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-body-sm font-semibold text-ink truncate hover:underline">
+            <div className="text-body-sm font-semibold text-primary truncate hover:underline">
               {filename}
             </div>
           </div>
         </button>
         {canManage && (
-          <label className="cursor-pointer text-body-sm font-medium text-primary hover:underline flex-none">
+          <label className="cursor-pointer text-body-sm font-medium text-accent hover:underline flex-none">
             {replace.isPending ? 'Uploading…' : 'Replace'}
             <input
               type="file"
@@ -554,9 +554,9 @@ function CandidateCvActions({
 
   return (
     <div className="flex items-center gap-3 text-body-sm">
-      <span className="text-ink-muted">No CV on file</span>
+      <span className="text-secondary">No CV on file</span>
       {canManage && (
-        <label className="cursor-pointer text-primary hover:underline">
+        <label className="cursor-pointer text-accent hover:underline">
           {replace.isPending ? 'Uploading…' : 'Upload'}
           <input
             type="file"

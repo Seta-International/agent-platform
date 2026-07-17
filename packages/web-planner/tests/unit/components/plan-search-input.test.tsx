@@ -10,8 +10,9 @@ describe('PlanSearchInput — IME composition (FUT-34)', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  const getInput = () =>
-    screen.getByRole('searchbox', { name: /search tasks/i }) as HTMLInputElement;
+  // Astryx TextInput hardcodes `type` to its own prop, whose type is
+  // 'text' | 'password' | 'email' — so the control is a textbox, not a searchbox.
+  const getInput = () => screen.getByRole('textbox', { name: /search tasks/i }) as HTMLInputElement;
 
   it('does not propagate the query while a composition is in progress', () => {
     const onChange = vi.fn();
@@ -67,5 +68,29 @@ describe('PlanSearchInput — IME composition (FUT-34)', () => {
     act(() => vi.advanceTimersByTime(250));
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('phone');
+  });
+});
+
+describe('PlanSearchInput — clear', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  // Astryx TextInput derives the clear button's name from `label`.
+  const clearName = /clear search tasks in this plan/i;
+
+  it('hides the clear button while the field is empty', () => {
+    render(<PlanSearchInput value="" onChange={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: clearName })).not.toBeInTheDocument();
+  });
+
+  it('empties the field and propagates the cleared query', () => {
+    const onChange = vi.fn();
+    render(<PlanSearchInput value="phone" onChange={onChange} />);
+    const input = screen.getByRole('textbox', { name: /search tasks/i }) as HTMLInputElement;
+
+    fireEvent.click(screen.getByRole('button', { name: clearName }));
+    expect(input.value).toBe('');
+    act(() => vi.advanceTimersByTime(250));
+    expect(onChange).toHaveBeenCalledWith('');
   });
 });

@@ -46,16 +46,16 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                   {[0, 1, 2].map((i) => (
                     <div
                       key={i}
-                      className="h-24 animate-pulse rounded-lg border border-hairline bg-surface-2"
+                      className="h-24 animate-pulse rounded-lg border border-border bg-surface"
                     />
                   ))}
                 </div>
               ) : (pool.data?.length ?? 0) === 0 ? (
-                <div className="text-ink-muted">No past candidates to re-match yet.</div>
+                <div className="text-secondary">No past candidates to re-match yet.</div>
               ) : (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {pool.data?.map((c) => (
-                    <div key={c.candidate_id} className="rounded-lg border border-hairline p-3">
+                    <div key={c.candidate_id} className="rounded-lg border border-border p-3">
                       <button
                         type="button"
                         className="flex items-center gap-2 text-left"
@@ -63,8 +63,8 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                       >
                         <Avatar name={c.name} size={32} />
                         <span>
-                          <span className="block font-semibold text-ink">{c.name}</span>
-                          <span className="block text-caption text-ink-muted">
+                          <span className="block font-semibold text-primary">{c.name}</span>
+                          <span className="block text-caption text-secondary">
                             {c.seniority ?? '—'}
                             {c.segment === 'alumni'
                               ? ' · alumni'
@@ -78,7 +78,7 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                       </button>
                       {c.recommended.length > 0 ? (
                         <div className="mt-2">
-                          <span className="text-caption text-ink-muted">Recommended for</span>
+                          <span className="text-caption text-secondary">Recommended for</span>
                           <div className="mt-1 flex flex-wrap gap-1">
                             {c.recommended.map((r) => (
                               <Badge key={r.requisition_id} variant="neutral" label={r.title} />
@@ -86,7 +86,7 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                           </div>
                         </div>
                       ) : (
-                        <div className="mt-2 text-caption text-ink-muted">
+                        <div className="mt-2 text-caption text-secondary">
                           No matching open role right now
                         </div>
                       )}

@@ -22,8 +22,8 @@ test('switches to Charts view via the view-switcher button', async ({ page, requ
 
   await page.goto(`/planner/plans/${planId}`);
 
-  await expect(page.getByRole('button', { name: 'Charts view' })).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('button', { name: 'Charts view' }).click();
+  await expect(page.getByRole('radio', { name: 'Charts' })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('radio', { name: 'Charts' }).click();
 
   await expect(page.getByTestId('plan-charts')).toBeVisible({ timeout: 15_000 });
   await expect(page).toHaveURL(/view=charts/);

@@ -234,13 +234,13 @@ export function OrgChartPage() {
               ) : null}
               <ChartLegend />
             </div>
-            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-hairline">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border">
               {isLoading ? (
-                <div className="grid h-full place-items-center text-caption text-ink-subtle">
+                <div className="grid h-full place-items-center text-caption text-secondary">
                   Loading…
                 </div>
               ) : isEmpty ? (
-                <div className="grid h-full place-items-center text-caption text-ink-subtle">
+                <div className="grid h-full place-items-center text-caption text-secondary">
                   Nothing to show in your scope.
                 </div>
               ) : (
@@ -255,17 +255,17 @@ export function OrgChartPage() {
 }
 
 const LEGEND: Array<{ label: string; accent: string }> = [
-  { label: 'Department', accent: 'var(--color-ink-subtle)' },
-  { label: 'Account', accent: 'var(--color-group-theme-teal)' },
+  { label: 'Department', accent: 'var(--color-text-secondary)' },
+  { label: 'Account', accent: 'var(--color-icon-teal)' },
   { label: 'Project', accent: 'var(--color-warning)' },
-  { label: 'Person', accent: 'var(--color-primary)' },
+  { label: 'Person', accent: 'var(--color-accent)' },
 ];
 
 function ChartLegend() {
   return (
     <div className="ml-auto flex items-center gap-3">
       {LEGEND.map((l) => (
-        <span key={l.label} className="flex items-center gap-1.5 text-caption text-ink-subtle">
+        <span key={l.label} className="flex items-center gap-1.5 text-caption text-secondary">
           <span className="h-2.5 w-2.5 rounded-sm" style={{ background: l.accent }} />
           {l.label}
         </span>

@@ -11,7 +11,7 @@ interface Props {
 export function PlanFilterBar({ filters, onChange, assigneeOptions, labelOptions }: Props) {
   const totalActive = filters.assignee_ids.length + filters.label_ids.length;
   return (
-    <div className="plan-filter-bar">
+    <div className="flex items-center gap-2">
       <MultiFilterPill
         label="Assignee"
         anyLabel="Anyone"

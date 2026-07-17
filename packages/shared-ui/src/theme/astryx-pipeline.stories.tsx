@@ -1,8 +1,8 @@
 import { Button } from '@astryxdesign/core/Button';
 import { Theme } from '@astryxdesign/core/theme';
+import { neutralTheme } from '@astryxdesign/theme-neutral/built';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import * as stylex from '@stylexjs/stylex';
-import { setaTheme } from './astryx-seta.theme';
 
 // Proves the full pipeline end to end: custom theme tokens resolve, the
 // StyleX compiler processes a real xstyle override, and the compiled CSS
@@ -17,7 +17,7 @@ const smokeStyles = stylex.create({
 
 function AstryxPipelineProbe() {
   return (
-    <Theme theme={setaTheme} mode="light">
+    <Theme theme={neutralTheme} mode="light">
       <Button
         label="Astryx pipeline OK"
         variant="primary"

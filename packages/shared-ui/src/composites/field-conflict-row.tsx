@@ -32,18 +32,18 @@ export function FieldConflictRow({
         className="grid items-center gap-4 text-sm"
         style={{ gridTemplateColumns: hasSnapshot ? '8rem 1fr 1fr 1fr auto' : '8rem 1fr 1fr auto' }}
       >
-        <span className="text-xs font-medium text-ink-subtle uppercase tracking-wide">{field}</span>
+        <span className="text-xs font-medium text-secondary uppercase tracking-wide">{field}</span>
         <div>
-          <p className="text-xs text-ink-subtle mb-0.5">Seta</p>
+          <p className="text-xs text-secondary mb-0.5">Seta</p>
           <p className="text-sm">{formatValue(local)}</p>
         </div>
         <div>
-          <p className="text-xs text-ink-subtle mb-0.5">M365</p>
+          <p className="text-xs text-secondary mb-0.5">M365</p>
           <p className="text-sm">{formatValue(remote)}</p>
         </div>
         {hasSnapshot && (
           <div>
-            <p className="text-xs text-ink-subtle mb-0.5">Last synced</p>
+            <p className="text-xs text-secondary mb-0.5">Last synced</p>
             <p className="text-sm">{formatValue(snapshot)}</p>
           </div>
         )}

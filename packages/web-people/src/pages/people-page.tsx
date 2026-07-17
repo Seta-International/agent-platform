@@ -189,7 +189,7 @@ export function PeoplePage() {
             <div className="min-w-0">
               <div className="truncate font-medium">{r.full_name}</div>
               {r.job_title && (
-                <div className="truncate text-[11px] text-ink-muted leading-tight">
+                <div className="truncate text-[11px] text-secondary leading-tight">
                   {r.job_title}
                 </div>
               )}
@@ -214,7 +214,7 @@ export function PeoplePage() {
               ))}
             </div>
           ) : (
-            <div className="flex items-center h-5 text-ink-muted">—</div>
+            <div className="flex items-center h-5 text-secondary">—</div>
           ),
       },
       {
@@ -222,7 +222,7 @@ export function PeoplePage() {
         header: 'Work email',
         width: proportional(2),
         renderCell: (r) => (
-          <span className="font-mono text-[12.5px] text-ink-muted truncate block">
+          <span className="font-mono text-[12.5px] text-secondary truncate block">
             {r.work_email || '—'}
           </span>
         ),
@@ -232,7 +232,7 @@ export function PeoplePage() {
         header: 'Direct manager',
         width: proportional(1),
         renderCell: (r) => (
-          <span className="text-ink-muted whitespace-nowrap">{r.manager_name || '—'}</span>
+          <span className="text-secondary whitespace-nowrap">{r.manager_name || '—'}</span>
         ),
       },
       {
@@ -247,20 +247,20 @@ export function PeoplePage() {
         header: 'Onboarding',
         width: pixel(110),
         sortable: true,
-        renderCell: (r) => <span className="text-ink-muted">{r.onboarding_date || '—'}</span>,
+        renderCell: (r) => <span className="text-secondary">{r.onboarding_date || '—'}</span>,
       },
       {
         key: 'offboarding_date',
         header: 'Offboarding',
         width: pixel(110),
-        renderCell: (r) => <span className="text-ink-muted">{r.offboarding_date || '—'}</span>,
+        renderCell: (r) => <span className="text-secondary">{r.offboarding_date || '—'}</span>,
       },
       {
         key: 'phone',
         header: 'Phone',
         width: pixel(120),
         renderCell: (r) => (
-          <span className="text-ink-muted tabular-nums whitespace-nowrap">{r.phone || '—'}</span>
+          <span className="text-secondary tabular-nums whitespace-nowrap">{r.phone || '—'}</span>
         ),
       },
       {
@@ -268,7 +268,7 @@ export function PeoplePage() {
         header: 'Gender',
         width: pixel(90),
         renderCell: (r) => (
-          <span className="text-ink-muted whitespace-nowrap">{genderLabel(r.gender)}</span>
+          <span className="text-secondary whitespace-nowrap">{genderLabel(r.gender)}</span>
         ),
       },
       {
@@ -343,7 +343,7 @@ export function PeoplePage() {
                         value={searchText}
                         onChange={(value) => handleSearchChange(value)}
                       />
-                      <span className="text-ink-tertiary select-none">|</span>
+                      <span className="text-disabled select-none">|</span>
                       {activeFiltersCount > 0 && (
                         <Button
                           type="button"
@@ -354,9 +354,9 @@ export function PeoplePage() {
                           label={`Clear filters (${activeFiltersCount})`}
                         />
                       )}
-                      <div className="flex items-center gap-2 text-body-sm text-ink-muted">
-                        <span className="font-medium text-ink flex items-center gap-1">
-                          <User className="size-3.5 text-ink-muted" />
+                      <div className="flex items-center gap-2 text-body-sm text-secondary">
+                        <span className="font-medium text-primary flex items-center gap-1">
+                          <User className="size-3.5 text-secondary" />
                           {total} {total === 1 ? 'person' : 'people'}
                         </span>
                       </div>
@@ -369,7 +369,7 @@ export function PeoplePage() {
                           label="Toggle columns"
                           content={
                             <div className="flex min-w-[180px] flex-col gap-1 p-2">
-                              <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                              <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
                                 Toggle columns
                               </div>
                               {HIDEABLE_COLUMN_KEYS.map((col) => (

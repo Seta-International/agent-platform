@@ -252,8 +252,8 @@ const header: CSSProperties = {
   justifyContent: 'space-between',
   alignItems: 'flex-start',
   padding: 20,
-  background: 'var(--color-surface-1)',
-  border: '1px solid var(--color-hairline)',
+  background: 'var(--color-background-card)',
+  border: '1px solid var(--color-border)',
   borderRadius: 8,
 };
 const headTitle: CSSProperties = { margin: '0 0 4px', fontSize: 16, fontWeight: 600 };
@@ -261,21 +261,21 @@ const headDesc: CSSProperties = {
   margin: 0,
   maxWidth: 600,
   fontSize: 13,
-  color: 'var(--color-ink-muted)',
+  color: 'var(--color-text-secondary)',
 };
 const headRight: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10 };
 const primaryBtn: CSSProperties = {
-  background: 'var(--color-primary)',
+  background: 'var(--color-accent)',
   color: '#fff',
-  border: '1px solid var(--color-primary)',
+  border: '1px solid var(--color-accent)',
   padding: '6px 12px',
   borderRadius: 4,
   fontSize: 13,
   cursor: 'pointer',
 };
 const tableShell: CSSProperties = {
-  background: 'var(--color-surface-1)',
-  border: '1px solid var(--color-hairline)',
+  background: 'var(--color-background-card)',
+  border: '1px solid var(--color-border)',
   borderRadius: 8,
   overflow: 'hidden',
 };
@@ -283,13 +283,13 @@ const tableHead: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '60px 1.4fr 1.4fr 110px',
   padding: '10px 18px',
-  background: 'var(--color-surface-1)',
+  background: 'var(--color-background-card)',
   fontSize: 11,
   fontWeight: 500,
-  color: 'var(--color-ink-subtle)',
+  color: 'var(--color-text-secondary)',
   textTransform: 'uppercase',
   letterSpacing: '0.04em',
-  borderBottom: '1px solid var(--color-hairline)',
+  borderBottom: '1px solid var(--color-border)',
   gap: 12,
 };
 const rowGrid = (last: boolean, empty: boolean): CSSProperties => ({
@@ -298,24 +298,24 @@ const rowGrid = (last: boolean, empty: boolean): CSSProperties => ({
   padding: '10px 18px',
   gap: 12,
   alignItems: 'center',
-  borderBottom: last ? '0' : '1px solid var(--color-hairline-tertiary)',
-  background: empty ? 'var(--color-surface-1)' : 'transparent',
+  borderBottom: last ? '0' : '1px solid var(--color-border)',
+  background: empty ? 'var(--color-background-card)' : 'transparent',
   position: 'relative',
 });
 const slotBadge: CSSProperties = {
   fontSize: 12,
   padding: '3px 8px',
   borderRadius: 4,
-  background: 'var(--color-surface-2)',
-  color: 'var(--color-ink-muted)',
+  background: 'var(--color-background-surface)',
+  color: 'var(--color-text-secondary)',
   justifySelf: 'flex-start',
 };
 const inputWrap = (empty: boolean): CSSProperties => ({
   height: 30,
   display: 'flex',
   alignItems: 'center',
-  border: `1px solid ${empty ? 'var(--color-hairline)' : 'var(--color-hairline-strong)'}`,
-  background: empty ? 'transparent' : 'var(--color-canvas)',
+  border: `1px solid ${empty ? 'var(--color-border)' : 'var(--color-border-emphasized)'}`,
+  background: empty ? 'transparent' : 'var(--color-background-body)',
   borderRadius: 4,
   padding: '0 8px',
 });
@@ -325,7 +325,7 @@ const inputEl = (empty: boolean): CSSProperties => ({
   background: 'transparent',
   outline: 'none',
   fontSize: 13,
-  color: empty ? 'var(--color-ink-subtle)' : 'var(--color-ink)',
+  color: empty ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
 });
 const labelButton: CSSProperties = {
   display: 'inline-flex',
@@ -335,11 +335,11 @@ const labelButton: CSSProperties = {
   padding: '5px 10px',
   borderRadius: 6,
   height: 30,
-  background: 'var(--color-surface-1)',
-  border: '1px solid var(--color-hairline)',
+  background: 'var(--color-background-card)',
+  border: '1px solid var(--color-border)',
   fontSize: 13,
   cursor: 'pointer',
-  color: 'var(--color-ink)',
+  color: 'var(--color-text-primary)',
 };
 const labelButtonLeft: CSSProperties = {
   display: 'inline-flex',
@@ -348,7 +348,7 @@ const labelButtonLeft: CSSProperties = {
 };
 const chevronStyle: CSSProperties = {
   fontSize: 11,
-  color: 'var(--color-ink-subtle)',
+  color: 'var(--color-text-secondary)',
 };
 const attachButton: CSSProperties = {
   display: 'inline-flex',
@@ -358,25 +358,25 @@ const attachButton: CSSProperties = {
   borderRadius: 6,
   height: 30,
   background: 'transparent',
-  border: '1px dashed var(--color-hairline-strong)',
+  border: '1px dashed var(--color-border-emphasized)',
   fontSize: 13,
-  color: 'var(--color-ink-subtle)',
+  color: 'var(--color-text-secondary)',
   cursor: 'pointer',
 };
 const countCell = (hasCount: boolean): CSSProperties => ({
   textAlign: 'right',
-  color: hasCount ? 'var(--color-ink)' : 'var(--color-ink-tertiary)',
+  color: hasCount ? 'var(--color-text-primary)' : 'var(--color-text-disabled)',
 });
 const tableFoot: CSSProperties = {
   padding: '12px 18px',
-  borderTop: '1px solid var(--color-hairline-tertiary)',
-  background: 'var(--color-surface-1)',
+  borderTop: '1px solid var(--color-border)',
+  background: 'var(--color-background-card)',
   textAlign: 'center',
 };
 const ghostBtn: CSSProperties = {
   background: 'transparent',
   border: 0,
-  color: 'var(--color-ink)',
+  color: 'var(--color-text-primary)',
   fontSize: 13,
   cursor: 'pointer',
   padding: '0 6px',
@@ -391,8 +391,8 @@ const pickerStyle: CSSProperties = {
   left: 0,
   width: '100%',
   zIndex: 10,
-  background: 'var(--color-canvas)',
-  border: '1px solid var(--color-hairline)',
+  background: 'var(--color-background-body)',
+  border: '1px solid var(--color-border)',
   borderRadius: 6,
   boxShadow: 'var(--shadow-md)',
   padding: 4,
@@ -412,11 +412,11 @@ const pickerOption: CSSProperties = {
   cursor: 'pointer',
   textAlign: 'left',
   borderRadius: 4,
-  color: 'var(--color-ink)',
+  color: 'var(--color-text-primary)',
 };
 const pickerClear: CSSProperties = {
   ...pickerOption,
-  color: 'var(--color-ink-subtle)',
-  borderTop: '1px solid var(--color-hairline-tertiary)',
+  color: 'var(--color-text-secondary)',
+  borderTop: '1px solid var(--color-border)',
   marginTop: 2,
 };

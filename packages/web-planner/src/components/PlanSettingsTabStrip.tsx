@@ -27,7 +27,7 @@ export function PlanSettingsTabStrip({ activeTab, counts, onTabChange }: Props) 
     <div
       role="tablist"
       aria-label="Plan settings sections"
-      className="flex items-center gap-1 border-b border-hairline"
+      className="flex items-center gap-1 border-b border-border"
     >
       {PLAN_SETTINGS_TABS.map((tab) => {
         const active = tab.slug === activeTab;
@@ -41,8 +41,8 @@ export function PlanSettingsTabStrip({ activeTab, counts, onTabChange }: Props) 
             className={cn(
               'px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px',
               active
-                ? 'text-ink border-primary'
-                : 'text-ink-subtle border-transparent hover:text-ink',
+                ? 'text-primary border-accent-bg'
+                : 'text-secondary border-transparent hover:text-primary',
             )}
           >
             {formatTabLabel(tab.slug, tab.label, counts)}

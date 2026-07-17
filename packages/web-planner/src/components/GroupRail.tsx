@@ -47,13 +47,13 @@ interface PropertyRowProps {
 
 function ActivityList({ items }: { items: ReadonlyArray<GroupActivityItem> | null | undefined }) {
   if (items === undefined) {
-    return <p className="text-xs text-ink-subtle">Loading activity…</p>;
+    return <p className="text-xs text-secondary">Loading activity…</p>;
   }
   if (items === null) {
-    return <p className="text-xs text-ink-subtle">Activity unavailable.</p>;
+    return <p className="text-xs text-secondary">Activity unavailable.</p>;
   }
   if (items.length === 0) {
-    return <p className="text-xs text-ink-subtle">No activity in the last 7 days.</p>;
+    return <p className="text-xs text-secondary">No activity in the last 7 days.</p>;
   }
   return (
     <ul className="flex flex-col gap-2">
@@ -62,7 +62,7 @@ function ActivityList({ items }: { items: ReadonlyArray<GroupActivityItem> | nul
           <Avatar name={item.actor_display_name ?? undefined} size={24} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm">{buildActivityLabel(item)}</div>
-            <div className="text-xs text-ink-subtle" title={absoluteActivityTime(item.occurred_at)}>
+            <div className="text-xs text-secondary" title={absoluteActivityTime(item.occurred_at)}>
               {formatRelative(item.occurred_at)}
             </div>
           </div>
@@ -75,8 +75,8 @@ function ActivityList({ items }: { items: ReadonlyArray<GroupActivityItem> | nul
 function PropertyRow({ label, value }: PropertyRowProps) {
   return (
     <div className="flex items-center justify-between py-1.5 text-sm">
-      <span className="text-ink-subtle">{label}</span>
-      <span className="text-ink">{value}</span>
+      <span className="text-secondary">{label}</span>
+      <span className="text-primary">{value}</span>
     </div>
   );
 }
@@ -104,7 +104,7 @@ export function GroupRail({
       <Card padding={4}>
         <div className="mb-2 flex items-baseline justify-between">
           <Heading level={3}>
-            Members <span className="ml-1 text-xs normal-case text-ink-subtle">{memberCount}</span>
+            Members <span className="ml-1 text-xs normal-case text-secondary">{memberCount}</span>
           </Heading>
           <DisabledActionTooltip disabled={!canManage} reason={PERMISSION_DENIED.group.addMember}>
             <Button
@@ -126,20 +126,18 @@ export function GroupRail({
               key={m.user_id}
               className={cn(
                 'flex items-center gap-2 py-1.5',
-                i < arr.length - 1 && 'border-b border-hairline-tertiary',
+                i < arr.length - 1 && 'border-b border-border',
               )}
             >
               <Avatar name={m.display_name} size={32} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{m.display_name}</div>
-                {m.email ? <div className="truncate text-xs text-ink-subtle">{m.email}</div> : null}
+                {m.email ? <div className="truncate text-xs text-secondary">{m.email}</div> : null}
               </div>
               <span
                 className={cn(
                   'inline-flex h-5 items-center rounded-full px-2 text-xs',
-                  m.role === 'owner'
-                    ? 'bg-primary-tint text-primary-ink'
-                    : 'bg-surface-2 text-ink-muted',
+                  m.role === 'owner' ? 'bg-accent-muted text-accent' : 'bg-surface text-secondary',
                 )}
               >
                 {m.role === 'owner' ? 'Owner' : 'Member'}
@@ -153,21 +151,21 @@ export function GroupRail({
             variant="ghost"
             label={`See all ${memberCount} members`}
             endContent={<ChevronRight className="size-3" />}
-            className="mt-1 h-6 px-1.5 text-ink-subtle"
+            className="mt-1 h-6 px-1.5 text-secondary"
             onClick={onSeeAllMembers}
           />
         ) : null}
         {canManage && pendingRequests && pendingRequests.length > 0 && (
           <div className="mt-3 border-t pt-3">
-            <p className="text-xs font-semibold text-ink-muted mb-2">Pending requests</p>
+            <p className="text-xs font-semibold text-secondary mb-2">Pending requests</p>
             <ul className="flex flex-col gap-2">
               {pendingRequests.map((req) => (
                 <li key={req.user_id} className="flex items-center gap-2 text-sm">
                   <Avatar name={req.display_name} size={24} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{req.display_name}</p>
-                    <p className="truncate text-xs text-ink-subtle">{req.email}</p>
-                    <p className="text-xs text-ink-subtle">{shortDate(req.requested_at)}</p>
+                    <p className="truncate text-xs text-secondary">{req.email}</p>
+                    <p className="text-xs text-secondary">{shortDate(req.requested_at)}</p>
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <Button
@@ -195,7 +193,7 @@ export function GroupRail({
           </div>
         )}
         {canManage && pendingRequests && pendingRequests.length === 0 && (
-          <p className="mt-2 text-xs text-ink-subtle">No pending requests.</p>
+          <p className="mt-2 text-xs text-secondary">No pending requests.</p>
         )}
       </Card>
 
@@ -218,9 +216,9 @@ export function GroupRail({
             value={
               <span className="inline-flex items-center gap-1.5">
                 {group.visibility === 'private' ? (
-                  <Shield className="size-3 text-ink-muted" />
+                  <Shield className="size-3 text-secondary" />
                 ) : (
-                  <Users className="size-3 text-ink-muted" />
+                  <Users className="size-3 text-secondary" />
                 )}
                 {group.visibility === 'private' ? 'Private' : 'Workspace'}
               </span>
@@ -237,7 +235,7 @@ export function GroupRail({
           <PropertyRow
             label="Default role"
             value={
-              <span className="inline-flex h-5 items-center rounded-full bg-surface-2 px-2 text-xs">
+              <span className="inline-flex h-5 items-center rounded-full bg-surface px-2 text-xs">
                 {group.default_role === 'owner' ? 'Owner' : 'Member'}
               </span>
             }

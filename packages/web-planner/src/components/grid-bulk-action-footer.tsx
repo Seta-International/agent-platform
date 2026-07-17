@@ -49,7 +49,7 @@ export function GridBulkActionFooter({
   return (
     <footer
       role="toolbar"
-      className="grid-bulk-action-footer"
+      className="sticky bottom-0 flex items-center gap-3 border-border border-t bg-card px-4 py-3"
       aria-label={`${count} tasks selected`}
     >
       <span>
@@ -59,14 +59,13 @@ export function GridBulkActionFooter({
       <AssigneeMenu groupId={groupId} onPick={onAssign} disabled={!canAssign} />
       <DueMenu onPick={onSetDue} disabled={!canSetDue} />
       <DisabledActionTooltip disabled={!canDelete} reason={PERMISSION_DENIED.task.delete}>
-        <button
-          type="button"
-          className="grid-bulk-action-footer__danger"
-          disabled={!canDelete}
+        <Button
+          size="sm"
+          variant="secondary"
+          label="Delete"
+          isDisabled={!canDelete}
           onClick={onDelete}
-        >
-          Delete
-        </button>
+        />
       </DisabledActionTooltip>
     </footer>
   );
@@ -85,9 +84,7 @@ function BucketMenu({
   if (disabled) {
     return (
       <DisabledActionTooltip disabled reason={PERMISSION_DENIED.task.move}>
-        <button type="button" disabled>
-          Move
-        </button>
+        <Button size="sm" variant="secondary" label="Move" isDisabled />
       </DisabledActionTooltip>
     );
   }
@@ -102,7 +99,7 @@ function BucketMenu({
         <>
           <button
             type="button"
-            className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface-2"
+            className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface"
             onClick={() => {
               onPick(null);
               setOpen(false);
@@ -114,7 +111,7 @@ function BucketMenu({
             <button
               key={b.id}
               type="button"
-              className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface-2"
+              className="flex w-full items-center rounded px-2 py-1.5 text-sm hover:bg-surface"
               onClick={() => {
                 onPick(b.id);
                 setOpen(false);
@@ -126,7 +123,7 @@ function BucketMenu({
         </>
       }
     >
-      <button type="button">Move</button>
+      <Button size="sm" variant="secondary" label="Move" />
     </Popover>
   );
 }
@@ -178,8 +175,8 @@ function AssigneeMenu({
       }}
       renderItem={(item) => (
         <div className="flex flex-col items-start gap-0.5">
-          <span className="truncate text-body-sm leading-tight text-ink">{item.label}</span>
-          <span className="truncate text-caption leading-tight text-ink-subtle">
+          <span className="truncate text-body-sm leading-tight text-primary">{item.label}</span>
+          <span className="truncate text-caption leading-tight text-secondary">
             {item.auxiliaryData?.email}
           </span>
         </div>
@@ -201,9 +198,7 @@ function DueMenu({
   if (disabled) {
     return (
       <DisabledActionTooltip disabled reason={PERMISSION_DENIED.task.edit}>
-        <button type="button" disabled>
-          Set due
-        </button>
+        <Button size="sm" variant="secondary" label="Set due" isDisabled />
       </DisabledActionTooltip>
     );
   }
@@ -242,7 +237,7 @@ function DueMenu({
         </VStack>
       }
     >
-      <button type="button">Set due</button>
+      <Button size="sm" variant="secondary" label="Set due" />
     </Popover>
   );
 }

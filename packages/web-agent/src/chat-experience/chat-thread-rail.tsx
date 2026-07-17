@@ -31,13 +31,13 @@ export function ChatThreadRail({
   return (
     <aside
       className={cn(
-        'flex w-full flex-none flex-col border-r border-hairline bg-surface-1 lg:w-[260px]',
+        'flex w-full flex-none flex-col border-r border-border bg-card lg:w-[260px]',
         className,
       )}
     >
       <div className="flex flex-col gap-2.5 px-3.5 pt-3.5 pb-2.5">
         <div className="flex items-center justify-between">
-          <span className="text-body-sm font-semibold text-ink">Chat</span>
+          <span className="text-body-sm font-semibold text-primary">Chat</span>
           <Button
             label="New"
             icon={<Plus className="size-3" aria-hidden />}
@@ -62,7 +62,7 @@ export function ChatThreadRail({
           <div key={g.label} className={gi === 0 ? 'mt-1' : 'mt-4'}>
             <List
               header={
-                <span className="block px-2 pb-1.5 text-caption font-medium uppercase tracking-[0.06em] text-ink-subtle">
+                <span className="block px-2 pb-1.5 text-caption font-medium uppercase tracking-[0.06em] text-secondary">
                   {g.label}
                 </span>
               }

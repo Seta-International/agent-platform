@@ -54,13 +54,13 @@ export function CandidateTimeline({
     return (
       <div className="space-y-2">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-10 animate-pulse rounded border border-hairline bg-surface-2" />
+          <div key={i} className="h-10 animate-pulse rounded border border-border bg-surface" />
         ))}
       </div>
     );
   }
   if (events.length === 0) {
-    return <div className="text-caption text-ink-muted">No activity yet.</div>;
+    return <div className="text-caption text-secondary">No activity yet.</div>;
   }
   return (
     <ol className="space-y-3">
@@ -68,17 +68,17 @@ export function CandidateTimeline({
         const Icon = KIND_ICON[e.kind] ?? CircleUserRound;
         return (
           <li key={e.id} className="flex items-start gap-2.5">
-            <span className="mt-0.5 flex size-6 flex-none items-center justify-center rounded-full bg-primary-tint text-primary-ink">
+            <span className="mt-0.5 flex size-6 flex-none items-center justify-center rounded-full bg-accent-muted text-accent">
               <Icon className="size-3.5" aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-body-sm font-medium text-ink">
+              <div className="text-body-sm font-medium text-primary">
                 {KIND_LABEL[e.kind] ?? e.kind}
               </div>
               {e.summary && KIND_LABEL[e.kind] && e.summary !== KIND_LABEL[e.kind] && (
-                <div className="text-caption text-ink-muted">{e.summary}</div>
+                <div className="text-caption text-secondary">{e.summary}</div>
               )}
-              <div className="text-caption text-ink-subtle">
+              <div className="text-caption text-secondary">
                 by {actorLabel(e.actor_user_id)} · {fmt(e.created_at)}
               </div>
             </div>

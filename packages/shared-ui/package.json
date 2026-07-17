@@ -8,7 +8,7 @@
     ".": "./src/index.ts",
     "./testing": "./src/testing/index.ts",
     "./testing/vitest-preset": "./src/testing/vitest-preset.ts",
-    "./styles/tokens.css": "./src/styles/tokens.css",
+    "./styles/index.css": "./src/styles/index.css",
     "./styles/fonts.css": "./src/styles/fonts.css",
     "./styles/globals.css": "./src/styles/globals.css"
   },
@@ -18,8 +18,7 @@
     "test": "NODE_OPTIONS='--no-experimental-webstorage' vitest run",
     "test:watch": "NODE_OPTIONS='--no-experimental-webstorage' vitest",
     "storybook": "storybook dev -p 6006",
-    "storybook:build": "storybook build",
-    "theme:build": "node ../../node_modules/@astryxdesign/cli/bin/astryx.mjs theme build src/theme/astryx-seta.theme.ts -o src/styles/astryx-seta-theme.css"
+    "storybook:build": "storybook build"
   },
   "peerDependencies": {
     "react": "^19.0.0",

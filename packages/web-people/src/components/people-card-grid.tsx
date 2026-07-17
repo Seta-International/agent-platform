@@ -98,7 +98,7 @@ export function PeopleCardGrid({
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-sm truncate">{row.full_name}</div>
                 {row.job_title && (
-                  <div className="text-[11px] text-ink-muted truncate leading-tight">
+                  <div className="text-[11px] text-secondary truncate leading-tight">
                     {row.job_title}
                   </div>
                 )}
@@ -108,7 +108,7 @@ export function PeopleCardGrid({
 
             {/* Work email */}
             {row.work_email && (
-              <div className="font-mono text-[11.5px] text-ink-muted truncate">
+              <div className="font-mono text-[11.5px] text-secondary truncate">
                 {row.work_email}
               </div>
             )}

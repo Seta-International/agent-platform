@@ -3,7 +3,7 @@ import * as stylex from '@stylexjs/stylex';
 import type { CSSProperties, HTMLAttributes, KeyboardEvent, ReactNode } from 'react';
 
 const flash = stylex.keyframes({
-  '0%': { borderColor: 'var(--color-primary)', boxShadow: '0 0 0 2px var(--color-primary-tint)' },
+  '0%': { borderColor: 'var(--color-accent)', boxShadow: '0 0 0 2px var(--color-accent-muted)' },
   // Must land on the Astryx Card's resting border (variant="default" -> withBorder).
   '100%': { borderColor: 'var(--color-border-emphasized)', boxShadow: 'none' },
 });
@@ -15,12 +15,12 @@ const styles = stylex.create({
     textAlign: 'left',
     cursor: 'grab',
     transition: 'border-color 80ms ease-out, box-shadow 80ms ease-out',
-    ':focus-visible': { outline: '2px solid var(--color-primary)', outlineOffset: '2px' },
+    ':focus-visible': { outline: '2px solid var(--color-accent)', outlineOffset: '2px' },
   },
   dragging: { cursor: 'grabbing', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.18)' },
   selected: {
-    borderColor: 'var(--color-primary)',
-    boxShadow: '0 0 0 1px var(--color-primary), var(--shadow-sm)',
+    borderColor: 'var(--color-accent)',
+    boxShadow: '0 0 0 1px var(--color-accent), var(--shadow-sm)',
   },
   recentlyMoved: {
     animationName: { default: flash, '@media (prefers-reduced-motion: reduce)': 'none' },
@@ -29,18 +29,18 @@ const styles = stylex.create({
     animationIterationCount: 1,
     borderColor: {
       default: null,
-      '@media (prefers-reduced-motion: reduce)': 'var(--color-primary)',
+      '@media (prefers-reduced-motion: reduce)': 'var(--color-accent)',
     },
   },
   body: { display: 'flex', flexDirection: 'column', gap: 8 },
   savingDot: {
     position: 'absolute',
-    top: 'var(--spacing-xxs)',
-    right: 'var(--spacing-xxs)',
+    top: 'var(--spacing-1)',
+    right: 'var(--spacing-1)',
     width: 8,
     height: 8,
     borderRadius: '50%',
-    background: 'var(--color-ink-subtle)',
+    background: 'var(--color-text-secondary)',
   },
 });
 

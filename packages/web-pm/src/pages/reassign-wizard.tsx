@@ -361,8 +361,8 @@ export function ReassignWizardDialog({
                 />
               ) : (
                 <div className="space-y-4">
-                  <div className="overflow-hidden rounded-md border border-hairline">
-                    <div className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] gap-2 bg-surface-1 px-2 py-2 text-caption text-ink-muted">
+                  <div className="overflow-hidden rounded-md border border-border">
+                    <div className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] gap-2 bg-card px-2 py-2 text-caption text-secondary">
                       <div className="text-left font-medium">Account</div>
                       <div className="text-left font-medium">Project</div>
                       <div className="text-left font-medium">Allocation</div>
@@ -393,12 +393,12 @@ export function ReassignWizardDialog({
                       return (
                         <div
                           key={a.allocation_id}
-                          className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] items-center gap-2 border-t border-hairline px-2 py-2 text-body-sm"
+                          className="grid grid-cols-[10rem_1fr_5rem_8rem_9rem_6rem_10rem_5rem] items-center gap-2 border-t border-border px-2 py-2 text-body-sm"
                         >
                           <div className="relative">
                             <Building2
                               aria-hidden="true"
-                              className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
+                              className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-secondary"
                             />
                             <Typeahead
                               label={`Account for ${a.project_name}`}
@@ -428,7 +428,7 @@ export function ReassignWizardDialog({
                           <div className="relative">
                             <FolderKanban
                               aria-hidden="true"
-                              className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
+                              className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-secondary"
                             />
                             <Typeahead
                               label={`Project for ${a.project_name}`}
@@ -521,7 +521,7 @@ export function ReassignWizardDialog({
                               size="sm"
                               variant="secondary"
                               isIconOnly
-                              icon={<Trash2 className="size-3.5 text-ink-subtle" />}
+                              icon={<Trash2 className="size-3.5 text-secondary" />}
                               label={`Delete ${a.project_name}`}
                               onClick={() => setConfirmTarget(a)}
                             />
@@ -538,7 +538,7 @@ export function ReassignWizardDialog({
                           <p
                             key={a.allocation_id}
                             role="alert"
-                            className="text-caption font-medium text-danger-ink"
+                            className="text-caption font-medium text-error"
                           >
                             {a.project_name}: {existingErrors[a.allocation_id]}
                           </p>
@@ -550,23 +550,23 @@ export function ReassignWizardDialog({
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="w-fit gap-1.5 border-primary text-primary hover:bg-primary-tint"
+                    className="w-fit gap-1.5 border-accent-bg text-accent hover:bg-accent-muted"
                     label="Add project"
                     icon={<Plus className="size-4" />}
                     onClick={() => setTargetRows((rs) => [...rs, emptyReassignRow(todayIso())])}
                   />
 
                   {targetRows.length > 0 ? (
-                    <div className="overflow-hidden rounded-md border border-hairline">
-                      <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] gap-2 bg-surface-1 px-2 py-2 text-caption text-ink-muted">
+                    <div className="overflow-hidden rounded-md border border-border">
+                      <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] gap-2 bg-card px-2 py-2 text-caption text-secondary">
                         <div className="text-left font-medium">
-                          Account <span className="text-danger-ink">*</span>
+                          Account <span className="text-error">*</span>
                         </div>
                         <div className="text-left font-medium">
-                          Project <span className="text-danger-ink">*</span>
+                          Project <span className="text-error">*</span>
                         </div>
                         <div className="text-left font-medium">
-                          Allocation <span className="text-danger-ink">*</span>
+                          Allocation <span className="text-error">*</span>
                         </div>
                         <div className="text-left font-medium">Start date</div>
                         <div className="text-left font-medium">End date</div>
@@ -594,12 +594,12 @@ export function ReassignWizardDialog({
 
                   <div
                     role="alert"
-                    className="flex items-center gap-3 rounded-md bg-primary-tint p-sm text-body-sm text-primary-ink"
+                    className="flex items-center gap-3 rounded-md bg-accent-muted p-sm text-body-sm text-accent"
                   >
-                    <Info className="size-4 shrink-0 text-primary" />
+                    <Info className="size-4 shrink-0 text-accent" />
                     <div>
-                      <strong className="text-ink">Note:</strong> new allocation(s) added above will
-                      be applied after you review and confirm in the next step.
+                      <strong className="text-primary">Note:</strong> new allocation(s) added above
+                      will be applied after you review and confirm in the next step.
                     </div>
                   </div>
                 </div>
@@ -713,12 +713,12 @@ function TargetRowFields({
   const projectSource = useMemo(() => createStaticSource(projectItems), [projectItems]);
 
   return (
-    <div className="border-t border-hairline">
+    <div className="border-t border-border">
       <div className="grid grid-cols-[1fr_1fr_6rem_8rem_8rem_6rem_3rem] items-center gap-2 px-2 py-2">
         <div className="relative">
           <Building2
             aria-hidden="true"
-            className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
+            className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-secondary"
           />
           <Typeahead
             label="Account"
@@ -735,7 +735,7 @@ function TargetRowFields({
         <div className="relative">
           <FolderKanban
             aria-hidden="true"
-            className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-ink-subtle"
+            className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-secondary"
           />
           <Typeahead
             label="Project"
@@ -797,7 +797,7 @@ function TargetRowFields({
         />
       </div>
       {error ? (
-        <p role="alert" className="px-2 pb-2 text-caption font-medium text-danger-ink">
+        <p role="alert" className="px-2 pb-2 text-caption font-medium text-error">
           {error}
         </p>
       ) : null}
@@ -821,7 +821,7 @@ function ReviewStep({
   mutation: { isPending: boolean; isError: boolean; error: Error | null };
 }) {
   if (previewMutation.isPending) {
-    return <p className="py-8 text-center text-caption text-ink-muted">Checking impact…</p>;
+    return <p className="py-8 text-center text-caption text-secondary">Checking impact…</p>;
   }
 
   const timelineRows: TimelineRow[] = [
@@ -853,7 +853,7 @@ function ReviewStep({
         // laid out as a centered flex row so the icon lines up with the middle of the text.
         <div
           role="alert"
-          className="flex items-center gap-3 rounded-md bg-semantic-warning-tint p-sm text-body-sm text-semantic-warning"
+          className="flex items-center gap-3 rounded-md bg-warning-muted p-sm text-body-sm text-warning"
         >
           <AlertCircle className="size-4 shrink-0" />
           <div>

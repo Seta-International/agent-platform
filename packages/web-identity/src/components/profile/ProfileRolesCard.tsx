@@ -4,34 +4,33 @@ export function ProfileRolesCard({ roles }: { roles: string[] }) {
   return (
     <Card padding={5}>
       <div className="flex items-baseline justify-between gap-4 mb-3.5">
-        <p className="text-sm text-ink-muted m-0">
+        <p className="text-sm text-secondary m-0">
           What you can see and change in this app. Need a different role?{' '}
-          <span className="text-primary">Ask your admin</span>.
+          <span className="text-accent">Ask your admin</span>.
         </p>
-        <span className="flex-none text-xs text-ink-subtle">Your admin manages these.</span>
+        <span className="flex-none text-xs text-secondary">Your admin manages these.</span>
       </div>
 
       {roles.length === 0 ? (
-        <div className="rounded-md border border-hairline px-3.5 py-3 text-sm text-ink-muted">
+        <div className="rounded-md border border-border px-3.5 py-3 text-sm text-secondary">
           No roles yet.
         </div>
       ) : (
-        <div className="rounded-md border border-hairline overflow-hidden">
+        <div className="rounded-md border border-border overflow-hidden">
           {roles.map((slug, i) => (
             <div
               key={slug}
               className="grid grid-cols-[1.4fr_1fr_90px] items-center px-3.5 py-2.5 text-sm"
               style={{
-                borderBottom:
-                  i === roles.length - 1 ? undefined : '1px solid var(--color-hairline-tertiary)',
+                borderBottom: i === roles.length - 1 ? undefined : '1px solid var(--color-border)',
               }}
             >
               <span className="flex items-center gap-2">
-                <span className="size-1.5 rounded-full bg-primary" />
+                <span className="size-1.5 rounded-full bg-accent-bg" />
                 <span className="font-mono text-[12.5px]">{slug}</span>
               </span>
-              <span className="text-sm text-ink-muted">Organization</span>
-              <span className="justify-self-end inline-flex items-center h-[18px] rounded-full bg-surface-2 border border-transparent px-1.5 text-[11px] text-ink-muted">
+              <span className="text-sm text-secondary">Organization</span>
+              <span className="justify-self-end inline-flex items-center h-[18px] rounded-full bg-surface border border-transparent px-1.5 text-[11px] text-secondary">
                 Manual
               </span>
             </div>

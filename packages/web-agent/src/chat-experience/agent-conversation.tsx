@@ -74,7 +74,7 @@ function TextPart({ text, status }: PartProps) {
         {status.type === 'running' && (
           <span
             aria-hidden
-            className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-[2px] animate-pulse bg-ink"
+            className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-[2px] animate-pulse bg-primary"
           />
         )}
       </div>
@@ -88,12 +88,12 @@ function ReasoningPart({ text, status }: PartProps) {
   return (
     <div
       aria-live="polite"
-      className="my-1 flex gap-2 border-l-2 border-hairline pl-3 text-caption text-ink-subtle"
+      className="my-1 flex gap-2 border-l-2 border-border pl-3 text-caption text-secondary"
     >
       {running && (
         <span
           aria-hidden
-          className="mt-1 inline-block size-1.5 shrink-0 animate-pulse rounded-full bg-primary/70"
+          className="mt-1 inline-block size-1.5 shrink-0 animate-pulse rounded-full bg-accent-bg/70"
         />
       )}
       <span className="whitespace-pre-wrap italic leading-relaxed">{text}</span>
@@ -103,11 +103,11 @@ function ReasoningPart({ text, status }: PartProps) {
 
 function ThinkingIndicator() {
   return (
-    <div className="flex items-center gap-2 text-caption text-ink-subtle">
+    <div className="flex items-center gap-2 text-caption text-secondary">
       <span aria-hidden className="inline-flex items-center gap-0.5">
-        <span className="size-1.5 animate-bounce rounded-full bg-primary/70 [animation-delay:-0.32s]" />
-        <span className="size-1.5 animate-bounce rounded-full bg-primary/70 [animation-delay:-0.16s]" />
-        <span className="size-1.5 animate-bounce rounded-full bg-primary/70" />
+        <span className="size-1.5 animate-bounce rounded-full bg-accent-bg/70 [animation-delay:-0.32s]" />
+        <span className="size-1.5 animate-bounce rounded-full bg-accent-bg/70 [animation-delay:-0.16s]" />
+        <span className="size-1.5 animate-bounce rounded-full bg-accent-bg/70" />
       </span>
       <span className="italic">Thinking…</span>
     </div>
@@ -141,13 +141,13 @@ function AgentEmpty({ title, body }: { title: string; body: string }) {
     <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-12 text-center">
       <span
         aria-hidden
-        className="inline-flex size-9 items-center justify-center rounded-full bg-primary-tint text-primary"
+        className="inline-flex size-9 items-center justify-center rounded-full bg-accent-muted text-accent"
       >
         <Sparkles className="size-4" />
       </span>
       <div className="max-w-xs">
-        <h3 className="text-card-title font-semibold text-ink">{title}</h3>
-        <p className="mt-1.5 text-body-sm leading-[1.5] text-ink-subtle">{body}</p>
+        <h3 className="text-card-title font-semibold text-primary">{title}</h3>
+        <p className="mt-1.5 text-body-sm leading-[1.5] text-secondary">{body}</p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-1.5">
         {AGENT_COPY.emptySuggestions.map((s) => (

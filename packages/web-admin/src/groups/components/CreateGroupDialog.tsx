@@ -95,7 +95,7 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
                     placeholder="hr-team"
                     className="font-mono text-body-sm"
                   />
-                  <p className="text-caption text-ink-tertiary">
+                  <p className="text-caption text-disabled">
                     A stable identifier. Lowercase letters, numbers, and hyphens.
                   </p>
                 </div>

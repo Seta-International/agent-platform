@@ -289,7 +289,7 @@ export function TaskDetailPage({
         />
       )}
       {variant === 'modal' && (
-        <header className="flex flex-col gap-2 border-b border-hairline bg-canvas px-5 pt-2.5 pb-3">
+        <header className="flex flex-col gap-2 border-b border-border bg-body px-5 pt-2.5 pb-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <Breadcrumbs variant="supporting">
@@ -356,7 +356,7 @@ export function TaskDetailPage({
                 >
                   <DropdownMenuItem
                     label="Delete"
-                    style={{ color: 'var(--color-danger)' }}
+                    style={{ color: 'var(--color-error)' }}
                     onClick={openFromMenu(() => setDeleteOpen(true))}
                     isDisabled={Boolean(deleteDisabledReason)}
                   />
@@ -391,7 +391,7 @@ export function TaskDetailPage({
         onConfirm={handleConfirmMove}
         pending={moveTask.isPending}
       />
-      <div className="min-h-0 flex-1 overflow-auto bg-surface-1">
+      <div className="min-h-0 flex-1 overflow-auto bg-card">
         <div
           className="mx-auto grid grid-cols-[minmax(640px,1fr)_320px] gap-[22px] px-7 pt-5 pb-10"
           style={{ maxWidth: 1180 }}
@@ -435,26 +435,26 @@ export function TaskDetailPage({
               }
             />
             <dl
-              className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-caption text-ink-subtle"
+              className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-caption text-secondary"
               aria-label="Task metadata"
             >
-              <dt className="text-ink-tertiary">Created</dt>
+              <dt className="text-disabled">Created</dt>
               <dd>
                 <time dateTime={task.created_at} title={task.created_at}>
                   {formatAbsoluteDate(task.created_at)}
                 </time>
                 {' · '}
-                <span className="text-ink-tertiary">{formatRelative(task.created_at)}</span>
+                <span className="text-disabled">{formatRelative(task.created_at)}</span>
                 <br />
-                by <span className="text-ink-muted">{creatorName}</span>
+                by <span className="text-secondary">{creatorName}</span>
               </dd>
-              <dt className="text-ink-tertiary">Updated</dt>
+              <dt className="text-disabled">Updated</dt>
               <dd>
                 <time dateTime={task.updated_at} title={task.updated_at}>
                   {formatAbsoluteDate(task.updated_at)}
                 </time>
                 {' · '}
-                <span className="text-ink-tertiary">{formatRelative(task.updated_at)}</span>
+                <span className="text-disabled">{formatRelative(task.updated_at)}</span>
               </dd>
             </dl>
           </aside>

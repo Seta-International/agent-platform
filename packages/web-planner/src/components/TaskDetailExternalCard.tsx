@@ -51,7 +51,7 @@ export function TaskDetailExternalCard({ task, plan, onOpenConflictDialog }: Pro
           <span>{synced}</span>
         </div>
         {errorText && (
-          <div className="t-sm text-semantic-danger" role="status">
+          <div className="t-sm text-error" role="status">
             {errorText}
           </div>
         )}

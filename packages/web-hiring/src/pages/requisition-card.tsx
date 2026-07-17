@@ -101,20 +101,20 @@ export function RequisitionCard({
   return (
     <div
       data-testid="requisition-card"
-      className="flex h-full flex-col rounded-xl border border-hairline bg-surface-1 p-5"
+      className="flex h-full flex-col rounded-xl border border-border bg-card p-5"
     >
       {/* Title + status */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <button
             type="button"
-            className="line-clamp-2 w-full break-words text-left text-card-title font-semibold text-ink hover:underline"
+            className="line-clamp-2 w-full break-words text-left text-card-title font-semibold text-primary hover:underline"
             onClick={go}
           >
             {r.title}
           </button>
           {subtitle && (
-            <div className="mt-0.5 truncate text-body-sm text-ink-muted">{subtitle}</div>
+            <div className="mt-0.5 truncate text-body-sm text-secondary">{subtitle}</div>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -164,7 +164,7 @@ export function RequisitionCard({
                 <DropdownMenuItem
                   label="Cancel"
                   isDisabled={!canClose}
-                  style={{ color: 'var(--color-danger-ink)' }}
+                  style={{ color: 'var(--color-text-red)' }}
                   onClick={() => setTimeout(onRequestCancel, 0)}
                 />
               </DropdownMenu>
@@ -180,7 +180,7 @@ export function RequisitionCard({
           {r.skills.map((s) => (
             <span
               key={s.skill_name}
-              className="rounded-full bg-surface-2 px-2.5 py-1 text-caption text-ink-muted"
+              className="rounded-full bg-surface px-2.5 py-1 text-caption text-secondary"
             >
               {s.skill_name}
               {/* Level 0 means "no minimum" — show the suffix only for a real 1–5 requirement. */}
@@ -195,10 +195,10 @@ export function RequisitionCard({
           number under each step is a per-stage bucket count (FUT-558), not cumulative. */}
       <div className="mt-5 flex items-start gap-4 pb-4">
         <div className="relative flex-[3] pt-2.5">
-          <div className="absolute inset-x-[12.5%] top-[19px] h-px bg-hairline-strong" />
+          <div className="absolute inset-x-[12.5%] top-[19px] h-px bg-border-strong" />
           <div
             className={`absolute inset-y-0 left-[12.5%] top-[19px] h-px transition-[width] ${
-              r.status === 'on_hold' ? 'bg-warning' : 'bg-primary'
+              r.status === 'on_hold' ? 'bg-warning' : 'bg-accent-bg'
             }`}
             style={{
               width: lastReachedIdx <= 0 ? 0 : `${(lastReachedIdx / (STAGES.length - 1)) * 75}%`,
@@ -210,54 +210,54 @@ export function RequisitionCard({
               return (
                 <div key={s} className="flex flex-col items-center gap-1.5">
                   <span
-                    className={`flex size-5 items-center justify-center rounded-full text-on-primary ${
+                    className={`flex size-5 items-center justify-center rounded-full text-on-accent ${
                       reached
                         ? r.status === 'on_hold'
                           ? 'bg-warning'
-                          : 'bg-primary'
-                        : 'border-2 border-hairline-strong bg-canvas'
+                          : 'bg-accent-bg'
+                        : 'border-2 border-border-strong bg-body'
                     }`}
                   >
                     {reached && <Check className="size-3" aria-hidden />}
                   </span>
                   <span
-                    className={`text-caption font-medium ${i === lastReachedIdx ? 'text-ink' : 'text-ink-subtle'}`}
+                    className={`text-caption font-medium ${i === lastReachedIdx ? 'text-primary' : 'text-secondary'}`}
                   >
                     {STAGE_LABEL[s]}
                   </span>
-                  <span className="text-caption tabular-nums text-ink-subtle">{counts[i]}</span>
+                  <span className="text-caption tabular-nums text-secondary">{counts[i]}</span>
                 </div>
               );
             })}
           </div>
         </div>
         <div className="flex flex-1 items-start justify-end gap-1.5 pt-0.5 text-right text-body-sm">
-          <Calendar className="mt-0.5 size-4 shrink-0 text-ink-subtle" aria-hidden />
+          <Calendar className="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden />
           {r.status === 'on_hold' ? (
             <div>
-              <div className="font-medium text-warning-ink">Paused</div>
-              <div className="text-caption text-ink-muted">Since {formatDate(r.updated_at)}</div>
+              <div className="font-medium text-warning">Paused</div>
+              <div className="text-caption text-secondary">Since {formatDate(r.updated_at)}</div>
             </div>
           ) : r.due_date ? (
             <div>
-              <div className="font-medium text-ink">
+              <div className="font-medium text-primary">
                 {daysLeft(r.due_date) >= 0
                   ? `${daysLeft(r.due_date)} days left`
                   : `${-daysLeft(r.due_date)}d overdue`}
               </div>
-              <div className="text-caption text-ink-muted">Due {formatDate(r.due_date)}</div>
+              <div className="text-caption text-secondary">Due {formatDate(r.due_date)}</div>
             </div>
           ) : (
-            <div className="text-caption text-ink-muted">No due date</div>
+            <div className="text-caption text-secondary">No due date</div>
           )}
         </div>
       </div>
 
       {/* Applicants + View JD — mt-auto pins the footer to the bottom so cards of different
           content height still align their footers within the same grid row. */}
-      <div className="mt-auto flex items-center justify-between border-t border-hairline pt-4">
+      <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
         <div>
-          <span className="flex items-center gap-1.5 text-body-sm text-ink-muted">
+          <span className="flex items-center gap-1.5 text-body-sm text-secondary">
             <Users className="size-4" aria-hidden />
             {r.applicants_count} Applicants
           </span>

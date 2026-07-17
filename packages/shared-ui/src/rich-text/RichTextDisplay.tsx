@@ -51,7 +51,7 @@ export function RichTextDisplay({ value, className }: Props) {
     return (
       <div
         data-rich-text="html"
-        className={cn('rich-text text-body-sm text-ink', className)}
+        className={cn('rich-text text-body-sm text-primary', className)}
         // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized by DOMPurify
         dangerouslySetInnerHTML={{ __html: safe }}
       />

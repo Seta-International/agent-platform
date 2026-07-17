@@ -42,9 +42,9 @@ function subtextParts(
 }
 
 // MS Planner 3-state colors. Completed = green, In progress = amber, Not started = neutral.
-const COLOR_COMPLETED = 'var(--color-semantic-success, #1f8a4c)';
-const COLOR_IN_PROGRESS = 'var(--color-semantic-warning, #c2750a)';
-const COLOR_NOT_STARTED = 'var(--color-ink-tertiary, #9aa0a6)';
+const COLOR_COMPLETED = 'var(--color-success, #1f8a4c)';
+const COLOR_IN_PROGRESS = 'var(--color-warning, #c2750a)';
+const COLOR_NOT_STARTED = 'var(--color-text-disabled, #9aa0a6)';
 
 interface StackedBarProps {
   notStarted: number;
@@ -55,12 +55,12 @@ interface StackedBarProps {
 function StackedBar({ notStarted, inProgress, completed }: StackedBarProps) {
   const total = notStarted + inProgress + completed;
   if (total === 0) {
-    return <div className="h-1.5 rounded-full bg-surface-2" aria-hidden />;
+    return <div className="h-1.5 rounded-full bg-surface" aria-hidden />;
   }
   const completedPct = (completed / total) * 100;
   const inProgressPct = (inProgress / total) * 100;
   return (
-    <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden flex" aria-hidden>
+    <div className="h-1.5 rounded-full bg-surface overflow-hidden flex" aria-hidden>
       <div style={{ width: `${completedPct}%`, background: COLOR_COMPLETED }} />
       <div style={{ width: `${inProgressPct}%`, background: COLOR_IN_PROGRESS, opacity: 0.85 }} />
     </div>
@@ -86,7 +86,7 @@ function StateChip({ label, count, color }: StateChipProps) {
           className="inline-block size-1.5 rounded-full"
           style={{ background: color }}
         />
-        <span className="text-[11px] font-medium text-ink tabular-nums" aria-hidden>
+        <span className="text-[11px] font-medium text-primary tabular-nums" aria-hidden>
           {count}
         </span>
         <span className="sr-only">{label}</span>
@@ -116,7 +116,7 @@ export function PlanCard({
     <button
       type="button"
       onClick={onClick}
-      className="group relative cursor-pointer rounded-lg border border-hairline bg-canvas p-3.5 text-left w-full hover:border-hairline-strong hover:shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+      className="group relative cursor-pointer rounded-lg border border-border bg-body p-3.5 text-left w-full hover:border-border-strong hover:shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
     >
       {/* Color rail */}
       <div
@@ -127,11 +127,11 @@ export function PlanCard({
       <div className="pl-1.5">
         {/* Title + subtext */}
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink truncate group-hover:text-primary transition-colors">
+          <p className="text-sm font-semibold text-primary truncate group-hover:text-accent transition-colors">
             {plan.name}
           </p>
           {subtext != null && (
-            <p className="text-[11px] text-ink-subtle mt-0.5 truncate">{subtext}</p>
+            <p className="text-[11px] text-secondary mt-0.5 truncate">{subtext}</p>
           )}
         </div>
 
@@ -139,9 +139,9 @@ export function PlanCard({
         {(progressPct != null || hasBuckets) && (
           <div className="mt-3">
             {progressPct != null && (
-              <div className="flex items-center justify-between text-[11px] text-ink-subtle mb-1">
+              <div className="flex items-center justify-between text-[11px] text-secondary mb-1">
                 <span>Progress</span>
-                <span className="font-semibold text-ink tabular-nums">
+                <span className="font-semibold text-primary tabular-nums">
                   {Math.round(progressPct * 100)}%
                 </span>
               </div>
@@ -154,7 +154,7 @@ export function PlanCard({
               />
             ) : progressPct != null ? (
               // Fallback: classic single-tone progress bar when no bucket data is available.
-              <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-surface overflow-hidden">
                 <div
                   style={{
                     width: `${progressPct * 100}%`,
@@ -186,7 +186,7 @@ export function PlanCard({
         {ownerDisplayName != null && (
           <div className="mt-3 flex items-center gap-1.5">
             <Avatar name={ownerDisplayName} size={20} />
-            <span className="text-[11px] text-ink-subtle truncate">{ownerDisplayName}</span>
+            <span className="text-[11px] text-secondary truncate">{ownerDisplayName}</span>
           </div>
         )}
       </div>

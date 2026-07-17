@@ -9,9 +9,9 @@ export interface SidePanelProps {
 
 export function SidePanel({ header, children, className }: SidePanelProps) {
   return (
-    <aside className={cn('flex h-full flex-col border-r border-hairline bg-surface-1', className)}>
+    <aside className={cn('flex h-full flex-col border-r border-border bg-card', className)}>
       {header && (
-        <div className="flex items-center justify-between border-b border-hairline px-md py-sm text-body-sm">
+        <div className="flex items-center justify-between border-b border-border px-md py-sm text-body-sm">
           {header}
         </div>
       )}

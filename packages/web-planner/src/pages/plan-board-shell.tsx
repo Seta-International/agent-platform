@@ -1,4 +1,5 @@
 import {
+  Divider,
   EmptyState,
   PLANNER_403_LIMIT_MESSAGES,
   type PlanConflictDecision,
@@ -197,7 +198,11 @@ export function PlanBoardShell({
   const isPulling = resolvedPlan.sync_status === 'pulling' && tasks.length === 0;
 
   return (
-    <div className={view === 'board' ? 'plan-page' : 'plan-grid-page'}>
+    <div
+      className={
+        view === 'board' ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1 flex-col gap-4'
+      }
+    >
       <PlanPageHeader
         planName={resolvedPlan.name}
         groupName={groupName}
@@ -233,19 +238,20 @@ export function PlanBoardShell({
           resolvedPlan.external_source === 'm365' ? () => setConflictDialogOpen(true) : undefined
         }
       />
-      <div className="plan-toolbar">
-        <div className="plan-toolbar__left">
+      <div className="flex items-center justify-between gap-3 border-border border-b px-6 py-2">
+        <div className="flex items-center gap-2">
           <PlanFilterBar
             filters={filters}
             onChange={onFiltersChange}
             assigneeOptions={filterOptions.assigneeOptions}
             labelOptions={filterOptions.labelOptions}
           />
-          <div className="plan-toolbar__divider" aria-hidden="true" />
+          {/* A vertical Divider is height:100%; the toolbar has no definite height, so pin 18px. */}
+          <Divider orientation="vertical" style={{ height: 18, margin: '0 4px' }} />
           <PlanViewSwitcher value={view} onChange={onViewChange} />
           {view === 'grid' && <GridGroupBySelector value={groupBy} onChange={onGroupByChange} />}
         </div>
-        <div className="plan-toolbar__right">
+        <div className="flex items-center gap-3">
           <PlanSearchInput value={searchInputValue} onChange={onQChange} />
         </div>
       </div>
@@ -253,7 +259,7 @@ export function PlanBoardShell({
       {resolvedPlan.sync_status === 'error' && resolvedPlan.last_error && (
         <div
           role="alert"
-          className="mx-7 mt-3 rounded border border-semantic-danger bg-semantic-danger-tint p-3 text-body-sm"
+          className="mx-7 mt-3 rounded border border-error bg-error-muted p-3 text-body-sm"
           data-testid="plan-sync-error-banner"
         >
           <div className="font-medium">
@@ -262,7 +268,7 @@ export function PlanBoardShell({
           </div>
           <button
             type="button"
-            className="mt-2 text-primary underline"
+            className="mt-2 text-accent underline"
             onClick={() => refreshSync.mutate()}
             disabled={refreshSync.isPending}
           >
@@ -272,13 +278,13 @@ export function PlanBoardShell({
       )}
       {resolvedPlan.sync_status === 'conflict' && (
         <div
-          className="mx-7 mt-3 rounded border border-semantic-warning bg-semantic-warning-tint p-3 text-body-sm"
+          className="mx-7 mt-3 rounded border border-warning bg-warning-muted p-3 text-body-sm"
           data-testid="plan-sync-conflict-banner"
         >
           <div className="font-medium">A few changes clashed — pick which version to keep</div>
           <button
             type="button"
-            className="mt-2 text-primary underline"
+            className="mt-2 text-accent underline"
             onClick={() => setConflictDialogOpen(true)}
           >
             Review changes

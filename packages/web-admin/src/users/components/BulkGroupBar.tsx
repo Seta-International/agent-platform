@@ -65,8 +65,8 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
 
   return (
     <>
-      <div className="flex items-center gap-3 border-b border-hairline bg-surface-2 px-6 py-2">
-        <span className="text-body-sm font-medium text-ink">{count} selected</span>
+      <div className="flex items-center gap-3 border-b border-border bg-surface px-6 py-2">
+        <span className="text-body-sm font-medium text-primary">{count} selected</span>
         <Button variant="ghost" size="sm" label="Clear" onClick={onClearSelection} />
         <div className="ml-auto flex items-center gap-2">
           <Typeahead

@@ -26,12 +26,12 @@ const styles = stylex.create({
   shell: { flexShrink: 0 },
   shellDragging: { opacity: 0.9 },
   handleArea: { minWidth: 0, flex: 1, cursor: 'grab', ':active': { cursor: 'grabbing' } },
-  grip: { color: 'var(--color-ink-tertiary)', flexShrink: 0 },
+  grip: { color: 'var(--color-text-disabled)', flexShrink: 0 },
   gripDisabled: { opacity: 0.4 },
-  countOver: { color: 'var(--color-danger)', fontWeight: 600 },
+  countOver: { color: 'var(--color-error)', fontWeight: 600 },
   // Astryx Item paints the label in a child <span> with an explicit color, so the danger
   // colour must go on the label itself — an xstyle on the item root is only inherited.
-  dangerLabel: { color: 'var(--color-danger)' },
+  dangerLabel: { color: 'var(--color-error)' },
   quickCreate: { alignSelf: 'flex-start' },
 });
 

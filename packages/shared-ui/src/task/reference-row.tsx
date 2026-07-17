@@ -21,9 +21,9 @@ export const REFERENCE_TYPE_COLOR: Record<ReferenceType, string> = {
   powerBI: '#f2c811',
   oneNote: '#80397b',
   sharePoint: '#0078d4',
-  web: 'var(--color-info)',
-  link: 'var(--color-ink-muted)',
-  other: 'var(--color-ink-muted)',
+  web: 'var(--color-icon-blue)',
+  link: 'var(--color-text-secondary)',
+  other: 'var(--color-text-secondary)',
 };
 
 export interface ReferenceRowData {
@@ -93,13 +93,13 @@ const row: CSSProperties = {
   alignItems: 'center',
   gap: 8,
   padding: '6px 8px',
-  border: '1px solid var(--color-hairline)',
+  border: '1px solid var(--color-border)',
   borderRadius: 6,
-  background: 'var(--color-surface-1)',
+  background: 'var(--color-background-card)',
 };
 const dragHandle: CSSProperties = {
   cursor: 'grab',
-  color: 'var(--color-ink-tertiary)',
+  color: 'var(--color-text-disabled)',
   fontSize: 12,
   lineHeight: 1,
   userSelect: 'none',
@@ -122,7 +122,7 @@ const iconSquare: CSSProperties = {
 const alias: CSSProperties = {
   fontSize: 13,
   fontWeight: 500,
-  color: 'var(--color-ink)',
+  color: 'var(--color-text-primary)',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -131,14 +131,14 @@ const typeBadge: CSSProperties = {
   fontSize: 10,
   padding: '2px 6px',
   borderRadius: 4,
-  background: 'var(--color-surface-2)',
-  color: 'var(--color-ink-subtle)',
+  background: 'var(--color-background-surface)',
+  color: 'var(--color-text-secondary)',
   textTransform: 'lowercase',
 };
 const iconBtn: CSSProperties = {
   background: 'transparent',
   border: 'none',
-  color: 'var(--color-ink-subtle)',
+  color: 'var(--color-text-secondary)',
   cursor: 'pointer',
   fontSize: 13,
   padding: '2px 4px',

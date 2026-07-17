@@ -501,6 +501,8 @@ describe('PlanGridPage (via PlanBoardShell)', () => {
     );
 
     expect(await screen.findByTestId('plan-calendar-page')).toBeInTheDocument();
-    expect(screen.getByLabelText('Calendar view')).toBeInTheDocument();
+    // The switcher is a SegmentedControl (radiogroup), so the active view is
+    // assertable as the checked segment rather than just a present label.
+    expect(screen.getByRole('radio', { name: 'Calendar' })).toBeChecked();
   });
 });

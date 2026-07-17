@@ -73,9 +73,7 @@ function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: R
     <span
       className={cn(
         'inline-flex h-6 items-center rounded-full px-2 text-xs',
-        member.role === 'owner'
-          ? 'bg-primary-tint text-primary-ink'
-          : 'bg-surface-2 text-ink-muted',
+        member.role === 'owner' ? 'bg-accent-muted text-accent' : 'bg-surface text-secondary',
       )}
     >
       {member.role === 'owner' ? 'Owner' : 'Member'}
@@ -191,7 +189,7 @@ export function GroupMembersTable({
         renderCell: (m) => (
           <div className="flex items-center gap-2.5">
             <Avatar name={m.display_name} size={32} />
-            <span className="font-medium text-ink">{m.display_name}</span>
+            <span className="font-medium text-primary">{m.display_name}</span>
           </div>
         ),
       },
@@ -199,7 +197,7 @@ export function GroupMembersTable({
         key: 'email',
         header: 'Email',
         sortable: true,
-        renderCell: (m) => <span className="text-ink-subtle">{m.email}</span>,
+        renderCell: (m) => <span className="text-secondary">{m.email}</span>,
       },
       {
         key: 'role',
@@ -219,7 +217,7 @@ export function GroupMembersTable({
         header: 'Added',
         sortable: true,
         renderCell: (m) => (
-          <span className="whitespace-nowrap text-ink-subtle">{shortDate(m.added_at)}</span>
+          <span className="whitespace-nowrap text-secondary">{shortDate(m.added_at)}</span>
         ),
       },
       ...(canRemove
@@ -232,7 +230,7 @@ export function GroupMembersTable({
                   variant="ghost"
                   size="sm"
                   label="Remove"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="text-error hover:text-error hover:bg-error/10"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemoveMember(m);
@@ -247,10 +245,10 @@ export function GroupMembersTable({
   );
 
   return (
-    <section className="rounded-lg border border-hairline bg-canvas overflow-hidden">
+    <section className="rounded-lg border border-border bg-body overflow-hidden">
       {selectedIds.length > 0 && (
-        <div className="flex items-center gap-3 border-b border-hairline bg-surface-1 px-4 py-2">
-          <span className="text-body-sm text-ink-subtle">
+        <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2">
+          <span className="text-body-sm text-secondary">
             {selectedIds.length} {selectedIds.length === 1 ? 'member' : 'members'} selected
           </span>
           <Button
@@ -270,7 +268,7 @@ export function GroupMembersTable({
           />
         </div>
       )}
-      <div className="space-y-0 px-4 pt-3 pb-3 border-b border-hairline">
+      <div className="space-y-0 px-4 pt-3 pb-3 border-b border-border">
         <Input
           label="Search members"
           isLabelHidden
@@ -298,7 +296,7 @@ export function GroupMembersTable({
               actions={<Button label="Clear filters" onClick={() => setSearch('')} />}
             />
           ) : (
-            <div className="px-4 py-12 text-center text-body-sm text-ink-subtle">
+            <div className="px-4 py-12 text-center text-body-sm text-secondary">
               No members in this group yet.
             </div>
           )

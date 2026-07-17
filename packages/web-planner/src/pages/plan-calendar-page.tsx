@@ -177,8 +177,8 @@ export function PlanCalendarPage({
           className="relative flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center"
           data-testid="calendar-empty-state"
         >
-          <h3 className="text-card-title text-ink">No tasks scheduled in this range</h3>
-          <p className="text-body-sm text-ink-subtle">
+          <h3 className="text-card-title text-primary">No tasks scheduled in this range</h3>
+          <p className="text-body-sm text-secondary">
             Tasks with a start or due date inside the selected range appear here.
           </p>
           <div className="flex items-center gap-3">

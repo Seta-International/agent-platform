@@ -1,7 +1,7 @@
 import { withThemeByClassName } from '@storybook/addon-themes';
 import type { Preview } from '@storybook/react-vite';
 
-import '../src/styles/tokens.css';
+import '../src/styles/index.css';
 import '../src/styles/fonts.css';
 import '../src/styles/globals.css';
 import './preview.css';

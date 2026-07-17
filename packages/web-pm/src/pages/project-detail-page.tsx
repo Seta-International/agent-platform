@@ -10,6 +10,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Selector,
   Skeleton,
   Text,
@@ -157,7 +158,7 @@ export function ProjectDetailPage() {
         }
         content={
           <LayoutContent padding={0}>
-            <div className="page-container p-6 space-y-4">
+            <PageContainer className="space-y-4">
               <Card>
                 <Layout
                   header={
@@ -177,7 +178,7 @@ export function ProjectDetailPage() {
                   }
                 />
               </Card>
-            </div>
+            </PageContainer>
           </LayoutContent>
         }
       />
@@ -209,9 +210,9 @@ export function ProjectDetailPage() {
         }
         content={
           <LayoutContent padding={0}>
-            <div className="page-container p-6">
+            <PageContainer>
               <Banner status="error" title={msg} />
-            </div>
+            </PageContainer>
           </LayoutContent>
         }
       />
@@ -273,7 +274,7 @@ export function ProjectDetailPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container p-6 space-y-6">
+          <PageContainer className="space-y-6">
             <div className="flex items-center gap-2">
               <Badge variant="neutral" label={p.phase} />
               <Badge variant={STATUS_VARIANT[p.status]} label={p.status} />
@@ -397,9 +398,9 @@ export function ProjectDetailPage() {
                         />
                       </div>
                       {p.planner_group_id && (
-                        <p className="mt-2 text-body-sm text-ink-muted">
+                        <p className="mt-2 text-body-sm text-secondary">
                           Linked:{' '}
-                          <span className="font-mono text-caption text-ink">
+                          <span className="font-mono text-caption text-primary">
                             {p.planner_group_id}
                           </span>
                           {groups?.find((g) => g.id === p.planner_group_id) && (
@@ -417,7 +418,7 @@ export function ProjectDetailPage() {
               <StaffingPlanSection projectId={projectId} canManage={canManage} />
               <ProjectAccessSection projectId={projectId} canManage={canManage} />
             </Card>
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

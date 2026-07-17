@@ -78,7 +78,7 @@ export function TaskDetailHeader({
   }, [onPrevious, onNext]);
 
   return (
-    <header className="border-b border-hairline overflow-x-auto">
+    <header className="border-b border-border overflow-x-auto">
       <div className="min-w-[1040px] px-7 pt-4 pb-3">
         <div className="mb-3">
           <Breadcrumbs variant="supporting">
@@ -172,7 +172,7 @@ export function TaskDetailHeader({
                   >
                     <DropdownMenuItem
                       label="Delete"
-                      style={{ color: 'var(--color-danger)' }}
+                      style={{ color: 'var(--color-error)' }}
                       onClick={() => onDelete()}
                       isDisabled={Boolean(deleteDisabledReason)}
                     />
@@ -185,7 +185,7 @@ export function TaskDetailHeader({
               type="button"
               onClick={onPrevious}
               aria-label="Previous task"
-              className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-ink-subtle hover:bg-surface-1 hover:text-ink"
+              className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-secondary hover:bg-card hover:text-primary"
             >
               <span>Prev</span>
             </button>
@@ -193,7 +193,7 @@ export function TaskDetailHeader({
               type="button"
               onClick={onNext}
               aria-label="Next task"
-              className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-ink-subtle hover:bg-surface-1 hover:text-ink"
+              className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-secondary hover:bg-card hover:text-primary"
             >
               <span>Next</span>
             </button>

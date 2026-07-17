@@ -4,8 +4,8 @@
  * rather than redeclaring values; that's how Urgent stays red and Important stays
  * orange everywhere without drift.
  *
- * Colors resolve through CSS variables defined in `styles/tokens.css`, so dark/light
- * theme switches happen automatically — never inline a hex value in a consumer.
+ * Colors resolve through Astryx's hue tokens, so dark/light theme switches happen
+ * automatically — never inline a hex value in a consumer.
  */
 
 /** Stored task priority — matches `planner.tasks.priority_number` CHECK constraint. */
@@ -34,33 +34,33 @@ export const PRIORITY_LEVELS: ReadonlyArray<PriorityDescriptor> = [
     value: 1,
     level: 'urgent',
     label: 'Urgent',
-    color: 'var(--color-priority-urgent)',
-    tint: 'var(--color-priority-urgent-tint)',
-    ink: 'var(--color-priority-urgent-ink)',
+    color: 'var(--color-icon-red)',
+    tint: 'var(--color-background-red)',
+    ink: 'var(--color-text-red)',
   },
   {
     value: 3,
     level: 'important',
     label: 'Important',
-    color: 'var(--color-priority-important)',
-    tint: 'var(--color-priority-important-tint)',
-    ink: 'var(--color-priority-important-ink)',
+    color: 'var(--color-icon-orange)',
+    tint: 'var(--color-background-orange)',
+    ink: 'var(--color-text-orange)',
   },
   {
     value: 5,
     level: 'medium',
     label: 'Medium',
-    color: 'var(--color-priority-medium)',
-    tint: 'var(--color-priority-medium-tint)',
-    ink: 'var(--color-priority-medium-ink)',
+    color: 'var(--color-icon-blue)',
+    tint: 'var(--color-background-blue)',
+    ink: 'var(--color-text-blue)',
   },
   {
     value: 9,
     level: 'low',
     label: 'Low',
-    color: 'var(--color-priority-low)',
-    tint: 'var(--color-priority-low-tint)',
-    ink: 'var(--color-priority-low-ink)',
+    color: 'var(--color-icon-gray)',
+    tint: 'var(--color-background-gray)',
+    ink: 'var(--color-text-gray)',
   },
 ];
 
