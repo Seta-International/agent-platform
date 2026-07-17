@@ -1,5 +1,19 @@
-import { Banner, Button, Input, SetaMark } from '@seta/shared-ui';
+import {
+  Avatar,
+  Banner,
+  Button,
+  Card,
+  Center,
+  Heading,
+  Input,
+  Link,
+  SetaMark,
+  Text,
+  Token,
+  VStack,
+} from '@seta/shared-ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
+import { ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { discoverProvider } from '../api/client.ts';
 import { signIn } from '../auth-client.ts';
@@ -121,33 +135,15 @@ export function LoginCard() {
 
 function LoginShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="theme-light relative flex min-h-screen flex-col bg-surface-1 text-ink">
-      <header className="flex items-center gap-xs px-lg pt-lg sm:px-xl">
-        <SetaMark size={22} />
-      </header>
-
-      <main className="flex flex-1 items-center justify-center px-lg py-xl sm:px-xl">
-        <div className="flex w-full max-w-[400px] flex-col">
-          <div className="mb-md flex justify-center">
-            <SetaMark size={36} />
-          </div>
-          {children}
-        </div>
-      </main>
-
-      <footer className="flex items-center justify-between px-lg py-md text-caption text-ink-subtle sm:px-xl">
-        <span suppressHydrationWarning>© {new Date().getFullYear()}</span>
-        <div className="flex items-center gap-md">
-          <a href="https://example.com/privacy" className="transition-colors hover:text-ink">
-            Privacy
-          </a>
-          <a href="https://example.com/terms" className="transition-colors hover:text-ink">
-            Terms
-          </a>
-          <SystemStatus />
-        </div>
-      </footer>
-    </div>
+    <Center axis="both" minHeight="100vh">
+      <VStack gap={4} hAlign="center" width="100%" maxWidth={400} padding={6}>
+        <SetaMark size={36} />
+        {children}
+        <Text type="supporting" color="secondary" justify="center">
+          © {new Date().getFullYear()}
+        </Text>
+      </VStack>
+    </Center>
   );
 }
 
@@ -165,42 +161,44 @@ function EmailStep({
   error: string | null;
 }) {
   return (
-    <>
-      <h1 className="text-center text-card-title font-semibold text-ink">Sign in</h1>
-      <p className="mt-1 mb-md text-center text-body-sm text-ink-muted">
-        Enter your work email to continue.
-      </p>
+    <Card padding={6} width="100%">
+      <form onSubmit={onSubmit}>
+        <VStack gap={3} hAlign="stretch">
+          <VStack gap={1} hAlign="center">
+            <Heading level={1} justify="center">
+              Sign in
+            </Heading>
+            <Text type="body" size="sm" color="secondary" justify="center">
+              Enter your work email to continue.
+            </Text>
+          </VStack>
 
-      <form
-        onSubmit={onSubmit}
-        className="flex flex-col gap-sm rounded-lg border border-hairline bg-canvas p-lg duration-200 animate-in fade-in"
-      >
-        <Input
-          type="email"
-          label="Work email"
-          placeholder="you@company.com"
-          value={email}
-          onChange={(value) => onEmailChange(value)}
-          size="lg"
-          isRequired
-        />
+          <Input
+            type="email"
+            label="Work email"
+            placeholder="you@company.com"
+            value={email}
+            onChange={(value) => onEmailChange(value)}
+            size="lg"
+            isRequired
+          />
 
-        {error ? <Banner status="error" title={error} /> : null}
+          {error ? <Banner status="error" title={error} /> : null}
 
-        <Button
-          type="submit"
-          size="lg"
-          className="w-full"
-          isDisabled={submitting || !email}
-          label={submitting ? 'Continue…' : 'Continue'}
-          endContent={!submitting ? <ArrowRightIcon /> : undefined}
-        />
+          <Button
+            type="submit"
+            size="lg"
+            isDisabled={submitting || !email}
+            label={submitting ? 'Continue…' : 'Continue'}
+            endContent={!submitting ? <ArrowRight size={12} /> : undefined}
+          />
+
+          <Text type="supporting" color="secondary" justify="center">
+            Don&apos;t have access yet? Ask your admin to invite you.
+          </Text>
+        </VStack>
       </form>
-
-      <p className="mt-md text-center text-caption text-ink-subtle">
-        Don&apos;t have access yet? Ask your admin to invite you.
-      </p>
-    </>
+    </Card>
   );
 }
 
@@ -224,57 +222,57 @@ function PasswordStep({
   error: string | null;
 }) {
   return (
-    <>
-      <h1 className="mb-md text-center text-card-title font-semibold text-ink">
-        Enter your password
-      </h1>
+    <Card padding={6} width="100%">
+      <form onSubmit={onSubmit}>
+        <VStack gap={3} hAlign="stretch">
+          <Heading level={1} justify="center">
+            Enter your password
+          </Heading>
 
-      <form
-        onSubmit={onSubmit}
-        className="flex flex-col gap-sm rounded-lg border border-hairline bg-canvas p-lg duration-200 animate-in fade-in"
-      >
-        <EmailChip email={email} onEdit={onEdit} />
+          {/* size={20} = the old EmailAvatar's size-5. Astryx named sizes are
+              tiny|xsmall|small|medium|large — there is no 'xs'. */}
+          <Token
+            label={email}
+            description="Signing in as"
+            icon={<Avatar name={email} size={20} />}
+            onRemove={onEdit}
+          />
 
-        <FieldRow
-          label="Password"
-          trailing={
-            <a
-              href="mailto:support@example.com?subject=Password%20reset"
-              className="text-caption font-medium text-primary hover:underline"
+          <VStack gap={1} hAlign="stretch">
+            <Input
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(value) => onPasswordChange(value)}
+              size="lg"
+              isRequired
+            />
+            <Link
+              href="mailto:canh.ta@seta-international.vn?subject=Password%20reset"
+              type="supporting"
             >
               Reset
-            </a>
-          }
-        >
-          <Input
-            label="Password"
-            isLabelHidden
-            type="password"
-            value={password}
-            onChange={(value) => onPasswordChange(value)}
+            </Link>
+          </VStack>
+
+          {error ? <Banner status="error" title={error} /> : null}
+
+          <Button
+            type="submit"
             size="lg"
-            isRequired
+            isDisabled={submitting || !password || rateLimited}
+            label={submitting ? 'Signing in…' : 'Sign in'}
           />
-        </FieldRow>
 
-        {error ? <Banner status="error" title={error} /> : null}
-
-        <Button
-          type="submit"
-          size="lg"
-          className="w-full"
-          isDisabled={submitting || !password || rateLimited}
-          label={submitting ? 'Signing in…' : 'Sign in'}
-        />
+          <Text type="supporting" color="secondary" justify="center">
+            Wrong account?{' '}
+            <Link onClick={onEdit} type="inherit">
+              Start over
+            </Link>
+          </Text>
+        </VStack>
       </form>
-
-      <p className="mt-md text-center text-caption text-ink-subtle">
-        Wrong account?{' '}
-        <button type="button" onClick={onEdit} className="font-medium text-primary hover:underline">
-          Start over
-        </button>
-      </p>
-    </>
+    </Card>
   );
 }
 
@@ -307,139 +305,54 @@ function SsoStep({
   }
 
   return (
-    <>
-      <h1 className="text-center text-card-title font-semibold text-ink">Sign in with Microsoft</h1>
-      <p className="mt-1 mb-md text-center text-body-sm text-ink-muted">
-        Your organization uses Microsoft to sign in.
-      </p>
+    <Card padding={6} width="100%">
+      <VStack gap={3} hAlign="stretch">
+        <VStack gap={1} hAlign="center">
+          <Heading level={1} justify="center">
+            Sign in with Microsoft
+          </Heading>
+          <Text type="body" size="sm" color="secondary" justify="center">
+            Your organization uses Microsoft to sign in.
+          </Text>
+        </VStack>
 
-      <div className="flex flex-col gap-sm rounded-lg border border-hairline bg-canvas p-lg duration-200 animate-in fade-in">
-        <EmailChip email={email} onEdit={onEdit} />
+        {/* size={20} = the old EmailAvatar's size-5. Astryx named sizes are
+            tiny|xsmall|small|medium|large — there is no 'xs'. */}
+        <Token
+          label={email}
+          description="Signing in as"
+          icon={<Avatar name={email} size={20} />}
+          onRemove={onEdit}
+        />
 
-        {error && <Banner status="error" title={error} />}
+        {error ? <Banner status="error" title={error} /> : null}
 
         <Button
           size="lg"
           variant="secondary"
-          className="w-full gap-2.5 font-medium"
           onClick={() => void handleSignIn()}
           isDisabled={submitting}
           icon={<MicrosoftLogo />}
           label={submitting ? 'Opening Microsoft…' : 'Continue with Microsoft'}
         />
 
-        <p className="text-center text-caption text-ink-subtle">
+        <Text type="supporting" color="secondary" justify="center">
           You&apos;ll finish signing in on Microsoft.com.
-        </p>
-      </div>
+        </Text>
 
-      <p className="mt-md text-center text-caption text-ink-subtle">
-        Can&apos;t get in?{' '}
-        <a href="mailto:support@example.com" className="font-medium text-primary hover:underline">
-          Contact your admin
-        </a>
-      </p>
-    </>
+        <Text type="supporting" color="secondary" justify="center">
+          Can&apos;t get in?{' '}
+          <Link href="mailto:canh.ta@seta-international.vn" type="inherit">
+            Contact your admin
+          </Link>
+        </Text>
+      </VStack>
+    </Card>
   );
 }
 
-interface FieldRowProps {
-  label: string;
-  trailing?: React.ReactNode;
-  children: React.ReactNode;
-}
-
-/**
- * Label row with a trailing action. The heading is a plain span, not a <label>: Astryx
- * inputs mint their own input id internally, so nothing here can target it — the control
- * carries its own (hidden) label for the accessible name.
- */
-function FieldRow({ label, trailing, children }: FieldRowProps) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between">
-        <span className="text-caption font-medium text-ink-muted">{label}</span>
-        {trailing}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function EmailChip({ email, onEdit }: { email: string; onEdit: () => void }) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-md border border-hairline bg-surface-1 px-sm py-1.5">
-      <EmailAvatar email={email} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="text-[10.5px] uppercase tracking-wide text-ink-subtle">Signed in as</span>
-        <span className="truncate font-mono text-caption font-medium text-ink">{email}</span>
-      </div>
-      <button
-        type="button"
-        onClick={onEdit}
-        className="rounded-xs px-1.5 py-0.5 text-caption text-ink-subtle transition-colors hover:bg-surface-2 hover:text-ink"
-      >
-        Change
-      </button>
-    </div>
-  );
-}
-
-const AVATAR_PALETTE = [
-  ['#f3d5d0', '#7a3a30'],
-  ['#d8e7d3', '#2f5a2a'],
-  ['#d4e0f3', '#2a4778'],
-  ['#f3e6c8', '#7a5a1f'],
-  ['#e7d4ef', '#5a2f78'],
-  ['#d0e5e7', '#1f5a60'],
-  ['#f0d8e2', '#7a2f4d'],
-] as const;
-
-function EmailAvatar({ email }: { email: string }) {
-  const initial = (email[0] ?? '?').toUpperCase();
-  let h = 0;
-  for (let i = 0; i < email.length; i++) h = (h * 31 + email.charCodeAt(i)) | 0;
-  const [bg, fg] = AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length] ?? AVATAR_PALETTE[0];
-  return (
-    <span
-      aria-hidden="true"
-      className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[9.5px] font-semibold"
-      style={{ background: bg, color: fg }}
-    >
-      {initial}
-    </span>
-  );
-}
-
-function SystemStatus() {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="relative inline-flex size-1.5">
-        <span className="absolute inset-0 animate-ping rounded-full bg-semantic-success opacity-60" />
-        <span className="relative inline-block size-1.5 rounded-full bg-semantic-success" />
-      </span>
-      All systems operational
-    </span>
-  );
-}
-
-function ArrowRightIcon() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-3"
-      aria-hidden="true"
-    >
-      <path d="M3 8h10M9 4l4 4-4 4" />
-    </svg>
-  );
-}
-
+// Brand sign-in mark — no Astryx or lucide equivalent, and vendor marks may not be
+// redrawn. Colours are Microsoft's, so they are deliberately raw hex, not tokens.
 function MicrosoftLogo() {
   return (
     <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true">
