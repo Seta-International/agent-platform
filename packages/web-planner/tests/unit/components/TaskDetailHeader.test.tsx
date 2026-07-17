@@ -104,13 +104,18 @@ describe('TaskDetailHeader', () => {
     expect(onBack).toHaveBeenCalled();
   });
 
-  it('lets a cmd/ctrl/shift-click on the plan breadcrumb fall through to real navigation', async () => {
+  it('lets a cmd/ctrl/shift/alt-click on the plan breadcrumb fall through to real navigation', async () => {
     const onBack = vi.fn();
     renderInRouter(<TaskDetailHeader {...baseProps} planId="p-1" onBack={onBack} />);
     const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
     const link = within(nav).getByRole('link', { name: 'Q3 Launch' });
 
-    for (const modifier of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }]) {
+    for (const modifier of [
+      { metaKey: true },
+      { ctrlKey: true },
+      { shiftKey: true },
+      { altKey: true },
+    ]) {
       onBack.mockClear();
       // fireEvent.click returns the DOM dispatch result: false means preventDefault() was
       // called; true means the browser's default action (navigation) is left to proceed.

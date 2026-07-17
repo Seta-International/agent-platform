@@ -95,7 +95,7 @@ export function TaskDetailHeader({
               <BreadcrumbItem
                 href={`/planner/plans/${planId}`}
                 onClick={(e) => {
-                  if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
                   e.preventDefault();
                   onBack();
                 }}

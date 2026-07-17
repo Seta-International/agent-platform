@@ -402,7 +402,7 @@ describe('TaskDetailPage', () => {
     expect(router.state.location.pathname).toBe('/planner/plans/p1/tasks/t9');
   });
 
-  it('modal variant: a cmd/ctrl/shift-click on the plan breadcrumb falls through instead of calling onClose', async () => {
+  it('modal variant: a cmd/ctrl/shift/alt-click on the plan breadcrumb falls through instead of calling onClose', async () => {
     const onClose = vi.fn();
     server.use(
       http.get('/api/planner/v1/tasks/t9', () =>
@@ -441,11 +441,19 @@ describe('TaskDetailPage', () => {
     const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
     const planCrumb = within(nav).getByRole('link', { name: 'Q3 Launch' });
 
-    // fireEvent.click returns the DOM dispatch result: false means preventDefault() was called;
-    // true means the browser's default action (navigation) is left to proceed.
-    const notPrevented = fireEvent.click(planCrumb, { metaKey: true });
-    expect(notPrevented).toBe(true);
-    expect(onClose).not.toHaveBeenCalled();
-    expect(router.state.location.pathname).toBe('/planner/plans/p1/tasks/t9');
+    for (const modifier of [
+      { metaKey: true },
+      { ctrlKey: true },
+      { shiftKey: true },
+      { altKey: true },
+    ]) {
+      onClose.mockClear();
+      // fireEvent.click returns the DOM dispatch result: false means preventDefault() was called;
+      // true means the browser's default action (navigation) is left to proceed.
+      const notPrevented = fireEvent.click(planCrumb, modifier);
+      expect(notPrevented).toBe(true);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(router.state.location.pathname).toBe('/planner/plans/p1/tasks/t9');
+    }
   });
 });
