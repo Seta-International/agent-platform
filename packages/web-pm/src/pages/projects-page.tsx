@@ -12,6 +12,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Popover,
   paginateData,
   pixel,
@@ -178,7 +179,7 @@ export function ProjectsPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container space-y-4 p-6">
+          <PageContainer className="space-y-4">
             {error ? (
               <Banner status="error" title={(error as Error).message} />
             ) : (
@@ -272,7 +273,7 @@ export function ProjectsPage() {
                 )}
               </>
             )}
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

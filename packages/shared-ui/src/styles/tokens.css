@@ -17,7 +17,6 @@
   --color-primary:          #0047FF;
   --color-primary-hover:    #1A3CFF;
   --color-primary-focus:    #022DAD;
-  --color-brand-secure:     #475467;
 
   --color-canvas:           #010102;
   --color-surface-1:        #0f1011;
@@ -27,15 +26,11 @@
   --color-hairline:         #23252a;
   --color-hairline-strong:  #2c2f34;
   --color-hairline-tertiary:#3a3d42;
-  --color-inverse-canvas:   #ffffff;
-  --color-inverse-surface-1:#f6f7f8;
-  --color-inverse-surface-2:#eceef1;
 
   --color-ink:              #f7f8f8;
   --color-ink-muted:        #d0d6e0;
   --color-ink-subtle:       #8a8f98;
   --color-ink-tertiary:     #62666d;
-  --color-inverse-ink:      #08090a;
 
   --color-primary-tint:     color-mix(in oklch, #0047FF 14%, transparent);
   --color-primary-border:   color-mix(in oklch, #0047FF 35%, transparent);
@@ -60,29 +55,6 @@
   --spacing-xl:    32px;
   --spacing-xxl:   48px;
   --spacing-section: 96px;
-
-  --max-width-3xs: 16rem;
-  --max-width-2xs: 18rem;
-  --max-width-xs:  20rem;
-  --max-width-sm:  24rem;
-  --max-width-md:  28rem;
-  --max-width-lg:  32rem;
-  --max-width-xl:  36rem;
-  --max-width-2xl: 42rem;
-  --max-width-3xl: 48rem;
-  --max-width-4xl: 56rem;
-  --max-width-5xl: 64rem;
-  --max-width-6xl: 72rem;
-  --max-width-7xl: 80rem;
-
-  --max-width-conversation: 45rem;
-  --max-width-message-bubble: 33.75rem;
-
-  /* Canonical page width + padding. Top-level page bodies use these
-     (via the `.page-container` utility in globals.css) so every screen
-     centers on the same column. Update once, sweep everywhere. */
-  --max-width-page: 73.75rem; /* 1180px */
-  --page-padding:    24px;    /* matches Tailwind's p-6 */
 
   --radius-xs:   4px;
   --radius-sm:   6px;
@@ -123,10 +95,6 @@
   --text-section-title--letter-spacing: -0.005em;
   --text-section-title--font-weight: 600;
 
-  --text-subhead: 20px;
-  --text-subhead--line-height: 1.40;
-  --text-subhead--letter-spacing: -0.2px;
-
   --text-body-lg: 18px;
   --text-body-lg--line-height: 1.50;
   --text-body-lg--letter-spacing: -0.1px;
@@ -141,17 +109,10 @@
   --text-caption: 12px;
   --text-caption--line-height: 1.40;
 
-  --text-button: 13px;
-  --text-button--line-height: 1.20;
-  --text-button--font-weight: 500;
-
   --text-eyebrow: 11px;
   --text-eyebrow--line-height: 1.35;
   --text-eyebrow--letter-spacing: 0.66px;
   --text-eyebrow--font-weight: 500;
-
-  --text-mono: 13px;
-  --text-mono--line-height: 1.50;
 
   --font-display: 'Geist', 'Inter', 'SF Pro Display', -apple-system, system-ui, sans-serif;
   --font-text:    'Geist', 'Inter', 'SF Pro Display', -apple-system, system-ui, sans-serif;

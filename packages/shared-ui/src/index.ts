@@ -32,6 +32,7 @@ export * from './composites/label-chip';
 export * from './composites/left-nav';
 export * from './composites/notification-list-item';
 export * from './composites/notification-popover';
+export * from './composites/page-container';
 export * from './composites/resolve-plan-conflicts-dialog';
 export * from './composites/shell-link';
 export * from './composites/side-panel';

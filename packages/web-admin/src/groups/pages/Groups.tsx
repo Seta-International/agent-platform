@@ -8,6 +8,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Skeleton,
   Text,
   VStack,
@@ -108,9 +109,9 @@ export function GroupsPage() {
       content={
         <LayoutContent padding={0}>
           {error ? (
-            <div className="page-container pt-4">
+            <PageContainer>
               <Banner status="error" title={(error as Error).message} />
-            </div>
+            </PageContainer>
           ) : (
             <div className="flex h-full min-h-0">
               <aside className="flex w-72 flex-none flex-col border-r border-hairline bg-surface-1">

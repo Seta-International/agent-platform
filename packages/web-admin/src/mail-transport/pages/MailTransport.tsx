@@ -9,6 +9,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   RadioGroup,
   RadioListItem,
   Switch,
@@ -176,7 +177,7 @@ export function MailTransport() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container space-y-4">
+          <PageContainer className="space-y-4">
             {error && <Banner status="error" title={(error as Error).message} />}
 
             <Card className="p-5 space-y-5">
@@ -340,7 +341,7 @@ export function MailTransport() {
               )}
               {verify.error && <Banner status="error" title={(verify.error as Error).message} />}
             </Card>
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

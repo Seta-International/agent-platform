@@ -9,6 +9,7 @@ import {
   Layout,
   LayoutContent,
   LayoutFooter,
+  PageContainer,
   Skeleton,
   Tab,
   TabList,
@@ -293,7 +294,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
 
         {tab === 'plans' && (
           <div className="@container flex-1 overflow-auto bg-surface-1">
-            <div className="page-container grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
+            <PageContainer className="grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
               <GroupPlansSection
                 groupName={group.name}
                 plans={plans}
@@ -325,13 +326,13 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
                   resolveRequestMutation.mutate({ userId, action: 'rejected' })
                 }
               />
-            </div>
+            </PageContainer>
           </div>
         )}
 
         {tab === 'members' && (
           <div className="@container flex-1 overflow-auto bg-surface-1">
-            <div className="page-container grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
+            <PageContainer className="grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
               <GroupMembersTable
                 group={group}
                 members={members}
@@ -358,15 +359,15 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
                   resolveRequestMutation.mutate({ userId, action: 'rejected' })
                 }
               />
-            </div>
+            </PageContainer>
           </div>
         )}
 
         {tab === 'activity' && (
           <div className="flex-1 overflow-auto bg-surface-1">
-            <div className="page-container">
+            <PageContainer>
               <ActivityFeedTab groupId={groupId} />
-            </div>
+            </PageContainer>
           </div>
         )}
         {tab === 'integrations' && <ComingSoon feature="Integrations" />}

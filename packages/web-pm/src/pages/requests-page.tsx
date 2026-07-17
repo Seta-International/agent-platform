@@ -13,6 +13,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Popover,
   paginateData,
   pixel,
@@ -489,7 +490,7 @@ export function RequestsPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container space-y-4 p-6">
+          <PageContainer className="space-y-4">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Kpi label="Total requests" value={String(summary?.total ?? 0)} icon={FileText} />
               <Kpi
@@ -733,7 +734,7 @@ export function RequestsPage() {
                 />
               </div>
             )}
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

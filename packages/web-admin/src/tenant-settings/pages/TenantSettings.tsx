@@ -8,6 +8,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Skeleton,
   Text,
   VStack,
@@ -70,7 +71,7 @@ export function TenantSettings() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container space-y-4">
+          <PageContainer className="space-y-4">
             {error && <Banner status="error" title={(error as Error).message} />}
             <Card padding={5}>
               <div className="space-y-3">
@@ -104,7 +105,7 @@ export function TenantSettings() {
                 )}
               </div>
             </Card>
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

@@ -11,6 +11,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Popover,
   paginateData,
   SegmentedControl,
@@ -324,7 +325,7 @@ export function RequisitionsPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container space-y-4 p-6">
+          <PageContainer className="space-y-4">
             {scopeNote && <Banner status="info" title={scopeNote} />}
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               {stat(
@@ -538,7 +539,7 @@ export function RequisitionsPage() {
                 ))}
               </div>
             )}
-          </div>
+          </PageContainer>
           {fillTarget && (
             <MarkFilledDialog
               requisitionId={fillTarget.id}

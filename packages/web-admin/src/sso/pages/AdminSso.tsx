@@ -7,6 +7,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Skeleton,
   Text,
   VStack,
@@ -99,7 +100,7 @@ export function AdminSso({ status, error }: AdminSsoProps) {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container space-y-4">
+          <PageContainer className="space-y-4">
             {status === 'consent_granted' && (
               <Banner
                 status="info"
@@ -131,7 +132,7 @@ export function AdminSso({ status, error }: AdminSsoProps) {
                 <ComingSoonProvidersCard />
               </>
             )}
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

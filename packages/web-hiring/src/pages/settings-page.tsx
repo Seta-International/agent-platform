@@ -14,6 +14,7 @@ import {
   LayoutContent,
   LayoutFooter,
   LayoutHeader,
+  PageContainer,
   SegmentedControl,
   SegmentedControlItem,
   Selector,
@@ -405,7 +406,7 @@ export function SettingsPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container grid grid-cols-1 gap-6 p-6 xl:grid-cols-2">
+          <PageContainer className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <Card>
               <Layout
                 header={
@@ -531,7 +532,7 @@ export function SettingsPage() {
                 }
               />
             </Card>
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

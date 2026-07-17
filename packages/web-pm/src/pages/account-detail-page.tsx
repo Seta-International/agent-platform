@@ -11,6 +11,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Skeleton,
   Text,
   Tokenizer,
@@ -202,7 +203,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
         }
         content={
           <LayoutContent padding={0}>
-            <div className="page-container p-6 space-y-4">
+            <PageContainer className="space-y-4">
               <Card>
                 <Layout
                   header={
@@ -222,7 +223,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                   }
                 />
               </Card>
-            </div>
+            </PageContainer>
           </LayoutContent>
         }
       />
@@ -254,9 +255,9 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
         }
         content={
           <LayoutContent padding={0}>
-            <div className="page-container p-6">
+            <PageContainer>
               <Banner status="error" title={msg} />
-            </div>
+            </PageContainer>
           </LayoutContent>
         }
       />
@@ -287,7 +288,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 p-6 items-start">
+          <PageContainer className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
             {/* Details card */}
             <Card>
               <Layout
@@ -419,7 +420,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                 }
               />
             </Card>
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

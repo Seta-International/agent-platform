@@ -19,16 +19,6 @@ select:focus-visible,
   outline: none;
 }
 
-/* Canonical page container — centers content at the shared page width
-   and applies the shared page padding. Combine with grid/flex utilities
-   on the same element for layouts (e.g. main + rail). */
-.page-container {
-  margin-inline: auto;
-  width: 100%;
-  max-width: var(--max-width-page);
-  padding: var(--page-padding);
-}
-
 ::-webkit-scrollbar       { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--color-canvas); }
 ::-webkit-scrollbar-thumb { background: var(--color-surface-3); border-radius: var(--radius-md); }

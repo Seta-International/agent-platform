@@ -13,6 +13,7 @@ import {
   LayoutContent,
   LayoutFooter,
   LayoutHeader,
+  PageContainer,
   Skeleton,
   Text,
   Textarea,
@@ -173,7 +174,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
         }
         content={
           <LayoutContent padding={0}>
-            <div className="page-container p-6 space-y-4">
+            <PageContainer className="space-y-4">
               <Card>
                 <Layout
                   header={
@@ -193,7 +194,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
                   }
                 />
               </Card>
-            </div>
+            </PageContainer>
           </LayoutContent>
         }
       />
@@ -225,9 +226,9 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
         }
         content={
           <LayoutContent padding={0}>
-            <div className="page-container p-6">
+            <PageContainer>
               <Banner status="error" title={msg} />
-            </div>
+            </PageContainer>
           </LayoutContent>
         }
       />
@@ -301,7 +302,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container p-6 space-y-4">
+          <PageContainer className="space-y-4">
             <Card padding={4}>
               <CharterStepper status={c.status} rejectedStage={c.rejected_stage} />
             </Card>
@@ -394,7 +395,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
                 canManage={canManageProject}
               />
             )}
-          </div>
+          </PageContainer>
 
           <Dialog isOpen={rejecting} onOpenChange={setRejecting} purpose="required">
             <Layout

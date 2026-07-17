@@ -10,6 +10,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Skeleton,
   Text,
   VStack,
@@ -220,7 +221,7 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
 }
 
 function PageBody({ children }: { children: React.ReactNode }) {
-  return <div className="page-container">{children}</div>;
+  return <PageContainer>{children}</PageContainer>;
 }
 
 function MyTasksFooter({ data, total }: { data: MyTasksResult; total: number }) {

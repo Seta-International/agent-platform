@@ -7,6 +7,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Skeleton,
   Text,
   useToast,
@@ -67,7 +68,7 @@ export function GroupDiscoverPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container max-w-2xl py-8">
+          <PageContainer>
             <form onSubmit={handleSearch} className="flex gap-2 mb-8">
               <Input
                 label="Search by group name"
@@ -137,7 +138,7 @@ export function GroupDiscoverPage() {
                 })}
               </ul>
             )}
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

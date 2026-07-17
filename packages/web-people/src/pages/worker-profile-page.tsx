@@ -16,6 +16,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   type SearchableItem,
   Selector,
   Skeleton,
@@ -258,7 +259,7 @@ export function WorkerProfilePage() {
         }
         content={
           <LayoutContent padding={0}>
-            <div className="page-container p-6 space-y-4">
+            <PageContainer className="space-y-4">
               <Card>
                 <Layout
                   header={
@@ -284,7 +285,7 @@ export function WorkerProfilePage() {
                   }
                 />
               </Card>
-            </div>
+            </PageContainer>
           </LayoutContent>
         }
       />
@@ -316,9 +317,9 @@ export function WorkerProfilePage() {
         }
         content={
           <LayoutContent padding={0}>
-            <div className="page-container p-6">
+            <PageContainer>
               <Banner status="error" title={msg} />
-            </div>
+            </PageContainer>
           </LayoutContent>
         }
       />
@@ -353,7 +354,7 @@ export function WorkerProfilePage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 p-6 items-start">
+          <PageContainer className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
             <div className="space-y-6">
               {/* Profile card */}
               <Card>
@@ -655,7 +656,7 @@ export function WorkerProfilePage() {
                 />
               </Card>
             </div>
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

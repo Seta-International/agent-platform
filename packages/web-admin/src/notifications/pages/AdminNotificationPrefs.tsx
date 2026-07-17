@@ -6,6 +6,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Skeleton,
   Text,
   VStack,
@@ -40,7 +41,7 @@ export function AdminNotificationPrefs() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container space-y-4">
+          <PageContainer className="space-y-4">
             {error && (
               <Banner
                 status="error"
@@ -73,7 +74,7 @@ export function AdminNotificationPrefs() {
                 </div>
               </section>
             )}
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />

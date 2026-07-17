@@ -165,7 +165,7 @@ export function AgentComposer() {
         // Drag highlight rides the pill's own radius (Astryx --radius-chat,
         // 28px) rather than a border on the transparent outer wrapper, so it
         // outlines the composer itself instead of a full-bleed strip.
-        className={`mx-auto max-w-conversation ${
+        className={`mx-auto max-w-[45rem] ${
           isDragging ? 'rounded-[28px] ring-2 ring-primary/40' : ''
         }`}
       >

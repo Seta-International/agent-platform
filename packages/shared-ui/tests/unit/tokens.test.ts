@@ -83,16 +83,45 @@ describe('tokens.css', () => {
       '--text-headline',
       '--text-card-title',
       '--text-section-title',
-      '--text-subhead',
       '--text-body-lg',
       '--text-body',
       '--text-body-sm',
       '--text-caption',
-      '--text-button',
       '--text-eyebrow',
-      '--text-mono',
     ]) {
       expect(tokens).toContain(t);
+    }
+  });
+
+  // Each was swept for as a class name and as `var(--token)`: zero consumers.
+  it('declares no unconsumed tokens', () => {
+    for (const t of [
+      '--color-brand-secure',
+      '--color-inverse-canvas',
+      '--color-inverse-surface-1',
+      '--color-inverse-surface-2',
+      '--color-inverse-ink',
+      '--max-width-message-bubble',
+      '--text-subhead',
+      '--text-button',
+      '--text-mono',
+    ]) {
+      expect(tokens).not.toContain(t);
+    }
+  });
+
+  // Tailwind ships this scale as --container-*, with identical values.
+  it('does not re-declare Tailwind’s own container scale', () => {
+    const scale = ['3xs', '2xs', 'xs', 'sm', 'md', 'lg', 'xl'];
+    for (const t of [...scale, ...['2', '3', '4', '5', '6', '7'].map((n) => `${n}xl`)]) {
+      expect(tokens).not.toContain(`--max-width-${t}:`);
+    }
+  });
+
+  // The page column and chat width moved into components; see PageContainer.
+  it('declares no bespoke layout tokens', () => {
+    for (const t of ['--max-width-page', '--page-padding', '--max-width-conversation']) {
+      expect(tokens).not.toContain(t);
     }
   });
 

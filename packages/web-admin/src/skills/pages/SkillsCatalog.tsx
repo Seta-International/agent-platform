@@ -12,6 +12,7 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  PageContainer,
   Skeleton,
   Text,
   useToast,
@@ -182,7 +183,7 @@ export function SkillsCatalog() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="page-container space-y-5">
+          <PageContainer className="space-y-5">
             {categoriesQ.error && (
               <Banner
                 status="error"
@@ -362,7 +363,7 @@ export function SkillsCatalog() {
                 </div>
               </>
             )}
-          </div>
+          </PageContainer>
         </LayoutContent>
       }
     />
