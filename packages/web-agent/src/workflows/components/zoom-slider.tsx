@@ -1,4 +1,4 @@
-import { Button, IconButton } from '@seta/shared-ui';
+import { Button, Divider, IconButton } from '@seta/shared-ui';
 import { useReactFlow } from '@xyflow/react';
 import { useEffect, useState } from 'react';
 
@@ -32,8 +32,11 @@ export function ZoomSlider() {
         icon={<span aria-hidden>+</span>}
         onClick={() => zoomIn()}
       />
-      <span className="mx-0.5 h-4 w-px bg-[var(--color-hairline)]" />
-      <Button type="button" variant="ghost" size="sm" label="Fit" onClick={() => fitView()} />
+      <Divider orientation="vertical" style={{ height: 16, marginInline: 2 }} />
+      {/* Visible text is "Fit"; label carries the fuller accessible name. */}
+      <Button type="button" variant="ghost" size="sm" label="Fit view" onClick={() => fitView()}>
+        Fit
+      </Button>
     </div>
   );
 }
