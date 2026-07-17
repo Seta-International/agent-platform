@@ -191,6 +191,22 @@ describe('<AgentComposer> send path', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it('preserves the draft when Enter is pressed while a run is in flight', () => {
+    // Astryx's ChatComposerInput clears the contenteditable on Enter
+    // UNCONDITIONALLY (it has no isDisabled/isRunning gate of its own), so
+    // the "does not send" assertion above passes even if the draft is wiped.
+    // web-agent never passes ChatComposer `isDisabled`, so the input stays
+    // live mid-run — a capture-phase guard on the wrapper must stop Astryx's
+    // own Enter handler from ever running, or the user's text is destroyed
+    // with no error and no way to recover it.
+    isRunning = true;
+    render(<AgentComposer />);
+    type('hello');
+    fireEvent.keyDown(input(), { key: 'Enter' });
+    expect(send).not.toHaveBeenCalled();
+    expect(input().textContent).toBe('hello');
+  });
+
   it('does not send on the Enter that commits an IME composition (keyCode 229)', () => {
     // Chrome/Blink fires keydown with key:'Enter', keyCode:229 while a
     // Vietnamese/CJK composition is still live. Astryx's own Enter handler

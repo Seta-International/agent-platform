@@ -157,8 +157,16 @@ export function AgentComposer() {
       // Astryx's ChatComposerInput has no IME composition guard on its Enter
       // handler, so a capture-phase stop here (before its bubble-phase
       // handler runs) restores the deleted composite's isComposing/229 check.
+      //
+      // Same capture guard blocks Enter while a run is in flight: web-agent
+      // never passes ChatComposer `isDisabled` (only `isStopShown`), so the
+      // contenteditable stays live and Astryx's own Enter handler always
+      // clears the draft — even when `submit()` below bails on isRunning.
+      // Stopping it here preserves the draft (and keeps type-ahead, unlike
+      // isDisabled) instead of silently destroying it.
       onKeyDownCapture={(e) => {
         if (e.nativeEvent.isComposing || e.keyCode === 229) e.stopPropagation();
+        if (isRunning && e.key === 'Enter' && !e.shiftKey) e.stopPropagation();
       }}
     >
       <div
