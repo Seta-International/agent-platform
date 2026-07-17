@@ -11,7 +11,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { OrgGraphNodeData } from './graph-layout.ts';
 import { OrgGraphNode } from './org-graph-node.tsx';
 
@@ -31,10 +31,21 @@ function Inner({ nodes: inNodes, edges: inEdges, onNodeClick }: OrgChartCanvasPr
   const { zoomIn, zoomOut, fitView, getZoom } = useReactFlow();
   const [zoomPct, setZoomPct] = useState(80);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setNodes(inNodes);
     setEdges(inEdges);
   }, [inNodes, inEdges, setNodes, setEdges]);
+
+  const prevNodes = useRef(inNodes.length);
+  useLayoutEffect(() => {
+    // skip first mount — fitOnInit handles it
+    if (prevNodes.current === 0) {
+      prevNodes.current = inNodes.length;
+      return;
+    }
+    prevNodes.current = inNodes.length;
+    fitView({ padding: 0.2 });
+  }, [inNodes, fitView]);
 
   const handleNodeClick: NodeMouseHandler = (_e, node) =>
     onNodeClick((node as Node<OrgGraphNodeData>).data);
