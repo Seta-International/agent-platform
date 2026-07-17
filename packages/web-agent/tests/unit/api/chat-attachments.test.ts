@@ -77,6 +77,11 @@ describe('chatAttachmentsApi', () => {
 
   it('markProcessed throws on a non-ok response', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('nope', { status: 403 }));
-    await expect(chatAttachmentsApi.markProcessed('5')).rejects.toThrow(/403/);
+    // Note: `.rejects.toThrow(/regex/)` mis-reads the rejection's message as '' under
+    // the happy-dom env (vitest 4.1.x) — only async matcher-arg toThrow is affected;
+    // sync toThrow and node-env async work. Assert on the rejection reason directly.
+    await expect(chatAttachmentsApi.markProcessed('5')).rejects.toMatchObject({
+      message: expect.stringContaining('403'),
+    });
   });
 });
