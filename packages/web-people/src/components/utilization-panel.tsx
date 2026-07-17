@@ -1,4 +1,4 @@
-import { Card, ChartLegend, EmptyState, Input } from '@seta/shared-ui';
+import { Button, Card, ChartLegend, EmptyState, Input } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Gauge } from 'lucide-react';
@@ -184,22 +184,22 @@ export function UtilizationPanel() {
               {filtered.length} people · page {safePage} of {pageCount}
             </span>
             <div className="flex gap-2">
-              <button
+              <Button
                 type="button"
-                className="rounded border border-hairline px-2 py-1 disabled:opacity-50"
-                disabled={safePage === 1}
+                variant="secondary"
+                size="sm"
+                isDisabled={safePage === 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Prev
-              </button>
-              <button
+                label="Prev"
+              />
+              <Button
                 type="button"
-                className="rounded border border-hairline px-2 py-1 disabled:opacity-50"
-                disabled={safePage === pageCount}
+                variant="secondary"
+                size="sm"
+                isDisabled={safePage === pageCount}
                 onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-              >
-                Next
-              </button>
+                label="Next"
+              />
             </div>
           </div>
         </>
