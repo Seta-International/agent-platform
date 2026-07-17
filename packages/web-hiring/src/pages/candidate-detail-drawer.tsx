@@ -510,7 +510,7 @@ function CandidateCvActions({
   function handleCvFile(file: File | undefined) {
     if (!file) return;
     if (file.size > CV_MAX_BYTES) {
-      toast.error('CV must be under 10MB');
+      toast({ body: 'CV must be under 10MB', type: 'error' });
       return;
     }
     replace.mutate(file);

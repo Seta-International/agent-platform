@@ -1,3 +1,4 @@
+import { ToastViewport } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -5,13 +6,6 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CandidateDetail } from '../../src/api/hiring-client.ts';
 
-const { toast } = vi.hoisted(() => ({
-  toast: { success: vi.fn(), error: vi.fn() },
-}));
-vi.mock('@seta/shared-ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@seta/shared-ui')>()),
-  toast,
-}));
 const fetchCandidate = vi.fn();
 const moveApplicationStage = vi.fn();
 const editCandidate = vi.fn();
@@ -80,10 +74,14 @@ const detail: CandidateDetail = {
   ],
 };
 
+// ToastViewport is mounted explicitly so useToast resolves through context rather than
+// self-mounting a fallback viewport, which warns and cannot be cleaned up between tests.
 const wrap =
   (qc: QueryClient) =>
   ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    <QueryClientProvider client={qc}>
+      <ToastViewport>{children}</ToastViewport>
+    </QueryClientProvider>
   );
 
 describe('CandidateDetailDrawer', () => {
@@ -175,7 +173,7 @@ describe('CandidateDetailDrawer', () => {
     const input = screen.getByLabelText('Replace') as HTMLInputElement;
     await userEvent.upload(input, big);
 
-    expect(toast.error).toHaveBeenCalledWith('CV must be under 10MB');
+    expect(await screen.findByRole('alert')).toHaveTextContent('CV must be under 10MB');
   });
 
   it('shows No CV on file when cv_storage_key is null', async () => {
