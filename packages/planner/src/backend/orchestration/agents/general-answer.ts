@@ -1,6 +1,10 @@
+import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
+import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { RequestContext } from '@mastra/core/request-context';
+import type { MastraCompositeStore } from '@mastra/core/storage';
+import { MastraStorageExporter, Observability } from '@mastra/observability';
 import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { pickModel } from '../model.ts';
 import {
@@ -12,6 +16,7 @@ import {
 
 export interface QueryGeneralAnswerDeps {
   resolveModel: () => MastraModelConfig;
+  mastraStorage: MastraCompositeStore;
   /** Test-only seam; production builds + runs a real Mastra Agent. */
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
 }
@@ -39,12 +44,30 @@ export function makeQueryGeneralAnswerAgent(
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
-            const agent = new Agent({
-              id: 'planner.query.generalAnswer',
+            const agentId = 'planner.query.generalAnswer';
+            const rawAgent = new Agent({
+              id: agentId,
               name: 'Planner General Answer',
               instructions: INSTRUCTIONS,
               model: pickModel(ctx, deps.resolveModel),
             });
+            const mastra = new Mastra({
+              agents: { [agentId]: rawAgent },
+              storage: deps.mastraStorage,
+              logger: new ConsoleLogger({
+                name: 'Mastra',
+                level: (process.env.MASTRA_LOG_LEVEL as LogLevel) ?? 'warn',
+              }),
+              observability: new Observability({
+                configs: {
+                  default: {
+                    serviceName: 'query-general-answer',
+                    exporters: [new MastraStorageExporter()],
+                  },
+                },
+              }),
+            });
+            const agent = mastra.getAgent(agentId);
             const r = await agent.generate(input.query, {
               requestContext: rc,
               abortSignal: ctx.abortSignal,

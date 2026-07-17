@@ -1,6 +1,10 @@
+import { Mastra } from '@mastra/core';
 import { Agent, type MastraDBMessage } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
+import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { RequestContext } from '@mastra/core/request-context';
+import type { MastraCompositeStore } from '@mastra/core/storage';
+import { MastraStorageExporter, Observability } from '@mastra/observability';
 import type {
   AgentResult,
   AgentTool,
@@ -30,6 +34,7 @@ export interface QueryOrchestratorDeps {
   teamInfo: SubAgent;
   generalAnswer: SubAgent;
   resolveModel: () => MastraModelConfig;
+  mastraStorage: MastraCompositeStore;
   /** Test seam — replaces agent.stream(); returns a minimal output with `.text`. */
   streamAgent?: (args: {
     message: string;
@@ -60,6 +65,8 @@ anything. The current user's identity is implicit — questions about "me/my/I" 
 an id (the delegates resolve the caller from the session). For a NAMED other person, let the
 delegate resolve them; only ask the user to clarify when a name is genuinely ambiguous.`;
 
+const AGENT_ID = 'planner.query.orchestrator';
+
 interface BuiltQueryOrchestrator {
   agent: Agent;
   message: string;
@@ -85,13 +92,32 @@ function buildQueryOrchestrator(
     ctx,
   }) as unknown as Record<string, AgentTool>;
 
-  const agent = new Agent({
-    id: 'planner.query.orchestrator',
+  const rawAgent = new Agent({
+    id: AGENT_ID,
     name: 'Planner Query Orchestrator',
     instructions: INSTRUCTIONS,
     model: pickModel(ctx, deps.resolveModel),
     tools: tools as never,
   });
+
+  const mastra = new Mastra({
+    agents: { [AGENT_ID]: rawAgent },
+    storage: deps.mastraStorage,
+    logger: new ConsoleLogger({
+      name: 'Mastra',
+      level: (process.env.MASTRA_LOG_LEVEL as LogLevel) ?? 'warn',
+    }),
+    observability: new Observability({
+      configs: {
+        default: {
+          serviceName: 'query-orchestrator',
+          exporters: [new MastraStorageExporter()],
+        },
+      },
+    }),
+  });
+
+  const agent = mastra.getAgent(AGENT_ID);
 
   return { agent, message: input.userText, rc, tools };
 }

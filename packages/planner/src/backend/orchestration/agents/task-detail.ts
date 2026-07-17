@@ -1,12 +1,11 @@
+import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
+import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { RequestContext } from '@mastra/core/request-context';
-import type {
-  AgentResult,
-  AgentTool,
-  SpecializedAgentRunCtx,
-  SpecializedAgentSpec,
-} from '@seta/agent-sdk';
+import type { MastraCompositeStore } from '@mastra/core/storage';
+import { MastraStorageExporter, Observability } from '@mastra/observability';
+import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import {
   plannerGetItemActivityTool,
   plannerGetTaskTool,
@@ -32,10 +31,7 @@ export const TASK_DETAIL_TOOL_IDS = [
 
 export interface QueryTaskDetailDeps {
   resolveModel: () => MastraModelConfig;
-  /** Optional tool overrides for eval mocking; default to the real module tools. */
-  getTaskTool?: AgentTool;
-  listCommentsTool?: AgentTool;
-  queryTasksTool?: AgentTool;
+  mastraStorage: MastraCompositeStore;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
 }
 
@@ -82,8 +78,9 @@ export function makeQueryTaskDetailAgent(deps: QueryTaskDetailDeps): Specialized
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
-            const agent = new Agent({
-              id: 'planner.query.taskDetail',
+            const agentId = 'planner.query.taskDetail';
+            const rawAgent = new Agent({
+              id: agentId,
               name: 'Planner Task Detail',
               instructions: INSTRUCTIONS,
               model: pickModel(ctx, deps.resolveModel),
@@ -95,6 +92,23 @@ export function makeQueryTaskDetailAgent(deps: QueryTaskDetailDeps): Specialized
                 planner_queryTasks: deps.queryTasksTool ?? plannerQueryTasksTool,
               } as never,
             });
+            const mastra = new Mastra({
+              agents: { [agentId]: rawAgent },
+              storage: deps.mastraStorage,
+              logger: new ConsoleLogger({
+                name: 'Mastra',
+                level: (process.env.MASTRA_LOG_LEVEL as LogLevel) ?? 'warn',
+              }),
+              observability: new Observability({
+                configs: {
+                  default: {
+                    serviceName: 'query-task-detail',
+                    exporters: [new MastraStorageExporter()],
+                  },
+                },
+              }),
+            });
+            const agent = mastra.getAgent(agentId);
             const r = await agent.generate(input.query, {
               requestContext: rc,
               abortSignal: ctx.abortSignal,

@@ -26,6 +26,7 @@ import { OrchestrationRegistry, type RunStateRepository } from '@seta/shared-orc
 export interface ComposeDeps {
   /** Shared model resolver for every orchestration runtime composed here. */
   resolveModel: () => MastraModelConfig;
+  mastraStorage: MastraCompositeStore;
   /**
    * Embedding provider for the planner Query runtime's find-similar-tasks tool.
    * Only read lazily inside the tool's `execute()` — never at composition
@@ -84,6 +85,7 @@ export function composeRegistries(deps: ComposeDeps): ComposedOrchestrationRunti
   });
   const plannerQueryOrchestration = buildPlannerQueryRuntime({
     resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
     findSimilarTasksTool: plannerFindSimilar,
   });
 

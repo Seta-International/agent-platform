@@ -1,12 +1,11 @@
+import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
+import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { RequestContext } from '@mastra/core/request-context';
-import type {
-  AgentResult,
-  AgentTool,
-  SpecializedAgentRunCtx,
-  SpecializedAgentSpec,
-} from '@seta/agent-sdk';
+import type { MastraCompositeStore } from '@mastra/core/storage';
+import { MastraStorageExporter, Observability } from '@mastra/observability';
+import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import {
   plannerGetGroupOverviewTool,
@@ -37,15 +36,7 @@ export const TEAM_INFO_TOOL_IDS = [
 
 export interface QueryTeamInfoDeps {
   resolveModel: () => MastraModelConfig;
-  /** Optional tool overrides for eval mocking; default to the real module tools. */
-  getGroupOverviewTool?: AgentTool;
-  listPlansTool?: AgentTool;
-  listBucketsTool?: AgentTool;
-  searchGroupMembersBySkillsTool?: AgentTool;
-  /** Non-tool DB seams (default to the real functions); overridden for eval. */
-  listMemberGroupIds?: typeof listMemberGroupIds;
-  buildActorSession?: typeof buildActorSession;
-  listPlans?: typeof listPlans;
+  mastraStorage: MastraCompositeStore;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
 }
 
@@ -114,8 +105,9 @@ export function makeQueryTeamInfoAgent(deps: QueryTeamInfoDeps): SpecializedAgen
               myPlans.map((p) => ({ id: p.id, name: p.name })),
             );
 
-            const agent = new Agent({
-              id: 'planner.query.teamInfo',
+            const agentId = 'planner.query.teamInfo';
+            const rawAgent = new Agent({
+              id: agentId,
               name: 'Planner Team Info',
               instructions: buildInstructions,
               model: pickModel(ctx, deps.resolveModel),
@@ -129,6 +121,23 @@ export function makeQueryTeamInfoAgent(deps: QueryTeamInfoDeps): SpecializedAgen
                   deps.searchGroupMembersBySkillsTool ?? plannerSearchGroupMembersBySkillsTool,
               } as never,
             });
+            const mastra = new Mastra({
+              agents: { [agentId]: rawAgent },
+              storage: deps.mastraStorage,
+              logger: new ConsoleLogger({
+                name: 'Mastra',
+                level: (process.env.MASTRA_LOG_LEVEL as LogLevel) ?? 'warn',
+              }),
+              observability: new Observability({
+                configs: {
+                  default: {
+                    serviceName: 'query-team-info',
+                    exporters: [new MastraStorageExporter()],
+                  },
+                },
+              }),
+            });
+            const agent = mastra.getAgent(agentId);
             const r = await agent.generate(input.query, {
               requestContext: rc,
               abortSignal: ctx.abortSignal,

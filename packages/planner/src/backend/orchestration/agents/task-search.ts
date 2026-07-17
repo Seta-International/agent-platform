@@ -1,6 +1,10 @@
+import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import type { MastraModelConfig } from '@mastra/core/llm';
+import { ConsoleLogger, type LogLevel } from '@mastra/core/logger';
 import { RequestContext } from '@mastra/core/request-context';
+import type { MastraCompositeStore } from '@mastra/core/storage';
+import { MastraStorageExporter, Observability } from '@mastra/observability';
 import type {
   AgentResult,
   AgentTool,
@@ -34,6 +38,7 @@ export const TASK_SEARCH_TOOL_IDS = [
 
 export interface QueryTaskSearchDeps {
   resolveModel: () => MastraModelConfig;
+  mastraStorage: MastraCompositeStore;
   /** Built find-similar tool (factory needs provider + databaseUrl), injected by the runtime. */
   findSimilarTasksTool: AgentTool;
   /** Optional tool overrides for eval mocking; default to the real module tools. */
@@ -95,8 +100,9 @@ export function makeQueryTaskSearchAgent(deps: QueryTaskSearchDeps): Specialized
       const out = deps.runAgent
         ? await deps.runAgent({ input, requestContext: rc })
         : await (async () => {
-            const agent = new Agent({
-              id: 'planner.query.taskSearch',
+            const agentId = 'planner.query.taskSearch';
+            const rawAgent = new Agent({
+              id: agentId,
               name: 'Planner Task Search',
               instructions: buildInstructions(),
               model: pickModel(ctx, deps.resolveModel),
@@ -110,6 +116,23 @@ export function makeQueryTaskSearchAgent(deps: QueryTaskSearchDeps): Specialized
                 planner_resolveMember: deps.resolveMemberTool ?? plannerResolveMemberTool,
               } as never,
             });
+            const mastra = new Mastra({
+              agents: { [agentId]: rawAgent },
+              storage: deps.mastraStorage,
+              logger: new ConsoleLogger({
+                name: 'Mastra',
+                level: (process.env.MASTRA_LOG_LEVEL as LogLevel) ?? 'warn',
+              }),
+              observability: new Observability({
+                configs: {
+                  default: {
+                    serviceName: 'query-task-search',
+                    exporters: [new MastraStorageExporter()],
+                  },
+                },
+              }),
+            });
+            const agent = mastra.getAgent(agentId);
             const r = await agent.generate(input.query, {
               requestContext: rc,
               abortSignal: ctx.abortSignal,

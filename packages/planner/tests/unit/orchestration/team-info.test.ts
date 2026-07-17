@@ -19,6 +19,7 @@ describe('query teamInfoAgent', () => {
   it('returns prose via the seam', async () => {
     const spec = makeQueryTeamInfoAgent({
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
       runAgent: async () => ({ text: 'Your group has 5 members.' }),
     });
     expect(spec.id).toBe('planner.query.teamInfo');

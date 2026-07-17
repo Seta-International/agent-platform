@@ -1,4 +1,5 @@
 import type { MastraModelConfig } from '@mastra/core/llm';
+import type { MastraCompositeStore } from '@mastra/core/storage';
 import { type AgentTool, SpecializedAgentRegistry } from '@seta/agent-sdk';
 import { type ChatStreamRun, OrchestrationRegistry, type RunCtx } from '@seta/shared-orchestration';
 import {
@@ -16,6 +17,7 @@ import { queryOrchestratorSpec } from './orchestrator-spec.ts';
 
 export interface PlannerQueryRuntimeDeps {
   resolveModel: () => MastraModelConfig;
+  mastraStorage: MastraCompositeStore;
   /** Built find-similar tool (factory needs provider + databaseUrl). */
   findSimilarTasksTool: AgentTool;
   /** Test seam forwarded to the orchestrator streamer. */
@@ -32,11 +34,21 @@ export interface PlannerQueryRuntime {
 export function buildPlannerQueryRuntime(deps: PlannerQueryRuntimeDeps): PlannerQueryRuntime {
   const taskSearch = makeQueryTaskSearchAgent({
     resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
     findSimilarTasksTool: deps.findSimilarTasksTool,
   });
-  const taskDetail = makeQueryTaskDetailAgent({ resolveModel: deps.resolveModel });
-  const teamInfo = makeQueryTeamInfoAgent({ resolveModel: deps.resolveModel });
-  const generalAnswer = makeQueryGeneralAnswerAgent({ resolveModel: deps.resolveModel });
+  const taskDetail = makeQueryTaskDetailAgent({
+    resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
+  });
+  const teamInfo = makeQueryTeamInfoAgent({
+    resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
+  });
+  const generalAnswer = makeQueryGeneralAnswerAgent({
+    resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
+  });
 
   const orchestratorDeps: QueryOrchestratorDeps = {
     taskQuery: taskSearch,
@@ -44,6 +56,7 @@ export function buildPlannerQueryRuntime(deps: PlannerQueryRuntimeDeps): Planner
     teamInfo,
     generalAnswer,
     resolveModel: deps.resolveModel,
+    mastraStorage: deps.mastraStorage,
     streamAgent: deps.streamAgent,
   };
 
