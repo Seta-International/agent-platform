@@ -101,4 +101,26 @@ describe('KanbanCard', () => {
     render(<KanbanCard task={base} draggable={{}} />);
     expect(screen.queryByLabelText(/^Sync /)).toBeNull();
   });
+
+  it('omits the hairline footer for a sparse task with no footer content', () => {
+    const sparse: KanbanCardTask = {
+      id: 't2',
+      title: 'Sparse task',
+      priority: 'medium',
+      assignees: [],
+    };
+    render(<KanbanCard task={sparse} draggable={{}} />);
+    expect(document.querySelector('[data-role="card-footer"]')).toBeNull();
+  });
+
+  it('renders the hairline footer when the task has assignees', () => {
+    const withAssignees: KanbanCardTask = {
+      id: 't3',
+      title: 'Task with assignees',
+      priority: 'medium',
+      assignees: [{ user_id: 'u1', display_name: 'Ada Lovelace' }],
+    };
+    render(<KanbanCard task={withAssignees} draggable={{}} />);
+    expect(document.querySelector('[data-role="card-footer"]')).not.toBeNull();
+  });
 });

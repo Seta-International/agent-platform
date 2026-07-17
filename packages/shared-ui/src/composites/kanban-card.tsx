@@ -112,7 +112,14 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
       {task.isCompleted && <span {...stylex.props(styles.doneMarker)}>✓ Done</span>}
     </div>
   );
-  const footer = (
+  const hasFooterContent = Boolean(
+    task.label ||
+      task.start_label ||
+      task.due_label ||
+      (task.checklist_summary && task.checklist_summary.total > 0) ||
+      task.assignees.length > 0,
+  );
+  const footer = hasFooterContent ? (
     <>
       {task.label && <LabelChip name={task.label.name} color={task.label.color} />}
       {(task.start_label || task.due_label) && (
@@ -130,7 +137,7 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
       )}
       <AvatarStack assignees={task.assignees} />
     </>
-  );
+  ) : undefined;
   return (
     <KanbanCardShell
       ariaLabel={`Task: ${task.title}`}

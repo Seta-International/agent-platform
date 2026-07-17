@@ -51,13 +51,12 @@ const styles = stylex.create({
     minHeight: 0,
     padding: 'var(--spacing-4) var(--spacing-2)',
   },
-  // The internal vertical scroll region for the card-list body. Deliberately
-  // NOT on the KanbanCardList droppable node itself, and NOT via LayoutContent's
-  // isScrollable (overflow: auto) or Stack's isScrollable — both would collide
-  // with `.kanban-board`'s own overflow:auto class and shadow it as pangea's
-  // resolved scroll parent, breaking board autoscroll during drag. overflowY/X
-  // here are distinct StyleX properties from that shorthand, so they compile to
-  // a different atomic class.
+  // The card list scrolls here (a non-droppable wrapper), NOT on LayoutContent or
+  // the KanbanCardList droppable itself. pangea resolves a droppable's scroll parent
+  // by computed overflow, so this wrapper becomes the in-column vertical scroll
+  // parent while `.kanban-board` stays the horizontal one. Board drag-autoscroll
+  // across columns must be verified at runtime (e2e); if it regresses, drop this
+  // scrollArea and let overflow scroll at the board level.
   scrollArea: { flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' },
 });
 
