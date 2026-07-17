@@ -12,6 +12,7 @@ import {
   NumberInput,
   RichTextEditor,
   SegmentedControl,
+  SegmentedControlItem,
   Selector,
   useToast,
 } from '@seta/shared-ui';
@@ -292,13 +293,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                     JD detail
                   </div>
                   <SegmentedControl
+                    label="JD variant"
                     value={variant}
-                    onValueChange={(v) => setVariant(v as JdVariant)}
-                    options={[
-                      { value: 'external', label: 'External' },
-                      { value: 'internal', label: 'Internal' },
-                    ]}
-                  />
+                    onChange={(v) => setVariant(v as JdVariant)}
+                  >
+                    <SegmentedControlItem value="external" label="External" />
+                    <SegmentedControlItem value="internal" label="Internal" />
+                  </SegmentedControl>
                 </div>
 
                 {SECTIONS.map((s) => (

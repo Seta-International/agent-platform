@@ -111,7 +111,7 @@ describe('CandidatesPage', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidatesPage />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
-    await userEvent.click(screen.getByRole('tab', { name: 'List' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'List' }));
     const table = await screen.findByRole('table');
     expect(within(table).getByRole('columnheader', { name: /seniority/i })).toBeInTheDocument();
   });
@@ -122,7 +122,7 @@ describe('CandidatesPage', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidatesPage />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Zed Zephyr')).toBeInTheDocument());
-    await user.click(screen.getByRole('tab', { name: 'List' }));
+    await user.click(screen.getByRole('radio', { name: 'List' }));
 
     const table = await screen.findByRole('table');
     // Server order (unsorted): Zed before Ada.
@@ -140,7 +140,7 @@ describe('CandidatesPage', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidatesPage />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Zed Zephyr')).toBeInTheDocument());
-    await user.click(screen.getByRole('tab', { name: 'List' }));
+    await user.click(screen.getByRole('radio', { name: 'List' }));
 
     const table = await screen.findByRole('table');
     expect(within(table).getByRole('columnheader', { name: /seniority/i })).toBeInTheDocument();
@@ -175,7 +175,7 @@ describe('CandidatesPage', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidatesPage />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Candidate 00')).toBeInTheDocument());
-    await user.click(screen.getByRole('tab', { name: 'List' }));
+    await user.click(screen.getByRole('radio', { name: 'List' }));
 
     await screen.findByRole('table');
     expect(screen.getByText('Candidate 00')).toBeInTheDocument();
@@ -213,7 +213,7 @@ describe('CandidatesPage', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidatesPage />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Candidate 00')).toBeInTheDocument());
-    await user.click(screen.getByRole('tab', { name: 'List' }));
+    await user.click(screen.getByRole('radio', { name: 'List' }));
 
     const table = await screen.findByRole('table');
     const pager = screen.getByRole('navigation', { name: /table pagination/i });

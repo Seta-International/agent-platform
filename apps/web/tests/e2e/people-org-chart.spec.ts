@@ -65,8 +65,8 @@ test('account tab renders the default account', async ({ page }) => {
   }
   await page.goto('/people/org');
   await page
-    .getByRole('tablist', { name: 'Org chart view' })
-    .getByRole('tab', { name: 'Account' })
+    .getByRole('radiogroup', { name: 'Org chart view' })
+    .getByRole('radio', { name: 'Account' })
     .click();
 
   await expect(page.locator('.react-flow__node').first()).toBeVisible({ timeout: 10_000 });
@@ -86,8 +86,8 @@ test('account tab: clicking a member opens the worker profile', async ({ page })
   }
   await page.goto('/people/org');
   await page
-    .getByRole('tablist', { name: 'Org chart view' })
-    .getByRole('tab', { name: 'Account' })
+    .getByRole('radiogroup', { name: 'Org chart view' })
+    .getByRole('radio', { name: 'Account' })
     .click();
   await expect(page.locator('.react-flow__node').first()).toBeVisible({ timeout: 10_000 });
 
@@ -106,8 +106,8 @@ test('selection is cached on the URL and restored after reload', async ({ page }
   }
   await page.goto('/people/org');
   await page
-    .getByRole('tablist', { name: 'Org chart view' })
-    .getByRole('tab', { name: 'Account' })
+    .getByRole('radiogroup', { name: 'Org chart view' })
+    .getByRole('radio', { name: 'Account' })
     .click();
 
   // The URL captures the view and the defaulted account selection.

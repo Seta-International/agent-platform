@@ -42,7 +42,6 @@ export * from './composites/left-nav';
 export * from './composites/notification-list-item';
 export * from './composites/notification-popover';
 export * from './composites/resolve-plan-conflicts-dialog';
-export * from './composites/segmented-control';
 export * from './composites/shell-link';
 export * from './composites/side-panel';
 export * from './composites/skill-level-rating';
@@ -96,12 +95,7 @@ export * from './primitives/number-input';
 export * from './primitives/popover';
 export * from './primitives/progress-bar';
 export * from './primitives/radio-group';
-// NOTE: './primitives/segmented-control' is intentionally NOT re-exported here yet.
-// './composites/segmented-control' (line above, in the Composites block) already
-// exports a `SegmentedControl` with an incompatible API and 13 live consumers;
-// re-exporting both under one barrel is a hard TS2308 "already exported a member"
-// error. FUT-669/Task 3 migrates those consumers onto the Astryx primitive and
-// deletes the composite — swap this export in at that point (see task-1-report.md).
+export * from './primitives/segmented-control';
 export * from './primitives/selector';
 export * from './primitives/skeleton';
 export * from './primitives/switch';

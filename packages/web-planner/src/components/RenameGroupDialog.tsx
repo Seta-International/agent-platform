@@ -11,6 +11,7 @@ import {
   LayoutContent,
   LayoutFooter,
   SegmentedControl,
+  SegmentedControlItem,
   Textarea,
   useToast,
 } from '@seta/shared-ui';
@@ -127,12 +128,15 @@ function EditGroupFields({
 
       <Field label="Visibility" inputID={visibilityId} labelID={visibilityId} isGroupLabel>
         <SegmentedControl
-          aria-labelledby={visibilityId}
+          label="Visibility"
           value={visibility}
-          onValueChange={(v) => onVisibilityChange(v as GroupVisibility)}
-          options={VISIBILITY_OPTIONS}
+          onChange={(v) => onVisibilityChange(v as GroupVisibility)}
           size="md"
-        />
+        >
+          {VISIBILITY_OPTIONS.map((o) => (
+            <SegmentedControlItem key={o.value} value={o.value} label={o.label} />
+          ))}
+        </SegmentedControl>
       </Field>
 
       <Field
@@ -142,12 +146,15 @@ function EditGroupFields({
         isGroupLabel
       >
         <SegmentedControl
-          aria-labelledby={defaultRoleId}
+          label="Default role for new members"
           value={defaultRole}
-          onValueChange={(v) => onDefaultRoleChange(v as GroupDefaultRole)}
-          options={DEFAULT_ROLE_OPTIONS}
+          onChange={(v) => onDefaultRoleChange(v as GroupDefaultRole)}
           size="md"
-        />
+        >
+          {DEFAULT_ROLE_OPTIONS.map((o) => (
+            <SegmentedControlItem key={o.value} value={o.value} label={o.label} />
+          ))}
+        </SegmentedControl>
       </Field>
 
       {error && <Banner status="error" title={error} />}

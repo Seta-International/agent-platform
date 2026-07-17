@@ -20,6 +20,7 @@ import {
   proportional,
   type SearchableItem,
   SegmentedControl,
+  SegmentedControlItem,
   Skeleton,
   Table,
   type TableColumn,
@@ -509,12 +510,19 @@ export function AllocationPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <SegmentedControl<'all' | AllocationStatus>
-                      aria-label="Allocation status"
+                    <SegmentedControl
+                      label="Allocation status"
                       value={raw.status ?? 'all'}
-                      onValueChange={(v) => setSearch({ status: v === 'all' ? undefined : v })}
-                      options={STATUS_OPTIONS}
-                    />
+                      onChange={(v) =>
+                        setSearch({
+                          status: v === 'all' ? undefined : (v as AllocationStatus),
+                        })
+                      }
+                    >
+                      {STATUS_OPTIONS.map((o) => (
+                        <SegmentedControlItem key={o.value} value={o.value} label={o.label} />
+                      ))}
+                    </SegmentedControl>
                     <Typeahead
                       className="h-8 w-44"
                       label="Account"

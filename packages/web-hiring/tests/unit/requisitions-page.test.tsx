@@ -80,7 +80,7 @@ async function renderListView(rows: RequisitionListRow[]) {
   const user = userEvent.setup();
   render(<RequisitionsPage />, { wrapper: wrap(qc) });
   await waitFor(() => expect(screen.getByText(rows[0].title)).toBeInTheDocument());
-  await user.click(screen.getByRole('tab', { name: 'List' }));
+  await user.click(screen.getByRole('radio', { name: 'List' }));
   const table = await screen.findByRole('table');
   return { user, table };
 }

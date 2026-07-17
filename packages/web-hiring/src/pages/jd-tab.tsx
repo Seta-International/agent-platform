@@ -1,4 +1,11 @@
-import { Button, RichTextEditor, SegmentedControl, Selector, useToast } from '@seta/shared-ui';
+import {
+  Button,
+  RichTextEditor,
+  SegmentedControl,
+  SegmentedControlItem,
+  Selector,
+  useToast,
+} from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -73,13 +80,13 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <SegmentedControl
+          label="JD variant"
           value={variant}
-          onValueChange={(v) => setVariant(v as JdVariant)}
-          options={[
-            { value: 'external', label: 'External' },
-            { value: 'internal', label: 'Internal' },
-          ]}
-        />
+          onChange={(v) => setVariant(v as JdVariant)}
+        >
+          <SegmentedControlItem value="external" label="External" />
+          <SegmentedControlItem value="internal" label="Internal" />
+        </SegmentedControl>
         {canManage && (
           <div className="flex items-center gap-2">
             {(templates.data?.length ?? 0) > 0 && (

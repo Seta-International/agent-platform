@@ -1,4 +1,4 @@
-import { FilterPill, Input, SegmentedControl } from '@seta/shared-ui';
+import { FilterPill, Input, SegmentedControl, SegmentedControlItem } from '@seta/shared-ui';
 import { LayoutGrid, List, MoreHorizontal, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -39,19 +39,11 @@ const DUE_OPTIONS = [
   { value: 'no_date', label: 'No date' },
 ] as const;
 
+// Astryx's SegmentedControlItem has no per-item accessible-name override — the visible
+// `label` below (paired with the container's "View" label) is the item's accessible name.
 const VIEW_OPTIONS = [
-  {
-    value: 'list' as const,
-    label: 'List',
-    icon: <List className="size-3.5" />,
-    ariaLabel: 'List view',
-  },
-  {
-    value: 'grid' as const,
-    label: 'Grid',
-    icon: <LayoutGrid className="size-3.5" />,
-    ariaLabel: 'Grid view',
-  },
+  { value: 'list' as const, label: 'List', icon: <List className="size-3.5" /> },
+  { value: 'grid' as const, label: 'Grid', icon: <LayoutGrid className="size-3.5" /> },
 ];
 
 export function MyTasksToolbar({
@@ -119,11 +111,14 @@ export function MyTasksToolbar({
         <span aria-hidden="true" className="mx-1 h-5 border-l border-hairline" />
 
         <SegmentedControl
-          aria-label="View"
+          label="View"
           value={value.view}
-          onValueChange={(next) => onChange({ view: next })}
-          options={VIEW_OPTIONS}
-        />
+          onChange={(next) => onChange({ view: next as MyTasksToolbarValue['view'] })}
+        >
+          {VIEW_OPTIONS.map((o) => (
+            <SegmentedControlItem key={o.value} value={o.value} label={o.label} icon={o.icon} />
+          ))}
+        </SegmentedControl>
       </div>
 
       <div className="flex items-center gap-1.5">
