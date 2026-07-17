@@ -22,7 +22,6 @@ export * from './composites/chat-transcript';
 export * from './composites/coming-soon';
 export * from './composites/counter-badge-popover';
 export * from './composites/disabled-action-tooltip';
-export * from './composites/dropzone';
 export * from './composites/empty-state';
 export * from './composites/entity-search';
 export * from './composites/field-conflict-row';
