@@ -1,6 +1,8 @@
 import type { GroupRow } from '@seta/planner';
 import type { SyncState } from '@seta/shared-ui';
 import {
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   DisabledActionTooltip,
   DropdownMenu,
@@ -9,8 +11,7 @@ import {
   SyncBadge,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { Link } from '@tanstack/react-router';
-import { ChevronRight, MoreHorizontal, Pencil, Plus, Shield, Users } from 'lucide-react';
+import { MoreHorizontal, Pencil, Plus, Shield, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useRefreshGroupSync } from '../hooks/mutations/refresh-group-sync';
 import { useGroupSyncStatus } from '../hooks/queries/use-group-sync-status';
@@ -62,11 +63,6 @@ export function GroupDetailHeader({
   const badgeState = isLinked ? toSyncBadgeState(rawSyncStatus) : null;
   const refresh = useRefreshGroupSync(group.id);
 
-  const breadcrumb = [
-    { label: 'Planner', to: '/planner/groups' as const },
-    { label: 'Groups', to: '/planner/groups' as const },
-  ] as const;
-
   return (
     <>
       <header className="flex h-14 flex-none items-center justify-between gap-4 border-b border-hairline bg-canvas px-6">
@@ -75,22 +71,11 @@ export function GroupDetailHeader({
             <GroupTile name={group.name} theme={group.theme} size={32} />
           </div>
           <div className="flex min-w-0 flex-col gap-0.5">
-            <nav
-              aria-label="Breadcrumb"
-              className="flex items-center gap-1.5 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle"
-            >
-              {breadcrumb.map((crumb, i) => (
-                <span key={crumb.label} className="flex items-center gap-1.5">
-                  {i > 0 && <ChevronRight aria-hidden className="size-2.5 text-ink-tertiary" />}
-                  <Link
-                    to={crumb.to}
-                    className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-                  >
-                    {crumb.label}
-                  </Link>
-                </span>
-              ))}
-            </nav>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+              <BreadcrumbItem href="/planner/groups">Groups</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>{group.name}</BreadcrumbItem>
+            </Breadcrumbs>
             <div className="flex min-w-0 items-baseline gap-3">
               <h1 className="text-card-title m-0 truncate font-semibold tracking-tight text-ink">
                 {group.name}

@@ -1,19 +1,13 @@
 import {
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   DisabledActionTooltip,
   DropdownMenu,
   DropdownMenuItem,
   KbdHint,
 } from '@seta/shared-ui';
-import { Link } from '@tanstack/react-router';
-import {
-  ArrowRightLeft,
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  MoreHorizontal,
-  Sparkles,
-} from 'lucide-react';
+import { ArrowRightLeft, Copy, MoreHorizontal, Sparkles } from 'lucide-react';
 import { type ReactNode, useEffect } from 'react';
 
 interface Props {
@@ -86,59 +80,34 @@ export function TaskDetailHeader({
   return (
     <header className="border-b border-hairline overflow-x-auto">
       <div className="min-w-[1040px] px-7 pt-4 pb-3">
-        <div className="mb-3 flex items-center gap-2 text-xs text-ink-subtle">
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="Back to board"
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-surface-1"
-          >
-            <ChevronLeft className="size-3" />
-            Back to board
-          </button>
-          <span>·</span>
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1">
-            <Link
-              to="/planner/groups"
-              className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-            >
-              Planner
-            </Link>
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
+        <div className="mb-3">
+          <Breadcrumbs variant="supporting">
+            <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
             {groupId ? (
-              <Link
-                to="/planner/groups/$groupId"
-                params={{ groupId }}
-                className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-              >
-                {groupName}
-              </Link>
+              <BreadcrumbItem href={`/planner/groups/${groupId}`}>{groupName}</BreadcrumbItem>
             ) : (
-              <span>{groupName}</span>
+              <BreadcrumbItem>{groupName}</BreadcrumbItem>
             )}
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
             {planId ? (
-              <Link
-                to="/planner/plans/$planId"
-                params={{ planId }}
-                className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
+              // Keeps a real href so the crumb is a genuine link; a modified click (cmd/ctrl/shift)
+              // falls through to real navigation (new tab / new window), while a plain click
+              // intercepts and returns to the board in place instead of navigating.
+              <BreadcrumbItem
+                href={`/planner/plans/${planId}`}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                  e.preventDefault();
+                  onBack();
+                }}
               >
                 {planName}
-              </Link>
+              </BreadcrumbItem>
             ) : (
-              <span>{planName}</span>
+              <BreadcrumbItem>{planName}</BreadcrumbItem>
             )}
-            {bucketName && (
-              <>
-                <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-                <span className="text-primary">{bucketName}</span>
-              </>
-            )}
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-            <span className="mono inline-flex items-center rounded bg-surface-2 px-1.5 py-0.5 text-ink-muted">
-              T-{taskNumber}
-            </span>
-          </nav>
+            {bucketName && <BreadcrumbItem>{bucketName}</BreadcrumbItem>}
+            <BreadcrumbItem isCurrent>{`T-${taskNumber}`}</BreadcrumbItem>
+          </Breadcrumbs>
         </div>
 
         <div className="flex items-start gap-4">

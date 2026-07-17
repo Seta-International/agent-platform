@@ -1,9 +1,16 @@
 import {
+  BreadcrumbItem,
+  Breadcrumbs,
   createStaticSource,
-  PageChrome,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   type SearchableItem,
   SegmentedControl,
+  Text,
   Typeahead,
+  VStack,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -149,79 +156,101 @@ export function OrgChartPage() {
   const isEmpty = graph.nodes.length === 0;
 
   return (
-    <PageChrome title="Org Chart">
-      <div className="flex h-[calc(100vh-9rem)] flex-col gap-3 p-4">
-        <div className="flex items-center gap-3">
-          <SegmentedControl
-            aria-label="Org chart view"
-            value={view}
-            onValueChange={(v) => setSearch({ view: v as OrgView })}
-            options={[
-              { value: 'company', label: 'Company' },
-              { value: 'department', label: 'Department' },
-              { value: 'account', label: 'Account' },
-              { value: 'project', label: 'Project' },
-            ]}
-          />
-          {view === 'account' ? (
-            <div className="w-64">
-              <Typeahead
-                label="Account"
-                isLabelHidden
-                searchSource={accountSource}
-                debounceMs={0}
-                hasEntriesOnFocus
-                value={accountValue}
-                onChange={(item) => setSearch({ account: item?.id ?? undefined })}
-                placeholder="Select account…"
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/people">People</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Org Chart</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Org Chart
+                </Text>
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="flex h-[calc(100vh-9rem)] flex-col gap-3 p-4">
+            <div className="flex items-center gap-3">
+              <SegmentedControl
+                aria-label="Org chart view"
+                value={view}
+                onValueChange={(v) => setSearch({ view: v as OrgView })}
+                options={[
+                  { value: 'company', label: 'Company' },
+                  { value: 'department', label: 'Department' },
+                  { value: 'account', label: 'Account' },
+                  { value: 'project', label: 'Project' },
+                ]}
               />
+              {view === 'account' ? (
+                <div className="w-64">
+                  <Typeahead
+                    label="Account"
+                    isLabelHidden
+                    searchSource={accountSource}
+                    debounceMs={0}
+                    hasEntriesOnFocus
+                    value={accountValue}
+                    onChange={(item) => setSearch({ account: item?.id ?? undefined })}
+                    placeholder="Select account…"
+                  />
+                </div>
+              ) : null}
+              {view === 'project' ? (
+                <div className="w-72">
+                  <Typeahead
+                    label="Project"
+                    isLabelHidden
+                    searchSource={projectSource}
+                    debounceMs={0}
+                    hasEntriesOnFocus
+                    value={projectValue}
+                    onChange={(item) => setSearch({ project: item?.id ?? undefined })}
+                    placeholder="Select project…"
+                  />
+                </div>
+              ) : null}
+              {view === 'department' ? (
+                <div className="w-64">
+                  <Typeahead
+                    label="Department"
+                    isLabelHidden
+                    searchSource={departmentSource}
+                    debounceMs={0}
+                    hasEntriesOnFocus
+                    value={departmentValue}
+                    onChange={(item) => setSearch({ department: item?.id ?? undefined })}
+                    placeholder="Select department…"
+                  />
+                </div>
+              ) : null}
+              <ChartLegend />
             </div>
-          ) : null}
-          {view === 'project' ? (
-            <div className="w-72">
-              <Typeahead
-                label="Project"
-                isLabelHidden
-                searchSource={projectSource}
-                debounceMs={0}
-                hasEntriesOnFocus
-                value={projectValue}
-                onChange={(item) => setSearch({ project: item?.id ?? undefined })}
-                placeholder="Select project…"
-              />
+            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-hairline">
+              {isLoading ? (
+                <div className="grid h-full place-items-center text-caption text-ink-subtle">
+                  Loading…
+                </div>
+              ) : isEmpty ? (
+                <div className="grid h-full place-items-center text-caption text-ink-subtle">
+                  Nothing to show in your scope.
+                </div>
+              ) : (
+                <OrgChartCanvas nodes={graph.nodes} edges={graph.edges} onNodeClick={onNodeClick} />
+              )}
             </div>
-          ) : null}
-          {view === 'department' ? (
-            <div className="w-64">
-              <Typeahead
-                label="Department"
-                isLabelHidden
-                searchSource={departmentSource}
-                debounceMs={0}
-                hasEntriesOnFocus
-                value={departmentValue}
-                onChange={(item) => setSearch({ department: item?.id ?? undefined })}
-                placeholder="Select department…"
-              />
-            </div>
-          ) : null}
-          <ChartLegend />
-        </div>
-        <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-hairline">
-          {isLoading ? (
-            <div className="grid h-full place-items-center text-caption text-ink-subtle">
-              Loading…
-            </div>
-          ) : isEmpty ? (
-            <div className="grid h-full place-items-center text-caption text-ink-subtle">
-              Nothing to show in your scope.
-            </div>
-          ) : (
-            <OrgChartCanvas nodes={graph.nodes} edges={graph.edges} onNodeClick={onNodeClick} />
-          )}
-        </div>
-      </div>
-    </PageChrome>
+          </div>
+        </LayoutContent>
+      }
+    />
   );
 }
 

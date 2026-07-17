@@ -1,15 +1,43 @@
-import { Card, PageChrome } from '@seta/shared-ui';
+import {
+  BreadcrumbItem,
+  Breadcrumbs,
+  Card,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  Text,
+  VStack,
+} from '@seta/shared-ui';
 import type { ReactNode } from 'react';
 
-// Shared frame for every Settings page: the shell supplies the "Seta › Settings"
-// breadcrumb and left nav, so each page only owns its title and body.
+// Shared frame for every Settings page: the shell supplies the left nav, and
+// this surface owns the "Settings › <title>" breadcrumb trail plus the title
+// and body for every settings route.
 export function SettingsSurface({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <PageChrome title={title} className="flex min-h-0 flex-1 flex-col">
-      <div className="bg-surface-1 min-h-full">
-        <div className="page-container space-y-5">{children}</div>
-      </div>
-    </PageChrome>
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/settings">Settings</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>{title}</BreadcrumbItem>
+            </Breadcrumbs>
+            <Text as="h1" size="lg" weight="semibold">
+              {title}
+            </Text>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="bg-surface-1 min-h-full">
+            <div className="page-container space-y-5">{children}</div>
+          </div>
+        </LayoutContent>
+      }
+    />
   );
 }
 

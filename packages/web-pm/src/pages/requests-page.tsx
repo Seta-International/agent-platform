@@ -1,13 +1,18 @@
 import {
   Badge,
   Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Card,
   Checkbox,
   type ColumnSettingsOption,
   EmptyState,
+  HStack,
   Input,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   Popover,
   paginateData,
   pixel,
@@ -17,12 +22,14 @@ import {
   Skeleton,
   Table,
   type TableColumn,
+  Text,
   useSeededItems,
   useTableColumnSettings,
   useTableColumnSettingsState,
   useTablePagination,
   useTableSortable,
   useTableSortableState,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -454,248 +461,277 @@ export function RequestsPage() {
   const filtered = status != null || account != null || (q ?? '') !== '';
 
   return (
-    <PageChrome
-      title="Project Requests"
-      subtitle="Project Monitoring · Governance — a PM submits a charter → PMO sign-off → BoD approval → the project is created in the portfolio → staffing & access (R&R) is granted per person."
-      actions={actions}
-    >
-      <div className="page-container space-y-4 p-6">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Kpi label="Total requests" value={String(summary?.total ?? 0)} icon={FileText} />
-          <Kpi
-            label="Awaiting PMO"
-            value={String(summary?.submitted ?? 0)}
-            sub="PMO sign-off required"
-            tone="warning"
-            icon={Clock}
-            active={status === 'submitted'}
-            onClick={() => update({ status: status === 'submitted' ? undefined : 'submitted' })}
-          />
-          <Kpi
-            label="Awaiting BoD"
-            value={String(summary?.pmo_approved ?? 0)}
-            sub="Board approval required"
-            tone="warning"
-            icon={Gavel}
-            active={status === 'pmo_approved'}
-            onClick={() =>
-              update({ status: status === 'pmo_approved' ? undefined : 'pmo_approved' })
-            }
-          />
-          <Kpi
-            label="Approved · created"
-            value={String(summary?.approved ?? 0)}
-            sub={`${summary?.rejected ?? 0} rejected`}
-            tone="positive"
-            icon={CheckCircle2}
-            active={status === 'approved'}
-            onClick={() => update({ status: status === 'approved' ? undefined : 'approved' })}
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Selector
-            label="Filter by status"
-            isLabelHidden
-            options={[
-              { value: 'all', label: 'All statuses' },
-              ...STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
-            ]}
-            value={status ?? 'all'}
-            onChange={(v) => update({ status: v === 'all' ? undefined : (v as CharterStatus) })}
-            placeholder="Status"
-          />
-
-          <Selector
-            label="Filter by account"
-            isLabelHidden
-            options={[
-              { value: 'all', label: 'All accounts' },
-              ...(accounts ?? []).map((a) => ({ value: a.account_id, label: a.name })),
-            ]}
-            value={account ?? 'all'}
-            onChange={(v) => update({ account: v === 'all' ? undefined : v })}
-            placeholder="Account"
-          />
-
-          <Input
-            label="Search project name"
-            isLabelHidden
-            value={searchInput}
-            onChange={(value) => setSearchInput(value)}
-            placeholder="Search project name…"
-            className="w-[220px]"
-          />
-
-          <div className="ml-auto flex items-center gap-2">
-            <Selector
-              label="Sort by"
-              isLabelHidden
-              options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-              value={sort}
-              onChange={(v) => update({ sort: v as RequestsSearch['sort'] })}
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              isIconOnly
-              label={dir === 'asc' ? 'Ascending' : 'Descending'}
-              onClick={() => update({ dir: dir === 'asc' ? 'desc' : 'asc' })}
-              icon={
-                dir === 'asc' ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />
-              }
-            />
-            <SegmentedControl
-              value={view}
-              onValueChange={(v) => update({ view: v as 'cards' | 'table' }, false)}
-              options={[
-                { value: 'cards', label: 'Cards' },
-                { value: 'table', label: 'Table' },
-              ]}
-            />
-          </div>
-        </div>
-
-        {error ? (
-          <Banner status="error" title={(error as Error).message} />
-        ) : rows.length === 0 ? (
-          <EmptyState
-            icon={<ClipboardList className="size-6" />}
-            title={filtered ? 'No requests match these filters' : 'No requests yet'}
-            description={
-              filtered
-                ? 'Try clearing the status, account, or search filters.'
-                : 'Submit a project charter to get started.'
-            }
-            action={
-              filtered
-                ? {
-                    label: 'Clear filters',
-                    onClick: () => update({ status: undefined, account: undefined, q: undefined }),
-                  }
-                : undefined
-            }
-          />
-        ) : view === 'table' ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <Input
-                label="Search this page"
-                isLabelHidden
-                className="max-w-sm"
-                placeholder="Search…"
-                value={tableSearch}
-                onChange={(value) => {
-                  setTableSearch(value);
-                  setTablePage(1);
-                }}
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Project Requests</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Project Requests
+                </Text>
+                <Text color="secondary">
+                  Project Monitoring · Governance — a PM submits a charter → PMO sign-off → BoD
+                  approval → the project is created in the portfolio → staffing & access (R&R) is
+                  granted per person.
+                </Text>
+              </HStack>
+              {actions}
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="page-container space-y-4 p-6">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <Kpi label="Total requests" value={String(summary?.total ?? 0)} icon={FileText} />
+              <Kpi
+                label="Awaiting PMO"
+                value={String(summary?.submitted ?? 0)}
+                sub="PMO sign-off required"
+                tone="warning"
+                icon={Clock}
+                active={status === 'submitted'}
+                onClick={() => update({ status: status === 'submitted' ? undefined : 'submitted' })}
               />
-              <Popover
-                placement="below"
-                alignment="end"
-                label="Toggle columns"
-                content={
-                  <div className="flex min-w-[180px] flex-col gap-1 p-2">
-                    <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
-                      Toggle columns
-                    </div>
-                    {TABLE_COLUMN_OPTIONS.map((col) => (
-                      <Checkbox
-                        key={col.key}
-                        label={col.label}
-                        value={tableColumnSettingsState.isColumnActive(col.key)}
-                        onChange={() => tableColumnSettingsState.toggleColumn(col.key)}
-                      />
-                    ))}
-                  </div>
+              <Kpi
+                label="Awaiting BoD"
+                value={String(summary?.pmo_approved ?? 0)}
+                sub="Board approval required"
+                tone="warning"
+                icon={Gavel}
+                active={status === 'pmo_approved'}
+                onClick={() =>
+                  update({ status: status === 'pmo_approved' ? undefined : 'pmo_approved' })
                 }
-              >
+              />
+              <Kpi
+                label="Approved · created"
+                value={String(summary?.approved ?? 0)}
+                sub={`${summary?.rejected ?? 0} rejected`}
+                tone="positive"
+                icon={CheckCircle2}
+                active={status === 'approved'}
+                onClick={() => update({ status: status === 'approved' ? undefined : 'approved' })}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Selector
+                label="Filter by status"
+                isLabelHidden
+                options={[
+                  { value: 'all', label: 'All statuses' },
+                  ...STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+                ]}
+                value={status ?? 'all'}
+                onChange={(v) => update({ status: v === 'all' ? undefined : (v as CharterStatus) })}
+                placeholder="Status"
+              />
+
+              <Selector
+                label="Filter by account"
+                isLabelHidden
+                options={[
+                  { value: 'all', label: 'All accounts' },
+                  ...(accounts ?? []).map((a) => ({ value: a.account_id, label: a.name })),
+                ]}
+                value={account ?? 'all'}
+                onChange={(v) => update({ account: v === 'all' ? undefined : v })}
+                placeholder="Account"
+              />
+
+              <Input
+                label="Search project name"
+                isLabelHidden
+                value={searchInput}
+                onChange={(value) => setSearchInput(value)}
+                placeholder="Search project name…"
+                className="w-[220px]"
+              />
+
+              <div className="ml-auto flex items-center gap-2">
+                <Selector
+                  label="Sort by"
+                  isLabelHidden
+                  options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                  value={sort}
+                  onChange={(v) => update({ sort: v as RequestsSearch['sort'] })}
+                />
                 <Button
                   variant="secondary"
                   size="sm"
-                  icon={<Settings2 className="size-3.5" />}
-                  label="Columns"
+                  isIconOnly
+                  label={dir === 'asc' ? 'Ascending' : 'Descending'}
+                  onClick={() => update({ dir: dir === 'asc' ? 'desc' : 'asc' })}
+                  icon={
+                    dir === 'asc' ? (
+                      <ArrowUp className="size-4" />
+                    ) : (
+                      <ArrowDown className="size-4" />
+                    )
+                  }
                 />
-              </Popover>
-            </div>
-            {isLoading ? (
-              <div className="space-y-2">
-                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
-                  <Skeleton key={id} height={40} />
-                ))}
+                <SegmentedControl
+                  value={view}
+                  onValueChange={(v) => update({ view: v as 'cards' | 'table' }, false)}
+                  options={[
+                    { value: 'cards', label: 'Cards' },
+                    { value: 'table', label: 'Table' },
+                  ]}
+                />
               </div>
-            ) : (
-              <Table
-                data={tablePageRows}
-                columns={columns}
-                idKey="charter_id"
-                plugins={{
-                  pagination: tablePagination,
-                  sortable: tableSortable,
-                  columnSettings: tableColumnSettings,
-                  rowClick: {
-                    transformBodyRow: (props, item) => ({
-                      ...props,
-                      htmlProps: {
-                        ...props.htmlProps,
-                        style: { ...props.htmlProps.style, cursor: 'pointer' },
-                        onClick: () => open(item.charter_id),
-                      },
-                    }),
-                  },
-                }}
-                emptyState={
-                  tableSearch.trim() ? (
-                    <EmptyState
-                      title="No results match these filters"
-                      description="Try removing a filter or clearing your search."
-                      action={{ label: 'Clear filters', onClick: () => setTableSearch('') }}
-                    />
-                  ) : undefined
+            </div>
+
+            {error ? (
+              <Banner status="error" title={(error as Error).message} />
+            ) : rows.length === 0 ? (
+              <EmptyState
+                icon={<ClipboardList className="size-6" />}
+                title={filtered ? 'No requests match these filters' : 'No requests yet'}
+                description={
+                  filtered
+                    ? 'Try clearing the status, account, or search filters.'
+                    : 'Submit a project charter to get started.'
+                }
+                action={
+                  filtered
+                    ? {
+                        label: 'Clear filters',
+                        onClick: () =>
+                          update({ status: undefined, account: undefined, q: undefined }),
+                      }
+                    : undefined
                 }
               />
+            ) : view === 'table' ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Input
+                    label="Search this page"
+                    isLabelHidden
+                    className="max-w-sm"
+                    placeholder="Search…"
+                    value={tableSearch}
+                    onChange={(value) => {
+                      setTableSearch(value);
+                      setTablePage(1);
+                    }}
+                  />
+                  <Popover
+                    placement="below"
+                    alignment="end"
+                    label="Toggle columns"
+                    content={
+                      <div className="flex min-w-[180px] flex-col gap-1 p-2">
+                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                          Toggle columns
+                        </div>
+                        {TABLE_COLUMN_OPTIONS.map((col) => (
+                          <Checkbox
+                            key={col.key}
+                            label={col.label}
+                            value={tableColumnSettingsState.isColumnActive(col.key)}
+                            onChange={() => tableColumnSettingsState.toggleColumn(col.key)}
+                          />
+                        ))}
+                      </div>
+                    }
+                  >
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Settings2 className="size-3.5" />}
+                      label="Columns"
+                    />
+                  </Popover>
+                </div>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                      <Skeleton key={id} height={40} />
+                    ))}
+                  </div>
+                ) : (
+                  <Table
+                    data={tablePageRows}
+                    columns={columns}
+                    idKey="charter_id"
+                    plugins={{
+                      pagination: tablePagination,
+                      sortable: tableSortable,
+                      columnSettings: tableColumnSettings,
+                      rowClick: {
+                        transformBodyRow: (props, item) => ({
+                          ...props,
+                          htmlProps: {
+                            ...props.htmlProps,
+                            style: { ...props.htmlProps.style, cursor: 'pointer' },
+                            onClick: () => open(item.charter_id),
+                          },
+                        }),
+                      },
+                    }}
+                    emptyState={
+                      tableSearch.trim() ? (
+                        <EmptyState
+                          title="No results match these filters"
+                          description="Try removing a filter or clearing your search."
+                          action={{ label: 'Clear filters', onClick: () => setTableSearch('') }}
+                        />
+                      ) : undefined
+                    }
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {rows.map((r) => (
+                  <RequestCard
+                    key={r.charter_id}
+                    row={r}
+                    accountName={accountName(r.account_id)}
+                    pmName={pmName(r.pm_worker_id)}
+                    onOpen={() => open(r.charter_id)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {pageCount > 1 && (
+              <div className="flex items-center justify-end gap-3">
+                <span className="text-caption text-ink-muted">
+                  Page {page} of {pageCount} · {total} total
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  isIconOnly
+                  label="Previous page"
+                  isDisabled={page <= 1}
+                  onClick={() => update({ page: page - 1 }, false)}
+                  icon={<ChevronLeft className="size-4" />}
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  isIconOnly
+                  label="Next page"
+                  isDisabled={page >= pageCount}
+                  onClick={() => update({ page: page + 1 }, false)}
+                  icon={<ChevronRight className="size-4" />}
+                />
+              </div>
             )}
           </div>
-        ) : (
-          <div className="space-y-3">
-            {rows.map((r) => (
-              <RequestCard
-                key={r.charter_id}
-                row={r}
-                accountName={accountName(r.account_id)}
-                pmName={pmName(r.pm_worker_id)}
-                onOpen={() => open(r.charter_id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {pageCount > 1 && (
-          <div className="flex items-center justify-end gap-3">
-            <span className="text-caption text-ink-muted">
-              Page {page} of {pageCount} · {total} total
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
-              isIconOnly
-              label="Previous page"
-              isDisabled={page <= 1}
-              onClick={() => update({ page: page - 1 }, false)}
-              icon={<ChevronLeft className="size-4" />}
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              isIconOnly
-              label="Next page"
-              isDisabled={page >= pageCount}
-              onClick={() => update({ page: page + 1 }, false)}
-              icon={<ChevronRight className="size-4" />}
-            />
-          </div>
-        )}
-      </div>
-    </PageChrome>
+        </LayoutContent>
+      }
+    />
   );
 }

@@ -144,3 +144,22 @@ describe('AllocationPage (Astryx Table migration)', () => {
     expect(within(table).getByText('No allocations')).toBeInTheDocument();
   });
 });
+
+describe('AllocationPage — breadcrumb trail (Astryx migration, FUT-668)', () => {
+  it('renders the root + current crumb trail and the h1', async () => {
+    mockFetchAllocationGrid.mockResolvedValue(baseGrid);
+    renderPage();
+
+    await screen.findByRole('table');
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'People' });
+    expect(rootCrumb).toHaveAttribute('href', '/people');
+
+    // Current (terminal) crumb — manifest label and page title agree here.
+    expect(within(nav).getByText('Resource Allocation').closest('a')).toBeNull();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Resource Allocation' }),
+    ).toBeInTheDocument();
+  });
+});

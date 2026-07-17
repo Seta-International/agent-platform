@@ -1,5 +1,7 @@
 import {
   Avatar,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Card,
   Checkbox,
@@ -7,8 +9,11 @@ import {
   cn,
   createStaticSource,
   EmptyState,
+  HStack,
   Input,
-  PageChrome,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   Popover,
   paginateData,
   pixel,
@@ -18,12 +23,14 @@ import {
   Skeleton,
   Table,
   type TableColumn,
+  Text,
   Typeahead,
   useTableColumnSettings,
   useTableColumnSettingsState,
   useTablePagination,
   useTableSortable,
   useTableSortableState,
+  VStack,
 } from '@seta/shared-ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -383,205 +390,227 @@ export function AllocationPage() {
   ).length;
 
   return (
-    <PageChrome title="Resource Allocation">
-      <div className="space-y-4 p-6">
-        {error ? (
-          <Card className="p-4 text-body-sm text-[color:var(--color-danger)]">
-            {(error as Error).message}
-          </Card>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Kpi
-                label="Avg. utilization"
-                value={`${kpis?.avg_utilization ?? 0}%`}
-                sub="target ≥ 85%"
-                tone={(kpis?.avg_utilization ?? 0) >= 85 ? 'positive' : 'warning'}
-              />
-              <Kpi
-                label="Over-allocated"
-                value={`${kpis?.over_allocated_count ?? 0}`}
-                sub="> 100% some month"
-                tone={kpis?.over_allocated_count ? 'accent' : 'positive'}
-              />
-              <Kpi
-                label="Members"
-                value={`${kpis?.member_count ?? 0}`}
-                sub={`${kpis?.project_count ?? 0} projects`}
-              />
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-3">
-                  <Input
-                    label="Search name or worker ID"
-                    isLabelHidden
-                    className="w-64"
-                    size="sm"
-                    placeholder="Search name or worker ID…"
-                    value={searchInput}
-                    onChange={(value) => setSearchInput(value)}
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/people">People</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Resource Allocation</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Resource Allocation
+                </Text>
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          <div className="space-y-4 p-6">
+            {error ? (
+              <Card className="p-4 text-body-sm text-[color:var(--color-danger)]">
+                {(error as Error).message}
+              </Card>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Kpi
+                    label="Avg. utilization"
+                    value={`${kpis?.avg_utilization ?? 0}%`}
+                    sub="target ≥ 85%"
+                    tone={(kpis?.avg_utilization ?? 0) >= 85 ? 'positive' : 'warning'}
                   />
-                  <span className="hidden text-ink-tertiary select-none sm:inline">|</span>
-                  {activeFiltersCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchInput('');
-                        setSearch({
-                          q: undefined,
-                          status: undefined,
-                          account: undefined,
-                          project: undefined,
-                          bucket: undefined,
-                        });
-                      }}
-                      className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-primary transition-opacity hover:opacity-80 focus:outline-none"
-                    >
-                      <X className="size-3.5" />
-                      Clear filters ({activeFiltersCount})
-                    </button>
-                  )}
-                  <div className="flex items-center gap-2 text-body-sm text-ink-muted">
-                    <span className="flex items-center gap-1 font-medium text-ink">
-                      <User className="size-3.5 text-ink-muted" />
-                      {rowCount} {rowCount === 1 ? 'row' : 'rows'}
-                    </span>
+                  <Kpi
+                    label="Over-allocated"
+                    value={`${kpis?.over_allocated_count ?? 0}`}
+                    sub="> 100% some month"
+                    tone={kpis?.over_allocated_count ? 'accent' : 'positive'}
+                  />
+                  <Kpi
+                    label="Members"
+                    value={`${kpis?.member_count ?? 0}`}
+                    sub={`${kpis?.project_count ?? 0} projects`}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Input
+                        label="Search name or worker ID"
+                        isLabelHidden
+                        className="w-64"
+                        size="sm"
+                        placeholder="Search name or worker ID…"
+                        value={searchInput}
+                        onChange={(value) => setSearchInput(value)}
+                      />
+                      <span className="hidden text-ink-tertiary select-none sm:inline">|</span>
+                      {activeFiltersCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchInput('');
+                            setSearch({
+                              q: undefined,
+                              status: undefined,
+                              account: undefined,
+                              project: undefined,
+                              bucket: undefined,
+                            });
+                          }}
+                          className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-primary transition-opacity hover:opacity-80 focus:outline-none"
+                        >
+                          <X className="size-3.5" />
+                          Clear filters ({activeFiltersCount})
+                        </button>
+                      )}
+                      <div className="flex items-center gap-2 text-body-sm text-ink-muted">
+                        <span className="flex items-center gap-1 font-medium text-ink">
+                          <User className="size-3.5 text-ink-muted" />
+                          {rowCount} {rowCount === 1 ? 'row' : 'rows'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Popover
+                        placement="below"
+                        alignment="end"
+                        label="Toggle columns"
+                        content={
+                          <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
+                            <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
+                              Toggle columns
+                            </div>
+                            {ALLOCATION_HIDEABLE_COLUMNS.map((col) => (
+                              <Checkbox
+                                key={col.key}
+                                label={col.label}
+                                value={columnSettingsState.isColumnActive(col.key)}
+                                onChange={() => columnSettingsState.toggleColumn(col.key)}
+                              />
+                            ))}
+                          </div>
+                        }
+                      >
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<Settings2 className="size-3.5" />}
+                          label="Columns"
+                        />
+                      </Popover>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <SegmentedControl<'all' | AllocationStatus>
+                      aria-label="Allocation status"
+                      value={raw.status ?? 'all'}
+                      onValueChange={(v) => setSearch({ status: v === 'all' ? undefined : v })}
+                      options={STATUS_OPTIONS}
+                    />
+                    <Typeahead
+                      className="h-8 w-44"
+                      label="Account"
+                      isLabelHidden
+                      searchSource={accountSource}
+                      debounceMs={0}
+                      hasEntriesOnFocus
+                      value={accountValue}
+                      onChange={(item) =>
+                        setSearch({ account: item?.id ?? undefined, project: undefined })
+                      }
+                      placeholder="All accounts"
+                    />
+                    <Typeahead
+                      className="h-8 w-44"
+                      label="Project"
+                      isLabelHidden
+                      searchSource={projectSource}
+                      debounceMs={0}
+                      hasEntriesOnFocus
+                      value={projectValue}
+                      onChange={(item) => setSearch({ project: item?.id ?? undefined })}
+                      placeholder="All projects"
+                    />
+                    <Typeahead
+                      className="h-8 w-36"
+                      label="Bucket"
+                      isLabelHidden
+                      searchSource={bucketSource}
+                      debounceMs={0}
+                      hasEntriesOnFocus
+                      value={bucketValue}
+                      onChange={(item) =>
+                        setSearch({ bucket: (item?.id as AllocationBucket) ?? undefined })
+                      }
+                      placeholder="All buckets"
+                    />
+                  </div>
+
+                  <div className="flex justify-end">
+                    <HeatLegend />
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Popover
-                    placement="below"
-                    alignment="end"
-                    label="Toggle columns"
-                    content={
-                      <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-ink-subtle">
-                          Toggle columns
-                        </div>
-                        {ALLOCATION_HIDEABLE_COLUMNS.map((col) => (
-                          <Checkbox
-                            key={col.key}
-                            label={col.label}
-                            value={columnSettingsState.isColumnActive(col.key)}
-                            onChange={() => columnSettingsState.toggleColumn(col.key)}
-                          />
-                        ))}
-                      </div>
-                    }
-                  >
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon={<Settings2 className="size-3.5" />}
-                      label="Columns"
-                    />
-                  </Popover>
-                </div>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <SegmentedControl<'all' | AllocationStatus>
-                  aria-label="Allocation status"
-                  value={raw.status ?? 'all'}
-                  onValueChange={(v) => setSearch({ status: v === 'all' ? undefined : v })}
-                  options={STATUS_OPTIONS}
-                />
-                <Typeahead
-                  className="h-8 w-44"
-                  label="Account"
-                  isLabelHidden
-                  searchSource={accountSource}
-                  debounceMs={0}
-                  hasEntriesOnFocus
-                  value={accountValue}
-                  onChange={(item) =>
-                    setSearch({ account: item?.id ?? undefined, project: undefined })
-                  }
-                  placeholder="All accounts"
-                />
-                <Typeahead
-                  className="h-8 w-44"
-                  label="Project"
-                  isLabelHidden
-                  searchSource={projectSource}
-                  debounceMs={0}
-                  hasEntriesOnFocus
-                  value={projectValue}
-                  onChange={(item) => setSearch({ project: item?.id ?? undefined })}
-                  placeholder="All projects"
-                />
-                <Typeahead
-                  className="h-8 w-36"
-                  label="Bucket"
-                  isLabelHidden
-                  searchSource={bucketSource}
-                  debounceMs={0}
-                  hasEntriesOnFocus
-                  value={bucketValue}
-                  onChange={(item) =>
-                    setSearch({ bucket: (item?.id as AllocationBucket) ?? undefined })
-                  }
-                  placeholder="All buckets"
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <HeatLegend />
-              </div>
-            </div>
-
-            {isLoading ? (
-              <div className="space-y-2">
-                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
-                  <Skeleton key={id} height={44} />
-                ))}
-              </div>
-            ) : (
-              <Table
-                data={pageRows}
-                columns={columns}
-                density="compact"
-                plugins={{
-                  pagination,
-                  sortable,
-                  columnSettings,
-                  rowStyling: {
-                    transformBodyRow: (props, item) => ({
-                      ...props,
-                      htmlProps: {
-                        ...props.htmlProps,
-                        className: cn(
-                          props.htmlProps.className,
-                          (workerBand.get(item.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1',
-                        ),
-                        style: { ...props.htmlProps.style, cursor: 'pointer' },
-                        onClick: () =>
-                          void navigate({
-                            to: '/people/employees/$workerId',
-                            params: { workerId: item.worker_id },
-                          }),
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+                      <Skeleton key={id} height={44} />
+                    ))}
+                  </div>
+                ) : (
+                  <Table
+                    data={pageRows}
+                    columns={columns}
+                    density="compact"
+                    plugins={{
+                      pagination,
+                      sortable,
+                      columnSettings,
+                      rowStyling: {
+                        transformBodyRow: (props, item) => ({
+                          ...props,
+                          htmlProps: {
+                            ...props.htmlProps,
+                            className: cn(
+                              props.htmlProps.className,
+                              (workerBand.get(item.worker_id) ?? 0) % 2 === 1 && 'bg-surface-1',
+                            ),
+                            style: { ...props.htmlProps.style, cursor: 'pointer' },
+                            onClick: () =>
+                              void navigate({
+                                to: '/people/employees/$workerId',
+                                params: { workerId: item.worker_id },
+                              }),
+                          },
+                        }),
                       },
-                    }),
-                  },
-                }}
-                emptyState={
-                  <EmptyState
-                    icon={<BarChart3 className="size-6" />}
-                    title="No allocations"
-                    description="No one is allocated in your view for this year."
+                    }}
+                    emptyState={
+                      <EmptyState
+                        icon={<BarChart3 className="size-6" />}
+                        title="No allocations"
+                        description="No one is allocated in your view for this year."
+                      />
+                    }
                   />
-                }
-              />
+                )}
+                <p className="text-[11px] text-ink-muted">
+                  Solid red = that person is over 100% allocated that month.
+                </p>
+                <UtilizationPanel />
+              </>
             )}
-            <p className="text-[11px] text-ink-muted">
-              Solid red = that person is over 100% allocated that month.
-            </p>
-            <UtilizationPanel />
-          </>
-        )}
-      </div>
-    </PageChrome>
+          </div>
+        </LayoutContent>
+      }
+    />
   );
 }

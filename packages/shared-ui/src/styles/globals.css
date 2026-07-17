@@ -104,10 +104,6 @@ select:focus-visible,
 .plan-page-header       { padding: var(--spacing-md) var(--spacing-lg) var(--spacing-xs); display: flex; flex-direction: column; gap: 4px; }
 .plan-page-header h1    { font-size: var(--text-body-lg); font-weight: 600; margin: 0; line-height: 1.3; }
 .plan-page-header p     { font-size: var(--font-size-xs); color: var(--color-ink-subtle); margin: 2px 0 0; }
-.plan-page-header__breadcrumb { display: flex; align-items: center; gap: 6px; font-size: var(--font-size-xs); color: var(--color-ink-subtle); }
-.plan-page-header__breadcrumb a { color: var(--color-ink-muted); text-decoration: none; }
-.plan-page-header__breadcrumb a:hover { color: var(--color-ink); }
-.plan-page-header__breadcrumb [aria-current="page"] { color: var(--color-ink); }
 .plan-page-header__title-row { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); }
 .plan-page-header__rename-trigger { background: transparent; border: 0; color: inherit; font: inherit; padding: 0; cursor: text; text-align: left; border-radius: var(--radius-sm); }
 .plan-page-header__rename-trigger:hover { background: var(--color-surface-2); padding: 0 4px; margin: 0 -4px; }

@@ -122,4 +122,26 @@ describe('PeoplePage (Astryx Table migration)', () => {
 
     expect(await screen.findByText('No matching people')).toBeInTheDocument();
   });
+
+  // Astryx breadcrumb trail (Astryx migration, FUT-668). The current crumb reads "Employees" —
+  // a deliberate exception to the title-wins rule, since the page's own h1 ("People") collides
+  // with the app root crumb. "Employees" is the manifest nav label for /people/employees, and
+  // matches worker-profile-page's middle crumb. Root and current no longer share text, so the
+  // current crumb is queried directly (exact match) instead of via `aria-current` alone.
+  it('renders the breadcrumb trail with the Employees current crumb (title-wins exception)', async () => {
+    mockFetchWorkers.mockResolvedValue({ rows: mockRows, total: 2 });
+    renderPage();
+
+    await screen.findByRole('table');
+
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    const rootCrumb = within(nav).getByRole('link', { name: 'People' });
+    expect(rootCrumb).toHaveAttribute('href', '/people');
+
+    // Current (terminal) crumb is "Employees", not a link.
+    const currentCrumb = within(nav).getByText('Employees');
+    expect(currentCrumb).toHaveAttribute('aria-current', 'page');
+    expect(currentCrumb.closest('a')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'People' })).toBeInTheDocument();
+  });
 });

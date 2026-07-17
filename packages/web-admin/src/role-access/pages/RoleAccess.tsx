@@ -2,9 +2,14 @@ import { PRODUCTS, productForNamespace } from '@seta/shared-rbac';
 import {
   Badge,
   Banner,
+  BreadcrumbItem,
+  Breadcrumbs,
   Button,
   Checkbox,
-  PageChrome,
+  HStack,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
   Skeleton,
   Table,
   TableBody,
@@ -12,6 +17,8 @@ import {
   TableHeader,
   TableHeaderCell,
   TableRow,
+  Text,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { ListChecks, Lock, RotateCcw, ShieldCheck, SlidersHorizontal } from 'lucide-react';
@@ -43,70 +50,91 @@ export function RoleAccess() {
   const active = picked && modules.includes(picked) ? picked : (modules[0] ?? null);
   const roles = useMemo(() => (data ?? []).filter((r) => r.module === active), [data, active]);
 
-  return (
-    <PageChrome
-      breadcrumb={['Admin']}
-      title="Role access"
-      subtitle={
-        isLoading ? 'Loading…' : `${modules.length} ${modules.length === 1 ? 'module' : 'modules'}`
-      }
-    >
-      {error ? (
-        <div className="page-container pt-4">
-          <Banner
-            status="error"
-            title={<>Couldn&apos;t load the access matrix: {(error as Error).message}</>}
-          />
-        </div>
-      ) : (
-        <div className="flex h-full min-h-0">
-          <aside className="flex w-72 flex-none flex-col border-r border-hairline bg-surface-1">
-            <RailHeader>Modules</RailHeader>
-            <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
-              {isLoading || !data ? (
-                <>
-                  <Skeleton height={40} radius={2} />
-                  <Skeleton height={40} radius={2} />
-                  <Skeleton height={40} radius={2} />
-                </>
-              ) : (
-                modules.map((m) => {
-                  const modRoles = data.filter((r) => r.module === m);
-                  const changed = moduleOverrides(modRoles);
-                  return (
-                    <RailItem
-                      key={m}
-                      title={moduleLabel(m)}
-                      active={m === active}
-                      onClick={() => setPicked(m)}
-                      count={modRoles.length}
-                      subtitle={
-                        changed > 0 ? (
-                          <span className="text-primary">{changed} customised</span>
-                        ) : (
-                          <span>Built-in defaults</span>
-                        )
-                      }
-                    />
-                  );
-                })
-              )}
-            </div>
-          </aside>
+  const subtitle = isLoading
+    ? 'Loading…'
+    : `${modules.length} ${modules.length === 1 ? 'module' : 'modules'}`;
 
-          <div className="min-w-0 flex-1 overflow-y-auto">
-            {isLoading || !data ? (
-              <div className="space-y-4 px-8 py-7">
-                <Skeleton className="max-w-md" height={64} radius={3} />
-                <Skeleton height={384} radius={3} />
+  return (
+    <Layout
+      height="fill"
+      header={
+        <LayoutHeader hasDivider padding={4}>
+          <VStack gap={1}>
+            <Breadcrumbs variant="supporting">
+              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
+              <BreadcrumbItem isCurrent>Role access</BreadcrumbItem>
+            </Breadcrumbs>
+            <HStack hAlign="between" vAlign="center" gap={2}>
+              <HStack gap={2} vAlign="center">
+                <Text as="h1" size="lg" weight="semibold">
+                  Role access
+                </Text>
+                {subtitle && <Text color="secondary">{subtitle}</Text>}
+              </HStack>
+            </HStack>
+          </VStack>
+        </LayoutHeader>
+      }
+      content={
+        <LayoutContent padding={0}>
+          {error ? (
+            <div className="page-container pt-4">
+              <Banner
+                status="error"
+                title={<>Couldn&apos;t load the access matrix: {(error as Error).message}</>}
+              />
+            </div>
+          ) : (
+            <div className="flex h-full min-h-0">
+              <aside className="flex w-72 flex-none flex-col border-r border-hairline bg-surface-1">
+                <RailHeader>Modules</RailHeader>
+                <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
+                  {isLoading || !data ? (
+                    <>
+                      <Skeleton height={40} radius={2} />
+                      <Skeleton height={40} radius={2} />
+                      <Skeleton height={40} radius={2} />
+                    </>
+                  ) : (
+                    modules.map((m) => {
+                      const modRoles = data.filter((r) => r.module === m);
+                      const changed = moduleOverrides(modRoles);
+                      return (
+                        <RailItem
+                          key={m}
+                          title={moduleLabel(m)}
+                          active={m === active}
+                          onClick={() => setPicked(m)}
+                          count={modRoles.length}
+                          subtitle={
+                            changed > 0 ? (
+                              <span className="text-primary">{changed} customised</span>
+                            ) : (
+                              <span>Built-in defaults</span>
+                            )
+                          }
+                        />
+                      );
+                    })
+                  )}
+                </div>
+              </aside>
+
+              <div className="min-w-0 flex-1 overflow-y-auto">
+                {isLoading || !data ? (
+                  <div className="space-y-4 px-8 py-7">
+                    <Skeleton className="max-w-md" height={64} radius={3} />
+                    <Skeleton height={384} radius={3} />
+                  </div>
+                ) : (
+                  active && <ModuleDetail module={active} roles={roles} canWrite={canWrite} />
+                )}
               </div>
-            ) : (
-              active && <ModuleDetail module={active} roles={roles} canWrite={canWrite} />
-            )}
-          </div>
-        </div>
-      )}
-    </PageChrome>
+            </div>
+          )}
+        </LayoutContent>
+      }
+    />
   );
 }
 

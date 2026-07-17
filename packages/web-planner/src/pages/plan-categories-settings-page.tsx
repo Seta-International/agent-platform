@@ -1,6 +1,11 @@
-import { CategoryDescriptionEditor, Skeleton, useToast } from '@seta/shared-ui';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  BreadcrumbItem,
+  Breadcrumbs,
+  CategoryDescriptionEditor,
+  Skeleton,
+  useToast,
+} from '@seta/shared-ui';
+import { useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { PlannerClientError } from '../api/planner-client';
 import { PlanSettingsTabStrip } from '../components/PlanSettingsTabStrip';
@@ -57,49 +62,16 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
   return (
     <div className="flex flex-col h-full">
       <header className="px-7 pt-4 pb-0 border-b border-hairline bg-canvas">
-        <nav
-          aria-label="Breadcrumb"
-          className="mb-2 flex items-center gap-2 text-xs text-ink-subtle"
-        >
-          {planForGroup ? (
-            <Link
-              to="/planner/plans/$planId"
-              params={{ planId: planForGroup.id }}
-              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-surface-1"
-            >
-              <ChevronLeft className="size-3" />
-              Back to board
-            </Link>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5">
-              <ChevronLeft className="size-3" />
-              Back to board
-            </span>
-          )}
-          <span>·</span>
-          <span className="inline-flex items-center gap-1">
-            <Link
-              to="/planner/groups"
-              className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-            >
-              Planner
-            </Link>
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-            {planName ? (
-              <Link
-                to="/planner/plans/$planId"
-                params={{ planId }}
-                className="rounded px-1 py-0.5 hover:bg-surface-1 hover:text-ink"
-              >
-                {planName}
-              </Link>
+        <div className="mb-2">
+          <Breadcrumbs variant="supporting">
+            <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
+            {planForGroup ? (
+              <BreadcrumbItem href={`/planner/plans/${planForGroup.id}`}>{planName}</BreadcrumbItem>
             ) : null}
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-            <span>Settings</span>
-            <ChevronRight className="size-2.5 text-ink-tertiary" aria-hidden="true" />
-            <span className="text-ink">Categories</span>
-          </span>
-        </nav>
+            <BreadcrumbItem>Settings</BreadcrumbItem>
+            <BreadcrumbItem isCurrent>Categories</BreadcrumbItem>
+          </Breadcrumbs>
+        </div>
         <h1 className="text-card-title font-semibold text-ink mb-1">
           Categories{planName ? ` · ${planName}` : ''}
         </h1>
