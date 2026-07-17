@@ -7,6 +7,7 @@ export * from './charts/chart-legend';
 export * from './charts/chart-theme';
 export * from './charts/donut-chart';
 export * from './charts/stacked-bar-chart';
+export * from './composites/account-chip';
 export * from './composites/agent-panel';
 // Composites
 export * from './composites/app-launcher';
@@ -35,6 +36,7 @@ export * from './composites/left-nav';
 export * from './composites/notification-list-item';
 export * from './composites/notification-popover';
 export * from './composites/page-container';
+export * from './composites/password-input';
 export * from './composites/resolve-plan-conflicts-dialog';
 export * from './composites/shell-link';
 export * from './composites/side-panel';
