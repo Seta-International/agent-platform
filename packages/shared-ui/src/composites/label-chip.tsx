@@ -1,4 +1,16 @@
+import { Badge, type BadgeProps } from '../primitives/badge';
+
 const COLOR_PALETTE = ['blue', 'green', 'amber', 'red', 'purple', 'teal'] as const;
+
+// Badge has no amber — yellow is the nearest palette tint (accepted drift).
+const BADGE_VARIANT: Record<string, BadgeProps['variant']> = {
+  blue: 'blue',
+  green: 'green',
+  amber: 'yellow',
+  red: 'red',
+  purple: 'purple',
+  teal: 'teal',
+};
 
 function hashString(s: string): number {
   let h = 0;
@@ -12,6 +24,7 @@ export interface LabelChipProps {
 }
 
 export function LabelChip({ name, color }: LabelChipProps) {
-  const c = color ?? COLOR_PALETTE[hashString(name) % COLOR_PALETTE.length];
-  return <span className={`label-chip label-chip--${c}`}>{name}</span>;
+  const hashed = COLOR_PALETTE[hashString(name) % COLOR_PALETTE.length] ?? COLOR_PALETTE[0];
+  const c = color ?? hashed;
+  return <Badge label={name} variant={BADGE_VARIANT[c] ?? 'neutral'} />;
 }

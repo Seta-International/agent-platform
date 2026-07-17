@@ -41,7 +41,6 @@ export * from './composites/label-chip';
 export * from './composites/left-nav';
 export * from './composites/notification-list-item';
 export * from './composites/notification-popover';
-export * from './composites/priority-icon';
 export * from './composites/resolve-plan-conflicts-dialog';
 export * from './composites/segmented-control';
 export * from './composites/shell-link';

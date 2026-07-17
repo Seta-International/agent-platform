@@ -1,5 +1,6 @@
-import { cn } from '../lib/cn';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
 import { formatRelative } from '../lib/format-relative';
+import { Badge } from '../primitives/badge';
 
 export type SyncState = 'idle' | 'pulling' | 'pushing' | 'error' | 'conflict';
 
@@ -11,72 +12,56 @@ interface Props {
   size?: 'default' | 'mini';
 }
 
-interface StateConfig {
-  text: (synced_at: string | null) => string;
-  bg: string;
-  color: string;
-  role?: 'status';
-}
-
-const CONFIG: Record<SyncState, StateConfig> = {
-  idle: {
-    text: (synced_at) => {
-      if (!synced_at) return 'Synced';
-      const rel = formatRelative(synced_at);
-      return rel ? `Synced ${rel}` : 'Synced';
-    },
-    bg: 'var(--color-success-tint)',
-    color: 'var(--color-success-ink)',
+const TEXT: Record<SyncState, (synced_at: string | null) => string> = {
+  idle: (synced_at) => {
+    if (!synced_at) return 'Synced';
+    const rel = formatRelative(synced_at);
+    return rel ? `Synced ${rel}` : 'Synced';
   },
-  pulling: {
-    text: () => 'Pulling…',
-    bg: 'var(--color-info-tint)',
-    color: 'var(--color-info-ink)',
-    role: 'status',
-  },
-  pushing: {
-    text: () => 'Pushing…',
-    bg: 'var(--color-info-tint)',
-    color: 'var(--color-info-ink)',
-    role: 'status',
-  },
-  error: {
-    text: () => 'Sync failed',
-    bg: 'var(--color-danger-tint)',
-    color: 'var(--color-danger-ink)',
-  },
-  conflict: {
-    text: () => 'Conflict',
-    bg: 'var(--color-danger-tint)',
-    color: 'var(--color-danger-ink)',
-  },
+  pulling: () => 'Pulling…',
+  pushing: () => 'Pushing…',
+  error: () => 'Sync failed',
+  conflict: () => 'Conflict',
 };
+
+const BADGE_VARIANT = {
+  idle: 'success',
+  pulling: 'info',
+  pushing: 'info',
+  error: 'error',
+  conflict: 'error',
+} as const;
+
+// StatusDot has no 'info' variant — accent is the nearest for in-flight states.
+const DOT_VARIANT = {
+  idle: 'success',
+  pulling: 'accent',
+  pushing: 'accent',
+  error: 'error',
+  conflict: 'error',
+} as const;
 
 export function SyncBadge({ state, synced_at, className, linkUrl, size = 'default' }: Props) {
   if (state === null) return null;
 
-  const { text, bg, color, role } = CONFIG[state];
+  const isLive = state === 'pulling' || state === 'pushing';
 
   const badge =
     size === 'mini' ? (
-      <span
+      <StatusDot
+        variant={DOT_VARIANT[state]}
+        label={`Sync ${state}`}
         role="status"
-        aria-label={`Sync ${state}`}
         data-sync-badge-mini="true"
-        className={cn('inline-block h-2 w-2 rounded-full', className)}
-        style={{ background: color }}
+        className={className}
       />
     ) : (
-      <span
-        role={role}
-        className={cn(
-          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-          className,
-        )}
-        style={{ background: bg, color }}
-      >
-        {text(synced_at)}
-      </span>
+      <Badge
+        label={TEXT[state](synced_at)}
+        variant={BADGE_VARIANT[state]}
+        role={isLive ? 'status' : undefined}
+        className={className}
+      />
     );
 
   if (linkUrl) {

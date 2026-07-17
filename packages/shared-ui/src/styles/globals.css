@@ -34,15 +34,9 @@ select:focus-visible,
 ::-webkit-scrollbar-thumb { background: var(--color-surface-3); border-radius: var(--radius-md); }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-surface-4); }
 
-/* PriorityIcon — colors sourced from the shared priority palette in tokens.css.
-   Keep changes here in sync with packages/shared-ui/src/lib/priority.ts. */
-.priority-icon { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
-.priority-icon--urgent    { background: var(--color-priority-urgent); }
-.priority-icon--important { background: var(--color-priority-important); }
-.priority-icon--medium    { background: var(--color-priority-medium); }
-.priority-icon--low       { background: var(--color-priority-low); }
-
-/* LabelChip */
+/* LabelChip — also consumed directly by web-planner's TaskDetailLabelsCard color
+   swatch picker (packages/web-planner/src/components/TaskDetailLabelsCard.tsx) and
+   an e2e spec; NOT self-only, do not delete without migrating that consumer too. */
 .label-chip { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: var(--radius-sm); font-size: var(--font-size-xs); font-weight: 500; }
 .label-chip--blue   { background: var(--color-info-tint);    color: var(--color-info-ink); }
 .label-chip--green  { background: var(--color-success-tint); color: var(--color-success-ink); }

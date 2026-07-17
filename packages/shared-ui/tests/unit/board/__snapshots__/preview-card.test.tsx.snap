@@ -47,11 +47,14 @@ exports[`PreviewCard > renders automatic variant matching snapshot 1`] = `
     >
       <span
         aria-label="Urgent priority"
-        class="priority-icon priority-icon--urgent"
+        class="astryx-statusdot neutral x1rg5ohu x16rqkct x2lah0s x1xc55vz xdk7pt x1q5y3ey"
+        data-variant="neutral"
         role="img"
+        style="background-color: var(--color-priority-urgent);"
       />
       <span
-        class="label-chip label-chip--var(--color-primary)"
+        class="astryx-badge neutral x3nfvp2 x6s0dn4 xl56j7k xzye2dw x1grt7ep xt970qd xf314gf xjspbzw xjb2p0i x141an7d x1ltkj2j x1e4wzip xuxw1ft x17x4s8c x1tgivj0"
+        data-variant="neutral"
       >
         api
       </span>
@@ -184,11 +187,14 @@ exports[`PreviewCard > renders checklist variant matching snapshot 1`] = `
     >
       <span
         aria-label="Urgent priority"
-        class="priority-icon priority-icon--urgent"
+        class="astryx-statusdot neutral x1rg5ohu x16rqkct x2lah0s x1xc55vz xdk7pt x1q5y3ey"
+        data-variant="neutral"
         role="img"
+        style="background-color: var(--color-priority-urgent);"
       />
       <span
-        class="label-chip label-chip--var(--color-primary)"
+        class="astryx-badge neutral x3nfvp2 x6s0dn4 xl56j7k xzye2dw x1grt7ep xt970qd xf314gf xjspbzw xjb2p0i x141an7d x1ltkj2j x1e4wzip xuxw1ft x17x4s8c x1tgivj0"
+        data-variant="neutral"
       >
         api
       </span>
@@ -277,11 +283,14 @@ exports[`PreviewCard > renders description variant matching snapshot 1`] = `
     >
       <span
         aria-label="Urgent priority"
-        class="priority-icon priority-icon--urgent"
+        class="astryx-statusdot neutral x1rg5ohu x16rqkct x2lah0s x1xc55vz xdk7pt x1q5y3ey"
+        data-variant="neutral"
         role="img"
+        style="background-color: var(--color-priority-urgent);"
       />
       <span
-        class="label-chip label-chip--var(--color-primary)"
+        class="astryx-badge neutral x3nfvp2 x6s0dn4 xl56j7k xzye2dw x1grt7ep xt970qd xf314gf xjspbzw xjb2p0i x141an7d x1ltkj2j x1e4wzip xuxw1ft x17x4s8c x1tgivj0"
+        data-variant="neutral"
       >
         api
       </span>
@@ -358,11 +367,14 @@ exports[`PreviewCard > renders noPreview variant matching snapshot 1`] = `
     >
       <span
         aria-label="Urgent priority"
-        class="priority-icon priority-icon--urgent"
+        class="astryx-statusdot neutral x1rg5ohu x16rqkct x2lah0s x1xc55vz xdk7pt x1q5y3ey"
+        data-variant="neutral"
         role="img"
+        style="background-color: var(--color-priority-urgent);"
       />
       <span
-        class="label-chip label-chip--var(--color-primary)"
+        class="astryx-badge neutral x3nfvp2 x6s0dn4 xl56j7k xzye2dw x1grt7ep xt970qd xf314gf xjspbzw xjb2p0i x141an7d x1ltkj2j x1e4wzip xuxw1ft x17x4s8c x1tgivj0"
+        data-variant="neutral"
       >
         api
       </span>
@@ -462,11 +474,14 @@ exports[`PreviewCard > renders reference variant matching snapshot 1`] = `
     >
       <span
         aria-label="Urgent priority"
-        class="priority-icon priority-icon--urgent"
+        class="astryx-statusdot neutral x1rg5ohu x16rqkct x2lah0s x1xc55vz xdk7pt x1q5y3ey"
+        data-variant="neutral"
         role="img"
+        style="background-color: var(--color-priority-urgent);"
       />
       <span
-        class="label-chip label-chip--var(--color-primary)"
+        class="astryx-badge neutral x3nfvp2 x6s0dn4 xl56j7k xzye2dw x1grt7ep xt970qd xf314gf xjspbzw xjb2p0i x141an7d x1ltkj2j x1e4wzip xuxw1ft x17x4s8c x1tgivj0"
+        data-variant="neutral"
       >
         api
       </span>
