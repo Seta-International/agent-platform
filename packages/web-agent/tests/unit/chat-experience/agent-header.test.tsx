@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -50,5 +50,27 @@ describe('<AgentHeader> response-detail menu group', () => {
 
     // use-density persists synchronously on change.
     expect(localStorage.getItem('seta.agent.density')).toBe('detailed');
+  });
+});
+
+describe('<AgentHeader> mobile nav trigger', () => {
+  it('invokes onOpenMobileNav when the hamburger is clicked', () => {
+    const onOpenMobileNav = vi.fn();
+    render(
+      <DensityProvider>
+        <AgentHeader onOpenMobileNav={onOpenMobileNav} />
+      </DensityProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /open chats/i }));
+    expect(onOpenMobileNav).toHaveBeenCalledOnce();
+  });
+
+  it('does not render the hamburger without an onOpenMobileNav handler', () => {
+    render(
+      <DensityProvider>
+        <AgentHeader />
+      </DensityProvider>,
+    );
+    expect(screen.queryByRole('button', { name: /open chats/i })).toBeNull();
   });
 });
