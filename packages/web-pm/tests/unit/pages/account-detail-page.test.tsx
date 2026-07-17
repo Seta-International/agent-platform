@@ -48,9 +48,8 @@ describe('AccountDetailPage — breadcrumb trail (back-link → crumb parity, As
     vi.restoreAllMocks();
   });
 
-  // The deleted bespoke `backLink` (`<Link to="/pm/accounts">‹ Accounts`) is gone; the parent
-  // "Accounts" crumb now carries that exact navigation target — this is the parity gate: the
-  // href must match the old backLink's `to` verbatim.
+  // Parity gate: the parent "Accounts" crumb's href must be exactly /pm/accounts — the sole
+  // path back to the accounts list.
   it('renders the full trail with the parent crumb carrying the old back-link href', async () => {
     renderPage();
 

@@ -125,12 +125,10 @@ describe('CharterDetailPage — breadcrumb trail (back-link → crumb parity, As
     vi.restoreAllMocks();
   });
 
-  // The deleted bespoke `backLink` (`<Link to="/pm/requests">‹ Requests`) is gone; the parent
-  // crumb now carries that exact navigation target — this is the parity gate: the href must
-  // match the old backLink's `to` verbatim. Note the deliberate asymmetry: this middle crumb
-  // reads "Requests" (the manifest nav label, matching today's back-link text exactly), even
-  // though the requests page's OWN current crumb is "Project Requests" (title-wins there) — only
-  // the terminal crumb of a page takes the title-wins clause.
+  // Parity gate: the parent crumb's href must be exactly /pm/requests. Deliberate asymmetry:
+  // this middle crumb reads "Requests" (the manifest nav label), while the requests page's own
+  // current crumb reads "Project Requests" (title-wins) — only a page's own terminal crumb
+  // takes the title-wins clause, not a middle crumb pointing at it.
   it('renders the full trail with the parent crumb carrying the old back-link href', async () => {
     renderPage();
 
