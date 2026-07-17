@@ -1,4 +1,5 @@
 import {
+  Button,
   createStaticSource,
   DateInput,
   DisabledActionTooltip,
@@ -220,27 +221,23 @@ function DueMenu({
           {/* DateInput emits onChange per parseable keystroke, so the draft is
               committed explicitly rather than on change — see Apply below. */}
           <DateInput label="Due date" value={draft} onChange={(v) => setDraft(v)} />
-          <button
-            type="button"
-            className="mt-2 w-full rounded px-2 py-1.5 text-left text-sm text-ink-subtle hover:bg-surface-2"
-            disabled={!draft}
+          <Button
+            label="Apply"
+            variant="primary"
+            isDisabled={!draft}
             onClick={() => {
               onPick(draft ? new Date(draft).toISOString() : null);
               setOpen(false);
             }}
-          >
-            Apply
-          </button>
-          <button
-            type="button"
-            className="mt-2 w-full rounded px-2 py-1.5 text-left text-sm text-ink-subtle hover:bg-surface-2"
+          />
+          <Button
+            label="Clear due date"
+            variant="ghost"
             onClick={() => {
               onPick(null);
               setOpen(false);
             }}
-          >
-            Clear due date
-          </button>
+          />
         </>
       }
     >
