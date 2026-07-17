@@ -608,6 +608,18 @@ describe('<KanbanColumn> scroll containment', () => {
   });
 });
 
+describe('<KanbanColumn> fluid width', () => {
+  it('applies width as a min-width floor and flexes to fill', () => {
+    render(
+      <KanbanColumn name="Todo" count={0} width={256} droppable={noopDrop}>
+        {null}
+      </KanbanColumn>,
+    );
+    const region = screen.getByRole('region', { name: 'Bucket: Todo' });
+    expect(region).toHaveStyle({ minWidth: '256px' });
+  });
+});
+
 describe('<KanbanColumn> emptyState slot', () => {
   it('renders the emptyState when there are no children', () => {
     render(

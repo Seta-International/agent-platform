@@ -25,6 +25,9 @@ export type { QuickCreateTaskInput } from './kanban-column-compose';
 
 const styles = stylex.create({
   shell: { flexShrink: 0 },
+  // Task 5 (FUT-725): width becomes a min-width floor, not a fixed size — the
+  // column flexes to fill the board row and its own height.
+  fluid: { flexGrow: 1, flexBasis: 0, maxHeight: '100%' },
   shellDragging: { opacity: 0.9 },
   handleArea: { minWidth: 0, flex: 1, cursor: 'grab', ':active': { cursor: 'grabbing' } },
   grip: { color: 'var(--color-text-disabled)', flexShrink: 0 },
@@ -48,6 +51,14 @@ const styles = stylex.create({
     minHeight: 0,
     padding: 'var(--spacing-4) var(--spacing-2)',
   },
+  // The internal vertical scroll region for the card-list body. Deliberately
+  // NOT on the KanbanCardList droppable node itself, and NOT via LayoutContent's
+  // isScrollable (overflow: auto) or Stack's isScrollable — both would collide
+  // with `.kanban-board`'s own overflow:auto class and shadow it as pangea's
+  // resolved scroll parent, breaking board autoscroll during drag. overflowY/X
+  // here are distinct StyleX properties from that shorthand, so they compile to
+  // a different atomic class.
+  scrollArea: { flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' },
 });
 
 export interface KanbanColumnProps {
@@ -80,7 +91,7 @@ export interface KanbanColumnProps {
   wipLimit?: number | null;
   /** M365-linked bucket: color/wip/archive actions are hidden. */
   isLinked?: boolean;
-  /** Column width in px (flex-basis in the board row). */
+  /** Min-width floor in px; the column flexes to fill the board row above this. */
   width?: number;
   /** Rendered centered, full-height, in place of the card list when there are no children. */
   emptyState?: ReactNode;
@@ -171,15 +182,14 @@ export function KanbanColumn({
       {...handle?.rootProps}
       variant="muted"
       padding={0}
-      width={width}
       role="region"
       aria-label={`Bucket: ${name}`}
-      xstyle={[styles.shell, handle?.isDragging && styles.shellDragging]}
-      style={handle?.extraStyle}
+      xstyle={[styles.shell, styles.fluid, handle?.isDragging && styles.shellDragging]}
+      style={{ minWidth: width, ...handle?.extraStyle }}
       data-dragging={handle?.isDragging ? 'true' : undefined}
     >
       <Layout
-        height="auto"
+        height="fill"
         header={
           <LayoutHeader hasDivider padding={2}>
             <HStack hAlign="between" vAlign="center" gap={1}>
@@ -340,7 +350,7 @@ export function KanbanColumn({
           // scroll parent to the first ancestor with overflow auto/scroll, so a scrollable
           // LayoutContent would shadow .kanban-board and break board autoscroll during drag.
           <LayoutContent padding={2} isScrollable={false}>
-            <VStack gap={1.5}>
+            <VStack gap={1.5} xstyle={styles.scrollArea}>
               {!composing && onCreateTask && (
                 <DisabledActionTooltip
                   disabled={Boolean(createTaskDisabledReason)}
