@@ -192,13 +192,8 @@ describe('<AgentComposer> send path', () => {
   });
 
   it('preserves the draft when Enter is pressed while a run is in flight', () => {
-    // Astryx's ChatComposerInput clears the contenteditable on Enter
-    // UNCONDITIONALLY (it has no isDisabled/isRunning gate of its own), so
-    // the "does not send" assertion above passes even if the draft is wiped.
-    // web-agent never passes ChatComposer `isDisabled`, so the input stays
-    // live mid-run — a capture-phase guard on the wrapper must stop Astryx's
-    // own Enter handler from ever running, or the user's text is destroyed
-    // with no error and no way to recover it.
+    // The "does not send" test above passes even when the draft is wiped —
+    // Astryx clears on Enter regardless of whether anything was sent.
     isRunning = true;
     render(<AgentComposer />);
     type('hello');
