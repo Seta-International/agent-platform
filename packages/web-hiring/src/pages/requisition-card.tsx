@@ -9,7 +9,7 @@ import {
 } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { Calendar, Check, ExternalLink, MoreHorizontal, Users } from 'lucide-react';
+import { Calendar, Check, MoreHorizontal, Users } from 'lucide-react';
 import { useState } from 'react';
 import {
   holdRequisition,
@@ -38,6 +38,8 @@ const LEVEL_LABEL: Record<number, string> = {
   4: 'Expert',
   5: 'Master',
 };
+
+const KIND_LABEL: Record<string, string> = { new: 'New', replacement: 'Replacement' };
 
 export function RequisitionCard({
   r,
@@ -121,11 +123,20 @@ export function RequisitionCard({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <span
-            className={`rounded-full px-2.5 py-1 text-caption font-medium ${STATUS_BADGE_CLASS[r.status]}`}
-          >
-            {STATUS_LABEL[r.status]}
-          </span>
+          {/* Working cards wear their kind (New / Replacement) — on-hold shows through the
+              amber pipeline + Paused block instead. Terminal outcomes (Filled / Cancelled)
+              still take the pill: that's the one fact a closed card must announce. */}
+          {isTerminal ? (
+            <span
+              className={`rounded-full px-2.5 py-1 text-caption font-medium ${STATUS_BADGE_CLASS[r.status]}`}
+            >
+              {STATUS_LABEL[r.status]}
+            </span>
+          ) : (
+            <span className="rounded-full bg-surface-2 px-2.5 py-1 text-caption font-medium text-ink-muted">
+              {KIND_LABEL[r.kind] ?? r.kind}
+            </span>
+          )}
           {!isTerminal && (
             <DisabledActionTooltip
               disabled={!canManage && !canClose}
@@ -185,21 +196,21 @@ export function RequisitionCard({
       </div>
 
       {/* Skill chips — tightly grouped with the header/subtitle above it (still "about this
-          role"); the stage module below gets a bigger gap since it's a distinct section. */}
-      {r.skills.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {r.skills.map((s) => (
-            <span
-              key={s.skill_name}
-              className="rounded-full bg-surface-2 px-2.5 py-1 text-caption text-ink-muted"
-            >
-              {s.skill_name}
-              {/* Level 0 means "no minimum" — show the suffix only for a real 1–5 requirement. */}
-              {s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
-            </span>
-          ))}
-        </div>
-      )}
+          role"); the stage module below gets a bigger gap since it's a distinct section.
+          The slot always renders at chip height so the stage track starts at the same y
+          across sibling cards whether or not a role lists skills. */}
+      <div className="mt-3 flex min-h-[26px] flex-wrap gap-1.5">
+        {r.skills.map((s) => (
+          <span
+            key={s.skill_name}
+            className="rounded-full bg-surface-2 px-2.5 py-1 text-caption text-ink-muted"
+          >
+            {s.skill_name}
+            {/* Level 0 means "no minimum" — show the suffix only for a real 1–5 requirement. */}
+            {s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
+          </span>
+        ))}
+      </div>
 
       {/* Stage progress + timing — read-only: each step lights up once at least one candidate has
           reached it (furthest-reached index), independent of the requisition's own status. The
@@ -207,6 +218,8 @@ export function RequisitionCard({
       <div className="mt-5 flex items-start gap-4 pb-4">
         <div className="relative flex-[3] pt-2.5">
           <div className="absolute inset-x-[12.5%] top-[19px] h-px bg-hairline-strong" />
+          {/* The pipeline carries the status colour (amber while paused) — with the pill
+              now showing the requisition kind, this is the card's live status signal. */}
           <div
             className={`absolute inset-y-0 left-[12.5%] top-[19px] h-px transition-[width] ${
               r.status === 'on_hold' ? 'bg-warning' : 'bg-primary'
@@ -245,8 +258,10 @@ export function RequisitionCard({
         <div className="flex flex-1 items-start justify-end gap-1.5 pt-0.5 text-right text-body-sm">
           <Calendar className="mt-0.5 size-4 shrink-0 text-ink-subtle" aria-hidden />
           {r.status === 'on_hold' ? (
+            // Same neutral ink as the due-date block — the amber pipeline alone carries
+            // the paused colour signal.
             <div>
-              <div className="font-medium text-warning-ink">Paused</div>
+              <div className="font-medium text-ink">Paused</div>
               <div className="text-caption text-ink-muted">Since {formatDate(r.updated_at)}</div>
             </div>
           ) : r.due_date ? (
@@ -273,9 +288,10 @@ export function RequisitionCard({
             {r.applicants_count} Applicants
           </span>
         </div>
+        {/* Sentence case like every other control; no external-link icon — this opens a
+            modal on the same page, not a new tab. */}
         <Button size="sm" variant="secondary" onClick={go}>
-          View Detail
-          <ExternalLink className="ml-1 size-3.5" aria-hidden />
+          View detail
         </Button>
       </div>
     </div>

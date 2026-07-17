@@ -267,31 +267,32 @@ export function RequisitionsPage() {
             <AlertDescription>{scopeNote}</AlertDescription>
           </Alert>
         )}
+        {/* One accent only (DESIGN.md): neutral icon chips + ink numbers — the counts carry
+            the weight, colour stays reserved for status pills and the primary CTA. */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {stat(
             'Open positions',
             openCount,
             <Briefcase className="size-5" aria-hidden />,
-            'bg-primary/12 text-primary',
+            'bg-surface-2 text-ink-subtle',
           )}
           {stat(
             'Applicants',
             totalApplicants,
             <Users className="size-5" aria-hidden />,
-            'bg-success-tint text-success-ink',
+            'bg-surface-2 text-ink-subtle',
           )}
           {stat(
             'On hold',
             onHold,
             <Pause className="size-5" aria-hidden />,
-            'bg-warning-tint text-warning-ink',
-            'text-warning',
+            'bg-surface-2 text-ink-subtle',
           )}
           {stat(
             'Total open',
             filteredRows.length,
             <Layers className="size-5" aria-hidden />,
-            'bg-primary/12 text-primary',
+            'bg-surface-2 text-ink-subtle',
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3">

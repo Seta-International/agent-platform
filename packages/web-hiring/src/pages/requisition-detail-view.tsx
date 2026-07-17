@@ -939,7 +939,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 </div>
               )}
               <p className="mt-5 text-caption text-ink-subtle">
-                Posted {req.created_at.slice(0, 10)} · {openDaysLabel(req.created_at)}
+                Posted {formatDate(req.created_at)} · {openDaysLabel(req.created_at)}
               </p>
             </section>
 
