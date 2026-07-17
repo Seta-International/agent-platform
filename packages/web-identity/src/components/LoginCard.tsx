@@ -1,16 +1,17 @@
 import {
+  AccountChip,
   AuthBackdrop,
+  AuthPanel,
   Avatar,
   Banner,
   Button,
-  Card,
   Center,
   Heading,
   Input,
   Link,
+  PasswordInput,
   SetaMark,
   Text,
-  Token,
   VStack,
 } from '@seta/shared-ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -140,15 +141,18 @@ function LoginShell({ children }: { children: React.ReactNode }) {
       <Center axis="both" minHeight="100vh">
         <VStack width="100%" hAlign="center" padding={6}>
           <VStack gap={4} hAlign="center" width="100%" maxWidth={400}>
-            <VStack gap={2} hAlign="center">
-              <SetaMark size={36} alt="" />
-              <Text type="body" weight="bold" size="lg">
-                Seta
-              </Text>
-            </VStack>
-            {children}
+            <AuthPanel
+              brand={<SetaMark size={30} alt="" />}
+              eyebrow={
+                <Text type="supporting" color="secondary" weight="semibold">
+                  Seta Future
+                </Text>
+              }
+            >
+              {children}
+            </AuthPanel>
             <Text type="supporting" color="secondary" justify="center">
-              © {new Date().getFullYear()}
+              © {new Date().getFullYear()} Seta International
             </Text>
           </VStack>
         </VStack>
@@ -171,45 +175,44 @@ function EmailStep({
   error: string | null;
 }) {
   return (
-    <Card padding={8} width="100%">
-      <form onSubmit={onSubmit}>
-        <VStack gap={4} hAlign="stretch">
-          <VStack gap={1} hAlign="center">
-            <Heading level={1} justify="center">
-              Sign in
-            </Heading>
-            <Text type="body" size="sm" color="secondary" justify="center">
-              Enter your work email to continue.
-            </Text>
-          </VStack>
-
-          <Input
-            type="email"
-            label="Work email"
-            placeholder="you@company.com"
-            value={email}
-            onChange={(value) => onEmailChange(value)}
-            size="lg"
-            isRequired
-          />
-
-          {error ? <Banner status="error" title={error} /> : null}
-
-          <Button
-            type="submit"
-            size="lg"
-            isLoading={submitting}
-            isDisabled={!email}
-            label="Continue"
-            endContent={<ArrowRight size={12} />}
-          />
-
-          <Text type="supporting" color="secondary" justify="center">
-            Don&apos;t have access yet? Ask your admin to invite you.
+    <form onSubmit={onSubmit}>
+      <VStack gap={4} hAlign="stretch">
+        <VStack gap={1} hAlign="center">
+          <Heading level={1} justify="center">
+            Sign in
+          </Heading>
+          <Text type="body" size="sm" color="secondary" justify="center">
+            Enter your work email to continue.
           </Text>
         </VStack>
-      </form>
-    </Card>
+
+        <Input
+          type="email"
+          label="Work email"
+          placeholder="you@company.com"
+          value={email}
+          onChange={(value) => onEmailChange(value)}
+          size="lg"
+          isRequired
+        />
+
+        {error ? <Banner status="error" title={error} /> : null}
+
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          isLoading={submitting}
+          isDisabled={!email}
+          label="Continue"
+          endContent={<ArrowRight size={12} />}
+        />
+
+        <Text type="supporting" color="secondary" justify="center">
+          Don&apos;t have access yet? Ask your admin to invite you.
+        </Text>
+      </VStack>
+    </form>
   );
 }
 
@@ -233,58 +236,55 @@ function PasswordStep({
   error: string | null;
 }) {
   return (
-    <Card padding={8} width="100%">
-      <form onSubmit={onSubmit}>
-        <VStack gap={4} hAlign="stretch">
-          <Heading level={1} justify="center">
-            Enter your password
-          </Heading>
+    <form onSubmit={onSubmit}>
+      <VStack gap={4} hAlign="stretch">
+        <Heading level={1} justify="center">
+          Enter your password
+        </Heading>
 
-          <VStack gap={1} hAlign="stretch">
-            <Text type="supporting" color="secondary">
-              Signing in as
-            </Text>
-            {/* Astryx named sizes are tiny|xsmall|small|medium|large — there is no 'xs'. */}
-            <Token label={email} icon={<Avatar name={email} size={20} />} onRemove={onEdit} />
-          </VStack>
-
-          <VStack gap={1} hAlign="stretch">
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(value) => onPasswordChange(value)}
-              size="lg"
-              isRequired
-              status={error && !rateLimited ? { type: 'error', message: error } : undefined}
-            />
-            <Link
-              href="mailto:support@seta-international.vn?subject=Password%20reset"
-              type="supporting"
-            >
-              Reset
-            </Link>
-          </VStack>
-
-          {error && rateLimited ? <Banner status="error" title={error} /> : null}
-
-          <Button
-            type="submit"
-            size="lg"
-            isLoading={submitting}
-            isDisabled={!password || rateLimited}
-            label="Sign in"
-          />
-
-          <Text type="supporting" color="secondary" justify="center">
-            Wrong account?{' '}
-            <Link onClick={onEdit} type="inherit">
-              Start over
-            </Link>
+        <VStack gap={2} hAlign="stretch">
+          <Text type="supporting" color="secondary">
+            Signing in as
           </Text>
+          <AccountChip label={email} avatar={<Avatar name={email} size={24} />} onRemove={onEdit} />
         </VStack>
-      </form>
-    </Card>
+
+        <VStack gap={1} hAlign="stretch">
+          <PasswordInput
+            label="Password"
+            value={password}
+            onChange={(value) => onPasswordChange(value)}
+            size="lg"
+            isRequired
+            status={error && !rateLimited ? { type: 'error', message: error } : undefined}
+          />
+          <Link
+            href="mailto:support@seta-international.vn?subject=Password%20reset"
+            type="supporting"
+          >
+            Reset
+          </Link>
+        </VStack>
+
+        {error && rateLimited ? <Banner status="error" title={error} /> : null}
+
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          isLoading={submitting}
+          isDisabled={!password || rateLimited}
+          label="Sign in"
+        />
+
+        <Text type="supporting" color="secondary" justify="center">
+          Wrong account?{' '}
+          <Link onClick={onEdit} type="inherit">
+            Start over
+          </Link>
+        </Text>
+      </VStack>
+    </form>
   );
 }
 
@@ -317,51 +317,48 @@ function SsoStep({
   }
 
   return (
-    <Card padding={8} width="100%">
-      <VStack gap={4} hAlign="stretch">
-        <VStack gap={1} hAlign="center">
-          <Heading level={1} justify="center">
-            Sign in with Microsoft
-          </Heading>
-          <Text type="body" size="sm" color="secondary" justify="center">
-            Your organization uses Microsoft to sign in.
-          </Text>
-        </VStack>
-
-        <VStack gap={1} hAlign="stretch">
-          <Text type="supporting" color="secondary">
-            Signing in as
-          </Text>
-          {/* Astryx named sizes are tiny|xsmall|small|medium|large — there is no 'xs'. */}
-          <Token label={email} icon={<Avatar name={email} size={20} />} onRemove={onEdit} />
-        </VStack>
-
-        {error ? <Banner status="error" title={error} /> : null}
-
-        <Button
-          size="lg"
-          variant="secondary"
-          onClick={() => void handleSignIn()}
-          isLoading={submitting}
-          // Astryx hides loading-state content with `color: transparent`, which only
-          // neutralises currentColor. MicrosoftLogo's vendor hex `fill`s ignore it and
-          // would stay painted under the spinner, so drop the icon while loading.
-          icon={submitting ? undefined : <MicrosoftLogo />}
-          label="Continue with Microsoft"
-        />
-
-        <Text type="supporting" color="secondary" justify="center">
-          You&apos;ll finish signing in on Microsoft.com.
-        </Text>
-
-        <Text type="supporting" color="secondary" justify="center">
-          Can&apos;t get in?{' '}
-          <Link href="mailto:support@seta-international.vn" type="inherit">
-            Contact your admin
-          </Link>
+    <VStack gap={4} hAlign="stretch">
+      <VStack gap={1} hAlign="center">
+        <Heading level={1} justify="center">
+          Sign in with Microsoft
+        </Heading>
+        <Text type="body" size="sm" color="secondary" justify="center">
+          Your organization uses Microsoft to sign in.
         </Text>
       </VStack>
-    </Card>
+
+      <VStack gap={2} hAlign="stretch">
+        <Text type="supporting" color="secondary">
+          Signing in as
+        </Text>
+        <AccountChip label={email} avatar={<Avatar name={email} size={24} />} onRemove={onEdit} />
+      </VStack>
+
+      {error ? <Banner status="error" title={error} /> : null}
+
+      <Button
+        size="lg"
+        variant="secondary"
+        onClick={() => void handleSignIn()}
+        isLoading={submitting}
+        // Astryx hides loading-state content with `color: transparent`, which only
+        // neutralises currentColor. MicrosoftLogo's vendor hex `fill`s ignore it and
+        // would stay painted under the spinner, so drop the icon while loading.
+        icon={submitting ? undefined : <MicrosoftLogo />}
+        label="Continue with Microsoft"
+      />
+
+      <Text type="supporting" color="secondary" justify="center">
+        You&apos;ll finish signing in on Microsoft.com.
+      </Text>
+
+      <Text type="supporting" color="secondary" justify="center">
+        Can&apos;t get in?{' '}
+        <Link href="mailto:support@seta-international.vn" type="inherit">
+          Contact your admin
+        </Link>
+      </Text>
+    </VStack>
   );
 }
 

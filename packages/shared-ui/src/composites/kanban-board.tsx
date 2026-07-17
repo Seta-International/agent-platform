@@ -1,9 +1,10 @@
 import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
 import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import * as stylex from '@stylexjs/stylex';
-import { X } from 'lucide-react';
 import {
+  Children,
   type HTMLAttributes,
   type ReactNode,
   useCallback,
@@ -16,7 +17,7 @@ import { DisabledActionTooltip } from './disabled-action-tooltip';
 const styles = stylex.create({
   board: {
     display: 'flex',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     gap: 14,
     padding: 'var(--spacing-4) var(--spacing-6)',
     flex: 1,
@@ -26,19 +27,16 @@ const styles = stylex.create({
     scrollbarWidth: 'thin',
     scrollbarColor: 'var(--color-text-disabled) transparent',
   },
-  addTrigger: { flexShrink: 0 },
+  addTrigger: { flexShrink: 0, alignSelf: 'flex-start' },
   compose: {
     display: 'flex',
     flexDirection: 'column',
     gap: 'var(--spacing-2)',
     flexShrink: 0,
+    alignSelf: 'flex-start',
     width: 280,
-    background: 'var(--color-background-body)',
-    borderRadius: 'var(--radius-md)',
-    padding: 'var(--spacing-2)',
-    boxShadow: '0 0 0 1px var(--color-accent), 0 0 0 4px var(--color-accent-muted)',
   },
-  composeFooter: { display: 'flex', alignItems: 'center', gap: 4 },
+  composeFooter: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
   error: { color: 'var(--color-error)', margin: 0 },
 });
 
@@ -60,6 +58,12 @@ export interface KanbanBoardProps {
     rootProps?: HTMLAttributes<HTMLElement>;
     placeholder?: ReactNode;
   };
+  /**
+   * Rendered instead of children + AddBucket when there are no columns. Pass a function to
+   * get a `startCompose` callback that opens the add-bucket input in one click instead of
+   * requiring the user to first reveal, then click, the "+ Add another bucket" trigger.
+   */
+  emptyState?: ReactNode | ((startCompose: () => void) => ReactNode);
 }
 
 export function KanbanBoard({
@@ -69,7 +73,9 @@ export function KanbanBoard({
   nameMaxLength,
   bucketCount,
   rootDroppable,
+  emptyState,
 }: KanbanBoardProps) {
+  const [composing, setComposing] = useState(false);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const rootDroppableRef = useRef(rootDroppable);
   rootDroppableRef.current = rootDroppable;
@@ -98,31 +104,48 @@ export function KanbanBoard({
       }
     : undefined;
 
+  const isEmpty = Children.count(children) === 0;
+
   return (
     <div ref={setBoardRef} {...rootDroppable?.rootProps} {...stylex.props(styles.board)}>
-      {children}
-      {rootDroppable?.placeholder}
-      {handleAddBucket && (
-        <AddBucket
-          onSubmit={handleAddBucket}
-          nameMaxLength={nameMaxLength}
-          disabledReason={addBucketDisabledReason}
-        />
+      {isEmpty && emptyState && !composing ? (
+        typeof emptyState === 'function' ? (
+          emptyState(() => setComposing(true))
+        ) : (
+          emptyState
+        )
+      ) : (
+        <>
+          {children}
+          {rootDroppable?.placeholder}
+          {handleAddBucket && (
+            <AddBucket
+              composing={composing}
+              onComposingChange={setComposing}
+              onSubmit={handleAddBucket}
+              nameMaxLength={nameMaxLength}
+              disabledReason={addBucketDisabledReason}
+            />
+          )}
+        </>
       )}
     </div>
   );
 }
 
 function AddBucket({
+  composing,
+  onComposingChange,
   onSubmit,
   nameMaxLength,
   disabledReason,
 }: {
+  composing: boolean;
+  onComposingChange: (v: boolean) => void;
   onSubmit: (name: string) => void | Promise<void>;
   nameMaxLength?: number;
   disabledReason?: string;
 }) {
-  const [composing, setComposing] = useState(false);
   const [value, setValue] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,14 +157,14 @@ function AddBucket({
     function onPointerDown(e: PointerEvent) {
       const target = e.target as Node | null;
       if (target && composeRef.current && !composeRef.current.contains(target)) {
-        setComposing(false);
+        onComposingChange(false);
         setValue('');
         setNameError(null);
       }
     }
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [composing]);
+  }, [composing, onComposingChange]);
 
   // Astryx TextInput has no autoFocus prop; focus imperatively when compose opens.
   useEffect(() => {
@@ -170,7 +193,7 @@ function AddBucket({
   }
 
   function cancel() {
-    setComposing(false);
+    onComposingChange(false);
     setValue('');
     setNameError(null);
   }
@@ -182,7 +205,7 @@ function AddBucket({
           label="+ Add another bucket"
           variant="ghost"
           isDisabled={Boolean(disabledReason)}
-          onClick={() => setComposing(true)}
+          onClick={() => onComposingChange(true)}
           xstyle={styles.addTrigger}
         />
       </DisabledActionTooltip>
@@ -190,7 +213,7 @@ function AddBucket({
   }
 
   return (
-    <div ref={composeRef} {...stylex.props(styles.compose)}>
+    <Card ref={composeRef} padding={2} xstyle={styles.compose}>
       <TextInput
         ref={inputRef}
         label="New bucket name"
@@ -219,6 +242,13 @@ function AddBucket({
       ) : null}
       <div {...stylex.props(styles.composeFooter)}>
         <Button
+          label="Cancel"
+          variant="ghost"
+          size="sm"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={cancel}
+        />
+        <Button
           label="Add bucket"
           variant="primary"
           size="sm"
@@ -226,16 +256,7 @@ function AddBucket({
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => void submit()}
         />
-        <Button
-          label="Cancel adding bucket"
-          variant="ghost"
-          size="sm"
-          isIconOnly
-          icon={<X size={16} aria-hidden />}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={cancel}
-        />
       </div>
-    </div>
+    </Card>
   );
 }

@@ -4,6 +4,8 @@ import {
   LayoutContent as AstryxLayoutContent,
   LayoutFooter as AstryxLayoutFooter,
   LayoutHeader as AstryxLayoutHeader,
+  LayoutPanel as AstryxLayoutPanel,
+  StackItem as AstryxStackItem,
   VStack as AstryxVStack,
 } from '@astryxdesign/core/Layout';
 import type { ComponentProps } from 'react';
@@ -36,4 +38,14 @@ export function HStack(props: HStackProps) {
 export type VStackProps = ComponentProps<typeof AstryxVStack>;
 export function VStack(props: VStackProps) {
   return <AstryxVStack {...props} />;
+}
+
+export type LayoutPanelProps = ComponentProps<typeof AstryxLayoutPanel>;
+export function LayoutPanel(props: LayoutPanelProps) {
+  return <AstryxLayoutPanel {...props} />;
+}
+
+export type StackItemProps = ComponentProps<typeof AstryxStackItem>;
+export function StackItem(props: StackItemProps) {
+  return <AstryxStackItem {...props} />;
 }

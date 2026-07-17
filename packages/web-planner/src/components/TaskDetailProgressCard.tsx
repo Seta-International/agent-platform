@@ -88,7 +88,7 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
   return (
     <section className="card" aria-label="Progress">
       <header className="mb-1.5">
-        <span className="t-sm subtle">Progress</span>
+        <span className="text-sm text-secondary">Progress</span>
       </header>
       <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
         <div
@@ -118,6 +118,12 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
                 id={`${groupId}-${opt.value}`}
                 onClick={() => commit(opt.value)}
                 onKeyDown={(event) => onKeyDown(event, idx)}
+                // In progress = Jira-style blue; the theme's accent is achromatic.
+                style={
+                  selected && isInProgress
+                    ? { backgroundColor: 'var(--color-icon-blue)' }
+                    : undefined
+                }
                 className={cn(
                   'flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg',
@@ -151,8 +157,10 @@ export function TaskDetailProgressCard({ task, planId }: Props) {
           />
         </DisabledActionTooltip>
         <div className="flex flex-col">
-          <span className="t-sm text-primary">On hold</span>
-          <span className="t-xs subtle">Pause this task and hide it from active views.</span>
+          <span className="text-sm text-primary">On hold</span>
+          <span className="text-xs text-secondary">
+            Pause this task and hide it from active views.
+          </span>
         </div>
       </div>
     </section>

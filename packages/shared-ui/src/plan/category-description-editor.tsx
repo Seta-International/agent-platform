@@ -99,7 +99,7 @@ export function CategoryDescriptionEditor({
           </p>
         </div>
         <div style={headRight}>
-          <span className="t-sm subtle">
+          <span className="text-sm text-secondary">
             {filledCount} / {TOTAL_SLOTS}
           </span>
           {!disabled && (
@@ -127,7 +127,7 @@ export function CategoryDescriptionEditor({
           const empty = !name.trim();
           return (
             <div key={n} style={rowGrid(isLast, empty)}>
-              <span style={slotBadge} className="mono">
+              <span style={slotBadge} className="font-mono tabular-nums">
                 cat {n}
               </span>
               <div style={inputWrap(empty)}>
@@ -153,7 +153,7 @@ export function CategoryDescriptionEditor({
                     <span style={labelButtonLeft}>
                       <span
                         aria-hidden="true"
-                        className="dot"
+                        className="inline-block size-1.5 shrink-0 rounded-full"
                         style={{ background: attached.color }}
                       />
                       {attached.name}
@@ -182,7 +182,10 @@ export function CategoryDescriptionEditor({
                   />
                 )}
               </div>
-              <span style={countCell(count != null && count > 0)} className="mono t-sm">
+              <span
+                style={countCell(count != null && count > 0)}
+                className="font-mono tabular-nums text-sm"
+              >
                 {count != null && count > 0 ? count : '—'}
               </span>
             </div>
@@ -196,7 +199,7 @@ export function CategoryDescriptionEditor({
             </button>
           ) : (
             <>
-              <span className="t-sm subtle">
+              <span className="text-sm text-secondary">
                 {TOTAL_SLOTS - DEFAULT_VISIBLE} more empty slots ·{' '}
               </span>
               <button type="button" style={ghostBtn} onClick={() => setExpanded(true)}>
@@ -229,7 +232,11 @@ function LabelPicker({ labels, selectedId, onPick, onClear }: LabelPickerProps) 
           onClick={() => onPick(l.id)}
           style={pickerOption}
         >
-          <span aria-hidden="true" className="dot" style={{ background: l.color }} />
+          <span
+            aria-hidden="true"
+            className="inline-block size-1.5 shrink-0 rounded-full"
+            style={{ background: l.color }}
+          />
           {l.name}
         </button>
       ))}

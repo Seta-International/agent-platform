@@ -188,8 +188,16 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
           )}
           {hasData && total > 0 && q.data && filters.view === 'grid' && (
             <div className="flex h-full flex-col">
-              <div className="flex-1 overflow-auto">
-                <MyTasksGrid data={q.data} />
+              <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+                <MyTasksGrid
+                  data={q.data}
+                  onOpenTask={(task) =>
+                    void navigate({
+                      to: '/planner/plans/$planId/tasks/$taskId',
+                      params: { planId: task.plan_id, taskId: task.id },
+                    })
+                  }
+                />
               </div>
               <MyTasksFooter data={q.data} total={total} />
             </div>

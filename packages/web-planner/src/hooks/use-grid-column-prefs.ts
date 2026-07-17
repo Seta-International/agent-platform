@@ -6,7 +6,7 @@ interface Prefs {
 }
 
 const DEFAULT: Prefs = {
-  order: ['title', 'status', 'bucket', 'assignees', 'priority', 'due', 'labels'],
+  order: ['title', 'status', 'bucket', 'assignees', 'priority', 'start', 'due', 'labels'],
   widths: {},
 };
 

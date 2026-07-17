@@ -1,4 +1,5 @@
 import { Draggable, Droppable } from '@hello-pangea/dnd';
+import { StatusDot, type StatusDotVariant } from '@seta/shared-ui';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown } from 'lucide-react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
@@ -38,12 +39,13 @@ const TONE_INK: Record<SectionTone, string> = {
   success: 'var(--color-success)',
 };
 
-const TONE_DOT: Record<SectionTone, string> = {
-  danger: 'dot--danger',
-  warning: 'dot--warning',
-  primary: 'dot--primary',
-  muted: 'dot--muted',
-  success: 'dot--success',
+// In Progress/primary = blue (the theme's accent is achromatic, so override the dot color).
+const TONE_DOT: Record<SectionTone, { variant: StatusDotVariant; color?: string }> = {
+  danger: { variant: 'error' },
+  warning: { variant: 'warning' },
+  primary: { variant: 'accent', color: 'var(--color-icon-blue)' },
+  muted: { variant: 'neutral' },
+  success: { variant: 'success' },
 };
 
 export const MT_COLUMNS = [
@@ -102,7 +104,18 @@ export function MtSection({ section, searchTerm }: Props) {
           className="text-secondary transition-transform duration-150"
           style={{ transform: open ? 'none' : 'rotate(-90deg)' }}
         />
-        <span data-testid="section-tone-dot" className={`dot ${TONE_DOT[section.tone]}`} />
+        <span data-testid="section-tone-dot" data-tone={TONE_DOT[section.tone].variant}>
+          <StatusDot
+            variant={TONE_DOT[section.tone].variant}
+            label={section.label}
+            aria-hidden="true"
+            style={
+              TONE_DOT[section.tone].color
+                ? { backgroundColor: TONE_DOT[section.tone].color }
+                : undefined
+            }
+          />
+        </span>
         <span className="text-base font-semibold -tracking-[0.005em]">{section.label}</span>
         <span
           data-testid="section-count"

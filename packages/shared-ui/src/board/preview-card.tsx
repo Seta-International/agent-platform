@@ -75,7 +75,7 @@ export function PreviewBody({ task, variant }: PreviewBodyProps) {
     return (
       <div data-role="preview-body" style={bodyWrap}>
         {bodyForSource(task, picked)}
-        <div className="t-xs subtle" style={attributionStyle}>
+        <div className="text-xs text-secondary" style={attributionStyle}>
           picked from {picked}
         </div>
       </div>
@@ -128,7 +128,7 @@ function ReferenceBody({ refRow }: { refRow: PreviewReference }) {
     <div style={refBoxStyle}>
       <span aria-hidden="true" style={{ ...refDotStyle, background: color }} />
       <span style={refAliasStyle}>{refRow.alias ?? refRow.host}</span>
-      <span className="mono t-xs subtle">{stripTld(refRow.host)}</span>
+      <span className="font-mono tabular-nums text-xs text-secondary">{stripTld(refRow.host)}</span>
     </div>
   );
 }
@@ -185,7 +185,7 @@ function ChecklistBody({
           <span style={c.done ? checklistTextDone : checklistText}>{c.text}</span>
         </div>
       ))}
-      <div className="t-xs subtle" style={{ marginTop: 2 }}>
+      <div className="text-xs text-secondary" style={{ marginTop: 2 }}>
         {doneCount} of {total}
       </div>
     </div>
@@ -200,7 +200,7 @@ function Footer({ task }: { task: PreviewCardTask }) {
       <div style={footerLeft}>
         <PriorityIcon level={task.priority} />
         {label && <LabelChip name={label.name} color={label.color} />}
-        {due && <span className="t-xs subtle">{due}</span>}
+        {due && <span className="text-xs text-secondary">{due}</span>}
       </div>
       <AvatarStack assignees={task.assignees ?? []} max={2} />
     </div>
@@ -317,6 +317,8 @@ const footerStyle: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   marginTop: 10,
+  paddingTop: 8,
+  borderTop: '1px solid var(--color-border)',
 };
 const footerLeft: CSSProperties = {
   display: 'flex',

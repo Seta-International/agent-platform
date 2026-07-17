@@ -197,6 +197,18 @@ function groupFixture() {
   };
 }
 
+function memberFixture(user_id: string, display_name: string, email: string) {
+  return {
+    group_id: 'g1',
+    user_id,
+    role: 'member',
+    display_name,
+    email,
+    added_at: '',
+    added_by: 'u',
+  };
+}
+
 function seedBoardHandlers() {
   return [
     http.get('*/api/planner/v1/plans/p1', () => HttpResponse.json(planFixture)),
@@ -206,6 +218,15 @@ function seedBoardHandlers() {
     http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [taskOne] })),
     http.get('*/api/planner/v1/plans/p1/labels', () => HttpResponse.json({ labels: [] })),
     http.get('*/api/planner/v1/groups/g1', () => HttpResponse.json(groupFixture())),
+    http.get('*/api/planner/v1/groups/g1/members', () =>
+      HttpResponse.json({
+        members: [
+          memberFixture('u-trong', 'Trong Tran', 'trong@acme.test'),
+          memberFixture('u-self', 'Me', 'u@acme.test'),
+        ],
+        total: 2,
+      }),
+    ),
   ];
 }
 
@@ -405,5 +426,32 @@ describe('PlanPage (via PlanBoardShell)', () => {
       bucket_id: 'b1',
       plan_id: 'p1',
     });
+  });
+
+  it('quick-create assignee picker offers every group member, not just users with tasks', async () => {
+    // taskOne has no assignees, so a task-derived option list would be empty and
+    // the picker would not render at all. Group members with board access must
+    // still be assignable.
+    server.use(...seedBoardHandlers());
+    renderShell();
+
+    await screen.findByText('To do');
+    const user = userEvent.setup();
+    const addButtons = screen.getAllByRole('button', { name: /\+ Add a task/ });
+    await user.click(addButtons[0]!);
+    await screen.findByPlaceholderText('Task title');
+
+    const picker = await screen.findByRole('combobox', { name: /assignees/i });
+    await user.click(picker);
+    expect(await screen.findByRole('option', { name: /Trong Tran/ })).toBeInTheDocument();
+  });
+
+  it('shows an empty-column state for a bucket with no tasks', async () => {
+    // seedBoardHandlers() puts taskOne in bucket b1 ("To do") only, so b2
+    // ("Done") has zero active tasks and should render the empty-column state.
+    server.use(...seedBoardHandlers());
+    renderShell();
+    await screen.findByText('Done');
+    expect(await screen.findByText(/no tasks yet/i)).toBeInTheDocument();
   });
 });

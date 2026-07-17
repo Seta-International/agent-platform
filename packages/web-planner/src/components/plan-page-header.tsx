@@ -24,9 +24,6 @@ interface Props {
   planName: string;
   groupName?: string;
   groupId?: string;
-  bucketCount: number;
-  taskCount: number;
-  myTaskCount?: number;
   canRename?: boolean;
   canManage?: boolean;
   /** Gate the Duplicate/Archive/Delete menu items; when false the item is shown disabled. */
@@ -59,9 +56,6 @@ export function PlanPageHeader({
   planName,
   groupName,
   groupId,
-  bucketCount,
-  taskCount,
-  myTaskCount,
   canRename,
   canManage,
   canDuplicate = true,
@@ -116,7 +110,7 @@ export function PlanPageHeader({
     hasSyncItems;
 
   return (
-    <header className="flex flex-col gap-1 px-6 pt-4 pb-2">
+    <header className="flex flex-col gap-1 px-6 pt-4 pb-1">
       {groupName && (
         <Breadcrumbs variant="supporting">
           <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
@@ -128,11 +122,13 @@ export function PlanPageHeader({
           <BreadcrumbItem isCurrent>{planName}</BreadcrumbItem>
         </Breadcrumbs>
       )}
-      <div className="plan-page-header__title-row">
+      <div className="flex items-center justify-between gap-3">
+        {/* Inline rename mimics the title, so a raw input/button (not Astryx Input/Button)
+            is the right shape; styling uses token-bridged utilities, no hand-rolled CSS. */}
         {canRename && editing ? (
           <input
             ref={inputRef}
-            className="plan-page-header__rename"
+            className="w-full max-w-md rounded-sm border border-border bg-surface px-1.5 py-0.5 font-semibold text-lg text-primary"
             defaultValue={planName}
             aria-label="Rename plan"
             onBlur={commit}
@@ -142,11 +138,11 @@ export function PlanPageHeader({
             }}
           />
         ) : (
-          <h1 className="m-0 text-lg font-semibold leading-[1.3]">
+          <h1 className="m-0 font-semibold text-lg">
             {canRename ? (
               <button
                 type="button"
-                className="plan-page-header__rename-trigger"
+                className="-mx-1 cursor-text rounded-sm px-1 text-left hover:bg-surface"
                 onClick={() => setEditing(true)}
               >
                 {planName}
@@ -307,10 +303,6 @@ export function PlanPageHeader({
           </DropdownMenu>
         )}
       </div>
-      <p className="t-xs subtle mt-0.5 mb-0">
-        {bucketCount} buckets · {taskCount} tasks
-        {typeof myTaskCount === 'number' && <> · {myTaskCount} assigned to you</>}
-      </p>
     </header>
   );
 }

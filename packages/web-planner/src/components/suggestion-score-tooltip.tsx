@@ -27,7 +27,7 @@ export function SuggestionScoreTooltip({ suggestion: s }: { suggestion: Assignee
   const pct = scorePercent(s);
   const skills = displayedSkills(s);
   return (
-    <div className="t-xs flex w-56 flex-col gap-2">
+    <div className="text-xs flex w-56 flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
         <span className="font-semibold text-primary">{matchLabel(s.score)}</span>
         <span className="text-sm font-bold tabular-nums text-accent">{pct}%</span>

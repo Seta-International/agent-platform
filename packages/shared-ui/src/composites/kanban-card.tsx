@@ -1,12 +1,21 @@
 import { Text } from '@astryxdesign/core/Text';
 import * as stylex from '@stylexjs/stylex';
-import { CheckSquare } from 'lucide-react';
+import { Calendar, CheckSquare } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { PRIORITY_BY_LEVEL } from '../lib/priority';
 import { AvatarStack } from './avatar-stack';
 import { KanbanCardShell, type KanbanCardShellProps } from './kanban-card-shell';
 import { LabelChip } from './label-chip';
-import { PriorityIcon } from './priority-icon';
 import { SyncBadge, type SyncState } from './sync-badge';
+
+// Mirrors priority-icon.tsx's LABEL map — the pill needs an accessible label since
+// color alone isn't sufficient.
+const LABEL: Record<KanbanCardTask['priority'], string> = {
+  urgent: 'Urgent priority',
+  important: 'Important priority',
+  medium: 'Medium priority',
+  low: 'Low priority',
+};
 
 const styles = stylex.create({
   title: { display: 'flex', alignItems: 'center', gap: 6 },
@@ -19,14 +28,30 @@ const styles = stylex.create({
     flexShrink: 0,
     display: 'inline-block',
   },
-  meta: {
-    display: 'flex',
+  pill: {
+    display: 'inline-flex',
     alignItems: 'center',
-    gap: 'var(--spacing-1)',
+    gap: 4,
+    padding: '1px 8px',
+    borderRadius: 999,
     fontSize: 'var(--font-size-xs)',
-    color: 'var(--color-text-secondary)',
+    fontWeight: 600,
   },
-  due: { color: 'var(--color-text-secondary)' },
+  doneMarker: {
+    marginInlineStart: 'auto',
+    color: 'var(--color-success)',
+    fontSize: 'var(--font-size-xs)',
+    fontWeight: 600,
+  },
+  due: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 3,
+    color: 'var(--color-text-secondary)',
+    fontSize: 'var(--font-size-xs)',
+    whiteSpace: 'nowrap',
+  },
+  dueIcon: { width: 12, height: 12, flexShrink: 0 },
   checklistChip: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -77,6 +102,49 @@ export interface KanbanCardProps {
 }
 
 export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: KanbanCardProps) {
+  const p = PRIORITY_BY_LEVEL[task.priority];
+  const header = (
+    <div {...stylex.props(styles.title)}>
+      <span
+        role="img"
+        aria-label={LABEL[task.priority]}
+        {...stylex.props(styles.pill)}
+        style={{ background: p.tint, color: p.ink }}
+      >
+        <span aria-hidden {...stylex.props(styles.blockedDot)} style={{ background: p.color }} />
+        {p.label}
+      </span>
+      {task.blocked && (
+        <span role="img" aria-label="Blocked" {...stylex.props(styles.blockedDot)} />
+      )}
+      {task.isCompleted && <span {...stylex.props(styles.doneMarker)}>✓ Done</span>}
+    </div>
+  );
+  const hasFooterContent = Boolean(
+    task.label ||
+      task.start_label ||
+      task.due_label ||
+      (task.checklist_summary && task.checklist_summary.total > 0) ||
+      task.assignees.length > 0,
+  );
+  const footer = hasFooterContent ? (
+    <>
+      {task.label && <LabelChip name={task.label.name} color={task.label.color} />}
+      {(task.due_label || task.start_label) && (
+        <span {...stylex.props(styles.due)}>
+          <Calendar aria-hidden {...stylex.props(styles.dueIcon)} />
+          {task.due_label ?? task.start_label}
+        </span>
+      )}
+      {task.checklist_summary && task.checklist_summary.total > 0 && (
+        <ChecklistChip
+          total={task.checklist_summary.total}
+          checked={task.checklist_summary.checked}
+        />
+      )}
+      <AvatarStack assignees={task.assignees} />
+    </>
+  ) : undefined;
   return (
     <KanbanCardShell
       ariaLabel={`Task: ${task.title}`}
@@ -85,43 +153,13 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
       recentlyMoved={task.recentlyMoved}
       saving={task.saving}
       draggable={draggable}
+      header={header}
+      footer={footer}
     >
-      <div {...stylex.props(styles.title)}>
-        {task.blocked && (
-          <span
-            role="img"
-            aria-label="Blocked"
-            title="Blocked"
-            {...stylex.props(styles.blockedDot)}
-          />
-        )}
-        <Text
-          size="sm"
-          weight="medium"
-          xstyle={task.isCompleted ? styles.completedTitle : undefined}
-        >
-          {task.title}
-        </Text>
-      </div>
+      <Text size="sm" weight="medium" xstyle={task.isCompleted ? styles.completedTitle : undefined}>
+        {task.title}
+      </Text>
       {previewSlot}
-      <div {...stylex.props(styles.meta)}>
-        <PriorityIcon level={task.priority} />
-        {task.label && <LabelChip name={task.label.name} color={task.label.color} />}
-        {(task.start_label || task.due_label) && (
-          <span {...stylex.props(styles.due)}>
-            {task.start_label && task.due_label
-              ? `${task.start_label} → ${task.due_label}`
-              : (task.start_label ?? task.due_label)}
-          </span>
-        )}
-        {task.checklist_summary && task.checklist_summary.total > 0 && (
-          <ChecklistChip
-            total={task.checklist_summary.total}
-            checked={task.checklist_summary.checked}
-          />
-        )}
-        <AvatarStack assignees={task.assignees} />
-      </div>
       {task.external_source === 'm365' && (
         <span {...stylex.props(styles.syncBadge)}>
           <SyncBadge

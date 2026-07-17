@@ -39,7 +39,12 @@ export function KpiStrip({ kpis }: { kpis: ChartData['kpis'] }) {
     >
       <Card label="Total" value={kpis.total} />
       <Card label="Completed" value={kpis.completed} sub={pct(kpis.completed, kpis.total)} />
-      <Card label="In progress" value={kpis.in_progress} sub={pct(kpis.in_progress, kpis.total)} />
+      <Card
+        label="In progress"
+        value={kpis.in_progress}
+        sub={pct(kpis.in_progress, kpis.total)}
+        accent="var(--color-icon-blue)"
+      />
       <Card label="Open" value={kpis.open} />
       <Card label="Late" value={kpis.late} sub="overdue" accent="var(--color-error)" />
     </div>

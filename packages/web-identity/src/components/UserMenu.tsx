@@ -42,7 +42,10 @@ export function UserMenu({ onSignOut }: { onSignOut?: () => void } = {}) {
         label: 'Account menu',
         variant: 'ghost',
         className: 'rounded-full',
-        children: <Avatar name={session.display_name || session.email} size={32} />,
+        // isIconOnly zeroes the text-slot inline padding; via `children` the
+        // ghost hover paints a 56×32 capsule that reads as an avatar group.
+        isIconOnly: true,
+        icon: <Avatar name={session.display_name || session.email} size={32} />,
       }}
     >
       <div className="px-2 py-1.5 text-sm">

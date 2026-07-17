@@ -38,6 +38,8 @@ import {
   CalendarClock,
   Download,
   Handshake,
+  LayoutGrid,
+  List,
   ListChecks,
   Search,
   Settings2,
@@ -335,10 +337,6 @@ export function CandidatesPage() {
                 <Text as="h1" size="lg" weight="semibold">
                   Candidates
                 </Text>
-                <Text color="secondary">
-                  Every applicant tracked from CV to offer — open a card to move it through the
-                  pipeline, schedule interviews, and keep the funnel moving.
-                </Text>
               </HStack>
               <HStack gap={2} vAlign="center">
                 <Button
@@ -357,7 +355,7 @@ export function CandidatesPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="space-y-4 p-6">
+          <div className="flex h-full min-h-0 flex-col gap-4 p-6">
             <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border bg-card sm:grid-cols-6">
               {STAGE_COUNT_SEGMENTS.map((seg) => (
                 <div key={seg.key} className="px-4 py-3">
@@ -417,8 +415,16 @@ export function CandidatesPage() {
                   value={view}
                   onChange={(v) => setView(v as 'board' | 'list')}
                 >
-                  <SegmentedControlItem value="board" label="Board" />
-                  <SegmentedControlItem value="list" label="List" />
+                  <SegmentedControlItem
+                    value="board"
+                    label="Board"
+                    icon={<LayoutGrid aria-hidden="true" />}
+                  />
+                  <SegmentedControlItem
+                    value="list"
+                    label="List"
+                    icon={<List aria-hidden="true" />}
+                  />
                 </SegmentedControl>
               </div>
             </div>
@@ -508,40 +514,42 @@ export function CandidatesPage() {
                 description="Add a candidate to get started."
               />
             ) : (
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <KanbanBoard>
-                  {BOARD_COLUMNS.map((col) => (
-                    <Droppable
-                      key={col.id}
-                      droppableId={col.id}
-                      isDropDisabled={col.id === 'hired' || !canManage}
-                    >
-                      {(provided, snapshot) => (
-                        <KanbanColumn
-                          name={col.label}
-                          count={groups[col.id].length}
-                          color={STAGE_COLOR[col.id]}
-                          // Why: narrows each column below the shared default (280px) so all
-                          // 4 stages fit one screen without horizontal scrolling.
-                          width={220}
-                          droppable={{
-                            ref: provided.innerRef,
-                            // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
-                            rootProps:
-                              provided.droppableProps as unknown as HTMLAttributes<HTMLElement>,
-                            isDraggingOver: snapshot.isDraggingOver,
-                            placeholder: provided.placeholder,
-                          }}
-                        >
-                          {groups[col.id].length === 0 ? (
-                            <EmptyState
-                              className="py-4"
-                              icon={COLUMN_EMPTY_ICON[col.id]}
-                              title={COLUMN_EMPTY_COPY[col.id].title}
-                              description={COLUMN_EMPTY_COPY[col.id].description}
-                            />
-                          ) : (
-                            groups[col.id].map((item, idx) => (
+              <div className="-mx-6 flex min-h-0 flex-1 flex-col">
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <KanbanBoard>
+                    {BOARD_COLUMNS.map((col) => (
+                      <Droppable
+                        key={col.id}
+                        droppableId={col.id}
+                        isDropDisabled={col.id === 'hired' || !canManage}
+                      >
+                        {(provided, snapshot) => (
+                          <KanbanColumn
+                            name={col.label}
+                            count={groups[col.id].length}
+                            color={STAGE_COLOR[col.id]}
+                            // Why: narrows each column below the shared default (280px) —
+                            // now a min-width floor (Task 8, FUT-725), so the column still
+                            // flexes to fill the board row above it.
+                            width={210}
+                            emptyState={
+                              <EmptyState
+                                className="py-4"
+                                icon={COLUMN_EMPTY_ICON[col.id]}
+                                title={COLUMN_EMPTY_COPY[col.id].title}
+                                description={COLUMN_EMPTY_COPY[col.id].description}
+                              />
+                            }
+                            droppable={{
+                              ref: provided.innerRef,
+                              // Why: @hello-pangea/dnd uses string-indexed data-rfd-* keys that don't satisfy React's HTMLAttributes shape.
+                              rootProps:
+                                provided.droppableProps as unknown as HTMLAttributes<HTMLElement>,
+                              isDraggingOver: snapshot.isDraggingOver,
+                              placeholder: provided.placeholder,
+                            }}
+                          >
+                            {groups[col.id].map((item, idx) => (
                               <Draggable
                                 key={item.application_id}
                                 draggableId={item.application_id}
@@ -562,14 +570,14 @@ export function CandidatesPage() {
                                   />
                                 )}
                               </Draggable>
-                            ))
-                          )}
-                        </KanbanColumn>
-                      )}
-                    </Droppable>
-                  ))}
-                </KanbanBoard>
-              </DragDropContext>
+                            ))}
+                          </KanbanColumn>
+                        )}
+                      </Droppable>
+                    ))}
+                  </KanbanBoard>
+                </DragDropContext>
+              </div>
             )}
             <TalentPoolCard onOpenCandidate={setSelected} />
           </div>

@@ -28,7 +28,7 @@ export function TaskDetailReferencesCard({ task, planId }: Props) {
 
   return (
     <section className="card" aria-label="References">
-      <header className="t-sm subtle mb-2">References</header>
+      <header className="text-sm text-secondary mb-2">References</header>
       <div className="flex flex-col gap-1.5">
         {task.references.map((r) => (
           <ReferenceRow

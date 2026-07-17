@@ -290,4 +290,40 @@ describe('KanbanBoard', () => {
       expect(scrollToSpy).not.toHaveBeenCalled();
     });
   });
+
+  describe('emptyState slot', () => {
+    it('renders emptyState when there are no columns', () => {
+      render(<KanbanBoard emptyState={<div>Start your board</div>}>{null}</KanbanBoard>);
+      expect(screen.getByText('Start your board')).toBeInTheDocument();
+    });
+
+    it('renders children when columns exist', () => {
+      render(
+        <KanbanBoard emptyState={<div>Start your board</div>}>
+          <div>col</div>
+        </KanbanBoard>,
+      );
+      expect(screen.queryByText('Start your board')).toBeNull();
+      expect(screen.getByText('col')).toBeInTheDocument();
+    });
+
+    it('a render-prop emptyState exposes startCompose, opening the add-bucket input in one click', () => {
+      render(
+        <KanbanBoard
+          onAddBucket={vi.fn()}
+          emptyState={(start) => (
+            <button type="button" onClick={start}>
+              go
+            </button>
+          )}
+        >
+          {null}
+        </KanbanBoard>,
+      );
+
+      fireEvent.click(screen.getByText('go'));
+
+      expect(screen.getByPlaceholderText('Enter bucket name…')).toBeInTheDocument();
+    });
+  });
 });

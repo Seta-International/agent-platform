@@ -3,6 +3,7 @@ import {
   BreadcrumbItem,
   Breadcrumbs,
   Button,
+  EmptyState,
   Input,
   Layout,
   LayoutContent,
@@ -14,7 +15,7 @@ import {
   VStack,
 } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
+import { Search, Users } from 'lucide-react';
 import { useState } from 'react';
 import { createJoinRequest, discoverGroups } from '../api/planner-client';
 
@@ -69,7 +70,7 @@ export function GroupDiscoverPage() {
       content={
         <LayoutContent padding={0}>
           <PageContainer>
-            <form onSubmit={handleSearch} className="flex gap-2 mb-8">
+            <form onSubmit={handleSearch} className="mx-auto mb-8 flex max-w-xl gap-2">
               <Input
                 label="Search by group name"
                 isLabelHidden
@@ -86,6 +87,14 @@ export function GroupDiscoverPage() {
               />
             </form>
 
+            {!submittedQ && (
+              <EmptyState
+                icon={<Users className="size-6" />}
+                title="Find your team's workspace"
+                description="Search public groups by name and request to join. Can't find yours? Ask a group owner to add you."
+              />
+            )}
+
             {searchQuery.isPending && submittedQ && (
               <div className="flex flex-col gap-3">
                 {(['sk-0', 'sk-1', 'sk-2'] as const).map((k) => (
@@ -95,9 +104,11 @@ export function GroupDiscoverPage() {
             )}
 
             {searchQuery.data && searchQuery.data.length === 0 && (
-              <p className="text-sm text-secondary">
-                No public groups match &ldquo;{submittedQ}&rdquo;.
-              </p>
+              <EmptyState
+                icon={<Search className="size-6" />}
+                title="No groups found"
+                description={`No public groups match “${submittedQ}”. Try a different name.`}
+              />
             )}
 
             {searchQuery.data && searchQuery.data.length > 0 && (

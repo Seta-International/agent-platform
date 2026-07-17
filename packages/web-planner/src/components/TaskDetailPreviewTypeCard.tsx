@@ -26,7 +26,7 @@ export function TaskDetailPreviewTypeCard({ task, planId }: Props) {
   return (
     <section className="card" aria-label="Show on card">
       <header className="mb-1.5">
-        <span className="t-sm subtle">Show on card</span>
+        <span className="text-sm text-secondary">Show on card</span>
       </header>
       <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
         <Selector

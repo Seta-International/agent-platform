@@ -7,7 +7,7 @@ import {
 } from '@seta/shared-ui';
 import { usePermission, useSession } from '@seta/web-identity';
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BoardSkeleton, GridSkeleton } from '../components/board-skeleton';
 import { ConfirmDeletePlanDialog } from '../components/ConfirmDeletePlanDialog';
 import { GridGroupBySelector } from '../components/grid-group-by-selector';
@@ -26,6 +26,7 @@ import {
 } from '../hooks/mutations/resolve-plan-conflicts';
 import { useUpdatePlan } from '../hooks/mutations/update-plan';
 import { useGroup } from '../hooks/queries/use-group';
+import { useGroupMembers } from '../hooks/queries/use-group-members';
 import { useMyGroups } from '../hooks/queries/use-my-groups';
 import { usePlanBoard } from '../hooks/queries/use-plan-board';
 import { useFilterOptions } from '../hooks/use-filter-options';
@@ -99,6 +100,17 @@ export function PlanBoardShell({
   const plan = boardQ.data?.plan;
   const groupId = plan?.group_id;
   const groupQ = useGroup(groupId ?? '');
+  // Quick-create assignees come from group membership (everyone with board
+  // access), not from filterOptions — that list only covers users already
+  // assigned to a task, so it would hide unassigned members.
+  const membersQ = useGroupMembers(groupId);
+  const composerAssigneeOptions = useMemo(
+    () =>
+      (membersQ.data?.members ?? [])
+        .map((m) => ({ value: m.user_id, label: m.display_name }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [membersQ.data],
+  );
   const myGroupsQ = useMyGroups();
   const navigate = useNavigate();
   const updatePlan = useUpdatePlan(groupId ?? '', planId);
@@ -192,27 +204,21 @@ export function PlanBoardShell({
   // Narrow plan now that data is resolved.
   const resolvedPlan = boardQ.data.plan;
   const groupName = groupQ.data?.name;
-  const currentUserId = session.user_id;
 
   const isPulling = resolvedPlan.sync_status === 'pulling' && tasks.length === 0;
 
   return (
     <div
       className={
-        view === 'board' ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1 flex-col gap-4'
+        view === 'board'
+          ? 'flex h-full min-h-0 flex-1 flex-col'
+          : 'flex h-full min-h-0 flex-1 flex-col gap-4'
       }
     >
       <PlanPageHeader
         planName={resolvedPlan.name}
         groupName={groupName}
         groupId={resolvedPlan.group_id}
-        bucketCount={buckets.length}
-        taskCount={tasks.length}
-        myTaskCount={
-          currentUserId
-            ? tasks.filter((t) => t.assignees.some((a) => a.user_id === currentUserId)).length
-            : undefined
-        }
         canRename={canUpdatePlan}
         canManage={canManage}
         canDuplicate={canCreatePlan}
@@ -242,7 +248,7 @@ export function PlanBoardShell({
           (chart filters + view switcher), so the board toolbar is omitted there — that keeps the
           charts screen to a single filter level instead of stacking on the board's. */}
       {view !== 'charts' && (
-        <div className="flex items-center justify-between gap-3 border-border border-b px-6 py-2">
+        <div className="flex items-center justify-between gap-3 border-border border-b px-6 pt-1 pb-2">
           <div className="flex items-center gap-2">
             <PlanSearchInput value={searchInputValue} onChange={onQChange} />
             <PlanFilterBar
@@ -318,6 +324,7 @@ export function PlanBoardShell({
           onOpenTask={onOpenTask}
           q={q}
           onQChange={onQChange}
+          assigneeOptions={composerAssigneeOptions}
         />
       ) : view === 'calendar' ? (
         <PlanCalendarPage

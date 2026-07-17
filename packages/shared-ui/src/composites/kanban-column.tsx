@@ -8,6 +8,7 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import * as stylex from '@stylexjs/stylex';
 import { GripVertical, MoreHorizontal, Plus } from 'lucide-react';
 import {
+  Children,
   type CSSProperties,
   type HTMLAttributes,
   type ReactNode,
@@ -18,12 +19,19 @@ import {
 import { DropdownMenu, DropdownMenuItem } from '../primitives/dropdown-menu';
 import { DisabledActionTooltip } from './disabled-action-tooltip';
 import { KanbanCardList } from './kanban-card-list';
-import { KanbanColumnCompose, type QuickCreateTaskInput } from './kanban-column-compose';
+import {
+  type AssigneeOption,
+  KanbanColumnCompose,
+  type QuickCreateTaskInput,
+} from './kanban-column-compose';
 
-export type { QuickCreateTaskInput } from './kanban-column-compose';
+export type { AssigneeOption, QuickCreateTaskInput } from './kanban-column-compose';
 
 const styles = stylex.create({
   shell: { flexShrink: 0 },
+  // Task 5 (FUT-725): width becomes a min-width floor, not a fixed size — the
+  // column flexes to fill the board row and its own height.
+  fluid: { flexGrow: 1, flexBasis: 0, maxHeight: '100%' },
   shellDragging: { opacity: 0.9 },
   handleArea: { minWidth: 0, flex: 1, cursor: 'grab', ':active': { cursor: 'grabbing' } },
   grip: { color: 'var(--color-text-disabled)', flexShrink: 0 },
@@ -33,6 +41,27 @@ const styles = stylex.create({
   // colour must go on the label itself — an xstyle on the item root is only inherited.
   dangerLabel: { color: 'var(--color-error)' },
   quickCreate: { alignSelf: 'flex-start' },
+  countPill: {
+    background: 'var(--color-background-surface)',
+    borderRadius: 999,
+    paddingInline: 'var(--spacing-1)',
+  },
+  emptyWrap: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 0,
+    padding: 'var(--spacing-4) var(--spacing-2)',
+  },
+  // The card list scrolls here (a non-droppable wrapper), NOT on LayoutContent or
+  // the KanbanCardList droppable itself. pangea resolves a droppable's scroll parent
+  // by computed overflow, so this wrapper becomes the in-column vertical scroll
+  // parent while `.kanban-board` stays the horizontal one. Board drag-autoscroll
+  // across columns must be verified at runtime (e2e); if it regresses, drop this
+  // scrollArea and let overflow scroll at the board level.
+  scrollArea: { flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' },
 });
 
 export interface KanbanColumnProps {
@@ -42,6 +71,8 @@ export interface KanbanColumnProps {
   children: ReactNode;
   completedTasks?: { count: number; children: ReactNode };
   onCreateTask?: (input: QuickCreateTaskInput) => void | Promise<void>;
+  /** Assignable people for the quick-create form; when non-empty, an assignee tokenizer is shown. */
+  assigneeOptions?: ReadonlyArray<AssigneeOption>;
   /** When set, blocks submit and shows an inline error if the trimmed title exceeds this length. */
   titleMaxLength?: number;
   onRename?: (name: string) => void;
@@ -65,8 +96,10 @@ export interface KanbanColumnProps {
   wipLimit?: number | null;
   /** M365-linked bucket: color/wip/archive actions are hidden. */
   isLinked?: boolean;
-  /** Column width in px (flex-basis in the board row). */
+  /** Min-width floor in px; the column flexes to fill the board row above this. */
   width?: number;
+  /** Rendered centered, full-height, in place of the card list when there are no children. */
+  emptyState?: ReactNode;
   droppable: {
     ref?: (el: HTMLElement | null) => void;
     rootProps?: HTMLAttributes<HTMLElement>;
@@ -89,6 +122,7 @@ export function KanbanColumn({
   children,
   completedTasks,
   onCreateTask,
+  assigneeOptions,
   titleMaxLength,
   onRename,
   onDelete,
@@ -103,6 +137,7 @@ export function KanbanColumn({
   wipLimit,
   isLinked,
   width = 280,
+  emptyState,
   droppable,
   draggableHandle,
 }: KanbanColumnProps) {
@@ -145,6 +180,7 @@ export function KanbanColumn({
     onRename || onDelete || (localActions && (onSetColor || onSetWipLimit || onArchive)),
   );
   const overLimit = wipLimit != null && count > wipLimit;
+  const isEmpty = Children.count(children) === 0;
 
   return (
     <Card
@@ -152,15 +188,14 @@ export function KanbanColumn({
       {...handle?.rootProps}
       variant="muted"
       padding={0}
-      width={width}
       role="region"
       aria-label={`Bucket: ${name}`}
-      xstyle={[styles.shell, handle?.isDragging && styles.shellDragging]}
-      style={handle?.extraStyle}
+      xstyle={[styles.shell, styles.fluid, handle?.isDragging && styles.shellDragging]}
+      style={{ minWidth: width, ...handle?.extraStyle }}
       data-dragging={handle?.isDragging ? 'true' : undefined}
     >
       <Layout
-        height="auto"
+        height="fill"
         header={
           <LayoutHeader hasDivider padding={2}>
             <HStack hAlign="between" vAlign="center" gap={1}>
@@ -219,15 +254,17 @@ export function KanbanColumn({
                     <Text size="sm" weight="semibold" maxLines={1}>
                       {name}
                     </Text>
-                    <Text
-                      size="2xs"
-                      color="secondary"
-                      hasTabularNumbers
-                      xstyle={overLimit ? styles.countOver : undefined}
-                      data-over-limit={overLimit ? 'true' : undefined}
-                    >
-                      {wipLimit != null ? `${count}/${wipLimit}` : count}
-                    </Text>
+                    <span {...stylex.props(styles.countPill)}>
+                      <Text
+                        size="2xs"
+                        color="secondary"
+                        hasTabularNumbers
+                        xstyle={overLimit ? styles.countOver : undefined}
+                        data-over-limit={overLimit ? 'true' : undefined}
+                      >
+                        {wipLimit != null ? `${count}/${wipLimit}` : count}
+                      </Text>
+                    </span>
                   </>
                 )}
               </HStack>
@@ -319,7 +356,7 @@ export function KanbanColumn({
           // scroll parent to the first ancestor with overflow auto/scroll, so a scrollable
           // LayoutContent would shadow .kanban-board and break board autoscroll during drag.
           <LayoutContent padding={2} isScrollable={false}>
-            <VStack gap={1.5}>
+            <VStack gap={1.5} xstyle={styles.scrollArea}>
               {!composing && onCreateTask && (
                 <DisabledActionTooltip
                   disabled={Boolean(createTaskDisabledReason)}
@@ -339,11 +376,13 @@ export function KanbanColumn({
               {composing && (
                 <KanbanColumnCompose
                   titleMaxLength={titleMaxLength}
+                  assigneeOptions={assigneeOptions}
                   onSubmit={handleCreate}
                   onCancel={() => setComposing(false)}
                 />
               )}
 
+              {isEmpty && emptyState && <div {...stylex.props(styles.emptyWrap)}>{emptyState}</div>}
               <KanbanCardList
                 ref={droppable.ref as ((el: HTMLDivElement | null) => void) | undefined}
                 rootProps={droppable.rootProps as HTMLAttributes<HTMLDivElement> | undefined}

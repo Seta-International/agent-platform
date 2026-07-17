@@ -78,4 +78,29 @@ describe('KanbanCardShell', () => {
     expect(card.style.transform).toBe('translate(1px, 2px)');
     expect(refs).toContain(card);
   });
+
+  it('renders header above the body and footer under a hairline, only when provided', () => {
+    const { rerender } = render(
+      <KanbanCardShell ariaLabel="x" draggable={{}}>
+        <div>body</div>
+      </KanbanCardShell>,
+    );
+    // No footer wrapper when footer prop is absent.
+    expect(document.querySelector('[data-role="card-footer"]')).toBeNull();
+
+    rerender(
+      <KanbanCardShell
+        ariaLabel="x"
+        draggable={{}}
+        header={<span>hdr</span>}
+        footer={<span>ftr</span>}
+      >
+        <div>body</div>
+      </KanbanCardShell>,
+    );
+    expect(screen.getByText('hdr')).toBeInTheDocument();
+    const footer = document.querySelector('[data-role="card-footer"]');
+    expect(footer).not.toBeNull();
+    expect(footer).toHaveTextContent('ftr');
+  });
 });

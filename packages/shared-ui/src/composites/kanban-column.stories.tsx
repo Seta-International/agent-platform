@@ -101,6 +101,18 @@ export const OverWipLimit: Story = {
   },
 };
 
+export const Empty: Story = {
+  args: {
+    name: 'Backlog',
+    count: 0,
+    status: 'neutral',
+    children: null,
+    emptyState: <div>No tasks yet</div>,
+    droppable: {},
+    draggableHandle: {},
+  },
+};
+
 export const LinkedBucket: Story = {
   args: {
     name: 'M365 Bucket',

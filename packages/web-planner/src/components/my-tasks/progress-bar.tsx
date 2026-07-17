@@ -12,7 +12,16 @@ export function ProgressBar({ pct, status }: Props) {
   const variant = isDone ? 'success' : isNot ? 'neutral' : 'accent';
   return (
     <div className="flex items-center gap-2 min-w-0">
-      <div className="flex-1 min-w-[32px]">
+      {/* In Progress = Jira blue everywhere; the theme's accent is achromatic, so
+          rescope --color-accent (the accent-variant fill) to the blue icon token. */}
+      <div
+        className="flex-1 min-w-[32px]"
+        style={
+          variant === 'accent'
+            ? ({ '--color-accent': 'var(--color-icon-blue)' } as React.CSSProperties)
+            : undefined
+        }
+      >
         <SharedProgressBar
           value={pct}
           max={100}

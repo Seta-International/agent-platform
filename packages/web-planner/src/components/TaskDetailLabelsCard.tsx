@@ -102,7 +102,7 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
   return (
     <section className="card" aria-label="Labels">
       <header className="mb-2">
-        <span className="t-sm subtle">Labels</span>
+        <span className="text-sm text-secondary">Labels</span>
       </header>
 
       <Tokenizer<LabelItem>
@@ -156,9 +156,9 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
 
       {categoryLabel && (
         <div className="mt-2.5">
-          <div className="t-xs subtle mb-1">Category</div>
-          <span className="t-sm inline-flex items-center gap-1.5 rounded-md bg-surface px-2 py-1 text-primary">
-            <span className="mono">cat {categoryLabel.category_slot}</span>
+          <div className="text-xs text-secondary mb-1">Category</div>
+          <span className="text-sm inline-flex items-center gap-1.5 rounded-md bg-surface px-2 py-1 text-primary">
+            <span className="font-mono tabular-nums">cat {categoryLabel.category_slot}</span>
             <span aria-hidden="true">›</span>
             <span>{categoryDescription ?? categoryLabel.name}</span>
           </span>
