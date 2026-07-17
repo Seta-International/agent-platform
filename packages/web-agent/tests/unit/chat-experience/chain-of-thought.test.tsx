@@ -46,15 +46,18 @@ describe('ChainOfThought', () => {
     localStorage.clear();
   });
 
-  it('renders leaf tool-call rows with their via-agent label when expanded', () => {
+  it('groups a subagent’s leaf calls under one agent header when expanded', () => {
     render(
       <ChainOfThought running={true} count={1} indices={[0]}>
         <div>delegate-row</div>
       </ChainOfThought>,
     );
+    expect(screen.getByText('Planner')).toBeInTheDocument();
+    expect(screen.getByText('2 steps')).toBeInTheDocument();
     expect(screen.getByText('Planner Create Task')).toBeInTheDocument();
     expect(screen.getByText('Planner List Tasks')).toBeInTheDocument();
-    expect(screen.getAllByText('via Planner')).toHaveLength(2);
+    // Flat "via {Agent}" rows are gone.
+    expect(screen.queryByText(/via Planner/)).toBeNull();
     expect(screen.getByText('delegate-row')).toBeInTheDocument();
   });
 

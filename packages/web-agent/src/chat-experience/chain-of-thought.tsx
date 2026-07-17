@@ -1,7 +1,8 @@
 import { useAuiState } from '@assistant-ui/react';
-import { type ChatToolCallStatus, ChatToolCalls, Collapsible } from '@seta/shared-ui';
+import { Collapsible } from '@seta/shared-ui';
 import { type ReactNode, useMemo, useState } from 'react';
-import { extractLeafToolCalls, humanizeToolName, type LeafToolCall } from './leaf-tool-calls';
+import { extractLeafToolCalls, type LeafToolCall } from './leaf-tool-calls';
+import { SubagentGroup } from './subagent-group';
 import { useDensity } from './use-density';
 
 export interface ChainOfThoughtProps {
@@ -10,12 +11,6 @@ export interface ChainOfThoughtProps {
   indices: readonly number[];
   children: ReactNode;
 }
-
-const LEAF_STATUS: Record<LeafToolCall['status'], ChatToolCallStatus> = {
-  running: 'running',
-  ok: 'complete',
-  error: 'error',
-};
 
 export function ChainOfThought({ running, count, indices, children }: ChainOfThoughtProps) {
   const { density } = useDensity();
@@ -40,16 +35,16 @@ export function ChainOfThought({ running, count, indices, children }: ChainOfTho
   const forcedOpen = running || hasPendingAction;
   const defaultOpen = density === 'detailed';
   const open = forcedOpen || (manualOverride ?? defaultOpen);
-  const calls = useMemo(
-    () =>
-      leafRows.map((r) => ({
-        key: r.toolCallId,
-        name: humanizeToolName(r.name),
-        status: LEAF_STATUS[r.status],
-        target: `via ${r.via}`,
-      })),
-    [leafRows],
-  );
+  // Group each subagent's leaf calls under one header (first-seen agent order).
+  const groups = useMemo(() => {
+    const byAgent = new Map<string, LeafToolCall[]>();
+    for (const row of leafRows) {
+      const list = byAgent.get(row.via);
+      if (list) list.push(row);
+      else byAgent.set(row.via, [row]);
+    }
+    return [...byAgent.entries()].map(([agent, rows]) => ({ agent, rows }));
+  }, [leafRows]);
   return (
     <Collapsible
       isOpen={open}
@@ -61,11 +56,11 @@ export function ChainOfThought({ running, count, indices, children }: ChainOfTho
       }
     >
       {children}
-      {/* Drive the leaf group from the same `open` state rather than letting it
-          keep its own: nested inside an open chain-of-thought the rows were
-          always flat/visible before, and a second collapsed layer would bury a
-          pending approval one extra click deep. */}
-      <ChatToolCalls calls={calls} isExpanded={open} />
+      {/* One block per delegated subagent, driven by the parent open state so a
+          pending approval nested inside stays reachable. */}
+      {groups.map((group) => (
+        <SubagentGroup key={group.agent} agent={group.agent} rows={group.rows} open={open} />
+      ))}
     </Collapsible>
   );
 }
