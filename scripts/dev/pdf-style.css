@@ -51,14 +51,37 @@ h1 {
   border-bottom: 2px solid var(--line);
 }
 
-/* …except the very first heading, which is the document title. */
+/* …except the very first heading, which is the document title.
+   Styled as a cover: pushed down the page and centered; pair it with a
+   .page-break div right after the title block in the source document. */
 body > h1:first-of-type {
   page-break-before: avoid;
   break-before: avoid;
-  font-size: 28pt;
-  margin: 0.3em 0 0.15em;
-  padding-bottom: 0.32em;
-  border-bottom: 3px solid var(--brand);
+  font-size: 30pt;
+  text-align: center;
+  margin: 34% 0 0.4em;
+  padding-bottom: 0.4em;
+  border-bottom: none;
+}
+
+/* Cover tagline: the paragraph directly under the title. */
+body > h1:first-of-type + p {
+  text-align: center;
+  font-size: 13pt;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0 auto 2.2em;
+  max-width: 36em;
+}
+
+/* Cover meta line(s): the paragraph after the tagline. */
+body > h1:first-of-type + p + p {
+  text-align: center;
+  font-size: 10.5pt;
+  line-height: 1.9;
+  color: var(--muted);
+  margin: 0 auto;
+  max-width: 34em;
 }
 
 /* The "### subtitle" right under the title, and section lead questions. */
@@ -112,6 +135,11 @@ a {
   color: var(--brand);
   text-decoration: none;
 }
+a code {
+  color: var(--brand-dark);
+  border-color: #c7d4f8;
+  background: #eef2fd;
+}
 
 ul,
 ol {
@@ -162,8 +190,9 @@ table {
 }
 th,
 td {
-  border: 1px solid var(--line);
-  padding: 6px 9px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  padding: 5px 9px;
   vertical-align: top;
   line-height: 1.4;
 }
@@ -171,18 +200,27 @@ thead {
   display: table-header-group;
 } /* repeat header across page breaks */
 thead th {
-  background: var(--th-bg);
-  color: var(--ink);
-  font-weight: 700;
+  background: var(--brand-dark);
+  color: #fff;
+  font-weight: 600;
   text-align: left;
-  border: 1px solid var(--line);
-  border-bottom: 2px solid var(--brand);
+  letter-spacing: 0.02em;
+  border: none;
+}
+thead th:first-child {
+  border-radius: 6px 0 0 0;
+}
+thead th:last-child {
+  border-radius: 0 6px 0 0;
 }
 tbody tr {
   break-inside: avoid;
 }
 tbody tr:nth-child(even) {
   background: var(--zebra);
+}
+tbody tr:last-child td {
+  border-bottom: 2px solid var(--line);
 }
 table code {
   font-size: 0.82em;
@@ -217,11 +255,26 @@ svg {
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 1.2em auto;
+  margin: 0 auto;
 }
 p:has(img),
 p:has(svg) {
   text-align: center;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 12px;
+  margin: 1.2em 0 1.5em;
+  break-inside: avoid;
+}
+
+/* ---- Manual page breaks ------------------------------------------------ */
+
+.page-break {
+  page-break-after: always;
+  break-after: page;
+  height: 0;
+  margin: 0;
 }
 
 /* ---- Rules ------------------------------------------------------------- */
