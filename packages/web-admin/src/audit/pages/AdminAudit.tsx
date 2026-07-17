@@ -6,7 +6,6 @@ import {
   Dialog,
   DialogHeader,
   EmptyState,
-  FilterPill,
   HStack,
   Input,
   Layout,
@@ -14,6 +13,7 @@ import {
   LayoutHeader,
   pixel,
   proportional,
+  Selector,
   Skeleton,
   Table,
   type TableColumn,
@@ -338,19 +338,25 @@ export function AdminAudit({
               dividers={['bottom']}
               startContent={
                 <>
-                  <FilterPill
+                  <Selector
                     label="Event"
+                    isLabelHidden
+                    size="sm"
+                    placeholder="All events"
+                    hasClear
+                    options={[...EVENT_TYPE_OPTIONS]}
                     value={search.event_type ?? null}
-                    options={EVENT_TYPE_OPTIONS}
                     onChange={setEventType}
-                    anyLabel="All events"
                   />
-                  <FilterPill<DateRange>
+                  <Selector
                     label="Range"
+                    isLabelHidden
+                    size="sm"
+                    placeholder="All time"
+                    hasClear
+                    options={[...DATE_RANGE_OPTIONS]}
                     value={rangeSelected}
-                    options={DATE_RANGE_OPTIONS}
-                    onChange={setRange}
-                    anyLabel="All time"
+                    onChange={(v) => setRange(v as DateRange | null)}
                   />
                 </>
               }

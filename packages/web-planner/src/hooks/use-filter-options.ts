@@ -1,10 +1,10 @@
-import type { FilterPillOption } from '@seta/shared-ui';
+import type { SelectorOptionData } from '@seta/shared-ui';
 import { useMemo } from 'react';
 import type { PlanBoardData } from './queries/use-plan-board';
 
 export interface FilterOptions {
-  assigneeOptions: ReadonlyArray<FilterPillOption<string>>;
-  labelOptions: ReadonlyArray<FilterPillOption<string>>;
+  assigneeOptions: ReadonlyArray<SelectorOptionData>;
+  labelOptions: ReadonlyArray<SelectorOptionData>;
 }
 
 export function useFilterOptions(data: PlanBoardData | undefined): FilterOptions {

@@ -101,19 +101,83 @@ describe('TaskDetailAssigneesCard', () => {
     expect(screen.getByText('Carol')).toBeInTheDocument();
   });
 
-  it('lists members and AI suggestions, with AI rows badged and sorted first', async () => {
+  it('fetches nothing until the user clicks "Suggest assignees"', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    const suggestHit = vi.fn();
+    server.use(
+      http.get('/api/planner/v1/tasks/:taskId/assignee-suggestions', () => {
+        suggestHit();
+        return HttpResponse.json([
+          { user_id: 'u42', display_name: 'Zara', score: 0.92, skills: [], exact_overlap: 0 },
+        ]);
+      }),
+    );
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
+
+    // The trigger is present; no suggestion request has fired and Zara isn't shown.
+    const trigger = screen.getByRole('button', { name: 'Suggest' });
+    expect(suggestHit).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /assign zara/i })).toBeNull();
+
+    await user.click(trigger);
+
+    // After the click, suggestions are fetched and rendered with a fit band + %.
+    const suggestBtn = await screen.findByRole('button', { name: /assign zara/i });
+    expect(suggestBtn).toHaveTextContent('Zara');
+    expect(suggestBtn).toHaveTextContent('92%');
+    expect(suggestHit).toHaveBeenCalled();
+  });
+
+  it('assigns an AI suggestion when its row is clicked', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    const assignBody = vi.fn();
+    server.use(
+      http.post('/api/planner/v1/tasks/t1/assign', async ({ request }) => {
+        assignBody(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
+    await user.click(screen.getByRole('button', { name: 'Suggest' }));
+    await user.click(await screen.findByRole('button', { name: /assign zara/i }));
+
+    await waitFor(() =>
+      expect(assignBody).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'u42' })),
+    );
+  });
+
+  it('shows a no-match message when the trigger returns no suggestions', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    server.use(
+      http.get('/api/planner/v1/tasks/:taskId/assignee-suggestions', () => HttpResponse.json([])),
+    );
+
+    const task = withAssignees([]);
+    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
+    await user.click(screen.getByRole('button', { name: 'Suggest' }));
+
+    expect(await screen.findByText(/no skill matches for this task yet/i)).toBeInTheDocument();
+  });
+
+  it('lists plain group members in the search picker', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
 
     const task = withAssignees([]);
     renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    const input = screen.getByPlaceholderText(/search group members/i);
-    await user.click(input);
+    await user.click(screen.getByPlaceholderText(/search group members/i));
 
     const options = await screen.findAllByRole('option');
-    // AI-suggested Zara renders with a score badge and sorts above plain member Dora
-    expect(options[0]).toHaveTextContent('Zara');
-    expect(options[0]).toHaveTextContent('92%');
     expect(options.some((o) => o.textContent?.includes('Dora'))).toBe(true);
   });
 
@@ -146,35 +210,45 @@ describe('TaskDetailAssigneesCard', () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
 
+    // Two members so the exclusion is observable: Dora (assigned) must drop out
+    // while Eve (free) remains selectable.
+    server.use(
+      http.get('/api/planner/v1/groups/g1/members', () =>
+        HttpResponse.json({
+          members: [
+            {
+              group_id: 'g1',
+              user_id: 'u9',
+              role: 'member',
+              display_name: 'Dora',
+              email: 'dora@x',
+              added_at: '2026-05-20T00:00:00Z',
+              added_by: 'u1',
+            },
+            {
+              group_id: 'g1',
+              user_id: 'u10',
+              role: 'member',
+              display_name: 'Eve',
+              email: 'eve@x',
+              added_at: '2026-05-20T00:00:00Z',
+              added_by: 'u1',
+            },
+          ],
+          total: 2,
+        }),
+      ),
+    );
+
     const task = withAssignees([assignee({ user_id: 'u9', display_name: 'Dora' })]);
     renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    const input = screen.getByPlaceholderText(/search group members/i);
-    await user.click(input);
+    // Dora is already a token, so the Tokenizer hides its placeholder — open the
+    // picker via the combobox role instead.
+    await user.click(screen.getByRole('combobox', { name: /assignees/i }));
 
     const options = await screen.findAllByRole('option');
+    expect(options.some((o) => o.textContent?.includes('Eve'))).toBe(true);
     expect(options.some((o) => o.textContent?.includes('Dora'))).toBe(false);
-  });
-
-  it('calls moveToTopOfMyList when "Move to top of my list" is clicked', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-    const captured = vi.fn();
-    server.use(
-      http.put('/api/planner/v1/tasks/t1/assignee-priority', async () => {
-        captured();
-        return HttpResponse.json({ id: 't1', version: 2 });
-      }),
-    );
-    const task = withAssignees([assignee()]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    await user.click(screen.getByRole('button', { name: /Move to top of my list/i }));
-    await waitFor(() => expect(captured).toHaveBeenCalled());
-  });
-
-  it('hides "Move to top of my list" when the current user is not assigned', () => {
-    const task = withAssignees([assignee({ user_id: 'u-other', display_name: 'Other' })]);
-    renderWithClient(<TaskDetailAssigneesCard task={task} planId="p1" groupId="g1" />);
-    expect(screen.queryByRole('button', { name: /Move to top of my list/i })).toBeNull();
   });
 });
 

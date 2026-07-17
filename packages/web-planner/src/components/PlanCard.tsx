@@ -1,5 +1,5 @@
 import type { PlanRow } from '@seta/planner';
-import { Avatar, Tooltip } from '@seta/shared-ui';
+import { Avatar, Card, Tooltip } from '@seta/shared-ui';
 
 interface PlanCardProps {
   plan: PlanRow;
@@ -31,7 +31,7 @@ function subtextParts(
   dueDate: string | null | undefined,
 ): string | null {
   if (taskCount === undefined) return null;
-  const parts: string[] = [`${taskCount} tasks`];
+  const parts: string[] = [`${taskCount} ${taskCount === 1 ? 'task' : 'tasks'}`];
   if (openTaskCount !== undefined) {
     parts.push(`${openTaskCount} open`);
   }
@@ -69,27 +69,27 @@ function StackedBar({ notStarted, inProgress, completed }: StackedBarProps) {
 
 interface StateChipProps {
   label: string;
+  shortLabel: string;
   count: number;
   color: string;
 }
 
-function StateChip({ label, count, color }: StateChipProps) {
+function StateChip({ label, shortLabel, count, color }: StateChipProps) {
   return (
     <Tooltip content={`${label}: ${count}`} hasHoverIndication={false}>
       <span
         role="img"
         aria-label={`${label}: ${count}`}
-        className="inline-flex items-center gap-1 cursor-default"
+        className="inline-flex items-center gap-1.5 cursor-default"
       >
         <span
           aria-hidden
-          className="inline-block size-1.5 rounded-full"
+          className="inline-block size-2 rounded-full"
           style={{ background: color }}
         />
-        <span className="text-xs font-medium text-primary tabular-nums" aria-hidden>
-          {count}
+        <span className="text-xs text-secondary" aria-hidden>
+          <span className="font-medium text-primary tabular-nums">{count}</span> {shortLabel}
         </span>
-        <span className="sr-only">{label}</span>
       </span>
     </Tooltip>
   );
@@ -113,10 +113,21 @@ export function PlanCard({
     notStartedCount !== undefined || inProgressCount !== undefined || completedCount !== undefined;
 
   return (
-    <button
-      type="button"
+    // Astryx Card supplies the surface (card background, border, radius); it spreads DOM props, so
+    // the whole tile stays a keyboard-operable button without nesting a native <button>.
+    <Card
+      variant="default"
+      padding={0}
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="group relative cursor-pointer rounded-lg border border-border bg-body p-3.5 text-left w-full hover:border-border-strong hover:shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      className="group relative w-full cursor-pointer overflow-hidden text-left transition hover:border-border-strong hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
     >
       {/* Color rail */}
       <div
@@ -124,7 +135,7 @@ export function PlanCard({
         style={{ background: themeColor }}
       />
 
-      <div className="pl-1.5">
+      <div className="p-3.5 pl-4">
         {/* Title + subtext */}
         <div className="min-w-0">
           <p className="text-sm font-semibold text-primary truncate group-hover:text-accent transition-colors">
@@ -163,18 +174,25 @@ export function PlanCard({
               </div>
             ) : null}
             {hasBuckets && (
-              <div className="mt-2 flex items-center gap-3">
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                 <StateChip
                   label="Not started"
+                  shortLabel="To do"
                   count={notStartedCount ?? 0}
                   color={COLOR_NOT_STARTED}
                 />
                 <StateChip
                   label="In progress"
+                  shortLabel="In progress"
                   count={inProgressCount ?? 0}
                   color={COLOR_IN_PROGRESS}
                 />
-                <StateChip label="Completed" count={completedCount ?? 0} color={COLOR_COMPLETED} />
+                <StateChip
+                  label="Completed"
+                  shortLabel="Done"
+                  count={completedCount ?? 0}
+                  color={COLOR_COMPLETED}
+                />
               </div>
             )}
           </div>
@@ -188,6 +206,6 @@ export function PlanCard({
           </div>
         )}
       </div>
-    </button>
+    </Card>
   );
 }

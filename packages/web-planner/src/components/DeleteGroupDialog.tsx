@@ -3,10 +3,10 @@ import {
   Banner,
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Layout,
   LayoutContent,
-  LayoutFooter,
 } from '@seta/shared-ui';
 
 interface Props {
@@ -50,7 +50,7 @@ export function DeleteGroupDialog({
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button
               variant="secondary"
               label="Cancel"
@@ -63,7 +63,7 @@ export function DeleteGroupDialog({
               onClick={onConfirm}
               isDisabled={isPending}
             />
-          </LayoutFooter>
+          </DialogFooter>
         }
       />
     </Dialog>

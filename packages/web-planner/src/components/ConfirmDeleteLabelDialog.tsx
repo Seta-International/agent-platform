@@ -1,4 +1,4 @@
-import { Button, Dialog, DialogHeader, Layout, LayoutContent, LayoutFooter } from '@seta/shared-ui';
+import { Button, Dialog, DialogFooter, DialogHeader, Layout, LayoutContent } from '@seta/shared-ui';
 
 interface Props {
   open: boolean;
@@ -27,7 +27,7 @@ export function ConfirmDeleteLabelDialog({
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button
               variant="ghost"
               label="Cancel"
@@ -40,7 +40,7 @@ export function ConfirmDeleteLabelDialog({
               onClick={onConfirm}
               isDisabled={pending}
             />
-          </LayoutFooter>
+          </DialogFooter>
         }
       />
     </Dialog>

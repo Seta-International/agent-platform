@@ -4,6 +4,7 @@ import {
   Breadcrumbs,
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   DropdownMenu,
   DropdownMenuItem,
@@ -12,7 +13,6 @@ import {
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   LayoutHeader,
   pixel,
   proportional,
@@ -552,7 +552,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
                 />
               }
               footer={
-                <LayoutFooter hasDivider>
+                <DialogFooter>
                   <Button
                     variant="secondary"
                     label="Cancel"
@@ -566,7 +566,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
                       setSuspendTarget(null);
                     }}
                   />
-                </LayoutFooter>
+                </DialogFooter>
               }
             />
           </Dialog>

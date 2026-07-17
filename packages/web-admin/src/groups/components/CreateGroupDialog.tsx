@@ -1,11 +1,11 @@
 import {
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   Textarea,
 } from '@seta/shared-ui';
 import { Plus } from 'lucide-react';
@@ -59,6 +59,7 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
     <>
       <Button
         size="sm"
+        variant="primary"
         label="New group"
         icon={<Plus className="size-4" aria-hidden />}
         onClick={() => setOpen(true)}
@@ -110,14 +111,16 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
+            <DialogFooter>
               <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
               <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
                 label={createGroup.isPending ? 'Creating…' : 'Create group'}
                 onClick={handleSubmit}
                 isDisabled={!effectiveSlug || !name.trim() || createGroup.isPending}
               />
-            </LayoutFooter>
+            </DialogFooter>
           }
         />
       </Dialog>

@@ -5,142 +5,215 @@ import {
   Badge,
   Button,
   DisabledActionTooltip,
+  EmptyState,
   formatRelative,
   GroupTile,
+  pixel,
+  proportional,
+  Table,
+  type TableColumn,
+  type TableSortState,
+  useTableSortable,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { Link } from '@tanstack/react-router';
-import { ChevronRight, RefreshCw, Shield, Users } from 'lucide-react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { RefreshCw, Shield, Users } from 'lucide-react';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
+
+export type GroupSortField = 'group' | 'owner' | 'plans' | 'members' | 'visibility' | 'activity';
+export interface GroupSort {
+  field: GroupSortField;
+  dir: 'asc' | 'desc';
+}
+
+// Astryx Table columns require `T extends Record<string, unknown>`; the DTO lacks an
+// index signature, so alias locally (do not touch the shared DTO).
+type GroupRow = GroupWithCountsRow & Record<string, unknown>;
 
 interface Props {
   groups: ReadonlyArray<GroupWithCountsRow>;
   onRestore?: (groupId: string) => void;
+  sort: GroupSort;
+  onSortChange: (next: GroupSort) => void;
 }
 
-export function GroupsTable({ groups, onRestore }: Props) {
+export function GroupsTable({ groups, onRestore, sort, onSortChange }: Props) {
   const canUpdateGroup = usePermission('planner.group.update');
-  return (
-    <div className="w-full overflow-x-auto">
-      {/* Header row */}
-      <div
-        className="sticky top-0 z-10 grid items-center gap-2 border-b border-border bg-body px-7 py-2.5 text-xs font-medium uppercase tracking-wider text-secondary"
-        style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 32px' }}
-      >
-        <div />
-        <div>Group</div>
-        <div>Owner</div>
-        <div className="text-right">Plans</div>
-        <div>Members</div>
-        <div>Visibility</div>
-        <div className="text-right">Activity</div>
-        <div />
-      </div>
+  const navigate = useNavigate();
 
-      {/* Body rows */}
-      <div>
-        {groups.map((group) => (
-          <Link
-            key={group.id}
-            to="/planner/groups/$groupId"
-            params={{ groupId: group.id }}
-            className="grid items-center gap-2 border-b border-border px-7 py-3 text-sm text-primary transition-colors hover:bg-card"
-            style={{ gridTemplateColumns: '40px 1.6fr 1fr 90px 110px 130px 100px 32px' }}
-            aria-label={group.name}
-          >
-            {/* Tile */}
-            <div className="flex items-center">
-              <GroupTile size={28} theme={group.theme} name={group.name} />
-            </div>
+  const sortState: TableSortState = [
+    { sortKey: sort.field, direction: sort.dir === 'desc' ? 'descending' : 'ascending' },
+  ];
+  const sortable = useTableSortable<GroupRow>({
+    sort: sortState,
+    onSortChange: (s) => {
+      const entry = s[0];
+      // Sorting is single-column; clearing sort falls back to the default group order.
+      if (!entry) {
+        onSortChange({ field: 'group', dir: 'asc' });
+        return;
+      }
+      onSortChange({
+        field: entry.sortKey as GroupSortField,
+        dir: entry.direction === 'descending' ? 'desc' : 'asc',
+      });
+    },
+  });
 
-            {/* Name + description */}
-            <div className="min-w-0 pr-4">
-              <p className="truncate font-medium text-primary">
-                {group.name}
-                {group.deleted_at && (
-                  <Badge variant="neutral" className="ml-1.5 align-middle" label="Archived" />
-                )}
-                {group.external_source !== 'native' && (
-                  <span
-                    role="img"
-                    aria-label="Synced from M365"
-                    title="Synced from IdP"
-                    className="ml-1.5 inline-flex items-center align-middle text-blue-vivid"
-                  >
-                    <RefreshCw className="size-3" aria-hidden="true" />
-                  </span>
-                )}
-              </p>
-              {group.description && (
-                <p className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-secondary">
-                  {group.description}
-                </p>
-              )}
-            </div>
-
-            {/* Owner */}
-            <div className="flex min-w-0 items-center gap-2 pr-4">
-              <Avatar name={group.owner_display_name ?? undefined} size={24} />
-              <span className="truncate text-xs text-secondary">
-                {group.owner_display_name ?? '—'}
-              </span>
-            </div>
-
-            {/* Plans */}
-            <div className="text-right font-mono text-sm tabular-nums">{group.plan_count}</div>
-
-            {/* Members */}
-            <div className="flex items-center gap-2">
-              <AvatarStack assignees={group.members_preview} max={3} />
-              <span className="text-xs text-secondary">{group.member_count}</span>
-            </div>
-
-            {/* Visibility */}
-            <div className="flex items-center gap-1.5 text-xs text-secondary">
-              {group.visibility === 'private' ? (
-                <>
-                  <Shield className="size-3.5 shrink-0" aria-hidden="true" />
-                  <span>Private</span>
-                </>
-              ) : (
-                <>
-                  <Users className="size-3.5 shrink-0" aria-hidden="true" />
-                  <span>Workspace</span>
-                </>
-              )}
-            </div>
-
-            {/* Activity */}
-            <div className="text-right text-xs text-secondary">
-              {formatRelative(group.updated_at)}
-            </div>
-
-            {/* Restore or chevron */}
-            <div className="flex justify-end">
-              {onRestore && group.deleted_at ? (
-                <DisabledActionTooltip
-                  disabled={!canUpdateGroup}
-                  reason={PERMISSION_DENIED.group.restore}
+  const columns: TableColumn<GroupRow>[] = [
+    {
+      key: 'group',
+      header: 'Group',
+      width: proportional(2.4, { minWidth: 240 }),
+      sortable: true,
+      renderCell: (g) => (
+        <div className="flex min-w-0 items-center gap-3">
+          <GroupTile size={28} theme={g.theme} name={g.name} />
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-1.5">
+              {/* Real anchor so ⌘/middle-click and keyboard focus keep working; the row's own
+                  onClick still navigates on a plain click, so stop propagation to avoid a
+                  double navigation. */}
+              <Link
+                to="/planner/groups/$groupId"
+                params={{ groupId: g.id }}
+                aria-label={g.name}
+                onClick={(e) => e.stopPropagation()}
+                className="truncate font-medium text-primary hover:underline"
+              >
+                {g.name}
+              </Link>
+              {g.deleted_at && <Badge variant="neutral" label="Archived" />}
+              {g.external_source !== 'native' && (
+                <span
+                  role="img"
+                  aria-label="Synced from M365"
+                  title="Synced from IdP"
+                  className="inline-flex items-center text-blue-vivid"
                 >
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    label="Restore"
-                    isDisabled={!canUpdateGroup}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onRestore(group.id);
-                    }}
-                  />
-                </DisabledActionTooltip>
-              ) : (
-                <ChevronRight className="size-3 text-disabled" aria-hidden="true" />
+                  <RefreshCw className="size-3" aria-hidden="true" />
+                </span>
               )}
             </div>
-          </Link>
-        ))}
-      </div>
-    </div>
+            {g.description && (
+              <div className="truncate text-xs text-secondary">{g.description}</div>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      width: proportional(1.4, { minWidth: 160 }),
+      sortable: true,
+      renderCell: (g) => (
+        <div className="flex min-w-0 items-center gap-2">
+          <Avatar name={g.owner_display_name ?? undefined} size={24} />
+          <span className="truncate text-secondary">{g.owner_display_name ?? '—'}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'plans',
+      header: 'Plans',
+      width: pixel(80),
+      align: 'end',
+      sortable: true,
+      renderCell: (g) => <span className="font-mono tabular-nums">{g.plan_count}</span>,
+    },
+    {
+      key: 'members',
+      header: 'Members',
+      width: pixel(140),
+      sortable: true,
+      renderCell: (g) => (
+        <div className="flex items-center gap-2">
+          <AvatarStack assignees={g.members_preview} max={3} />
+          <span className="text-secondary">{g.member_count}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'visibility',
+      header: 'Visibility',
+      width: pixel(130),
+      sortable: true,
+      renderCell: (g) =>
+        g.visibility === 'private' ? (
+          <span className="flex items-center gap-1.5 text-secondary">
+            <Shield className="size-3.5 shrink-0" aria-hidden="true" />
+            Private
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-secondary">
+            <Users className="size-3.5 shrink-0" aria-hidden="true" />
+            Workspace
+          </span>
+        ),
+    },
+    {
+      key: 'activity',
+      header: 'Activity',
+      width: pixel(110),
+      align: 'end',
+      sortable: true,
+      renderCell: (g) => <span className="text-secondary">{formatRelative(g.updated_at)}</span>,
+    },
+    {
+      key: 'action',
+      header: '',
+      width: pixel(96),
+      align: 'end',
+      renderCell: (g) =>
+        onRestore && g.deleted_at ? (
+          <DisabledActionTooltip
+            disabled={!canUpdateGroup}
+            reason={PERMISSION_DENIED.group.restore}
+          >
+            <Button
+              size="sm"
+              variant="secondary"
+              label="Restore"
+              isDisabled={!canUpdateGroup}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRestore(g.id);
+              }}
+            />
+          </DisabledActionTooltip>
+        ) : null,
+    },
+  ];
+
+  return (
+    <Table
+      data={[...groups] as GroupRow[]}
+      columns={columns}
+      idKey="id"
+      density="compact"
+      plugins={{
+        sortable,
+        rowClick: {
+          transformBodyRow: (props, item) => ({
+            ...props,
+            htmlProps: {
+              ...props.htmlProps,
+              style: { ...props.htmlProps.style, cursor: 'pointer' },
+              onClick: () =>
+                void navigate({ to: '/planner/groups/$groupId', params: { groupId: item.id } }),
+            },
+          }),
+        },
+      }}
+      emptyState={
+        <EmptyState
+          icon={<Users className="size-6" />}
+          title="No matching groups"
+          description="Try adjusting your search or filters."
+        />
+      }
+    />
   );
 }

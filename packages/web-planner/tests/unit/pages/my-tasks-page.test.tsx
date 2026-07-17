@@ -354,8 +354,9 @@ describe('MyTasksPage', () => {
     server.use(http.get('*/api/planner/v1/my-tasks', () => HttpResponse.json(emptyResult())));
     const { setFilters } = renderPage();
     await screen.findByText(/all caught up/i);
-    await userEvent.click(screen.getByRole('button', { name: /priority/i }));
-    await userEvent.click(await screen.findByText('Urgent'));
+    // Priority is a plain Astryx Selector (no search) → its trigger has the `combobox` role.
+    await userEvent.click(screen.getByRole('combobox', { name: /priority/i }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Urgent' }));
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ priority: 1 }));
   });
 

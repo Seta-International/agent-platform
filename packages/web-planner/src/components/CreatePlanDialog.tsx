@@ -2,14 +2,15 @@ import {
   Banner,
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   DisabledActionTooltip,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useCreatePlan } from '../hooks/mutations/create-plan';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
@@ -81,16 +82,18 @@ export function CreatePlanDialog({ groupId, open, onOpenChange, onCreated }: Pro
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <DisabledActionTooltip disabled={!canCreatePlan} reason={PERMISSION_DENIED.plan.create}>
               <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
                 label="Create plan"
                 onClick={submit}
                 isDisabled={!canCreatePlan || !name.trim() || createPlan.isPending}
               />
             </DisabledActionTooltip>
-          </LayoutFooter>
+          </DialogFooter>
         }
       />
     </Dialog>

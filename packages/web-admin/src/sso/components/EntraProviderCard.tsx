@@ -272,6 +272,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
                     onClick={handleConsent}
                     isDisabled={busy}
                     size="sm"
+                    variant="primary"
                     label="Grant admin consent"
                   />
                   <Button
@@ -288,6 +289,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
                   onClick={handleEnable}
                   isDisabled={busy}
                   size="sm"
+                  variant="primary"
                   label="Turn on Microsoft sign-in"
                 />
               )}

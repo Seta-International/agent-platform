@@ -31,7 +31,7 @@ describe('CalendarQuickCreate', () => {
     render(wrap(<CalendarQuickCreate planId="p1" dueDate="2026-06-12" onClose={onClose} />));
 
     await userEvent.type(screen.getByLabelText('Task title'), 'Demo');
-    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Create task' }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(body).toMatchObject({
@@ -43,7 +43,7 @@ describe('CalendarQuickCreate', () => {
 
   it('disables Create for empty titles', () => {
     render(wrap(<CalendarQuickCreate planId="p1" dueDate="2026-06-12" onClose={() => {}} />));
-    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Create task' })).toBeDisabled();
   });
 
   it('calls onClose when Escape is pressed in the title input', async () => {

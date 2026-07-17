@@ -1,4 +1,4 @@
-import { Button, Heading } from '@seta/shared-ui';
+import { Button } from '@seta/shared-ui';
 import { useComments } from '../hooks/queries/use-comments';
 import { CommentComposer } from './CommentComposer';
 import { CommentItem } from './CommentItem';
@@ -15,21 +15,17 @@ export function TaskDetailCommentsCard({ taskId, currentUserId, isGroupOwner }: 
   const totalLoaded = q.data?.pages.reduce((acc, p) => acc + p.comments.length, 0) ?? 0;
 
   return (
-    <section aria-label="Comments" className="rounded-lg border border-border bg-body p-4">
-      <header className="mb-3 flex items-center justify-between">
-        <Heading level={3}>
-          Comments ({totalLoaded}
-          {q.hasNextPage ? '+' : ''})
-        </Heading>
+    <section aria-label="Comments" className="card">
+      <header className="mb-3 text-base text-secondary">
+        Comments
+        {totalLoaded > 0 ? ` · ${totalLoaded}${q.hasNextPage ? '+' : ''}` : ''}
       </header>
 
-      <div className="mb-4">
-        <CommentComposer taskId={taskId} />
-      </div>
+      <CommentComposer taskId={taskId} />
 
-      {q.isPending && <p className="text-sm text-disabled">Loading comments…</p>}
+      {q.isPending && <p className="mt-4 text-sm text-disabled">Loading comments…</p>}
       {q.isError && (
-        <p className="text-sm text-error">
+        <p className="mt-4 text-sm text-error">
           Could not load comments.{' '}
           <button type="button" className="underline" onClick={() => void q.refetch()}>
             Retry
@@ -38,27 +34,30 @@ export function TaskDetailCommentsCard({ taskId, currentUserId, isGroupOwner }: 
       )}
 
       {q.data && totalLoaded === 0 && (
-        <p className="text-sm text-disabled">No comments yet. Be the first to comment.</p>
+        <p className="mt-4 text-sm text-disabled">No comments yet. Be the first to comment.</p>
       )}
 
-      <ul className="flex flex-col gap-4">
-        {q.data?.pages
-          .flatMap((p) => p.comments)
-          .map((c) => (
-            <li key={c.id}>
-              <CommentItem
-                taskId={taskId}
-                comment={c}
-                currentUserId={currentUserId}
-                isGroupOwner={isGroupOwner}
-              />
-            </li>
-          ))}
-      </ul>
+      {totalLoaded > 0 && (
+        <ul className="mt-4 flex flex-col gap-5 border-t border-border pt-4">
+          {q.data?.pages
+            .flatMap((p) => p.comments)
+            .map((c) => (
+              <li key={c.id}>
+                <CommentItem
+                  taskId={taskId}
+                  comment={c}
+                  currentUserId={currentUserId}
+                  isGroupOwner={isGroupOwner}
+                />
+              </li>
+            ))}
+        </ul>
+      )}
 
       {q.hasNextPage && (
         <div className="mt-4 flex justify-center">
           <Button
+            size="sm"
             variant="ghost"
             label="Load earlier comments"
             onClick={() => void q.fetchNextPage()}

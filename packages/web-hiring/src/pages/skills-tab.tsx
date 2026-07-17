@@ -69,6 +69,7 @@ export function SkillsTab({
       <div className="flex justify-end">
         <Button
           size="sm"
+          variant="primary"
           label={save.isPending ? 'Saving…' : 'Save skills'}
           onClick={() => save.mutate()}
           isDisabled={save.isPending}

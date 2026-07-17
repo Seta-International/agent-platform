@@ -5,12 +5,12 @@ import {
   createStaticSource,
   DateInput,
   Dialog,
+  DialogFooter,
   DialogHeader,
   FileInput,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   type SearchableItem,
   Selector,
   Tokenizer,
@@ -19,7 +19,7 @@ import {
   useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { FileText, X } from 'lucide-react';
+import { FileText, Plus, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { fetchOrgStructure } from '../api/org-client.ts';
 import {
@@ -136,7 +136,13 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Button size="sm" label="New worker" onClick={() => setOpen(true)} />
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New worker"
+        onClick={() => setOpen(true)}
+      />
       <Dialog
         isOpen={open}
         onOpenChange={handleOpenChange}
@@ -299,14 +305,16 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
+            <DialogFooter>
               <Button variant="secondary" onClick={() => setOpen(false)} label="Cancel" />
               <Button
+                variant="primary"
                 onClick={() => save.mutate()}
                 isDisabled={save.isPending || parse.isPending || !form.full_name.trim()}
-                label={save.isPending ? 'Creating…' : 'Create'}
+                icon={<Plus className="size-4" />}
+                label={save.isPending ? 'Creating…' : 'Create worker'}
               />
-            </LayoutFooter>
+            </DialogFooter>
           }
         />
       </Dialog>

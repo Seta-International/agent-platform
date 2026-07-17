@@ -1,6 +1,4 @@
-import { Button, DateInput, Popover } from '@seta/shared-ui';
-import { CalendarDays, ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { DateRangeInput } from '@seta/shared-ui';
 
 interface Props {
   from?: string;
@@ -9,48 +7,18 @@ interface Props {
 }
 
 export function ChartRangeControl({ from, to, onChange }: Props) {
-  const [open, setOpen] = useState(false);
-  const active = Boolean(from || to);
-  const summary = active ? `${from ?? '…'} → ${to ?? '…'}` : 'Range';
-
+  // Astryx's DateRangeInput carries a complete range or none, so only surface a value when both
+  // ends are set; picking a range writes both, clearing writes neither.
+  const value = from && to ? { start: from, end: to } : null;
   return (
-    <Popover
-      isOpen={open}
-      onOpenChange={setOpen}
-      alignment="end"
-      width={256}
+    <DateRangeInput
       label="Date range"
-      content={
-        <div className="flex flex-col gap-3">
-          <DateInput
-            label="From"
-            size="sm"
-            value={from}
-            onChange={(v) => onChange({ from: v, to })}
-          />
-          <DateInput label="To" size="sm" value={to} onChange={(v) => onChange({ from, to: v })} />
-          {active && (
-            <Button
-              variant="ghost"
-              size="sm"
-              label="Clear range"
-              onClick={() => onChange({ from: undefined, to: undefined })}
-              className="self-start"
-            />
-          )}
-        </div>
-      }
-    >
-      <Button
-        variant="secondary"
-        size="sm"
-        className={`h-7 gap-1.5 ${active ? 'border-accent-bg text-primary' : ''}`}
-        label="Date range filter"
-        icon={<CalendarDays className="size-3.5 opacity-70" />}
-        endContent={<ChevronDown className="size-3 opacity-60" />}
-      >
-        <span className="font-medium">{summary}</span>
-      </Button>
-    </Popover>
+      isLabelHidden
+      size="sm"
+      placeholder="Range"
+      hasClear
+      value={value}
+      onChange={(r) => onChange({ from: r?.start, to: r?.end })}
+    />
   );
 }

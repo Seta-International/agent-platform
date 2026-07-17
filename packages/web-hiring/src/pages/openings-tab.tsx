@@ -1,5 +1,6 @@
 import { Badge, Button, Selector, useToast } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
   addOpening,
@@ -59,7 +60,8 @@ export function OpeningsTab({
         {canManage && (
           <Button
             size="sm"
-            variant="secondary"
+            variant="primary"
+            icon={<Plus className="size-3.5" />}
             label="Add opening"
             onClick={() => add.mutate()}
             isDisabled={add.isPending}

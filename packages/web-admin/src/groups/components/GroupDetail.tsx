@@ -6,11 +6,11 @@ import {
   Checkbox,
   cn,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   Selector,
   Textarea,
   Typeahead,
@@ -122,9 +122,10 @@ function RenameDialog({ group }: { group: Group }) {
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
+            <DialogFooter>
               <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
               <Button
+                variant="primary"
                 label="Save"
                 isDisabled={!name.trim() || update.isPending}
                 onClick={() =>
@@ -134,7 +135,7 @@ function RenameDialog({ group }: { group: Group }) {
                   )
                 }
               />
-            </LayoutFooter>
+            </DialogFooter>
           }
         />
       </Dialog>

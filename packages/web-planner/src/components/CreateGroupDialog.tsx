@@ -5,17 +5,17 @@ import {
   Checkbox,
   cn,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Field,
   GroupTile,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   Selector,
 } from '@seta/shared-ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link2, Shield, Users } from 'lucide-react';
+import { Link2, Plus, Shield, Users } from 'lucide-react';
 import React, { useId, useState } from 'react';
 import { plannerClient } from '../api/planner-client';
 import { LinkToM365Dialog } from '../components/LinkToM365Dialog';
@@ -307,31 +307,32 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
-              <div className="flex w-full items-center justify-between">
+            <DialogFooter
+              startContent={
                 <Checkbox
                   label="Create a starter plan in this group"
                   value={createStarterPlan}
                   onChange={(checked) => setCreateStarterPlan(checked)}
                 />
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs text-disabled">⌘ Return</span>
-                  <Button
-                    variant="secondary"
-                    label="Cancel"
-                    onClick={() => {
-                      reset();
-                      onOpenChange(false);
-                    }}
-                  />
-                  <Button
-                    label="Create group"
-                    onClick={() => submit()}
-                    isDisabled={!name.trim() || createGroup.isPending}
-                  />
-                </div>
-              </div>
-            </LayoutFooter>
+              }
+            >
+              <span className="text-xs text-disabled">⌘ Return</span>
+              <Button
+                variant="secondary"
+                label="Cancel"
+                onClick={() => {
+                  reset();
+                  onOpenChange(false);
+                }}
+              />
+              <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
+                label="Create group"
+                onClick={() => submit()}
+                isDisabled={!name.trim() || createGroup.isPending}
+              />
+            </DialogFooter>
           }
         />
       </Dialog>

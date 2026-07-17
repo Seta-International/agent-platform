@@ -148,26 +148,24 @@ export function MyTasksPage({ filters, onFiltersChange }: Props) {
               </HStack>
             </VStack>
           </LayoutHeader>
-          {/* Second header row pins the filters outside the scroll container, exactly as the old
-              page chrome did. The inner div reproduces that chrome's toolbar wrapper verbatim —
-              MyTasksToolbar carries no horizontal padding of its own and relies on this `px-6`. */}
+          {/* The Toolbar owns its own height, inline padding, and bottom divider, so it sits
+              directly in a padding-free header row — no gray `bg-body` wrapper. It stays outside
+              the scroll container, keeping the filters pinned above the list. */}
           <LayoutHeader padding={0}>
-            <div className="flex h-12 flex-none items-center justify-between gap-4 border-b border-border bg-body px-6">
-              <MyTasksToolbar
-                value={{
-                  planId: filters.planId,
-                  groupId: filters.groupId,
-                  priority: filters.priority,
-                  due: filters.due,
-                  view: filters.view ?? 'list',
-                  search: filters.search,
-                }}
-                planOptions={planOptions}
-                groupOptions={groupOptions}
-                onChange={(patch) => onFiltersChange({ ...filters, ...patch })}
-                onSearchChange={(s) => onFiltersChange({ ...filters, search: s || undefined })}
-              />
-            </div>
+            <MyTasksToolbar
+              value={{
+                planId: filters.planId,
+                groupId: filters.groupId,
+                priority: filters.priority,
+                due: filters.due,
+                view: filters.view ?? 'list',
+                search: filters.search,
+              }}
+              planOptions={planOptions}
+              groupOptions={groupOptions}
+              onChange={(patch) => onFiltersChange({ ...filters, ...patch })}
+              onSearchChange={(s) => onFiltersChange({ ...filters, search: s || undefined })}
+            />
           </LayoutHeader>
         </>
       }

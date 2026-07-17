@@ -28,7 +28,7 @@ describe('TrashPage', () => {
       http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
     );
     renderPage();
-    await screen.findByText(/No deleted items/i);
+    await screen.findByText(/Trash is empty/i);
     const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
     expect(within(nav).getByRole('link', { name: 'Planner' })).toHaveAttribute('href', '/planner');
     expect(within(nav).getByText('Trash')).toHaveAttribute('aria-current', 'page');
@@ -42,7 +42,7 @@ describe('TrashPage', () => {
       http.get('*/api/planner/v1/tasks', () => HttpResponse.json({ tasks: [] })),
     );
     renderPage();
-    expect(await screen.findByText(/No deleted items/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Trash is empty/i)).toBeInTheDocument();
   });
 
   it('lists deleted items + supports Restore', async () => {
@@ -84,7 +84,9 @@ describe('TrashPage', () => {
     );
     renderPage();
     expect(await screen.findByText('Old task')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /restore/i }));
+    // Row actions live in an overflow menu — open it, then pick Restore.
+    fireEvent.click(screen.getByRole('button', { name: /actions for old task/i }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /restore/i }));
     await waitFor(() => expect(screen.queryByText('Old task')).toBeInTheDocument());
   });
 

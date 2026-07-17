@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Button } from '../primitives/button';
 import { Dialog, DialogHeader } from '../primitives/dialog';
-import { Layout, LayoutContent, LayoutFooter } from '../primitives/layout';
+import { Layout, LayoutContent } from '../primitives/layout';
+import { DialogFooter } from './dialog-footer';
 import { FieldConflictRow } from './field-conflict-row';
 import { TaskConflictGroup } from './task-conflict-group';
 
@@ -185,26 +186,26 @@ export function ResolvePlanConflictsDialog(p: ResolvePlanConflictsDialogProps) {
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
-            <div className="flex w-full items-center justify-between">
+          <DialogFooter
+            startContent={
               <span className="text-xs text-secondary">
                 {unresolved} unresolved · {chosen} chosen
               </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  label="Cancel"
-                  onClick={() => handleOpenChange(false)}
-                  isDisabled={submitting}
-                />
-                <Button
-                  label="Apply"
-                  onClick={handleApply}
-                  isDisabled={chosen < totalFields || submitting}
-                />
-              </div>
-            </div>
-          </LayoutFooter>
+            }
+          >
+            <Button
+              variant="secondary"
+              label="Cancel"
+              onClick={() => handleOpenChange(false)}
+              isDisabled={submitting}
+            />
+            <Button
+              variant="primary"
+              label="Apply"
+              onClick={handleApply}
+              isDisabled={chosen < totalFields || submitting}
+            />
+          </DialogFooter>
         }
       />
     </Dialog>

@@ -1,4 +1,5 @@
 import { Badge, Button, Input } from '@seta/shared-ui';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
 interface DomainsFieldProps {
@@ -32,7 +33,13 @@ export function DomainsField({ domains, onChange }: DomainsFieldProps) {
           placeholder="contoso.com"
           onEnter={add}
         />
-        <Button type="button" variant="secondary" label="Add" onClick={add} />
+        <Button
+          type="button"
+          variant="secondary"
+          icon={<Plus className="size-4" />}
+          label="Add"
+          onClick={add}
+        />
       </div>
       {domains.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">

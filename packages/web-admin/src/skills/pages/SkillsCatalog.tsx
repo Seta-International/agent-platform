@@ -446,6 +446,7 @@ function AddRow({
       <Button
         variant="secondary"
         size="sm"
+        icon={<Plus className="size-3.5" />}
         label="Add"
         isDisabled={!value.trim() || pending}
         onClick={submit}

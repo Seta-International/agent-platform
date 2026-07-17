@@ -7,11 +7,11 @@ import {
   Card,
   CardTitle,
   Dialog,
+  DialogFooter,
   DialogHeader,
   HStack,
   Layout,
   LayoutContent,
-  LayoutFooter,
   LayoutHeader,
   PageContainer,
   Skeleton,
@@ -262,6 +262,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
         {showPmo && (
           <Button
             size="sm"
+            variant="primary"
             label={pmoMutation.isPending ? 'Signing off…' : 'PMO sign-off'}
             onClick={() => pmoMutation.mutate()}
             isDisabled={pmoMutation.isPending}
@@ -270,6 +271,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
         {showBod && (
           <Button
             size="sm"
+            variant="primary"
             label={bodMutation.isPending ? 'Approving…' : 'BoD approve · create project'}
             onClick={() => bodMutation.mutate()}
             isDisabled={bodMutation.isPending}
@@ -413,7 +415,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
                 </LayoutContent>
               }
               footer={
-                <LayoutFooter hasDivider>
+                <DialogFooter>
                   <Button
                     variant="secondary"
                     label="Cancel"
@@ -429,7 +431,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
                     onClick={() => rejectMutation.mutate()}
                     isDisabled={rejectMutation.isPending || !reason.trim()}
                   />
-                </LayoutFooter>
+                </DialogFooter>
               }
             />
           </Dialog>

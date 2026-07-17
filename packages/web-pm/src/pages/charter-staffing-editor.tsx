@@ -13,7 +13,7 @@ import {
   useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Pencil, Trash2, X } from 'lucide-react';
+import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   type AllocationRow,
@@ -370,6 +370,8 @@ export function CharterStaffingEditor({
                     <LevelSelect value={level} onChange={setLevel} isLabelHidden={false} />
                   </div>
                   <Button
+                    variant="primary"
+                    icon={<Plus className="size-4" />}
                     label={add.isPending ? 'Adding…' : 'Add'}
                     onClick={() => add.mutate()}
                     isDisabled={!worker || add.isPending}

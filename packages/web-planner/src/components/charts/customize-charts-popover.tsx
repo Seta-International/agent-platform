@@ -68,13 +68,7 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
               label="Reset to defaults"
               onClick={() => onChange(DEFAULT_VISIBLE)}
             />
-            <Button
-              variant="secondary"
-              size="sm"
-              className="h-7"
-              label="Done"
-              onClick={() => setOpen(false)}
-            />
+            <Button variant="secondary" size="sm" label="Done" onClick={() => setOpen(false)} />
           </div>
         </>
       }
@@ -82,15 +76,9 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
       <Button
         variant="secondary"
         size="sm"
-        className="h-7 gap-1.5"
-        label="Customize charts"
         icon={<Settings2 className="size-3.5 opacity-70" />}
-      >
-        <span className="font-medium">Customize</span>
-        <span className="text-secondary">
-          {visible.length}/{enabledTotal}
-        </span>
-      </Button>
+        label={`Customize ${visible.length}/${enabledTotal}`}
+      />
     </Popover>
   );
 }

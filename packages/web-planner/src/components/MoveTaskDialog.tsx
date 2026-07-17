@@ -3,10 +3,10 @@ import {
   Banner,
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Layout,
   LayoutContent,
-  LayoutFooter,
   Selector,
 } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
@@ -212,15 +212,20 @@ export function MoveTaskDialog({
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button
               variant="ghost"
               label="Cancel"
               onClick={() => handleOpenChange(false)}
               isDisabled={pending}
             />
-            <Button label="Move" onClick={handleSubmit} isDisabled={submitDisabled} />
-          </LayoutFooter>
+            <Button
+              variant="primary"
+              label="Move"
+              onClick={handleSubmit}
+              isDisabled={submitDisabled}
+            />
+          </DialogFooter>
         }
       />
     </Dialog>

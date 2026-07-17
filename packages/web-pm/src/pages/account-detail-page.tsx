@@ -172,6 +172,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
         />
         <Button
           size="sm"
+          variant="primary"
           label={saveMutation.isPending ? 'Saving…' : 'Save'}
           onClick={() => saveMutation.mutate()}
           isDisabled={saveMutation.isPending}
@@ -401,6 +402,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                           />
                           <Button
                             size="sm"
+                            variant="primary"
                             label={saveRecruitersMutation.isPending ? 'Saving…' : 'Save'}
                             onClick={submitRecruiters}
                             isDisabled={saveRecruitersMutation.isPending}

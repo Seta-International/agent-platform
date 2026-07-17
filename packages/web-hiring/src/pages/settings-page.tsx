@@ -7,12 +7,12 @@ import {
   Card,
   CardTitle,
   Dialog,
+  DialogFooter,
   DialogHeader,
   HStack,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   LayoutHeader,
   PageContainer,
   SegmentedControl,
@@ -25,6 +25,7 @@ import {
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
   archiveCloseReason,
@@ -105,7 +106,13 @@ function NewTemplateDialog() {
 
   return (
     <>
-      <Button size="sm" label="New template" onClick={() => setOpen(true)} />
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New template"
+        onClick={() => setOpen(true)}
+      />
       <Dialog
         isOpen={open}
         onOpenChange={handleOpenChange}
@@ -163,16 +170,16 @@ function NewTemplateDialog() {
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" label="Cancel" onClick={close} />
-                <Button
-                  label={mutation.isPending ? 'Creating…' : 'Create template'}
-                  onClick={() => mutation.mutate()}
-                  isDisabled={mutation.isPending || !name.trim()}
-                />
-              </div>
-            </LayoutFooter>
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={close} />
+              <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
+                label={mutation.isPending ? 'Creating…' : 'Create template'}
+                onClick={() => mutation.mutate()}
+                isDisabled={mutation.isPending || !name.trim()}
+              />
+            </DialogFooter>
           }
         />
       </Dialog>
@@ -215,7 +222,13 @@ function NewCloseReasonDialog() {
 
   return (
     <>
-      <Button size="sm" label="New close reason" onClick={() => setOpen(true)} />
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New close reason"
+        onClick={() => setOpen(true)}
+      />
       <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
         <Layout
           header={<DialogHeader title="New close reason" onOpenChange={handleOpenChange} />}
@@ -236,16 +249,16 @@ function NewCloseReasonDialog() {
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" label="Cancel" onClick={close} />
-                <Button
-                  label={mutation.isPending ? 'Creating…' : 'Create'}
-                  onClick={() => mutation.mutate()}
-                  isDisabled={mutation.isPending || !label.trim()}
-                />
-              </div>
-            </LayoutFooter>
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={close} />
+              <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
+                label={mutation.isPending ? 'Creating…' : 'Create close reason'}
+                onClick={() => mutation.mutate()}
+                isDisabled={mutation.isPending || !label.trim()}
+              />
+            </DialogFooter>
           }
         />
       </Dialog>
@@ -296,7 +309,13 @@ function NewRejectionReasonDialog() {
 
   return (
     <>
-      <Button size="sm" label="New rejection reason" onClick={() => setOpen(true)} />
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New rejection reason"
+        onClick={() => setOpen(true)}
+      />
       <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
         <Layout
           header={<DialogHeader title="New rejection reason" onOpenChange={handleOpenChange} />}
@@ -325,16 +344,16 @@ function NewRejectionReasonDialog() {
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" label="Cancel" onClick={close} />
-                <Button
-                  label={mutation.isPending ? 'Creating…' : 'Create'}
-                  onClick={() => mutation.mutate()}
-                  isDisabled={mutation.isPending || !label.trim()}
-                />
-              </div>
-            </LayoutFooter>
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={close} />
+              <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
+                label={mutation.isPending ? 'Creating…' : 'Create rejection reason'}
+                onClick={() => mutation.mutate()}
+                isDisabled={mutation.isPending || !label.trim()}
+              />
+            </DialogFooter>
           }
         />
       </Dialog>

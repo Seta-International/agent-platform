@@ -137,7 +137,14 @@ function AddAllocationForm({
       </Field>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" label="Cancel" onClick={onCancel} />
-        <Button size="sm" label="Add" isDisabled={!project || pending} onClick={submit} />
+        <Button
+          size="sm"
+          variant="primary"
+          icon={<Plus className="size-3.5" />}
+          label="Add"
+          isDisabled={!project || pending}
+          onClick={submit}
+        />
       </div>
     </div>
   );

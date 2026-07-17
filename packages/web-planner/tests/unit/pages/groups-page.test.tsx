@@ -243,8 +243,8 @@ describe('GroupsPage', () => {
     renderWithRouter(<GroupsPage />);
 
     await screen.findByRole('link', { name: 'Native' });
-    // Source filter pill should appear because at least one m365 group exists
-    expect(screen.getByRole('button', { name: /Source/i })).toBeInTheDocument();
+    // Source filter (an Astryx Selector) should appear because at least one m365 group exists.
+    expect(screen.getByRole('combobox', { name: /Source/i })).toBeInTheDocument();
   });
 
   it('source filter "Native" shows only native groups', async () => {
@@ -258,8 +258,8 @@ describe('GroupsPage', () => {
 
     await screen.findByRole('link', { name: 'Native Group' });
 
-    await user.click(screen.getByRole('button', { name: /Source/i }));
-    await user.click(screen.getByRole('button', { name: 'Internal' }));
+    await user.click(screen.getByRole('combobox', { name: /Source/i }));
+    await user.click(await screen.findByRole('option', { name: 'Internal' }));
 
     await waitFor(() => expect(screen.queryByText('M365 Group')).not.toBeInTheDocument());
     expect(screen.getByText('Native Group')).toBeInTheDocument();
@@ -276,8 +276,8 @@ describe('GroupsPage', () => {
 
     await screen.findByRole('link', { name: 'Native Group' });
 
-    await user.click(screen.getByRole('button', { name: /Source/i }));
-    await user.click(screen.getByRole('button', { name: 'Microsoft 365' }));
+    await user.click(screen.getByRole('combobox', { name: /Source/i }));
+    await user.click(await screen.findByRole('option', { name: 'Microsoft 365' }));
 
     await waitFor(() => expect(screen.queryByText('Native Group')).not.toBeInTheDocument());
     expect(screen.getByText('M365 Group')).toBeInTheDocument();
@@ -294,26 +294,14 @@ describe('GroupsPage', () => {
 
     await screen.findByRole('link', { name: 'Native Group' });
 
-    // Apply a filter then clear it
-    await user.click(screen.getByRole('button', { name: /Source/i }));
-    await user.click(screen.getByRole('button', { name: 'Internal' }));
+    // Apply a filter then clear it.
+    await user.click(screen.getByRole('combobox', { name: /Source/i }));
+    await user.click(await screen.findByRole('option', { name: 'Internal' }));
     await waitFor(() => expect(screen.queryByText('M365 Group')).not.toBeInTheDocument());
 
-    // Clear filter via "Any". Every filter pill's Popover content is eagerly
-    // mounted (hidden), so each of the four pills renders its own "Any" option —
-    // pick the one that's actually visible (Source's, now open). happy-dom has no
-    // checkVisibility(), so walk ancestors for an inline display:none.
-    await user.click(screen.getByRole('button', { name: /Source/i }));
-    const isVisible = (el: HTMLElement): boolean => {
-      for (let node: HTMLElement | null = el; node; node = node.parentElement) {
-        if (getComputedStyle(node).display === 'none') return false;
-      }
-      return true;
-    };
-    const anyOptions = screen.getAllByRole('button', { name: /Any/i });
-    const visibleAnyOption = anyOptions.find(isVisible);
-    if (!visibleAnyOption) throw new Error('No visible "Any" option found');
-    await user.click(visibleAnyOption);
+    // The Selector's `hasClear` control (aria-label `Clear <label>`) resets the value to null,
+    // which the page treats as "Any" — both groups return.
+    await user.click(screen.getByRole('button', { name: /Clear Source/i }));
 
     await waitFor(() => expect(screen.getByText('M365 Group')).toBeInTheDocument());
     expect(screen.getByText('Native Group')).toBeInTheDocument();

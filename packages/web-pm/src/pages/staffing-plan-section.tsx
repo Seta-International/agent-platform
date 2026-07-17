@@ -20,7 +20,7 @@ import {
   useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Settings2, Users } from 'lucide-react';
+import { Plus, Settings2, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   deleteStaffingPlanLine,
@@ -279,6 +279,8 @@ export function StaffingPlanSection({
             onChange={(v) => setEffort(String(v))}
           />
           <Button
+            variant="primary"
+            icon={<Plus className="size-4" />}
             label="Add"
             onClick={() => add.mutate()}
             isDisabled={add.isPending || !role.trim()}

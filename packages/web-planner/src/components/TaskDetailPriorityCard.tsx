@@ -2,9 +2,11 @@ import type { TaskWithAssigneesRow } from '@seta/planner';
 import {
   DEFAULT_PRIORITY,
   DisabledActionTooltip,
-  DropdownMenu,
   PRIORITY_LEVELS,
+  type PriorityNumber,
   priorityFromNumber,
+  Selector,
+  type SelectorOptionData,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useUpdateTaskPriority } from '../hooks/mutations/update-task-priority';
@@ -14,6 +16,18 @@ interface Props {
   task: TaskWithAssigneesRow;
   planId: string;
 }
+
+const PRIORITY_OPTIONS: SelectorOptionData[] = PRIORITY_LEVELS.map((opt) => ({
+  value: String(opt.value),
+  label: opt.label,
+  icon: (
+    <span
+      className="inline-block size-2 rounded-sm"
+      style={{ background: opt.color }}
+      aria-hidden
+    />
+  ),
+}));
 
 export function TaskDetailPriorityCard({ task, planId }: Props) {
   const update = useUpdateTaskPriority(planId);
@@ -26,39 +40,19 @@ export function TaskDetailPriorityCard({ task, planId }: Props) {
         <span className="t-sm subtle">Priority</span>
       </header>
       <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
-        <DropdownMenu
-          placement="below"
-          menuWidth={180}
-          button={{
-            label: 'Priority',
-            isDisabled: !canUpdate,
-            children: (
-              <>
-                <span
-                  className="inline-block size-2 rounded-sm"
-                  style={{ background: current.color }}
-                  aria-hidden
-                />
-                {current.label}
-              </>
-            ),
-          }}
-          items={PRIORITY_LEVELS.map((opt) => ({
-            label: opt.label,
-            icon: (
-              <span
-                className="inline-block size-2 rounded-sm"
-                style={{ background: opt.color }}
-                aria-hidden
-              />
-            ),
-            onClick: () =>
-              update.mutate({
-                task_id: task.id,
-                expected_version: task.version,
-                priority_number: opt.value,
-              }),
-          }))}
+        <Selector
+          label="Priority"
+          isLabelHidden
+          options={PRIORITY_OPTIONS}
+          value={String(current.value)}
+          isDisabled={!canUpdate}
+          onChange={(value) =>
+            update.mutate({
+              task_id: task.id,
+              expected_version: task.version,
+              priority_number: Number(value) as PriorityNumber,
+            })
+          }
         />
       </DisabledActionTooltip>
     </section>

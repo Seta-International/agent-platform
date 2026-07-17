@@ -23,7 +23,7 @@ import {
   useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Settings2, ShieldCheck } from 'lucide-react';
+import { Plus, Settings2, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { fetchProjectAccess, type ProjectAccessRow, setProjectAccess } from '../api/pm-client.ts';
 import { useWorkerSource } from '../api/worker-search';
@@ -277,6 +277,8 @@ export function ProjectAccessSection({
             />
           </div>
           <Button
+            variant="primary"
+            icon={<Plus className="size-4" />}
             label="Add"
             onClick={() => {
               if (!worker) return;

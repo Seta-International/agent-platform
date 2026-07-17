@@ -3,11 +3,11 @@ import {
   Button,
   cn,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import { useLinkGroupToM365 } from '../hooks/mutations/link-group-to-m365';
@@ -154,14 +154,15 @@ export function LinkToM365Dialog({ groupId, open, onOpenChange, onSelect }: Prop
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button variant="secondary" label="Cancel" onClick={handleClose} />
             <Button
+              variant="primary"
               label={link.isPending ? 'Linking…' : 'Link'}
               onClick={handleLink}
               isDisabled={!selectedId || link.isPending}
             />
-          </LayoutFooter>
+          </DialogFooter>
         }
       />
     </Dialog>
