@@ -124,7 +124,7 @@ describe('GridBulkActionFooter BucketMenu', () => {
 });
 
 describe('GridBulkActionFooter DueMenu', () => {
-  it('opens the Set due popover and calls onSetDue with an ISO date when a date is picked', async () => {
+  it('applies the typed date to the bulk selection only once Apply is pressed', async () => {
     const user = userEvent.setup({ delay: null });
     const onSetDue = vi.fn();
     render(
@@ -141,10 +141,36 @@ describe('GridBulkActionFooter DueMenu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Set due' }));
     const dateInput = await screen.findByLabelText('Due date');
     await user.type(dateInput, '2026-08-01');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(onSetDue).toHaveBeenCalledTimes(1);
     expect(onSetDue).toHaveBeenCalledWith(new Date('2026-08-01').toISOString());
     // Astryx's Popover eagerly mounts `content` (hidden), so it stays in the DOM
     // after closing — assert hidden rather than absent.
     expect(screen.getByLabelText('Due date')).not.toBeVisible();
+  });
+
+  // Astryx DateInput emits onChange on every keystroke that parses, so typing
+  // "2026-08-01" emits "2026-01-01" first. Committing on change bulk-wrote that
+  // partial date to every selected task.
+  it('does not write anything while the date is still being typed', async () => {
+    const user = userEvent.setup({ delay: null });
+    const onSetDue = vi.fn();
+    render(
+      <GridBulkActionFooter
+        count={2}
+        groupId="g1"
+        bucketOptions={[]}
+        onMove={vi.fn()}
+        onAssign={vi.fn()}
+        onSetDue={onSetDue}
+        onDelete={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Set due' }));
+    const dateInput = await screen.findByLabelText('Due date');
+    await user.type(dateInput, '2026-08-01');
+    expect(onSetDue).not.toHaveBeenCalled();
+    expect(dateInput).toBeVisible();
   });
 
   it('calls onSetDue with null via "Clear due date"', async () => {
