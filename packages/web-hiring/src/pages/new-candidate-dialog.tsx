@@ -235,7 +235,6 @@ export function NewCandidateDialog() {
                   <FileInput
                     mode="dropzone"
                     label="Upload CV to auto-fill"
-                    isLabelHidden
                     accept=".pdf,.docx"
                     maxSize={10 * 1024 * 1024}
                     value={null}

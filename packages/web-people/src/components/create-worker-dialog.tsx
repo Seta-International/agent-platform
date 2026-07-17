@@ -169,7 +169,6 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                   <FileInput
                     mode="dropzone"
                     label="Upload CV to auto-fill"
-                    isLabelHidden
                     accept=".pdf,.docx"
                     maxSize={CV_MAX_BYTES}
                     value={null}

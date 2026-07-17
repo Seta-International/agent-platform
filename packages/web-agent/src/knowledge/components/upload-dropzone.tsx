@@ -10,7 +10,6 @@ export function UploadDropzone() {
     <FileInput
       mode="dropzone"
       label="Upload knowledge file"
-      isLabelHidden
       accept={ACCEPT}
       maxSize={MAX_BYTES}
       value={null}

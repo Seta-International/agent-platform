@@ -1,3 +1,4 @@
+import { FileInput } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -9,12 +10,53 @@ function wrap(ui: React.ReactNode) {
   return <QueryClientProvider client={qc}>{ui}</QueryClientProvider>;
 }
 
+// Astryx's FieldLabel applies sr-only styling to `description` too whenever
+// `isLabelHidden` is set on the field (see @astryxdesign/core FieldLabel.tsx) — the
+// original regression this suite must catch. `screen.getByText` can't see that: it
+// only asserts DOM presence, not the sr-only clip/1px-box treatment layered on top by
+// StyleX classes. Derive the exact "sr-only extra" class signature at test time (rather
+// than hardcoding StyleX's atomic hashes) by diffing a known-hidden field's description
+// classes against a known-visible one, then assert the real hint carries none of them.
+function srOnlyExtraClasses(): Set<string> {
+  const { container: hidden } = render(
+    <FileInput
+      label="probe"
+      isLabelHidden
+      description="probe-description"
+      value={null}
+      onChange={() => {}}
+    />,
+  );
+  const { container: visible } = render(
+    <FileInput label="probe" description="probe-description" value={null} onChange={() => {}} />,
+  );
+  const hiddenDesc = Array.from(hidden.querySelectorAll('span')).find(
+    (el) => el.textContent === 'probe-description',
+  );
+  const visibleDesc = Array.from(visible.querySelectorAll('span')).find(
+    (el) => el.textContent === 'probe-description',
+  );
+  const hiddenSet = new Set((hiddenDesc?.className ?? '').split(' '));
+  const visibleSet = new Set((visibleDesc?.className ?? '').split(' '));
+  return new Set([...hiddenSet].filter((c) => !visibleSet.has(c)));
+}
+
 describe('UploadDropzone', () => {
   it('renders the drop prompt and accept hint', () => {
     render(wrap(<UploadDropzone />));
     expect(screen.getByText('Drop a file here, or click to choose one')).toBeInTheDocument();
     // Hint includes recognized formats
     expect(screen.getByText(/pdf.*docx.*csv/i)).toBeInTheDocument();
+  });
+
+  it('renders the accept/size hint visibly, not screen-reader-only', () => {
+    render(wrap(<UploadDropzone />));
+    const hint = screen.getByText(/pdf.*docx.*csv/i);
+    const extra = srOnlyExtraClasses();
+    expect(extra.size).toBeGreaterThan(0); // sanity: the probe actually detects a difference
+    const hintClasses = new Set(hint.className.split(' '));
+    const leaked = [...extra].filter((c) => hintClasses.has(c));
+    expect(leaked).toEqual([]);
   });
 
   it('uploads the picked file', async () => {
