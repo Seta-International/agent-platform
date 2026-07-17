@@ -163,6 +163,7 @@ export * from './primitives/radio-group';
 export * from './primitives/segmented-control';
 export * from './primitives/selector';
 export * from './primitives/skeleton';
+export * from './primitives/spinner';
 export * from './primitives/switch';
 export * from './primitives/tab-list';
 export * from './primitives/table';
