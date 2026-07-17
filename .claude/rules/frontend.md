@@ -7,7 +7,7 @@ paths:
 
 # Frontend rules
 
-Stack: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), Astryx (`@astryxdesign/core` + StyleX, custom `seta` theme in `packages/shared-ui/src/theme/`) for components, Tailwind 4, AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui (v6-paired). Astryx foundation landed via FUT-562 (theme + build tooling wired, Storybook-verified); primitive/composite migration is in progress, so `apps/web` still runs on the pre-Astryx shadcn/Radix layer today. See [`DESIGN.md`](../../DESIGN.md) for design tokens and the `packages/shared-ui` contract. `../mastra/packages/playground-ui/` is the reference for chat/upload UX patterns in `apps/web`.
+Stack: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), Astryx (`@astryxdesign/core` + StyleX, custom `seta` theme in `packages/shared-ui/src/theme/`) for components, Tailwind 4, AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui (v6-paired). Every `shared-ui` primitive is an Astryx re-export, and all UI — including `apps/web` — is built on them. The only deliberate non-Astryx UI deps are recharts (no Astryx charts) and lucide (icons). See [`DESIGN.md`](../../DESIGN.md) for design tokens and the `packages/shared-ui` contract. `../mastra/packages/playground-ui/` is the reference for chat/upload UX patterns in `apps/web`.
 
 ## App-tier boundaries (CI-gated: `pnpm depcruise`)
 
@@ -17,6 +17,25 @@ Stack: React 19, TanStack Router (suite-shell routing composed via `@tanstack/vi
 ## Styling (CI-gated: `pnpm lint:styles`)
 
 All styling lives in `packages/shared-ui/` — no `.css`, `tailwind.config.*`, or `@theme`/`@layer`/`@apply` anywhere else. The one allowed shim is `apps/web/src/styles/globals.css`.
+
+## Use the primitive, never hand-roll the native element
+
+**Never write a raw interactive or typographic HTML element in a `web-*` package or `apps/web`.** Import the primitive from `@seta/shared-ui` instead — it is the Astryx component under the repo's own name:
+
+| Don't hand-roll | Use |
+| --- | --- |
+| `<button>` | `Button` (icon-only → `IconButton`) |
+| `<input>` | `Input`, or `Checkbox` / `RadioGroup` / `FileInput` / `DateInput` / `NumberInput` |
+| `<textarea>` | `Textarea` |
+| `<h1>`–`<h6>` | `Heading level={n}` |
+| `<table>` | `Table` |
+| `<label>` | nothing — Astryx fields self-label via their required `label` prop |
+
+A raw element styled with Tailwind (`<button className="rounded px-2 py-1.5 …">`) is the specific anti-pattern: it bypasses the design system **and** puts styling outside `shared-ui`, so it violates the rule above too. Layout classes on a *surrounding wrapper* remain fine.
+
+**When auditing a surface, grep for the lowercase native tag (`<button`, `<input`), not just the component name.** A file whose imports look fully migrated can still hand-roll its markup — searching for `<Button` will never match a `<button>`.
+
+Escape hatches, in order: a component prop → a `style`/`className` with tokens (`var(--color-*|--spacing-*|--radius-*)`) → `xstyle`. If a primitive genuinely cannot express it, say so in review rather than reaching for a raw element.
 
 ## Astryx design system
 
