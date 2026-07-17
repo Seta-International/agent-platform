@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { BreadcrumbItem, Breadcrumbs, LinkProvider } from '../../../src/primitives/breadcrumbs';
+import { BreadcrumbItem, Breadcrumbs } from '../../../src/primitives/breadcrumbs';
+import { LinkProvider } from '../../../src/primitives/link';
 
 // Deliberately narrowed to the vendor-documented contract (href, className, style, children —
 // see Astryx's `LinkComponentType` docs) and nothing else. Used below only to prove routing
