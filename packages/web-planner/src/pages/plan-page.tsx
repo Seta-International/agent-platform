@@ -261,10 +261,7 @@ export function PlanPage({
   return (
     <>
       {hasActiveFilters && totalVisible === 0 && (
-        <div
-          role="status"
-          className="flex items-center gap-3 px-6 py-3 text-body-sm text-secondary"
-        >
+        <div role="status" className="flex items-center gap-3 px-6 py-3 text-base text-secondary">
           <p>No tasks match what you&apos;re filtering for.</p>
           <Button
             size="sm"

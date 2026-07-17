@@ -142,7 +142,7 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: Props) {
           }
           content={
             <LayoutContent>
-              <div className="text-eyebrow uppercase tracking-wide text-secondary">
+              <div className="text-xs font-medium uppercase tracking-wide text-secondary">
                 New group · Planner
               </div>
 

@@ -60,7 +60,7 @@ export function CandidateTimeline({
     );
   }
   if (events.length === 0) {
-    return <div className="text-caption text-secondary">No activity yet.</div>;
+    return <div className="text-sm text-secondary">No activity yet.</div>;
   }
   return (
     <ol className="space-y-3">
@@ -72,13 +72,13 @@ export function CandidateTimeline({
               <Icon className="size-3.5" aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-body-sm font-medium text-primary">
+              <div className="text-base font-medium text-primary">
                 {KIND_LABEL[e.kind] ?? e.kind}
               </div>
               {e.summary && KIND_LABEL[e.kind] && e.summary !== KIND_LABEL[e.kind] && (
-                <div className="text-caption text-secondary">{e.summary}</div>
+                <div className="text-sm text-secondary">{e.summary}</div>
               )}
-              <div className="text-caption text-secondary">
+              <div className="text-sm text-secondary">
                 by {actorLabel(e.actor_user_id)} · {fmt(e.created_at)}
               </div>
             </div>

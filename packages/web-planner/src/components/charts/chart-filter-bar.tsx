@@ -29,7 +29,7 @@ export function ChartFilterBar({ filters, onChange, assigneeOptions, bucketOptio
     <div className="flex flex-wrap items-center gap-2">
       <span className="inline-flex items-center gap-1.5 pr-1 text-xs text-secondary">
         Chart filters
-        <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+        <span className="rounded-full border border-border px-1.5 py-0.5 text-xs uppercase tracking-wide">
           independent
         </span>
       </span>

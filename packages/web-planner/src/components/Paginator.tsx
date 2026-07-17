@@ -51,7 +51,7 @@ export function Paginator({
   return (
     <div
       className={cn(
-        'flex h-11 items-center justify-between border-t border-border bg-body px-4 text-caption text-secondary',
+        'flex h-11 items-center justify-between border-t border-border bg-body px-4 text-sm text-secondary',
         className,
       )}
     >

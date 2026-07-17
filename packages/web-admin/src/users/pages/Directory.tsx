@@ -113,7 +113,7 @@ function ChipList({ items }: { items: string[] }) {
       {items.slice(0, 2).map((label) => (
         <Badge key={label} variant="neutral" label={label} />
       ))}
-      {items.length > 2 && <span className="text-caption text-disabled">+{items.length - 2}</span>}
+      {items.length > 2 && <span className="text-sm text-disabled">+{items.length - 2}</span>}
     </div>
   );
 }
@@ -255,7 +255,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
             <div className="flex min-w-0 flex-col">
               <span className="truncate font-medium text-primary">{r.full_name}</span>
               {r.work_email && (
-                <span className="truncate text-caption text-disabled">{r.work_email}</span>
+                <span className="truncate text-sm text-disabled">{r.work_email}</span>
               )}
             </div>
           </div>
@@ -274,9 +274,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
               ) : (
                 <span className="text-disabled">{'—'}</span>
               )}
-              {department && (
-                <span className="truncate text-caption text-disabled">{department}</span>
-              )}
+              {department && <span className="truncate text-sm text-disabled">{department}</span>}
             </div>
           );
         },

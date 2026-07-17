@@ -190,14 +190,14 @@ export function ImportFromEntraDialog({
 
                     {result.skipped.length > 0 && (
                       <details className="text-sm">
-                        <summary className="cursor-pointer text-muted-foreground">
+                        <summary className="cursor-pointer text-secondary">
                           {result.skipped.length} couldn&apos;t be added
                         </summary>
                         <ul className="mt-2 space-y-1 pl-4">
                           {result.skipped.map((s) => {
                             const u = users?.find((u) => u.entra_oid === s.entra_oid);
                             return (
-                              <li key={s.entra_oid} className="text-muted-foreground">
+                              <li key={s.entra_oid} className="text-secondary">
                                 {u?.email ?? s.entra_oid}: {s.reason}
                               </li>
                             );

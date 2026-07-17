@@ -54,10 +54,8 @@ export function AdminNotificationPrefs() {
             ) : (
               <section className="overflow-hidden rounded-lg border border-border bg-body">
                 <header className="border-b border-border px-5 py-4">
-                  <h2 className="m-0 text-section-title font-semibold tracking-tight text-primary">
-                    Events
-                  </h2>
-                  <p className="m-0 mt-0.5 text-body-sm text-secondary">
+                  <h2 className="m-0 text-lg font-semibold tracking-tight text-primary">Events</h2>
+                  <p className="m-0 mt-0.5 text-base text-secondary">
                     Pick how each event reaches your team.
                   </p>
                 </header>

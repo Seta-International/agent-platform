@@ -22,7 +22,7 @@ export function RichTextEditor({ value, onChange, onSave, onCancel, className }:
     },
     editorProps: {
       attributes: {
-        class: 'rich-text min-h-[120px] p-2.5 focus:outline-none text-primary text-body-sm',
+        class: 'rich-text min-h-[120px] p-2.5 focus:outline-none text-primary text-base',
       },
       handleKeyDown(_view, event) {
         if (event.key === 'Escape') {

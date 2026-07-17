@@ -93,9 +93,9 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
                       setSlug(slugify(value));
                     }}
                     placeholder="hr-team"
-                    className="font-mono text-body-sm"
+                    className="font-mono text-base"
                   />
-                  <p className="text-caption text-disabled">
+                  <p className="text-sm text-disabled">
                     A stable identifier. Lowercase letters, numbers, and hyphens.
                   </p>
                 </div>

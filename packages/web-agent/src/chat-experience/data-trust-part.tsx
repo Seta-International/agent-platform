@@ -27,7 +27,7 @@ export function DataTrustPart({ data }: { data: TrustData }) {
   const citations = data.evidenceCitations ?? [];
   const trace = data.reasoningTrace ?? [];
   return (
-    <div className="my-1 flex flex-col gap-1 text-caption">
+    <div className="my-1 flex flex-col gap-1 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`rounded px-1.5 py-0.5 font-medium ${TIER_CLASS[tier]}`}>
           {tier} confidence

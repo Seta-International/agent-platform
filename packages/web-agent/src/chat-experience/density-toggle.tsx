@@ -18,7 +18,7 @@ export function DensityToggle() {
         return (
           <label
             key={o.value}
-            className={`cursor-pointer rounded px-2 py-0.5 text-caption transition-colors ${
+            className={`cursor-pointer rounded px-2 py-0.5 text-sm transition-colors ${
               active ? 'bg-accent-muted text-accent' : 'text-secondary hover:text-primary'
             }`}
           >

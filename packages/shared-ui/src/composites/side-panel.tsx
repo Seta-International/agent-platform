@@ -11,7 +11,7 @@ export function SidePanel({ header, children, className }: SidePanelProps) {
   return (
     <aside className={cn('flex h-full flex-col border-r border-border bg-card', className)}>
       {header && (
-        <div className="flex items-center justify-between border-b border-border px-md py-sm text-body-sm">
+        <div className="flex items-center justify-between border-b border-border px-md py-sm text-base">
           {header}
         </div>
       )}

@@ -61,7 +61,7 @@ export function NotificationPopoverContainer({
       <Bell className="size-4" aria-hidden />
       {count > 0 && (
         <span
-          className="absolute right-0.5 top-0.5 flex min-w-[16px] items-center justify-center rounded-full bg-accent-bg px-0.5 py-px text-[10px] font-bold leading-none text-white ring-2 ring-body"
+          className="absolute right-0.5 top-0.5 flex min-w-[16px] items-center justify-center rounded-full bg-accent-bg px-0.5 py-px text-xs font-bold leading-none text-white ring-2 ring-body"
           aria-hidden
         >
           {count > 9 ? '9+' : count}

@@ -21,7 +21,7 @@ export function ProgressBar({ pct, status }: Props) {
           variant={variant}
         />
       </div>
-      <span className="font-mono text-[11px] text-secondary w-7 text-right">{pct}%</span>
+      <span className="font-mono text-xs text-secondary w-7 text-right">{pct}%</span>
     </div>
   );
 }

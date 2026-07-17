@@ -77,11 +77,11 @@ function JsonBlock({ value, emptyTitle, emptyDescription }: JsonBlockProps) {
   const lineCount = pretty.split('\n').length;
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-9 flex-none items-center justify-between border-b border-border px-3 text-[11px] uppercase tracking-wider text-secondary">
+      <div className="flex h-9 flex-none items-center justify-between border-b border-border px-3 text-xs uppercase tracking-wider text-secondary">
         <span>{lineCount} lines</span>
         <CopyButton text={pretty} />
       </div>
-      <pre className="m-0 flex-1 overflow-auto whitespace-pre-wrap break-all bg-card p-3 font-mono text-[11.5px] leading-[1.55] text-primary">
+      <pre className="m-0 flex-1 overflow-auto whitespace-pre-wrap break-all bg-card p-3 font-mono text-sm leading-[1.55] text-primary">
         {pretty}
       </pre>
     </div>
@@ -144,14 +144,12 @@ function StepRow({ stepId, entry }: StepRowProps) {
             open ? 'rotate-90' : ''
           } ${hasData ? '' : 'invisible'}`}
         />
-        <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-primary">
-          {stepId}
-        </span>
-        <Badge variant={tone} className="flex-none text-[10px]" label={statusLabel} />
-        {dataLabel && <span className="flex-none text-[10px] text-disabled">{dataLabel}</span>}
+        <span className="min-w-0 flex-1 truncate font-mono text-sm text-primary">{stepId}</span>
+        <Badge variant={tone} className="flex-none text-xs" label={statusLabel} />
+        {dataLabel && <span className="flex-none text-xs text-disabled">{dataLabel}</span>}
       </button>
       {open && hasData ? (
-        <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-all border-t border-border bg-card px-3 py-2 font-mono text-[11px] leading-[1.5] text-primary">
+        <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-all border-t border-border bg-card px-3 py-2 font-mono text-xs leading-[1.5] text-primary">
           {prettyData}
         </pre>
       ) : null}
@@ -190,16 +188,14 @@ function CurrentRunTab({ run, snapshot }: CurrentRunTabProps) {
             aria-hidden
             className={`size-3 flex-none text-disabled transition-transform ${inputOpen ? 'rotate-90' : ''}`}
           />
-          <span className="text-[11px] font-medium uppercase tracking-wider text-secondary">
-            Input
-          </span>
+          <span className="text-xs font-medium uppercase tracking-wider text-secondary">Input</span>
         </button>
         {inputOpen && (
           <div className="max-h-48 overflow-auto border-t border-border">
             {isEmptyValue(workflowInput) ? (
               <p className="px-4 py-3 text-xs text-secondary">No input payload.</p>
             ) : (
-              <pre className="m-0 whitespace-pre-wrap break-all bg-card px-3 py-2 font-mono text-[11px] leading-[1.5] text-primary">
+              <pre className="m-0 whitespace-pre-wrap break-all bg-card px-3 py-2 font-mono text-xs leading-[1.5] text-primary">
                 {(() => {
                   try {
                     return JSON.stringify(workflowInput, null, 2);
@@ -215,7 +211,7 @@ function CurrentRunTab({ run, snapshot }: CurrentRunTabProps) {
 
       {/* Steps section */}
       <section className="flex-1">
-        <div className="flex h-9 items-center px-3 text-[11px] font-medium uppercase tracking-wider text-secondary">
+        <div className="flex h-9 items-center px-3 text-xs font-medium uppercase tracking-wider text-secondary">
           Steps{steps.length > 0 ? ` (${steps.length})` : ''}
         </div>
         {steps.length === 0 ? (

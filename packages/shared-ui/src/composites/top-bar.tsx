@@ -108,7 +108,7 @@ export function TopBar({
               aria-label={agentOpen ? 'Hide agent panel' : 'Show agent panel'}
               title="Agent"
               className={cn(
-                'relative inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
+                'relative inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
                 agentOpen
                   ? 'border-accent-bg bg-accent-muted text-primary'
                   : 'border-border text-secondary hover:bg-surface hover:text-primary',
@@ -147,7 +147,7 @@ function AppCrumb({ app, Link }: { app: AppManifest; Link: ShellLinkComponent })
         className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg"
       >
         <Icon className="size-3.5 flex-none text-accent" aria-hidden />
-        <span className="truncate text-body-sm font-medium text-primary">{app.label}</span>
+        <span className="truncate text-base font-medium text-primary">{app.label}</span>
       </Link>
     </span>
   );

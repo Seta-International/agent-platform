@@ -22,7 +22,7 @@ describe('CardTitle', () => {
   it('renders children with title typography classes', () => {
     const { container } = render(<CardTitle>Title</CardTitle>);
     expect(container.textContent).toBe('Title');
-    expect(container.querySelector('div')?.className).toMatch(/\btext-card-title\b/);
+    expect(container.querySelector('div')?.className).toMatch(/\btext-2xl\b/);
   });
 });
 
@@ -30,6 +30,6 @@ describe('CardDescription', () => {
   it('renders children with description typography classes', () => {
     const { container } = render(<CardDescription>Description</CardDescription>);
     expect(container.textContent).toBe('Description');
-    expect(container.querySelector('div')?.className).toMatch(/\btext-body-sm\b/);
+    expect(container.querySelector('div')?.className).toMatch(/\btext-base\b/);
   });
 });

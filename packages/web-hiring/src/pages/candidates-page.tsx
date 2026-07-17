@@ -361,10 +361,10 @@ export function CandidatesPage() {
             <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border bg-card sm:grid-cols-6">
               {STAGE_COUNT_SEGMENTS.map((seg) => (
                 <div key={seg.key} className="px-4 py-3">
-                  <div className="text-headline font-bold" style={{ color: STAGE_COLOR[seg.key] }}>
+                  <div className="text-3xl font-bold" style={{ color: STAGE_COLOR[seg.key] }}>
                     {stageCounts?.[seg.key] ?? 0}
                   </div>
-                  <div className="text-caption text-secondary">{seg.label}</div>
+                  <div className="text-sm text-secondary">{seg.label}</div>
                 </div>
               ))}
             </div>
@@ -434,7 +434,7 @@ export function CandidatesPage() {
                     label="Toggle columns"
                     content={
                       <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
+                        <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
                           Toggle columns
                         </div>
                         {CANDIDATE_COLUMN_OPTIONS.map((col) => (

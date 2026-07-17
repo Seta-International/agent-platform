@@ -175,8 +175,8 @@ function AssigneeMenu({
       }}
       renderItem={(item) => (
         <div className="flex flex-col items-start gap-0.5">
-          <span className="truncate text-body-sm leading-tight text-primary">{item.label}</span>
-          <span className="truncate text-caption leading-tight text-secondary">
+          <span className="truncate text-base leading-tight text-primary">{item.label}</span>
+          <span className="truncate text-sm leading-tight text-secondary">
             {item.auxiliaryData?.email}
           </span>
         </div>

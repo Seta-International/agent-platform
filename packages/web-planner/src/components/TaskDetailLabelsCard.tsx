@@ -168,7 +168,7 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
       />
 
       {isLinkedToM365 && (
-        <p className="mt-1.5 text-caption text-secondary">
+        <p className="mt-1.5 text-sm text-secondary">
           Labels sync from Microsoft Planner category slots.
         </p>
       )}

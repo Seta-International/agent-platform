@@ -26,7 +26,7 @@ export function TaskEventCard({ task }: Props) {
       data-testid={`task-event-${task.id}`}
       className={cn(
         'flex min-w-0 w-full items-center gap-1.5 border-l-4 bg-card px-1.5',
-        'text-caption text-primary shadow-sm cursor-pointer hover:bg-surface',
+        'text-sm text-primary shadow-sm cursor-pointer hover:bg-surface',
       )}
       style={{ borderLeftColor: PRIORITY_STRIPE[priorityLabel(task.priority_number)] }}
     >
@@ -35,7 +35,7 @@ export function TaskEventCard({ task }: Props) {
         <TriangleAlert aria-label="Sync conflict" className="size-3 shrink-0 text-warning" />
       )}
       {task.external_source === 'm365' && (
-        <span className="shrink-0 rounded bg-surface px-1 text-[10px] leading-4 text-secondary">
+        <span className="shrink-0 rounded bg-surface px-1 text-xs leading-4 text-secondary">
           M365
         </span>
       )}

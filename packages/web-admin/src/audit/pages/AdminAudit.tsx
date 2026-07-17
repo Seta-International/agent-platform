@@ -99,7 +99,7 @@ function EventTypeCell({ eventType }: { eventType: string }) {
   return (
     <div className="flex items-center gap-2">
       <span aria-hidden className={`size-1.5 rounded-full ${TONE_DOT[tone]}`} />
-      <code className="font-mono text-body-sm text-primary">{eventType}</code>
+      <code className="font-mono text-base text-primary">{eventType}</code>
     </div>
   );
 }
@@ -109,15 +109,15 @@ function ActorCell({ actor }: { actor: AuditRowDto['actor'] }) {
   const label = actorLabel(actor);
   return (
     <div className="flex items-center gap-2">
-      <Badge variant="neutral" className="font-mono text-[10px]" label={kind} />
-      <span className="truncate text-body-sm text-secondary">{label}</span>
+      <Badge variant="neutral" className="font-mono text-xs" label={kind} />
+      <span className="truncate text-base text-secondary">{label}</span>
     </div>
   );
 }
 
 function TraceCell({ traceId }: { traceId: string | null }) {
   if (!traceId) return <span className="text-disabled">{'\u2014'}</span>;
-  return <code className="font-mono text-caption text-secondary">{traceId.slice(0, 12)}…</code>;
+  return <code className="font-mono text-sm text-secondary">{traceId.slice(0, 12)}…</code>;
 }
 
 function whenLabel(iso: string): { absolute: string; relative: string } {
@@ -149,8 +149,8 @@ const columns: TableColumn<AuditRow>[] = [
       const w = whenLabel(r.occurred_at);
       return (
         <div className="flex flex-col leading-tight">
-          <span className="font-mono text-body-sm text-primary">{w.absolute}</span>
-          <span className="text-caption text-secondary">{w.relative}</span>
+          <span className="font-mono text-base text-primary">{w.absolute}</span>
+          <span className="text-sm text-secondary">{w.relative}</span>
         </div>
       );
     },
@@ -191,7 +191,7 @@ function AuditDiffPanel({ row }: { row: AuditRowDto }) {
   return (
     <div className="overflow-hidden rounded-md border border-border bg-body">
       <div className="flex items-center justify-between border-b border-border bg-card px-3 py-1.5">
-        <span className="text-eyebrow uppercase tracking-[0.04em] text-secondary">
+        <span className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">
           Payload diff
         </span>
         <Button
@@ -203,7 +203,7 @@ function AuditDiffPanel({ row }: { row: AuditRowDto }) {
           label={copied ? 'Copied' : 'Copy JSON'}
         />
       </div>
-      <pre className="max-h-72 overflow-auto bg-body p-3 font-mono text-caption leading-relaxed text-primary">
+      <pre className="max-h-72 overflow-auto bg-body p-3 font-mono text-sm leading-relaxed text-primary">
         {json}
       </pre>
     </div>

@@ -26,11 +26,11 @@ function DecidedRow({ approval }: { approval: WorkflowApprovalRow }) {
         <XCircle className="mt-px size-4 shrink-0 text-secondary" aria-hidden />
       )}
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-1.5 text-body-sm">
+        <div className="flex items-baseline gap-1.5 text-base">
           <span className="font-medium text-primary">{label}.</span>
           {intent ? <span className="truncate text-secondary">{intent}</span> : null}
         </div>
-        <p className="mt-0.5 text-caption text-secondary">{outcomeText(approval)}</p>
+        <p className="mt-0.5 text-sm text-secondary">{outcomeText(approval)}</p>
       </div>
     </div>
   );

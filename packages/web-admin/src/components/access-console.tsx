@@ -31,17 +31,15 @@ export function StatChip({
   return (
     <div className="flex items-center gap-2.5 px-4 py-2.5">
       <span className="text-disabled">{icon}</span>
-      <span className="text-card-title font-semibold leading-none tabular-nums text-primary">
-        {value}
-      </span>
-      <span className="text-caption uppercase tracking-[0.04em] text-disabled">{label}</span>
+      <span className="text-2xl font-semibold leading-none tabular-nums text-primary">{value}</span>
+      <span className="text-sm uppercase tracking-[0.04em] text-disabled">{label}</span>
     </div>
   );
 }
 
 export function RailHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border-b border-border px-3 py-2 text-eyebrow uppercase tracking-[0.04em] text-secondary">
+    <div className="border-b border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
       {children}
     </div>
   );
@@ -75,15 +73,15 @@ export function RailItem({ title, active, onClick, count, subtitle }: RailItemPr
         />
       )}
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-body-sm font-medium text-primary">{title}</span>
+        <span className="truncate text-base font-medium text-primary">{title}</span>
         {count != null && (
-          <span className="inline-flex h-5 min-w-5 flex-none items-center justify-center rounded-full bg-card px-1.5 text-caption tabular-nums text-secondary">
+          <span className="inline-flex h-5 min-w-5 flex-none items-center justify-center rounded-full bg-card px-1.5 text-sm tabular-nums text-secondary">
             {count}
           </span>
         )}
       </div>
       {subtitle != null && (
-        <div className="mt-1 flex items-center gap-1.5 text-caption text-disabled">{subtitle}</div>
+        <div className="mt-1 flex items-center gap-1.5 text-sm text-disabled">{subtitle}</div>
       )}
     </button>
   );

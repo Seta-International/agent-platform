@@ -119,14 +119,12 @@ export function GraphNodeCard({
         <Avatar name={title} src={avatarSrc} size={36} />
       )}
       <div className="min-w-0">
-        <div className={cn('truncate text-body-sm font-semibold leading-tight', t.title)}>
-          {title}
-        </div>
-        {subtitle && <div className={cn('truncate text-caption', t.subtitle)}>{subtitle}</div>}
+        <div className={cn('truncate text-base font-semibold leading-tight', t.title)}>{title}</div>
+        {subtitle && <div className={cn('truncate text-sm', t.subtitle)}>{subtitle}</div>}
       </div>
       {count !== undefined && (
         <span
-          className="ml-auto shrink-0 rounded-pill px-2 py-0.5 text-caption font-bold"
+          className="ml-auto shrink-0 rounded-pill px-2 py-0.5 text-sm font-bold"
           style={{ background: 'var(--color-accent-muted)', color: 'var(--color-text-accent)' }}
         >
           {count}
@@ -140,7 +138,7 @@ export function GraphNodeCard({
             e.stopPropagation();
             onToggleCollapse?.();
           }}
-          className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-pill border border-border bg-card px-2 py-0.5 text-caption font-bold text-secondary shadow-sm hover:border-accent-bg"
+          className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-pill border border-border bg-card px-2 py-0.5 text-sm font-bold text-secondary shadow-sm hover:border-accent-bg"
         >
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           {collapsed && descendantCount !== undefined && <span>{descendantCount}</span>}

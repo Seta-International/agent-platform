@@ -71,12 +71,12 @@ export function PlanChartsView({ planId, search, onPatchSearch }: Props) {
       {q.isPending ? (
         <div
           data-testid="plan-charts-loading"
-          className="flex h-40 items-center justify-center text-body-sm text-secondary"
+          className="flex h-40 items-center justify-center text-base text-secondary"
         >
           Loading charts…
         </div>
       ) : q.isError || !q.data ? (
-        <div className="flex h-40 flex-col items-center justify-center gap-3 text-body-sm text-secondary">
+        <div className="flex h-40 flex-col items-center justify-center gap-3 text-base text-secondary">
           <p>Couldn't load charts.</p>
           <Button size="sm" variant="secondary" label="Retry" onClick={() => q.refetch()} />
         </div>

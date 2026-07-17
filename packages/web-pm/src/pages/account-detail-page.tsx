@@ -37,8 +37,8 @@ import { pmKeys } from '../state/query-keys.ts';
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[140px_1fr] gap-2 items-start py-2 border-b border-border last:border-0">
-      <span className="text-body-sm text-secondary font-medium">{label}</span>
-      <span className="text-body-sm text-primary break-all">{value ?? '—'}</span>
+      <span className="text-base text-secondary font-medium">{label}</span>
+      <span className="text-base text-primary break-all">{value ?? '—'}</span>
     </div>
   );
 }
@@ -408,7 +408,7 @@ export function AccountDetailPage({ accountId }: { accountId: string }) {
                         </div>
                       </div>
                     ) : account.recruiter_worker_ids.length === 0 ? (
-                      <p className="text-body-sm text-secondary">No recruiters assigned.</p>
+                      <p className="text-base text-secondary">No recruiters assigned.</p>
                     ) : (
                       <div className="flex flex-wrap gap-2">
                         {recruiterItems.map((item) => (

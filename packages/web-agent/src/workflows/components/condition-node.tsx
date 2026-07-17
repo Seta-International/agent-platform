@@ -20,7 +20,7 @@ export function ConditionNode({ data }: NodeProps<Node<ConditionNodeData>>) {
         <span aria-hidden className="size-1.5 rounded-full" style={{ background: t.dot }} />
         <span className="truncate font-mono text-xs">{data.stepId}</span>
       </div>
-      <ul className="mt-1 space-y-0.5 text-[10px] text-[var(--color-text-secondary)]">
+      <ul className="mt-1 space-y-0.5 text-xs text-[var(--color-text-secondary)]">
         {data.predicates.slice(0, 3).map((p, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: branches are positionally ordered in the workflow definition; index IS the stable identity
           <li key={i} className="truncate" title={p}>

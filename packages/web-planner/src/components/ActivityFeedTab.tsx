@@ -42,11 +42,8 @@ function ActivityRow({ item }: { item: GroupActivityItem }) {
         {initials}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-body-sm text-primary">{buildActivityLabel(item)}</p>
-        <p
-          className="text-caption text-secondary mt-0.5"
-          title={absoluteActivityTime(item.occurred_at)}
-        >
+        <p className="text-base text-primary">{buildActivityLabel(item)}</p>
+        <p className="text-sm text-secondary mt-0.5" title={absoluteActivityTime(item.occurred_at)}>
           {formatRelative(item.occurred_at)}
         </p>
       </div>
@@ -131,7 +128,7 @@ export function ActivityFeedTab({ groupId }: Props) {
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3" role="alert">
-        <p className="text-body-sm text-secondary">Failed to load activity.</p>
+        <p className="text-base text-secondary">Failed to load activity.</p>
         <Button size="sm" variant="secondary" label="Try again" onClick={() => void refetch()} />
       </div>
     );
@@ -140,7 +137,7 @@ export function ActivityFeedTab({ groupId }: Props) {
   if (items.length === 0) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-body-sm text-secondary">No activity yet in this group.</p>
+        <p className="text-base text-secondary">No activity yet in this group.</p>
       </div>
     );
   }
@@ -160,7 +157,7 @@ export function ActivityFeedTab({ groupId }: Props) {
           className="sticky top-2 z-10 mx-auto rounded-full shadow-sm"
         />
       ) : (
-        <p className="text-caption text-secondary">All events · live</p>
+        <p className="text-sm text-secondary">All events · live</p>
       )}
 
       <div

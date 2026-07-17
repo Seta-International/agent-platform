@@ -19,8 +19,6 @@ export function ConfidenceBlock({ block }: BlockProps) {
   const tier = confidenceTier(score);
   const label = typeof block.label === 'string' ? block.label : `${tier} confidence`;
   return (
-    <span className={`rounded px-1.5 py-0.5 text-caption font-medium ${TIER_CLASS[tier]}`}>
-      {label}
-    </span>
+    <span className={`rounded px-1.5 py-0.5 text-sm font-medium ${TIER_CLASS[tier]}`}>{label}</span>
   );
 }

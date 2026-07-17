@@ -10,7 +10,9 @@ export function Card(props: CardProps) {
 
 export function CardTitle({ children, className }: { children?: ReactNode; className?: string }) {
   return (
-    <div className={cn('text-card-title leading-none tracking-tight', className)}>{children}</div>
+    <div className={cn('text-2xl font-medium leading-none tracking-tight', className)}>
+      {children}
+    </div>
   );
 }
 
@@ -21,5 +23,5 @@ export function CardDescription({
   children?: ReactNode;
   className?: string;
 }) {
-  return <div className={cn('text-body-sm text-secondary', className)}>{children}</div>;
+  return <div className={cn('text-base text-secondary', className)}>{children}</div>;
 }

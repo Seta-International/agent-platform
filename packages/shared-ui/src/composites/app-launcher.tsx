@@ -60,7 +60,7 @@ export function AppLauncher({
               >
                 <Icon className="size-5" aria-hidden />
               </span>
-              <span className="text-body-sm font-medium text-primary">{app.label}</span>
+              <span className="text-base font-medium text-primary">{app.label}</span>
             </button>
           );
         })}

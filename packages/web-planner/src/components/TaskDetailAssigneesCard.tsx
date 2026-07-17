@@ -217,17 +217,15 @@ export function TaskDetailAssigneesCard({
                 {initialsOf(item.label)}
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-body-sm leading-tight text-primary">
-                  {item.label}
-                </span>
-                <span className="truncate text-caption leading-tight text-secondary">
+                <span className="truncate text-base leading-tight text-primary">{item.label}</span>
+                <span className="truncate text-sm leading-tight text-secondary">
                   {item.auxiliaryData?.isAiMatch
                     ? item.auxiliaryData.reason
                     : item.auxiliaryData?.email}
                 </span>
               </span>
               {item.auxiliaryData?.isAiMatch && (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-muted px-1.5 py-0.5 text-caption font-semibold text-accent">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-muted px-1.5 py-0.5 text-sm font-semibold text-accent">
                   <Sparkles className="size-3" aria-hidden style={{ color: '#6d5cff' }} />
                   {item.auxiliaryData.scorePct}%
                 </span>

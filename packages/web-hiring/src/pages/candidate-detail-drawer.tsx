@@ -70,7 +70,7 @@ function DetailCard({
   return (
     <section className="rounded-lg border border-border bg-card p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-body-sm font-semibold text-primary">{title}</h3>
+        <h3 className="text-base font-semibold text-primary">{title}</h3>
         {action}
       </div>
       {children}
@@ -91,11 +91,11 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-border py-2 last:border-b-0">
-      <span className="flex items-center gap-1.5 text-caption text-secondary">
+      <span className="flex items-center gap-1.5 text-sm text-secondary">
         {icon}
         {label}
       </span>
-      <span className="flex items-center gap-1.5 text-body-sm text-primary">
+      <span className="flex items-center gap-1.5 text-base text-primary">
         {value}
         {onCopy && (
           <IconButton
@@ -134,7 +134,7 @@ function PipelineStepper({ stage }: { stage: CandStage | undefined }) {
                 {reached && <Check className="size-2.5" aria-hidden />}
               </span>
               <span
-                className={`text-caption font-medium ${i === curIdx ? 'text-primary' : 'text-secondary'}`}
+                className={`text-sm font-medium ${i === curIdx ? 'text-primary' : 'text-secondary'}`}
               >
                 {s.label}
               </span>
@@ -219,14 +219,14 @@ export function CandidateDetailDrawer({
                     <div className="flex items-start gap-3">
                       <Avatar name={data.candidate.name} size={60} />
                       <div>
-                        <div className="text-card-title font-semibold text-primary">
+                        <div className="text-2xl font-semibold text-primary">
                           {data.candidate.name}
                         </div>
-                        <div className="text-body-sm text-secondary">
+                        <div className="text-base text-secondary">
                           {data.candidate.seniority ?? '—'} · applying for{' '}
                           {app?.requisition_title ?? '—'}
                         </div>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-caption text-secondary">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-sm text-secondary">
                           <span className="inline-flex items-center gap-1">
                             <Building2 className="size-3.5" aria-hidden />
                             {data.candidate.source ?? '—'}
@@ -279,7 +279,7 @@ export function CandidateDetailDrawer({
                   <div className="border-b border-border px-6 py-4">
                     <PipelineStepper stage={app?.stage} />
                     {terminal && (
-                      <p className="mt-3 text-caption text-secondary">
+                      <p className="mt-3 text-sm text-secondary">
                         This candidate is {app?.status} and can no longer be moved.
                       </p>
                     )}
@@ -364,7 +364,7 @@ export function CandidateDetailDrawer({
                       >
                         <div className="flex flex-wrap gap-1.5">
                           {data.skills.length === 0 ? (
-                            <span className="text-caption text-secondary">No skills recorded.</span>
+                            <span className="text-sm text-secondary">No skills recorded.</span>
                           ) : (
                             data.skills.map((s) => (
                               <Badge
@@ -398,9 +398,9 @@ export function CandidateDetailDrawer({
 
                       <DetailCard title="Notes">
                         {app?.note ? (
-                          <p className="text-body-sm text-primary">{app.note}</p>
+                          <p className="text-base text-primary">{app.note}</p>
                         ) : (
-                          <p className="text-caption text-secondary">No notes yet.</p>
+                          <p className="text-sm text-secondary">No notes yet.</p>
                         )}
                       </DetailCard>
                     </div>
@@ -412,7 +412,7 @@ export function CandidateDetailDrawer({
                           label="Requisition ID"
                           value={
                             app ? (
-                              <span className="font-mono text-caption">{app.requisition_id}</span>
+                              <span className="font-mono text-sm">{app.requisition_id}</span>
                             ) : (
                               '—'
                             )
@@ -531,13 +531,13 @@ function CandidateCvActions({
             <FileText className="size-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-body-sm font-semibold text-primary truncate hover:underline">
+            <div className="text-base font-semibold text-primary truncate hover:underline">
               {filename}
             </div>
           </div>
         </button>
         {canManage && (
-          <label className="cursor-pointer text-body-sm font-medium text-accent hover:underline flex-none">
+          <label className="cursor-pointer text-base font-medium text-accent hover:underline flex-none">
             {replace.isPending ? 'Uploading…' : 'Replace'}
             <input
               type="file"
@@ -553,7 +553,7 @@ function CandidateCvActions({
   }
 
   return (
-    <div className="flex items-center gap-3 text-body-sm">
+    <div className="flex items-center gap-3 text-base">
       <span className="text-secondary">No CV on file</span>
       {canManage && (
         <label className="cursor-pointer text-accent hover:underline">

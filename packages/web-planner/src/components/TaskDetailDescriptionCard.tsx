@@ -45,9 +45,9 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
   if (editing) {
     return (
       <section className="card" aria-label="Description">
-        <header className="mb-2 text-body-sm text-secondary">Description</header>
+        <header className="mb-2 text-base text-secondary">Description</header>
         <RichTextEditor value={draft} onChange={setDraft} onSave={save} onCancel={cancel} />
-        <div className="mt-1 text-caption text-secondary">⌘↵ to save · Esc to cancel</div>
+        <div className="mt-1 text-sm text-secondary">⌘↵ to save · Esc to cancel</div>
         <div className="mt-2 flex justify-end gap-1.5">
           <Button size="sm" variant="ghost" label="Cancel" onClick={cancel} />
           <Button size="sm" label="Save" onClick={save} isDisabled={update.isPending} />
@@ -58,7 +58,7 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
 
   return (
     <section className="card" aria-label="Description">
-      <header className="mb-2 text-body-sm text-secondary">Description</header>
+      <header className="mb-2 text-base text-secondary">Description</header>
       <DisabledActionTooltip disabled={!canUpdate} reason={PERMISSION_DENIED.task.edit}>
         <button
           type="button"
@@ -69,11 +69,11 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
         >
           <div className="min-h-[40px] flex-1">
             {task.description ? (
-              <div className="text-body-sm leading-[1.55]">
+              <div className="text-base leading-[1.55]">
                 <RichTextDisplay value={task.description} />
               </div>
             ) : (
-              <span className="text-body-sm text-secondary">
+              <span className="text-base text-secondary">
                 {canUpdate ? 'No description. Click to add.' : 'No description.'}
               </span>
             )}

@@ -127,7 +127,7 @@ function emptySections(): SectionGrid {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 text-body-sm">
+    <div className="flex items-center justify-between gap-3 text-base">
       <span className="text-secondary">{label}</span>
       <span className="font-medium text-primary">{value}</span>
     </div>
@@ -154,7 +154,7 @@ function DateField({
     <div className="flex items-start gap-3">
       <CalendarIcon className="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden />
       <div>
-        <div className="text-caption text-secondary">{label}</div>
+        <div className="text-sm text-secondary">{label}</div>
         <DisabledActionTooltip
           disabled={!editable}
           reason={
@@ -188,7 +188,7 @@ function DateField({
               />
             </Popover>
           ) : (
-            <span className="text-body-sm font-medium text-primary">
+            <span className="text-base font-medium text-primary">
               {value ? formatDate(value) : '—'}
             </span>
           )}
@@ -217,7 +217,7 @@ function QuickAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex w-full flex-col items-center gap-2 rounded-lg border border-border px-2 py-3 text-center text-caption font-medium hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`flex w-full flex-col items-center gap-2 rounded-lg border border-border px-2 py-3 text-center text-sm font-medium hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 ${
         destructive ? 'text-error' : 'text-primary'
       }`}
     >
@@ -504,7 +504,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       >
         <header className="flex items-start justify-between gap-4 border-b border-border bg-body px-6 py-4">
           <div className="min-w-0">
-            <h1 className="truncate text-section-title font-semibold text-primary">{title}</h1>
+            <h1 className="truncate text-lg font-semibold text-primary">{title}</h1>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1.5">
             <div className="flex items-center gap-2">
@@ -522,7 +522,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 isDisabled={save.isPending}
               />
             </div>
-            {requiredError && <p className="text-caption text-error">{requiredError}</p>}
+            {requiredError && <p className="text-sm text-error">{requiredError}</p>}
           </div>
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
@@ -612,12 +612,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 />
               </div>
             </div>
-            {dateError && <p className="text-body-sm text-error">{dateError}</p>}
+            {dateError && <p className="text-base text-error">{dateError}</p>}
 
             <SkillPicker value={skills} onChange={setSkills} />
 
             <div className="flex items-center justify-between">
-              <div className="text-caption font-semibold uppercase text-secondary">JD detail</div>
+              <div className="text-sm font-semibold uppercase text-secondary">JD detail</div>
               <SegmentedControl
                 label="JD variant"
                 value={editVariant}
@@ -668,16 +668,14 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="truncate text-section-title font-semibold text-primary">
-                {req.title}
-              </h1>
+              <h1 className="truncate text-lg font-semibold text-primary">{req.title}</h1>
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-caption font-medium ${STATUS_BADGE_CLASS[req.status]}`}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-medium ${STATUS_BADGE_CLASS[req.status]}`}
               >
                 {STATUS_LABEL[req.status]}
               </span>
             </div>
-            {subtitle && <p className="mt-0.5 truncate text-body-sm text-secondary">{subtitle}</p>}
+            {subtitle && <p className="mt-0.5 truncate text-base text-secondary">{subtitle}</p>}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -735,12 +733,10 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               id="full-job-description"
               className="rounded-xl border border-border bg-body p-5"
             >
-              <h1 className="mb-4 text-section-title font-semibold text-primary">
-                Job description
-              </h1>
+              <h1 className="mb-4 text-lg font-semibold text-primary">Job description</h1>
               {!hasAnyDetail ? (
                 req.note?.trim() ? (
-                  <p className="text-body-sm text-primary">{req.note}</p>
+                  <p className="text-base text-primary">{req.note}</p>
                 ) : (
                   <EmptyState
                     title="No job description yet"
@@ -757,7 +753,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                           <Badge
                             key={s.skill_name}
                             variant="neutral"
-                            className="rounded-md border border-border bg-surface px-3 py-1.5 text-body-sm text-secondary"
+                            className="rounded-md border border-border bg-surface px-3 py-1.5 text-base text-secondary"
                             label={`${s.skill_name}${
                               s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''
                             }`}
@@ -784,7 +780,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   })}
                 </div>
               )}
-              <p className="mt-5 text-caption text-secondary">
+              <p className="mt-5 text-sm text-secondary">
                 Posted {req.created_at.slice(0, 10)} · {openDaysLabel(req.created_at)}
               </p>
             </section>
@@ -797,7 +793,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 </h2>
               </div>
               {applicantRows.length === 0 ? (
-                <p className="py-4 text-body-sm text-secondary">No applicants yet.</p>
+                <p className="py-4 text-base text-secondary">No applicants yet.</p>
               ) : (
                 <div className="divide-y divide-border">
                   {applicantRows.slice(0, 5).map((a) => (
@@ -808,14 +804,14 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                       <Avatar name={a.name} size={36} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-medium text-primary">{a.name}</div>
-                        <div className="truncate text-body-sm text-secondary">
+                        <div className="truncate text-base text-secondary">
                           {[a.role, `Applied ${relativeDays(a.applied_date)}`]
                             .filter(Boolean)
                             .join(' · ')}
                         </div>
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-caption font-medium ${
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-medium ${
                           APPLICANT_STAGE_BADGE[a.stage] ?? 'bg-surface text-secondary'
                         }`}
                       >
@@ -849,7 +845,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                   extra={
                     req.due_date && (
                       <span
-                        className={`ml-1.5 text-body-sm ${
+                        className={`ml-1.5 text-base ${
                           daysLeft(req.due_date) < 0 ? 'text-error' : 'text-warning'
                         }`}
                       >

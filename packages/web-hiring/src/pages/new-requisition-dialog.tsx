@@ -284,14 +284,12 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                     />
                   </div>
                 </div>
-                {dateError && <p className="text-body-sm text-error">{dateError}</p>}
+                {dateError && <p className="text-base text-error">{dateError}</p>}
 
                 <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
 
                 <div className="flex items-center justify-between">
-                  <div className="text-caption font-semibold uppercase text-secondary">
-                    JD detail
-                  </div>
+                  <div className="text-sm font-semibold uppercase text-secondary">JD detail</div>
                   <SegmentedControl
                     label="JD variant"
                     value={variant}
@@ -328,7 +326,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
               <div className="space-y-2">
                 {error && <Banner status="error" title={error} />}
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-body-sm text-error">{requiredError}</p>
+                  <p className="text-base text-error">{requiredError}</p>
                   <div className="flex shrink-0 gap-2">
                     <Button
                       variant="secondary"

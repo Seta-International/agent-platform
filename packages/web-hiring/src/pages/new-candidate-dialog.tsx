@@ -214,7 +214,7 @@ export function NewCandidateDialog() {
             <LayoutContent>
               <div className="space-y-3">
                 {cvFile ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-body-sm">
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-base">
                     <FileText className="size-4 flex-none text-secondary" aria-hidden />
                     <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
                     {parse.isPending && <span className="text-secondary">Parsing…</span>}
@@ -266,11 +266,11 @@ export function NewCandidateDialog() {
                       value={email}
                       onChange={(value) => setEmail(value)}
                     />
-                    {emailError && <p className="text-caption text-error">{emailError}</p>}
+                    {emailError && <p className="text-sm text-error">{emailError}</p>}
                   </div>
                   <div className="space-y-1">
                     <Input label="Phone" value={phone} onChange={(value) => setPhone(value)} />
-                    {phoneError && <p className="text-caption text-error">{phoneError}</p>}
+                    {phoneError && <p className="text-sm text-error">{phoneError}</p>}
                   </div>
                   <div className="space-y-1">
                     <DateInput
@@ -335,7 +335,7 @@ export function NewCandidateDialog() {
                 <Textarea label="Notes" value={note} onChange={(value) => setNote(value)} />
                 {suggestions.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-caption text-secondary">From CV, not in catalog:</span>
+                    <span className="text-sm text-secondary">From CV, not in catalog:</span>
                     {suggestions.map((sg) => (
                       <Badge key={sg} variant="neutral" className="border-dashed" label={sg} />
                     ))}
@@ -349,7 +349,7 @@ export function NewCandidateDialog() {
               <div className="space-y-2">
                 {error && <Banner status="error" title={error} />}
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-body-sm text-error">{requiredError}</p>
+                  <p className="text-base text-error">{requiredError}</p>
                   <div className="flex shrink-0 gap-2">
                     <Button variant="secondary" label="Cancel" onClick={close} />
                     <Button

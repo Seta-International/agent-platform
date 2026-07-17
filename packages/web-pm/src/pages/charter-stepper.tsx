@@ -43,7 +43,7 @@ export function CharterStepper({
 }) {
   const { doneCount, active, failedAt } = progress(status, rejectedStage);
   const compact = variant === 'compact';
-  const dot = compact ? 'size-[18px] text-[9px]' : 'size-[26px] text-[11px]';
+  const dot = compact ? 'size-[18px] text-2xs' : 'size-[26px] text-xs';
   const icon = compact ? 'size-3' : 'size-[13px]';
   const minWidth = compact ? 112 : 150;
 
@@ -79,7 +79,7 @@ export function CharterStepper({
               </span>
               <div className="leading-tight">
                 <div
-                  className={compact ? 'text-[11px] font-medium' : 'text-[12px] font-semibold'}
+                  className={compact ? 'text-xs font-medium' : 'text-sm font-semibold'}
                   style={
                     failed
                       ? { color: 'var(--color-error)' }
@@ -90,7 +90,7 @@ export function CharterStepper({
                 >
                   {label}
                 </div>
-                {!compact && <div className="text-[10.5px] text-secondary">{sub}</div>}
+                {!compact && <div className="text-xs text-secondary">{sub}</div>}
               </div>
             </div>
             {i < STEPS.length - 1 && (

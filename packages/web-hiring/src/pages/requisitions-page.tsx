@@ -206,8 +206,8 @@ export function RequisitionsPage() {
         {icon}
       </div>
       <div>
-        <div className={`text-display-md font-semibold tabular-nums ${valueClass}`}>{value}</div>
-        <div className="mt-1 text-caption text-secondary">{label}</div>
+        <div className={`text-5xl font-semibold tabular-nums ${valueClass}`}>{value}</div>
+        <div className="mt-1 text-sm text-secondary">{label}</div>
       </div>
     </div>
   );
@@ -286,7 +286,7 @@ export function RequisitionsPage() {
         header: 'Due',
         sortable: true,
         renderCell: (r) => (
-          <span className="font-mono text-caption text-secondary">{r.due_date ?? '—'}</span>
+          <span className="font-mono text-sm text-secondary">{r.due_date ?? '—'}</span>
         ),
       },
     ],
@@ -435,7 +435,7 @@ export function RequisitionsPage() {
                     label="Toggle columns"
                     content={
                       <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                        <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
+                        <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
                           Toggle columns
                         </div>
                         {REQ_COLUMN_OPTIONS.map((col) => (

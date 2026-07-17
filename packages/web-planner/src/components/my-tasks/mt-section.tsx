@@ -103,18 +103,18 @@ export function MtSection({ section, searchTerm }: Props) {
           style={{ transform: open ? 'none' : 'rotate(-90deg)' }}
         />
         <span data-testid="section-tone-dot" className={`dot ${TONE_DOT[section.tone]}`} />
-        <span className="text-[13px] font-semibold -tracking-[0.005em]">{section.label}</span>
+        <span className="text-base font-semibold -tracking-[0.005em]">{section.label}</span>
         <span
           data-testid="section-count"
-          className="text-[11px] font-semibold px-[7px] py-px rounded-full"
+          className="text-xs font-semibold px-[7px] py-px rounded-full"
           style={{ background: TONE_BG[section.tone], color: TONE_INK[section.tone] }}
         >
           {section.count}
         </span>
-        {section.hint && <span className="text-[11px] text-secondary">· {section.hint}</span>}
+        {section.hint && <span className="text-xs text-secondary">· {section.hint}</span>}
         <div className="flex-1" />
         {open && taskCount > 0 && (
-          <span className="text-[11px] text-secondary">Sorted by your priority</span>
+          <span className="text-xs text-secondary">Sorted by your priority</span>
         )}
       </button>
 
@@ -125,7 +125,7 @@ export function MtSection({ section, searchTerm }: Props) {
             style={gridColsStyle}
             className={
               'sticky top-0 z-10 grid ' +
-              'gap-3 px-7 py-2.5 text-[10.5px] font-medium uppercase tracking-wider ' +
+              'gap-3 px-7 py-2.5 text-xs font-medium uppercase tracking-wider ' +
               'text-secondary border-b border-border bg-body'
             }
           >

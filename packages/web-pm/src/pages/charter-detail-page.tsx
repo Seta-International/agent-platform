@@ -46,8 +46,8 @@ const PRICING_LABEL: Record<string, string> = { fixed_price: 'Fixed-price', time
 function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="bg-surface p-3">
-      <div className="text-[10.5px] uppercase tracking-wide text-secondary">{label}</div>
-      <div className="mt-0.5 text-body-sm font-medium text-primary">{value ?? '—'}</div>
+      <div className="text-xs uppercase tracking-wide text-secondary">{label}</div>
+      <div className="mt-0.5 text-base font-medium text-primary">{value ?? '—'}</div>
     </div>
   );
 }
@@ -55,8 +55,8 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 function ScopeBox({ label, text }: { label: string; text?: string | null }) {
   return (
     <div className="rounded-md border border-border bg-surface p-3.5">
-      <div className="text-[12px] font-semibold text-primary">{label}</div>
-      <div className="mt-1 whitespace-pre-line text-body-sm leading-relaxed text-secondary">
+      <div className="text-sm font-semibold text-primary">{label}</div>
+      <div className="mt-1 whitespace-pre-line text-base leading-relaxed text-secondary">
         {text?.trim() ? text : '—'}
       </div>
     </div>
@@ -375,7 +375,7 @@ export function CharterDetailPage({ charterId }: { charterId: string }) {
                         <Link
                           to="/pm/projects/$projectId"
                           params={{ projectId: c.project_id }}
-                          className="flex items-center justify-between rounded-md border border-border bg-surface px-3.5 py-3 text-body-sm font-medium text-primary transition-colors hover:border-blue/40"
+                          className="flex items-center justify-between rounded-md border border-border bg-surface px-3.5 py-3 text-base font-medium text-primary transition-colors hover:border-blue/40"
                         >
                           <span>Open live project</span>
                           <ChevronRight className="size-4 text-secondary" />

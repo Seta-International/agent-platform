@@ -27,9 +27,9 @@ export function TaskDetailCommentsCard({ taskId, currentUserId, isGroupOwner }: 
         <CommentComposer taskId={taskId} />
       </div>
 
-      {q.isPending && <p className="text-caption text-disabled">Loading comments…</p>}
+      {q.isPending && <p className="text-sm text-disabled">Loading comments…</p>}
       {q.isError && (
-        <p className="text-caption text-error">
+        <p className="text-sm text-error">
           Could not load comments.{' '}
           <button type="button" className="underline" onClick={() => void q.refetch()}>
             Retry
@@ -38,7 +38,7 @@ export function TaskDetailCommentsCard({ taskId, currentUserId, isGroupOwner }: 
       )}
 
       {q.data && totalLoaded === 0 && (
-        <p className="text-caption text-disabled">No comments yet. Be the first to comment.</p>
+        <p className="text-sm text-disabled">No comments yet. Be the first to comment.</p>
       )}
 
       <ul className="flex flex-col gap-4">

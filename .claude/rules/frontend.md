@@ -7,7 +7,11 @@ paths:
 
 # Frontend rules
 
-Stack: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), Astryx (`@astryxdesign/core` + StyleX, custom `seta` theme in `packages/shared-ui/src/theme/`) for components, Tailwind 4, AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui (v6-paired). Every `shared-ui` primitive is an Astryx re-export, and leaf packages build on those. The only deliberate non-Astryx UI deps are recharts (no Astryx charts) and lucide (icons). See [`DESIGN.md`](../../DESIGN.md) for design tokens and the `packages/shared-ui` contract. `../mastra/packages/playground-ui/` is the reference for chat/upload UX patterns in `apps/web`.
+**Any UI/UX work — new surfaces, visual changes, layout, look-and-feel — must invoke the
+`/frontend-design:frontend-design` skill first.** It is not optional and not only for greenfield
+design: reviews and refactors of existing UI count.
+
+Stack: React 19, TanStack Router (suite-shell routing composed via `@tanstack/virtual-file-routes`), Astryx (`@astryxdesign/core` + StyleX, `@astryxdesign/theme-neutral` unmodified) for components, Tailwind 4, AI SDK v6 (`ai@^6` + `@ai-sdk/react@^3`), assistant-ui (v6-paired). Every `shared-ui` primitive is an Astryx re-export, and leaf packages build on those. The only deliberate non-Astryx UI deps are recharts (no Astryx charts) and lucide (icons). See [`DESIGN.md`](../../DESIGN.md) for design tokens and the `packages/shared-ui` contract. `../mastra/packages/playground-ui/` is the reference for chat/upload UX patterns in `apps/web`.
 
 ## App-tier boundaries (CI-gated: `pnpm depcruise`)
 
@@ -43,14 +47,21 @@ Escape hatches, in order: a component prop → a `style`/`className` with tokens
 
 ## Astryx design system
 
-**Repo-specific override of the block below** (as of FUT-562's foundation change): the StyleX
-compiler IS wired here (`@stylexjs/unplugin` in `apps/web/vite.config.ts` and
-`packages/shared-ui/.storybook/main.ts`) — `xstyle` is the supported override mechanism, contrary
-to the block's claim. Do NOT import `@astryxdesign/core/astryx.css` (or `reset.css`) into any real
-app entry point yet — it's wired into Storybook only
-(`packages/shared-ui/.storybook/preview.css`), deliberately isolated because the vendor
-stylesheet's unscoped `:root` token defaults collide with Seta's own tokens. See
-[`DESIGN.md`](../../DESIGN.md)'s `implementation_notice` for why.
+**Repo-specific overrides of the generated block below** — it ships with the CLI and is wrong
+about this repo in four ways:
+- The StyleX compiler IS wired here (`@stylexjs/unplugin` in `apps/web/vite.config.ts` and
+  `packages/shared-ui/.storybook/main.ts`), so `xstyle` is supported. So are Tailwind utilities:
+  `@astryxdesign/core/tailwind-theme.css` bridges every Astryx token onto them.
+- Astryx CSS loads in the real app from `packages/shared-ui/src/styles/index.css`. The old
+  "Storybook only" isolation, and the token collision it dodged, are gone (FUT-725).
+- `astryx docs tokens` reports SYSTEM defaults, not the active theme. `theme-neutral` overrides
+  most of them — verify against `theme-neutral/dist/theme.css`, and don't `grep -o` it (that
+  flattens `@scope` and reports scoped values as root ones).
+- The theme is `@astryxdesign/theme-neutral`, unmodified. There is no `seta` theme and no build step.
+
+Type and spacing are fixed — see [`DESIGN.md`](../../DESIGN.md). **Never use `text-body`**: Astryx
+has no `--text-body`, so it resolves through the colour namespace and paints text in the page
+background. Never add arbitrary font sizes (`text-[11px]`).
 
 <!-- ASTRYX:START -->
 Astryx v0.0.1 · 90+ components

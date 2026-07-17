@@ -84,7 +84,7 @@ export function TaskTitleEditor({ task, planId }: Props) {
             setFocused(false);
             commit();
           }}
-          className="flex-1 border-0 bg-transparent text-[20px] font-semibold leading-tight tracking-tight text-primary outline-none placeholder:text-disabled disabled:cursor-not-allowed"
+          className="flex-1 border-0 bg-transparent text-xl font-semibold leading-tight tracking-tight text-primary outline-none placeholder:text-disabled disabled:cursor-not-allowed"
         />
         {!focused && canUpdate && (
           <Pencil

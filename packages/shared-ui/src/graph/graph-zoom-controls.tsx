@@ -24,7 +24,7 @@ export function GraphZoomControls({
       <button type="button" aria-label="zoom out" className={iconBtn} onClick={onZoomOut}>
         <Minus className="h-4 w-4" />
       </button>
-      <span className="min-w-[42px] text-center text-caption font-semibold text-secondary">
+      <span className="min-w-[42px] text-center text-sm font-semibold text-secondary">
         {Math.round(zoomPct)}%
       </span>
       <button type="button" aria-label="zoom in" className={iconBtn} onClick={onZoomIn}>
@@ -35,7 +35,7 @@ export function GraphZoomControls({
         aria-label="fit"
         className={cn(
           base,
-          'inline-flex w-auto items-center gap-1 whitespace-nowrap px-2.5 text-caption font-semibold',
+          'inline-flex w-auto items-center gap-1 whitespace-nowrap px-2.5 text-sm font-semibold',
         )}
         onClick={onFit}
       >

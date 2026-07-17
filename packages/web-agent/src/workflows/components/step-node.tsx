@@ -35,7 +35,7 @@ function StepJsonDialog({ title, value, open, onClose }: StepJsonDialogProps) {
         header={<DialogHeader title={title} onOpenChange={onClose} />}
         content={
           <LayoutContent padding={0}>
-            <pre className="m-0 max-h-[60vh] overflow-auto whitespace-pre-wrap break-all bg-card px-4 py-3 font-mono text-[11.5px] leading-[1.55] text-primary border-t border-border">
+            <pre className="m-0 max-h-[60vh] overflow-auto whitespace-pre-wrap break-all bg-card px-4 py-3 font-mono text-sm leading-[1.55] text-primary border-t border-border">
               {pretty}
             </pre>
           </LayoutContent>
@@ -117,7 +117,7 @@ export function DefaultNode({ data }: NodeProps<Node<DefaultNodeData>>) {
             {data.stepId}
           </span>
           {data.description ? (
-            <p className="mt-0.5 line-clamp-3 text-[11px] leading-[1.4] text-[var(--color-text-secondary)]">
+            <p className="mt-0.5 line-clamp-3 text-xs leading-[1.4] text-[var(--color-text-secondary)]">
               {data.description}
             </p>
           ) : null}

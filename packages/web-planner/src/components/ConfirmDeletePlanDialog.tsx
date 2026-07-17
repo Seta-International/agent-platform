@@ -44,7 +44,7 @@ export function ConfirmDeletePlanDialog({
         header={<DialogHeader title="Delete this plan?" onOpenChange={handleOpenChange} />}
         content={
           <LayoutContent>
-            <div className="space-y-2 text-body-sm text-secondary">
+            <div className="space-y-2 text-base text-secondary">
               <p>The plan is gone for good. Its tasks move to Trash.</p>
               {isLinked && (
                 <p className="font-medium text-primary">

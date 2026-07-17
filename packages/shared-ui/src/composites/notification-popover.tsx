@@ -69,7 +69,7 @@ export function NotificationPopover({
                 >
                   {f === 'all' ? 'All' : 'Unread'}
                   {f === 'unread' && unreadCount > 0 && (
-                    <span className="ml-0.5 rounded-full bg-accent-bg px-1.5 py-px text-[10px] font-bold leading-none text-white">
+                    <span className="ml-0.5 rounded-full bg-accent-bg px-1.5 py-px text-xs font-bold leading-none text-white">
                       {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                   )}
@@ -91,7 +91,7 @@ export function NotificationPopover({
             style={{ maxHeight: 'min(480px, 60svh)' }}
           >
             {items.length === 0 ? (
-              <div className="flex h-[160px] items-center justify-center text-caption text-secondary">
+              <div className="flex h-[160px] items-center justify-center text-sm text-secondary">
                 No notifications yet.
               </div>
             ) : (
@@ -115,7 +115,7 @@ export function NotificationPopover({
                       type="button"
                       onClick={onLoadMore}
                       disabled={isLoadingMore}
-                      className="text-caption text-secondary hover:text-primary disabled:text-secondary"
+                      className="text-sm text-secondary hover:text-primary disabled:text-secondary"
                     >
                       {isLoadingMore ? 'Loading…' : 'Load more'}
                     </button>

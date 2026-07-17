@@ -77,7 +77,7 @@ export function TenantSettings() {
               <div className="space-y-3">
                 <div>
                   <div className="font-medium text-primary">Email domains</div>
-                  <p className="mt-1 text-body-sm text-secondary">
+                  <p className="mt-1 text-base text-secondary">
                     Used to generate work email addresses for new people.
                   </p>
                 </div>
@@ -87,12 +87,12 @@ export function TenantSettings() {
                   <>
                     <DomainsField domains={domains} onChange={setDomains} />
                     {saveDomainsM.error && (
-                      <div className="text-body-sm text-error">
+                      <div className="text-base text-error">
                         {(saveDomainsM.error as Error).message}
                       </div>
                     )}
                     {domainsSaved && (
-                      <div className="text-body-sm text-success">Email domains saved.</div>
+                      <div className="text-base text-success">Email domains saved.</div>
                     )}
                     <div className="flex justify-end">
                       <Button

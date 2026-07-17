@@ -46,7 +46,9 @@ const EMPLOYMENT_TYPES = ['full_time', 'part_time', 'contract', 'intern'] as con
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <span className="text-eyebrow uppercase tracking-[0.04em] text-secondary">{title}</span>
+      <span className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">
+        {title}
+      </span>
       {children}
     </div>
   );
@@ -148,7 +150,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
             <LayoutContent>
               <div className="space-y-5">
                 {cvFile ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-body-sm">
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-base">
                     <FileText className="size-4 flex-none text-secondary" aria-hidden />
                     <span className="min-w-0 flex-1 truncate">{cvFile.name}</span>
                     {parse.isPending && <span className="text-secondary">Parsing…</span>}
@@ -284,7 +286,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                   />
                   {suggestions.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-caption text-secondary">From CV, not in catalog:</span>
+                      <span className="text-sm text-secondary">From CV, not in catalog:</span>
                       {suggestions.map((s) => (
                         <Badge key={s} variant="neutral" className="border-dashed" label={s} />
                       ))}

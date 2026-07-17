@@ -248,7 +248,7 @@ export function GroupMembersTable({
     <section className="rounded-lg border border-border bg-body overflow-hidden">
       {selectedIds.length > 0 && (
         <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2">
-          <span className="text-body-sm text-secondary">
+          <span className="text-base text-secondary">
             {selectedIds.length} {selectedIds.length === 1 ? 'member' : 'members'} selected
           </span>
           <Button
@@ -296,7 +296,7 @@ export function GroupMembersTable({
               actions={<Button label="Clear filters" onClick={() => setSearch('')} />}
             />
           ) : (
-            <div className="px-4 py-12 text-center text-body-sm text-secondary">
+            <div className="px-4 py-12 text-center text-base text-secondary">
               No members in this group yet.
             </div>
           )

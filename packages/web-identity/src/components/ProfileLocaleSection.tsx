@@ -121,7 +121,7 @@ export function ProfileLocaleSection({
               ) : (
                 wh && (
                   <div className="space-y-2">
-                    <span className="text-body-sm font-medium text-primary">
+                    <span className="text-base font-medium text-primary">
                       Working hours (Mon–Fri)
                     </span>
                     <p className="text-sm text-secondary">

@@ -81,7 +81,7 @@ const HEAT_LEVELS = [
 
 function HeatLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-secondary">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-secondary">
       <span className="font-medium">Planned load</span>
       {HEAT_LEVELS.map((l) => (
         <span key={l.label} className="inline-flex items-center gap-1.5">
@@ -124,11 +124,11 @@ function Kpi({
           : undefined;
   return (
     <Card padding={4}>
-      <div className="text-[11px] uppercase tracking-wide text-secondary">{label}</div>
+      <div className="text-xs uppercase tracking-wide text-secondary">{label}</div>
       <div className="mt-1 text-2xl font-semibold" style={color ? { color } : undefined}>
         {value}
       </div>
-      {sub && <div className="text-[11px] text-secondary">{sub}</div>}
+      {sub && <div className="text-xs text-secondary">{sub}</div>}
     </Card>
   );
 }
@@ -295,7 +295,7 @@ export function AllocationPage() {
         return (
           <div className="flex justify-center">
             <span
-              className="inline-block w-9 rounded-[5px] py-0.5 text-center font-mono text-[11px] font-semibold tabular-nums"
+              className="inline-block w-9 rounded-[5px] py-0.5 text-center font-mono text-xs font-semibold tabular-nums"
               title={isOver ? `Total ${total}% this month` : undefined}
               style={style}
             >
@@ -311,7 +311,7 @@ export function AllocationPage() {
         header: 'Employee ID',
         width: pixel(100),
         renderCell: (r) => (
-          <span className="font-mono text-[11px] text-secondary">{r.employee_no ?? '—'}</span>
+          <span className="font-mono text-xs text-secondary">{r.employee_no ?? '—'}</span>
         ),
       },
       {
@@ -338,7 +338,7 @@ export function AllocationPage() {
         renderCell: (r) =>
           // AMs manage the whole account, not a single project — show that instead of a sub-project.
           r.is_account_am ? (
-            <span className="text-[12px] text-secondary italic">Account management</span>
+            <span className="text-sm text-secondary italic">Account management</span>
           ) : (
             <div className="max-w-[200px] truncate">{r.project_name ?? '—'}</div>
           ),
@@ -354,7 +354,7 @@ export function AllocationPage() {
         // preserved as the one genuinely-functioning sort; see task-2c report for detail.
         sortable: true,
         renderCell: (r) => (
-          <div className="text-center font-mono text-[12px]">{r.total_mm.toFixed(2)}</div>
+          <div className="text-center font-mono text-sm">{r.total_mm.toFixed(2)}</div>
         ),
       },
     ];
@@ -415,7 +415,7 @@ export function AllocationPage() {
         <LayoutContent padding={0}>
           <div className="space-y-4 p-6">
             {error ? (
-              <Card className="p-4 text-body-sm text-[color:var(--color-error)]">
+              <Card className="p-4 text-base text-[color:var(--color-error)]">
                 {(error as Error).message}
               </Card>
             ) : (
@@ -472,7 +472,7 @@ export function AllocationPage() {
                           label={`Clear filters (${activeFiltersCount})`}
                         />
                       )}
-                      <div className="flex items-center gap-2 text-body-sm text-secondary">
+                      <div className="flex items-center gap-2 text-base text-secondary">
                         <span className="flex items-center gap-1 font-medium text-primary">
                           <User className="size-3.5 text-secondary" />
                           {rowCount} {rowCount === 1 ? 'row' : 'rows'}
@@ -486,7 +486,7 @@ export function AllocationPage() {
                         label="Toggle columns"
                         content={
                           <div className="flex max-h-80 min-w-[180px] flex-col gap-1 overflow-y-auto p-2">
-                            <div className="px-1 pb-1 text-eyebrow uppercase tracking-[0.04em] text-secondary">
+                            <div className="px-1 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
                               Toggle columns
                             </div>
                             {ALLOCATION_HIDEABLE_COLUMNS.map((col) => (
@@ -611,7 +611,7 @@ export function AllocationPage() {
                     }
                   />
                 )}
-                <p className="text-[11px] text-secondary">
+                <p className="text-xs text-secondary">
                   Solid red = that person is over 100% allocated that month.
                 </p>
                 <UtilizationPanel />

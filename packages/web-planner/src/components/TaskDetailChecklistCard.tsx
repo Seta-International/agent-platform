@@ -210,7 +210,7 @@ export function TaskDetailChecklistCard({ task, planId }: Props) {
             onKeyDown={onKeyDown}
             disabled={!canUpdate}
             placeholder="Add an item"
-            className="flex-1 border-0 bg-transparent text-body-sm text-primary outline-none placeholder:text-secondary disabled:cursor-not-allowed"
+            className="flex-1 border-0 bg-transparent text-base text-primary outline-none placeholder:text-secondary disabled:cursor-not-allowed"
           />
           <span className="t-xs subtle shrink-0" aria-hidden>
             ↵ to add

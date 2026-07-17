@@ -49,7 +49,7 @@ export function GroupPlansSection({
   if (total === 0 && !canCreatePlan) {
     return (
       <section className="rounded-lg border border-border bg-body">
-        <div className="px-4 py-16 text-center text-body-sm text-secondary">
+        <div className="px-4 py-16 text-center text-base text-secondary">
           No plans yet in this group.
         </div>
       </section>

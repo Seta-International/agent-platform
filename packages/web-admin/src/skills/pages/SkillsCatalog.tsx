@@ -194,7 +194,7 @@ export function SkillsCatalog() {
             )}
 
             {!canManage && !loading && (
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-body-sm text-secondary">
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-base text-secondary">
                 <Lock className="size-3.5 shrink-0" aria-hidden />
                 <span>You can view the skills catalog but not make changes.</span>
               </div>
@@ -221,11 +221,11 @@ export function SkillsCatalog() {
                   {/* Categories rail */}
                   <section className="flex min-w-0 flex-col gap-2">
                     <div className="flex items-center justify-between px-1">
-                      <h2 className="flex items-center gap-1.5 text-eyebrow uppercase tracking-[0.04em] text-disabled">
+                      <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.04em] text-disabled">
                         <Layers className="size-3.5" aria-hidden />
                         Categories
                       </h2>
-                      <span className="text-caption tabular-nums text-disabled">
+                      <span className="text-sm tabular-nums text-disabled">
                         {categories.length}
                       </span>
                     </div>
@@ -261,7 +261,7 @@ export function SkillsCatalog() {
                         />
                       ))}
                       {categories.length === 0 && (
-                        <li className="px-2 py-2 text-body-sm text-disabled">No categories yet.</li>
+                        <li className="px-2 py-2 text-base text-disabled">No categories yet.</li>
                       )}
                     </ul>
                   </section>
@@ -269,7 +269,7 @@ export function SkillsCatalog() {
                   {/* Skills pane */}
                   <section className="flex min-w-0 flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h2 className="flex items-center gap-2 text-body-sm font-semibold text-primary">
+                      <h2 className="flex items-center gap-2 text-base font-semibold text-primary">
                         {searching ? (
                           <>
                             Search results
@@ -405,10 +405,10 @@ function StatStrip({
 function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-lg border border-border bg-body px-4 py-3">
-      <div className="text-caption uppercase tracking-wide text-secondary">{label}</div>
+      <div className="text-sm uppercase tracking-wide text-secondary">{label}</div>
       <div className="mt-1 flex items-baseline gap-2">
         <span className="text-2xl font-semibold tabular-nums text-primary">{value}</span>
-        {hint && <span className="truncate text-caption text-disabled">{hint}</span>}
+        {hint && <span className="truncate text-sm text-disabled">{hint}</span>}
       </div>
     </div>
   );
@@ -507,7 +507,7 @@ function CategoryRow({
         type="button"
         onClick={onSelect}
         className={cn(
-          'min-w-0 flex-1 truncate text-left text-body-sm',
+          'min-w-0 flex-1 truncate text-left text-base',
           selected ? 'font-semibold text-primary' : 'text-secondary',
         )}
       >
@@ -541,7 +541,7 @@ function CategoryRow({
         <>
           <span
             className={cn(
-              'min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-caption tabular-nums',
+              'min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-sm tabular-nums',
               selected ? 'bg-surface text-secondary' : 'text-disabled',
             )}
           >
@@ -607,10 +607,8 @@ function SkillCard({
   return (
     <li className="group flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2 transition-colors hover:border-border-strong">
       <div className="min-w-0">
-        <div className="truncate text-body-sm text-primary">{skill.name}</div>
-        {categoryLabel && (
-          <div className="truncate text-caption text-disabled">{categoryLabel}</div>
-        )}
+        <div className="truncate text-base text-primary">{skill.name}</div>
+        {categoryLabel && <div className="truncate text-sm text-disabled">{categoryLabel}</div>}
       </div>
 
       {canManage &&

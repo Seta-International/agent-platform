@@ -98,7 +98,7 @@ export function PeopleCardGrid({
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-sm truncate">{row.full_name}</div>
                 {row.job_title && (
-                  <div className="text-[11px] text-secondary truncate leading-tight">
+                  <div className="text-xs text-secondary truncate leading-tight">
                     {row.job_title}
                   </div>
                 )}
@@ -108,9 +108,7 @@ export function PeopleCardGrid({
 
             {/* Work email */}
             {row.work_email && (
-              <div className="font-mono text-[11.5px] text-secondary truncate">
-                {row.work_email}
-              </div>
+              <div className="font-mono text-sm text-secondary truncate">{row.work_email}</div>
             )}
 
             {/* Accounts */}
@@ -120,7 +118,7 @@ export function PeopleCardGrid({
                   <Badge
                     key={a.id}
                     variant="neutral"
-                    className="text-[11px] px-1.5 py-0"
+                    className="text-xs px-1.5 py-0"
                     label={a.name}
                   />
                 ))}
@@ -134,7 +132,7 @@ export function PeopleCardGrid({
                   <Badge
                     key={s.id}
                     variant="neutral"
-                    className="text-[11px] px-1.5 py-0"
+                    className="text-xs px-1.5 py-0"
                     label={s.name}
                   />
                 ))}

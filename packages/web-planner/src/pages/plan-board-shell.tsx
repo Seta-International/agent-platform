@@ -259,7 +259,7 @@ export function PlanBoardShell({
       {resolvedPlan.sync_status === 'error' && resolvedPlan.last_error && (
         <div
           role="alert"
-          className="mx-7 mt-3 rounded border border-error bg-error-muted p-3 text-body-sm"
+          className="mx-7 mt-3 rounded border border-error bg-error-muted p-3 text-base"
           data-testid="plan-sync-error-banner"
         >
           <div className="font-medium">
@@ -278,7 +278,7 @@ export function PlanBoardShell({
       )}
       {resolvedPlan.sync_status === 'conflict' && (
         <div
-          className="mx-7 mt-3 rounded border border-warning bg-warning-muted p-3 text-body-sm"
+          className="mx-7 mt-3 rounded border border-warning bg-warning-muted p-3 text-base"
           data-testid="plan-sync-conflict-banner"
         >
           <div className="font-medium">A few changes clashed — pick which version to keep</div>

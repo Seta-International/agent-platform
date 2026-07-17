@@ -236,11 +236,11 @@ export function OrgChartPage() {
             </div>
             <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border">
               {isLoading ? (
-                <div className="grid h-full place-items-center text-caption text-secondary">
+                <div className="grid h-full place-items-center text-sm text-secondary">
                   Loading…
                 </div>
               ) : isEmpty ? (
-                <div className="grid h-full place-items-center text-caption text-secondary">
+                <div className="grid h-full place-items-center text-sm text-secondary">
                   Nothing to show in your scope.
                 </div>
               ) : (
@@ -265,7 +265,7 @@ function ChartLegend() {
   return (
     <div className="ml-auto flex items-center gap-3">
       {LEGEND.map((l) => (
-        <span key={l.label} className="flex items-center gap-1.5 text-caption text-secondary">
+        <span key={l.label} className="flex items-center gap-1.5 text-sm text-secondary">
           <span className="h-2.5 w-2.5 rounded-sm" style={{ background: l.accent }} />
           {l.label}
         </span>
