@@ -38,3 +38,11 @@ export const WithRootDroppable: Story = {
     },
   },
 };
+
+export const Empty: Story = {
+  args: {
+    children: null,
+    onAddBucket: () => console.log('add bucket'),
+    emptyState: <div>Start your board — add a bucket to get going.</div>,
+  },
+};

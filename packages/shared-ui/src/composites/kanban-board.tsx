@@ -4,6 +4,7 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import * as stylex from '@stylexjs/stylex';
 import { X } from 'lucide-react';
 import {
+  Children,
   type HTMLAttributes,
   type ReactNode,
   useCallback,
@@ -16,7 +17,7 @@ import { DisabledActionTooltip } from './disabled-action-tooltip';
 const styles = stylex.create({
   board: {
     display: 'flex',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     gap: 14,
     padding: 'var(--spacing-4) var(--spacing-6)',
     flex: 1,
@@ -60,6 +61,8 @@ export interface KanbanBoardProps {
     rootProps?: HTMLAttributes<HTMLElement>;
     placeholder?: ReactNode;
   };
+  /** Rendered instead of children + AddBucket when there are no columns. */
+  emptyState?: ReactNode;
 }
 
 export function KanbanBoard({
@@ -69,6 +72,7 @@ export function KanbanBoard({
   nameMaxLength,
   bucketCount,
   rootDroppable,
+  emptyState,
 }: KanbanBoardProps) {
   const boardRef = useRef<HTMLDivElement | null>(null);
   const rootDroppableRef = useRef(rootDroppable);
@@ -100,14 +104,20 @@ export function KanbanBoard({
 
   return (
     <div ref={setBoardRef} {...rootDroppable?.rootProps} {...stylex.props(styles.board)}>
-      {children}
-      {rootDroppable?.placeholder}
-      {handleAddBucket && (
-        <AddBucket
-          onSubmit={handleAddBucket}
-          nameMaxLength={nameMaxLength}
-          disabledReason={addBucketDisabledReason}
-        />
+      {Children.count(children) === 0 && emptyState ? (
+        emptyState
+      ) : (
+        <>
+          {children}
+          {rootDroppable?.placeholder}
+          {handleAddBucket && (
+            <AddBucket
+              onSubmit={handleAddBucket}
+              nameMaxLength={nameMaxLength}
+              disabledReason={addBucketDisabledReason}
+            />
+          )}
+        </>
       )}
     </div>
   );
