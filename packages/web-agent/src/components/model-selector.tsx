@@ -1,4 +1,4 @@
-import { Badge, Button, Popover, SelectableCard } from '@seta/shared-ui';
+import { Badge, Button, Popover, SelectableCard, Text } from '@seta/shared-ui';
 import { ChevronsUpDown, Cpu, Sparkles, Wand2, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { type ModelOption, type ModelTier, useModelCatalog } from '../hooks/use-model-catalog';
@@ -98,9 +98,9 @@ export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelec
           {auto ? <div className="flex flex-col gap-1.5">{card(auto, true)}</div> : null}
           {groups.map((group) => (
             <div key={group.tier} className="flex flex-col gap-1.5">
-              <span className="px-1 text-sm font-medium uppercase tracking-wide text-secondary">
+              <Text type="label" className="px-1 uppercase tracking-wide text-secondary">
                 {TIER_LABEL[group.tier]}
-              </span>
+              </Text>
               {group.items.map((m) => card(m))}
             </div>
           ))}
@@ -120,7 +120,9 @@ export function ModelSelector({ value, onChange, variant = 'ghost' }: ModelSelec
         endContent={<ChevronsUpDown className="size-3.5 flex-none text-secondary" aria-hidden />}
         className="min-w-[8rem] max-w-[13rem]"
       >
-        <span className="block truncate text-left">{current?.label ?? 'Model'}</span>
+        {/* `min-w-0` lets the label shrink inside Button's flex row so it
+            truncates instead of forcing the trigger wider (single-line goal). */}
+        <span className="block min-w-0 truncate text-left">{current?.label ?? 'Model'}</span>
       </Button>
     </Popover>
   );
