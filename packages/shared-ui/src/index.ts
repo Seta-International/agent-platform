@@ -13,13 +13,6 @@ export * from './composites/app-launcher';
 export * from './composites/app-shell';
 export * from './composites/auth-backdrop';
 export * from './composites/avatar-stack';
-export * from './composites/chat-composer';
-export * from './composites/chat-hitl-card';
-export * from './composites/chat-markdown';
-export * from './composites/chat-message';
-export * from './composites/chat-thread-rail';
-export * from './composites/chat-tool-call';
-export * from './composites/chat-transcript';
 export * from './composites/coming-soon';
 export * from './composites/counter-badge-popover';
 export * from './composites/disabled-action-tooltip';
@@ -82,9 +75,77 @@ export * from './primitives/button';
 export * from './primitives/calendar';
 export * from './primitives/card';
 export * from './primitives/center';
+export type {
+  ChatComposerDensity,
+  ChatComposerDrawerProps,
+  ChatComposerInputHandle,
+  ChatComposerInputProps,
+  ChatComposerProps,
+  ChatComposerStatus,
+  ChatComposerToken,
+  ChatComposerTrigger,
+  ChatComposerTriggerItem,
+  ChatDensity,
+  ChatDictationButtonProps,
+  ChatLayoutProps,
+  ChatLayoutScrollButtonProps,
+  ChatMessageBubbleProps,
+  ChatMessageBubbleVariant,
+  ChatMessageListProps,
+  ChatMessageMetadataProps,
+  ChatMessageProps,
+  ChatMessageSender,
+  ChatMessageStatus,
+  ChatSendButtonProps,
+  ChatSystemMessageProps,
+  ChatSystemMessageVariant,
+  ChatTokenizedTextProps,
+  ChatToolCallItem,
+  ChatToolCallStatus,
+  ChatToolCallsProps,
+  TokenPortal,
+  UseChatComposerTokensOptions,
+  UseChatComposerTokensReturn,
+  UseChatDictationOptions,
+  UseChatDictationReturn,
+  UseChatNewMessagesOptions,
+  UseChatNewMessagesReturn,
+  UseChatPasteAsTokenOptions,
+  UseChatPasteAsTokenReturn,
+  UseChatStreamScrollOptions,
+  UseChatStreamScrollReturn,
+  UseSpeechRecognitionOptions,
+  UseSpeechRecognitionReturn,
+} from './primitives/chat';
+export {
+  ChatComposer,
+  ChatComposerDrawer,
+  ChatComposerInput,
+  ChatComposerTokenElement,
+  ChatDictationButton,
+  ChatLayout,
+  ChatLayoutScrollButton,
+  ChatMessage,
+  ChatMessageBubble,
+  ChatMessageList,
+  ChatMessageMetadata,
+  ChatSendButton,
+  ChatSystemMessage,
+  ChatTokenizedText,
+  ChatToolCalls,
+  useChatComposerTokens,
+  useChatDictation,
+  useChatLayoutContext,
+  useChatNewMessages,
+  useChatPasteAsToken,
+  useChatStreamScroll,
+  useSpeechRecognition,
+} from './primitives/chat';
 export * from './primitives/checkbox';
+export * from './primitives/collapsible';
 export * from './primitives/date-input';
 export * from './primitives/dialog';
+export * from './primitives/divider';
 export * from './primitives/dropdown-menu';
 export * from './primitives/field';
 export * from './primitives/file-input';
@@ -93,6 +154,8 @@ export * from './primitives/icon-button';
 export * from './primitives/input';
 export * from './primitives/layout';
 export * from './primitives/link';
+export * from './primitives/list';
+export * from './primitives/markdown';
 export * from './primitives/number-input';
 export * from './primitives/popover';
 export * from './primitives/progress-bar';
@@ -106,6 +169,7 @@ export * from './primitives/table';
 export * from './primitives/text';
 export * from './primitives/textarea';
 export * from './primitives/time-input';
+export * from './primitives/timestamp';
 export * from './primitives/toast';
 export * from './primitives/token';
 export * from './primitives/tokenizer';

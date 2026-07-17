@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ChatThreadRail } from '../../../src/composites/chat-thread-rail';
+import { ChatThreadRail } from '../../../src/chat-experience/chat-thread-rail';
 
 const groups = [
   {
@@ -69,5 +69,58 @@ describe('<ChatThreadRail>', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /new/i }));
     expect(onNewThread).toHaveBeenCalledOnce();
+  });
+
+  it('marks the active thread as aria-selected and leaves the rest unselected', () => {
+    render(
+      <ChatThreadRail
+        groups={groups}
+        activeId="t1"
+        onSelect={() => undefined}
+        onNewThread={() => undefined}
+        searchValue=""
+        onSearchChange={() => undefined}
+      />,
+    );
+    expect(screen.getByText('Move Review tasks to Done').closest('li')).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByText('Plan next sprint').closest('li')).not.toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
+  it('renders the hint badge for items that have one', () => {
+    render(
+      <ChatThreadRail
+        groups={groups}
+        activeId="t1"
+        onSelect={() => undefined}
+        onNewThread={() => undefined}
+        searchValue=""
+        onSearchChange={() => undefined}
+      />,
+    );
+    expect(screen.getByText('HITL')).toBeInTheDocument();
+  });
+
+  it('calls onSearchChange as the search input changes', () => {
+    const onSearchChange = vi.fn();
+    render(
+      <ChatThreadRail
+        groups={groups}
+        activeId="t1"
+        onSelect={() => undefined}
+        onNewThread={() => undefined}
+        searchValue=""
+        onSearchChange={onSearchChange}
+      />,
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: /search threads/i }), {
+      target: { value: 'sprint' },
+    });
+    expect(onSearchChange.mock.calls[0]?.[0]).toBe('sprint');
   });
 });

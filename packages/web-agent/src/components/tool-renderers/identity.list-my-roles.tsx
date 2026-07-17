@@ -1,4 +1,5 @@
-import { ChatToolCall } from '@seta/shared-ui';
+import { ChatToolCalls } from '@seta/shared-ui';
+import { payloadDetail } from './payload-detail';
 
 export interface ListMyRolesProps {
   name: string;
@@ -12,14 +13,20 @@ export function ListMyRolesRenderer({ name, state, output }: ListMyRolesProps) {
     const roleCount = output?.roles?.length ?? 0;
     const permCount = output?.permissions?.length ?? 0;
     return (
-      <ChatToolCall
-        name={name}
-        status="ok"
-        summary={`${roleCount} roles, ${permCount} permissions`}
-        payload={output}
+      <ChatToolCalls
+        calls={[
+          {
+            name,
+            status: 'complete',
+            target: `${roleCount} roles, ${permCount} permissions`,
+            resultDetail: payloadDetail(output),
+          },
+        ]}
       />
     );
   }
-  if (state === 'output-error') return <ChatToolCall name={name} status="error" summary="failed" />;
-  return <ChatToolCall name={name} status="running" />;
+  if (state === 'output-error') {
+    return <ChatToolCalls calls={[{ name, status: 'error', errorMessage: 'failed' }]} />;
+  }
+  return <ChatToolCalls calls={[{ name, status: 'running' }]} />;
 }

@@ -1,6 +1,19 @@
-import type { ComposerAttachment } from '@seta/shared-ui';
 import { useCallback, useState } from 'react';
 import { chatAttachmentsApi } from '../api/chat-attachments';
+
+/** One upload chip in the composer drawer. */
+export interface ComposerAttachment {
+  id: string;
+  filename: string;
+  status: 'uploading' | 'uploaded' | 'failed';
+  progress?: number;
+}
+
+/** Send is blocked while any attachment is still uploading.
+ *  Uploaded and failed attachments do not block (failed ones are removable). */
+export function attachmentsBlockSend(attachments: readonly ComposerAttachment[]): boolean {
+  return attachments.some((a) => a.status === 'uploading');
+}
 
 interface Item {
   localId: string;

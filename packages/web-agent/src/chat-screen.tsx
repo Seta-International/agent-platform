@@ -1,10 +1,9 @@
 import { Dialog, Layout, LayoutContent } from '@seta/shared-ui';
 import { useEffect, useState } from 'react';
-import { AgentComposer } from './chat-experience/agent-composer';
+import { AgentConversation } from './chat-experience/agent-conversation';
 import { AgentHeader } from './chat-experience/agent-header';
 import { useAgentRuntimeContext, useAgentSelection } from './chat-experience/agent-provider';
 import { AgentThreadRail } from './chat-experience/agent-thread-rail';
-import { AgentTranscript } from './chat-experience/agent-transcript';
 import { useIsMobile } from './lib/use-is-mobile';
 
 export interface ChatScreenProps {
@@ -72,8 +71,7 @@ export function ChatScreen({ threadId }: ChatScreenProps) {
       )}
       <div className="flex min-w-0 flex-1 flex-col">
         <AgentHeader onOpenMobileNav={() => setMobileNavOpen(true)} />
-        <AgentTranscript />
-        <AgentComposer />
+        <AgentConversation />
       </div>
     </div>
   );

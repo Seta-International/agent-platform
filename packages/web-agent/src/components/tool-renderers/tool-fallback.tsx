@@ -1,5 +1,6 @@
-import { ChatToolCall } from '@seta/shared-ui';
+import { ChatToolCalls } from '@seta/shared-ui';
 import { humanizeToolName } from '../../chat-experience/leaf-tool-calls';
+import { payloadDetail } from './payload-detail';
 import { summarizeArgs } from './summarize-args';
 
 interface ToolCallPart {
@@ -20,9 +21,16 @@ export function ToolFallback({ part }: { part: ToolCallPart }) {
   const name = humanizeToolName(part.toolName);
   const type = part.status?.type;
   if (type === 'complete' || type === undefined) {
-    if (part.isError) return <ChatToolCall name={name} status="error" summary="failed" />;
-    return <ChatToolCall name={name} status="ok" payload={part.result ?? undefined} />;
+    if (part.isError)
+      return <ChatToolCalls calls={[{ name, status: 'error', errorMessage: 'failed' }]} />;
+    return (
+      <ChatToolCalls
+        calls={[{ name, status: 'complete', resultDetail: payloadDetail(part.result) }]}
+      />
+    );
   }
-  if (type === 'incomplete') return <ChatToolCall name={name} status="error" summary="failed" />;
-  return <ChatToolCall name={name} status="running" summary={summarizeArgs(part.args)} />;
+  if (type === 'incomplete') {
+    return <ChatToolCalls calls={[{ name, status: 'error', errorMessage: 'failed' }]} />;
+  }
+  return <ChatToolCalls calls={[{ name, status: 'running', target: summarizeArgs(part.args) }]} />;
 }

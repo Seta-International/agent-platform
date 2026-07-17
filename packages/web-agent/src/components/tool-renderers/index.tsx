@@ -1,6 +1,6 @@
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { useAssistantDataUI, useAssistantToolUI } from '@assistant-ui/react';
-import { ChatToolCall } from '@seta/shared-ui';
+import { ChatToolCalls } from '@seta/shared-ui';
 import { AgentStreamPart } from '../../chat-experience/agent-stream-part';
 import { DataResultPart } from '../../chat-experience/data-result-part';
 import { DataTrustPart } from '../../chat-experience/data-trust-part';
@@ -8,6 +8,7 @@ import { useToolCatalog } from '../../hooks/use-tool-catalog';
 import { ServerTimeRenderer } from './core.server-time';
 import { ListMyRolesRenderer } from './identity.list-my-roles';
 import { WhoAmIRenderer } from './identity.who-am-i';
+import { payloadDetail } from './payload-detail';
 import { summarizeArgs } from './summarize-args';
 
 function toReadState(
@@ -94,12 +95,18 @@ function GenericToolRegistration({ id, name }: { id: string; name: string }) {
     render: (props) => {
       const state = toReadState(props);
       if (state === 'output-available') {
-        return <ChatToolCall name={name} status="ok" payload={props.result ?? undefined} />;
+        return (
+          <ChatToolCalls
+            calls={[{ name, status: 'complete', resultDetail: payloadDetail(props.result) }]}
+          />
+        );
       }
       if (state === 'output-error') {
-        return <ChatToolCall name={name} status="error" summary="failed" />;
+        return <ChatToolCalls calls={[{ name, status: 'error', errorMessage: 'failed' }]} />;
       }
-      return <ChatToolCall name={name} status="running" summary={summarizeArgs(props.args)} />;
+      return (
+        <ChatToolCalls calls={[{ name, status: 'running', target: summarizeArgs(props.args) }]} />
+      );
     },
   });
   return null;
