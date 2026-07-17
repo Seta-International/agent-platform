@@ -11,23 +11,64 @@ describe('ProgressBar (my-tasks page-local)', () => {
   });
 
   it('uses success variant when status Done or pct 100', () => {
-    const { container, unmount } = render(<ProgressBar pct={100} status="Done" />);
-    expect(container.firstElementChild).toHaveAttribute('data-variant', 'success');
+    const { unmount } = render(<ProgressBar pct={100} status="Done" />);
+    expect(screen.getByRole('progressbar').closest('[data-variant]')).toHaveAttribute(
+      'data-variant',
+      'success',
+    );
     unmount();
-    const { container: container2 } = render(<ProgressBar pct={100} status="In Progress" />);
-    expect(container2.firstElementChild).toHaveAttribute('data-variant', 'success');
+    render(<ProgressBar pct={100} status="In Progress" />);
+    expect(screen.getByRole('progressbar').closest('[data-variant]')).toHaveAttribute(
+      'data-variant',
+      'success',
+    );
   });
 
   it('uses neutral variant when status Not started or pct 0', () => {
-    const { container, unmount } = render(<ProgressBar pct={0} status="Not started" />);
-    expect(container.firstElementChild).toHaveAttribute('data-variant', 'neutral');
+    const { unmount } = render(<ProgressBar pct={0} status="Not started" />);
+    expect(screen.getByRole('progressbar').closest('[data-variant]')).toHaveAttribute(
+      'data-variant',
+      'neutral',
+    );
     unmount();
-    const { container: container2 } = render(<ProgressBar pct={0} status="In Progress" />);
-    expect(container2.firstElementChild).toHaveAttribute('data-variant', 'neutral');
+    render(<ProgressBar pct={0} status="In Progress" />);
+    expect(screen.getByRole('progressbar').closest('[data-variant]')).toHaveAttribute(
+      'data-variant',
+      'neutral',
+    );
   });
 
   it('uses accent variant in the in-between case', () => {
-    const { container } = render(<ProgressBar pct={42} status="In Progress" />);
-    expect(container.firstElementChild).toHaveAttribute('data-variant', 'accent');
+    render(<ProgressBar pct={42} status="In Progress" />);
+    expect(screen.getByRole('progressbar').closest('[data-variant]')).toHaveAttribute(
+      'data-variant',
+      'accent',
+    );
+  });
+
+  it('resolves isDone/isNot precedence exactly: pct wins over status', () => {
+    // pct===100 must win over status==='Not started'.
+    render(<ProgressBar pct={100} status="Not started" />);
+    expect(screen.getByRole('progressbar').closest('[data-variant]')).toHaveAttribute(
+      'data-variant',
+      'success',
+    );
+  });
+
+  it('resolves isDone/isNot precedence exactly: status Done wins over pct 0', () => {
+    // pct===0 with status==='Done' must resolve to success (isDone checked before isNot).
+    render(<ProgressBar pct={0} status="Done" />);
+    expect(screen.getByRole('progressbar').closest('[data-variant]')).toHaveAttribute(
+      'data-variant',
+      'success',
+    );
+  });
+
+  it('renders no header/label row above the track — just the compact inline bar', () => {
+    render(<ProgressBar pct={60} status="In Progress" />);
+    // Astryx's own value-label row (rendered when hasValueLabel is set) must be off;
+    // the "60%" text comes solely from this component's own span, not Astryx's header.
+    const valueLabelSpans = screen.getAllByText('60%');
+    expect(valueLabelSpans).toHaveLength(1);
   });
 });

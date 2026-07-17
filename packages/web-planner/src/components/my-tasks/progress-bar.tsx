@@ -11,14 +11,17 @@ export function ProgressBar({ pct, status }: Props) {
   const isNot = status === 'Not started' || pct === 0;
   const variant = isDone ? 'success' : isNot ? 'neutral' : 'accent';
   return (
-    <SharedProgressBar
-      value={pct}
-      max={100}
-      label="Task progress"
-      isLabelHidden
-      hasValueLabel
-      formatValueLabel={(v) => `${v}%`}
-      variant={variant}
-    />
+    <div className="flex items-center gap-2 min-w-0">
+      <div className="flex-1 min-w-[32px]">
+        <SharedProgressBar
+          value={pct}
+          max={100}
+          label="Task progress"
+          isLabelHidden
+          variant={variant}
+        />
+      </div>
+      <span className="font-mono text-[11px] text-ink-subtle w-7 text-right">{pct}%</span>
+    </div>
   );
 }
