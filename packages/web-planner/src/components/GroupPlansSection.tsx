@@ -1,4 +1,5 @@
 import type { PlanWithRollupsRow } from '@seta/planner';
+import { Card } from '@seta/shared-ui';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
@@ -48,11 +49,11 @@ export function GroupPlansSection({
 
   if (total === 0 && !canCreatePlan) {
     return (
-      <section className="rounded-lg border border-border bg-body">
+      <Card variant="muted" padding={0}>
         <div className="px-4 py-16 text-center text-base text-secondary">
           No plans yet in this group.
         </div>
-      </section>
+      </Card>
     );
   }
 
@@ -64,38 +65,36 @@ export function GroupPlansSection({
   const showCreateTile = safePageIndex === pageCount - 1;
 
   return (
-    <section className="@container rounded-lg border border-border bg-body overflow-hidden">
-      <div className="p-3">
-        <div className="grid grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 gap-3 items-start">
-          {pageSlice.map((plan) => (
-            <PlanCard
-              key={plan.id}
-              plan={plan}
-              progressPct={plan.percent_complete ?? undefined}
-              taskCount={plan.task_count}
-              openTaskCount={plan.open_task_count}
-              notStartedCount={plan.not_started_count}
-              inProgressCount={plan.in_progress_count}
-              completedCount={plan.completed_count}
-              dueDate={plan.latest_due_at ?? undefined}
-              ownerDisplayName={plan.owner_display_name ?? undefined}
-              themeColor={themeColor}
-              onClick={() => onPlanClick(plan.id)}
-            />
-          ))}
-          {showCreateTile && (
-            <button
-              type="button"
-              onClick={onCreatePlan}
-              disabled={!canCreatePlan}
-              title={canCreatePlan ? undefined : PERMISSION_DENIED.plan.create}
-              className="min-h-[158px] border border-dashed border-border-strong rounded-lg bg-transparent flex flex-col items-center justify-center gap-1.5 text-secondary text-sm cursor-pointer hover:bg-card transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-            >
-              <Plus className="size-4" />
-              <span>Create a plan in {groupName}</span>
-            </button>
-          )}
-        </div>
+    <section className="@container">
+      <div className="grid grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 gap-3 items-start">
+        {pageSlice.map((plan) => (
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            progressPct={plan.percent_complete ?? undefined}
+            taskCount={plan.task_count}
+            openTaskCount={plan.open_task_count}
+            notStartedCount={plan.not_started_count}
+            inProgressCount={plan.in_progress_count}
+            completedCount={plan.completed_count}
+            dueDate={plan.latest_due_at ?? undefined}
+            ownerDisplayName={plan.owner_display_name ?? undefined}
+            themeColor={themeColor}
+            onClick={() => onPlanClick(plan.id)}
+          />
+        ))}
+        {showCreateTile && (
+          <button
+            type="button"
+            onClick={onCreatePlan}
+            disabled={!canCreatePlan}
+            title={canCreatePlan ? undefined : PERMISSION_DENIED.plan.create}
+            className="min-h-[158px] border border-dashed border-border-strong rounded-lg bg-transparent flex flex-col items-center justify-center gap-1.5 text-secondary text-sm cursor-pointer hover:bg-card transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+          >
+            <Plus className="size-4" />
+            <span>Create a plan in {groupName}</span>
+          </button>
+        )}
       </div>
       {showPaginator && (
         <Paginator

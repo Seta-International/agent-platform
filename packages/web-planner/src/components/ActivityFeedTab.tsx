@@ -1,6 +1,22 @@
 import type { GroupActivityItem } from '@seta/planner';
-import { Button, formatRelative } from '@seta/shared-ui';
+import { Avatar, Button, formatRelative } from '@seta/shared-ui';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import {
+  ArrowLeftRight,
+  Check,
+  CheckCircle2,
+  Columns3,
+  FolderKanban,
+  type LucideIcon,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Tag,
+  Trash2,
+  UserMinus,
+  UserPlus,
+  Users,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGroupActivityFeed } from '../hooks/queries/use-group-activity-feed';
 import { useGroupActivityLive } from '../hooks/use-group-activity-live';
@@ -11,11 +27,52 @@ interface Props {
   groupId: string;
 }
 
+// Map an event type to a category glyph + tint so the feed is scannable at a glance.
+function eventVisual(eventType: string): { Icon: LucideIcon; tint: string } {
+  if (eventType.endsWith('.completed')) return { Icon: CheckCircle2, tint: '#1f8a4c' };
+  if (eventType.endsWith('.reopened') || eventType.endsWith('.restored'))
+    return { Icon: RotateCcw, tint: '#b86e00' };
+  if (eventType.endsWith('.deleted') || eventType.endsWith('.removed'))
+    return { Icon: Trash2, tint: '#c53030' };
+  if (eventType.endsWith('.created') || eventType.endsWith('.added'))
+    return { Icon: Plus, tint: '#0047ff' };
+  if (eventType.endsWith('.assigned')) return { Icon: UserPlus, tint: '#207087' };
+  if (eventType.endsWith('.unassigned')) return { Icon: UserMinus, tint: '#7a2f7c' };
+  if (eventType.endsWith('.moved')) return { Icon: ArrowLeftRight, tint: '#0047ff' };
+  if (eventType.includes('.member.')) return { Icon: Users, tint: '#207087' };
+  if (eventType.includes('.label.')) return { Icon: Tag, tint: '#c0367f' };
+  if (eventType.includes('.bucket.')) return { Icon: Columns3, tint: '#7a2f7c' };
+  if (eventType.includes('.plan.')) return { Icon: FolderKanban, tint: '#0047ff' };
+  if (eventType.includes('.checklist.')) return { Icon: Check, tint: '#1f8a4c' };
+  return { Icon: Pencil, tint: '#64748b' };
+}
+
+function dayKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+const dayHeadingFmt = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+});
+
+function dayLabel(iso: string): string {
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const key = dayKey(iso);
+  if (key === dayKey(now.toISOString())) return 'Today';
+  if (key === dayKey(yesterday.toISOString())) return 'Yesterday';
+  return dayHeadingFmt.format(new Date(iso));
+}
+
 function ShimmerRow() {
   return (
-    <div className="flex items-start gap-3 py-4 border-b border-border animate-pulse">
-      <div className="h-8 w-8 rounded-full bg-surface shrink-0" />
-      <div className="flex-1 space-y-2">
+    <div className="flex items-start gap-3 py-3 border-b border-border animate-pulse">
+      <div className="size-9 rounded-full bg-surface shrink-0" />
+      <div className="flex-1 space-y-2 pt-1">
         <div className="h-4 w-3/4 rounded bg-surface" />
         <div className="h-3 w-1/4 rounded bg-surface" />
       </div>
@@ -23,31 +80,55 @@ function ShimmerRow() {
   );
 }
 
-function ActivityRow({ item }: { item: GroupActivityItem }) {
-  const initials = item.actor_display_name
-    ? item.actor_display_name
-        .split(' ')
-        .map((p) => p[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
-    : '?';
+function DateDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 pt-5 pb-1 first:pt-1">
+      <span className="text-xs font-semibold uppercase tracking-wide text-secondary">{label}</span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+function ActivityRow({ item, dateHeader }: { item: GroupActivityItem; dateHeader: string | null }) {
+  const actor = item.actor_display_name ?? 'Someone';
+  const label = buildActivityLabel(item);
+  const rest = label.startsWith(actor) ? label.slice(actor.length) : null;
+  const { Icon, tint } = eventVisual(item.event_type);
 
   return (
-    <div className="flex items-start gap-3 py-4 border-b border-border">
-      <div
-        className="h-8 w-8 rounded-full bg-accent-muted text-accent flex items-center justify-center text-xs font-semibold shrink-0"
-        aria-hidden="true"
-      >
-        {initials}
+    <>
+      {dateHeader && <DateDivider label={dateHeader} />}
+      <div className="flex items-start gap-3 py-3 border-b border-border">
+        <div className="relative shrink-0">
+          <Avatar name={item.actor_display_name ?? undefined} size={36} />
+          <span
+            className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full ring-2 ring-card"
+            style={{ background: tint }}
+            aria-hidden="true"
+          >
+            <Icon className="size-2.5 text-white" strokeWidth={2.5} />
+          </span>
+        </div>
+        <div className="flex-1 min-w-0 pt-0.5">
+          <p className="text-sm text-primary">
+            {rest === null ? (
+              label
+            ) : (
+              <>
+                <span className="font-semibold">{actor}</span>
+                {rest}
+              </>
+            )}
+          </p>
+          <p
+            className="text-xs text-secondary mt-0.5"
+            title={absoluteActivityTime(item.occurred_at)}
+          >
+            {formatRelative(item.occurred_at)}
+          </p>
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-base text-primary">{buildActivityLabel(item)}</p>
-        <p className="text-sm text-secondary mt-0.5" title={absoluteActivityTime(item.occurred_at)}>
-          {formatRelative(item.occurred_at)}
-        </p>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -136,8 +217,11 @@ export function ActivityFeedTab({ groupId }: Props) {
 
   if (items.length === 0) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <p className="text-base text-secondary">No activity yet in this group.</p>
+      <div className="flex flex-col items-center justify-center gap-1 py-16 text-center">
+        <p className="text-base text-primary">No activity yet in this group.</p>
+        <p className="text-sm text-secondary">
+          Plan, task, and membership changes will show up here as they happen.
+        </p>
       </div>
     );
   }
@@ -157,7 +241,13 @@ export function ActivityFeedTab({ groupId }: Props) {
           className="sticky top-2 z-10 mx-auto rounded-full shadow-sm"
         />
       ) : (
-        <p className="text-sm text-secondary">All events · live</p>
+        <div className="flex items-center gap-2 pb-1 text-xs font-medium text-secondary">
+          <span className="relative flex size-2" aria-hidden="true">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+            <span className="relative inline-flex size-2 rounded-full bg-success" />
+          </span>
+          Live · updates automatically
+        </div>
       )}
 
       <div
@@ -189,7 +279,15 @@ export function ActivityFeedTab({ groupId }: Props) {
                   )}
                 </div>
               ) : (
-                <ActivityRow item={items[virtualRow.index] as GroupActivityItem} />
+                (() => {
+                  const item = items[virtualRow.index] as GroupActivityItem;
+                  const prev = items[virtualRow.index - 1];
+                  const dateHeader =
+                    !prev || dayKey(prev.occurred_at) !== dayKey(item.occurred_at)
+                      ? dayLabel(item.occurred_at)
+                      : null;
+                  return <ActivityRow item={item} dateHeader={dateHeader} />;
+                })()
               )}
             </div>
           );

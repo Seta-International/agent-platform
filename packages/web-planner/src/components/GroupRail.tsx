@@ -1,14 +1,17 @@
 import type { GroupActivityItem, GroupMemberRow, GroupRow } from '@seta/planner';
 import {
   Avatar,
+  Badge,
   Button,
   Card,
   cn,
   DisabledActionTooltip,
+  EmptyState,
   formatRelative,
-  Heading,
+  IconButton,
+  Text,
 } from '@seta/shared-ui';
-import { Check, ChevronRight, Plus, Shield, Users, X } from 'lucide-react';
+import { Check, ChevronRight, Inbox, Plus, Shield, Users, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { GroupJoinRequestRow } from '../api/planner-client';
 import { buildActivityLabel } from '../lib/build-activity-label';
@@ -23,6 +26,11 @@ interface Props {
   onAddMember: () => void;
   onSeeAllMembers?: () => void;
   shownMemberCount?: number;
+  /**
+   * Render the member roster inside the Members card. Off on the Members tab, where the
+   * full table already lists everyone — the rail then shows only the header + pending requests.
+   */
+  showMemberList?: boolean;
   /** Recent items from getGroupActivity; `null` while loading. */
   activityItems?: ReadonlyArray<GroupActivityItem> | null;
   pendingRequests?: ReadonlyArray<GroupJoinRequestRow>;
@@ -89,6 +97,7 @@ export function GroupRail({
   onAddMember,
   onSeeAllMembers,
   shownMemberCount = 7,
+  showMemberList = true,
   activityItems,
   pendingRequests,
   onApproveRequest,
@@ -102,59 +111,61 @@ export function GroupRail({
     <aside className="flex flex-col gap-3 w-80">
       {/* Members card */}
       <Card padding={4}>
-        <div className="mb-2 flex items-baseline justify-between">
-          <Heading level={3}>
-            Members <span className="ml-1 text-xs normal-case text-secondary">{memberCount}</span>
-          </Heading>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Text as="h3" size="sm" weight="semibold">
+              Members
+            </Text>
+            <Badge variant="neutral" label={memberCount} />
+          </div>
           <DisabledActionTooltip disabled={!canManage} reason={PERMISSION_DENIED.group.addMember}>
-            <Button
+            <IconButton
               size="sm"
               variant="ghost"
               onClick={onAddMember}
               label="Add member"
-              icon={<Plus className="size-3" />}
-              className="h-6 px-1.5"
+              icon={<Plus className="size-4" />}
               isDisabled={!canManage}
-            >
-              Add
-            </Button>
+            />
           </DisabledActionTooltip>
         </div>
-        <div className="flex flex-col">
-          {visibleMembers.map((m, i, arr) => (
-            <div
-              key={m.user_id}
-              className={cn(
-                'flex items-center gap-2 py-1.5',
-                i < arr.length - 1 && 'border-b border-border',
-              )}
-            >
-              <Avatar name={m.display_name} size={32} />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{m.display_name}</div>
-                {m.email ? <div className="truncate text-xs text-secondary">{m.email}</div> : null}
-              </div>
-              <span
-                className={cn(
-                  'inline-flex h-5 items-center rounded-full px-2 text-xs',
-                  m.role === 'owner' ? 'bg-accent-muted text-accent' : 'bg-surface text-secondary',
-                )}
-              >
-                {m.role === 'owner' ? 'Owner' : 'Member'}
-              </span>
+        {showMemberList && (
+          <>
+            <div className="flex flex-col">
+              {visibleMembers.map((m, i, arr) => (
+                <div
+                  key={m.user_id}
+                  className={cn(
+                    'flex items-center gap-2 py-1.5',
+                    i < arr.length - 1 && 'border-b border-border',
+                  )}
+                >
+                  <Avatar name={m.display_name} size={32} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{m.display_name}</div>
+                    {m.email ? (
+                      <div className="truncate text-xs text-secondary">{m.email}</div>
+                    ) : null}
+                  </div>
+                  <Badge
+                    variant={m.role === 'owner' ? 'info' : 'neutral'}
+                    label={m.role === 'owner' ? 'Owner' : 'Member'}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        {hasMore ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            label={`See all ${memberCount} members`}
-            endContent={<ChevronRight className="size-3" />}
-            className="mt-1 h-6 px-1.5 text-secondary"
-            onClick={onSeeAllMembers}
-          />
-        ) : null}
+            {hasMore ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                label={`See all ${memberCount} members`}
+                endContent={<ChevronRight className="size-3.5" />}
+                className="mt-1 text-secondary"
+                onClick={onSeeAllMembers}
+              />
+            ) : null}
+          </>
+        )}
         {canManage && pendingRequests && pendingRequests.length > 0 && (
           <div className="mt-3 border-t pt-3">
             <p className="text-xs font-semibold text-secondary mb-2">Pending requests</p>
@@ -193,23 +204,31 @@ export function GroupRail({
           </div>
         )}
         {canManage && pendingRequests && pendingRequests.length === 0 && (
-          <p className="mt-2 text-xs text-secondary">No pending requests.</p>
+          <div className={showMemberList ? 'mt-3 border-t border-border pt-3' : undefined}>
+            <EmptyState
+              isCompact
+              headingLevel={4}
+              icon={<Inbox className="size-5 text-secondary" aria-hidden />}
+              title="No pending requests"
+              description="Join requests will appear here."
+            />
+          </div>
         )}
       </Card>
 
       {/* Recent activity */}
       <Card padding={4}>
-        <Heading level={3} className="mb-2">
+        <Text as="h3" size="sm" weight="semibold" className="mb-2">
           Recent activity
-        </Heading>
+        </Text>
         <ActivityList items={activityItems} />
       </Card>
 
       {/* Properties */}
       <Card padding={4}>
-        <Heading level={3} className="mb-2">
+        <Text as="h3" size="sm" weight="semibold" className="mb-2">
           Properties
-        </Heading>
+        </Text>
         <div className="flex flex-col">
           <PropertyRow
             label="Visibility"
@@ -235,9 +254,10 @@ export function GroupRail({
           <PropertyRow
             label="Default role"
             value={
-              <span className="inline-flex h-5 items-center rounded-full bg-surface px-2 text-xs">
-                {group.default_role === 'owner' ? 'Owner' : 'Member'}
-              </span>
+              <Badge
+                variant="neutral"
+                label={group.default_role === 'owner' ? 'Owner' : 'Member'}
+              />
             }
           />
           <PropertyRow label="Created" value={shortDate(group.created_at)} />

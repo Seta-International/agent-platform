@@ -9,7 +9,6 @@ import {
   DisabledActionTooltip,
   Layout,
   LayoutContent,
-  PageContainer,
   Skeleton,
   Tab,
   TabList,
@@ -270,7 +269,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
         </div>
       )}
       <div className="flex flex-1 min-h-0 flex-col">
-        <div className="border-b border-border bg-body px-6">
+        <div className="flex-none border-b border-border px-6">
           <TabList
             value={tab}
             onChange={(t) => onTabChange(t as GroupTab)}
@@ -294,7 +293,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
 
         {tab === 'plans' && (
           <div className="@container flex-1 overflow-auto bg-card">
-            <PageContainer className="grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
+            <div className="grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start p-6">
               <GroupPlansSection
                 groupName={group.name}
                 plans={plans}
@@ -326,13 +325,13 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
                   resolveRequestMutation.mutate({ userId, action: 'rejected' })
                 }
               />
-            </PageContainer>
+            </div>
           </div>
         )}
 
         {tab === 'members' && (
           <div className="@container flex-1 overflow-auto bg-card">
-            <PageContainer className="grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start">
+            <div className="grid grid-cols-1 @3xl:grid-cols-[1fr_320px] gap-6 items-start p-6">
               <GroupMembersTable
                 group={group}
                 members={members}
@@ -347,6 +346,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
                 members={members}
                 totalMemberCount={memberTotal}
                 canManage={canManageMembers}
+                showMemberList={false}
                 onAddMember={() => setAddMembersOpen(true)}
                 activityItems={
                   activityQuery.isPending ? undefined : (activityQuery.data?.items ?? null)
@@ -359,15 +359,15 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
                   resolveRequestMutation.mutate({ userId, action: 'rejected' })
                 }
               />
-            </PageContainer>
+            </div>
           </div>
         )}
 
         {tab === 'activity' && (
           <div className="flex-1 overflow-auto bg-card">
-            <PageContainer>
+            <div className="mx-auto w-full max-w-[64rem] p-6">
               <ActivityFeedTab groupId={groupId} />
-            </PageContainer>
+            </div>
           </div>
         )}
         {tab === 'integrations' && <ComingSoon feature="Integrations" />}

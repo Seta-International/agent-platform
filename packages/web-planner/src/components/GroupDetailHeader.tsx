@@ -1,6 +1,7 @@
 import type { GroupRow } from '@seta/planner';
 import type { SyncState } from '@seta/shared-ui';
 import {
+  Badge,
   BreadcrumbItem,
   Breadcrumbs,
   Button,
@@ -8,9 +9,8 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   GroupTile,
-  Heading,
-  IconButton,
   SyncBadge,
+  Text,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { MoreHorizontal, Pencil, Plus, Shield, Users } from 'lucide-react';
@@ -67,50 +67,33 @@ export function GroupDetailHeader({
 
   return (
     <>
-      <header className="flex h-14 flex-none items-center justify-between gap-4 border-b border-border bg-body px-6">
+      <header className="flex flex-none items-center justify-between gap-4 border-b border-border px-6 py-3">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="flex-none">
-            <GroupTile name={group.name} theme={group.theme} size={32} />
+            <GroupTile name={group.name} theme={group.theme} size={36} />
           </div>
-          <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex min-w-0 flex-col gap-1">
             <Breadcrumbs variant="supporting">
               <BreadcrumbItem href="/planner">Planner</BreadcrumbItem>
               <BreadcrumbItem href="/planner/groups">Groups</BreadcrumbItem>
               <BreadcrumbItem isCurrent>{group.name}</BreadcrumbItem>
             </Breadcrumbs>
-            <div className="flex min-w-0 items-baseline gap-3">
-              <Heading level={1} maxLines={1}>
+            <div className="flex min-w-0 items-center gap-2">
+              <Text as="h1" size="lg" weight="semibold" maxLines={1}>
                 {group.name}
-              </Heading>
-              <div className="flex min-w-0 items-center gap-2 text-base text-secondary">
-                {!group.deleted_at && (
-                  <DisabledActionTooltip
-                    disabled={!canUpdateGroup}
-                    reason={PERMISSION_DENIED.group.edit}
-                  >
-                    <IconButton
-                      variant="ghost"
-                      size="sm"
-                      label="Edit group"
-                      onClick={onEditClick}
-                      isDisabled={!canUpdateGroup}
-                      icon={<Pencil className="size-3.5" />}
-                    />
-                  </DisabledActionTooltip>
-                )}
-                <span className="inline-flex h-5 flex-none items-center gap-1.5 rounded-full bg-card px-2 text-xs">
-                  {group.visibility === 'private' ? (
-                    <>
-                      <Shield className="size-3 text-secondary" aria-hidden="true" />
-                      Private
-                    </>
+              </Text>
+              <Badge
+                variant="neutral"
+                icon={
+                  group.visibility === 'private' ? (
+                    <Shield className="size-3" aria-hidden="true" />
                   ) : (
-                    <>
-                      <Users className="size-3 text-secondary" aria-hidden="true" />
-                      Workspace
-                    </>
-                  )}
-                </span>
+                    <Users className="size-3" aria-hidden="true" />
+                  )
+                }
+                label={group.visibility === 'private' ? 'Private' : 'Workspace'}
+              />
+              <div className="flex min-w-0 items-center gap-2 text-base text-secondary">
                 {group.description && (
                   <span className="min-w-0 truncate" title={group.description}>
                     <span aria-hidden="true">·</span> {group.description}
@@ -146,6 +129,18 @@ export function GroupDetailHeader({
           </div>
         </div>
         <div className="flex flex-none items-center gap-2">
+          {!group.deleted_at && (
+            <DisabledActionTooltip disabled={!canUpdateGroup} reason={PERMISSION_DENIED.group.edit}>
+              <Button
+                size="sm"
+                variant="secondary"
+                label="Edit group"
+                icon={<Pencil className="size-3.5" />}
+                onClick={onEditClick}
+                isDisabled={!canUpdateGroup}
+              />
+            </DisabledActionTooltip>
+          )}
           {!group.deleted_at && (
             <DisabledActionTooltip disabled={!canManage} reason={PERMISSION_DENIED.group.invite}>
               <Button

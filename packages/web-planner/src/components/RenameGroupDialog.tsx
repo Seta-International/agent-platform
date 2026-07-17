@@ -16,6 +16,7 @@ import {
   useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
+import { Check } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useUpdateGroup } from '../hooks/mutations/update-group';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
@@ -84,16 +85,22 @@ function EditGroupFields({
   const visibilityId = useId();
   const defaultRoleId = useId();
   return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <Input
-          label="Name"
-          value={name}
-          onChange={onNameChange}
-          onEnter={onSubmit}
-          isDisabled={isM365}
+    <div className="space-y-5">
+      {isM365 && (
+        <Banner
+          status="info"
+          title="Managed by Microsoft 365"
+          description="Name and description are pushed from M365 during sync and can't be edited here."
         />
-      </div>
+      )}
+
+      <Input
+        label="Name"
+        value={name}
+        onChange={onNameChange}
+        onEnter={onSubmit}
+        isDisabled={isM365}
+      />
 
       <Textarea
         label="Description"
@@ -104,14 +111,8 @@ function EditGroupFields({
         isDisabled={isM365}
       />
 
-      {isM365 && (
-        <p className="text-xs text-secondary">
-          Managed by Microsoft 365 — changes are pushed from M365 during sync.
-        </p>
-      )}
-
       <Field label="Theme" inputID={themeId} labelID={themeId} isGroupLabel>
-        <fieldset aria-labelledby={themeId} className="flex gap-2">
+        <fieldset aria-labelledby={themeId} className="flex flex-wrap gap-2">
           {THEME_KEYS.map((t) => (
             <button
               key={t}
@@ -119,9 +120,11 @@ function EditGroupFields({
               aria-label={t}
               aria-pressed={theme === t}
               onClick={() => onThemeChange(t)}
-              className={`size-6 rounded transition-shadow ${theme === t ? 'ring-2 ring-accent-bg ring-offset-1' : 'hover:ring-1 hover:ring-border-strong'}`}
+              className={`flex size-7 items-center justify-center rounded-md text-white transition ${theme === t ? 'ring-2 ring-accent-bg ring-offset-2 ring-offset-card' : 'hover:scale-105'}`}
               style={{ background: THEME_HEX[t] }}
-            />
+            >
+              {theme === t && <Check className="size-4" aria-hidden />}
+            </button>
           ))}
         </fieldset>
       </Field>
@@ -132,6 +135,7 @@ function EditGroupFields({
           value={visibility}
           onChange={(v) => onVisibilityChange(v as GroupVisibility)}
           size="md"
+          layout="fill"
         >
           {VISIBILITY_OPTIONS.map((o) => (
             <SegmentedControlItem key={o.value} value={o.value} label={o.label} />
@@ -150,6 +154,7 @@ function EditGroupFields({
           value={defaultRole}
           onChange={(v) => onDefaultRoleChange(v as GroupDefaultRole)}
           size="md"
+          layout="fill"
         >
           {DEFAULT_ROLE_OPTIONS.map((o) => (
             <SegmentedControlItem key={o.value} value={o.value} label={o.label} />

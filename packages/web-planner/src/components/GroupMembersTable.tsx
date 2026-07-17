@@ -1,8 +1,8 @@
 import type { GroupMemberRow, GroupRow } from '@seta/planner';
 import {
   Avatar,
+  Badge,
   Button,
-  cn,
   EmptyState,
   HoverCard,
   Input,
@@ -10,6 +10,7 @@ import {
   Selector,
   Table,
   type TableColumn,
+  Toolbar,
   useTablePagination,
   useTableSelection,
   useTableSelectionState,
@@ -70,14 +71,10 @@ function RoleControl({ member, canEdit, isLinkedGroup, externalId, onChange }: R
   }
 
   const pill = (
-    <span
-      className={cn(
-        'inline-flex h-6 items-center rounded-full px-2 text-xs',
-        member.role === 'owner' ? 'bg-accent-muted text-accent' : 'bg-surface text-secondary',
-      )}
-    >
-      {member.role === 'owner' ? 'Owner' : 'Member'}
-    </span>
+    <Badge
+      variant={member.role === 'owner' ? 'info' : 'neutral'}
+      label={member.role === 'owner' ? 'Owner' : 'Member'}
+    />
   );
 
   if (isLinkedGroup) {
@@ -245,9 +242,33 @@ export function GroupMembersTable({
   );
 
   return (
-    <section className="rounded-lg border border-border bg-body overflow-hidden">
+    <div className="flex flex-col">
+      {/* Search toolbar mirrors the Groups list: search at the start, sized sm, with a bottom
+          divider — no nested gray panel, so the table reads edge-to-edge like other screens. */}
+      <Toolbar
+        label="Member filters"
+        size="sm"
+        dividers={['bottom']}
+        startContent={
+          <Input
+            type="text"
+            label="Search members"
+            isLabelHidden
+            startIcon={<Search className="size-3.5" aria-hidden />}
+            hasClear
+            placeholder="Search members…"
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            className="w-[260px]"
+            size="sm"
+          />
+        }
+      />
       {selectedIds.length > 0 && (
-        <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2">
+        <div className="flex items-center gap-3 border-b border-border px-4 py-2">
           <span className="text-base text-secondary">
             {selectedIds.length} {selectedIds.length === 1 ? 'member' : 'members'} selected
           </span>
@@ -268,20 +289,6 @@ export function GroupMembersTable({
           />
         </div>
       )}
-      <div className="space-y-0 px-4 pt-3 pb-3 border-b border-border">
-        <Input
-          label="Search members"
-          isLabelHidden
-          startIcon={<Search className="size-3.5" aria-hidden />}
-          placeholder="Search members…"
-          value={search}
-          onChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          className="max-w-sm"
-        />
-      </div>
       <Table
         data={pageRows}
         columns={columns}
@@ -302,6 +309,6 @@ export function GroupMembersTable({
           )
         }
       />
-    </section>
+    </div>
   );
 }
