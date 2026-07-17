@@ -67,14 +67,14 @@ describe('fitLabel', () => {
 });
 
 describe('fitScoreBadge', () => {
-  it('bands the score into success/warning/secondary and renders a percentage', () => {
+  it('bands the score into success/warning/neutral and renders a percentage', () => {
     expect(fitScoreBadge({ met: 0, required: 0, score: 0, strong: false })).toEqual({
       text: '—',
-      variant: 'secondary',
+      variant: 'neutral',
     });
     expect(fitScoreBadge({ met: 1, required: 2, score: 0.5, strong: false })).toEqual({
       text: '50%',
-      variant: 'secondary',
+      variant: 'neutral',
     });
     expect(fitScoreBadge({ met: 3, required: 4, score: 0.75, strong: false })).toEqual({
       text: '75%',
