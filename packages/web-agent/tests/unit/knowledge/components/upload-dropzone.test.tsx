@@ -98,4 +98,36 @@ describe('UploadDropzone', () => {
       screen.getByText('"huge.pdf" exceeds 50.0 MB limit', { selector: '[data-type="error"]' }),
     ).toBeInTheDocument();
   });
+
+  it('clears a stale upload error so a later oversize pick reports its own message', async () => {
+    // A caller-supplied `status` wins over Astryx's internal validation error
+    // (FileInput.tsx: `statusProp ?? validationError`). Before the fix, this
+    // site keeps passing the failed-upload status forever, so a later oversize
+    // drop is silently rejected by Astryx (onChange(null)) while the stale
+    // "Upload failed" message stays on screen instead of the real oversize one.
+    vi.spyOn(knowledgeApi, 'requestUploadUrl').mockRejectedValue(new Error('Upload failed'));
+
+    render(wrap(<UploadDropzone />));
+
+    const input = screen.getByLabelText('Upload knowledge file', { selector: 'input' });
+    const file = new File(['x'], 'notes.pdf', { type: 'application/pdf' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Error: Upload failed', { selector: '[data-type="error"]' }),
+      ).toBeInTheDocument(),
+    );
+
+    const bigFile = new File(['x'], 'huge.pdf', { type: 'application/pdf' });
+    Object.defineProperty(bigFile, 'size', { value: 51 * 1024 * 1024 });
+    fireEvent.change(input, { target: { files: [bigFile] } });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('"huge.pdf" exceeds 50.0 MB limit', { selector: '[data-type="error"]' }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('Error: Upload failed')).not.toBeInTheDocument();
+  });
 });

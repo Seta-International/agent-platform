@@ -17,6 +17,12 @@ export function UploadDropzone() {
         // Single-file mode: Astryx's onChange union always resolves to a bare
         // File (or null) here — isMultiple is unset — but the shared prop type
         // still spans File[] for the multi-select case.
+        //
+        // A new pick supersedes the last failure; otherwise a stale error
+        // masks Astryx's own oversize message (status prop wins over its
+        // internal validationError). Must run even when file is null — that's
+        // the rejected-oversize path this fixes.
+        if (upload.isError) upload.reset();
         if (file instanceof File) upload.mutate(file);
       }}
       isLoading={upload.isPending}
