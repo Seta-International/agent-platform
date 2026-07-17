@@ -1,4 +1,5 @@
 import { Button, Input } from '@seta/shared-ui';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useCreateTask } from '../../hooks/mutations/create-task';
 import { apiTo, fromDateKey } from '../../lib/calendar-dates';
@@ -57,7 +58,9 @@ export function CalendarQuickCreate({ planId, dueDate, onClose }: Props) {
         <Button
           type="submit"
           size="sm"
-          label="Create"
+          variant="primary"
+          icon={<Plus className="size-3.5" />}
+          label="Create task"
           isDisabled={!title.trim() || createTask.isPending}
         />
       </div>

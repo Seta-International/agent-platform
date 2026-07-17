@@ -3,13 +3,13 @@ import {
   Banner,
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   DisabledActionTooltip,
   Field,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   SegmentedControl,
   SegmentedControlItem,
   Textarea,
@@ -258,10 +258,11 @@ export function EditGroupDialog({ group, open, onOpenChange }: EditGroupDialogPr
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <DisabledActionTooltip disabled={!canUpdateGroup} reason={PERMISSION_DENIED.group.edit}>
               <Button
+                variant="primary"
                 label="Save"
                 onClick={submit}
                 isDisabled={
@@ -272,7 +273,7 @@ export function EditGroupDialog({ group, open, onOpenChange }: EditGroupDialogPr
                 }
               />
             </DisabledActionTooltip>
-          </LayoutFooter>
+          </DialogFooter>
         }
       />
     </Dialog>

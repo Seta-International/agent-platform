@@ -23,6 +23,7 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
+import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { orgUnitSearch } from '../api/org-unit-search.ts';
 import { createPlannerGroup, fetchPlannerGroups } from '../api/planner-client.ts';
@@ -229,6 +230,7 @@ export function ProjectDetailPage() {
   const actions = canManage ? (
     isClosed ? (
       <Button
+        variant="primary"
         label={reopen.isPending ? 'Reopening…' : 'Reopen project'}
         onClick={() => reopen.mutate()}
         isDisabled={reopen.isPending}
@@ -242,6 +244,7 @@ export function ProjectDetailPage() {
           isDisabled={close.isPending}
         />
         <Button
+          variant="primary"
           label={save.isPending ? 'Saving…' : 'Save'}
           onClick={() => save.mutate()}
           isDisabled={save.isPending || Object.keys(patch).length === 0}
@@ -392,6 +395,7 @@ export function ProjectDetailPage() {
                         />
                         <Button
                           variant="secondary"
+                          icon={<Plus className="size-4" />}
                           label={createBoard.isPending ? 'Creating…' : 'Create board'}
                           onClick={() => createBoard.mutate()}
                           isDisabled={createBoard.isPending}

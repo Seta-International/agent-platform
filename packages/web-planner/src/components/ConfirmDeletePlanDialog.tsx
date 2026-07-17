@@ -2,11 +2,11 @@ import {
   Button,
   Checkbox,
   Dialog,
+  DialogFooter,
   DialogHeader,
   DisabledActionTooltip,
   Layout,
   LayoutContent,
-  LayoutFooter,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useState } from 'react';
@@ -62,7 +62,7 @@ export function ConfirmDeletePlanDialog({
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button
               variant="ghost"
               label="Cancel"
@@ -77,7 +77,7 @@ export function ConfirmDeletePlanDialog({
                 isDisabled={deleteDisabled}
               />
             </DisabledActionTooltip>
-          </LayoutFooter>
+          </DialogFooter>
         }
       />
     </Dialog>

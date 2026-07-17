@@ -74,7 +74,7 @@ export function CommentComposer({ taskId }: Props) {
             setExpanded(false);
           }}
         />
-        <Button label="Post" onClick={handlePost} isDisabled={!canPost} />
+        <Button variant="primary" label="Post" onClick={handlePost} isDisabled={!canPost} />
       </div>
     </div>
   );

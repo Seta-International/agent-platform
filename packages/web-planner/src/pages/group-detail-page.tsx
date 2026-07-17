@@ -4,11 +4,11 @@ import {
   Button,
   ComingSoon,
   Dialog,
+  DialogFooter,
   DialogHeader,
   DisabledActionTooltip,
   Layout,
   LayoutContent,
-  LayoutFooter,
   PageContainer,
   Skeleton,
   Tab,
@@ -403,20 +403,21 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
+            <DialogFooter>
               <Button
                 variant="secondary"
                 label="Cancel"
                 onClick={() => setArchiveM365Open(false)}
               />
               <Button
+                variant="primary"
                 label="Archive anyway"
                 onClick={() => {
                   setArchiveM365Open(false);
                   doArchive();
                 }}
               />
-            </LayoutFooter>
+            </DialogFooter>
           }
         />
       </Dialog>
@@ -434,7 +435,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
+            <DialogFooter>
               <Button
                 variant="secondary"
                 label="View anyway"
@@ -445,6 +446,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
                 reason={PERMISSION_DENIED.group.restore}
               >
                 <Button
+                  variant="primary"
                   label="Restore group"
                   onClick={() => {
                     setRestorePromptOpen(false);
@@ -453,7 +455,7 @@ export function GroupDetailPage({ groupId, tab, onTabChange, session }: Props) {
                   isDisabled={!canUpdateGroup || restoreGroup.isPending}
                 />
               </DisabledActionTooltip>
-            </LayoutFooter>
+            </DialogFooter>
           }
         />
       </Dialog>

@@ -2,13 +2,13 @@ import {
   Button,
   createStaticSource,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Layout,
-  LayoutFooter,
   type SearchableItem,
   Typeahead,
 } from '@seta/shared-ui';
-import { UsersRound } from 'lucide-react';
+import { Plus, UsersRound } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useGroupMembersMutations, useGroupsQuery } from '../../groups/hooks/useGroups.ts';
 
@@ -102,14 +102,16 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
             />
           }
           footer={
-            <LayoutFooter hasDivider>
+            <DialogFooter>
               <Button variant="secondary" label="Cancel" onClick={() => setConfirming(false)} />
               <Button
+                variant="primary"
+                icon={<Plus className="size-4" />}
                 label={add.isPending ? 'Adding…' : 'Add to group'}
                 isDisabled={add.isPending}
                 onClick={handleConfirm}
               />
-            </LayoutFooter>
+            </DialogFooter>
           }
         />
       </Dialog>

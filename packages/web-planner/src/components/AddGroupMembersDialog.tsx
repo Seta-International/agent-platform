@@ -5,16 +5,16 @@ import {
   Button,
   Checkbox,
   Dialog,
+  DialogFooter,
   DialogHeader,
   IconButton,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   useToast,
 } from '@seta/shared-ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { plannerClient } from '../api/planner-client';
 import { useAddGroupMembers } from '../hooks/mutations/add-group-members';
@@ -180,7 +180,7 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button
               variant="secondary"
               label="Cancel"
@@ -190,11 +190,13 @@ export function AddGroupMembersDialog({ groupId, open, onOpenChange }: Props) {
               }}
             />
             <Button
+              variant="primary"
+              icon={<Plus className="size-4" />}
               label={confirmLabel}
               onClick={handleConfirm}
               isDisabled={selected.length === 0 || addMembers.isPending}
             />
-          </LayoutFooter>
+          </DialogFooter>
         }
       />
     </Dialog>

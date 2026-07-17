@@ -5,6 +5,7 @@ import {
   Dialog,
   DialogHeader,
   DisabledActionTooltip,
+  HStack,
   Input,
   Layout,
   LayoutContent,
@@ -17,6 +18,7 @@ import {
   useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
   fetchAccounts,
@@ -166,6 +168,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
       <DisabledActionTooltip disabled={disabled} reason={PERMISSION_DENIED.requisition.create}>
         <Button
           size="sm"
+          variant="primary"
+          icon={<Plus className="size-3.5" />}
           label="New requisition"
           isDisabled={disabled}
           onClick={() => setOpen(true)}
@@ -327,7 +331,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                 {error && <Banner status="error" title={error} />}
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-base text-error">{requiredError}</p>
-                  <div className="flex shrink-0 gap-2">
+                  <HStack gap={2} hAlign="end">
                     <Button
                       variant="secondary"
                       label="Cancel"
@@ -335,11 +339,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       isDisabled={mutation.isPending}
                     />
                     <Button
-                      label={mutation.isPending ? 'Creating…' : 'Create'}
+                      variant="primary"
+                      icon={<Plus className="size-4" />}
+                      label={mutation.isPending ? 'Creating…' : 'Create requisition'}
                       onClick={submit}
                       isDisabled={mutation.isPending}
                     />
-                  </div>
+                  </HStack>
                 </div>
               </div>
             </LayoutFooter>

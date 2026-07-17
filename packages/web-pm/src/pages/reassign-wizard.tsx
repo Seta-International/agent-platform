@@ -5,11 +5,11 @@ import {
   createStaticSource,
   DateInput,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   type SearchableItem,
   Selector,
   Typeahead,
@@ -607,11 +607,12 @@ export function ReassignWizardDialog({
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
+            <DialogFooter>
               {step === 1 ? (
                 <>
                   <Button variant="ghost" label="Cancel" onClick={onClose} />
                   <Button
+                    variant="primary"
                     isDisabled={!canReview}
                     label="Review impact"
                     endContent={<ArrowRight className="size-4" />}
@@ -622,13 +623,14 @@ export function ReassignWizardDialog({
                 <>
                   <Button variant="ghost" label="Back" onClick={() => setStep(1)} />
                   <Button
+                    variant="primary"
                     isDisabled={mutation.isPending}
                     label={mutation.isPending ? 'Confirming…' : 'Confirm'}
                     onClick={() => mutation.mutate()}
                   />
                 </>
               )}
-            </LayoutFooter>
+            </DialogFooter>
           }
         />
       </Dialog>

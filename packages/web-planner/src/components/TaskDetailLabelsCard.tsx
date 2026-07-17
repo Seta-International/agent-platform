@@ -343,6 +343,7 @@ function LabelEditPanel({
           />
           <Button
             size="sm"
+            variant="primary"
             label="Save"
             onClick={handleSave}
             isDisabled={!canSave || update.isPending || del.isPending}

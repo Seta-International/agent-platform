@@ -17,7 +17,7 @@ import {
   useTableSelection,
   useTableSelectionState,
 } from '@seta/shared-ui';
-import { Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   type EntraImportableUserDto,
@@ -264,6 +264,8 @@ export function ImportFromEntraDialog({
                         onClick={() => handleOpenChange(false)}
                       />
                       <Button
+                        variant="primary"
+                        icon={<Plus className="size-4" />}
                         label={
                           submitting
                             ? 'Adding…'

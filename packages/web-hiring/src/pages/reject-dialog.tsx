@@ -1,11 +1,11 @@
 import {
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   Selector,
   Textarea,
   useToast,
@@ -90,7 +90,7 @@ export function RejectDialog({
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <Button
               variant="destructive"
@@ -98,7 +98,7 @@ export function RejectDialog({
               onClick={() => mutation.mutate()}
               isDisabled={mutation.isPending || !effectiveReason}
             />
-          </LayoutFooter>
+          </DialogFooter>
         }
       />
     </Dialog>

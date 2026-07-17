@@ -234,6 +234,7 @@ export function InputFormFromSchema({
         );
       })}
       <Button
+        variant="primary"
         type="submit"
         isDisabled={submitting}
         label={submitting ? 'Submitting…' : (submitLabel ?? 'Submit')}

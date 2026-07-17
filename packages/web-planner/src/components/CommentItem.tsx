@@ -113,7 +113,12 @@ export function CommentItem({ taskId, comment, currentUserId, isGroupOwner }: Pr
                   setEditing(false);
                 }}
               />
-              <Button label="Save" onClick={handleSave} isDisabled={update.isPending} />
+              <Button
+                variant="primary"
+                label="Save"
+                onClick={handleSave}
+                isDisabled={update.isPending}
+              />
             </div>
           </div>
         ) : (

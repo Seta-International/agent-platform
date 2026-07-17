@@ -2,10 +2,10 @@ import {
   Button,
   Checkbox,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Layout,
   LayoutContent,
-  LayoutFooter,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import type { DuplicateOptions } from '../hooks/mutations/duplicate-task';
@@ -94,15 +94,20 @@ export function DuplicateTaskDialog({
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button
               variant="ghost"
               label="Cancel"
               onClick={() => onOpenChange(false)}
               isDisabled={pending}
             />
-            <Button label="Duplicate" onClick={() => onConfirm(options)} isDisabled={pending} />
-          </LayoutFooter>
+            <Button
+              variant="primary"
+              label="Duplicate"
+              onClick={() => onConfirm(options)}
+              isDisabled={pending}
+            />
+          </DialogFooter>
         }
       />
     </Dialog>

@@ -2,11 +2,11 @@ import {
   Banner,
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import { DomainsField } from '../../components/DomainsField.tsx';
@@ -80,10 +80,10 @@ export function EditDomainsDialog({
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
+            <DialogFooter>
               <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
-              <Button label="Save" onClick={submit} isDisabled={submitting} />
-            </LayoutFooter>
+              <Button variant="primary" label="Save" onClick={submit} isDisabled={submitting} />
+            </DialogFooter>
           }
         />
       </Dialog>

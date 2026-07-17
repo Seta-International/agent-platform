@@ -33,12 +33,13 @@ function setup(over: Partial<MyTasksToolbarValue> = {}) {
 describe('MyTasksToolbar', () => {
   it('renders Plan, Group, Priority, Due filter triggers + view segmented control + search', () => {
     setup();
+    // Filters are Astryx Selectors. A searchable Selector (Plan/Group, `hasSearch`) exposes a
+    // `button` trigger; a plain one (Priority/Due) exposes the `combobox` role. Both are named
+    // by the visually hidden label.
     expect(screen.getByRole('button', { name: /Plan/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Group/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Priority/i })).toBeInTheDocument();
-    // Anchored: Popover content is eagerly mounted (hidden), and the Due pill's own
-    // "Overdue" option would otherwise also match a loose /Due/i.
-    expect(screen.getByRole('button', { name: /^Due/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /Priority/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /Due/i })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /^List$/i })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /^Grid$/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/search my tasks/i)).toBeInTheDocument();
@@ -55,23 +56,23 @@ describe('MyTasksToolbar', () => {
     const user = userEvent.setup();
     const { onChange } = setup();
     await user.click(screen.getByRole('button', { name: /Plan/i }));
-    await user.click(await screen.findByText('Q3 Launch'));
+    await user.click(await screen.findByRole('option', { name: 'Q3 Launch' }));
     expect(onChange).toHaveBeenCalledWith({ planId: 'p1' });
   });
 
   it('selecting a Priority option maps the string to the numeric union', async () => {
     const user = userEvent.setup();
     const { onChange } = setup();
-    await user.click(screen.getByRole('button', { name: /Priority/i }));
-    await user.click(await screen.findByText('Urgent'));
+    await user.click(screen.getByRole('combobox', { name: /Priority/i }));
+    await user.click(await screen.findByRole('option', { name: 'Urgent' }));
     expect(onChange).toHaveBeenCalledWith({ priority: 1 });
   });
 
   it('selecting a Due option calls onChange with the canonical value', async () => {
     const user = userEvent.setup();
     const { onChange } = setup();
-    await user.click(screen.getByRole('button', { name: /^Due/i }));
-    await user.click(await screen.findByText('This week'));
+    await user.click(screen.getByRole('combobox', { name: /Due/i }));
+    await user.click(await screen.findByRole('option', { name: 'This week' }));
     expect(onChange).toHaveBeenCalledWith({ due: 'this_week' });
   });
 
@@ -100,14 +101,12 @@ describe('MyTasksToolbar', () => {
     expect(onSearchChange).not.toHaveBeenCalled();
   });
 
-  it('clears Plan filter via the popover Any option', async () => {
+  it('clears the Plan filter via the Selector clear control', async () => {
     const user = userEvent.setup();
     const { onChange } = setup({ planId: 'p1' });
-    await user.click(screen.getByRole('button', { name: /Plan/i }));
-    // Every filter pill's Popover content is eagerly mounted (hidden), so each one
-    // renders its own "Any" option — Plan's is first in DOM order since it's the
-    // first pill in the toolbar.
-    await user.click(screen.getAllByText('Any')[0]);
+    // The Selector's `hasClear` control (aria-label `Clear <label>`) resets the value; the
+    // toolbar maps the resulting null back to `undefined`.
+    await user.click(screen.getByRole('button', { name: /Clear Plan/i }));
     expect(onChange).toHaveBeenCalledWith({ planId: undefined });
   });
 

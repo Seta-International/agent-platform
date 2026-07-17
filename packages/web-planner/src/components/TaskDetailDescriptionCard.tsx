@@ -50,7 +50,13 @@ export function TaskDetailDescriptionCard({ task, planId }: Props) {
         <div className="mt-1 text-sm text-secondary">⌘↵ to save · Esc to cancel</div>
         <div className="mt-2 flex justify-end gap-1.5">
           <Button size="sm" variant="ghost" label="Cancel" onClick={cancel} />
-          <Button size="sm" label="Save" onClick={save} isDisabled={update.isPending} />
+          <Button
+            size="sm"
+            variant="primary"
+            label="Save"
+            onClick={save}
+            isDisabled={update.isPending}
+          />
         </div>
       </section>
     );

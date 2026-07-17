@@ -1,17 +1,14 @@
-import { type FilterPillOption, MultiFilterPill } from '@seta/shared-ui';
+import { MultiSelector, type SelectorOptionData } from '@seta/shared-ui';
 import type { ChartFiltersState } from '../../state/chart-url-state';
 
-type PriorityValue = '1' | '3' | '5' | '9';
-type StatusValue = 'not_started' | 'in_progress' | 'completed';
-
-const PRIORITY_OPTIONS: ReadonlyArray<FilterPillOption<PriorityValue>> = [
+const PRIORITY_OPTIONS: ReadonlyArray<SelectorOptionData> = [
   { value: '1', label: 'Urgent' },
   { value: '3', label: 'Important' },
   { value: '5', label: 'Medium' },
   { value: '9', label: 'Low' },
 ];
 
-const STATUS_OPTIONS: ReadonlyArray<FilterPillOption<StatusValue>> = [
+const STATUS_OPTIONS: ReadonlyArray<SelectorOptionData> = [
   { value: 'not_started', label: 'Not started' },
   { value: 'in_progress', label: 'In progress' },
   { value: 'completed', label: 'Completed' },
@@ -20,8 +17,8 @@ const STATUS_OPTIONS: ReadonlyArray<FilterPillOption<StatusValue>> = [
 interface Props {
   filters: ChartFiltersState;
   onChange: (next: ChartFiltersState) => void;
-  assigneeOptions: ReadonlyArray<FilterPillOption<string>>;
-  bucketOptions: ReadonlyArray<FilterPillOption<string>>;
+  assigneeOptions: ReadonlyArray<SelectorOptionData>;
+  bucketOptions: ReadonlyArray<SelectorOptionData>;
 }
 
 export function ChartFilterBar({ filters, onChange, assigneeOptions, bucketOptions }: Props) {
@@ -33,32 +30,53 @@ export function ChartFilterBar({ filters, onChange, assigneeOptions, bucketOptio
           independent
         </span>
       </span>
-      <MultiFilterPill
+      <MultiSelector
         label="Assignee"
-        anyLabel="Anyone"
-        values={filters.assignee_ids}
+        isLabelHidden
+        placeholder="Assignee"
+        hasClear
+        hasSearch
+        searchPlaceholder="Search assignees…"
+        triggerDisplay="count"
         options={assigneeOptions}
+        value={filters.assignee_ids}
         onChange={(next) => onChange({ ...filters, assignee_ids: next })}
       />
-      <MultiFilterPill
+      <MultiSelector
         label="Bucket"
-        values={filters.bucket_ids}
+        isLabelHidden
+        placeholder="Bucket"
+        hasClear
+        hasSearch
+        searchPlaceholder="Search buckets…"
+        triggerDisplay="count"
         options={bucketOptions}
+        value={filters.bucket_ids}
         onChange={(next) => onChange({ ...filters, bucket_ids: next })}
       />
-      <MultiFilterPill
+      <MultiSelector
         label="Priority"
-        values={filters.priorities.map(String) as PriorityValue[]}
+        isLabelHidden
+        placeholder="Priority"
+        hasClear
+        triggerDisplay="count"
         options={PRIORITY_OPTIONS}
+        value={filters.priorities.map(String)}
         onChange={(next) =>
           onChange({ ...filters, priorities: next.map(Number) as ChartFiltersState['priorities'] })
         }
       />
-      <MultiFilterPill
+      <MultiSelector
         label="Status"
-        values={filters.statuses}
+        isLabelHidden
+        placeholder="Status"
+        hasClear
+        triggerDisplay="count"
         options={STATUS_OPTIONS}
-        onChange={(next) => onChange({ ...filters, statuses: next })}
+        value={filters.statuses}
+        onChange={(next) =>
+          onChange({ ...filters, statuses: next as ChartFiltersState['statuses'] })
+        }
       />
     </div>
   );

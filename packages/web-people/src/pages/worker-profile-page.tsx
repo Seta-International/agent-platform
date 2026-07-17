@@ -228,6 +228,7 @@ export function WorkerProfilePage() {
         />
         <Button
           size="sm"
+          variant="primary"
           onClick={() => saveMutation.mutate()}
           isDisabled={saveMutation.isPending}
           label={saveMutation.isPending ? 'Saving…' : 'Save'}

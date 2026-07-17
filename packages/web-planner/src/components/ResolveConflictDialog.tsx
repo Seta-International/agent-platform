@@ -2,11 +2,11 @@ import {
   Banner,
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   FieldConflictRow,
   Layout,
   LayoutContent,
-  LayoutFooter,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import { useResolveGroupConflict } from '../hooks/mutations/resolve-group-conflict';
@@ -95,15 +95,14 @@ export function ResolveConflictDialog({
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
-            <div className="flex w-full justify-end">
-              <Button
-                label="Save choices"
-                onClick={handleResolve}
-                isDisabled={!allDecided || resolve.isPending}
-              />
-            </div>
-          </LayoutFooter>
+          <DialogFooter>
+            <Button
+              variant="primary"
+              label="Save choices"
+              onClick={handleResolve}
+              isDisabled={!allDecided || resolve.isPending}
+            />
+          </DialogFooter>
         }
       />
     </Dialog>

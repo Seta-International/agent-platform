@@ -6,13 +6,13 @@ import {
   Checkbox,
   type ColumnSettingsOption,
   Dialog,
+  DialogFooter,
   DialogHeader,
   EmptyState,
   HStack,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   LayoutHeader,
   PageContainer,
   Popover,
@@ -34,7 +34,7 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { FolderKanban, Settings2 } from 'lucide-react';
+import { FolderKanban, Plus, Settings2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type AccountListRow, createAccount, fetchAccounts } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
@@ -92,7 +92,13 @@ function CreateAccountDialog({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Button size="sm" label="New account" onClick={() => setOpen(true)} />
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New account"
+        onClick={() => setOpen(true)}
+      />
       <Dialog isOpen={open} onOpenChange={handleOpenChange} purpose="form">
         <Layout
           header={<DialogHeader title="Create account" onOpenChange={handleOpenChange} />}
@@ -119,14 +125,16 @@ function CreateAccountDialog({ onCreated }: { onCreated: () => void }) {
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
+            <DialogFooter>
               <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
               <Button
-                label={mutation.isPending ? 'Creating…' : 'Create'}
+                variant="primary"
+                icon={<Plus className="size-4" />}
+                label={mutation.isPending ? 'Creating…' : 'Create account'}
                 onClick={() => mutation.mutate()}
                 isDisabled={mutation.isPending || !name.trim()}
               />
-            </LayoutFooter>
+            </DialogFooter>
           }
         />
       </Dialog>

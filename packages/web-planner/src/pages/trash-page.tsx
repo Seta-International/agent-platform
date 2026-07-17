@@ -7,13 +7,13 @@ import {
   Breadcrumbs,
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   DisabledActionTooltip,
   EmptyState,
   formatRelative,
   Layout,
   LayoutContent,
-  LayoutFooter,
   LayoutHeader,
   Skeleton,
   Tab,
@@ -442,7 +442,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
               }
               content={<LayoutContent />}
               footer={
-                <LayoutFooter hasDivider>
+                <DialogFooter>
                   <Button variant="ghost" label="Cancel" onClick={closePurgeDialog} />
                   <Button
                     variant="destructive"
@@ -453,7 +453,7 @@ export function TrashPage({ canPermanentlyDelete = false }: Props) {
                       setConfirmingPurge(null);
                     }}
                   />
-                </LayoutFooter>
+                </DialogFooter>
               }
             />
           </Dialog>

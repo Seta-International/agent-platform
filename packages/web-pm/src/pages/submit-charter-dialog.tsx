@@ -3,11 +3,11 @@ import {
   Button,
   DateInput,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   NumberInput,
   type SearchableItem,
   Selector,
@@ -16,6 +16,7 @@ import {
   useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
   type AccountListRow,
@@ -123,7 +124,13 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
 
   return (
     <>
-      <Button size="sm" label="New request" onClick={() => setOpen(true)} />
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New request"
+        onClick={() => setOpen(true)}
+      />
       <Dialog isOpen={open} onOpenChange={handleOpenChange} width={560} purpose="form">
         <Layout
           header={<DialogHeader title="Submit project charter" onOpenChange={handleOpenChange} />}
@@ -264,14 +271,15 @@ export function SubmitCharterDialog({ onCreated }: { onCreated: () => void }) {
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
+            <DialogFooter>
               <Button variant="secondary" label="Cancel" onClick={() => setOpen(false)} />
               <Button
+                variant="primary"
                 label={mutation.isPending ? 'Submitting…' : 'Submit'}
                 onClick={() => mutation.mutate()}
                 isDisabled={!canSubmit}
               />
-            </LayoutFooter>
+            </DialogFooter>
           }
         />
       </Dialog>

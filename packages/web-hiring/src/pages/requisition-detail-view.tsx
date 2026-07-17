@@ -517,6 +517,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               />
               <Button
                 size="sm"
+                variant="primary"
                 label={save.isPending ? 'Updating…' : 'Update'}
                 onClick={submitEdit}
                 isDisabled={save.isPending}

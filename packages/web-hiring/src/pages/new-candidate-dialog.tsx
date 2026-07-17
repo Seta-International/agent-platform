@@ -7,6 +7,7 @@ import {
   DialogHeader,
   Field,
   FileInput,
+  HStack,
   Input,
   Layout,
   LayoutContent,
@@ -16,7 +17,7 @@ import {
   useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, X } from 'lucide-react';
+import { FileText, Plus, X } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import {
   addCandidate,
@@ -200,7 +201,13 @@ export function NewCandidateDialog() {
 
   return (
     <>
-      <Button size="sm" label="New candidate" onClick={() => setOpen(true)} />
+      <Button
+        size="sm"
+        variant="primary"
+        icon={<Plus className="size-3.5" />}
+        label="New candidate"
+        onClick={() => setOpen(true)}
+      />
       <Dialog
         isOpen={open}
         onOpenChange={handleOpenChange}
@@ -350,14 +357,16 @@ export function NewCandidateDialog() {
                 {error && <Banner status="error" title={error} />}
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-base text-error">{requiredError}</p>
-                  <div className="flex shrink-0 gap-2">
+                  <HStack gap={2} hAlign="end">
                     <Button variant="secondary" label="Cancel" onClick={close} />
                     <Button
-                      label={mutation.isPending ? 'Saving…' : 'Save candidate'}
+                      variant="primary"
+                      icon={<Plus className="size-4" />}
+                      label={mutation.isPending ? 'Creating…' : 'Create candidate'}
                       onClick={submit}
                       isDisabled={mutation.isPending || parse.isPending}
                     />
-                  </div>
+                  </HStack>
                 </div>
               </div>
             </LayoutFooter>

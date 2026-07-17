@@ -1,10 +1,4 @@
-import {
-  Divider,
-  FilterPill,
-  Input,
-  SegmentedControl,
-  SegmentedControlItem,
-} from '@seta/shared-ui';
+import { Input, SegmentedControl, SegmentedControlItem, Selector, Toolbar } from '@seta/shared-ui';
 import { LayoutGrid, List, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -97,62 +91,83 @@ export function GroupsToolbar({
   }, [localSearch, searchQuery, onSearchChange, isComposing]);
 
   return (
-    <div
+    <Toolbar
       data-testid="groups-toolbar"
-      className="flex items-center gap-3 border-b border-border px-7 py-3"
-    >
-      {/* Left cluster */}
-      <FilterPill
-        label="Visibility"
-        value={visibility}
-        options={VISIBILITY_OPTIONS}
-        onChange={onVisibilityChange}
-      />
+      label="Group filters"
+      size="sm"
+      dividers={['bottom']}
+      startContent={
+        <>
+          <Input
+            type="text"
+            label="Search groups"
+            isLabelHidden
+            startIcon={<Search className="size-3.5" aria-hidden />}
+            hasClear
+            placeholder="Search groups…"
+            value={localSearch}
+            onChange={(value) => setLocalSearch(value)}
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={(e) => {
+              setIsComposing(false);
+              setLocalSearch((e.currentTarget as HTMLInputElement).value);
+            }}
+            className="w-[260px]"
+            size="sm"
+          />
 
-      {showSourceFilter && (
-        <FilterPill
-          label="Source"
-          value={source}
-          options={SOURCE_OPTIONS}
-          onChange={onSourceChange}
-        />
-      )}
+          <Selector
+            label="Visibility"
+            isLabelHidden
+            placeholder="Visibility"
+            hasClear
+            options={VISIBILITY_OPTIONS}
+            value={visibility}
+            onChange={(v) => onVisibilityChange(v as VisibilityFilter | null)}
+          />
 
-      <FilterPill label="Owner" value={owner} options={ownerOptions} onChange={onOwnerChange} />
+          {showSourceFilter && (
+            <Selector
+              label="Source"
+              isLabelHidden
+              placeholder="Source"
+              hasClear
+              options={SOURCE_OPTIONS}
+              value={source}
+              onChange={(v) => onSourceChange(v as SourceFilter | null)}
+            />
+          )}
 
-      <FilterPill
-        label="Status"
-        value={status}
-        options={STATUS_OPTIONS}
-        onChange={onStatusChange}
-      />
+          <Selector
+            label="Owner"
+            isLabelHidden
+            placeholder="Owner"
+            hasClear
+            hasSearch
+            searchPlaceholder="Search owners…"
+            options={[...ownerOptions]}
+            value={owner}
+            onChange={(v) => onOwnerChange(v)}
+          />
 
-      <Divider orientation="vertical" style={{ height: 16, marginInline: 4 }} />
-
-      <SegmentedControl label="View" value={view} onChange={(v) => onViewChange(v as GroupsView)}>
-        {VIEW_OPTIONS.map((o) => (
-          <SegmentedControlItem key={o.value} value={o.value} label={o.label} icon={o.icon} />
-        ))}
-      </SegmentedControl>
-
-      {/* Right cluster */}
-      <Input
-        type="text"
-        label="Search groups"
-        isLabelHidden
-        startIcon={<Search className="size-3.5" aria-hidden />}
-        hasClear
-        placeholder="Search groups…"
-        value={localSearch}
-        onChange={(value) => setLocalSearch(value)}
-        onCompositionStart={() => setIsComposing(true)}
-        onCompositionEnd={(e) => {
-          setIsComposing(false);
-          setLocalSearch((e.currentTarget as HTMLInputElement).value);
-        }}
-        className="ml-auto w-[260px]"
-        size="sm"
-      />
-    </div>
+          <Selector
+            label="Status"
+            isLabelHidden
+            placeholder="Status"
+            hasClear
+            options={STATUS_OPTIONS}
+            value={status}
+            onChange={(v) => onStatusChange(v as StatusFilter | null)}
+          />
+        </>
+      }
+      endContent={
+        <SegmentedControl label="View" value={view} onChange={(v) => onViewChange(v as GroupsView)}>
+          {VIEW_OPTIONS.map((o) => (
+            <SegmentedControlItem key={o.value} value={o.value} label={o.label} icon={o.icon} />
+          ))}
+        </SegmentedControl>
+      }
+    />
   );
 }

@@ -11,13 +11,13 @@ import {
   createStaticSource,
   DateInput,
   Dialog,
+  DialogFooter,
   DialogHeader,
   EmptyState,
   HStack,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   LayoutHeader,
   NumberInput,
   Popover,
@@ -165,6 +165,7 @@ function SelectEmployeeDialog({
     <>
       <Button
         size="sm"
+        variant="primary"
         className="gap-1.5"
         label="Add allocation"
         icon={<Plus className="size-4" />}
@@ -187,10 +188,10 @@ function SelectEmployeeDialog({
             </LayoutContent>
           }
           footer={
-            <LayoutFooter hasDivider>
+            <DialogFooter>
               <Button variant="ghost" label="Cancel" onClick={() => setOpen(false)} />
-              <Button label="Next" isDisabled={!worker} onClick={handleNext} />
-            </LayoutFooter>
+              <Button variant="primary" label="Next" isDisabled={!worker} onClick={handleNext} />
+            </DialogFooter>
           }
         />
       </Dialog>
@@ -310,14 +311,15 @@ function SplitAllocationDialog({
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button variant="ghost" label="Cancel" onClick={onClose} />
             <Button
+              variant="primary"
               label="Split"
               isDisabled={!newEndDate || mutation.isPending}
               onClick={() => mutation.mutate()}
             />
-          </LayoutFooter>
+          </DialogFooter>
         }
       />
     </Dialog>

@@ -291,6 +291,7 @@ export function MailTransport() {
                   />
                 )}
                 <Button
+                  variant="primary"
                   type="button"
                   label={enabled ? 'Save changes' : 'Enable'}
                   onClick={() => save.mutate(toInput(form))}

@@ -1,15 +1,16 @@
 import {
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Input,
   Layout,
   LayoutContent,
-  LayoutFooter,
   Selector,
   useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { closeRequisition, createCloseReason, fetchCloseReasons } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
@@ -95,6 +96,7 @@ export function CancelRequisitionDialog({
                       <Button
                         type="button"
                         variant="secondary"
+                        icon={<Plus className="size-4" />}
                         label={createReason.isPending ? 'Adding…' : 'Add reason'}
                         isDisabled={createReason.isPending || !newReasonLabel.trim()}
                         onClick={() => createReason.mutate()}
@@ -118,7 +120,7 @@ export function CancelRequisitionDialog({
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button
               variant="secondary"
               label="Back"
@@ -131,7 +133,7 @@ export function CancelRequisitionDialog({
               onClick={() => mutation.mutate()}
               isDisabled={mutation.isPending || !effectiveReason}
             />
-          </LayoutFooter>
+          </DialogFooter>
         }
       />
     </Dialog>

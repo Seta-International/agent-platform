@@ -4,13 +4,13 @@ import {
   Breadcrumbs,
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   DisabledActionTooltip,
   EmptyState,
   HStack,
   Layout,
   LayoutContent,
-  LayoutFooter,
   LayoutHeader,
   Selector,
   Skeleton,
@@ -23,7 +23,7 @@ import { Cloud, Plus, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { CreateGroupDialog } from '../components/CreateGroupDialog';
 import { GroupsGrid } from '../components/GroupsGrid';
-import { GroupsTable } from '../components/GroupsTable';
+import { type GroupSort, GroupsTable } from '../components/GroupsTable';
 import { GroupsToolbar } from '../components/GroupsToolbar';
 import { LinkToM365Dialog } from '../components/LinkToM365Dialog';
 import { useRestoreGroup } from '../hooks/mutations/restore-group';
@@ -43,6 +43,7 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
   const [source, setSource] = useState<'native' | 'm365' | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   const [status, setStatus] = useState<'active' | 'archived' | null>(null);
+  const [sort, setSort] = useState<GroupSort>({ field: 'group', dir: 'asc' });
   const q = useGroupsWithCounts({ includeDeleted: status !== 'active' });
   const memberSummary = useGroupMemberSummary();
   const restoreGroup = useRestoreGroup();
@@ -195,7 +196,12 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
                 }
                 actions={
                   canCreateGroup ? (
-                    <Button label="New group" onClick={() => setCreateOpen(true)} />
+                    <Button
+                      variant="primary"
+                      icon={<Plus className="size-4" />}
+                      label="New group"
+                      onClick={() => setCreateOpen(true)}
+                    />
                   ) : undefined
                 }
               />
@@ -224,6 +230,28 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
       }
     }
     return true;
+  });
+
+  // Stable, deterministic order so the list never reshuffles between loads. Default is
+  // group name ascending; the table headers re-drive `sort` for the other columns.
+  const dir = sort.dir === 'asc' ? 1 : -1;
+  const byText = (a?: string | null, b?: string | null) =>
+    (a ?? '').localeCompare(b ?? '', undefined, { sensitivity: 'base' });
+  const ordered = [...filtered].sort((a, b) => {
+    switch (sort.field) {
+      case 'owner':
+        return dir * byText(a.owner_display_name, b.owner_display_name);
+      case 'plans':
+        return dir * (a.plan_count - b.plan_count);
+      case 'members':
+        return dir * (a.member_count - b.member_count);
+      case 'visibility':
+        return dir * byText(a.visibility, b.visibility);
+      case 'activity':
+        return dir * (new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
+      default:
+        return dir * byText(a.name, b.name);
+    }
   });
 
   const totalPlans = groups.reduce((s, g) => s + g.plan_count, 0);
@@ -285,27 +313,26 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
               </HStack>
             </VStack>
           </LayoutHeader>
-          {/* Second header row pins the filters outside the scroll container, as the old page
-              chrome did. The inner div reproduces that chrome's toolbar wrapper verbatim. */}
+          {/* The Toolbar owns its own height and bottom divider, so it sits directly in a
+              padding-free header row — no extra wrapper chrome. It stays outside the scroll
+              container, keeping the filters pinned above the table. */}
           <LayoutHeader padding={0}>
-            <div className="flex h-12 flex-none items-center justify-between gap-4 border-b border-border bg-body px-6">
-              <GroupsToolbar
-                view={view}
-                onViewChange={setView}
-                searchQuery={search}
-                onSearchChange={setSearch}
-                visibility={visibility}
-                onVisibilityChange={setVisibility}
-                source={source}
-                onSourceChange={setSource}
-                owner={owner}
-                onOwnerChange={setOwner}
-                ownerOptions={ownerOptions}
-                showSourceFilter={showSourceFilter}
-                status={status}
-                onStatusChange={setStatus}
-              />
-            </div>
+            <GroupsToolbar
+              view={view}
+              onViewChange={setView}
+              searchQuery={search}
+              onSearchChange={setSearch}
+              visibility={visibility}
+              onVisibilityChange={setVisibility}
+              source={source}
+              onSourceChange={setSource}
+              owner={owner}
+              onOwnerChange={setOwner}
+              ownerOptions={ownerOptions}
+              showSourceFilter={showSourceFilter}
+              status={status}
+              onStatusChange={setStatus}
+            />
           </LayoutHeader>
         </>
       }
@@ -315,12 +342,14 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
             <div className="flex-1 overflow-auto">
               {view === 'list' ? (
                 <GroupsTable
-                  groups={filtered}
+                  groups={ordered}
                   onRestore={status === 'archived' ? handleRestore : undefined}
+                  sort={sort}
+                  onSortChange={setSort}
                 />
               ) : (
                 <GroupsGrid
-                  groups={filtered}
+                  groups={ordered}
                   onRestore={status === 'archived' ? handleRestore : undefined}
                 />
               )}
@@ -366,13 +395,14 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
                 </LayoutContent>
               }
               footer={
-                <LayoutFooter hasDivider>
+                <DialogFooter>
                   <Button
                     variant="secondary"
                     label="Cancel"
                     onClick={() => setSyncFromIdPOpen(false)}
                   />
                   <Button
+                    variant="primary"
                     label="Next"
                     isDisabled={!groupToLink}
                     onClick={() => {
@@ -380,7 +410,7 @@ export function GroupsPage({ canCreateGroup = false }: Props) {
                       setLinkDialogOpen(true);
                     }}
                   />
-                </LayoutFooter>
+                </DialogFooter>
               }
             />
           </Dialog>

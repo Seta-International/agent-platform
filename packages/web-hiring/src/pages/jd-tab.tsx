@@ -107,6 +107,7 @@ export function JdTab({ detail, canManage }: { detail: RequisitionDetail; canMan
             )}
             <Button
               size="sm"
+              variant="primary"
               label={save.isPending ? 'Saving…' : 'Save JD'}
               onClick={() => save.mutate()}
               isDisabled={save.isPending}

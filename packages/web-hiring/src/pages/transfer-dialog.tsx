@@ -1,10 +1,10 @@
 import {
   Button,
   Dialog,
+  DialogFooter,
   DialogHeader,
   Layout,
   LayoutContent,
-  LayoutFooter,
   Selector,
   useToast,
 } from '@seta/shared-ui';
@@ -80,14 +80,15 @@ export function TransferDialog({
           </LayoutContent>
         }
         footer={
-          <LayoutFooter hasDivider>
+          <DialogFooter>
             <Button variant="secondary" label="Cancel" onClick={() => onOpenChange(false)} />
             <Button
+              variant="primary"
               label={mutation.isPending ? 'Moving…' : 'Move candidate'}
               onClick={() => mutation.mutate()}
               isDisabled={mutation.isPending || !effectiveTarget}
             />
-          </LayoutFooter>
+          </DialogFooter>
         }
       />
     </Dialog>

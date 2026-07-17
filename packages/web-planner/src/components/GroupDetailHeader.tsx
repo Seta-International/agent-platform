@@ -162,6 +162,7 @@ export function GroupDetailHeader({
             <DisabledActionTooltip disabled={!canCreatePlan} reason={PERMISSION_DENIED.plan.create}>
               <Button
                 size="sm"
+                variant="primary"
                 label="New plan"
                 icon={<Plus className="size-3" />}
                 onClick={onCreatePlanClick}

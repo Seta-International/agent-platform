@@ -1,5 +1,4 @@
 import {
-  Divider,
   EmptyState,
   PLANNER_403_LIMIT_MESSAGES,
   type PlanConflictDecision,
@@ -238,22 +237,20 @@ export function PlanBoardShell({
           resolvedPlan.external_source === 'm365' ? () => setConflictDialogOpen(true) : undefined
         }
       />
+      {/* Search leads at the start; the view switcher sits at the far right (space-between),
+          matching the Groups and My-tasks toolbars. */}
       <div className="flex items-center justify-between gap-3 border-border border-b px-6 py-2">
         <div className="flex items-center gap-2">
+          <PlanSearchInput value={searchInputValue} onChange={onQChange} />
           <PlanFilterBar
             filters={filters}
             onChange={onFiltersChange}
             assigneeOptions={filterOptions.assigneeOptions}
             labelOptions={filterOptions.labelOptions}
           />
-          {/* A vertical Divider is height:100%; the toolbar has no definite height, so pin 18px. */}
-          <Divider orientation="vertical" style={{ height: 18, margin: '0 4px' }} />
-          <PlanViewSwitcher value={view} onChange={onViewChange} />
           {view === 'grid' && <GridGroupBySelector value={groupBy} onChange={onGroupByChange} />}
         </div>
-        <div className="flex items-center gap-3">
-          <PlanSearchInput value={searchInputValue} onChange={onQChange} />
-        </div>
+        <PlanViewSwitcher value={view} onChange={onViewChange} />
       </div>
 
       {resolvedPlan.sync_status === 'error' && resolvedPlan.last_error && (
