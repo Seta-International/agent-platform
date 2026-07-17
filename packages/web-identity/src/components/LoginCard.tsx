@@ -136,12 +136,14 @@ export function LoginCard() {
 function LoginShell({ children }: { children: React.ReactNode }) {
   return (
     <Center axis="both" minHeight="100vh">
-      <VStack gap={4} hAlign="center" width="100%" maxWidth={400} padding={6}>
-        <SetaMark size={36} />
-        {children}
-        <Text type="supporting" color="secondary" justify="center">
-          © {new Date().getFullYear()}
-        </Text>
+      <VStack width="100%" hAlign="center" padding={6}>
+        <VStack gap={4} hAlign="center" width="100%" maxWidth={400}>
+          <SetaMark size={36} />
+          {children}
+          <Text type="supporting" color="secondary" justify="center">
+            © {new Date().getFullYear()}
+          </Text>
+        </VStack>
       </VStack>
     </Center>
   );
