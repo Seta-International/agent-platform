@@ -259,7 +259,7 @@ function PasswordStep({
               status={error && !rateLimited ? { type: 'error', message: error } : undefined}
             />
             <Link
-              href="mailto:canh.ta@seta-international.vn?subject=Password%20reset"
+              href="mailto:support@seta-international.vn?subject=Password%20reset"
               type="supporting"
             >
               Reset
@@ -356,7 +356,7 @@ function SsoStep({
 
         <Text type="supporting" color="secondary" justify="center">
           Can&apos;t get in?{' '}
-          <Link href="mailto:canh.ta@seta-international.vn" type="inherit">
+          <Link href="mailto:support@seta-international.vn" type="inherit">
             Contact your admin
           </Link>
         </Text>

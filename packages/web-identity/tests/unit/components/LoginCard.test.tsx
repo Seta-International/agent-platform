@@ -67,7 +67,10 @@ describe('LoginCard search params', () => {
     expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
   });
 
-  // The idle branch is being deleted: nothing in the repo ever sets reason=idle.
+  // The idle branch is deleted. core's session middleware still emits
+  // /login?reason=idle (middleware/session.ts:55), but apps/server serves no
+  // non-/api/ paths, so it cannot reach a browser. Removing that emitter is
+  // tracked separately.
   it('does not render inactivity copy for reason=idle', () => {
     mockSearch.current = { reason: 'idle' };
     render(<LoginCard />);
@@ -97,6 +100,25 @@ describe('LoginCard email step', () => {
   it('does not render an inline system-status claim', () => {
     render(<LoginCard />);
     expect(screen.queryByText(/all systems operational/i)).not.toBeInTheDocument();
+  });
+
+  it('disables Continue and sets aria-busy while onContinue is in flight', async () => {
+    const user = userEvent.setup();
+    render(<LoginCard />);
+    let resolveDiscover: (value: { provider_id: string }) => void = () => {};
+    mockedDiscoverProvider.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveDiscover = resolve;
+      }),
+    );
+    await user.type(screen.getByLabelText(/work email/i), 'person@company.com');
+    await user.click(screen.getByRole('button', { name: /continue/i }));
+    // Astryx's isLoading keeps the accessible name stable ("Continue") and
+    // signals in-flight state via aria-busy + disabled, not a swapped label.
+    const button = screen.getByRole('button', { name: /continue/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-busy', 'true');
+    resolveDiscover({ provider_id: 'credential' });
   });
 });
 
