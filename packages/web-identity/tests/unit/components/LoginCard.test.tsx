@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type { UserEvent } from '@testing-library/user-event';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -242,5 +242,33 @@ describe('LoginCard SSO step', () => {
     expect(mockedSignInSocial).toHaveBeenCalledWith(
       expect.objectContaining({ provider: 'microsoft' }),
     );
+  });
+
+  // Astryx blanks loading-state button content via `color: transparent`, which only
+  // affects currentColor. MicrosoftLogo paints literal vendor hex `fill`s, so it would
+  // survive that and sit under the spinner. The icon must be dropped outright instead.
+  it('removes the Microsoft logo while the sign-in is in flight', async () => {
+    const user = userEvent.setup();
+    await goToSsoStep(user, 'person@company.com');
+
+    // The logo's own vendor red — nothing else on the screen paints it.
+    const logo = () => document.querySelector('rect[fill="#f25022"]');
+    expect(logo()).not.toBeNull();
+
+    let resolveSocial: (value: { error?: { message?: string } }) => void = () => {};
+    mockedSignInSocial.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSocial = resolve;
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: /continue with microsoft/i }));
+
+    const button = screen.getByRole('button', { name: /continue with microsoft/i });
+    expect(button).toHaveAttribute('aria-busy', 'true');
+    expect(logo()).toBeNull();
+
+    resolveSocial({});
+    // The logo comes back once the request settles.
+    await waitFor(() => expect(logo()).not.toBeNull());
   });
 });

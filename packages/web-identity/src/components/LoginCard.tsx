@@ -342,7 +342,10 @@ function SsoStep({
           variant="secondary"
           onClick={() => void handleSignIn()}
           isLoading={submitting}
-          icon={<MicrosoftLogo />}
+          // Astryx hides loading-state content with `color: transparent`, which only
+          // neutralises currentColor. MicrosoftLogo's vendor hex `fill`s ignore it and
+          // would stay painted under the spinner, so drop the icon while loading.
+          icon={submitting ? undefined : <MicrosoftLogo />}
           label="Continue with Microsoft"
         />
 
