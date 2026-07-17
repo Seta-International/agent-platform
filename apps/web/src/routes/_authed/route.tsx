@@ -25,7 +25,10 @@ import { ALL_MANIFESTS } from '@/shell/manifests.ts';
 import { settingsAppManifest } from '@/shell/settings-manifest.ts';
 import { fetchEnabledModules } from '../../shell/enabled-modules.ts';
 
-function ShellLink({ href, ...rest }: ShellLinkProps) {
+// Exported so tests can gate the real `...rest` forwarding seam (behavior-carrying breadcrumb
+// crumbs rely on onClick reaching the rendered <a>) against the actual production component,
+// not a stand-in. See apps/web/tests/unit/shell/shell-link.test.tsx.
+export function ShellLink({ href, ...rest }: ShellLinkProps) {
   // TanStack Router's typed `to` is strictly enumerated; cast preserves intellisense at call sites
   // while letting the shell ship hrefs for routes registered elsewhere.
   return <Link to={href as '/'} {...rest} />;
