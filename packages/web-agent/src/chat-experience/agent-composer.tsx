@@ -152,6 +152,12 @@ export function AgentComposer() {
         setIsDragging(false);
       }}
       onDrop={onDrop}
+      // Astryx's ChatComposerInput has no IME composition guard on its Enter
+      // handler, so a capture-phase stop here (before its bubble-phase
+      // handler runs) restores the deleted composite's isComposing/229 check.
+      onKeyDownCapture={(e) => {
+        if (e.nativeEvent.isComposing || e.keyCode === 229) e.stopPropagation();
+      }}
     >
       <div className="mx-auto max-w-conversation">
         <ChatComposer

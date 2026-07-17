@@ -190,6 +190,24 @@ describe('<AgentComposer> send path', () => {
     fireEvent.keyDown(input(), { key: 'Enter' });
     expect(send).not.toHaveBeenCalled();
   });
+
+  it('does not send on the Enter that commits an IME composition (keyCode 229)', () => {
+    // Chrome/Blink fires keydown with key:'Enter', keyCode:229 while a
+    // Vietnamese/CJK composition is still live. Astryx's own Enter handler
+    // has no isComposing/229 guard, so web-agent's wrapper must intercept it
+    // in capture phase before Astryx's bubble handler ever runs.
+    render(<AgentComposer />);
+    type('chào');
+    fireEvent.keyDown(input(), { key: 'Enter', keyCode: 229 });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('does not send on Enter while nativeEvent.isComposing is true', () => {
+    render(<AgentComposer />);
+    type('chào');
+    fireEvent.keyDown(input(), { key: 'Enter', isComposing: true });
+    expect(send).not.toHaveBeenCalled();
+  });
 });
 
 describe('<AgentComposer> stop', () => {
