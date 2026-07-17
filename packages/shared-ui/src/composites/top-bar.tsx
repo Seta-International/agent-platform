@@ -99,7 +99,10 @@ export function TopBar({
         </>
       }
       endContent={
-        <div className="flex items-center gap-1">
+        // pr-2: the icon-only avatar trigger has no inline padding of its own,
+        // so the wrapper keeps the avatar off the viewport edge. gap-3 is the
+        // single spacing rhythm — the Divider must not add its own margins.
+        <div className="flex items-center gap-3 pr-2">
           {!hideAgentButton && (
             <button
               type="button"
@@ -108,13 +111,16 @@ export function TopBar({
               aria-label={agentOpen ? 'Hide agent panel' : 'Show agent panel'}
               title="Agent"
               className={cn(
-                'relative inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
+                'group relative inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-bg focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
                 agentOpen
-                  ? 'border-accent-bg bg-accent-muted text-primary'
-                  : 'border-border text-secondary hover:bg-surface hover:text-primary',
+                  ? 'border-violet-500/60 bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 text-primary'
+                  : 'border-violet-500/30 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 text-primary hover:border-violet-500/60 hover:from-violet-500/20 hover:to-fuchsia-500/20',
               )}
             >
-              <Sparkles className="size-3.5 text-violet-500" aria-hidden />
+              <Sparkles
+                className="size-3.5 text-violet-500 transition-transform motion-safe:group-hover:scale-110"
+                aria-hidden
+              />
               <span className="hidden sm:inline">Agent</span>
               {agentAlert && (
                 <span
@@ -127,7 +133,7 @@ export function TopBar({
           {notificationPanel}
           {/* Height is explicit: a vertical Divider is height:100% over a
               flex-grow line, so it collapses without a definite parent height. */}
-          <Divider orientation="vertical" style={{ height: 20, marginInline: 4 }} />
+          <Divider orientation="vertical" style={{ height: 20 }} />
           {userMenu}
         </div>
       }

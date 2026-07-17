@@ -19,9 +19,13 @@ import {
 import { DropdownMenu, DropdownMenuItem } from '../primitives/dropdown-menu';
 import { DisabledActionTooltip } from './disabled-action-tooltip';
 import { KanbanCardList } from './kanban-card-list';
-import { KanbanColumnCompose, type QuickCreateTaskInput } from './kanban-column-compose';
+import {
+  type AssigneeOption,
+  KanbanColumnCompose,
+  type QuickCreateTaskInput,
+} from './kanban-column-compose';
 
-export type { QuickCreateTaskInput } from './kanban-column-compose';
+export type { AssigneeOption, QuickCreateTaskInput } from './kanban-column-compose';
 
 const styles = stylex.create({
   shell: { flexShrink: 0 },
@@ -67,6 +71,8 @@ export interface KanbanColumnProps {
   children: ReactNode;
   completedTasks?: { count: number; children: ReactNode };
   onCreateTask?: (input: QuickCreateTaskInput) => void | Promise<void>;
+  /** Assignable people for the quick-create form; when non-empty, an assignee tokenizer is shown. */
+  assigneeOptions?: ReadonlyArray<AssigneeOption>;
   /** When set, blocks submit and shows an inline error if the trimmed title exceeds this length. */
   titleMaxLength?: number;
   onRename?: (name: string) => void;
@@ -116,6 +122,7 @@ export function KanbanColumn({
   children,
   completedTasks,
   onCreateTask,
+  assigneeOptions,
   titleMaxLength,
   onRename,
   onDelete,
@@ -369,6 +376,7 @@ export function KanbanColumn({
               {composing && (
                 <KanbanColumnCompose
                   titleMaxLength={titleMaxLength}
+                  assigneeOptions={assigneeOptions}
                   onSubmit={handleCreate}
                   onCancel={() => setComposing(false)}
                 />

@@ -1,8 +1,8 @@
 import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
 import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import * as stylex from '@stylexjs/stylex';
-import { X } from 'lucide-react';
 import {
   Children,
   type HTMLAttributes,
@@ -35,12 +35,8 @@ const styles = stylex.create({
     flexShrink: 0,
     alignSelf: 'flex-start',
     width: 280,
-    background: 'var(--color-background-body)',
-    borderRadius: 'var(--radius-md)',
-    padding: 'var(--spacing-2)',
-    boxShadow: '0 0 0 1px var(--color-accent), 0 0 0 4px var(--color-accent-muted)',
   },
-  composeFooter: { display: 'flex', alignItems: 'center', gap: 4 },
+  composeFooter: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
   error: { color: 'var(--color-error)', margin: 0 },
 });
 
@@ -217,7 +213,7 @@ function AddBucket({
   }
 
   return (
-    <div ref={composeRef} {...stylex.props(styles.compose)}>
+    <Card ref={composeRef} padding={2} xstyle={styles.compose}>
       <TextInput
         ref={inputRef}
         label="New bucket name"
@@ -246,6 +242,13 @@ function AddBucket({
       ) : null}
       <div {...stylex.props(styles.composeFooter)}>
         <Button
+          label="Cancel"
+          variant="ghost"
+          size="sm"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={cancel}
+        />
+        <Button
           label="Add bucket"
           variant="primary"
           size="sm"
@@ -253,16 +256,7 @@ function AddBucket({
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => void submit()}
         />
-        <Button
-          label="Cancel adding bucket"
-          variant="ghost"
-          size="sm"
-          isIconOnly
-          icon={<X size={16} aria-hidden />}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={cancel}
-        />
       </div>
-    </div>
+    </Card>
   );
 }

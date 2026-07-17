@@ -9,18 +9,37 @@ const drift = stylex.keyframes({
   '100%': { transform: 'translate3d(-1.2%, -0.8%, 0)' },
 });
 
+// Hub nodes breathe between ~half and full strength; opacity-only, compositor-friendly.
+const pulse = stylex.keyframes({
+  '0%': { opacity: 0.45 },
+  '50%': { opacity: 1 },
+  '100%': { opacity: 0.45 },
+});
+
 const styles = stylex.create({
   root: { position: 'relative', isolation: 'isolate' },
+  // A pool of light behind the panel. `background-surface` is brighter than
+  // `background-body` in both themes (card equals body in dark, surface does not),
+  // so the glow reads as a light source rather than a theme-specific tint.
+  halo: {
+    position: 'absolute',
+    inset: 0,
+    zIndex: 0,
+    pointerEvents: 'none',
+    background:
+      'radial-gradient(ellipse 42% 46% at 50% 46%, var(--color-background-surface) 0%, color-mix(in srgb, var(--color-background-surface) 55%, transparent) 45%, transparent 75%)',
+  },
   mesh: {
     position: 'absolute',
     inset: 0,
     zIndex: 0,
     overflow: 'hidden',
     pointerEvents: 'none',
-    // Dissolves the mesh well before it reaches the 400px card, so the form keeps
-    // a clean canvas and the constellation only survives out at the margins.
+    // Fades the mesh toward the centre but never to zero: faint lines keep running
+    // beneath the glass panel, so the form reads as part of the constellation
+    // instead of floating on a blank void.
     maskImage:
-      'radial-gradient(ellipse 58% 52% at 50% 50%, transparent 0%, transparent 26%, rgba(0, 0, 0, 0.45) 52%, #000 82%)',
+      'radial-gradient(ellipse 58% 52% at 50% 46%, rgba(0, 0, 0, 0.16) 0%, rgba(0, 0, 0, 0.28) 34%, rgba(0, 0, 0, 0.6) 62%, #000 88%)',
   },
   drifting: {
     position: 'absolute',
@@ -29,7 +48,7 @@ const styles = stylex.create({
     width: '108%',
     height: '108%',
     animationName: { default: drift, '@media (prefers-reduced-motion: reduce)': 'none' },
-    animationDuration: '48s',
+    animationDuration: '28s',
     animationTimingFunction: 'ease-in-out',
     animationIterationCount: 'infinite',
   },
@@ -37,12 +56,18 @@ const styles = stylex.create({
   // a near-background colour in either theme — no media query, no per-theme opacity.
   edges: {
     fill: 'none',
-    stroke: 'color-mix(in oklch, var(--color-text-accent) 18%, var(--color-background-body))',
+    stroke: 'color-mix(in oklch, var(--color-text-accent) 26%, var(--color-background-body))',
     strokeWidth: 1,
   },
   nodes: {
     stroke: 'none',
-    fill: 'color-mix(in oklch, var(--color-text-accent) 40%, var(--color-background-body))',
+    fill: 'color-mix(in oklch, var(--color-text-accent) 55%, var(--color-background-body))',
+  },
+  hubs: {
+    animationName: { default: pulse, '@media (prefers-reduced-motion: reduce)': 'none' },
+    animationDuration: '6s',
+    animationTimingFunction: 'ease-in-out',
+    animationIterationCount: 'infinite',
   },
   content: { position: 'relative', zIndex: 1 },
 });
@@ -135,6 +160,7 @@ export interface AuthBackdropProps {
 export function AuthBackdrop({ children }: AuthBackdropProps) {
   return (
     <div {...stylex.props(styles.root)}>
+      <div {...stylex.props(styles.halo)} />
       <div {...stylex.props(styles.mesh)}>
         {/* aria-hidden lives on the svg — the layer's only content — so the whole
             decoration leaves the a11y tree without hiding anything else. */}
@@ -151,7 +177,12 @@ export function AuthBackdrop({ children }: AuthBackdropProps) {
             ))}
           </g>
           <g {...stylex.props(styles.nodes)}>
-            {NODES.map((node) => (
+            {NODES.filter((node) => node.r < 3).map((node) => (
+              <circle key={`${node.x}-${node.y}`} cx={node.x} cy={node.y} r={node.r} />
+            ))}
+          </g>
+          <g {...stylex.props(styles.nodes, styles.hubs)}>
+            {NODES.filter((node) => node.r >= 3).map((node) => (
               <circle key={`${node.x}-${node.y}`} cx={node.x} cy={node.y} r={node.r} />
             ))}
           </g>

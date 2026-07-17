@@ -5,5 +5,5 @@ export interface SetaMarkProps extends React.ImgHTMLAttributes<HTMLImageElement>
 }
 
 export function SetaMark({ size = 32, ...props }: SetaMarkProps) {
-  return <img src="/favicon.svg" alt="Seta" width={size} height={size} {...props} />;
+  return <img src="/favicon.svg" alt="Seta International" width={size} height={size} {...props} />;
 }

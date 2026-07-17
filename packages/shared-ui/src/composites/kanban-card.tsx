@@ -1,6 +1,6 @@
 import { Text } from '@astryxdesign/core/Text';
 import * as stylex from '@stylexjs/stylex';
-import { CheckSquare } from 'lucide-react';
+import { Calendar, CheckSquare } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { PRIORITY_BY_LEVEL } from '../lib/priority';
 import { AvatarStack } from './avatar-stack';
@@ -43,7 +43,15 @@ const styles = stylex.create({
     fontSize: 'var(--font-size-xs)',
     fontWeight: 600,
   },
-  due: { color: 'var(--color-text-secondary)' },
+  due: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 3,
+    color: 'var(--color-text-secondary)',
+    fontSize: 'var(--font-size-xs)',
+    whiteSpace: 'nowrap',
+  },
+  dueIcon: { width: 12, height: 12, flexShrink: 0 },
   checklistChip: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -122,11 +130,10 @@ export function KanbanCard({ task, onOpen, selected, previewSlot, draggable }: K
   const footer = hasFooterContent ? (
     <>
       {task.label && <LabelChip name={task.label.name} color={task.label.color} />}
-      {(task.start_label || task.due_label) && (
+      {(task.due_label || task.start_label) && (
         <span {...stylex.props(styles.due)}>
-          {task.start_label && task.due_label
-            ? `${task.start_label} → ${task.due_label}`
-            : (task.start_label ?? task.due_label)}
+          <Calendar aria-hidden {...stylex.props(styles.dueIcon)} />
+          {task.due_label ?? task.start_label}
         </span>
       )}
       {task.checklist_summary && task.checklist_summary.total > 0 && (

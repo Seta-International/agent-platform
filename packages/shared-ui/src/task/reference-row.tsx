@@ -65,7 +65,9 @@ export function ReferenceRow({
       </span>
       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
         <span style={alias}>{displayName}</span>
-        {displayName !== refRow.host && <span className="t-xs subtle">{refRow.host}</span>}
+        {displayName !== refRow.host && (
+          <span className="text-xs text-secondary">{refRow.host}</span>
+        )}
       </div>
       <span style={typeBadge}>{refRow.type}</span>
       <button type="button" onClick={() => onOpen(refRow)} aria-label="Open" style={iconBtn}>
