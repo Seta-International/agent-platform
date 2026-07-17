@@ -27,10 +27,11 @@ import {
   toast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, X } from 'lucide-react';
+import { FileText, TriangleAlert, X } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import {
   addCandidate,
+  type CandidateDuplicate,
   editCandidate,
   fetchCandidates,
   fetchRequisitions,
@@ -59,6 +60,8 @@ export function NewCandidateDialog() {
   const [note, setNote] = useState('');
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [cvFile, setCvFile] = useState<File | null>(null);
+  const [cvSha256, setCvSha256] = useState<string | null>(null);
+  const [duplicates, setDuplicates] = useState<CandidateDuplicate[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -122,6 +125,8 @@ export function NewCandidateDialog() {
     setNote('');
     setSkills([]);
     setCvFile(null);
+    setCvSha256(null);
+    setDuplicates([]);
     setSuggestions([]);
     setError(null);
     setSubmitAttempted(false);
@@ -169,6 +174,8 @@ export function NewCandidateDialog() {
         return [...prev, ...draft.skills.filter((s) => !have.has(s.skill_id))];
       });
       setSuggestions(draft.skill_suggestions);
+      setCvSha256(draft.cv_sha256);
+      setDuplicates(draft.possible_duplicates);
       toast.success('CV parsed — review the pre-filled fields before saving');
     },
     onError: (e: Error) => toast.error(e.message),
@@ -202,7 +209,9 @@ export function NewCandidateDialog() {
             cvFile.type || 'application/octet-stream',
           );
           await putCvToS3(upload_url, cvFile);
-          await editCandidate(res.candidate_id, { patch: { cv_storage_key: s3_key } });
+          await editCandidate(res.candidate_id, {
+            patch: { cv_storage_key: s3_key, cv_sha256: cvSha256 ?? undefined },
+          });
         } catch (e) {
           cvWarning = `CV was not attached: ${(e as Error).message}`;
         }
@@ -273,6 +282,8 @@ export function NewCandidateDialog() {
                     aria-label="Remove CV"
                     onClick={() => {
                       setCvFile(null);
+                      setCvSha256(null);
+                      setDuplicates([]);
                       setSuggestions([]);
                     }}
                   >
@@ -292,6 +303,28 @@ export function NewCandidateDialog() {
                     parse.mutate(f);
                   }}
                 />
+              )}
+              {duplicates.length > 0 && (
+                <Alert variant="warning">
+                  <TriangleAlert className="size-4" aria-hidden />
+                  <AlertDescription>
+                    <p className="font-medium">This CV may already be in the system:</p>
+                    <ul className="mt-1 list-inside list-disc">
+                      {duplicates.map((d) => (
+                        <li key={d.candidate_id}>
+                          {d.name} — added {new Date(d.created_at).toLocaleDateString()} (
+                          {d.match === 'file'
+                            ? 'same file'
+                            : d.match === 'email'
+                              ? 'same email'
+                              : 'same phone'}
+                          )
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-1">You can still save if this is a new application.</p>
+                  </AlertDescription>
+                </Alert>
               )}
               <div className="space-y-1">
                 <Label htmlFor="cand-name">Full name *</Label>

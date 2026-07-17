@@ -259,6 +259,7 @@ export const candidate = hiringSchema.table(
     dob: date('dob'),
     gender: textEnum('gender', GENDERS),
     cv_storage_key: text('cv_storage_key'),
+    cv_sha256: text('cv_sha256'),
     seniority: text('seniority'),
     segment: text('segment'),
     source_cost: numeric('source_cost', { precision: 15, scale: 4 }),
@@ -269,6 +270,7 @@ export const candidate = hiringSchema.table(
   },
   (t) => [
     index('candidate_by_tenant').on(t.tenant_id, t.created_at),
+    index('candidate_by_cv_sha256').on(t.tenant_id, t.cv_sha256),
     textEnumCheck('candidate', 'gender', GENDERS),
   ],
 );

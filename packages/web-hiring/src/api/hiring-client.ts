@@ -518,6 +518,7 @@ export async function editCandidate(
       personal_email?: string;
       phone?: string;
       cv_storage_key?: string | null;
+      cv_sha256?: string | null;
     };
   },
 ): Promise<{ ok: true }> {
@@ -616,6 +617,15 @@ export interface CandidateCvDraft {
   note: string | null;
   skills: Array<{ skill_id: string; skill_name: string }>;
   skill_suggestions: string[];
+  cv_sha256: string;
+  possible_duplicates: CandidateDuplicate[];
+}
+
+export interface CandidateDuplicate {
+  candidate_id: string;
+  name: string;
+  created_at: string;
+  match: 'file' | 'email' | 'phone';
 }
 
 /** Stateless parse: nothing is stored until the recruiter saves the form. */

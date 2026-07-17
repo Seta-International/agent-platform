@@ -222,6 +222,7 @@ export async function editCandidate(input: {
           segment: patch.segment ?? cur.segment,
           cv_storage_key:
             patch.cv_storage_key === undefined ? cur.cv_storage_key : patch.cv_storage_key,
+          cv_sha256: patch.cv_sha256 === undefined ? cur.cv_sha256 : patch.cv_sha256,
           updated_at: new Date(),
         })
         .where(

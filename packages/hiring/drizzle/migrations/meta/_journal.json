@@ -78,6 +78,13 @@
       "when": 1784200740445,
       "tag": "0016_application_cancelled_status",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784278641624,
+      "tag": "0017_candidate_cv_sha256",
+      "breakpoints": true
     }
   ]
 }

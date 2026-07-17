@@ -1,13 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 const addCandidate = vi.fn();
+const parseCandidateCvDraft = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   addCandidate: (input: unknown) => addCandidate(input),
+  parseCandidateCvDraft: (file: File) => parseCandidateCvDraft(file),
   fetchRequisitions: () => Promise.resolve([{ id: 'r1', title: 'Backend Eng', status: 'open' }]),
   fetchSkillCatalog: () =>
     Promise.resolve({
@@ -117,5 +119,56 @@ describe('NewCandidateDialog', () => {
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
     );
+  });
+
+  it('disables Save while parsing, then warns when the CV matches existing candidates', async () => {
+    let resolveParse!: (d: unknown) => void;
+    parseCandidateCvDraft.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveParse = resolve;
+      }),
+    );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    const fileInput = container.ownerDocument.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: { files: [new File(['cv bytes'], 'cv.pdf', { type: 'application/pdf' })] },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /save candidate/i })).toBeDisabled(),
+    );
+
+    resolveParse({
+      name: 'Le Van D',
+      personal_email: null,
+      phone: null,
+      dob: null,
+      gender: null,
+      seniority: null,
+      note: null,
+      skills: [],
+      skill_suggestions: [],
+      cv_sha256: 'a'.repeat(64),
+      possible_duplicates: [
+        {
+          candidate_id: 'c9',
+          name: 'Existing Person',
+          created_at: '2026-07-01T00:00:00.000Z',
+          match: 'file',
+        },
+      ],
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText(/may already be in the system/i)).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/Existing Person/)).toBeInTheDocument();
+    expect(screen.getByText(/same file/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save candidate/i })).toBeEnabled();
   });
 });

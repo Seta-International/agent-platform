@@ -126,6 +126,10 @@ export const editCandidatePatch = z
     name: z.string().min(1),
     personal_email: z.string().email(),
     cv_storage_key: z.string().min(1).nullable(),
+    cv_sha256: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .nullable(),
     phone: z.string(),
     dob: z.string(),
     gender: genderValue,
