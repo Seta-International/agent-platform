@@ -8,7 +8,7 @@ describe('host', () => {
     expect(JSON.stringify(d.templating)).toContain('label_values(node_uname_info, env)');
   });
   it('has CPU/mem/disk gauges and a disk-free SLO trend', () => {
-    const titles = (d.panels ?? []).map((p: any) => p.title);
+    const titles = (d.panels ?? []).map((p: { title?: string }) => p.title);
     expect(titles).toEqual(
       expect.arrayContaining(['CPU busy', 'Memory used', 'Disk free (min mount)']),
     );

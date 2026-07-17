@@ -184,7 +184,7 @@ describe('failed-login alert threshold', () => {
           );
           expect(r.rows).toHaveLength(1);
           // biome-ignore lint/suspicious/noExplicitAny: payload is JSONB
-          expect((r.rows[0]?.payload as any).reset_url).toBeNull();
+          expect((r.rows[0]!.payload as any).reset_url).toBeNull();
         } finally {
           resetCoreDb();
           await closePools();

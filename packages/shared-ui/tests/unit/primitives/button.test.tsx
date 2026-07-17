@@ -8,15 +8,13 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Click' })).toBeInTheDocument();
   });
 
-  it.each([
-    'primary',
-    'secondary',
-    'ghost',
-    'destructive',
-  ] as const)('renders the %s variant without throwing', (variant) => {
-    render(<Button variant={variant} label={variant} />);
-    expect(screen.getByRole('button', { name: variant })).toBeInTheDocument();
-  });
+  it.each(['primary', 'secondary', 'ghost', 'destructive'] as const)(
+    'renders the %s variant without throwing',
+    (variant) => {
+      render(<Button variant={variant} label={variant} />);
+      expect(screen.getByRole('button', { name: variant })).toBeInTheDocument();
+    },
+  );
 
   it.each(['sm', 'md', 'lg'] as const)('renders the %s size without throwing', (size) => {
     render(<Button size={size} label={size} />);

@@ -54,7 +54,7 @@ async function seedProjection(
   user_id: string,
   display_name: string,
   email: string,
-  opts: { skills?: string[] } = {},
+  _opts: { skills?: string[] } = {},
 ): Promise<void> {
   await pool.query(
     `INSERT INTO planner.assignee_projection

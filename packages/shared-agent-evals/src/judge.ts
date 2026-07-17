@@ -57,7 +57,6 @@ function synthesizeFromSchema(schema: JsonSchemaLike | undefined, score: number)
       return score;
     case 'boolean':
       return true;
-    case 'string':
     default:
       return 'yes';
   }

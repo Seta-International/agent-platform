@@ -8,7 +8,9 @@ describe('loadSessionHistory', () => {
   });
 
   it('returns empty array when threadId is undefined', async () => {
-    const handle = { memory: { recall: vi.fn() }, memoryConfig: {} } as any;
+    const handle = { memory: { recall: vi.fn() }, memoryConfig: {} } as unknown as Parameters<
+      typeof loadSessionHistory
+    >[0];
     const result = await loadSessionHistory(handle, undefined);
     expect(result).toEqual([]);
   });
@@ -19,7 +21,10 @@ describe('loadSessionHistory', () => {
       { id: 'm2', role: 'assistant', content: 'hi', createdAt: new Date() },
     ];
     const recall = vi.fn().mockResolvedValue({ messages });
-    const handle = { memory: { recall }, memoryConfig: { lastMessages: 20 } } as any;
+    const handle = {
+      memory: { recall },
+      memoryConfig: { lastMessages: 20 },
+    } as unknown as Parameters<typeof loadSessionHistory>[0];
 
     const result = await loadSessionHistory(handle, 'thread-abc');
 
@@ -32,7 +37,9 @@ describe('loadSessionHistory', () => {
 
   it('defaults perPage to 20 when lastMessages not set', async () => {
     const recall = vi.fn().mockResolvedValue({ messages: [] });
-    const handle = { memory: { recall }, memoryConfig: {} } as any;
+    const handle = { memory: { recall }, memoryConfig: {} } as unknown as Parameters<
+      typeof loadSessionHistory
+    >[0];
 
     await loadSessionHistory(handle, 'thread-1');
 
@@ -44,7 +51,10 @@ describe('loadSessionHistory', () => {
 
   it('returns empty array on recall error', async () => {
     const recall = vi.fn().mockRejectedValue(new Error('db down'));
-    const handle = { memory: { recall }, memoryConfig: { lastMessages: 20 } } as any;
+    const handle = {
+      memory: { recall },
+      memoryConfig: { lastMessages: 20 },
+    } as unknown as Parameters<typeof loadSessionHistory>[0];
 
     const result = await loadSessionHistory(handle, 'thread-abc');
     expect(result).toEqual([]);

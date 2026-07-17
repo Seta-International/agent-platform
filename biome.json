@@ -50,6 +50,14 @@
           "suspicious": { "noUndeclaredEnvVars": "off" }
         }
       }
+    },
+    {
+      "includes": ["infra/grafana/dashboards-src/**"],
+      "linter": {
+        "rules": {
+          "suspicious": { "noTemplateCurlyInString": "off" }
+        }
+      }
     }
   ],
   "javascript": {

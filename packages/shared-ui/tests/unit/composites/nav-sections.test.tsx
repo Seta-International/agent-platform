@@ -55,7 +55,7 @@ describe('toSideNavSections', () => {
         ],
       },
     ];
-    render(<>{toSideNavSections(nested, undefined, DefaultShellLink)}</>);
+    render(toSideNavSections(nested, undefined, DefaultShellLink));
     expect(screen.getByText('Configuration')).toBeInTheDocument();
     expect(screen.getByText('General')).toBeInTheDocument();
   });
@@ -75,7 +75,7 @@ describe('toSideNavSections', () => {
         ],
       },
     ];
-    render(<>{toSideNavSections(withBadges, undefined, DefaultShellLink)}</>);
+    render(toSideNavSections(withBadges, undefined, DefaultShellLink));
     expect(screen.getByRole('img', { name: 'Warning' })).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
   });

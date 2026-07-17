@@ -36,7 +36,7 @@ describe('editAccount', () => {
 
         const events = await readEvents(pool, t.tenant_id, 'pm.account.updated');
         expect(events).toHaveLength(1);
-        expect((events[0]?.payload.fields as string[]).sort()).toEqual(['industry', 'name']);
+        expect((events[0]!.payload.fields as string[]).sort()).toEqual(['industry', 'name']);
         expect(events[0]?.payload.name).toBe('Acme Corp');
         expect(events[0]?.payload.am_worker_id).toBeNull();
       } finally {

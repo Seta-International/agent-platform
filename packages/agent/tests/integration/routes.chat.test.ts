@@ -363,13 +363,13 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
       const stored = await storage.stores.memory.listMessages({ threadId });
       const assistant = stored.messages.find((m) => m.role === 'assistant');
       expect(assistant).toBeDefined();
-      const parts = (assistant?.content as { parts?: Array<{ type: string; data?: unknown }> })
+      const parts = (assistant!.content as { parts?: Array<{ type: string; data?: unknown }> })
         .parts;
       const textPart = parts?.find((p) => p.type === 'text') as { text?: string } | undefined;
       expect(textPart?.text).toContain('Alice');
       const resultPart = parts?.find((p) => p.type === 'data-result');
       expect(
-        (resultPart?.data as { recommendations: Array<{ name: string }> }).recommendations[0]!.name,
+        (resultPart!.data as { recommendations: Array<{ name: string }> }).recommendations[0]!.name,
       ).toBe('Alice');
       expect(parts?.some((p) => p.type === 'data-trust')).toBe(true);
     });
@@ -426,11 +426,11 @@ describe('POST /api/agent/v1/chat (orchestration runtime persistence)', () => {
       await res.text();
 
       expect(capturedCtx?.threadId).toBe('orch-mem-thread-1');
-      expect((capturedCtx?.userMemory as { memory: unknown; memoryConfig: unknown }).memory).toBe(
+      expect((capturedCtx!.userMemory as { memory: unknown; memoryConfig: unknown }).memory).toBe(
         fakeUserMemory,
       );
       expect(
-        (capturedCtx?.userMemory as { memory: unknown; memoryConfig: unknown }).memoryConfig,
+        (capturedCtx!.userMemory as { memory: unknown; memoryConfig: unknown }).memoryConfig,
       ).toBe(fakeUserConfig);
     });
   });
