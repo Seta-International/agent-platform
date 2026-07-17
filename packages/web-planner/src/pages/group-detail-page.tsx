@@ -76,13 +76,7 @@ function ErrorState({ onRetry }: ErrorStateProps) {
   return (
     <div className="flex flex-col items-center justify-center p-12 gap-4" role="alert">
       <p className="text-body-sm text-ink-subtle">Couldn&apos;t load this group.</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="text-sm text-primary underline hover:no-underline"
-      >
-        Try again
-      </button>
+      <Button size="sm" variant="secondary" label="Try again" onClick={onRetry} />
     </div>
   );
 }

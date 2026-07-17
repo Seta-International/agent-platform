@@ -1,4 +1,4 @@
-import { Button } from '@seta/shared-ui';
+import { Button, Heading } from '@seta/shared-ui';
 import { useComments } from '../hooks/queries/use-comments';
 import { CommentComposer } from './CommentComposer';
 import { CommentItem } from './CommentItem';
@@ -17,10 +17,10 @@ export function TaskDetailCommentsCard({ taskId, currentUserId, isGroupOwner }: 
   return (
     <section aria-label="Comments" className="rounded-lg border border-hairline bg-canvas p-4">
       <header className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-ink">
+        <Heading level={3}>
           Comments ({totalLoaded}
           {q.hasNextPage ? '+' : ''})
-        </h3>
+        </Heading>
       </header>
 
       <div className="mb-4">

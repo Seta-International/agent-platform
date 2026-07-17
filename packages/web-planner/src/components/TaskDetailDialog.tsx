@@ -1,4 +1,4 @@
-import { Dialog, Layout, LayoutContent } from '@seta/shared-ui';
+import { Dialog, IconButton, Layout, LayoutContent } from '@seta/shared-ui';
 import { Maximize2, X } from 'lucide-react';
 import { TaskDetailPage } from '../pages/task-detail-page';
 
@@ -50,24 +50,22 @@ export function TaskDetailDialog({ planId, taskId, onClose, onOpenFullPage }: Pr
               onClose={onClose}
               modalHeaderActions={
                 <>
-                  <button
-                    type="button"
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
                     onClick={onOpenFullPage}
-                    title="Open as full page"
-                    aria-label="Open as full page"
-                    className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-                  >
-                    <Maximize2 className="size-4" />
-                  </button>
-                  <button
-                    type="button"
+                    tooltip="Open as full page"
+                    label="Open as full page"
+                    icon={<Maximize2 />}
+                  />
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
                     onClick={onClose}
-                    title="Close"
-                    aria-label="Close"
-                    className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-                  >
-                    <X className="size-4" />
-                  </button>
+                    tooltip="Close"
+                    label="Close"
+                    icon={<X />}
+                  />
                 </>
               }
             />

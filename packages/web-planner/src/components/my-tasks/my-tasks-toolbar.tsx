@@ -1,4 +1,10 @@
-import { FilterPill, Input, SegmentedControl, SegmentedControlItem } from '@seta/shared-ui';
+import {
+  FilterPill,
+  IconButton,
+  Input,
+  SegmentedControl,
+  SegmentedControlItem,
+} from '@seta/shared-ui';
 import { LayoutGrid, List, MoreHorizontal, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -139,13 +145,12 @@ export function MyTasksToolbar({
             setLocalSearch((e.currentTarget as HTMLInputElement).value);
           }}
         />
-        <button
-          type="button"
-          aria-label="More toolbar options"
-          className="inline-flex size-7 items-center justify-center rounded-md text-ink-subtle hover:bg-surface-2 hover:text-ink"
-        >
-          <MoreHorizontal className="size-4" />
-        </button>
+        <IconButton
+          variant="ghost"
+          size="sm"
+          label="More toolbar options"
+          icon={<MoreHorizontal className="size-4" />}
+        />
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { Button } from '@seta/shared-ui';
+import { Button, Heading } from '@seta/shared-ui';
 
 interface Props {
   error?: unknown;
@@ -31,7 +31,7 @@ export function PlanError({ error, onRetry, onBack }: Props) {
     error instanceof Error ? error.message : typeof error === 'string' ? error : undefined;
   return (
     <div role="alert" className="plan-error">
-      <h2 className="text-card-title text-ink">{title}</h2>
+      <Heading level={2}>{title}</Heading>
       <p className="mt-1 text-body-sm text-ink-subtle">
         {category === 'Network'
           ? 'Check your connection and try again.'

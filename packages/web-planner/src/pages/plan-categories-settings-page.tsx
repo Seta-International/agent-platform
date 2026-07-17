@@ -2,6 +2,7 @@ import {
   BreadcrumbItem,
   Breadcrumbs,
   CategoryDescriptionEditor,
+  Heading,
   Skeleton,
   useToast,
 } from '@seta/shared-ui';
@@ -72,9 +73,7 @@ export function PlanCategoriesSettingsPage({ planId }: Props) {
             <BreadcrumbItem isCurrent>Categories</BreadcrumbItem>
           </Breadcrumbs>
         </div>
-        <h1 className="text-card-title font-semibold text-ink mb-1">
-          Categories{planName ? ` · ${planName}` : ''}
-        </h1>
+        <Heading level={1}>Categories{planName ? ` · ${planName}` : ''}</Heading>
         <p className="mb-3 text-body-sm text-ink-subtle" data-testid="categories-sync-subhead">
           {planForGroup?.external_source === 'm365'
             ? 'Synced with Microsoft Planner'

@@ -2,6 +2,7 @@ import type { LabelRow, TaskWithAssigneesRow } from '@seta/planner';
 import {
   Button,
   createStaticSource,
+  IconButton,
   Input,
   LabelChip,
   type SearchableItem,
@@ -151,15 +152,14 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
         renderToken={(item, onRemove) => (
           <span key={item.id} className="inline-flex items-center gap-0.5">
             <LabelChip name={item.label} color={item.auxiliaryData?.color || undefined} />
-            <button
-              type="button"
-              aria-label={`Remove ${item.label}`}
+            <IconButton
+              variant="ghost"
+              size="sm"
+              label={`Remove ${item.label}`}
               onClick={onRemove}
-              disabled={!canUpdate}
-              className="cursor-pointer border-none bg-transparent p-0.5 text-ink-subtle disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <X className="size-3" />
-            </button>
+              isDisabled={!canUpdate}
+              icon={<X className="size-3" />}
+            />
           </span>
         )}
         renderItem={(item) => (
@@ -212,14 +212,13 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
                   {slotlessLabels.map((l) => (
                     <li key={l.id} className="flex items-center justify-between gap-2">
                       <LabelChip name={l.name} color={l.color || undefined} />
-                      <button
-                        type="button"
-                        aria-label={`Edit ${l.name}`}
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        label={`Edit ${l.name}`}
                         onClick={() => setEditingLabel(l)}
-                        className="cursor-pointer border-none bg-transparent p-0.5 text-ink-subtle"
-                      >
-                        <Pencil className="size-3" />
-                      </button>
+                        icon={<Pencil className="size-3" />}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -268,14 +267,13 @@ function LabelEditPanel({
   return (
     <div className="space-y-3 p-3" data-testid="label-edit-panel">
       <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          aria-label="Back to labels"
+        <IconButton
+          variant="ghost"
+          size="sm"
+          label="Back to labels"
           onClick={onClose}
-          className="cursor-pointer border-none bg-transparent p-0.5 text-ink-subtle"
-        >
-          <ChevronLeft className="size-4" />
-        </button>
+          icon={<ChevronLeft className="size-4" />}
+        />
         <span className="t-sm subtle">Edit label</span>
       </div>
 

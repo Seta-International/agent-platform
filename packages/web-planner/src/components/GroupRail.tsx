@@ -1,5 +1,13 @@
 import type { GroupActivityItem, GroupMemberRow, GroupRow } from '@seta/planner';
-import { Avatar, Button, Card, cn, DisabledActionTooltip, formatRelative } from '@seta/shared-ui';
+import {
+  Avatar,
+  Button,
+  Card,
+  cn,
+  DisabledActionTooltip,
+  formatRelative,
+  Heading,
+} from '@seta/shared-ui';
 import { Check, ChevronRight, Plus, Shield, Users, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { GroupJoinRequestRow } from '../api/planner-client';
@@ -95,9 +103,9 @@ export function GroupRail({
       {/* Members card */}
       <Card padding={4}>
         <div className="mb-2 flex items-baseline justify-between">
-          <h3 className="text-eyebrow uppercase tracking-wide text-ink-subtle">
+          <Heading level={3}>
             Members <span className="ml-1 text-xs normal-case text-ink-subtle">{memberCount}</span>
-          </h3>
+          </Heading>
           <DisabledActionTooltip disabled={!canManage} reason={PERMISSION_DENIED.group.addMember}>
             <Button
               size="sm"
@@ -193,15 +201,13 @@ export function GroupRail({
 
       {/* Recent activity */}
       <Card padding={4}>
-        <h3 className="mb-2 text-eyebrow uppercase tracking-wide text-ink-subtle">
-          Recent activity
-        </h3>
+        <Heading level={3}>Recent activity</Heading>
         <ActivityList items={activityItems} />
       </Card>
 
       {/* Properties */}
       <Card padding={4}>
-        <h3 className="mb-2 text-eyebrow uppercase tracking-wide text-ink-subtle">Properties</h3>
+        <Heading level={3}>Properties</Heading>
         <div className="flex flex-col">
           <PropertyRow
             label="Visibility"

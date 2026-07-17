@@ -1,3 +1,4 @@
+import { IconButton } from '@seta/shared-ui';
 import { Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -58,14 +59,13 @@ export function PlanSearchInput({ value, onChange, placeholder = 'Search tasksâ€
         }}
       />
       {localValue && (
-        <button
-          type="button"
-          aria-label="Clear search"
+        <IconButton
+          variant="ghost"
+          size="sm"
+          label="Clear search"
           onClick={handleClear}
-          className="plan-search-input__clear"
-        >
-          <X aria-hidden="true" className="size-3" />
-        </button>
+          icon={<X aria-hidden="true" className="size-3" />}
+        />
       )}
     </div>
   );

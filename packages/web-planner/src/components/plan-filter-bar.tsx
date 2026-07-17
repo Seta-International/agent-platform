@@ -1,4 +1,4 @@
-import { type FilterPillOption, MultiFilterPill } from '@seta/shared-ui';
+import { Button, type FilterPillOption, MultiFilterPill } from '@seta/shared-ui';
 import type { BoardFilters } from '../state/url-state';
 
 interface Props {
@@ -26,13 +26,12 @@ export function PlanFilterBar({ filters, onChange, assigneeOptions, labelOptions
         onChange={(next) => onChange({ ...filters, label_ids: next })}
       />
       {totalActive > 0 && (
-        <button
-          type="button"
-          className="plan-filter-bar__clear"
+        <Button
+          variant="ghost"
+          size="sm"
+          label="Clear filters"
           onClick={() => onChange({ assignee_ids: [], label_ids: [] })}
-        >
-          Clear filters
-        </button>
+        />
       )}
     </div>
   );

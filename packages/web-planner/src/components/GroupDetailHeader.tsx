@@ -8,6 +8,8 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   GroupTile,
+  Heading,
+  IconButton,
   SyncBadge,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
@@ -77,24 +79,23 @@ export function GroupDetailHeader({
               <BreadcrumbItem isCurrent>{group.name}</BreadcrumbItem>
             </Breadcrumbs>
             <div className="flex min-w-0 items-baseline gap-3">
-              <h1 className="text-card-title m-0 truncate font-semibold tracking-tight text-ink">
+              <Heading level={1} maxLines={1}>
                 {group.name}
-              </h1>
+              </Heading>
               <div className="flex min-w-0 items-center gap-2 text-body-sm text-ink-subtle">
                 {!group.deleted_at && (
                   <DisabledActionTooltip
                     disabled={!canUpdateGroup}
                     reason={PERMISSION_DENIED.group.edit}
                   >
-                    <button
-                      type="button"
-                      aria-label="Edit group"
-                      className="rounded p-0.5 text-ink-subtle hover:bg-surface-1 hover:text-ink"
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      label="Edit group"
                       onClick={onEditClick}
-                      disabled={!canUpdateGroup}
-                    >
-                      <Pencil className="size-3.5" />
-                    </button>
+                      isDisabled={!canUpdateGroup}
+                      icon={<Pencil className="size-3.5" />}
+                    />
                   </DisabledActionTooltip>
                 )}
                 <span className="inline-flex h-5 flex-none items-center gap-1.5 rounded-full bg-surface-1 px-2 text-xs">

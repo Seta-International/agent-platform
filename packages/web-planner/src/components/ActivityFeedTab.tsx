@@ -132,13 +132,7 @@ export function ActivityFeedTab({ groupId }: Props) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3" role="alert">
         <p className="text-body-sm text-ink-subtle">Failed to load activity.</p>
-        <button
-          type="button"
-          onClick={() => void refetch()}
-          className="text-sm text-primary underline hover:no-underline"
-        >
-          Try again
-        </button>
+        <Button size="sm" variant="secondary" label="Try again" onClick={() => void refetch()} />
       </div>
     );
   }

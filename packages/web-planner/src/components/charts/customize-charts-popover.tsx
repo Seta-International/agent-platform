@@ -62,13 +62,12 @@ export function CustomizeChartsPopover({ visible, onChange }: Props) {
             ))}
           </ul>
           <div className="mt-2 flex items-center justify-between border-t border-hairline pt-2">
-            <button
-              type="button"
-              className="text-xs text-ink-subtle hover:text-ink"
+            <Button
+              variant="ghost"
+              size="sm"
+              label="Reset to defaults"
               onClick={() => onChange(DEFAULT_VISIBLE)}
-            >
-              Reset to defaults
-            </button>
+            />
             <Button
               variant="secondary"
               size="sm"
