@@ -202,27 +202,4 @@ describe('TaskDetailLabelsCard', () => {
       expect(createSpy).not.toHaveBeenCalled();
     });
   });
-
-  describe('manage labels', () => {
-    it('opens the inline manage panel and edits a label name', async () => {
-      const user = userEvent.setup();
-      const { updateSpy } = renderWithClient(
-        <TaskDetailLabelsCard task={taskNoLabels} planId="p1" />,
-        [fxLabel('l-urgent', 'Urgent')],
-      );
-      await user.click(screen.getByRole('button', { name: /manage labels/i }));
-      await user.click(await screen.findByRole('button', { name: /edit urgent/i }));
-      const nameInput = screen.getByLabelText(/label name/i);
-      await user.clear(nameInput);
-      await user.type(nameInput, 'Critical');
-      await user.click(screen.getByRole('button', { name: /^save$/i }));
-      expect(updateSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          label_id: 'l-urgent',
-          patch: expect.objectContaining({ name: 'Critical' }),
-        }),
-        expect.anything(),
-      );
-    });
-  });
 });

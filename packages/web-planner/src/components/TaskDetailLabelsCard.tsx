@@ -1,9 +1,7 @@
 import type { LabelRow, TaskWithAssigneesRow } from '@seta/planner';
 import {
-  Button,
   createStaticSource,
   IconButton,
-  Input,
   LabelChip,
   type SearchableItem,
   Tokenizer,
@@ -11,21 +9,18 @@ import {
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, Pencil, Trash2, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
+import { useMemo } from 'react';
 import { plannerClient } from '../api/planner-client';
 import { useApplyLabel } from '../hooks/mutations/apply-label';
 import { useCreateLabel } from '../hooks/mutations/create-label';
-import { useDeleteLabel } from '../hooks/mutations/delete-label';
 import { useUnapplyLabel } from '../hooks/mutations/unapply-label';
-import { useUpdateLabel } from '../hooks/mutations/update-label';
 import { usePlanCategories } from '../hooks/queries/use-plan-categories';
 import { PERMISSION_DENIED } from '../lib/permission-messages';
 import { plannerKeys } from '../state/query-keys';
-import { ConfirmDeleteLabelDialog } from './ConfirmDeleteLabelDialog';
 
-// Mirrors the keyword palette LabelChip understands; cycling by name hash so
-// the same label name picks the same swatch every time.
+// Mirrors the keyword palette LabelChip understands; hashing the name so a newly
+// created label gets a stable color derived from its own text.
 const LABEL_COLORS = ['blue', 'green', 'amber', 'red', 'purple', 'teal'] as const;
 
 function pickLabelColor(name: string): string {
@@ -33,17 +28,6 @@ function pickLabelColor(name: string): string {
   for (let i = 0; i < name.length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
   return LABEL_COLORS[Math.abs(h) % LABEL_COLORS.length] ?? LABEL_COLORS[0];
 }
-
-// Swatch background tints — mirrors the LabelChip palette so the picker preview
-// matches the rendered chip. Kept local: this is a color-swatch picker, not a chip.
-const SWATCH_BACKGROUND: Record<(typeof LABEL_COLORS)[number], string> = {
-  blue: 'var(--color-background-blue)',
-  green: 'var(--color-success-muted)',
-  amber: 'var(--color-warning-muted)',
-  red: 'var(--color-error-muted)',
-  purple: 'rgba(168, 85, 247, 0.10)',
-  teal: 'rgba(20, 184, 166, 0.10)',
-};
 
 interface Props {
   task: TaskWithAssigneesRow;
@@ -65,9 +49,6 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
     staleTime: 30_000,
   });
   const categoriesQuery = usePlanCategories(planId);
-
-  const [managing, setManaging] = useState(false);
-  const [editingLabel, setEditingLabel] = useState<LabelRow | null>(null);
 
   const categoryLabel = task.labels.find((l) => l.category_slot != null) ?? null;
   const categoryDescription = categoryLabel
@@ -183,191 +164,6 @@ export function TaskDetailLabelsCard({ task, planId, isLinkedToM365 = false }: P
           </span>
         </div>
       )}
-
-      {!isLinkedToM365 && canUpdate && (
-        <div className="mt-2.5">
-          <Button
-            size="sm"
-            variant="ghost"
-            label={managing ? 'Done' : 'Manage labels'}
-            icon={<Pencil className="size-3" />}
-            onClick={() => {
-              setManaging((m) => !m);
-              setEditingLabel(null);
-            }}
-          />
-          {managing && (
-            <div className="mt-2 rounded-md border border-border p-2" data-testid="manage-labels">
-              {editingLabel ? (
-                <LabelEditPanel
-                  label={editingLabel}
-                  planId={planId}
-                  taskId={task.id}
-                  onClose={() => setEditingLabel(null)}
-                />
-              ) : slotlessLabels.length === 0 ? (
-                <p className="t-sm subtle px-1 py-1.5">No labels to manage yet.</p>
-              ) : (
-                <ul className="flex flex-col gap-1">
-                  {slotlessLabels.map((l) => (
-                    <li key={l.id} className="flex items-center justify-between gap-2">
-                      <LabelChip name={l.name} color={l.color || undefined} />
-                      <IconButton
-                        variant="ghost"
-                        size="sm"
-                        label={`Edit ${l.name}`}
-                        onClick={() => setEditingLabel(l)}
-                        icon={<Pencil className="size-3" />}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </section>
-  );
-}
-
-function LabelEditPanel({
-  label,
-  planId,
-  taskId,
-  onClose,
-}: {
-  label: LabelRow;
-  planId: string;
-  taskId: string;
-  onClose: () => void;
-}) {
-  const update = useUpdateLabel(planId);
-  const del = useDeleteLabel(planId);
-  const [name, setName] = useState(label.name);
-  const [color, setColor] = useState(label.color || 'blue');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  const trimmed = name.trim();
-  const dirty = trimmed !== label.name || color !== label.color;
-  const canSave = trimmed.length > 0 && dirty;
-
-  const handleSave = () => {
-    if (!dirty) {
-      onClose();
-      return;
-    }
-    if (!trimmed) return;
-    const patch: { name?: string; color?: string } = {};
-    if (trimmed !== label.name) patch.name = trimmed;
-    if (color !== label.color) patch.color = color;
-    update.mutate({ label_id: label.id, patch }, { onSuccess: onClose });
-  };
-
-  return (
-    <div className="space-y-3 p-3" data-testid="label-edit-panel">
-      <div className="flex items-center gap-1.5">
-        <IconButton
-          variant="ghost"
-          size="sm"
-          label="Back to labels"
-          onClick={onClose}
-          icon={<ChevronLeft className="size-4" />}
-        />
-        <span className="t-sm subtle">Edit label</span>
-      </div>
-
-      <Input
-        label="Label name"
-        isLabelHidden
-        value={name}
-        onChange={(value) => setName(value)}
-        onEnter={handleSave}
-      />
-
-      <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Label color">
-        {LABEL_COLORS.map((c) => (
-          <label
-            key={c}
-            style={{
-              borderRadius: 9999,
-              cursor: 'pointer',
-              outline:
-                color === c ? '2px solid var(--color-accent)' : '1px solid var(--color-border)',
-              outlineOffset: 1,
-              display: 'inline-block',
-            }}
-          >
-            <input
-              type="radio"
-              name="label-color"
-              value={c}
-              checked={color === c}
-              onChange={() => setColor(c)}
-              aria-label={c}
-              className="sr-only"
-            />
-            <span
-              aria-hidden="true"
-              style={{
-                display: 'block',
-                width: 18,
-                height: 18,
-                borderRadius: 9999,
-                padding: 0,
-                background: SWATCH_BACKGROUND[c],
-              }}
-            >
-              &nbsp;
-            </span>
-          </label>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-between pt-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<Trash2 className="size-3" />}
-          label="Delete"
-          onClick={() => setConfirmOpen(true)}
-          isDisabled={update.isPending || del.isPending}
-        />
-        <div className="flex gap-1.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            label="Cancel"
-            onClick={onClose}
-            isDisabled={del.isPending}
-          />
-          <Button
-            size="sm"
-            variant="primary"
-            label="Save"
-            onClick={handleSave}
-            isDisabled={!canSave || update.isPending || del.isPending}
-          />
-        </div>
-      </div>
-
-      <ConfirmDeleteLabelDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        labelName={label.name}
-        pending={del.isPending}
-        onConfirm={() =>
-          del.mutate(
-            { label_id: label.id, task_id: taskId },
-            {
-              onSuccess: () => {
-                setConfirmOpen(false);
-                onClose();
-              },
-            },
-          )
-        }
-      />
-    </div>
   );
 }

@@ -143,6 +143,7 @@ export {
 export * from './primitives/checkbox';
 export * from './primitives/collapsible';
 export * from './primitives/date-input';
+export * from './primitives/date-range-input';
 export * from './primitives/dialog';
 export * from './primitives/divider';
 export * from './primitives/dropdown-menu';

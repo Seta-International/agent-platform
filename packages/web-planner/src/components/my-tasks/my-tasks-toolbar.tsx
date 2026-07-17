@@ -105,6 +105,7 @@ export function MyTasksToolbar({
           <Selector
             label="Plan"
             isLabelHidden
+            size="sm"
             placeholder="Plan"
             hasClear
             hasSearch
@@ -116,6 +117,7 @@ export function MyTasksToolbar({
           <Selector
             label="Group"
             isLabelHidden
+            size="sm"
             placeholder="Group"
             hasClear
             hasSearch
@@ -127,6 +129,7 @@ export function MyTasksToolbar({
           <Selector
             label="Priority"
             isLabelHidden
+            size="sm"
             placeholder="Priority"
             hasClear
             options={PRIORITY_OPTIONS}
@@ -143,6 +146,7 @@ export function MyTasksToolbar({
           <Selector
             label="Due"
             isLabelHidden
+            size="sm"
             placeholder="Due"
             hasClear
             options={DUE_OPTIONS}

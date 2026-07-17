@@ -119,6 +119,7 @@ export function GroupsToolbar({
           <Selector
             label="Visibility"
             isLabelHidden
+            size="sm"
             placeholder="Visibility"
             hasClear
             options={VISIBILITY_OPTIONS}
@@ -130,6 +131,7 @@ export function GroupsToolbar({
             <Selector
               label="Source"
               isLabelHidden
+              size="sm"
               placeholder="Source"
               hasClear
               options={SOURCE_OPTIONS}
@@ -141,6 +143,7 @@ export function GroupsToolbar({
           <Selector
             label="Owner"
             isLabelHidden
+            size="sm"
             placeholder="Owner"
             hasClear
             hasSearch
@@ -153,6 +156,7 @@ export function GroupsToolbar({
           <Selector
             label="Status"
             isLabelHidden
+            size="sm"
             placeholder="Status"
             hasClear
             options={STATUS_OPTIONS}

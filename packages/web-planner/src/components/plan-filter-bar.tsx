@@ -15,6 +15,7 @@ export function PlanFilterBar({ filters, onChange, assigneeOptions, labelOptions
       <MultiSelector
         label="Assignee"
         isLabelHidden
+        size="sm"
         placeholder="Assignee"
         hasClear
         hasSearch
@@ -27,6 +28,7 @@ export function PlanFilterBar({ filters, onChange, assigneeOptions, labelOptions
       <MultiSelector
         label="Label"
         isLabelHidden
+        size="sm"
         placeholder="Label"
         hasClear
         hasSearch

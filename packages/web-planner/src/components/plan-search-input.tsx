@@ -41,8 +41,8 @@ export function PlanSearchInput({ value, onChange, placeholder = 'Search tasksâ€
       label="Search tasks in this plan"
       isLabelHidden
       size="sm"
-      width={200}
-      startIcon={<Search aria-hidden="true" />}
+      width={240}
+      startIcon={<Search className="size-3.5" aria-hidden="true" />}
       hasClear
       value={localValue}
       placeholder={placeholder}

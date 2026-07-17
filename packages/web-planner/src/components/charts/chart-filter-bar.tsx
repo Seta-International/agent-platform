@@ -24,15 +24,10 @@ interface Props {
 export function ChartFilterBar({ filters, onChange, assigneeOptions, bucketOptions }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="inline-flex items-center gap-1.5 pr-1 text-xs text-secondary">
-        Chart filters
-        <span className="rounded-full border border-border px-1.5 py-0.5 text-xs uppercase tracking-wide">
-          independent
-        </span>
-      </span>
       <MultiSelector
         label="Assignee"
         isLabelHidden
+        size="sm"
         placeholder="Assignee"
         hasClear
         hasSearch
@@ -45,6 +40,7 @@ export function ChartFilterBar({ filters, onChange, assigneeOptions, bucketOptio
       <MultiSelector
         label="Bucket"
         isLabelHidden
+        size="sm"
         placeholder="Bucket"
         hasClear
         hasSearch
@@ -57,6 +53,7 @@ export function ChartFilterBar({ filters, onChange, assigneeOptions, bucketOptio
       <MultiSelector
         label="Priority"
         isLabelHidden
+        size="sm"
         placeholder="Priority"
         hasClear
         triggerDisplay="count"
@@ -69,6 +66,7 @@ export function ChartFilterBar({ filters, onChange, assigneeOptions, bucketOptio
       <MultiSelector
         label="Status"
         isLabelHidden
+        size="sm"
         placeholder="Status"
         hasClear
         triggerDisplay="count"

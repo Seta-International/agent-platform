@@ -238,20 +238,24 @@ export function PlanBoardShell({
         }
       />
       {/* Search leads at the start; the view switcher sits at the far right (space-between),
-          matching the Groups and My-tasks toolbars. */}
-      <div className="flex items-center justify-between gap-3 border-border border-b px-6 py-2">
-        <div className="flex items-center gap-2">
-          <PlanSearchInput value={searchInputValue} onChange={onQChange} />
-          <PlanFilterBar
-            filters={filters}
-            onChange={onFiltersChange}
-            assigneeOptions={filterOptions.assigneeOptions}
-            labelOptions={filterOptions.labelOptions}
-          />
-          {view === 'grid' && <GridGroupBySelector value={groupBy} onChange={onGroupByChange} />}
+          matching the Groups and My-tasks toolbars. The Charts view renders its own top toolbar
+          (chart filters + view switcher), so the board toolbar is omitted there — that keeps the
+          charts screen to a single filter level instead of stacking on the board's. */}
+      {view !== 'charts' && (
+        <div className="flex items-center justify-between gap-3 border-border border-b px-6 py-2">
+          <div className="flex items-center gap-2">
+            <PlanSearchInput value={searchInputValue} onChange={onQChange} />
+            <PlanFilterBar
+              filters={filters}
+              onChange={onFiltersChange}
+              assigneeOptions={filterOptions.assigneeOptions}
+              labelOptions={filterOptions.labelOptions}
+            />
+            {view === 'grid' && <GridGroupBySelector value={groupBy} onChange={onGroupByChange} />}
+          </div>
+          <PlanViewSwitcher value={view} onChange={onViewChange} />
         </div>
-        <PlanViewSwitcher value={view} onChange={onViewChange} />
-      </div>
+      )}
 
       {resolvedPlan.sync_status === 'error' && resolvedPlan.last_error && (
         <div
@@ -301,6 +305,8 @@ export function PlanBoardShell({
           planId={planId}
           search={search as Record<string, unknown>}
           onPatchSearch={onChartPatch}
+          view={view}
+          onViewChange={onViewChange}
         />
       ) : view === 'board' ? (
         <PlanPage

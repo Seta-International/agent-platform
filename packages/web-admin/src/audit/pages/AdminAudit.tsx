@@ -341,6 +341,7 @@ export function AdminAudit({
                   <Selector
                     label="Event"
                     isLabelHidden
+                    size="sm"
                     placeholder="All events"
                     hasClear
                     options={[...EVENT_TYPE_OPTIONS]}
@@ -350,6 +351,7 @@ export function AdminAudit({
                   <Selector
                     label="Range"
                     isLabelHidden
+                    size="sm"
                     placeholder="All time"
                     hasClear
                     options={[...DATE_RANGE_OPTIONS]}
