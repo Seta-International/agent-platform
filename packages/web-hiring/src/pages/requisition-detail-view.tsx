@@ -593,7 +593,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           <h1 className="truncate text-section-title font-semibold text-ink">{title}</h1>
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className="mx-auto w-full max-w-[760px] space-y-5 px-6 pb-5 pt-3">
+          <div className="mx-auto w-full max-w-lg space-y-5 px-6 pb-5 pt-3">
             <div className="space-y-1">
               <Label htmlFor="jd-title">Job title *</Label>
               <Input
@@ -741,7 +741,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               </div>
             </div>
 
-            <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
+            <SkillPicker value={skills} onChange={setSkills} />
 
             {/* External/Internal variant switcher is temporarily hidden (same as the New
                 form) — edits keep whichever variant the requisition's content already uses. */}

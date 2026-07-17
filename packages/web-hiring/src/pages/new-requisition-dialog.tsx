@@ -236,7 +236,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
       <DialogContent
         unstyled
         onOpenAutoFocus={(e) => e.preventDefault()}
-        className="w-[min(760px,94vw)]"
+        className="w-full max-w-lg"
       >
         <DialogTitle className="sr-only">New requisition</DialogTitle>
         <div className="flex max-h-[88vh] flex-col overflow-hidden rounded-xl">
@@ -407,7 +407,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
               <div className="space-y-3 border-t border-hairline pt-4">
                 <Eyebrow>Skills</Eyebrow>
-                <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
+                <SkillPicker value={skills} onChange={setSkills} />
               </div>
 
               {/* External/Internal variant switcher is temporarily hidden — content saves

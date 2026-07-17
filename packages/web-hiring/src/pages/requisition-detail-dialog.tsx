@@ -19,9 +19,12 @@ export function RequisitionDetailDialog({ requisitionId, onClose }: Props) {
         hideClose
         unstyled
         onOpenAutoFocus={(e) => e.preventDefault()}
-        // Edit mode mirrors the New-requisition dialog exactly (FUT-404), including its
-        // 760px panel — the view flags editing via data-req-editing and :has() shrinks it.
-        className="w-[min(1100px,94vw)] has-[[data-req-editing]]:w-[min(760px,94vw)]"
+        // Read mode: 900px so the JD column lands at ~512px next to the fixed 320px rail —
+        // same content measure as the entry forms, no dead space around short JDs.
+        // Edit mode mirrors the New-requisition dialog exactly (FUT-404), which itself
+        // matches the New-candidate width (max-w-lg = 512px) — the view flags editing via
+        // data-req-editing and :has() shrinks the panel to that same width.
+        className="w-[min(900px,94vw)] has-[[data-req-editing]]:w-[min(512px,94vw)]"
       >
         <DialogTitle className="sr-only">Job description</DialogTitle>
         {/*
