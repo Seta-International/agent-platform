@@ -54,6 +54,13 @@ export function TransferDialog({
     onSuccess: () => {
       toast.success('Candidate moved');
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
+      // Both roles' cards and detail views changed (counts, applicant lists) — without
+      // this, a mounted Requisitions board keeps showing the candidate on the old role.
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
+      void queryClient.invalidateQueries({
+        queryKey: hiringKeys.requisition(currentRequisitionId),
+      });
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.requisition(effectiveTarget) });
       onOpenChange(false);
       onDone();
     },

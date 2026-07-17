@@ -15,6 +15,7 @@ import {
   listProjects,
   listRequisitions,
   openRequisition,
+  transferApplication,
 } from '../../src/index.ts';
 import { seedTenant } from '../helpers.ts';
 
@@ -97,6 +98,54 @@ describe('read requisitions', () => {
         expect(row?.applicants_count).toBe(1);
         expect(row?.applicants[0]?.name).toBe('Pham Tien Manh');
         expect(row?.applicants[0]?.role).toBe('Frontend Engineer');
+      } finally {
+        resetHiringDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
+  it('drops transferred applications from list counts while the detail keeps history', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetHiringDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const a = await openRequisition({ title: 'Role A', headcount: 1, session: t.adminSession });
+        const b = await openRequisition({ title: 'Role B', headcount: 1, session: t.adminSession });
+        const { application_id } = await addCandidate({
+          requisition_id: a.requisition_id,
+          name: 'Moving Candidate',
+          session: t.adminSession,
+        });
+
+        await transferApplication({
+          application_id,
+          input: { target_requisition_id: b.requisition_id },
+          session: t.adminSession,
+        });
+
+        const list = await listRequisitions(t.adminSession);
+        const rowA = list.find((r) => r.id === a.requisition_id);
+        const rowB = list.find((r) => r.id === b.requisition_id);
+        // Role A's pipeline no longer contains the candidate — count and card applicants
+        // reflect who is actually in play, not closed history.
+        expect(rowA?.applicants_count).toBe(0);
+        expect(rowA?.applicants_external).toBe(0);
+        expect(rowA?.applicants).toHaveLength(0);
+        expect(rowB?.applicants_count).toBe(1);
+        expect(rowB?.applicants[0]?.name).toBe('Moving Candidate');
+
+        // The detail bundle still returns the transferred application — the UI shows it
+        // as history ("Transferred"), separate from the active count.
+        const detailA = await getRequisition({
+          requisition_id: a.requisition_id,
+          session: t.adminSession,
+        });
+        expect(detailA.applicants).toHaveLength(1);
+        expect(detailA.applicants[0]?.status).toBe('transferred');
       } finally {
         resetHiringDb();
         resetCoreDb();

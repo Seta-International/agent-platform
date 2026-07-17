@@ -131,6 +131,9 @@ export interface ApplicantRow {
   worker_id: string | null;
   stage: string | null;
   status: string | null;
+  /** From the detail read's candidate join — null for internal applications. */
+  candidate_name: string | null;
+  created_at: string;
 }
 export interface RequisitionDetail {
   requisition: RequisitionRow;

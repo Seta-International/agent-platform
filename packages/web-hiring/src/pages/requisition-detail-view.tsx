@@ -1,6 +1,14 @@
 import {
   Alert,
   AlertDescription,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Avatar,
   AvatarFallback,
   Badge,
@@ -52,6 +60,14 @@ import {
 } from './requisition-format.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 import { on409, useRequisition } from './utils.ts';
+
+// Order-insensitive fingerprint of a skill set — change detection for save and dirty checks.
+function skillsSignature(list: { skill_id: string; level?: number }[]): string {
+  return [...list]
+    .sort((a, b) => a.skill_id.localeCompare(b.skill_id))
+    .map((s) => `${s.skill_id}:${s.level ?? ''}`)
+    .join('|');
+}
 
 // Skill proficiency: requisition_skill.min_level is 1–5; render a word like the design.
 const LEVEL_LABEL: Record<number, string> = {
@@ -242,8 +258,28 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const [showFillConfirm, setShowFillConfirm] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  // 'cancel' backs out of edit mode, 'close' also dismisses the panel — both ask first
+  // when there are unsaved edits.
+  const [confirmDiscard, setConfirmDiscard] = useState<'cancel' | 'close' | null>(null);
+  // Local-midnight today as yyyy-mm-dd — toISOString() alone is UTC and drifts a day
+  // around midnight for non-UTC users.
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 10);
+  const originalStart = data?.requisition.start_date ?? '';
+  const originalDue = data?.requisition.due_date ?? '';
   // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
-  const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
+  // "Not in the past" only applies to values the user changes — a requisition whose stored
+  // dates have since passed must stay editable (title fixes etc.) without forced re-dating.
+  const startError =
+    start && start !== originalStart && start < today ? 'Start date cannot be in the past.' : null;
+  const dueError = !due
+    ? null
+    : start && due < start
+      ? 'Due date must be on or after the start date.'
+      : !start && due !== originalDue && due < today
+        ? 'Due date cannot be in the past.'
+        : null;
   const missingRequired = !title.trim() || isRichTextEmpty(sections.about);
   // Same required-field feedback as NewRequisitionDialog: red border + scroll-to on
   // Update, no warning text; the highlight clears live as the user types.
@@ -251,6 +287,33 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const aboutInvalid = submitAttempted && isRichTextEmpty(sections.about);
   const titleRef = useRef<HTMLInputElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
+  const startDateRef = useRef<HTMLInputElement>(null);
+  const dueDateRef = useRef<HTMLInputElement>(null);
+
+  // Unsaved edits worth keeping? Cancel and panel-close ask before throwing them away.
+  const originalSections = emptySections();
+  if (data) {
+    for (const s of data.jd_sections)
+      if (s.variant === editVariant) originalSections[s.section] = s.body;
+  }
+  const editDirty =
+    editing &&
+    data !== undefined &&
+    (title !== data.requisition.title ||
+      grade !== (data.requisition.grade ?? '') ||
+      kind !== data.requisition.kind ||
+      mode !== (data.requisition.default_interview_mode ?? 'online') ||
+      accountId !== (data.requisition.account_id ?? '') ||
+      projectId !== (data.requisition.project_id ?? '') ||
+      start !== originalStart ||
+      due !== originalDue ||
+      SECTIONS.some((s) => sections[s.key] !== originalSections[s.key]) ||
+      skillsSignature(skills) !==
+        skillsSignature(
+          data.skills
+            .filter((s): s is typeof s & { skill_id: string } => s.skill_id != null)
+            .map((s) => ({ skill_id: s.skill_id, level: s.min_level ?? undefined })),
+        ));
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -349,12 +412,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           skill_id: s.skill_id,
           level: s.min_level ?? undefined,
         }));
-      const normalizeSkills = (list: { skill_id: string; level?: number }[]) =>
-        [...list]
-          .sort((a, b) => a.skill_id.localeCompare(b.skill_id))
-          .map((s) => `${s.skill_id}:${s.level ?? ''}`)
-          .join('|');
-      const skillsChanged = normalizeSkills(skills) !== normalizeSkills(originalSkills);
+      const skillsChanged = skillsSignature(skills) !== skillsSignature(originalSkills);
       if (skillsChanged) {
         await setRequisitionSkills(requisitionId, {
           expected_version: version,
@@ -409,18 +467,34 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
       if (!title.trim()) titleRef.current?.focus({ preventScroll: true });
       return;
     }
-    if (dateError) return;
+    if (startError || dueError) {
+      const target = startError ? startDateRef.current : dueDateRef.current;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target?.focus({ preventScroll: true });
+      return;
+    }
     save.mutate();
   }
 
   function cancelEditing() {
-    setEditing(false);
+    if (editDirty) setConfirmDiscard('cancel');
+    else setEditing(false);
   }
 
   function requestClose() {
-    if (editing && !window.confirm('Discard unsaved changes?')) return;
+    if (editDirty) {
+      setConfirmDiscard('close');
+      return;
+    }
     setEditing(false);
     onClose?.();
+  }
+
+  function discardConfirmed() {
+    const also = confirmDiscard;
+    setConfirmDiscard(null);
+    setEditing(false);
+    if (also === 'close') onClose?.();
   }
 
   function shareJob() {
@@ -456,11 +530,17 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   // candidate name/role/applied-date that the detail endpoint's bare application rows don't
   // — reuse it instead of a second round-trip. Falls back to nothing if opened without that
   // cache warm (e.g. a direct link), and only "at Company" is skipped since no such field
-  // exists on a candidate.
+  // exists on a candidate. The board list is active-pipeline-only.
   const cachedRow = queryClient
     .getQueryData<OpenRequisitionsBoard>(hiringKeys.requisitions())
     ?.requisitions.find((r) => r.id === requisitionId);
-  const applicantRows = cachedRow?.applicants ?? [];
+  const applicantRows = (cachedRow?.applicants ?? []).filter((a) => a.status === 'active');
+  // Closed applications (transferred/rejected/…) come from the detail read — shown as a
+  // dimmed trail so "where did X go?" is answered in place without inflating the count.
+  const activeCount = data.applicants.filter((a) => a.status === 'active').length;
+  const pastApplicants = data.applicants.filter(
+    (a) => a.status !== 'active' && a.status !== 'hired',
+  );
 
   // While editing, reflect the in-progress Account/Project/Grade selection instead of the
   // last-saved server values, so the subtitle updates live as the user picks a new one.
@@ -597,24 +677,32 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 <Label htmlFor="jd-start">Start date</Label>
                 <Input
                   id="jd-start"
+                  ref={startDateRef}
                   type="date"
                   value={start}
+                  min={today}
                   max={due || undefined}
                   onChange={(e) => setStart(e.target.value)}
+                  aria-invalid={!!startError}
+                  className={startError ? '!border-danger' : undefined}
                 />
+                {startError && <p className="text-caption text-danger-ink">{startError}</p>}
               </div>
               <div className="space-y-1">
                 <Label htmlFor="jd-due">Due date</Label>
                 <Input
                   id="jd-due"
+                  ref={dueDateRef}
                   type="date"
                   value={due}
-                  min={start || undefined}
+                  min={start || today}
                   onChange={(e) => setDue(e.target.value)}
+                  aria-invalid={!!dueError}
+                  className={dueError ? '!border-danger' : undefined}
                 />
+                {dueError && <p className="text-caption text-danger-ink">{dueError}</p>}
               </div>
             </div>
-            {dateError && <p className="text-body-sm text-danger-ink">{dateError}</p>}
 
             <SkillPicker value={skills} onChange={setSkills} />
 
@@ -656,6 +744,25 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             </Button>
           </div>
         </footer>
+        <AlertDialog
+          open={confirmDiscard !== null}
+          onOpenChange={(v) => {
+            if (!v) setConfirmDiscard(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your edits to this requisition will be lost. This can't be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep editing</AlertDialogCancel>
+              <AlertDialogAction onClick={discardConfirmed}>Discard</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
@@ -801,10 +908,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             {/* Applicants */}
             <section className="rounded-xl border border-hairline bg-canvas p-5">
               <div className="mb-1 flex items-center justify-between">
-                <h2 className="font-semibold text-ink">Applicants ({data.applicants.length})</h2>
+                <h2 className="font-semibold text-ink">Applicants ({activeCount})</h2>
               </div>
               {applicantRows.length === 0 ? (
-                <p className="py-4 text-body-sm text-ink-subtle">No applicants yet.</p>
+                <p className="py-4 text-body-sm text-ink-subtle">
+                  {pastApplicants.length > 0 ? 'No active applicants.' : 'No applicants yet.'}
+                </p>
               ) : (
                 <div className="divide-y divide-hairline">
                   {applicantRows.slice(0, 5).map((a) => (
@@ -838,6 +947,29 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                       </span>
                     </div>
                   ))}
+                </div>
+              )}
+              {pastApplicants.length > 0 && (
+                <div className="mt-2 border-t border-hairline pt-3 opacity-70">
+                  <div className="mb-1 text-caption font-semibold uppercase text-ink-muted">
+                    Past applicants ({pastApplicants.length})
+                  </div>
+                  <div className="divide-y divide-hairline">
+                    {pastApplicants.map((a) => (
+                      <div key={a.id} className="flex items-center gap-3 py-2">
+                        <span className="min-w-0 flex-1 truncate text-body-sm text-ink-muted">
+                          {a.candidate_name ?? 'Internal applicant'}
+                        </span>
+                        <span
+                          className={`shrink-0 rounded-full px-2.5 py-0.5 text-caption font-medium ${
+                            APPLICANT_STATUS_BADGE[a.status ?? ''] ?? 'bg-surface-2 text-ink-muted'
+                          }`}
+                        >
+                          {APPLICANT_STATUS_LABEL[a.status ?? ''] ?? a.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>

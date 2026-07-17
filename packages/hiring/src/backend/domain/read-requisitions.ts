@@ -1,10 +1,11 @@
 import type { SessionScope } from '@seta/core';
 import { tenantScoped } from '@seta/shared-rbac';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, inArray, sql } from 'drizzle-orm';
 import { hiringDb } from '../db/client.ts';
 import {
   accountProjection,
   application,
+  candidate,
   opening,
   projectProjection,
   requisition,
@@ -85,14 +86,17 @@ const REQUISITION_LIST_COLUMNS = {
   >`(SELECT COALESCE(json_agg(json_build_object('skill_name', rs.skill_name, 'min_level', rs.min_level) ORDER BY rs.skill_name), '[]'::json) FROM hiring.requisition_skill rs WHERE rs.requisition_id = "hiring"."requisition"."id")`,
   openings_total: sql<number>`(SELECT count(*)::int FROM hiring.opening o WHERE o.requisition_id = "hiring"."requisition"."id")`,
   openings_open: sql<number>`(SELECT count(*)::int FROM hiring.opening o WHERE o.requisition_id = "hiring"."requisition"."id" AND o.status = 'open')`,
-  applicants_count: sql<number>`(SELECT count(*)::int FROM hiring.application a WHERE a.requisition_id = "hiring"."requisition"."id")`,
-  applicants_internal: sql<number>`(SELECT count(*)::int FROM hiring.application a WHERE a.requisition_id = "hiring"."requisition"."id" AND a.kind = 'internal')`,
-  applicants_external: sql<number>`(SELECT count(*)::int FROM hiring.application a WHERE a.requisition_id = "hiring"."requisition"."id" AND a.kind = 'external')`,
+  // Pipeline truth only: rejected/transferred/cancelled applications are closed history
+  // and must not inflate the card's counts, stage buckets, or progress line (bug: a
+  // candidate moved to another role kept appearing on the old role's card).
+  applicants_count: sql<number>`(SELECT count(*)::int FROM hiring.application a WHERE a.requisition_id = "hiring"."requisition"."id" AND a.status = 'active')`,
+  applicants_internal: sql<number>`(SELECT count(*)::int FROM hiring.application a WHERE a.requisition_id = "hiring"."requisition"."id" AND a.kind = 'internal' AND a.status = 'active')`,
+  applicants_external: sql<number>`(SELECT count(*)::int FROM hiring.application a WHERE a.requisition_id = "hiring"."requisition"."id" AND a.kind = 'external' AND a.status = 'active')`,
   // Top applicants surfaced inline on the card; candidate lives in the same hiring
   // schema, so this join stays module-local.
   applicants: sql<
     RequisitionApplicantSummary[]
-  >`(SELECT COALESCE(json_agg(json_build_object('name', c.name, 'role', c.seniority, 'applied_date', a.created_at, 'stage', a.stage, 'kind', a.kind, 'status', a.status) ORDER BY a.created_at), '[]'::json) FROM hiring.application a JOIN hiring.candidate c ON c.id = a.candidate_id WHERE a.requisition_id = "hiring"."requisition"."id")`,
+  >`(SELECT COALESCE(json_agg(json_build_object('name', c.name, 'role', c.seniority, 'applied_date', a.created_at, 'stage', a.stage, 'kind', a.kind, 'status', a.status) ORDER BY a.created_at), '[]'::json) FROM hiring.application a JOIN hiring.candidate c ON c.id = a.candidate_id WHERE a.requisition_id = "hiring"."requisition"."id" AND a.status = 'active')`,
   version: requisition.version,
 };
 
@@ -172,7 +176,9 @@ export interface RequisitionDetail {
   openings: (typeof opening.$inferSelect)[];
   jd_sections: (typeof requisitionJdSection.$inferSelect)[];
   skills: (typeof requisitionSkill.$inferSelect)[];
-  applicants: (typeof application.$inferSelect)[];
+  /** All applications including closed history (rejected/transferred/…) — the UI counts
+   * only active ones and renders the rest as a dimmed past-applicants trail. */
+  applicants: (typeof application.$inferSelect & { candidate_name: string | null })[];
 }
 
 export async function getRequisition(input: {
@@ -207,7 +213,11 @@ export async function getRequisition(input: {
       .select()
       .from(requisitionSkill)
       .where(eq(requisitionSkill.requisition_id, requisition_id)),
-    hiringDb().select().from(application).where(eq(application.requisition_id, requisition_id)),
+    hiringDb()
+      .select({ ...getTableColumns(application), candidate_name: candidate.name })
+      .from(application)
+      .leftJoin(candidate, eq(candidate.id, application.candidate_id))
+      .where(eq(application.requisition_id, requisition_id)),
   ]);
   return {
     requisition: row.requisition,
