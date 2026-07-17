@@ -28,6 +28,7 @@ function makeDeps(streamAgent: QueryOrchestratorDeps['streamAgent']): QueryOrche
     teamInfo: stub('planner.query.teamInfo'),
     generalAnswer: stub('planner.query.generalAnswer'),
     resolveModel: () => ({}) as never,
+    mastraStorage: {} as never,
     streamAgent,
   };
 }

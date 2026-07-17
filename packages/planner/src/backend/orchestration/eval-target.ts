@@ -1,4 +1,5 @@
 import type { MastraModelConfig } from '@mastra/core/llm';
+import type { MastraCompositeStore } from '@mastra/core/storage';
 import type { AgentTool } from '@seta/agent-sdk';
 import {
   makeQueryGeneralAnswerAgent,
@@ -10,6 +11,7 @@ import { makeQueryChatStreamer, type QueryOrchestratorDeps } from './orchestrato
 import type { PlannerQueryRuntime } from './register.ts';
 
 const stubFindSimilar = { id: 'planner_findSimilarTasks' } as unknown as AgentTool;
+const stubStorage = {} as unknown as MastraCompositeStore;
 
 export interface PlannerQueryEvalTarget {
   buildDeterministicRuntime: () => PlannerQueryRuntime;
@@ -22,11 +24,12 @@ function buildRuntime(
 ): PlannerQueryRuntime {
   const taskSearch = makeQueryTaskSearchAgent({
     resolveModel,
+    mastraStorage: stubStorage,
     findSimilarTasksTool: stubFindSimilar,
   });
-  const taskDetail = makeQueryTaskDetailAgent({ resolveModel });
-  const teamInfo = makeQueryTeamInfoAgent({ resolveModel });
-  const generalAnswer = makeQueryGeneralAnswerAgent({ resolveModel });
+  const taskDetail = makeQueryTaskDetailAgent({ resolveModel, mastraStorage: stubStorage });
+  const teamInfo = makeQueryTeamInfoAgent({ resolveModel, mastraStorage: stubStorage });
+  const generalAnswer = makeQueryGeneralAnswerAgent({ resolveModel, mastraStorage: stubStorage });
 
   const deps: QueryOrchestratorDeps = {
     taskQuery: taskSearch,
@@ -34,6 +37,7 @@ function buildRuntime(
     teamInfo,
     generalAnswer,
     resolveModel,
+    mastraStorage: stubStorage,
     streamAgent,
   };
 

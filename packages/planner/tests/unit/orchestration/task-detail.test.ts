@@ -18,6 +18,7 @@ describe('query taskDetailAgent', () => {
   it('has the right id + schemas and returns prose via the seam', async () => {
     const spec = makeQueryTaskDetailAgent({
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
       runAgent: async () => ({ text: 'this task has 3 checklist items' }),
     });
     expect(spec.id).toBe('planner.query.taskDetail');

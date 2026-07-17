@@ -15,6 +15,7 @@ describe('buildPlannerQueryRuntime', () => {
   it('registers the orchestrator in both registries', () => {
     buildPlannerQueryRuntime({
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
       findSimilarTasksTool: fakeFindSimilar,
     });
     expect(SpecializedAgentRegistry.get('planner.query.orchestrator')).toBeDefined();
@@ -24,6 +25,7 @@ describe('buildPlannerQueryRuntime', () => {
   it('runStream finalizes to the orchestrator answer (via the streamAgent seam)', async () => {
     const runtime = buildPlannerQueryRuntime({
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
       findSimilarTasksTool: fakeFindSimilar,
       streamAgent: () => ({ text: Promise.resolve('You have 4 open tasks.') }),
     });

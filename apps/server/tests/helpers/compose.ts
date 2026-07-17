@@ -49,6 +49,7 @@ export function testComposeDeps(): ComposeDeps {
 
   return {
     resolveModel: () => ({}) as never,
+    mastraStorage: {} as never,
     embeddingProvider,
     assignmentPorts,
     // Registration-only; register.test.ts uses `repo: {} as never` for the

@@ -27,6 +27,7 @@ export const taskQueryEvalSuite = defineEvalSuite({
   buildSpec: () =>
     makeQueryTaskSearchAgent({
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
       findSimilarTasksTool: stubFindSimilar,
       // Canned, deterministic "LLM" output — no network, no model.
       runAgent: async ({ input }) => ({ text: `You have open tasks matching: ${input.query}` }),
@@ -70,6 +71,7 @@ export const queryTaskDetailEvalSuite = defineEvalSuite({
   buildSpec: () =>
     makeQueryTaskDetailAgent({
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
       runAgent: async ({ input }) => ({ text: `Details for: ${input.query}` }),
     }),
   cases: [
@@ -99,6 +101,7 @@ export const queryTeamInfoEvalSuite = defineEvalSuite({
   buildSpec: () =>
     makeQueryTeamInfoAgent({
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
       runAgent: async ({ input }) => ({ text: `Team info: ${input.query}` }),
     }),
   cases: [
@@ -256,6 +259,7 @@ export const queryOrchestratorEvalSuite = defineEvalSuite({
       teamInfo: stubSubAgent('planner.query.teamInfo'),
       generalAnswer: stubSubAgent('planner.query.generalAnswer'),
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
       // Test seam — replaces agent.stream()/the model call outright, so the
       // tool loop (and thus the stub sub-agents above) is never invoked.
       streamAgent: () => ({ text: Promise.resolve('You have 3 open tasks due this week.') }),
@@ -508,6 +512,7 @@ export const generalAnswerQualitySuite = defineEvalSuite({
   buildSpec: () =>
     makeQueryGeneralAnswerAgent({
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
       runAgent: async ({ input }) => ({ text: `re: ${input.query}` }),
     }),
   // Quality build: NO runAgent seam ⇒ the real Mastra Agent + model path runs.
@@ -515,6 +520,7 @@ export const generalAnswerQualitySuite = defineEvalSuite({
   buildQualitySpec: () =>
     makeQueryGeneralAnswerAgent({
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
     }),
   cases: [
     defineEvalCase({

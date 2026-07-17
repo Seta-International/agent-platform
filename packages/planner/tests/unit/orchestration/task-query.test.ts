@@ -23,6 +23,7 @@ describe('query taskSearchAgent', () => {
   it('has the right id + returns prose via the seam', async () => {
     const spec = makeQueryTaskSearchAgent({
       resolveModel: () => ({}) as never,
+      mastraStorage: {} as never,
       findSimilarTasksTool: fakeFindSimilar,
       runAgent: async () => ({ text: 'You have 4 open tasks.' }),
     });
