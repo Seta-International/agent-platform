@@ -71,8 +71,8 @@ describe('<AgentHeader>', () => {
     expect(h.navigate).toHaveBeenCalledWith({ to: '/agent/chat', search: { thread: 'new-1' } });
   });
 
-  it('does not render the New chat button in the compact panel header', () => {
+  it('renders the New chat button in the compact panel header too', () => {
     render(<AgentHeader compact />);
-    expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'New chat' })).toBeInTheDocument();
   });
 });

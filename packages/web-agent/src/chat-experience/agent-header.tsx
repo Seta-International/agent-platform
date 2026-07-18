@@ -62,7 +62,9 @@ export function AgentHeader({
   };
   const onNewChat = () => {
     const nextId = actions.startFreshThread();
-    void navigate({ to: '/agent/chat', search: { thread: nextId } });
+    // The floating panel starts a fresh thread in place; only the full page
+    // navigates (routing away would close the panel's host page).
+    if (!compact) void navigate({ to: '/agent/chat', search: { thread: nextId } });
   };
   const onDelete = () => {
     if (canEdit && threadId) deleteChat(threadId);
@@ -103,17 +105,15 @@ export function AgentHeader({
         </div>
 
         <div className="flex flex-none items-center gap-1">
-          {!compact && (
-            <IconButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onNewChat}
-              label="New chat"
-              tooltip="New chat"
-              icon={<Plus className="size-4" aria-hidden />}
-            />
-          )}
+          <IconButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onNewChat}
+            label="New chat"
+            tooltip="New chat"
+            icon={<Plus className="size-4" aria-hidden />}
+          />
           <DropdownMenu
             placement="below"
             menuWidth={220}
