@@ -71,7 +71,7 @@ async function seedSkill(pool: Pool, tenant_id: string, name: string): Promise<s
     `Cat ${name}`,
   ]);
   await pool.query(
-    `INSERT INTO core.skill (id, tenant_id, category_id, name) VALUES ($1,$2,$3,$4)`,
+    `INSERT INTO core.skill (id, tenant_id, category_id, name, slug) VALUES ($1,$2,$3,$4,lower(regexp_replace($4,'[^a-zA-Z0-9]','','g')))`,
     [skillId, tenant_id, catId, name],
   );
   return skillId;
