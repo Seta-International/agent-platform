@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }));
 
@@ -22,55 +22,31 @@ vi.mock('../../../src/chat-experience/agent-provider', () => ({
 }));
 
 import { AgentHeader } from '../../../src/chat-experience/agent-header';
-import { DensityProvider } from '../../../src/chat-experience/use-density';
 
-function renderHeader() {
-  return render(
-    <DensityProvider>
-      <AgentHeader />
-    </DensityProvider>,
-  );
-}
-
-describe('<AgentHeader> response-detail menu group', () => {
-  beforeEach(() => localStorage.clear());
-
-  it('no longer renders the old visible density radiogroup', () => {
-    renderHeader();
-    expect(screen.queryByRole('radiogroup', { name: /response detail/i })).toBeNull();
-  });
-
-  it('toggles density to Detailed from the actions menu', async () => {
+describe('<AgentHeader> chat-actions menu', () => {
+  it('no longer offers a Concise/Detailed response-detail toggle', async () => {
     const user = userEvent.setup();
-    renderHeader();
+    render(<AgentHeader />);
 
     await user.click(screen.getByRole('button', { name: 'Chat actions' }));
-    expect(screen.getByRole('menuitem', { name: /concise/i })).toBeInTheDocument();
-    await user.click(screen.getByRole('menuitem', { name: /detailed/i }));
-
-    // use-density persists synchronously on change.
-    expect(localStorage.getItem('seta.agent.density')).toBe('detailed');
+    // Rename stays; the density options and their heading are gone.
+    expect(screen.getByRole('menuitem', { name: /rename/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /concise/i })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /detailed/i })).toBeNull();
+    expect(screen.queryByText(/response detail/i)).toBeNull();
   });
 });
 
 describe('<AgentHeader> mobile nav trigger', () => {
   it('invokes onOpenMobileNav when the hamburger is clicked', () => {
     const onOpenMobileNav = vi.fn();
-    render(
-      <DensityProvider>
-        <AgentHeader onOpenMobileNav={onOpenMobileNav} />
-      </DensityProvider>,
-    );
+    render(<AgentHeader onOpenMobileNav={onOpenMobileNav} />);
     fireEvent.click(screen.getByRole('button', { name: /open chats/i }));
     expect(onOpenMobileNav).toHaveBeenCalledOnce();
   });
 
   it('does not render the hamburger without an onOpenMobileNav handler', () => {
-    render(
-      <DensityProvider>
-        <AgentHeader />
-      </DensityProvider>,
-    );
+    render(<AgentHeader />);
     expect(screen.queryByRole('button', { name: /open chats/i })).toBeNull();
   });
 });

@@ -3,7 +3,6 @@ import { Collapsible } from '@seta/shared-ui';
 import { type ReactNode, useMemo, useState } from 'react';
 import { extractLeafToolCalls, type LeafToolCall } from './leaf-tool-calls';
 import { SubagentGroup } from './subagent-group';
-import { useDensity } from './use-density';
 
 export interface ChainOfThoughtProps {
   running: boolean;
@@ -13,8 +12,7 @@ export interface ChainOfThoughtProps {
 }
 
 export function ChainOfThought({ running, count, indices, children }: ChainOfThoughtProps) {
-  const { density } = useDensity();
-  // null = follow the density default; true/false = an explicit user toggle.
+  // null = no manual toggle yet (collapsed by default); true/false = user toggle.
   const [manualOverride, setManualOverride] = useState<boolean | null>(null);
   // Keep the group expanded while any inner tool-call is awaiting user approval
   // (Mastra-native `requireApproval` HITL gate). Otherwise the agent flipping to
@@ -33,7 +31,8 @@ export function ChainOfThought({ running, count, indices, children }: ChainOfTho
   const leafRows = useMemo(() => extractLeafToolCalls(content), [content]);
   const stepCount = count + leafRows.length;
   const forcedOpen = running || hasPendingAction;
-  const defaultOpen = density === 'detailed';
+  // Collapsed by default; the user expands the thought when they want the detail.
+  const defaultOpen = false;
   const open = forcedOpen || (manualOverride ?? defaultOpen);
   // Group each subagent's leaf calls under one header (first-seen agent order).
   const groups = useMemo(() => {
@@ -50,9 +49,11 @@ export function ChainOfThought({ running, count, indices, children }: ChainOfTho
       isOpen={open}
       onOpenChange={() => setManualOverride((prev) => !(prev ?? defaultOpen))}
       trigger={
-        running
-          ? 'Thinking…'
-          : `Thought ${stepCount > 0 ? `· ${stepCount} step${stepCount > 1 ? 's' : ''}` : ''}`
+        <span className="text-sm font-medium">
+          {running
+            ? 'Thinking…'
+            : `Thought ${stepCount > 0 ? `· ${stepCount} step${stepCount > 1 ? 's' : ''}` : ''}`}
+        </span>
       }
     >
       {children}

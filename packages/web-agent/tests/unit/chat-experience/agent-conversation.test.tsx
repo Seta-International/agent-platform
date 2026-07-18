@@ -118,7 +118,6 @@ vi.mock('../../../src/chat-experience/agent-composer', () => ({
 }));
 
 import { AgentConversation } from '../../../src/chat-experience/agent-conversation';
-import { DensityProvider } from '../../../src/chat-experience/use-density';
 
 // Reset the day fixture so the divider tests are isolated from each other and
 // from the suites that don't care about dates (they use the same-day default).
@@ -168,20 +167,6 @@ describe('AgentConversation thought group', () => {
       'true',
     );
     expect(screen.getByText('Collected reasoning')).toBeInTheDocument();
-  });
-
-  it('keeps a completed thought expanded in detailed density', () => {
-    localStorage.setItem('seta.agent.density', 'detailed');
-    thoughtStatus = 'complete';
-    render(
-      <DensityProvider>
-        <AgentConversation />
-      </DensityProvider>,
-    );
-    expect(screen.getByRole('button', { name: /Thought/ })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
   });
 
   it('opens a completed thought when the user clicks the thought card', async () => {

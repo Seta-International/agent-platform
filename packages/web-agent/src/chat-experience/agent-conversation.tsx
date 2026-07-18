@@ -1,7 +1,6 @@
 import { MessagePrimitive, ThreadPrimitive, useAui, useAuiState } from '@assistant-ui/react';
 import {
   Button,
-  type ChatDensity,
   ChatLayout,
   ChatMessage,
   ChatMessageBubble,
@@ -33,17 +32,8 @@ import { ContextChip } from './context-chip';
 import { groupByThought } from './group-by-thought';
 import { RenderContextBadge } from './render-context-badge';
 import { type BubbleGroup, bubbleGroup, dateDividerLabel } from './transcript-structure';
-import { type Density, useDensity } from './use-density';
 
 const ASSISTANT_LABEL = 'Agent';
-
-// Our density axis is about how much *detail* the transcript shows; Astryx's is
-// about spacing. 'detailed' maps to 'balanced' rather than 'spacious' so the
-// side panel keeps its current information density.
-const CHAT_DENSITY: Record<Density, ChatDensity> = {
-  concise: 'balanced',
-  detailed: 'spacious',
-};
 
 function splitThinkSegments(text: string): { text: string; isThink: boolean; id: string }[] {
   const segments: { text: string; isThink: boolean; id: string }[] = [];
@@ -77,7 +67,7 @@ function TextPart({ text, status, group }: PartProps & { group?: BubbleGroup }) 
         {/* `autolink`: the deleted ChatMarkdown ran remark-gfm, whose
             autolink-literal extension is on by default. Astryx's is opt-in, so
             without this a bare URL in an answer renders as dead plain text. */}
-        <Markdown density="default" autolink="gfm">
+        <Markdown density="default" autolink="gfm" headingLevelStart={3}>
           {text}
         </Markdown>
         {status.type === 'running' && (
@@ -413,11 +403,8 @@ function makeAssistantMessage(authorLabel: string) {
 export function AgentConversation() {
   const { selection } = useAgentSelection();
   const { pageContext } = usePageContext();
-  const { density } = useDensity();
   const isRunning = useAuiState((s) => s.thread.isRunning);
   const AssistantMessage = makeAssistantMessage(ASSISTANT_LABEL);
-
-  const chatDensity = CHAT_DENSITY[density];
 
   return (
     <>
@@ -427,8 +414,8 @@ export function AgentConversation() {
           band glued to the transcript's bottom edge with nothing in it.
           `scrollButton` is deliberately unset — omitting it is what wires the
           default jump-to-latest button to Astryx's stream-scroll hooks. */}
-      <ChatLayout density={chatDensity} composer={<AgentComposer />}>
-        <ChatMessageList density={chatDensity} isStreaming={isRunning}>
+      <ChatLayout density="balanced" composer={<AgentComposer />}>
+        <ChatMessageList density="balanced" isStreaming={isRunning}>
           <ThreadPrimitive.Empty>
             <AgentEmpty pageContext={pageContext} />
           </ThreadPrimitive.Empty>

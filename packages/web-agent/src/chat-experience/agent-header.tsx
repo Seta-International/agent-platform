@@ -1,23 +1,11 @@
-import { DropdownMenu, DropdownMenuItem, IconButton, Text } from '@seta/shared-ui';
+import { DropdownMenu, DropdownMenuItem, IconButton } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
-import {
-  AlignJustify,
-  AlignLeft,
-  Check,
-  Menu,
-  MessageSquare,
-  MoreHorizontal,
-  Pencil,
-  Sparkles,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Menu, MessageSquare, MoreHorizontal, Pencil, Sparkles, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useThreadList } from '../hooks/use-thread-list';
 import { useDeleteThread, useRenameThread } from '../hooks/use-thread-mutations';
 import { useAgentSelection } from './agent-provider';
 import { AgentThreadSwitcher } from './agent-thread-switcher';
-import { type Density, useDensity } from './use-density';
 
 interface AgentHeaderProps {
   compact?: boolean;
@@ -75,7 +63,6 @@ export function AgentHeader({
     !!threadId && (groups ?? []).some((g) => g.items.some((i) => i.id === threadId));
   const canEdit = existsOnServer;
   const editing = draft !== null;
-  const { density, setDensity } = useDensity();
 
   useEffect(() => {
     if (editing) inputRef.current?.select();
@@ -203,28 +190,6 @@ export function AgentHeader({
             isDisabled={!canEdit}
             onClick={onDelete}
           />
-          <MenuDivider />
-          <Text type="label" className="block px-3 py-1 text-secondary">
-            Response detail
-          </Text>
-          {(
-            [
-              { value: 'concise', label: 'Concise', icon: AlignLeft },
-              { value: 'detailed', label: 'Detailed', icon: AlignJustify },
-            ] satisfies { value: Density; label: string; icon: typeof AlignLeft }[]
-          ).map((o) => (
-            <DropdownMenuItem
-              key={o.value}
-              icon={<o.icon className="size-3.5" aria-hidden />}
-              label={o.label}
-              endContent={
-                density === o.value ? (
-                  <Check className="size-3.5 text-accent" aria-hidden />
-                ) : undefined
-              }
-              onClick={() => setDensity(o.value)}
-            />
-          ))}
         </DropdownMenu>
         {onClose && (
           <IconButton
