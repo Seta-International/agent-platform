@@ -30,26 +30,25 @@ describe('<ModelSelector>', () => {
     const btn = trigger(); // getByRole throws if there were two triggers
     // Width is pinned so the label can shrink instead of wrapping the footer.
     expect(btn.className).toMatch(/max-w-\[/);
-    expect(btn.className).toMatch(/min-w-\[/);
     // Exactly the label truncates; icon + chevron are pinned (flex-none).
     const label = btn.querySelector('.truncate');
     expect(label).not.toBeNull();
     expect(label?.textContent).toBe('Auto');
   });
 
-  it('leads with Auto marked Recommended, then the tier groups', async () => {
+  it('is a plain flat list — no group headings, badges, or blurbs', async () => {
     const user = userEvent.setup();
     render(<ModelSelector value="auto" onChange={vi.fn()} />);
     await user.click(trigger());
 
-    const cards = screen.getAllByRole('checkbox');
-    // Auto is the first card in the popover.
-    expect(cards[0]).toHaveAccessibleName('Auto');
-    expect(screen.getByText('Recommended')).toBeInTheDocument();
-    // The other tiers render their group labels.
-    expect(screen.getByText('Fast')).toBeInTheDocument();
-    expect(screen.getByText('Balanced')).toBeInTheDocument();
-    expect(screen.getByText('Reasoning')).toBeInTheDocument();
+    // Every model is a plain menu item, Auto first.
+    const items = screen.getAllByRole('menuitem');
+    expect(items.map((i) => i.textContent)).toEqual(['Auto', 'GPT-4o mini', 'GPT-4o', 'o3']);
+    // None of the removed chrome is present.
+    expect(screen.queryByText('Recommended')).toBeNull();
+    expect(screen.queryByText('Balanced')).toBeNull();
+    expect(screen.queryByText('Reasoning')).toBeNull();
+    expect(screen.queryByText(/picks the best model/i)).toBeNull();
   });
 
   it('calls onChange with the picked model key', async () => {
@@ -57,7 +56,7 @@ describe('<ModelSelector>', () => {
     const onChange = vi.fn();
     render(<ModelSelector value="auto" onChange={onChange} />);
     await user.click(trigger());
-    await user.click(screen.getByRole('checkbox', { name: 'GPT-4o mini' }));
+    await user.click(screen.getByRole('menuitem', { name: 'GPT-4o mini' }));
     expect(onChange).toHaveBeenCalledWith('gpt-4o-mini');
   });
 });
