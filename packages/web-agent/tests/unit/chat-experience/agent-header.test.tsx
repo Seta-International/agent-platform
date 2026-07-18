@@ -1,8 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }));
+const h = vi.hoisted(() => ({ navigate: vi.fn(), startFreshThread: vi.fn(() => 'new-1') }));
+
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => h.navigate }));
 
 // One saved thread so `canEdit` is true → the actions menu button is enabled.
 vi.mock('../../../src/hooks/use-thread-list', () => ({
@@ -17,7 +19,7 @@ vi.mock('../../../src/hooks/use-thread-mutations', () => ({
 vi.mock('../../../src/chat-experience/agent-provider', () => ({
   useAgentSelection: () => ({
     selection: { threadId: 't1', modelKey: 'auto' },
-    actions: { startFreshThread: vi.fn() },
+    actions: { startFreshThread: h.startFreshThread },
   }),
 }));
 
@@ -41,5 +43,19 @@ describe('<AgentHeader>', () => {
   it('no longer renders a mobile-nav hamburger (history moved to the shell nav)', () => {
     render(<AgentHeader />);
     expect(screen.queryByRole('button', { name: /open chats/i })).toBeNull();
+  });
+
+  it('starts a fresh thread from the New chat button', () => {
+    h.startFreshThread.mockClear();
+    h.navigate.mockClear();
+    render(<AgentHeader />);
+    fireEvent.click(screen.getByRole('button', { name: 'New chat' }));
+    expect(h.startFreshThread).toHaveBeenCalledOnce();
+    expect(h.navigate).toHaveBeenCalledWith({ to: '/agent/chat', search: { thread: 'new-1' } });
+  });
+
+  it('does not render the New chat button in the compact panel header', () => {
+    render(<AgentHeader compact />);
+    expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
   });
 });

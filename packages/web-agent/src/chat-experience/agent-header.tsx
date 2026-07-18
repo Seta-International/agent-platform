@@ -1,6 +1,6 @@
 import { DropdownMenu, DropdownMenuItem, IconButton } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
-import { MessageSquare, MoreHorizontal, Pencil, Sparkles, Trash2, X } from 'lucide-react';
+import { MessageSquare, MoreHorizontal, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useThreadList } from '../hooks/use-thread-list';
 import { useDeleteThread, useRenameThread } from '../hooks/use-thread-mutations';
@@ -74,6 +74,10 @@ export function AgentHeader({
     if (!threadId || !next || next === title) return;
     rename.mutate({ id: threadId, title: next });
   };
+  const onNewChat = () => {
+    const nextId = actions.startFreshThread();
+    void navigate({ to: '/agent/chat', search: { thread: nextId } });
+  };
   const onDelete = () => {
     if (!threadId) return;
     if (!window.confirm("Delete this chat? You won't be able to get it back.")) return;
@@ -146,6 +150,17 @@ export function AgentHeader({
         </div>
 
         <div className="flex flex-none items-center gap-1">
+          {!compact && (
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onNewChat}
+              label="New chat"
+              tooltip="New chat"
+              icon={<Plus className="size-4" aria-hidden />}
+            />
+          )}
           <DropdownMenu
             placement="below"
             menuWidth={220}
