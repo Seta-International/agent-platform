@@ -70,16 +70,6 @@ function toSideNavItem(
       {item.children?.map((child) => toSideNavItem(child, activeItemId, Link, depth + 1))}
     </SideNavItem>
   );
-  // Rows with a trailing action menu become a hover group so the menu (styled
-  // `group-hover/navrow:opacity-100` by the consumer) reveals on hover/focus
-  // instead of sitting visible on every row.
-  if (item.endContent) {
-    return (
-      <div key={item.id} className="group/navrow">
-        {node}
-      </div>
-    );
-  }
   // SideNavItem renders its label as plain text and ignores className/style, so
   // italicize via an inherited font-style on a `display:contents` wrapper that
   // stays invisible to the SideNav's own flex layout.

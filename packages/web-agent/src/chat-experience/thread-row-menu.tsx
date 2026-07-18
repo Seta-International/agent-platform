@@ -5,8 +5,7 @@ import { useChatActions } from './chat-actions';
 /**
  * Per-thread overflow menu for the sidebar recents — Rename / Delete, routed
  * through the shared chat modals (`useChatActions`). Rendered as a SideNavItem
- * `endContent`. Hidden until the row is hovered/focused (or the menu is open):
- * the `group/navrow` class lives on the row wrapper in nav-sections.
+ * `endContent`, always visible.
  */
 export function ThreadRowMenu({ threadId, title }: { threadId: string; title: string }) {
   const { renameChat, deleteChat } = useChatActions();
@@ -16,7 +15,7 @@ export function ThreadRowMenu({ threadId, title }: { threadId: string; title: st
     // opening the menu never changes which chat is selected.
     // biome-ignore lint/a11y/noStaticElementInteractions: wrapper only guards propagation; the menu button owns the semantics
     <span
-      className="-mr-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/navrow:opacity-100 has-[[aria-expanded='true']]:opacity-100"
+      className="-mr-1"
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}

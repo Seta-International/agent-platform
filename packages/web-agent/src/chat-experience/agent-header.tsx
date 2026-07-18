@@ -93,19 +93,13 @@ export function AgentHeader({
         )}
 
         <div className="flex min-w-0 flex-1 items-center">
-          <button
-            type="button"
-            onClick={startRename}
-            disabled={!canEdit}
-            title={canEdit ? 'Rename chat' : title}
-            className="group inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 -mx-1 text-left text-base font-semibold tracking-tight text-primary hover:bg-surface disabled:cursor-default disabled:hover:bg-transparent"
+          {/* Plain title — rename lives in the actions menu (and its modal) now. */}
+          <span
+            className="truncate text-base font-semibold tracking-tight text-primary"
+            title={title}
           >
-            <span className="truncate">{title}</span>
-            <Pencil
-              className="size-3 flex-none text-disabled opacity-0 transition-opacity group-hover:opacity-100 group-disabled:hidden"
-              aria-hidden
-            />
-          </button>
+            {title}
+          </span>
         </div>
 
         <div className="flex flex-none items-center gap-1">

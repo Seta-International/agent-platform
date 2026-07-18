@@ -53,10 +53,12 @@ describe('<AgentHeader> chat-actions menu', () => {
 });
 
 describe('<AgentHeader>', () => {
-  it('opens the rename modal from the title button', () => {
+  it('opens the rename modal from the Rename menu item', async () => {
+    const user = userEvent.setup();
     h.renameChat.mockClear();
     render(<AgentHeader />);
-    fireEvent.click(screen.getByRole('button', { name: 'Chat' }));
+    await user.click(screen.getByRole('button', { name: 'Chat actions' }));
+    await user.click(screen.getByRole('menuitem', { name: /rename/i }));
     expect(h.renameChat).toHaveBeenCalledWith('t1', 'Chat');
   });
 
