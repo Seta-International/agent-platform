@@ -41,8 +41,8 @@ const ASSISTANT_LABEL = 'Agent';
 // about spacing. 'detailed' maps to 'balanced' rather than 'spacious' so the
 // side panel keeps its current information density.
 const CHAT_DENSITY: Record<Density, ChatDensity> = {
-  concise: 'compact',
-  detailed: 'balanced',
+  concise: 'balanced',
+  detailed: 'spacious',
 };
 
 function splitThinkSegments(text: string): { text: string; isThink: boolean; id: string }[] {
@@ -77,7 +77,7 @@ function TextPart({ text, status, group }: PartProps & { group?: BubbleGroup }) 
         {/* `autolink`: the deleted ChatMarkdown ran remark-gfm, whose
             autolink-literal extension is on by default. Astryx's is opt-in, so
             without this a bare URL in an answer renders as dead plain text. */}
-        <Markdown density="compact" autolink="gfm">
+        <Markdown density="default" autolink="gfm">
           {text}
         </Markdown>
         {status.type === 'running' && (
@@ -137,7 +137,7 @@ function PlainTextPart({ text }: PartProps) {
       </div>
     );
   }
-  return <span className="whitespace-pre-wrap">{text}</span>;
+  return <span className="whitespace-pre-wrap leading-relaxed">{text}</span>;
 }
 
 function useComposerSend() {
