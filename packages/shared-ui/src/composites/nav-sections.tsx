@@ -42,20 +42,42 @@ function toSideNavItem(
   item: NavItem,
   activeItemId: string | undefined,
   Link: ShellLinkComponent,
+  depth = 0,
 ): ReactNode {
-  return (
+  const hasChildren = !!item.children?.length;
+  // A parent whose child is the active item shouldn't also paint its own
+  // selected background — the double highlight (e.g. "Chat" + the open thread)
+  // reads as noise. Let the deepest selected item own the emphasis.
+  const childSelected = item.children?.some((c) => c.isSelected) ?? false;
+  const selfSelected = (item.isSelected ?? activeItemId === item.id) && !childSelected;
+  const node = (
     <SideNavItem
       key={item.id}
-      as={Link}
+      // Link-less action items (e.g. "Show more", search-param thread jumps)
+      // ride `onClick` and render as a button; `as`/`href` only apply with a route.
+      as={item.to ? Link : undefined}
       label={item.label}
       icon={item.icon}
-      isSelected={activeItemId === item.id}
+      // Nested items (recents, sub-nav) step down a level in visual weight.
+      size={depth > 0 ? 'sm' : undefined}
+      isSelected={selfSelected}
       isDisabled={item.disabled}
       href={item.disabled ? undefined : item.to}
-      endContent={navItemEndContent(item)}
+      onClick={item.disabled ? undefined : item.onClick}
+      collapsible={hasChildren ? (item.collapsible ?? undefined) : undefined}
+      endContent={item.endContent ?? navItemEndContent(item)}
     >
-      {item.children?.map((child) => toSideNavItem(child, activeItemId, Link))}
+      {item.children?.map((child) => toSideNavItem(child, activeItemId, Link, depth + 1))}
     </SideNavItem>
+  );
+  // SideNavItem renders its label as plain text and ignores className/style, so
+  // italicize via an inherited font-style on a `display:contents` wrapper that
+  // stays invisible to the SideNav's own flex layout.
+  if (!item.italic) return node;
+  return (
+    <span key={item.id} style={{ display: 'contents', fontStyle: 'italic' }}>
+      {node}
+    </span>
   );
 }
 

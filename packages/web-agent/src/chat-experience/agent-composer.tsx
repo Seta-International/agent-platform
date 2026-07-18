@@ -6,6 +6,7 @@ import {
   type ChatComposerInputHandle,
   type ChatComposerTrigger,
   ChatDictationButton,
+  ChatSendButton,
   IconButton,
   Token,
   useChatDictation,
@@ -259,6 +260,19 @@ export function AgentComposer() {
             />
           }
           sendActions={<ChatDictationButton dictation={dictation} size="sm" />}
+          // Drive the send button from our own `value` rather than Astryx's
+          // internal editable state: the two can desync (IME, the capture-phase
+          // key guards above), which left the button greyed with text visible.
+          // Disabling on a blocking upload also makes that reason visible
+          // instead of `submit` silently no-opping.
+          sendButton={
+            <ChatSendButton
+              isStopShown={isRunning}
+              isDisabled={!value.trim() || attachmentsBlockSend(attachments)}
+              onSend={() => submit(value)}
+              onStop={() => aui.thread().cancelRun()}
+            />
+          }
         />
       </div>
     </div>

@@ -150,6 +150,21 @@ describe('<AgentComposer> send path', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
+  it('enables the send button once there is text and sends on click', () => {
+    render(<AgentComposer />);
+    // Disabled while empty — the button state tracks our own `value`, not
+    // Astryx's internal editable (which could desync and grey it with text in).
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+
+    type('hello');
+    const sendButton = screen.getByRole('button', { name: 'Send' });
+    expect(sendButton).toBeEnabled();
+    fireEvent.click(sendButton);
+
+    expect(setText).toHaveBeenCalledWith('hello');
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
   it('clears the prior run error on the next send', () => {
     runError = 'context overflow';
     render(<AgentComposer />);

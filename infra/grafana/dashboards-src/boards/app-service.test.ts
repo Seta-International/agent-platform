@@ -10,7 +10,7 @@ describe('app service', () => {
     expect(vars).not.toContain('label_values(up, env)');
   });
   it('has RED panels and a latency heatmap', () => {
-    const titles = (d.panels ?? []).map((p: any) => p.title);
+    const titles = (d.panels ?? []).map((p: { title?: string }) => p.title);
     expect(titles).toContain('Request rate by status');
     expect(titles).toContain('5xx error ratio');
     expect(titles).toContain('Latency distribution');

@@ -16,11 +16,25 @@
  * in `pg-container.ts` (and restart the reusable container).
  */
 import { fileURLToPath } from 'node:url';
-import type { ViteUserConfig } from 'vitest/config';
 
 const setupDbTest = fileURLToPath(new URL('./setup-db-test.ts', import.meta.url));
 
-export const dbTestDefaults: NonNullable<ViteUserConfig['test']> = {
+// shared-config declares no vitest dependency of its own, so a `vitest/config`
+// type import here binds to whichever vitest the workspace root happens to hoist
+// (currently 4.1.10). Spreading a value carrying that exact version's `test` type
+// into a consumer pinned to a different vitest (e.g. 4.1.9) makes the two
+// `InlineConfig` instances collide (TS2769). Typing these knobs structurally keeps
+// the value assignable to every vitest version's `test` config instead.
+interface DbTestDefaults {
+  pool: 'forks';
+  fileParallelism: boolean;
+  maxWorkers: number;
+  testTimeout: number;
+  hookTimeout: number;
+  setupFiles: string[];
+}
+
+export const dbTestDefaults: DbTestDefaults = {
   pool: 'forks',
   fileParallelism: true,
   maxWorkers: 4,

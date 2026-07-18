@@ -160,7 +160,7 @@ describe('@seta/identity linkSsoAccount', () => {
             [tenantId],
           );
           expect(events).toHaveLength(1);
-          expect((events[0]?.payload as { reason: string }).reason).toBe('user_deactivated');
+          expect((events[0]!.payload as { reason: string }).reason).toBe('user_deactivated');
         } finally {
           resetCoreDb();
           await closePools();
@@ -375,7 +375,7 @@ describe('@seta/identity linkSsoAccount', () => {
           expect(eventTypes).toContain('identity.user.email.changed');
 
           const emailEvent = events.find((e) => e.event_type === 'identity.user.email.changed');
-          expect((emailEvent?.payload as { reason: string }).reason).toBe('sso_sync');
+          expect((emailEvent!.payload as { reason: string }).reason).toBe('sso_sync');
         } finally {
           resetCoreDb();
           await closePools();

@@ -4,6 +4,7 @@ import {
   assignedNames,
   cardIntent,
   outcomeText,
+  resolutionStatusLine,
   STATUS_LABELS,
 } from '../../../src/workflows/components/decided-approval';
 
@@ -75,5 +76,21 @@ describe('decided approval helpers', () => {
     const r = row({ status: 'approved', proposedPayload: 'garbage' });
     expect(outcomeText(r)).toBe('Assignment confirmed.');
     expect(cardIntent('garbage')).toBeNull();
+  });
+});
+
+describe('resolutionStatusLine', () => {
+  it('returns null for a still-pending approval', () => {
+    expect(resolutionStatusLine('pending')).toBeNull();
+  });
+  it('reads "Approval granted" for approve/modify', () => {
+    expect(resolutionStatusLine('approved')).toBe('Approval granted');
+    expect(resolutionStatusLine('modified')).toBe('Approval granted');
+  });
+  it('reads "Declined" for a rejection', () => {
+    expect(resolutionStatusLine('rejected')).toBe('Declined');
+  });
+  it('falls back to the status label for terminal system states', () => {
+    expect(resolutionStatusLine('expired')).toBe('Expired');
   });
 });

@@ -38,13 +38,13 @@ interface ResultData {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="my-1 rounded-md border border-border bg-card p-2 text-base">{children}</div>
+    <div className="my-1.5 rounded-md border border-border bg-card p-3 text-base">{children}</div>
   );
 }
 
 function PersonRow({ name, id, meta }: { name: string | null; id: string; meta?: string }) {
   return (
-    <li className="flex items-center justify-between gap-2 py-0.5">
+    <li className="flex items-center justify-between gap-2 py-1">
       <span className="text-primary">{name ?? id}</span>
       {meta && <span className="text-sm text-secondary">{meta}</span>}
     </li>
@@ -57,7 +57,7 @@ export function DataResultPart({ data }: { data: ResultData }) {
       <Card>
         <ul className="flex flex-col gap-1">
           {data.tasks.map(({ task, recommendations }) => (
-            <li key={task.taskId} className="flex flex-col gap-0.5">
+            <li key={task.taskId} className="flex flex-col gap-1">
               <span className="font-medium text-primary">{task.title}</span>
               <span className="text-sm text-secondary">
                 {task.status} · {task.labels.join(', ') || 'no labels'}
@@ -114,7 +114,7 @@ export function DataResultPart({ data }: { data: ResultData }) {
       <Card>
         <ul className="flex flex-col gap-1">
           {data.userProfiles.map((p) => (
-            <li key={p.userId} className="flex flex-col gap-0.5">
+            <li key={p.userId} className="flex flex-col gap-1">
               <span className="font-medium text-primary">
                 {p.name}
                 {p.role ? ` · ${p.role}` : ''}

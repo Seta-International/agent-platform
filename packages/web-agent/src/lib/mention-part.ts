@@ -56,6 +56,34 @@ export function reconcileMentions(
   return out;
 }
 
+/**
+ * Pull the mentions out of a persisted user message's normalized content.
+ *
+ * Assistant-ui stores a `data-<name>` part as `{ type: 'data', name, data }`
+ * (the shape `extractPageContext` reads), so the transcript sees
+ * `name: 'entity-mention'`, not the `data-entity-mention` type `buildMentionPart`
+ * emits at send time. Defensive on every field.
+ */
+export function extractMentions(content: ReadonlyArray<unknown>): EntityMention[] {
+  const out: EntityMention[] = [];
+  for (const part of content) {
+    if (!part || typeof part !== 'object') continue;
+    const p = part as { type?: unknown; name?: unknown; data?: unknown };
+    if (p.type !== 'data' || p.name !== 'entity-mention') continue;
+    const d = p.data as { kind?: unknown; id?: unknown; label?: unknown } | undefined;
+    if (
+      !d ||
+      typeof d.kind !== 'string' ||
+      typeof d.id !== 'string' ||
+      typeof d.label !== 'string'
+    ) {
+      continue;
+    }
+    out.push({ kind: d.kind, id: d.id, label: d.label });
+  }
+  return out;
+}
+
 export function isMentionPart(part: unknown): part is EntityMentionPart {
   if (!part || typeof part !== 'object') return false;
   const p = part as { type?: unknown; data?: unknown };

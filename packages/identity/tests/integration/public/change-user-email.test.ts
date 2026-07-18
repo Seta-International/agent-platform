@@ -163,7 +163,7 @@ describe('@seta/identity changeUserEmail', () => {
             [tenantId],
           );
           expect(events).toHaveLength(1);
-          expect((events[0]?.payload as { reason: string }).reason).toBe('sso_sync');
+          expect((events[0]!.payload as { reason: string }).reason).toBe('sso_sync');
         } finally {
           resetCoreDb();
           await closePools();

@@ -1,19 +1,4 @@
-/* eslint-disable react-refresh/only-export-components -- confidenceTier is a pure helper co-located with its renderer; splitting would add a pointless module */
 import { useState } from 'react';
-
-export type Tier = 'High' | 'Medium' | 'Uncertain';
-
-export function confidenceTier(score: number): Tier {
-  if (score >= 0.7) return 'High';
-  if (score >= 0.4) return 'Medium';
-  return 'Uncertain';
-}
-
-const TIER_CLASS: Record<Tier, string> = {
-  High: 'bg-success-muted text-success',
-  Medium: 'bg-warning-muted text-warning',
-  Uncertain: 'bg-surface text-secondary',
-};
 
 interface TrustData {
   confidenceScore: number;
@@ -23,15 +8,14 @@ interface TrustData {
 
 export function DataTrustPart({ data }: { data: TrustData }) {
   const [open, setOpen] = useState(false);
-  const tier = confidenceTier(data.confidenceScore);
   const citations = data.evidenceCitations ?? [];
   const trace = data.reasoningTrace ?? [];
+  // The confidence tier badge was noise; without citations or a trace there is
+  // nothing left worth showing.
+  if (citations.length === 0 && trace.length === 0) return null;
   return (
     <div className="my-1 flex flex-col gap-1 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`rounded px-1.5 py-0.5 font-medium ${TIER_CLASS[tier]}`}>
-          {tier} confidence
-        </span>
         {citations.length > 0 && (
           <span className="text-secondary">
             Based on{' '}

@@ -47,11 +47,40 @@ describe('ToolFallback', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('renders an errored tool', () => {
-    render(<ToolFallback part={{ toolName: 'x', isError: true, status: { type: 'complete' } }} />);
+  it('surfaces a tool-returned error message', () => {
+    render(
+      <ToolFallback
+        part={{
+          toolName: 'x',
+          isError: true,
+          status: { type: 'complete' },
+          result: { message: 'Permission denied' },
+        }}
+      />,
+    );
     // `errorMessage` is not visible text under Astryx — it rides as a native
     // `title` on the status icon (ChatToolCalls.tsx CallRow).
+    expect(screen.getByTitle('Permission denied')).toBeInTheDocument();
+  });
+
+  it('surfaces an aborted-run error message', () => {
+    render(
+      <ToolFallback part={{ toolName: 'x', status: { type: 'incomplete', error: 'Cancelled' } }} />,
+    );
+    expect(screen.getByTitle('Cancelled')).toBeInTheDocument();
+  });
+
+  it('still falls back to "failed" when no error detail exists', () => {
+    render(<ToolFallback part={{ toolName: 'x', isError: true, status: { type: 'complete' } }} />);
     expect(screen.getByTitle('failed')).toBeInTheDocument();
+  });
+
+  it('renders a non-empty labeled row for a bare tool-call with no result, args, or status', () => {
+    const { container } = render(<ToolFallback part={{ toolName: 'staffing_analyzeTasks' }} />);
+    // The old null-return bug left the chain-of-thought step visibly empty. Guard
+    // it: the fallback always paints at least the humanized tool name.
+    expect(screen.getByText('Staffing Analyze Tasks')).toBeInTheDocument();
+    expect(container.textContent?.trim().length).toBeGreaterThan(0);
   });
 });
 

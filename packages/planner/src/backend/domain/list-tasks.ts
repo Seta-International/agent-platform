@@ -278,7 +278,7 @@ export async function listTasks(input: {
   }
 
   if (filters.title_contains !== undefined) {
-    conditions.push(sql`${tasks.title} ILIKE ${'%' + filters.title_contains + '%'}`);
+    conditions.push(sql`${tasks.title} ILIKE ${`%${filters.title_contains}%`}`);
   }
 
   if (filters.no_date) {

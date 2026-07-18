@@ -95,7 +95,7 @@ describe('setLocalPasswordDisabled', () => {
           );
           expect(events).toHaveLength(1);
           expect(events[0]?.event_type).toBe('core.tenant.local_password_disabled.changed');
-          expect((events[0]?.payload as { disabled?: boolean }).disabled).toBe(true);
+          expect((events[0]!.payload as { disabled?: boolean }).disabled).toBe(true);
         } finally {
           resetCoreDb();
           await closePools();

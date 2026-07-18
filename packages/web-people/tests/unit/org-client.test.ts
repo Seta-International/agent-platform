@@ -45,6 +45,10 @@ describe('org-client', () => {
       status: 403,
       json: async () => ({ message: 'Forbidden' }),
     });
-    await expect(fetchOrgStructure()).rejects.toThrow('Forbidden');
+    // `.rejects.toThrow(<arg>)` mis-reads the message as '' under happy-dom (vitest 4.1.x);
+    // assert on the rejection reason directly.
+    await expect(fetchOrgStructure()).rejects.toMatchObject({
+      message: expect.stringContaining('Forbidden'),
+    });
   });
 });

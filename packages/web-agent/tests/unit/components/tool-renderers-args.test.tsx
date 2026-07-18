@@ -49,4 +49,30 @@ describe('generic tool card streaming args', () => {
     expect(screen.getByText('Search')).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/:/);
   });
+
+  it('surfaces a tool-returned error message (complete + isError)', () => {
+    toolRenders.clear();
+    render(<ToolUIRegistry />);
+    const renderFn = toolRenders.get('staffing_search');
+    const ui = renderFn?.({
+      status: { type: 'complete' },
+      isError: true,
+      result: { message: 'No matching users' },
+      args: {},
+    });
+    render(ui as React.ReactElement);
+    expect(screen.getByTitle('No matching users')).toBeInTheDocument();
+  });
+
+  it('surfaces an aborted-run error message (incomplete + status.error)', () => {
+    toolRenders.clear();
+    render(<ToolUIRegistry />);
+    const renderFn = toolRenders.get('staffing_search');
+    const ui = renderFn?.({
+      status: { type: 'incomplete', reason: 'error', error: 'Upstream timeout' },
+      args: {},
+    });
+    render(ui as React.ReactElement);
+    expect(screen.getByTitle('Upstream timeout')).toBeInTheDocument();
+  });
 });

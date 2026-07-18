@@ -1,8 +1,8 @@
 import { useAuiState } from '@assistant-ui/react';
-import { type ChatToolCallStatus, ChatToolCalls, Collapsible } from '@seta/shared-ui';
+import { Collapsible } from '@seta/shared-ui';
 import { type ReactNode, useMemo, useState } from 'react';
-import { extractLeafToolCalls, humanizeToolName, type LeafToolCall } from './leaf-tool-calls';
-import { useDensity } from './use-density';
+import { extractLeafToolCalls, type LeafToolCall } from './leaf-tool-calls';
+import { SubagentGroup } from './subagent-group';
 
 export interface ChainOfThoughtProps {
   running: boolean;
@@ -11,15 +11,8 @@ export interface ChainOfThoughtProps {
   children: ReactNode;
 }
 
-const LEAF_STATUS: Record<LeafToolCall['status'], ChatToolCallStatus> = {
-  running: 'running',
-  ok: 'complete',
-  error: 'error',
-};
-
 export function ChainOfThought({ running, count, indices, children }: ChainOfThoughtProps) {
-  const { density } = useDensity();
-  // null = follow the density default; true/false = an explicit user toggle.
+  // null = no manual toggle yet (collapsed by default); true/false = user toggle.
   const [manualOverride, setManualOverride] = useState<boolean | null>(null);
   // Keep the group expanded while any inner tool-call is awaiting user approval
   // (Mastra-native `requireApproval` HITL gate). Otherwise the agent flipping to
@@ -38,34 +31,37 @@ export function ChainOfThought({ running, count, indices, children }: ChainOfTho
   const leafRows = useMemo(() => extractLeafToolCalls(content), [content]);
   const stepCount = count + leafRows.length;
   const forcedOpen = running || hasPendingAction;
-  const defaultOpen = density === 'detailed';
+  // Collapsed by default; the user expands the thought when they want the detail.
+  const defaultOpen = false;
   const open = forcedOpen || (manualOverride ?? defaultOpen);
-  const calls = useMemo(
-    () =>
-      leafRows.map((r) => ({
-        key: r.toolCallId,
-        name: humanizeToolName(r.name),
-        status: LEAF_STATUS[r.status],
-        target: `via ${r.via}`,
-      })),
-    [leafRows],
-  );
+  // Group each subagent's leaf calls under one header (first-seen agent order).
+  const groups = useMemo(() => {
+    const byAgent = new Map<string, LeafToolCall[]>();
+    for (const row of leafRows) {
+      const list = byAgent.get(row.via);
+      if (list) list.push(row);
+      else byAgent.set(row.via, [row]);
+    }
+    return [...byAgent.entries()].map(([agent, rows]) => ({ agent, rows }));
+  }, [leafRows]);
   return (
     <Collapsible
       isOpen={open}
       onOpenChange={() => setManualOverride((prev) => !(prev ?? defaultOpen))}
       trigger={
-        running
-          ? 'Thinking…'
-          : `Thought ${stepCount > 0 ? `· ${stepCount} step${stepCount > 1 ? 's' : ''}` : ''}`
+        <span className="text-sm font-medium">
+          {running
+            ? 'Thinking…'
+            : `Thought ${stepCount > 0 ? `· ${stepCount} step${stepCount > 1 ? 's' : ''}` : ''}`}
+        </span>
       }
     >
       {children}
-      {/* Drive the leaf group from the same `open` state rather than letting it
-          keep its own: nested inside an open chain-of-thought the rows were
-          always flat/visible before, and a second collapsed layer would bury a
-          pending approval one extra click deep. */}
-      <ChatToolCalls calls={calls} isExpanded={open} />
+      {/* One block per delegated subagent, driven by the parent open state so a
+          pending approval nested inside stays reachable. */}
+      {groups.map((group) => (
+        <SubagentGroup key={group.agent} agent={group.agent} rows={group.rows} open={open} />
+      ))}
     </Collapsible>
   );
 }

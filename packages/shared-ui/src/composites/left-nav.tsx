@@ -1,5 +1,5 @@
 import { SideNav } from '@astryxdesign/core/SideNav';
-import type { AppManifest } from '@seta/module-sdk';
+import { type AppManifest, mergeNavSections } from '@seta/module-sdk';
 import * as React from 'react';
 import { toSideNavSections } from './nav-sections';
 import { DefaultShellLink, type ShellLinkComponent } from './shell-link';
@@ -36,7 +36,7 @@ export function LeftNav({
   };
 
   const extensions = app.useNavExtensions();
-  const sections = [...app.nav, ...extensions];
+  const sections = mergeNavSections(app.nav, extensions);
 
   return (
     <SideNav

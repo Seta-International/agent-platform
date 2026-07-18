@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { KanbanColumn } from '../../../src/composites/kanban-column';
+import { PRIORITY_LEVELS } from '../../../src/lib/priority';
 
 const noopHandle = {
   ref: undefined as undefined,
@@ -185,7 +186,7 @@ describe('<KanbanColumn> quick-create submit', () => {
     );
   });
 
-  it('exposes Priority and Due chips inline (no "More options" disclosure)', () => {
+  it('exposes Priority and Due controls inline (no "More options" disclosure)', () => {
     render(
       <KanbanColumn
         name="Todo"
@@ -198,12 +199,19 @@ describe('<KanbanColumn> quick-create submit', () => {
       </KanbanColumn>,
     );
     fireEvent.click(screen.getByText('+ Add a task'));
-    expect(screen.getByRole('button', { name: 'Priority' })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Due' })).toBeInTheDocument();
-    expect(screen.queryByText('More options')).not.toBeInTheDocument();
+    // Priority is an Astryx Selector — a combobox whose sr-only label ("Priority",
+    // kept accessible by isLabelHidden) supplies its accessible name.
+    expect(screen.getByRole('combobox', { name: 'Priority' })).toBeInTheDocument();
+    // Due is an Astryx DateRangeInput trigger (a dialog-popup button); its sr-only
+    // "Start and due dates" label prefixes the accessible name.
+    expect(screen.getByRole('button', { name: /Start and due dates/ })).toBeInTheDocument();
+    // Both controls live inline in the compose card — nothing hides them behind a
+    // "More options" disclosure.
+    expect(screen.queryByRole('button', { name: /more options/i })).not.toBeInTheDocument();
   });
 
-  it('forwards due_at to onCreateTask', async () => {
+  it('forwards due_at (sourced from the range end) to onCreateTask', async () => {
+    const user = userEvent.setup();
     const onCreateTask = vi.fn();
     render(
       <KanbanColumn
@@ -220,12 +228,28 @@ describe('<KanbanColumn> quick-create submit', () => {
     fireEvent.change(screen.getByPlaceholderText('Task title'), {
       target: { value: 'With details' },
     });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Due' }), {
-      target: { value: '2026-06-15' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    // Open the DateRangeInput calendar and pick a start day then an end day. Every
+    // selectable cell carries a `data-date`; taking the two earliest selectable days
+    // keeps this deterministic no matter which month the calendar opens on.
+    await user.click(screen.getByRole('button', { name: /Start and due dates/ }));
+    const days = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button[data-date]:not([aria-disabled="true"])'),
+    ).sort((a, b) =>
+      (a.getAttribute('data-date') ?? '').localeCompare(b.getAttribute('data-date') ?? ''),
+    );
+    expect(days.length).toBeGreaterThanOrEqual(2);
+    const [startDay, endDay] = days; // first click sets range.start, second sets range.end
+    await user.click(startDay);
+    await user.click(endDay);
+    const expectedDue = endDay.getAttribute('data-date');
+
+    await user.click(screen.getByRole('button', { name: 'Add' }));
     await waitFor(() => expect(onCreateTask).toHaveBeenCalledTimes(1));
-    expect(onCreateTask).toHaveBeenCalledWith({ title: 'With details', due_at: '2026-06-15' });
+    // due_at must equal the second day picked (range.end), proving the wiring.
+    expect(onCreateTask).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'With details', due_at: expectedDue }),
+    );
   });
 
   it('shows a color dot for every priority option (FUT-21)', async () => {
@@ -242,15 +266,20 @@ describe('<KanbanColumn> quick-create submit', () => {
       </KanbanColumn>,
     );
     fireEvent.click(screen.getByText('+ Add a task'));
-    await user.click(screen.getByRole('button', { name: 'Priority' }));
+    // Dots live on each Selector option's icon and only mount once the listbox opens.
+    await user.click(screen.getByRole('combobox', { name: 'Priority' }));
 
-    // Every option's leading dot must carry a priority color from the shared
-    // registry — Urgent and Medium were rendering with no color (FUT-21).
-    for (const label of ['Urgent', 'Important', 'Medium', 'Low']) {
-      const item = await screen.findByRole('menuitem', { name: label });
+    // One option per registry entry — counted against PRIORITY_LEVELS so it can't
+    // drift from the component's source of truth.
+    expect(screen.getAllByRole('option')).toHaveLength(PRIORITY_LEVELS.length);
+
+    // Every option's leading dot must carry that level's exact priority color from
+    // the shared registry — Urgent and Medium were rendering with no color (FUT-21).
+    for (const level of PRIORITY_LEVELS) {
+      const item = screen.getByRole('option', { name: level.label });
       const dot = item.querySelector('span[aria-hidden="true"]');
-      expect(dot, `dot for ${label}`).toBeTruthy();
-      expect(dot?.getAttribute('style') ?? '', `color for ${label}`).toContain('--color-icon-');
+      expect(dot, `dot for ${level.label}`).toBeTruthy();
+      expect(dot?.getAttribute('style') ?? '', `color for ${level.label}`).toContain(level.color);
     }
   });
 

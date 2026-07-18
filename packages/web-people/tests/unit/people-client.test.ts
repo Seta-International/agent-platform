@@ -404,7 +404,10 @@ describe('addWorkerSkill', () => {
       json: async () => ({ message: 'Forbidden' }),
     });
 
-    await expect(addWorkerSkill('worker-1', 'skill-abc')).rejects.toThrow('Forbidden');
+    // `.rejects.toThrow(<arg>)` mis-reads the message as '' under happy-dom (vitest 4.1.x).
+    await expect(addWorkerSkill('worker-1', 'skill-abc')).rejects.toMatchObject({
+      message: expect.stringContaining('Forbidden'),
+    });
   });
 });
 
@@ -439,6 +442,9 @@ describe('removeWorkerSkill', () => {
       json: async () => ({ message: 'Not found' }),
     });
 
-    await expect(removeWorkerSkill('worker-1', 'skill-xyz')).rejects.toThrow('Not found');
+    // `.rejects.toThrow(<arg>)` mis-reads the message as '' under happy-dom (vitest 4.1.x).
+    await expect(removeWorkerSkill('worker-1', 'skill-xyz')).rejects.toMatchObject({
+      message: expect.stringContaining('Not found'),
+    });
   });
 });

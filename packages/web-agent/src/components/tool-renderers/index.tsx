@@ -10,6 +10,7 @@ import { ListMyRolesRenderer } from './identity.list-my-roles';
 import { WhoAmIRenderer } from './identity.who-am-i';
 import { payloadDetail } from './payload-detail';
 import { summarizeArgs } from './summarize-args';
+import { toolErrorMessage } from './tool-error';
 
 function toReadState(
   props: ToolCallMessagePartProps,
@@ -102,7 +103,12 @@ function GenericToolRegistration({ id, name }: { id: string; name: string }) {
         );
       }
       if (state === 'output-error') {
-        return <ChatToolCalls calls={[{ name, status: 'error', errorMessage: 'failed' }]} />;
+        const source = props.status.type === 'incomplete' ? props.status.error : props.result;
+        return (
+          <ChatToolCalls
+            calls={[{ name, status: 'error', errorMessage: toolErrorMessage(source) }]}
+          />
+        );
       }
       return (
         <ChatToolCalls calls={[{ name, status: 'running', target: summarizeArgs(props.args) }]} />

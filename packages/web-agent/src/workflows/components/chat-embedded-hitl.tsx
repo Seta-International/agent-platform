@@ -1,3 +1,4 @@
+import { ChatSystemMessage } from '@seta/shared-ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import type { WorkflowApprovalRow } from '../api/schemas.ts';
@@ -5,7 +6,13 @@ import { type DecideApprovalBody, workflowsApi } from '../api/workflows.ts';
 import { useThreadApprovals } from '../hooks/use-thread-approvals.ts';
 import { workflowsQueryKeys } from '../state/query-keys.ts';
 import { isDedupApprovalPayload } from './approval-card-shape.ts';
-import { cardIntent, cardToolId, outcomeText, STATUS_LABELS } from './decided-approval.ts';
+import {
+  cardIntent,
+  cardToolId,
+  outcomeText,
+  resolutionStatusLine,
+  STATUS_LABELS,
+} from './decided-approval.ts';
 import { HitlApprovalCard } from './hitl-approval-card.tsx';
 import { HitlCardHost } from './hitl-card-host.tsx';
 
@@ -33,6 +40,19 @@ function DecidedRow({ approval }: { approval: WorkflowApprovalRow }) {
         <p className="mt-0.5 text-sm text-secondary">{outcomeText(approval)}</p>
       </div>
     </div>
+  );
+}
+
+// The centered transcript marker for the moment an approval resolved, above the
+// persistent outcome row. HITL is the only honest source of transcript status
+// lines — a still-pending approval yields no line.
+function ResolvedApproval({ approval }: { approval: WorkflowApprovalRow }) {
+  const line = resolutionStatusLine(approval.status);
+  return (
+    <>
+      {line ? <ChatSystemMessage>{line}</ChatSystemMessage> : null}
+      <DecidedRow approval={approval} />
+    </>
   );
 }
 
@@ -96,11 +116,11 @@ export function ChatEmbeddedHitl({ threadId }: ChatEmbeddedHitlProps) {
     <section className="space-y-3" aria-label="In-thread approvals">
       {approvals.map((approval) => {
         if (approval.status !== 'pending') {
-          return <DecidedRow key={approval.approvalId} approval={approval} />;
+          return <ResolvedApproval key={approval.approvalId} approval={approval} />;
         }
         if (justDecided && justDecided.approvalId === approval.approvalId) {
           return (
-            <DecidedRow
+            <ResolvedApproval
               key={approval.approvalId}
               approval={{
                 ...approval,

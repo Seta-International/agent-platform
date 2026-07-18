@@ -18,13 +18,13 @@ exports[`PreviewBody > renders automatic variant matching snapshot 1`] = `
       Architecture review notes
     </span>
     <span
-      class="mono t-xs subtle"
+      class="font-mono tabular-nums text-xs text-secondary"
     >
       docs.acme
     </span>
   </div>
   <div
-    class="t-xs subtle"
+    class="text-xs text-secondary"
     style="margin-top: 5px; font-style: italic;"
   >
     picked from 
@@ -81,7 +81,7 @@ exports[`PreviewBody > renders checklist variant matching snapshot 1`] = `
       </span>
     </div>
     <div
-      class="t-xs subtle"
+      class="text-xs text-secondary"
       style="margin-top: 2px;"
     >
       2
@@ -129,7 +129,7 @@ exports[`PreviewBody > renders reference variant matching snapshot 1`] = `
       Architecture review notes
     </span>
     <span
-      class="mono t-xs subtle"
+      class="font-mono tabular-nums text-xs text-secondary"
     >
       docs.acme
     </span>

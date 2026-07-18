@@ -50,6 +50,25 @@ export function GroupDiscoverPage() {
     setSubmittedQ(q.trim());
   }
 
+  const searchForm = (className: string) => (
+    <form onSubmit={handleSearch} className={className}>
+      <Input
+        label="Search by group name"
+        isLabelHidden
+        placeholder="Search by group name…"
+        value={q}
+        onChange={(value) => setQ(value)}
+        className="flex-1"
+      />
+      <Button
+        type="submit"
+        icon={<Search className="size-4" />}
+        label="Search"
+        isDisabled={q.trim().length === 0}
+      />
+    </form>
+  );
+
   return (
     <Layout
       height="fill"
@@ -70,29 +89,18 @@ export function GroupDiscoverPage() {
       content={
         <LayoutContent padding={0}>
           <PageContainer>
-            <form onSubmit={handleSearch} className="mx-auto mb-8 flex max-w-xl gap-2">
-              <Input
-                label="Search by group name"
-                isLabelHidden
-                placeholder="Search by group name…"
-                value={q}
-                onChange={(value) => setQ(value)}
-                className="flex-1"
-              />
-              <Button
-                type="submit"
-                icon={<Search className="size-4" />}
-                label="Search"
-                isDisabled={q.trim().length === 0}
-              />
-            </form>
-
-            {!submittedQ && (
+            {!submittedQ ? (
+              // Pristine state: the search IS the call-to-action, grouped into the
+              // empty-state cluster rather than floating above it.
               <EmptyState
                 icon={<Users className="size-6" />}
                 title="Find your team's workspace"
                 description="Search public groups by name and request to join. Can't find yours? Ask a group owner to add you."
+                actions={searchForm('flex w-full max-w-md gap-2')}
               />
+            ) : (
+              // After a search, promote the bar to the top, left-aligned with the results list.
+              searchForm('mb-6 flex max-w-xl gap-2')
             )}
 
             {searchQuery.isPending && submittedQ && (

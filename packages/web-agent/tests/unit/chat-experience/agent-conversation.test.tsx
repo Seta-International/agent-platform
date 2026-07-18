@@ -1,13 +1,26 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let thoughtStatus = 'complete';
 
+// Drives DateDivider: each message reads its own index/createdAt and the branch
+// via thread.messages. The mock renders each turn under a React context that
+// pins its index, so `useAuiState` resolves the right message at React's actual
+// (deferred, depth-first) render time — a plain `currentIndex` mutation would be
+// stale by the time nested components like <DateDivider /> render.
+let messagesFixture: { createdAt: Date }[] = [
+  { createdAt: new Date('2026-05-20T16:13:00Z') },
+  { createdAt: new Date('2026-05-20T16:14:00Z') },
+];
+
 const composer = vi.hoisted(() => ({ setText: vi.fn(), send: vi.fn() }));
 
-vi.mock('@assistant-ui/react', () => {
+vi.mock('@assistant-ui/react', async () => {
+  const React = await import('react');
+  const MessageIndexContext = React.createContext(0);
+
   const MessagePrimitive = {
     GroupedParts: ({ children }: { children: (props: unknown) => ReactNode }) =>
       children({
@@ -19,8 +32,15 @@ vi.mock('@assistant-ui/react', () => {
         children: <div>Collected reasoning</div>,
       }),
     If: () => null,
-    Parts: ({ components }: { components: { Text: (props: unknown) => ReactNode } }) =>
-      components.Text({ text: 'Hello from the user', status: { type: 'complete' } }),
+    Parts: ({ components }: { components: { Text: (props: unknown) => ReactNode } }) => (
+      <>
+        {components.Text({ text: 'Hello from the user', status: { type: 'complete' } })}
+        {components.Text({
+          text: 'Context:\n<<<FILE: spec.pdf>>>\nBODY\n<<<END spec.pdf>>>',
+          status: { type: 'complete' },
+        })}
+      </>
+    ),
   };
 
   const ThreadPrimitive = {
@@ -29,26 +49,46 @@ vi.mock('@assistant-ui/react', () => {
       components,
     }: {
       components: { UserMessage: () => ReactNode; AssistantMessage: () => ReactNode };
-    }) => (
-      <>
-        {components.UserMessage()}
-        {components.AssistantMessage()}
-      </>
-    ),
+    }) => {
+      const { UserMessage, AssistantMessage } = components;
+      return (
+        <>
+          <MessageIndexContext.Provider value={0}>
+            <UserMessage />
+          </MessageIndexContext.Provider>
+          <MessageIndexContext.Provider value={1}>
+            <AssistantMessage />
+          </MessageIndexContext.Provider>
+        </>
+      );
+    },
   };
 
   return {
     MessagePrimitive,
     ThreadPrimitive,
     useAui: () => ({ composer: () => composer }),
-    useAuiState: (selector: (state: unknown) => unknown) =>
-      selector({
+    useAuiState: (selector: (state: unknown) => unknown) => {
+      const index = React.useContext(MessageIndexContext);
+      return selector({
         message: {
-          content: [{ status: { type: 'complete' } }],
-          createdAt: new Date('2026-05-20T16:13:00Z'),
+          content: [
+            { status: { type: 'complete' } },
+            {
+              type: 'data',
+              name: 'entity-mention',
+              data: { kind: 'person', id: 'w1', label: 'Jane Doe' },
+            },
+          ],
+          createdAt: messagesFixture[index]?.createdAt ?? new Date('2026-05-20T16:13:00Z'),
+          index,
         },
-        thread: { isRunning: thoughtStatus === 'running' },
-      }),
+        thread: {
+          isRunning: thoughtStatus === 'running',
+          messages: messagesFixture,
+        },
+      });
+    },
   };
 });
 
@@ -78,7 +118,21 @@ vi.mock('../../../src/chat-experience/agent-composer', () => ({
 }));
 
 import { AgentConversation } from '../../../src/chat-experience/agent-conversation';
-import { DensityProvider } from '../../../src/chat-experience/use-density';
+
+// Reset the day fixture so the divider tests are isolated from each other and
+// from the suites that don't care about dates (they use the same-day default).
+beforeEach(() => {
+  messagesFixture = [
+    { createdAt: new Date('2026-05-20T16:13:00Z') },
+    { createdAt: new Date('2026-05-20T16:14:00Z') },
+  ];
+});
+
+// Always restore real timers so a failed assertion inside a fake-timer divider
+// test can't leak into the userEvent suites (fake timers + userEvent deadlock).
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // NOTE (FUT-670): `aria-expanded` is the ONLY load-bearing assertion for
 // open/closed here. Astryx `Collapsible` keeps its children mounted and hides
@@ -113,20 +167,6 @@ describe('AgentConversation thought group', () => {
       'true',
     );
     expect(screen.getByText('Collected reasoning')).toBeInTheDocument();
-  });
-
-  it('keeps a completed thought expanded in detailed density', () => {
-    localStorage.setItem('seta.agent.density', 'detailed');
-    thoughtStatus = 'complete';
-    render(
-      <DensityProvider>
-        <AgentConversation />
-      </DensityProvider>,
-    );
-    expect(screen.getByRole('button', { name: /Thought/ })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
   });
 
   it('opens a completed thought when the user clicks the thought card', async () => {
@@ -168,6 +208,34 @@ describe('AgentConversation user message', () => {
   });
 });
 
+// Slice F: mentions are attached at send but nothing rendered them, so they
+// vanished after the turn was sent. The persisted turn carries an
+// `entity-mention` data part (see the shared mock); UserMessage surfaces it as
+// a visible ContextChip (muted kind + label).
+describe('AgentConversation user mentions', () => {
+  it('renders an @-mention from the persisted turn as a visible chip', () => {
+    thoughtStatus = 'complete';
+    render(<AgentConversation />);
+    // Regression: mentions used to render nothing and vanish after send.
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+    expect(screen.getByText('person')).toBeInTheDocument();
+  });
+});
+
+// Slice F: a persisted attachment rides as a `Context:\n<<<FILE:` text part so
+// Mastra replays it on follow-ups; PlainTextPart collapses that sentinel into a
+// file ContextChip so the raw document body never reaches the user as text.
+describe('AgentConversation attachment chips', () => {
+  it('renders a persisted attachment filename as a chip, not raw sentinel text', () => {
+    thoughtStatus = 'complete';
+    render(<AgentConversation />);
+    expect(screen.getByText('spec.pdf')).toBeInTheDocument();
+    // The `<<<FILE:` sentinel body must never reach the user as text.
+    expect(screen.queryByText(/<<<FILE:/)).toBeNull();
+    expect(screen.queryByText(/BODY/)).toBeNull();
+  });
+});
+
 // Regression for FUT-670 Task 5 review finding: nothing in this suite asserted
 // the headline change — that ChatLayout's `composer` slot is actually wired to
 // `<AgentComposer />` rather than left `composer={null}`. Reverting that one
@@ -184,6 +252,41 @@ describe('AgentConversation composer dock', () => {
     const composer = screen.getByTestId('composer-stub');
     expect(composer).toBeInTheDocument();
     expect(within(screen.getByRole('log')).queryByTestId('composer-stub')).toBeNull();
+  });
+});
+
+// Slice D: date dividers are per-message, derived from each turn's local day vs
+// the previous turn's. Fixtures use the local-time Date constructor and fake
+// timers pin "now" so Today/Yesterday are deterministic in any runner timezone.
+describe('AgentConversation date dividers', () => {
+  it('shows one divider at a day boundary and none within the same day', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 4, 20, 18)); // local May 20 2026, 18:00
+    messagesFixture = [
+      { createdAt: new Date(2026, 4, 20, 9) }, // message 0 → boundary (first)
+      { createdAt: new Date(2026, 4, 20, 17) }, // message 1 → same day, no divider
+    ];
+    thoughtStatus = 'complete';
+    render(<AgentConversation />);
+
+    // First message opens with "Today"; the same-day second message adds none.
+    expect(screen.getAllByText('Today')).toHaveLength(1);
+    vi.useRealTimers();
+  });
+
+  it('adds a second divider when the day changes between messages', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 4, 21, 18)); // local May 21 2026, 18:00
+    messagesFixture = [
+      { createdAt: new Date(2026, 4, 20, 9) }, // Yesterday
+      { createdAt: new Date(2026, 4, 21, 9) }, // Today
+    ];
+    thoughtStatus = 'complete';
+    render(<AgentConversation />);
+
+    expect(screen.getByText('Yesterday')).toBeInTheDocument();
+    expect(screen.getByText('Today')).toBeInTheDocument();
+    vi.useRealTimers();
   });
 });
 

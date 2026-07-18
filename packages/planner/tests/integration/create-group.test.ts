@@ -169,7 +169,7 @@ describe('createGroup', () => {
           expect(group.external_id).toBeNull();
 
           const events = await readEvents(pool, seeded.tenant_id, 'planner.group.created');
-          const after = (events[0]?.payload as { after: { description: string; theme: string } })
+          const after = (events[0]!.payload as { after: { description: string; theme: string } })
             .after;
           expect(after.description).toBe('Platform work');
           expect(after.theme).toBe('green');

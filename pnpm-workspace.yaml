@@ -32,6 +32,15 @@ overrides:
   # one shared instance so the lock/restore coordination is consistent app-wide.
   "@radix-ui/react-dismissable-layer": 1.1.12
   happy-dom: 20.9.0
+  # Root pinned vitest ^4.1.10 while every leaf pinned ^4.1.9, and @types/node was split
+  # 25/26 across the tree (tooling pulled 26). vitest is peer-keyed on @types/node, so it
+  # forked into two instances with separate @vitest/snapshot copies: shared-ui snapshot
+  # tests failed "SnapshotClient.setup() not called" (runner and test's expect on different
+  # instances) and notifications typecheck hit cross-instance InlineConfig conflicts. Force
+  # one vitest + one @types/node so a single instance backs the whole workspace.
+  vitest: 4.1.10
+  "@vitest/coverage-v8": 4.1.10
+  "@types/node": 25.9.5
 allowBuilds:
   '@prisma/client': true
   better-sqlite3: true

@@ -125,7 +125,7 @@ describe('editWorker', () => {
 
         const events = await readEvents(pool, t.tenant_id, 'people.worker.updated');
         expect(events).toHaveLength(1);
-        const eventFields = (events[0]?.payload.fields as string[]).sort();
+        const eventFields = (events[0]!.payload.fields as string[]).sort();
         expect(eventFields).toEqual(['full_name', 'phone']);
       } finally {
         resetPeopleDb();
@@ -269,7 +269,7 @@ describe('editWorker', () => {
 
         const events = await readEvents(pool, t.tenant_id, 'people.worker.updated');
         expect(events).toHaveLength(1);
-        const eventFields = (events[0]?.payload.fields as string[]).sort();
+        const eventFields = (events[0]!.payload.fields as string[]).sort();
         expect(eventFields).toEqual(['job_title', 'org_unit_id']);
       } finally {
         resetPeopleDb();

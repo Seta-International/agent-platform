@@ -23,6 +23,7 @@ const REQUIRED = [
   'NumberInput',
   'Pagination',
   'Popover',
+  'SelectableCard',
   'Selector',
   'SetaLogo',
   'SetaMark',
