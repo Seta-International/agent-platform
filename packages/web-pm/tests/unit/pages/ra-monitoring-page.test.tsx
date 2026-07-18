@@ -148,7 +148,7 @@ describe('RaMonitoringPage — SelectEmployeeDialog (Astryx migration smoke test
     // Select employee dialog itself is done with its job once Next is clicked — it always
     // closes and hands off to the Reassign wizard (already covered by reassign-wizard.test.tsx).
     expect(screen.queryByRole('heading', { name: 'Select employee' })).not.toBeInTheDocument();
-  }, 15_000);
+  });
 });
 
 // SplitAllocationDialog is deliberately NOT covered here. It's a parent-controlled dialog

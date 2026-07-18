@@ -307,7 +307,7 @@ describe('Directory page', () => {
     expect(calledBody.user_ids).toHaveLength(2);
     // Confirm succeeds → the dialog closes (no longer in the a11y tree).
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  }, 15_000);
+  });
 
   it('bulk bar: selection persists across pagination (accumulator)', async () => {
     const user = userEvent.setup();
@@ -363,7 +363,7 @@ describe('Directory page', () => {
     const [calledBody] = mockAdd.mock.calls[0] as [{ user_ids: string[] }];
     expect(calledBody.user_ids).toHaveLength(3);
     expect(calledBody.user_ids).toEqual(expect.arrayContaining(['u2', 'u3', 'u4']));
-  }, 15_000);
+  });
 
   it('clicking a row opens the detail sheet with person details', async () => {
     await setupMocks({ canWrite: false });
