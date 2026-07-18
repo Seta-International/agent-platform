@@ -1,13 +1,13 @@
-import { ConfirmProvider } from '@seta/shared-ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-const h = vi.hoisted(() => ({ navigate: vi.fn(), startFreshThread: vi.fn(() => 'new-1') }));
-
-// AgentHeader calls useConfirm (delete flow), so it needs a ConfirmProvider host.
-const renderHeader = (ui: ReactElement) => render(<ConfirmProvider>{ui}</ConfirmProvider>);
+const h = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  startFreshThread: vi.fn(() => 'new-1'),
+  renameChat: vi.fn(),
+  deleteChat: vi.fn(),
+}));
 
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => h.navigate }));
 
@@ -17,50 +17,60 @@ vi.mock('../../../src/hooks/use-thread-list', () => ({
     groups: [{ label: 'Today', items: [{ id: 't1', title: 'Chat', updatedAtLabel: 'now' }] }],
   }),
 }));
-vi.mock('../../../src/hooks/use-thread-mutations', () => ({
-  useRenameThread: () => ({ mutate: vi.fn() }),
-  useDeleteThread: () => ({ mutate: vi.fn() }),
-}));
 vi.mock('../../../src/chat-experience/agent-provider', () => ({
   useAgentSelection: () => ({
     selection: { threadId: 't1', modelKey: 'auto' },
     actions: { startFreshThread: h.startFreshThread },
   }),
 }));
+// Rename/delete are routed through the shared chat modals.
+vi.mock('../../../src/chat-experience/chat-actions', () => ({
+  useChatActions: () => ({ renameChat: h.renameChat, deleteChat: h.deleteChat }),
+}));
 
 import { AgentHeader } from '../../../src/chat-experience/agent-header';
 
 describe('<AgentHeader> chat-actions menu', () => {
-  it('no longer offers a Concise/Detailed response-detail toggle', async () => {
+  it('offers Rename/Delete and no Concise/Detailed toggle', async () => {
     const user = userEvent.setup();
-    renderHeader(<AgentHeader />);
+    render(<AgentHeader />);
 
     await user.click(screen.getByRole('button', { name: 'Chat actions' }));
-    // Rename stays; the density options and their heading are gone.
     expect(screen.getByRole('menuitem', { name: /rename/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /delete chat/i })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: /concise/i })).toBeNull();
-    expect(screen.queryByRole('menuitem', { name: /detailed/i })).toBeNull();
     expect(screen.queryByText(/response detail/i)).toBeNull();
+  });
+
+  it('deletes through the shared confirm modal', async () => {
+    const user = userEvent.setup();
+    h.deleteChat.mockClear();
+    render(<AgentHeader />);
+    await user.click(screen.getByRole('button', { name: 'Chat actions' }));
+    await user.click(screen.getByRole('menuitem', { name: /delete chat/i }));
+    expect(h.deleteChat).toHaveBeenCalledWith('t1');
   });
 });
 
 describe('<AgentHeader>', () => {
-  it('no longer renders a mobile-nav hamburger (history moved to the shell nav)', () => {
-    renderHeader(<AgentHeader />);
-    expect(screen.queryByRole('button', { name: /open chats/i })).toBeNull();
+  it('opens the rename modal from the title button', () => {
+    h.renameChat.mockClear();
+    render(<AgentHeader />);
+    fireEvent.click(screen.getByRole('button', { name: 'Chat' }));
+    expect(h.renameChat).toHaveBeenCalledWith('t1', 'Chat');
   });
 
   it('starts a fresh thread from the New chat button', () => {
     h.startFreshThread.mockClear();
     h.navigate.mockClear();
-    renderHeader(<AgentHeader />);
+    render(<AgentHeader />);
     fireEvent.click(screen.getByRole('button', { name: 'New chat' }));
     expect(h.startFreshThread).toHaveBeenCalledOnce();
     expect(h.navigate).toHaveBeenCalledWith({ to: '/agent/chat', search: { thread: 'new-1' } });
   });
 
   it('does not render the New chat button in the compact panel header', () => {
-    renderHeader(<AgentHeader compact />);
+    render(<AgentHeader compact />);
     expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
   });
 });

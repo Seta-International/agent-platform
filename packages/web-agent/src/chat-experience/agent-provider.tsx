@@ -18,6 +18,7 @@ import { useModelCatalog } from '../hooks/use-model-catalog';
 import { ThreadMessagesError, useThreadMessages } from '../hooks/use-thread-messages';
 import { markThreadFresh, markThreadKnown } from '../lib/fresh-thread-store';
 import type { EntityMention } from '../lib/mention-part';
+import { ChatActionsProvider } from './chat-actions';
 import { ChatSkeleton } from './chat-skeleton';
 
 const MODEL_STORAGE_KEY = 'seta.agent.model';
@@ -250,7 +251,9 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     <SelectionContext.Provider value={selectionValue}>
       <PageContextContext.Provider value={pageCtxValue}>
         <PanelUIContext.Provider value={panelUIValue}>
-          <AgentRuntimeHost>{children}</AgentRuntimeHost>
+          <ChatActionsProvider currentThreadId={threadId} startFreshThread={startFreshThread}>
+            <AgentRuntimeHost>{children}</AgentRuntimeHost>
+          </ChatActionsProvider>
         </PanelUIContext.Provider>
       </PageContextContext.Provider>
     </SelectionContext.Provider>

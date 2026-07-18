@@ -1,8 +1,9 @@
 import type { AppManifest, NavItem, NavSection } from '@seta/module-sdk';
 import { useNavigate } from '@tanstack/react-router';
 import { BookOpen, MessageSquare, Plus, Sparkles, Workflow } from 'lucide-react';
-import { useState } from 'react';
+import { createElement, useState } from 'react';
 import { useAgentSelection } from './chat-experience/agent-provider';
+import { ThreadRowMenu } from './chat-experience/thread-row-menu';
 import { useThreadList } from './hooks/use-thread-list';
 
 // How many recent threads to reveal before "Show more", and the reveal step.
@@ -42,6 +43,7 @@ function useAgentNavExtensions(): NavSection[] {
       label: t.title,
       isSelected: selection.threadId === t.id,
       onClick: () => void navigate({ to: '/agent/chat', search: { thread: t.id } }),
+      endContent: createElement(ThreadRowMenu, { threadId: t.id, title: t.title }),
     })),
   ];
   if (threads.length > limit) {

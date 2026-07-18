@@ -2,6 +2,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../src/chat-experience/chat-actions', () => ({
+  ChatActionsProvider: ({ children }: { children: React.ReactNode }) => children,
+  useChatActions: () => ({ renameChat: () => {}, deleteChat: () => {} }),
+}));
+
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
   useLocation: () => ({ pathname: '/planner' }),

@@ -1,5 +1,5 @@
 import type { PermissionKey } from '@seta/shared-rbac';
-import type { ComponentType, SVGProps } from 'react';
+import type { ComponentType, ReactNode, SVGProps } from 'react';
 
 export type NavIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -39,6 +39,11 @@ export interface NavItem {
    * "Show more" row) rather than a peer of the surrounding items.
    */
   italic?: boolean;
+  /**
+   * Trailing content for the row (e.g. a per-item `MoreMenu`). Overrides the
+   * badge/status-dot end content derived from `badge`/`badgeTone`.
+   */
+  endContent?: ReactNode;
 }
 
 export interface NavSection {
