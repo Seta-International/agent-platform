@@ -1,4 +1,4 @@
-import { DropdownMenu, DropdownMenuItem, IconButton } from '@seta/shared-ui';
+import { DropdownMenu, DropdownMenuItem, IconButton, useConfirm } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { MessageSquare, MoreHorizontal, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -54,6 +54,7 @@ export function AgentHeader({
   const rename = useRenameThread();
   const remove = useDeleteThread();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   // A freshly-minted client id isn't in the rail until the Mastra row is
   // created on first send. Gate rename/delete on that signal so we don't fire
   // PATCH/DELETE against an id the server doesn't know yet.
@@ -78,9 +79,14 @@ export function AgentHeader({
     const nextId = actions.startFreshThread();
     void navigate({ to: '/agent/chat', search: { thread: nextId } });
   };
-  const onDelete = () => {
+  const onDelete = async () => {
     if (!threadId) return;
-    if (!window.confirm("Delete this chat? You won't be able to get it back.")) return;
+    const ok = await confirm({
+      title: 'Delete chat?',
+      description: "You won't be able to get it back.",
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     remove.mutate(threadId, {
       onSuccess: () => {
         const nextId = actions.startFreshThread();

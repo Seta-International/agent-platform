@@ -16,6 +16,7 @@ export * from './composites/auth-backdrop';
 export * from './composites/auth-panel';
 export * from './composites/avatar-stack';
 export * from './composites/coming-soon';
+export * from './composites/confirm';
 export * from './composites/counter-badge-popover';
 export * from './composites/dialog-footer';
 export * from './composites/disabled-action-tooltip';

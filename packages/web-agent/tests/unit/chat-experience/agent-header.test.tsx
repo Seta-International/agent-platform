@@ -1,8 +1,13 @@
+import { ConfirmProvider } from '@seta/shared-ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({ navigate: vi.fn(), startFreshThread: vi.fn(() => 'new-1') }));
+
+// AgentHeader calls useConfirm (delete flow), so it needs a ConfirmProvider host.
+const renderHeader = (ui: ReactElement) => render(<ConfirmProvider>{ui}</ConfirmProvider>);
 
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => h.navigate }));
 
@@ -28,7 +33,7 @@ import { AgentHeader } from '../../../src/chat-experience/agent-header';
 describe('<AgentHeader> chat-actions menu', () => {
   it('no longer offers a Concise/Detailed response-detail toggle', async () => {
     const user = userEvent.setup();
-    render(<AgentHeader />);
+    renderHeader(<AgentHeader />);
 
     await user.click(screen.getByRole('button', { name: 'Chat actions' }));
     // Rename stays; the density options and their heading are gone.
@@ -41,21 +46,21 @@ describe('<AgentHeader> chat-actions menu', () => {
 
 describe('<AgentHeader>', () => {
   it('no longer renders a mobile-nav hamburger (history moved to the shell nav)', () => {
-    render(<AgentHeader />);
+    renderHeader(<AgentHeader />);
     expect(screen.queryByRole('button', { name: /open chats/i })).toBeNull();
   });
 
   it('starts a fresh thread from the New chat button', () => {
     h.startFreshThread.mockClear();
     h.navigate.mockClear();
-    render(<AgentHeader />);
+    renderHeader(<AgentHeader />);
     fireEvent.click(screen.getByRole('button', { name: 'New chat' }));
     expect(h.startFreshThread).toHaveBeenCalledOnce();
     expect(h.navigate).toHaveBeenCalledWith({ to: '/agent/chat', search: { thread: 'new-1' } });
   });
 
   it('does not render the New chat button in the compact panel header', () => {
-    render(<AgentHeader compact />);
+    renderHeader(<AgentHeader compact />);
     expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
   });
 });
