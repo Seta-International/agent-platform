@@ -43,15 +43,20 @@ function toSideNavItem(
   activeItemId: string | undefined,
   Link: ShellLinkComponent,
 ): ReactNode {
+  const hasChildren = !!item.children?.length;
   return (
     <SideNavItem
       key={item.id}
-      as={Link}
+      // Link-less action items (e.g. "Show more", search-param thread jumps)
+      // ride `onClick` and render as a button; `as`/`href` only apply with a route.
+      as={item.to ? Link : undefined}
       label={item.label}
       icon={item.icon}
-      isSelected={activeItemId === item.id}
+      isSelected={item.isSelected ?? activeItemId === item.id}
       isDisabled={item.disabled}
       href={item.disabled ? undefined : item.to}
+      onClick={item.disabled ? undefined : item.onClick}
+      collapsible={hasChildren ? (item.collapsible ?? undefined) : undefined}
       endContent={navItemEndContent(item)}
     >
       {item.children?.map((child) => toSideNavItem(child, activeItemId, Link))}

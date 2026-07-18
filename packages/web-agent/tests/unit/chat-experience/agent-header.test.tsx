@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -37,15 +37,8 @@ describe('<AgentHeader> chat-actions menu', () => {
   });
 });
 
-describe('<AgentHeader> mobile nav trigger', () => {
-  it('invokes onOpenMobileNav when the hamburger is clicked', () => {
-    const onOpenMobileNav = vi.fn();
-    render(<AgentHeader onOpenMobileNav={onOpenMobileNav} />);
-    fireEvent.click(screen.getByRole('button', { name: /open chats/i }));
-    expect(onOpenMobileNav).toHaveBeenCalledOnce();
-  });
-
-  it('does not render the hamburger without an onOpenMobileNav handler', () => {
+describe('<AgentHeader>', () => {
+  it('no longer renders a mobile-nav hamburger (history moved to the shell nav)', () => {
     render(<AgentHeader />);
     expect(screen.queryByRole('button', { name: /open chats/i })).toBeNull();
   });

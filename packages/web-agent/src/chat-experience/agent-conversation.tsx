@@ -415,16 +415,22 @@ export function AgentConversation() {
           `scrollButton` is deliberately unset — omitting it is what wires the
           default jump-to-latest button to Astryx's stream-scroll hooks. */}
       <ChatLayout density="balanced" composer={<AgentComposer />}>
-        <ChatMessageList density="balanced" isStreaming={isRunning}>
-          <ThreadPrimitive.Empty>
-            <AgentEmpty pageContext={pageContext} />
-          </ThreadPrimitive.Empty>
-          <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
-          {/* Stays inside the `role="log"`: the list's own inline padding is
-              what replaces the old `px-4 pb-4` wrapper, and living in the
-              polite live region is how an approval announces itself at all. */}
-          <ChatEmbeddedHitl threadId={selection.threadId} />
-        </ChatMessageList>
+        {/* Astryx's `balanced` message area is `maxWidth: 100%` (full-bleed),
+            but the composer pill is capped at `max-w-[45rem]` in AgentComposer.
+            Match the transcript to that same reading width so messages line up
+            with the input instead of sprawling across the full column. */}
+        <div className="mx-auto w-full max-w-[45rem]">
+          <ChatMessageList density="balanced" isStreaming={isRunning}>
+            <ThreadPrimitive.Empty>
+              <AgentEmpty pageContext={pageContext} />
+            </ThreadPrimitive.Empty>
+            <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
+            {/* Stays inside the `role="log"`: the list's own inline padding is
+                what replaces the old `px-4 pb-4` wrapper, and living in the
+                polite live region is how an approval announces itself at all. */}
+            <ChatEmbeddedHitl threadId={selection.threadId} />
+          </ChatMessageList>
+        </div>
       </ChatLayout>
       <ToolUIRegistry />
       <ThreadListRefresher threadId={selection.threadId} />

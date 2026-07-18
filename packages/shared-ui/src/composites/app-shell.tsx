@@ -1,6 +1,6 @@
 import { AppShell as AstryxAppShell } from '@astryxdesign/core/AppShell';
 import { MobileNav } from '@astryxdesign/core/MobileNav';
-import type { AppManifest } from '@seta/module-sdk';
+import { type AppManifest, mergeNavSections } from '@seta/module-sdk';
 import * as React from 'react';
 import { cn } from '../lib/cn';
 import { AgentPanel } from './agent-panel';
@@ -54,7 +54,7 @@ function MobileNavSections({
   Link: ShellLinkComponent;
 }) {
   const extensions = app.useNavExtensions();
-  const sections = [...app.nav, ...extensions];
+  const sections = mergeNavSections(app.nav, extensions);
   return <>{toSideNavSections(sections, activeItemId, Link)}</>;
 }
 

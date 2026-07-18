@@ -1,5 +1,56 @@
-import { type AppManifest, noNavExtensions } from '@seta/module-sdk';
+import type { AppManifest, NavItem, NavSection } from '@seta/module-sdk';
+import { useNavigate } from '@tanstack/react-router';
 import { BookOpen, MessageSquare, Sparkles, Workflow } from 'lucide-react';
+import { useState } from 'react';
+import { useAgentSelection } from './chat-experience/agent-provider';
+import { useThreadList } from './hooks/use-thread-list';
+
+// How many recent threads to reveal before "Show more", and the reveal step.
+const INITIAL_THREADS = 8;
+const THREAD_STEP = 12;
+
+/**
+ * Hangs the user's recent chat threads under the static "Chat" nav item as
+ * collapsible sub-items with a client-side "Show more" — the sidebar replaces
+ * the old middle history column. `mergeNavSections` in the shell folds these
+ * children onto `agent.chat` (which stays in static `nav` so pathname-based
+ * active resolution keeps working). Runs only while Agent Studio is the active
+ * app, so it never fetches threads on other surfaces.
+ */
+function useAgentNavExtensions(): NavSection[] {
+  const { groups } = useThreadList();
+  const { selection } = useAgentSelection();
+  const navigate = useNavigate();
+  const [limit, setLimit] = useState(INITIAL_THREADS);
+
+  const threads = (groups ?? []).flatMap((g) => g.items);
+  if (threads.length === 0) return [];
+
+  const children: NavItem[] = threads.slice(0, limit).map((t) => ({
+    id: `agent.chat.thread.${t.id}`,
+    label: t.title,
+    isSelected: selection.threadId === t.id,
+    onClick: () => void navigate({ to: '/agent/chat', search: { thread: t.id } }),
+  }));
+  if (threads.length > limit) {
+    children.push({
+      id: 'agent.chat.more',
+      label: 'Show more',
+      onClick: () => setLimit((l) => l + THREAD_STEP),
+    });
+  }
+
+  return [
+    {
+      label: 'Workspace',
+      // Only `children`/`collapsible` are consumed by the merge; the base
+      // `agent.chat` item keeps its label/icon/route.
+      items: [
+        { id: 'agent.chat', label: 'Chat', collapsible: { defaultIsCollapsed: false }, children },
+      ],
+    },
+  ];
+}
 
 export const agentAppManifest: AppManifest = {
   id: 'agent',
@@ -8,7 +59,7 @@ export const agentAppManifest: AppManifest = {
   icon: Sparkles,
   color: '#8b5cf6',
   requiredPermissions: [],
-  useNavExtensions: noNavExtensions,
+  useNavExtensions: useAgentNavExtensions,
   nav: [
     {
       label: 'Workspace',

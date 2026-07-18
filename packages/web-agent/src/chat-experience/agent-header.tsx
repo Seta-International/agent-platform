@@ -1,6 +1,6 @@
 import { DropdownMenu, DropdownMenuItem, IconButton } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
-import { Menu, MessageSquare, MoreHorizontal, Pencil, Sparkles, Trash2, X } from 'lucide-react';
+import { MessageSquare, MoreHorizontal, Pencil, Sparkles, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useThreadList } from '../hooks/use-thread-list';
 import { useDeleteThread, useRenameThread } from '../hooks/use-thread-mutations';
@@ -10,7 +10,6 @@ import { AgentThreadSwitcher } from './agent-thread-switcher';
 interface AgentHeaderProps {
   compact?: boolean;
   showThreadSwitcher?: boolean;
-  onOpenMobileNav?: () => void;
   onClose?: () => void;
 }
 
@@ -44,7 +43,6 @@ function useTitleFor(threadId: string | undefined): string {
 export function AgentHeader({
   compact = false,
   showThreadSwitcher = true,
-  onOpenMobileNav,
   onClose,
 }: AgentHeaderProps) {
   const { selection, actions } = useAgentSelection();
@@ -93,17 +91,6 @@ export function AgentHeader({
         compact ? 'h-11 px-3' : 'h-14 px-6'
       }`}
     >
-      {!compact && onOpenMobileNav && (
-        <IconButton
-          type="button"
-          variant="ghost"
-          onClick={onOpenMobileNav}
-          label="Open chats"
-          icon={<Menu className="size-4" aria-hidden />}
-          className="-ml-1 flex-none lg:hidden"
-        />
-      )}
-
       <span
         aria-hidden
         className="inline-flex size-5 flex-none items-center justify-center rounded-md bg-accent-muted text-accent"
