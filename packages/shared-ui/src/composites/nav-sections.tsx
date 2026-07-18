@@ -42,8 +42,14 @@ function toSideNavItem(
   item: NavItem,
   activeItemId: string | undefined,
   Link: ShellLinkComponent,
+  depth = 0,
 ): ReactNode {
   const hasChildren = !!item.children?.length;
+  // A parent whose child is the active item shouldn't also paint its own
+  // selected background — the double highlight (e.g. "Chat" + the open thread)
+  // reads as noise. Let the deepest selected item own the emphasis.
+  const childSelected = item.children?.some((c) => c.isSelected) ?? false;
+  const selfSelected = (item.isSelected ?? activeItemId === item.id) && !childSelected;
   return (
     <SideNavItem
       key={item.id}
@@ -52,14 +58,16 @@ function toSideNavItem(
       as={item.to ? Link : undefined}
       label={item.label}
       icon={item.icon}
-      isSelected={item.isSelected ?? activeItemId === item.id}
+      // Nested items (recents, sub-nav) step down a level in visual weight.
+      size={depth > 0 ? 'sm' : undefined}
+      isSelected={selfSelected}
       isDisabled={item.disabled}
       href={item.disabled ? undefined : item.to}
       onClick={item.disabled ? undefined : item.onClick}
       collapsible={hasChildren ? (item.collapsible ?? undefined) : undefined}
       endContent={navItemEndContent(item)}
     >
-      {item.children?.map((child) => toSideNavItem(child, activeItemId, Link))}
+      {item.children?.map((child) => toSideNavItem(child, activeItemId, Link, depth + 1))}
     </SideNavItem>
   );
 }

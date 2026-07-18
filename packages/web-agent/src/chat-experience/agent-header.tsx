@@ -87,108 +87,120 @@ export function AgentHeader({
 
   return (
     <header
-      className={`flex flex-none items-center gap-2 border-b border-border bg-body ${
-        compact ? 'h-11 px-3' : 'h-14 px-6'
+      // Full page: no bg/border — the AppShell content is already body-gray, so
+      // an explicit bg-body + divider just twins the main top bar. The floating
+      // Ask-Seta panel keeps its own surface + divider to read as a panel header.
+      className={`flex flex-none items-center ${
+        compact ? 'h-11 border-b border-border bg-body px-3' : 'h-12 px-4'
       }`}
     >
-      <span
-        aria-hidden
-        className="inline-flex size-5 flex-none items-center justify-center rounded-md bg-accent-muted text-accent"
-      >
-        <Sparkles className="size-3" />
-      </span>
-
-      <div className="flex min-w-0 flex-1 items-center">
-        {editing ? (
-          <input
-            ref={inputRef}
-            value={draft ?? ''}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                commit();
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                cancelEdit();
-              }
-            }}
-            aria-label="Chat name"
-            className="min-w-0 flex-1 bg-transparent text-base font-semibold tracking-tight text-primary focus:outline-none"
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => canEdit && startEdit()}
-            disabled={!canEdit}
-            title={canEdit ? 'Rename chat' : title}
-            className="group inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 -mx-1 text-left text-base font-semibold tracking-tight text-primary hover:bg-surface disabled:cursor-default disabled:hover:bg-transparent"
+      {/* Non-compact header rides the same 45rem reading column as the
+          transcript so the title and actions sit directly above the messages
+          instead of stranding the title at the far left. */}
+      <div className={`flex w-full items-center gap-2 ${compact ? '' : 'mx-auto max-w-[45rem]'}`}>
+        {/* The floating Ask-Seta panel has no breadcrumb, so it keeps an
+            identity mark; the full page already shows "Agent Studio" above. */}
+        {compact && (
+          <span
+            aria-hidden
+            className="inline-flex size-5 flex-none items-center justify-center rounded-md bg-accent-muted text-accent"
           >
-            <span className="truncate">{title}</span>
-            <Pencil
-              className="size-3 flex-none text-disabled opacity-0 transition-opacity group-hover:opacity-100 group-disabled:hidden"
-              aria-hidden
-            />
-          </button>
+            <Sparkles className="size-3" />
+          </span>
         )}
-      </div>
 
-      <div className="flex flex-none items-center gap-1">
-        <DropdownMenu
-          placement="below"
-          menuWidth={220}
-          button={{
-            isIconOnly: true,
-            icon: <MoreHorizontal className="size-4" aria-hidden />,
-            variant: 'ghost',
-            size: 'sm',
-            label: 'Chat actions',
-            isDisabled: !canEdit && !compact,
-          }}
-        >
-          {compact && showThreadSwitcher && (
-            <>
-              <AgentThreadSwitcher />
-              <MenuDivider />
-            </>
-          )}
-          {compact && !showThreadSwitcher && (
-            <>
-              <DropdownMenuItem
-                icon={<MessageSquare className="size-3.5" aria-hidden />}
-                label="View all chats"
-                onClick={() => void navigate({ to: '/agent/chat' })}
+        <div className="flex min-w-0 flex-1 items-center">
+          {editing ? (
+            <input
+              ref={inputRef}
+              value={draft ?? ''}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commit();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  cancelEdit();
+                }
+              }}
+              aria-label="Chat name"
+              className="min-w-0 flex-1 bg-transparent text-base font-semibold tracking-tight text-primary focus:outline-none"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => canEdit && startEdit()}
+              disabled={!canEdit}
+              title={canEdit ? 'Rename chat' : title}
+              className="group inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 -mx-1 text-left text-base font-semibold tracking-tight text-primary hover:bg-surface disabled:cursor-default disabled:hover:bg-transparent"
+            >
+              <span className="truncate">{title}</span>
+              <Pencil
+                className="size-3 flex-none text-disabled opacity-0 transition-opacity group-hover:opacity-100 group-disabled:hidden"
+                aria-hidden
               />
-              <MenuDivider />
-            </>
+            </button>
           )}
-          <DropdownMenuItem
-            icon={<Pencil className="size-3.5" aria-hidden />}
-            label="Rename"
-            isDisabled={!canEdit}
-            onClick={startEdit}
-          />
-          <MenuDivider />
-          <DropdownMenuItem
-            icon={<Trash2 className="size-3.5" aria-hidden />}
-            label="Delete chat"
-            style={{ color: 'var(--color-error)' }}
-            isDisabled={!canEdit}
-            onClick={onDelete}
-          />
-        </DropdownMenu>
-        {onClose && (
-          <IconButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            label="Close agent panel"
-            tooltip="Close"
-            icon={<X className="size-4" aria-hidden />}
-          />
-        )}
+        </div>
+
+        <div className="flex flex-none items-center gap-1">
+          <DropdownMenu
+            placement="below"
+            menuWidth={220}
+            button={{
+              isIconOnly: true,
+              icon: <MoreHorizontal className="size-4" aria-hidden />,
+              variant: 'ghost',
+              size: 'sm',
+              label: 'Chat actions',
+              isDisabled: !canEdit && !compact,
+            }}
+          >
+            {compact && showThreadSwitcher && (
+              <>
+                <AgentThreadSwitcher />
+                <MenuDivider />
+              </>
+            )}
+            {compact && !showThreadSwitcher && (
+              <>
+                <DropdownMenuItem
+                  icon={<MessageSquare className="size-3.5" aria-hidden />}
+                  label="View all chats"
+                  onClick={() => void navigate({ to: '/agent/chat' })}
+                />
+                <MenuDivider />
+              </>
+            )}
+            <DropdownMenuItem
+              icon={<Pencil className="size-3.5" aria-hidden />}
+              label="Rename"
+              isDisabled={!canEdit}
+              onClick={startEdit}
+            />
+            <MenuDivider />
+            <DropdownMenuItem
+              icon={<Trash2 className="size-3.5" aria-hidden />}
+              label="Delete chat"
+              style={{ color: 'var(--color-error)' }}
+              isDisabled={!canEdit}
+              onClick={onDelete}
+            />
+          </DropdownMenu>
+          {onClose && (
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              label="Close agent panel"
+              tooltip="Close"
+              icon={<X className="size-4" aria-hidden />}
+            />
+          )}
+        </div>
       </div>
     </header>
   );
