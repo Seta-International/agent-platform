@@ -29,13 +29,18 @@ export function SubagentGroup({ agent, rows, open }: SubagentGroupProps) {
   }));
   const stepLabel = `${rows.length} step${rows.length === 1 ? '' : 's'}`;
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2 text-xs text-secondary">
-        <Avatar name={agent} size="xsmall" />
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2 text-sm text-secondary">
+        <Avatar name={agent} size="small" />
         <span className="font-medium text-primary">{agent}</span>
+        <span aria-hidden>·</span>
         <span>{stepLabel}</span>
       </div>
-      <ChatToolCalls calls={calls} isExpanded={open} />
+      {/* A left rail ties the delegated calls to their agent header so the
+          nesting reads as one block instead of a flat list. */}
+      <div className="ml-2.5 border-l border-border pl-3">
+        <ChatToolCalls calls={calls} isExpanded={open} />
+      </div>
     </div>
   );
 }

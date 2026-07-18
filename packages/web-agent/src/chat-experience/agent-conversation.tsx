@@ -67,7 +67,7 @@ function TextPart({ text, status, group }: PartProps & { group?: BubbleGroup }) 
         {/* `autolink`: the deleted ChatMarkdown ran remark-gfm, whose
             autolink-literal extension is on by default. Astryx's is opt-in, so
             without this a bare URL in an answer renders as dead plain text. */}
-        <Markdown density="default" autolink="gfm" headingLevelStart={3}>
+        <Markdown density="compact" autolink="gfm" headingLevelStart={3}>
           {text}
         </Markdown>
         {status.type === 'running' && (

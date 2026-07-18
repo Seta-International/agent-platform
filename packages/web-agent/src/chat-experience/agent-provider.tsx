@@ -18,6 +18,7 @@ import { useModelCatalog } from '../hooks/use-model-catalog';
 import { ThreadMessagesError, useThreadMessages } from '../hooks/use-thread-messages';
 import { markThreadFresh, markThreadKnown } from '../lib/fresh-thread-store';
 import type { EntityMention } from '../lib/mention-part';
+import { ChatSkeleton } from './chat-skeleton';
 
 const MODEL_STORAGE_KEY = 'seta.agent.model';
 
@@ -338,11 +339,7 @@ function AgentRuntimeHost({ children }: { children: React.ReactNode }) {
   // The fix: defer mounting until history is ready, then keep the runtime
   // alive for the lifetime of that (threadId × approvalRevision) pair.
   if (!historyReady) {
-    return (
-      <div className="flex h-full min-h-0 flex-1 items-center justify-center text-sm text-secondary">
-        Loading chat…
-      </div>
-    );
+    return <ChatSkeleton />;
   }
 
   return (
