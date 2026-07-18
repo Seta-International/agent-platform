@@ -2,7 +2,16 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useGridColumnPrefs } from '../../../src/hooks/use-grid-column-prefs';
 
-const DEFAULT_ORDER = ['title', 'status', 'bucket', 'assignees', 'priority', 'due', 'labels'];
+const DEFAULT_ORDER = [
+  'title',
+  'status',
+  'bucket',
+  'assignees',
+  'priority',
+  'start',
+  'due',
+  'labels',
+];
 
 beforeEach(() => localStorage.clear());
 

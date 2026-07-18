@@ -87,7 +87,7 @@ describe('NewCandidateDialog', () => {
       expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
     );
     // effectiveReq auto-selects r1 (Backend Eng, the only open req)
-    await userEvent.click(screen.getByRole('button', { name: /save candidate/i }));
+    await userEvent.click(screen.getByRole('button', { name: /create candidate/i }));
     await waitFor(() =>
       expect(addCandidate).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'Ada Lovelace', requisition_id: 'r1' }),
