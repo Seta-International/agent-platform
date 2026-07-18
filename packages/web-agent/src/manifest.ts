@@ -1,6 +1,6 @@
 import type { AppManifest, NavItem, NavSection } from '@seta/module-sdk';
 import { useNavigate } from '@tanstack/react-router';
-import { BookOpen, MessageSquare, Sparkles, Workflow } from 'lucide-react';
+import { BookOpen, MessageSquare, Plus, Sparkles, Workflow } from 'lucide-react';
 import { useState } from 'react';
 import { useAgentSelection } from './chat-experience/agent-provider';
 import { useThreadList } from './hooks/use-thread-list';
@@ -19,23 +19,36 @@ const THREAD_STEP = 12;
  */
 function useAgentNavExtensions(): NavSection[] {
   const { groups } = useThreadList();
-  const { selection } = useAgentSelection();
+  const { selection, actions } = useAgentSelection();
   const navigate = useNavigate();
   const [limit, setLimit] = useState(INITIAL_THREADS);
 
   const threads = (groups ?? []).flatMap((g) => g.items);
-  if (threads.length === 0) return [];
 
-  const children: NavItem[] = threads.slice(0, limit).map((t) => ({
-    id: `agent.chat.thread.${t.id}`,
-    label: t.title,
-    isSelected: selection.threadId === t.id,
-    onClick: () => void navigate({ to: '/agent/chat', search: { thread: t.id } }),
-  }));
+  // "New chat" always leads the list — even with no history — so starting a
+  // fresh thread stays one click away from where the recents live.
+  const children: NavItem[] = [
+    {
+      id: 'agent.chat.new',
+      label: 'New chat',
+      icon: Plus,
+      onClick: () => {
+        const nextId = actions.startFreshThread();
+        void navigate({ to: '/agent/chat', search: { thread: nextId } });
+      },
+    },
+    ...threads.slice(0, limit).map((t) => ({
+      id: `agent.chat.thread.${t.id}`,
+      label: t.title,
+      isSelected: selection.threadId === t.id,
+      onClick: () => void navigate({ to: '/agent/chat', search: { thread: t.id } }),
+    })),
+  ];
   if (threads.length > limit) {
     children.push({
       id: 'agent.chat.more',
       label: 'Show more',
+      italic: true,
       onClick: () => setLimit((l) => l + THREAD_STEP),
     });
   }

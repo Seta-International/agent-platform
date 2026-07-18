@@ -50,7 +50,7 @@ function toSideNavItem(
   // reads as noise. Let the deepest selected item own the emphasis.
   const childSelected = item.children?.some((c) => c.isSelected) ?? false;
   const selfSelected = (item.isSelected ?? activeItemId === item.id) && !childSelected;
-  return (
+  const node = (
     <SideNavItem
       key={item.id}
       // Link-less action items (e.g. "Show more", search-param thread jumps)
@@ -69,6 +69,15 @@ function toSideNavItem(
     >
       {item.children?.map((child) => toSideNavItem(child, activeItemId, Link, depth + 1))}
     </SideNavItem>
+  );
+  // SideNavItem renders its label as plain text and ignores className/style, so
+  // italicize via an inherited font-style on a `display:contents` wrapper that
+  // stays invisible to the SideNav's own flex layout.
+  if (!item.italic) return node;
+  return (
+    <span key={item.id} style={{ display: 'contents', fontStyle: 'italic' }}>
+      {node}
+    </span>
   );
 }
 

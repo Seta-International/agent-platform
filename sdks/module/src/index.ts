@@ -34,6 +34,11 @@ export interface NavItem {
    * navigates via search param) declare their own selected state here.
    */
   isSelected?: boolean;
+  /**
+   * Render the label in italics to mark it as a secondary action (e.g. a
+   * "Show more" row) rather than a peer of the surrounding items.
+   */
+  italic?: boolean;
 }
 
 export interface NavSection {

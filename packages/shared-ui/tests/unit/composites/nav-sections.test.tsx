@@ -72,6 +72,16 @@ describe('toSideNavSections', () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  it('italicizes an item flagged italic without breaking its button role', () => {
+    const items: NavSection[] = [
+      { label: 'Recents', items: [{ id: 'more', label: 'Show more', italic: true, onClick() {} }] },
+    ];
+    const { container } = render(toSideNavSections(items, undefined, DefaultShellLink));
+    const wrapper = container.querySelector('span[style*="italic"]');
+    expect(wrapper).toBeTruthy();
+    expect(wrapper).toContainElement(screen.getByRole('button', { name: 'Show more' }));
+  });
+
   it('honors an explicit isSelected override without a matching activeItemId', () => {
     const items: NavSection[] = [
       {

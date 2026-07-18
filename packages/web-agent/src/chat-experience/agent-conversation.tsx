@@ -418,8 +418,10 @@ export function AgentConversation() {
         {/* Astryx's `balanced` message area is `maxWidth: 100%` (full-bleed),
             but the composer pill is capped at `max-w-[45rem]` in AgentComposer.
             Match the transcript to that same reading width so messages line up
-            with the input instead of sprawling across the full column. */}
-        <div className="mx-auto w-full max-w-[45rem]">
+            with the input. Must carry the flex column + flex-1 so ChatMessageList
+            (itself `flex:1`) still fills the height — otherwise the empty state's
+            vertical centering collapses and it sticks to the top. */}
+        <div className="mx-auto flex min-h-0 w-full max-w-[45rem] flex-1 flex-col">
           <ChatMessageList density="balanced" isStreaming={isRunning}>
             <ThreadPrimitive.Empty>
               <AgentEmpty pageContext={pageContext} />

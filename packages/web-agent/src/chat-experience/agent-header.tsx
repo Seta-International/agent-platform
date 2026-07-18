@@ -91,11 +91,11 @@ export function AgentHeader({
 
   return (
     <header
-      // Full page: no bg/border — the AppShell content is already body-gray, so
-      // an explicit bg-body + divider just twins the main top bar. The floating
-      // Ask-Seta panel keeps its own surface + divider to read as a panel header.
-      className={`flex flex-none items-center ${
-        compact ? 'h-11 border-b border-border bg-body px-3' : 'h-12 px-4'
+      // Keep a thin divider under the header, but no bg fill on the full page —
+      // the AppShell content is already body-gray, so an explicit bg-body would
+      // twin the main top bar. The floating Ask-Seta panel adds its own surface.
+      className={`flex flex-none items-center border-b border-border ${
+        compact ? 'h-11 bg-body px-3' : 'h-12 px-4'
       }`}
     >
       {/* Non-compact header rides the same 45rem reading column as the
