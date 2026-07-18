@@ -10,5 +10,9 @@ export default defineConfig({
     include: ['tests/**/*.test.{ts,tsx}'],
     setupFiles: ['./tests/setup.ts'],
     css: false,
+    // Heavy RTL flows (dialog with many Astryx fields, 30-row×12-col tables) run 100–430ms
+    // locally but blow the 5000ms default in CI, where the full-monorepo `pnpm test` starves
+    // CPU with parallel backend testcontainers. Give the RTL suites realistic headroom.
+    testTimeout: 20000,
   },
 });

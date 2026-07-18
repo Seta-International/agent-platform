@@ -84,7 +84,7 @@ describe('CreateWorkerDialog', () => {
     const dialog = await screen.findByRole('dialog');
 
     await user.type(within(dialog).getByLabelText(/^Full name/), 'Ada Lovelace');
-    await user.click(within(dialog).getByRole('button', { name: 'Create' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Create worker' }));
 
     await vi.waitFor(() => {
       expect(mockCreateWorker).toHaveBeenCalledWith(
@@ -135,6 +135,6 @@ describe('CreateWorkerDialog', () => {
     await user.click(screen.getByRole('button', { name: 'New worker' }));
     const dialog = await screen.findByRole('dialog');
 
-    expect(within(dialog).getByRole('button', { name: 'Create' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Create worker' })).toBeDisabled();
   });
 });
