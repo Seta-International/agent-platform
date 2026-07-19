@@ -280,14 +280,7 @@ export function UserDetailSheet({ row, open, onOpenChange }: Props) {
           <DialogHeader
             title={row?.full_name ?? '—'}
             subtitle={row?.work_email ?? undefined}
-            startContent={
-              <PersonAvatar
-                name={row?.full_name ?? '?'}
-                // keep: PersonAvatar has no size/style prop to override this with; its own
-                // conversion is Task 15 scope (src/components/person-avatar.tsx).
-                className="size-10 text-base font-semibold" // keep: see comment above
-              />
-            }
+            startContent={<PersonAvatar name={row?.full_name ?? '?'} size="lg" />}
             onOpenChange={onOpenChange}
           />
         }

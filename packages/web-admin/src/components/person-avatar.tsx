@@ -1,4 +1,4 @@
-import { cn } from '@seta/shared-ui';
+import { cn, Text } from '@seta/shared-ui';
 
 /** Two-letter initials from a display name, e.g. "Jane Doe" → "JD". */
 export function initials(name: string): string {
@@ -14,16 +14,38 @@ export function initials(name: string): string {
   );
 }
 
-export function PersonAvatar({ name, className }: { name: string; className?: string }) {
+export function PersonAvatar({
+  name,
+  size = 'sm',
+  className,
+}: {
+  name: string;
+  /** 'sm' (default, e.g. table rows) or 'lg' (e.g. detail-sheet header). */
+  size?: 'sm' | 'lg';
+  className?: string;
+}) {
   return (
     <span
       aria-hidden
       className={cn(
-        'flex size-7 flex-none items-center justify-center rounded-full bg-surface text-sm font-medium text-secondary',
+        'flex flex-none items-center justify-center',
+        size === 'lg' ? 'size-10' : 'size-7',
         className,
       )}
+      // keep: solid circular chip — no Avatar/Text prop covers a circular decorative
+      // background; sized and colored entirely from tokens (no raw hex/px).
+      style={{
+        borderRadius: 'var(--radius-full)',
+        backgroundColor: 'var(--color-background-surface)',
+      }}
     >
-      {initials(name)}
+      <Text
+        type={size === 'lg' ? 'body' : 'supporting'}
+        weight={size === 'lg' ? 'semibold' : 'medium'}
+        color="secondary"
+      >
+        {initials(name)}
+      </Text>
     </span>
   );
 }
