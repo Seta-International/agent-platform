@@ -1,20 +1,7 @@
-import {
-  Banner,
-  BreadcrumbItem,
-  Breadcrumbs,
-  Button,
-  Card,
-  HStack,
-  Layout,
-  LayoutContent,
-  LayoutHeader,
-  PageContainer,
-  Skeleton,
-  Text,
-  VStack,
-} from '@seta/shared-ui';
+import { Banner, Button, HStack, SettingsSection, Skeleton, Text, VStack } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { AdminPageFrame } from '../../components/AdminPageFrame.tsx';
 import { DomainsField } from '../../components/DomainsField.tsx';
 import {
   getTenantSettings,
@@ -50,65 +37,40 @@ export function TenantSettings() {
   });
 
   return (
-    <Layout
-      height="fill"
-      header={
-        <LayoutHeader hasDivider padding={4}>
-          <VStack gap={1}>
-            <Breadcrumbs variant="supporting">
-              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-              <BreadcrumbItem isCurrent>General</BreadcrumbItem>
-            </Breadcrumbs>
-            <HStack hAlign="between" vAlign="center" gap={2}>
-              <HStack gap={2} vAlign="center">
-                <Text as="h1" size="lg" weight="semibold">
-                  General
+    <AdminPageFrame crumb="General" title="General">
+      {error && <Banner status="error" title={(error as Error).message} />}
+      <SettingsSection
+        title="Email domains"
+        description="Used to generate work email addresses for new people."
+      >
+        <VStack gap={3} paddingBlock={4}>
+          {isLoading ? (
+            <Skeleton height={36} />
+          ) : (
+            <>
+              <DomainsField domains={domains} onChange={setDomains} />
+              {saveDomainsM.error && (
+                <Text style={{ color: 'var(--color-error)' }} display="block">
+                  {(saveDomainsM.error as Error).message}
                 </Text>
+              )}
+              {domainsSaved && (
+                <Text style={{ color: 'var(--color-success)' }} display="block">
+                  Email domains saved.
+                </Text>
+              )}
+              <HStack hAlign="end">
+                <Button
+                  variant="primary"
+                  label="Save"
+                  onClick={() => saveDomainsM.mutate(domains)}
+                  isDisabled={saveDomainsM.isPending}
+                />
               </HStack>
-            </HStack>
-          </VStack>
-        </LayoutHeader>
-      }
-      content={
-        <LayoutContent padding={0}>
-          <PageContainer className="space-y-4">
-            {error && <Banner status="error" title={(error as Error).message} />}
-            <Card padding={5}>
-              <div className="space-y-3">
-                <div>
-                  <div className="font-medium text-primary">Email domains</div>
-                  <p className="mt-1 text-base text-secondary">
-                    Used to generate work email addresses for new people.
-                  </p>
-                </div>
-                {isLoading ? (
-                  <Skeleton height={36} />
-                ) : (
-                  <>
-                    <DomainsField domains={domains} onChange={setDomains} />
-                    {saveDomainsM.error && (
-                      <div className="text-base text-error">
-                        {(saveDomainsM.error as Error).message}
-                      </div>
-                    )}
-                    {domainsSaved && (
-                      <div className="text-base text-success">Email domains saved.</div>
-                    )}
-                    <div className="flex justify-end">
-                      <Button
-                        variant="primary"
-                        label="Save"
-                        onClick={() => saveDomainsM.mutate(domains)}
-                        isDisabled={saveDomainsM.isPending}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-            </Card>
-          </PageContainer>
-        </LayoutContent>
-      }
-    />
+            </>
+          )}
+        </VStack>
+      </SettingsSection>
+    </AdminPageFrame>
   );
 }
