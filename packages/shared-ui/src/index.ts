@@ -27,6 +27,7 @@ export * from './composites/grouped-grid';
 export type { BlockProps, EntityRef } from './composites/hitl-blocks';
 export * from './composites/hitl-card';
 export * from './composites/inbox-list';
+export * from './composites/info-row';
 export * from './composites/kanban-board';
 export * from './composites/kanban-card';
 export * from './composites/kanban-card-list';
