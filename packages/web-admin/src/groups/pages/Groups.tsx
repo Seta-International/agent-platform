@@ -8,8 +8,10 @@ import {
   Layout,
   LayoutContent,
   LayoutHeader,
+  LayoutPanel,
   PageContainer,
   Skeleton,
+  StackItem,
   Text,
   VStack,
 } from '@seta/shared-ui';
@@ -55,7 +57,9 @@ function GroupListItem({
           ) : group.kind === 'default' ? (
             <Badge variant="neutral" label="Default" />
           ) : null}
-          <span className="truncate">{roleProductSummary(group)}</span>
+          <Text type="supporting" color="disabled" className="truncate">
+            {roleProductSummary(group)}
+          </Text>
         </>
       }
     />
@@ -106,17 +110,13 @@ export function GroupsPage() {
           </VStack>
         </LayoutHeader>
       }
-      content={
-        <LayoutContent padding={0}>
-          {error ? (
-            <PageContainer>
-              <Banner status="error" title={(error as Error).message} />
-            </PageContainer>
-          ) : (
-            <div className="flex h-full min-h-0">
-              <aside className="flex w-72 flex-none flex-col border-r border-border bg-card">
-                <RailHeader>All groups</RailHeader>
-                <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
+      start={
+        error ? undefined : (
+          <LayoutPanel hasDivider width={288} padding={0} isScrollable={false}>
+            <VStack height="100%">
+              <RailHeader>All groups</RailHeader>
+              <StackItem size="fill" isScrollable>
+                <VStack gap={0.5} padding={2}>
                   {isLoading ? (
                     <>
                       <Skeleton height={48} radius={2} />
@@ -124,7 +124,14 @@ export function GroupsPage() {
                       <Skeleton height={48} radius={2} />
                     </>
                   ) : groups.length === 0 ? (
-                    <p className="px-3 py-6 text-center text-base text-disabled">No groups yet.</p>
+                    <Text
+                      color="disabled"
+                      justify="center"
+                      display="block"
+                      style={{ padding: 'var(--spacing-6) var(--spacing-3)' }}
+                    >
+                      No groups yet.
+                    </Text>
                   ) : (
                     groups.map((g) => (
                       <GroupListItem
@@ -135,28 +142,33 @@ export function GroupsPage() {
                       />
                     ))
                   )}
-                </div>
-              </aside>
-
-              <div className="min-w-0 flex-1 overflow-y-auto">
-                {selected ? (
-                  <GroupDetail
-                    key={selected.group_id}
-                    group={selected}
-                    onDeleted={() => setSelectedId(null)}
-                  />
-                ) : (
-                  !isLoading && (
-                    <EmptyState
-                      className="h-full"
-                      icon={<UsersRound className="size-8" />}
-                      title="No group selected"
-                      description="Create a group to bundle roles and assign people in one place."
-                    />
-                  )
-                )}
-              </div>
-            </div>
+                </VStack>
+              </StackItem>
+            </VStack>
+          </LayoutPanel>
+        )
+      }
+      content={
+        <LayoutContent padding={0}>
+          {error ? (
+            <PageContainer>
+              <Banner status="error" title={(error as Error).message} />
+            </PageContainer>
+          ) : selected ? (
+            <GroupDetail
+              key={selected.group_id}
+              group={selected}
+              onDeleted={() => setSelectedId(null)}
+            />
+          ) : (
+            !isLoading && (
+              <EmptyState
+                className="h-full" // keep: h-full — EmptyState must fill the pane height; no height prop
+                icon={<UsersRound className="size-8" />}
+                title="No group selected"
+                description="Create a group to bundle roles and assign people in one place."
+              />
+            )
           )}
         </LayoutContent>
       }

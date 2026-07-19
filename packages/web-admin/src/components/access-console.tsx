@@ -1,5 +1,6 @@
-import { cn } from '@seta/shared-ui';
+import { cn, Divider, HStack, Text, VStack } from '@seta/shared-ui';
 import type * as React from 'react';
+import { Children, Fragment } from 'react';
 
 /**
  * Shared building blocks for the Access-control consoles (Groups, Role access)
@@ -12,10 +13,27 @@ import type * as React from 'react';
  * reads as one metric strip rather than a row of look-alike buttons.
  */
 export function StatBar({ children }: { children: React.ReactNode }) {
+  const chips = Children.toArray(children);
   return (
-    <div className="inline-flex items-stretch divide-x divide-border overflow-hidden rounded-lg border border-border bg-card">
-      {children}
-    </div>
+    // keep: inline-flex — Stack has no display prop; the stat strip must hug its chips, not fill the pane
+    <HStack
+      vAlign="stretch"
+      style={{
+        display: 'inline-flex',
+        overflow: 'hidden',
+        borderRadius: 'var(--radius-container)',
+        border: '1px solid var(--color-border)',
+        backgroundColor: 'var(--color-background-card)',
+      }}
+    >
+      {chips.map((chip, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: chips are a static, ordered readout — no stable id to key by.
+        <Fragment key={index}>
+          {index > 0 && <Divider orientation="vertical" />}
+          {chip}
+        </Fragment>
+      ))}
+    </HStack>
   );
 }
 
@@ -29,19 +47,46 @@ export function StatChip({
   label: string;
 }) {
   return (
-    <div className="flex items-center gap-2.5 px-4 py-2.5">
-      <span className="text-disabled">{icon}</span>
-      <span className="text-2xl font-semibold leading-none tabular-nums text-primary">{value}</span>
-      <span className="text-sm uppercase tracking-[0.04em] text-disabled">{label}</span>
-    </div>
+    <HStack gap={2} vAlign="center" paddingInline={4} paddingBlock={2}>
+      <Text color="disabled">{icon}</Text>
+      <Text
+        size="2xl"
+        weight="semibold"
+        color="primary"
+        hasTabularNumbers
+        style={{ lineHeight: 1 }}
+      >
+        {value}
+      </Text>
+      <Text
+        type="supporting"
+        color="disabled"
+        className="uppercase" // keep: uppercase — Text has no casing prop; tracking-label style predates Astryx
+        style={{ letterSpacing: '0.04em' }}
+      >
+        {label}
+      </Text>
+    </HStack>
   );
 }
 
 export function RailHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border-b border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.04em] text-secondary">
-      {children}
-    </div>
+    <VStack
+      paddingInline={3}
+      paddingBlock={2}
+      style={{ borderBottom: '1px solid var(--color-border)' }}
+    >
+      <Text
+        type="supporting"
+        weight="medium"
+        color="secondary"
+        className="uppercase" // keep: uppercase — Text has no casing prop; tracking-label style predates Astryx
+        style={{ letterSpacing: '0.04em' }}
+      >
+        {children}
+      </Text>
+    </VStack>
   );
 }
 
@@ -57,31 +102,65 @@ export interface RailItemProps {
 
 export function RailItem({ title, active, onClick, count, subtitle }: RailItemProps) {
   return (
+    // keep: a full-width, left-aligned rail row with a title + count + subtitle isn't a
+    // `Button` shape (Button centres its label and owns weight/size — see frontend rules).
+    // keep: the static "selected" tint and :hover background share one Tailwind utility per
+    // state; there's no plain-token equivalent for a themed hover pseudo-class (same reasoning
+    // as GroupDetail.tsx's checked-row tint).
     <button
       type="button"
       onClick={onClick}
       aria-current={active ? 'true' : undefined}
-      className={cn(
-        'group relative w-full rounded-md px-3 py-2 text-left transition-colors',
-        active ? 'bg-surface' : 'hover:bg-surface',
-      )}
+      className={cn('group relative w-full', active ? 'bg-surface' : 'hover:bg-surface')}
+      style={{
+        borderRadius: 'var(--radius-element)',
+        padding: 'var(--spacing-2) var(--spacing-3)',
+        textAlign: 'start',
+        transition: 'background-color 150ms ease',
+      }}
     >
       {active && (
         <span
-          className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded bg-accent-bg"
           aria-hidden
+          className="absolute left-0 w-0.5"
+          style={{
+            top: 'var(--spacing-1-5)',
+            bottom: 'var(--spacing-1-5)',
+            borderRadius: 'var(--radius-inner)',
+            backgroundColor: 'var(--color-accent-bg)',
+          }}
         />
       )}
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-base font-medium text-primary">{title}</span>
+      <HStack hAlign="between" vAlign="center" gap={2}>
+        <Text weight="medium" color="primary" className="truncate">
+          {title}
+        </Text>
         {count != null && (
-          <span className="inline-flex h-5 min-w-5 flex-none items-center justify-center rounded-full bg-card px-1.5 text-sm tabular-nums text-secondary">
-            {count}
-          </span>
+          <HStack
+            hAlign="center"
+            vAlign="center"
+            paddingInline={1.5}
+            style={{
+              height: 'var(--spacing-5)',
+              minWidth: 'var(--spacing-5)',
+              flex: 'none',
+              borderRadius: 'var(--radius-full)',
+              backgroundColor: 'var(--color-background-card)',
+            }}
+          >
+            <Text type="supporting" color="secondary" hasTabularNumbers>
+              {count}
+            </Text>
+          </HStack>
         )}
-      </div>
+      </HStack>
+      {/* No wrapper text styling: unlike the count pill, subtitle content is caller-composed
+      (badges next to a plain text fragment) and each piece already carries its own styling —
+      see GroupListItem / RoleAccess's ModuleDetail rail items. */}
       {subtitle != null && (
-        <div className="mt-1 flex items-center gap-1.5 text-sm text-disabled">{subtitle}</div>
+        <HStack gap={1.5} vAlign="center" style={{ marginTop: 'var(--spacing-1)' }}>
+          {subtitle}
+        </HStack>
       )}
     </button>
   );
