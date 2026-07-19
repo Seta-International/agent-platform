@@ -1,4 +1,16 @@
-import { Banner, Button } from '@seta/shared-ui';
+import {
+  Badge,
+  Banner,
+  Button,
+  Card,
+  Divider,
+  HStack,
+  InfoRow,
+  SettingsSection,
+  StatusDot,
+  Text,
+  VStack,
+} from '@seta/shared-ui';
 import { CheckCircle2, Plug, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import type { SsoProviderRowDto } from '../api/sso-client.ts';
@@ -30,21 +42,12 @@ const STATUS_LABEL: Record<Status, string> = {
   active: 'Active',
 };
 
-const STATUS_DOT: Record<Status, string> = {
-  not_connected: 'bg-disabled',
-  consent_pending: 'bg-warning',
-  consent_granted: 'bg-accent-bg',
-  active: 'bg-success',
+const STATUS_VARIANT: Record<Status, 'neutral' | 'warning' | 'accent' | 'success'> = {
+  not_connected: 'neutral',
+  consent_pending: 'warning',
+  consent_granted: 'accent',
+  active: 'success',
 };
-
-function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[120px_1fr] items-baseline gap-3 py-2">
-      <dt className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">{label}</dt>
-      <dd className="m-0 min-w-0 text-base text-primary">{children}</dd>
-    </div>
-  );
-}
 
 function MicrosoftMark({ className }: { className?: string }) {
   return (
@@ -156,116 +159,120 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
   }
 
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-body">
-      <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
-        <div className="flex items-start gap-3">
-          <div className="flex size-9 flex-none items-center justify-center rounded-md border border-border bg-card">
-            <MicrosoftMark />
-          </div>
-          <div className="min-w-0">
-            <h2 className="m-0 text-lg font-semibold tracking-tight text-primary">
-              Microsoft Entra ID
-            </h2>
-            <p className="m-0 mt-0.5 text-base text-secondary">
-              Let your team sign in with their Microsoft work account.
-              {row?.updated_at && (
-                <span className="ml-1">
-                  Updated <time dateTime={row.updated_at}>{relativeTime(row.updated_at)}</time>.
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-        <div
-          className="flex flex-none items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1"
-          role="status"
-          aria-label={`Status: ${STATUS_LABEL[status]}`}
-        >
-          <span aria-hidden className={`size-1.5 rounded-full ${STATUS_DOT[status]}`} />
-          <span className="text-sm font-medium text-primary">{STATUS_LABEL[status]}</span>
-        </div>
-      </header>
+    <SettingsSection
+      title="Microsoft Entra ID"
+      description="Let your team sign in with their Microsoft work account."
+    >
+      <HStack hAlign="between" vAlign="center" gap={2} paddingBlock={2}>
+        <HStack gap={2} vAlign="center">
+          <MicrosoftMark />
+          {row?.updated_at && (
+            <Text type="supporting" color="secondary">
+              Updated <time dateTime={row.updated_at}>{relativeTime(row.updated_at)}</time>.
+            </Text>
+          )}
+        </HStack>
+        <HStack gap={1.5} vAlign="center">
+          <StatusDot variant={STATUS_VARIANT[status]} label={`Status: ${STATUS_LABEL[status]}`} />
+          <Text type="supporting" weight="medium">
+            {STATUS_LABEL[status]}
+          </Text>
+        </HStack>
+      </HStack>
+      <Divider />
 
       {row === null ? (
-        <div className="px-5 py-6">
-          <div className="flex items-start gap-3 rounded-md border border-dashed border-border-strong bg-card px-4 py-3">
-            <Plug aria-hidden className="mt-0.5 size-4 flex-none text-secondary" />
-            <div className="min-w-0 flex-1">
-              <p className="m-0 text-base text-primary">
+        <Card variant="muted">
+          <HStack gap={3} vAlign="start">
+            <Plug
+              aria-hidden
+              className="size-4 flex-none"
+              style={{ color: 'var(--color-text-secondary)' }}
+            />
+            <VStack gap={1}>
+              <Text display="block">
                 Microsoft Entra sign-in is linked through the Microsoft 365 integration.
-              </p>
-              <p className="m-0 mt-1 text-sm text-secondary">
-                Configure the Microsoft 365 integration (via platform provisioning) first. Once it's
-                linked, the Entra provider appears here to enable and to manage email domains.
-              </p>
-            </div>
-          </div>
-        </div>
+              </Text>
+              <Text type="supporting" color="secondary" display="block">
+                Configure the Microsoft 365 integration (via platform provisioning) first. Once
+                it&apos;s linked, the Entra provider appears here to enable and to manage email
+                domains.
+              </Text>
+            </VStack>
+          </HStack>
+        </Card>
       ) : (
         <>
-          <dl className="m-0 divide-y divide-border px-5 py-1">
-            <MetaRow label="Tenant ID">
-              {row.entra_tenant_id ? (
-                <code className="font-mono text-base text-primary">{row.entra_tenant_id}</code>
+          <InfoRow
+            label="Tenant ID"
+            value={
+              row.entra_tenant_id ? (
+                <code className="font-mono">{row.entra_tenant_id}</code>
               ) : (
-                <span className="text-secondary">
-                  Not yet linked — configured via the Microsoft 365 integration.
-                </span>
-              )}
-            </MetaRow>
-            <MetaRow label="Email domains">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {row.email_domains.length === 0 ? (
-                  <span className="text-secondary">No domains added yet</span>
-                ) : (
-                  row.email_domains.map((d) => (
-                    <span
-                      key={d}
-                      className="inline-flex h-5 items-center rounded-full border border-border bg-card px-2 font-mono text-sm text-primary"
-                    >
-                      {d}
-                    </span>
-                  ))
-                )}
-                <EditDomainsDialog
-                  entraTenantId={row.entra_tenant_id}
-                  initialDomains={row.email_domains}
-                  onSaved={onChanged}
-                />
-              </div>
-            </MetaRow>
-            <MetaRow label="Admin consent">
-              {row.config.consent_granted_at ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 aria-hidden className="size-3.5 text-success" />
-                  <span className="text-base text-primary">
+                'Not yet linked — configured via the Microsoft 365 integration.'
+              )
+            }
+          />
+          <InfoRow
+            label="Email domains"
+            value={
+              row.email_domains.length === 0 ? (
+                'No domains added yet'
+              ) : (
+                <HStack as="span" gap={1.5} wrap="wrap">
+                  {row.email_domains.map((d) => (
+                    <Badge key={d} variant="neutral" label={d} className="font-mono" />
+                  ))}
+                </HStack>
+              )
+            }
+            action={
+              <EditDomainsDialog
+                entraTenantId={row.entra_tenant_id}
+                initialDomains={row.email_domains}
+                onSaved={onChanged}
+              />
+            }
+          />
+          <InfoRow
+            label="Admin consent"
+            value={
+              row.config.consent_granted_at ? (
+                <HStack as="span" gap={1.5} vAlign="center">
+                  <CheckCircle2
+                    aria-hidden
+                    className="size-3.5"
+                    style={{ color: 'var(--color-success)' }}
+                  />
+                  <span>
                     Granted{' '}
                     {row.config.consent_granted_by_email && (
                       <>
-                        by{' '}
-                        <code className="font-mono text-base text-secondary">
+                        by <code className="font-mono">
                           {row.config.consent_granted_by_email}
                         </code>{' '}
                       </>
                     )}
-                    <time dateTime={row.config.consent_granted_at} className="text-secondary">
+                    <time dateTime={row.config.consent_granted_at}>
                       ({relativeTime(row.config.consent_granted_at)})
                     </time>
                   </span>
-                </span>
+                </HStack>
               ) : (
-                <span className="inline-flex items-center gap-1.5">
-                  <ShieldCheck aria-hidden className="size-3.5 text-warning" />
-                  <span className="text-base text-secondary">
-                    Grant admin consent in Microsoft to finish activating.
-                  </span>
-                </span>
-              )}
-            </MetaRow>
-          </dl>
+                <HStack as="span" gap={1.5} vAlign="center">
+                  <ShieldCheck
+                    aria-hidden
+                    className="size-3.5"
+                    style={{ color: 'var(--color-warning)' }}
+                  />
+                  <span>Grant admin consent in Microsoft to finish activating.</span>
+                </HStack>
+              )
+            }
+          />
 
-          <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-card px-5 py-3">
-            <div className="flex flex-wrap items-center gap-2">
+          <HStack hAlign="between" vAlign="center" gap={2} paddingBlock={3}>
+            <HStack gap={2} vAlign="center">
               {status === 'consent_pending' && (
                 <>
                   <Button
@@ -302,24 +309,19 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
                   label="Turn off"
                 />
               )}
-            </div>
+            </HStack>
             <Button
-              variant="ghost"
+              variant="destructive"
               onClick={handleDisconnect}
               isDisabled={busy}
               size="sm"
-              className="text-error hover:bg-error-muted hover:text-error"
               label="Disconnect"
             />
-          </footer>
+          </HStack>
         </>
       )}
 
-      {actionError && (
-        <div className="border-t border-border px-5 py-3">
-          <Banner status="error" title={actionError} />
-        </div>
-      )}
-    </section>
+      {actionError && <Banner status="error" title={actionError} />}
+    </SettingsSection>
   );
 }
