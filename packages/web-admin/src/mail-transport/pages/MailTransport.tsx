@@ -1,23 +1,20 @@
 import {
   Banner,
-  BreadcrumbItem,
-  Breadcrumbs,
   Button,
-  Card,
+  Grid,
   HStack,
   Input,
-  Layout,
-  LayoutContent,
-  LayoutHeader,
-  PageContainer,
   RadioGroup,
   RadioListItem,
+  SettingsSection,
+  StackItem,
   Switch,
   Text,
   VStack,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { AdminPageFrame } from '../../components/AdminPageFrame.tsx';
 import {
   disableMailTransport,
   getMailTransport,
@@ -155,196 +152,172 @@ export function MailTransport() {
     : 'Not set up yet';
 
   return (
-    <Layout
-      height="fill"
-      header={
-        <LayoutHeader hasDivider padding={4}>
-          <VStack gap={1}>
-            <Breadcrumbs variant="supporting">
-              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-              <BreadcrumbItem isCurrent>Mail transport</BreadcrumbItem>
-            </Breadcrumbs>
-            <HStack hAlign="between" vAlign="center" gap={2}>
-              <HStack gap={2} vAlign="center">
-                <Text as="h1" size="lg" weight="semibold">
-                  Mail transport
+    <AdminPageFrame crumb="Mail transport" title="Mail transport" subtitle={subtitle}>
+      {error && <Banner status="error" title={(error as Error).message} />}
+
+      <SettingsSection title="Transport" description="How outgoing mail is delivered.">
+        <VStack gap={5} paddingBlock={4}>
+          <RadioGroup
+            label="Transport"
+            value={form.kind}
+            onChange={(v) => setKind(v as Kind)}
+            orientation="horizontal"
+          >
+            <RadioListItem value="graph" label="Microsoft Graph" />
+            <RadioListItem value="smtp" label="SMTP" />
+          </RadioGroup>
+
+          <Grid columns={2} gap={4}>
+            <Input
+              type="email"
+              label="Sender address"
+              value={form.senderAddress}
+              onChange={(value) => setForm((s) => ({ ...s, senderAddress: value }))}
+              placeholder="noreply@your-domain.com"
+            />
+            <Input
+              label="Sender display name"
+              value={form.senderDisplayName}
+              onChange={(value) => setForm((s) => ({ ...s, senderDisplayName: value }))}
+              placeholder="Acme"
+            />
+          </Grid>
+
+          {form.kind === 'graph' ? (
+            <HStack
+              gap={3}
+              vAlign="start"
+              style={{
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-container)',
+                padding: 'var(--spacing-3)',
+              }}
+            >
+              <Switch
+                label="Application access policy acknowledged"
+                isLabelHidden
+                value={form.graphPolicyAcked}
+                onChange={(v) => setForm((s) => ({ ...s, graphPolicyAcked: v }))}
+              />
+              <VStack gap={0}>
+                <Text weight="medium" display="block">
+                  Application access policy is in place
                 </Text>
-                {subtitle && <Text color="secondary">{subtitle}</Text>}
-              </HStack>
+                <Text color="secondary" display="block">
+                  Confirm an ApplicationAccessPolicy limits the Entra app to sending only from this
+                  mailbox. Required before you can turn on Graph send.
+                </Text>
+              </VStack>
             </HStack>
-          </VStack>
-        </LayoutHeader>
-      }
-      content={
-        <LayoutContent padding={0}>
-          <PageContainer className="space-y-4">
-            {error && <Banner status="error" title={(error as Error).message} />}
-
-            <Card className="p-5 space-y-5">
-              <RadioGroup
-                label="Transport"
-                value={form.kind}
-                onChange={(v) => setKind(v as Kind)}
-                orientation="horizontal"
-              >
-                <RadioListItem value="graph" label="Microsoft Graph" />
-                <RadioListItem value="smtp" label="SMTP" />
-              </RadioGroup>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Input
-                    type="email"
-                    label="Sender address"
-                    value={form.senderAddress}
-                    onChange={(value) => setForm((s) => ({ ...s, senderAddress: value }))}
-                    placeholder="noreply@your-domain.com"
-                  />
-                </div>
-                <div>
-                  <Input
-                    label="Sender display name"
-                    value={form.senderDisplayName}
-                    onChange={(value) => setForm((s) => ({ ...s, senderDisplayName: value }))}
-                    placeholder="Acme"
-                  />
-                </div>
-              </div>
-
-              {form.kind === 'graph' ? (
-                <div className="flex items-start gap-3 rounded-md border border-border p-3">
-                  <Switch
-                    label="Application access policy acknowledged"
-                    isLabelHidden
-                    value={form.graphPolicyAcked}
-                    onChange={(v) => setForm((s) => ({ ...s, graphPolicyAcked: v }))}
-                  />
-                  <div className="min-w-0">
-                    <div className="font-medium text-primary">
-                      Application access policy is in place
-                    </div>
-                    <p className="text-base text-secondary">
-                      Confirm an ApplicationAccessPolicy limits the Entra app to sending only from
-                      this mailbox. Required before you can turn on Graph send.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <Input
-                        label="Host"
-                        value={form.smtpHost}
-                        onChange={(value) => setForm((s) => ({ ...s, smtpHost: value }))}
-                        placeholder="smtp.your-provider.com"
-                      />
-                    </div>
-                    <RadioGroup
-                      label="Port"
-                      value={String(form.smtpPort)}
-                      onChange={(v) =>
-                        setForm((s) => ({ ...s, smtpPort: Number(v) === 465 ? 465 : 587 }))
-                      }
-                      orientation="horizontal"
-                    >
-                      <RadioListItem value="587" label="587 (STARTTLS)" />
-                      <RadioListItem value="465" label="465 (TLS)" />
-                    </RadioGroup>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <Input
-                        label="Username"
-                        value={form.smtpUsername}
-                        onChange={(value) => setForm((s) => ({ ...s, smtpUsername: value }))}
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        type="password"
-                        label="Password"
-                        value={form.smtpPassword}
-                        onChange={(value) => setForm((s) => ({ ...s, smtpPassword: value }))}
-                        placeholder={enabled ? '(unchanged — leave blank to keep)' : ''}
-                      />
-                    </div>
-                  </div>
-                  <Switch
-                    label="Require TLS"
-                    value={form.smtpRequireTls}
-                    onChange={(v) => setForm((s) => ({ ...s, smtpRequireTls: v }))}
-                  />
-                </div>
-              )}
-
-              {save.error && <Banner status="error" title={(save.error as Error).message} />}
-
-              <div className="flex items-center justify-end gap-2">
-                {enabled && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    label="Disable"
-                    onClick={() => disable.mutate()}
-                    isDisabled={disable.isPending}
-                  />
-                )}
-                <Button
-                  variant="primary"
-                  type="button"
-                  label={enabled ? 'Save changes' : 'Enable'}
-                  onClick={() => save.mutate(toInput(form))}
-                  isDisabled={save.isPending || isLoading}
-                />
-              </div>
-            </Card>
-
-            <Card className="p-5 space-y-3">
-              <div>
-                <div className="font-medium text-primary">Send a test email</div>
-                <p className="text-base text-secondary">
-                  Send yourself a message to make sure your setup actually delivers.
-                </p>
-              </div>
-              <div className="flex gap-2">
+          ) : (
+            <VStack gap={4}>
+              <Grid columns={2} gap={4}>
                 <Input
-                  type="email"
-                  label="Recipient email"
-                  isLabelHidden
-                  value={verifyEmail}
-                  onChange={(value) => setVerifyEmail(value)}
-                  placeholder="recipient@your-domain.com"
+                  label="Host"
+                  value={form.smtpHost}
+                  onChange={(value) => setForm((s) => ({ ...s, smtpHost: value }))}
+                  placeholder="smtp.your-provider.com"
                 />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  label="Send test"
-                  onClick={() => verify.mutate(verifyEmail)}
-                  isDisabled={verify.isPending || !verifyEmail || !enabled}
-                />
-              </div>
-              {verify.data?.ok && (
-                <Banner
-                  status="info"
-                  title={<>Sent. Message ID: {verify.data.transport_message_id ?? '—'}</>}
-                />
-              )}
-              {verify.data && !verify.data.ok && (
-                <Banner
-                  status="error"
-                  title={
-                    <>
-                      {verify.data.error?.code}: {verify.data.error?.message}
-                    </>
+                <RadioGroup
+                  label="Port"
+                  value={String(form.smtpPort)}
+                  onChange={(v) =>
+                    setForm((s) => ({ ...s, smtpPort: Number(v) === 465 ? 465 : 587 }))
                   }
+                  orientation="horizontal"
+                >
+                  <RadioListItem value="587" label="587 (STARTTLS)" />
+                  <RadioListItem value="465" label="465 (TLS)" />
+                </RadioGroup>
+              </Grid>
+              <Grid columns={2} gap={4}>
+                <Input
+                  label="Username"
+                  value={form.smtpUsername}
+                  onChange={(value) => setForm((s) => ({ ...s, smtpUsername: value }))}
                 />
-              )}
-              {verify.error && <Banner status="error" title={(verify.error as Error).message} />}
-            </Card>
-          </PageContainer>
-        </LayoutContent>
-      }
-    />
+                <Input
+                  type="password"
+                  label="Password"
+                  value={form.smtpPassword}
+                  onChange={(value) => setForm((s) => ({ ...s, smtpPassword: value }))}
+                  placeholder={enabled ? '(unchanged — leave blank to keep)' : ''}
+                />
+              </Grid>
+              <Switch
+                label="Require TLS"
+                value={form.smtpRequireTls}
+                onChange={(v) => setForm((s) => ({ ...s, smtpRequireTls: v }))}
+              />
+            </VStack>
+          )}
+
+          {save.error && <Banner status="error" title={(save.error as Error).message} />}
+
+          <HStack hAlign="end" vAlign="center" gap={2}>
+            {enabled && (
+              <Button
+                type="button"
+                variant="ghost"
+                label="Disable"
+                onClick={() => disable.mutate()}
+                isDisabled={disable.isPending}
+              />
+            )}
+            <Button
+              variant="primary"
+              type="button"
+              label={enabled ? 'Save changes' : 'Enable'}
+              onClick={() => save.mutate(toInput(form))}
+              isDisabled={save.isPending || isLoading}
+            />
+          </HStack>
+        </VStack>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Send a test email"
+        description="Send yourself a message to make sure your setup actually delivers."
+      >
+        <VStack gap={3} paddingBlock={4}>
+          <HStack gap={2}>
+            <StackItem size="fill">
+              <Input
+                type="email"
+                label="Recipient email"
+                isLabelHidden
+                value={verifyEmail}
+                onChange={(value) => setVerifyEmail(value)}
+                placeholder="recipient@your-domain.com"
+              />
+            </StackItem>
+            <Button
+              type="button"
+              variant="secondary"
+              label="Send test"
+              onClick={() => verify.mutate(verifyEmail)}
+              isDisabled={verify.isPending || !verifyEmail || !enabled}
+            />
+          </HStack>
+          {verify.data?.ok && (
+            <Banner
+              status="info"
+              title={<>Sent. Message ID: {verify.data.transport_message_id ?? '—'}</>}
+            />
+          )}
+          {verify.data && !verify.data.ok && (
+            <Banner
+              status="error"
+              title={
+                <>
+                  {verify.data.error?.code}: {verify.data.error?.message}
+                </>
+              }
+            />
+          )}
+          {verify.error && <Banner status="error" title={(verify.error as Error).message} />}
+        </VStack>
+      </SettingsSection>
+    </AdminPageFrame>
   );
 }
