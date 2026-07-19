@@ -1,13 +1,16 @@
 // Shared building blocks for the user detail sheet sections.
+import { Heading, HStack, Text, VStack } from '@seta/shared-ui';
 
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">
+    <VStack gap={0.5}>
+      <Text type="supporting" weight="medium" color="secondary">
         {label}
-      </span>
-      <div className="text-base text-primary">{children}</div>
-    </div>
+      </Text>
+      <Text as="div" color="primary">
+        {children}
+      </Text>
+    </VStack>
   );
 }
 
@@ -19,9 +22,13 @@ export function SectionTitle({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 border-b border-border pb-2">
-      <span className="text-secondary">{icon}</span>
-      <h3 className="text-base font-semibold text-primary">{children}</h3>
-    </div>
+    <HStack
+      gap={2}
+      vAlign="center"
+      style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: 'var(--spacing-2)' }}
+    >
+      <Text color="secondary">{icon}</Text>
+      <Heading level={3}>{children}</Heading>
+    </HStack>
   );
 }

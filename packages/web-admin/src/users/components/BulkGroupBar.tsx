@@ -4,8 +4,10 @@ import {
   Dialog,
   DialogFooter,
   DialogHeader,
+  HStack,
   Layout,
   type SearchableItem,
+  Text,
   Typeahead,
 } from '@seta/shared-ui';
 import { Plus, UsersRound } from 'lucide-react';
@@ -65,10 +67,21 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
 
   return (
     <>
-      <div className="flex items-center gap-3 border-b border-border bg-surface px-6 py-2">
-        <span className="text-base font-medium text-primary">{count} selected</span>
-        <Button variant="ghost" size="sm" label="Clear" onClick={onClearSelection} />
-        <div className="ml-auto flex items-center gap-2">
+      <HStack
+        hAlign="between"
+        vAlign="center"
+        gap={3}
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          backgroundColor: 'var(--color-background-surface)',
+          padding: 'var(--spacing-2) var(--spacing-6)',
+        }}
+      >
+        <HStack gap={3} vAlign="center">
+          <Text weight="medium">{count} selected</Text>
+          <Button variant="ghost" size="sm" label="Clear" onClick={onClearSelection} />
+        </HStack>
+        <HStack gap={2} vAlign="center">
           <Typeahead
             label="Group"
             isLabelHidden
@@ -78,7 +91,7 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
             value={group}
             onChange={setGroup}
             placeholder="Add to group…"
-            className="w-56"
+            width={224}
           />
           <Button
             size="sm"
@@ -87,8 +100,8 @@ export function BulkGroupBar({ selectedUserIds, onClearSelection }: Props) {
             icon={<UsersRound className="size-4" aria-hidden />}
             label="Add to group"
           />
-        </div>
-      </div>
+        </HStack>
+      </HStack>
 
       {/* Reversible action (people can be removed from the group afterward) — "form" purpose,
           not "required": mirrors the plan's "archive M365 group" precedent. */}
