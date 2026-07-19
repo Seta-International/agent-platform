@@ -1,4 +1,4 @@
-import { Badge, Switch } from '@seta/shared-ui';
+import { Badge, Divider, HStack, StackItem, Switch, Text, VStack } from '@seta/shared-ui';
 import type { NotificationPrefRowDTO, PatchPrefInput } from '@seta/web-notifications';
 
 export interface NotificationPrefRowProps {
@@ -11,34 +11,40 @@ export function NotificationPrefRow({ row, onToggle, disabled }: NotificationPre
   const anyOn = row.in_app_enabled || (row.email_enabled && row.email_available);
 
   return (
-    <div className="flex items-start justify-between gap-6 px-5 py-4">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-base font-medium text-primary">{row.label}</span>
-          <Badge variant={anyOn ? 'success' : 'neutral'} label={anyOn ? 'On' : 'Off'} />
-        </div>
-        <p className="m-0 mt-1 font-mono text-sm text-secondary">{row.event_type}</p>
-      </div>
-
-      <div className="flex shrink-0 items-start gap-6">
-        <ChannelToggle
-          label="In-app"
-          checked={row.in_app_enabled}
-          disabled={disabled}
-          onCheckedChange={(enabled) =>
-            onToggle({ event_type: row.event_type, channel: 'in_app', enabled })
-          }
-        />
-        <ChannelToggle
-          label="Email"
-          checked={row.email_enabled}
-          disabled={disabled || !row.email_available}
-          onCheckedChange={(enabled) =>
-            onToggle({ event_type: row.event_type, channel: 'email', enabled })
-          }
-        />
-      </div>
-    </div>
+    <>
+      <HStack gap={6} vAlign="start" hAlign="between" paddingBlock={4}>
+        <StackItem size="fill">
+          <VStack gap={1}>
+            <HStack gap={2} vAlign="center">
+              <Text weight="medium">{row.label}</Text>
+              <Badge variant={anyOn ? 'success' : 'neutral'} label={anyOn ? 'On' : 'Off'} />
+            </HStack>
+            <Text type="supporting" color="secondary" display="block" className="font-mono">
+              {row.event_type}
+            </Text>
+          </VStack>
+        </StackItem>
+        <HStack gap={6} vAlign="start">
+          <ChannelToggle
+            label="In-app"
+            checked={row.in_app_enabled}
+            disabled={disabled}
+            onCheckedChange={(enabled) =>
+              onToggle({ event_type: row.event_type, channel: 'in_app', enabled })
+            }
+          />
+          <ChannelToggle
+            label="Email"
+            checked={row.email_enabled}
+            disabled={disabled || !row.email_available}
+            onCheckedChange={(enabled) =>
+              onToggle({ event_type: row.event_type, channel: 'email', enabled })
+            }
+          />
+        </HStack>
+      </HStack>
+      <Divider />
+    </>
   );
 }
 
@@ -51,8 +57,10 @@ interface ChannelToggleProps {
 
 function ChannelToggle({ label, checked, disabled, onCheckedChange }: ChannelToggleProps) {
   return (
-    <div className="flex flex-col items-center gap-1.5">
-      <span className="text-sm font-medium text-secondary">{label}</span>
+    <VStack gap={1} hAlign="center">
+      <Text type="supporting" weight="medium" color="secondary">
+        {label}
+      </Text>
       <Switch
         label={`Toggle ${label.toLowerCase()} notifications`}
         isLabelHidden
@@ -60,6 +68,6 @@ function ChannelToggle({ label, checked, disabled, onCheckedChange }: ChannelTog
         isDisabled={disabled}
         onChange={onCheckedChange}
       />
-    </div>
+    </VStack>
   );
 }
