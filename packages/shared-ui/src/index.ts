@@ -39,6 +39,7 @@ export * from './composites/notification-popover';
 export * from './composites/page-container';
 export * from './composites/password-input';
 export * from './composites/resolve-plan-conflicts-dialog';
+export * from './composites/settings-section';
 export * from './composites/shell-link';
 export * from './composites/side-panel';
 export * from './composites/skill-level-rating';
