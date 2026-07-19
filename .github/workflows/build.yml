@@ -99,14 +99,14 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v4.1.0
+        uses: docker/setup-buildx-action@v4.2.0
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2.1.5
 
       - name: Build + push server by digest
         id: build
-        uses: docker/build-push-action@v7.2.0
+        uses: docker/build-push-action@v7.3.0
         with:
           context: .
           file: infra/docker/server.Dockerfile
@@ -147,7 +147,7 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v4.1.0
+        uses: docker/setup-buildx-action@v4.2.0
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2.1.5
@@ -195,13 +195,13 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v4.1.0
+        uses: docker/setup-buildx-action@v4.2.0
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2.1.5
 
       - name: Build + push web
-        uses: docker/build-push-action@v7.2.0
+        uses: docker/build-push-action@v7.3.0
         with:
           context: .
           file: infra/docker/web.Dockerfile
