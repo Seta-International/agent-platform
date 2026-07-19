@@ -153,7 +153,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2.1.6
 
       - name: Download digests
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: digests-server-*
