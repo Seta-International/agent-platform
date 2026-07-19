@@ -91,7 +91,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_TERRAFORM_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
 
       - name: Guard — apply requires the S3 state backend
         if: inputs.action == 'apply'
