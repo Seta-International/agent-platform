@@ -21,6 +21,7 @@ export * from './composites/counter-badge-popover';
 export * from './composites/dialog-footer';
 export * from './composites/disabled-action-tooltip';
 export * from './composites/entity-search';
+export * from './composites/expandable-row';
 export * from './composites/field-conflict-row';
 export * from './composites/group-tile';
 export * from './composites/grouped-grid';
