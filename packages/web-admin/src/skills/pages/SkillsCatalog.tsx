@@ -2,18 +2,15 @@
 import {
   Badge,
   Banner,
-  BreadcrumbItem,
-  Breadcrumbs,
   Button,
+  Card,
   cn,
   EmptyState,
+  Grid,
   HStack,
   Input,
-  Layout,
-  LayoutContent,
-  LayoutHeader,
-  PageContainer,
   Skeleton,
+  StackItem,
   Text,
   useToast,
   VStack,
@@ -22,6 +19,7 @@ import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Check, Layers, Lock, Pencil, Plus, Search, Tags, X } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
+import { AdminPageFrame } from '../../components/AdminPageFrame.tsx';
 import {
   archiveCategory,
   archiveSkill,
@@ -159,212 +157,228 @@ export function SkillsCatalog() {
   const loading = categoriesQ.isLoading || skillsQ.isLoading;
 
   return (
-    <Layout
-      height="fill"
-      header={
-        <LayoutHeader hasDivider padding={4}>
-          <VStack gap={1}>
-            <Breadcrumbs variant="supporting">
-              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-              <BreadcrumbItem isCurrent>Skills catalog</BreadcrumbItem>
-            </Breadcrumbs>
-            <HStack hAlign="between" vAlign="center" gap={2}>
-              <HStack gap={2} vAlign="center">
-                <Text as="h1" size="lg" weight="semibold">
-                  Skills catalog
-                </Text>
-                <Text color="secondary">
-                  Categories and skills that can be assigned to roles and people.
+    <AdminPageFrame
+      crumb="Skills catalog"
+      title="Skills catalog"
+      subtitle="Categories and skills that can be assigned to roles and people."
+    >
+      {categoriesQ.error && (
+        <Banner
+          status="error"
+          title={<>Couldn&apos;t load the skills catalog: {(categoriesQ.error as Error).message}</>}
+        />
+      )}
+
+      {!canManage && !loading && (
+        <HStack
+          gap={2}
+          vAlign="center"
+          style={{
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-container)',
+            backgroundColor: 'var(--color-background-surface)',
+            paddingInline: 'var(--spacing-4)',
+            // original py-2.5 (10px) has no matching spacing token; spacing-2 (8px) is the
+            // nearest step below (spacing scale jumps 2→3, no 2.5)
+            paddingBlock: 'var(--spacing-2)',
+          }}
+        >
+          <Lock
+            className="size-3.5 shrink-0"
+            aria-hidden
+            style={{ color: 'var(--color-text-secondary)' }}
+          />
+          <Text color="secondary">You can view the skills catalog but not make changes.</Text>
+        </HStack>
+      )}
+
+      {loading ? (
+        <>
+          <Grid columns={3} gap={3}>
+            <Skeleton height={68} radius={3} />
+            <Skeleton height={68} radius={3} />
+            <Skeleton height={68} radius={3} />
+          </Grid>
+          <Skeleton height={384} radius={3} />
+        </>
+      ) : (
+        <>
+          <StatStrip
+            categories={categories.length}
+            skills={skills.length}
+            largest={largestCategory(categories, countByCat)}
+          />
+
+          <HStack gap={5} vAlign="start">
+            {/* Categories rail */}
+            <VStack as="section" width={280} gap={2} style={{ flexShrink: 0 }}>
+              <HStack hAlign="between" vAlign="center" paddingInline={1}>
+                <HStack as="h2" gap={1.5} vAlign="center">
+                  <Layers
+                    className="size-3.5"
+                    aria-hidden
+                    style={{ color: 'var(--color-text-disabled)' }}
+                  />
+                  <Text
+                    type="supporting"
+                    weight="medium"
+                    color="disabled"
+                    className="uppercase" // keep: uppercase — Text has no casing prop (see access-console.tsx RailHeader)
+                    style={{ letterSpacing: '0.04em' }}
+                  >
+                    Categories
+                  </Text>
+                </HStack>
+                <Text type="supporting" color="disabled" hasTabularNumbers>
+                  {categories.length}
                 </Text>
               </HStack>
-            </HStack>
-          </VStack>
-        </LayoutHeader>
-      }
-      content={
-        <LayoutContent padding={0}>
-          <PageContainer className="space-y-5">
-            {categoriesQ.error && (
-              <Banner
-                status="error"
-                title={
-                  <>Couldn&apos;t load the skills catalog: {(categoriesQ.error as Error).message}</>
-                }
-              />
-            )}
 
-            {!canManage && !loading && (
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-base text-secondary">
-                <Lock className="size-3.5 shrink-0" aria-hidden />
-                <span>You can view the skills catalog but not make changes.</span>
-              </div>
-            )}
-
-            {loading ? (
-              <>
-                <div className="grid grid-cols-3 gap-3">
-                  <Skeleton height={68} radius={3} />
-                  <Skeleton height={68} radius={3} />
-                  <Skeleton height={68} radius={3} />
-                </div>
-                <Skeleton height={384} radius={3} />
-              </>
-            ) : (
-              <>
-                <StatStrip
-                  categories={categories.length}
-                  skills={skills.length}
-                  largest={largestCategory(categories, countByCat)}
+              {canManage && (
+                <AddRow
+                  placeholder="New category…"
+                  value={newCatName}
+                  onChange={setNewCatName}
+                  onSubmit={() => addCatMut.mutate()}
+                  pending={addCatMut.isPending}
                 />
+              )}
 
-                <div className="grid grid-cols-[280px_1fr] gap-5">
-                  {/* Categories rail */}
-                  <section className="flex min-w-0 flex-col gap-2">
-                    <div className="flex items-center justify-between px-1">
-                      <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.04em] text-disabled">
-                        <Layers className="size-3.5" aria-hidden />
-                        Categories
-                      </h2>
-                      <span className="text-sm tabular-nums text-disabled">
-                        {categories.length}
-                      </span>
-                    </div>
+              <VStack as="ul" gap={0.5}>
+                {categories.map((cat) => (
+                  <CategoryRow
+                    key={cat.id}
+                    cat={cat}
+                    count={countByCat.get(cat.id) ?? 0}
+                    selected={cat.id === activeId && !searching}
+                    canManage={canManage}
+                    onSelect={() => {
+                      setSelectedId(cat.id);
+                      setSearch('');
+                    }}
+                    onRename={(name) =>
+                      renameCatMut.mutate({ id: cat.id, name, version: cat.version })
+                    }
+                    onArchive={() => archiveCatMut.mutate({ id: cat.id, version: cat.version })}
+                  />
+                ))}
+                {categories.length === 0 && (
+                  <li>
+                    <Text color="disabled" style={{ padding: 'var(--spacing-2)' }}>
+                      No categories yet.
+                    </Text>
+                  </li>
+                )}
+              </VStack>
+            </VStack>
 
-                    {canManage && (
-                      <AddRow
-                        placeholder="New category…"
-                        value={newCatName}
-                        onChange={setNewCatName}
-                        onSubmit={() => addCatMut.mutate()}
-                        pending={addCatMut.isPending}
-                      />
-                    )}
-
-                    <ul className="flex flex-col gap-0.5">
-                      {categories.map((cat) => (
-                        <CategoryRow
-                          key={cat.id}
-                          cat={cat}
-                          count={countByCat.get(cat.id) ?? 0}
-                          selected={cat.id === activeId && !searching}
-                          canManage={canManage}
-                          onSelect={() => {
-                            setSelectedId(cat.id);
-                            setSearch('');
-                          }}
-                          onRename={(name) =>
-                            renameCatMut.mutate({ id: cat.id, name, version: cat.version })
-                          }
-                          onArchive={() =>
-                            archiveCatMut.mutate({ id: cat.id, version: cat.version })
-                          }
+            {/* Skills pane */}
+            <StackItem size="fill">
+              <VStack as="section" gap={3}>
+                <HStack wrap="wrap" hAlign="between" vAlign="center" gap={3}>
+                  <HStack as="h2" gap={2} vAlign="center">
+                    {searching ? (
+                      <>
+                        <Text weight="semibold">Search results</Text>
+                        <Badge
+                          variant="neutral"
+                          className="tabular-nums" // keep: Badge has no numeric-alignment prop
+                          label={visibleSkills.length}
                         />
-                      ))}
-                      {categories.length === 0 && (
-                        <li className="px-2 py-2 text-base text-disabled">No categories yet.</li>
-                      )}
-                    </ul>
-                  </section>
-
-                  {/* Skills pane */}
-                  <section className="flex min-w-0 flex-col gap-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h2 className="flex items-center gap-2 text-base font-semibold text-primary">
-                        {searching ? (
-                          <>
-                            Search results
-                            <Badge
-                              variant="neutral"
-                              className="tabular-nums"
-                              label={visibleSkills.length}
-                            />
-                          </>
-                        ) : activeCat ? (
-                          <>
-                            {activeCat.name}
-                            <Badge
-                              variant="neutral"
-                              className="tabular-nums"
-                              label={visibleSkills.length}
-                            />
-                          </>
-                        ) : (
-                          'Skills'
-                        )}
-                      </h2>
-
-                      <Input
-                        label="Search skills"
-                        isLabelHidden
-                        startIcon={<Search className="size-3.5" aria-hidden />}
-                        hasClear
-                        value={search}
-                        onChange={(value) => setSearch(value)}
-                        placeholder="Search all skills…"
-                        className="w-56"
-                        size="sm"
-                      />
-                    </div>
-
-                    {canManage && activeCat && !searching && (
-                      <AddRow
-                        placeholder={`Add a skill to ${activeCat.name}…`}
-                        value={newSkillName}
-                        onChange={setNewSkillName}
-                        onSubmit={() => addSkillMut.mutate()}
-                        pending={addSkillMut.isPending}
-                      />
+                      </>
+                    ) : activeCat ? (
+                      <>
+                        <Text weight="semibold">{activeCat.name}</Text>
+                        <Badge
+                          variant="neutral"
+                          className="tabular-nums" // keep: Badge has no numeric-alignment prop
+                          label={visibleSkills.length}
+                        />
+                      </>
+                    ) : (
+                      <Text weight="semibold">Skills</Text>
                     )}
+                  </HStack>
 
-                    {skillsQ.error ? (
-                      <Banner
-                        status="error"
-                        title={<>Couldn&apos;t load skills: {(skillsQ.error as Error).message}</>}
-                      />
-                    ) : categories.length === 0 ? (
-                      <EmptyState
-                        icon={<Tags className="size-8" />}
-                        title="No categories yet"
-                        description="Create a category on the left to start building your skills catalog."
-                      />
-                    ) : visibleSkills.length === 0 ? (
-                      <EmptyState
-                        icon={<Tags className="size-8" />}
-                        title={searching ? 'No matching skills' : 'No skills in this category'}
-                        description={
-                          searching
-                            ? `Nothing matches “${search.trim()}”.`
-                            : canManage
-                              ? 'Add the first skill using the field above.'
-                              : 'This category has no skills yet.'
+                  <Input
+                    label="Search skills"
+                    isLabelHidden
+                    startIcon={<Search className="size-3.5" aria-hidden />}
+                    hasClear
+                    value={search}
+                    onChange={(value) => setSearch(value)}
+                    placeholder="Search all skills…"
+                    width={224}
+                    size="sm"
+                  />
+                </HStack>
+
+                {canManage && activeCat && !searching && (
+                  <AddRow
+                    placeholder={`Add a skill to ${activeCat.name}…`}
+                    value={newSkillName}
+                    onChange={setNewSkillName}
+                    onSubmit={() => addSkillMut.mutate()}
+                    pending={addSkillMut.isPending}
+                  />
+                )}
+
+                {skillsQ.error ? (
+                  <Banner
+                    status="error"
+                    title={<>Couldn&apos;t load skills: {(skillsQ.error as Error).message}</>}
+                  />
+                ) : categories.length === 0 ? (
+                  <EmptyState
+                    icon={<Tags className="size-8" />}
+                    title="No categories yet"
+                    description="Create a category on the left to start building your skills catalog."
+                  />
+                ) : visibleSkills.length === 0 ? (
+                  <EmptyState
+                    icon={<Tags className="size-8" />}
+                    title={searching ? 'No matching skills' : 'No skills in this category'}
+                    description={
+                      searching
+                        ? `Nothing matches “${search.trim()}”.`
+                        : canManage
+                          ? 'Add the first skill using the field above.'
+                          : 'This category has no skills yet.'
+                    }
+                  />
+                ) : (
+                  // Grid's `columns` prop takes a fixed count or a minWidth-based auto-fill — it
+                  // can't express a literal viewport-breakpoint schedule (1 col mobile / 2 sm /
+                  // 3 xl). A minWidth-based Grid would switch column count based on the pane's
+                  // actual container width instead of the browser viewport width, which is a real
+                  // behavior change here (the pane sits beside a fixed 280px rail, so its container
+                  // width tracks the viewport differently than a full-width grid would) — kept
+                  // native per frontend.md's "primitive can't express the shape" escape hatch.
+                  <ul
+                    className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3" // keep: viewport-breakpoint grid — see comment above; Grid has no equivalent
+                  >
+                    {visibleSkills.map((skill) => (
+                      <SkillCard
+                        key={skill.id}
+                        skill={skill}
+                        categoryLabel={searching ? catName(skill.category_id) : null}
+                        canManage={canManage}
+                        onRename={(name) =>
+                          renameSkillMut.mutate({ id: skill.id, name, version: skill.version })
+                        }
+                        onArchive={() =>
+                          archiveSkillMut.mutate({ id: skill.id, version: skill.version })
                         }
                       />
-                    ) : (
-                      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                        {visibleSkills.map((skill) => (
-                          <SkillCard
-                            key={skill.id}
-                            skill={skill}
-                            categoryLabel={searching ? catName(skill.category_id) : null}
-                            canManage={canManage}
-                            onRename={(name) =>
-                              renameSkillMut.mutate({ id: skill.id, name, version: skill.version })
-                            }
-                            onArchive={() =>
-                              archiveSkillMut.mutate({ id: skill.id, version: skill.version })
-                            }
-                          />
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-                </div>
-              </>
-            )}
-          </PageContainer>
-        </LayoutContent>
-      }
-    />
+                    ))}
+                  </ul>
+                )}
+              </VStack>
+            </StackItem>
+          </HStack>
+        </>
+      )}
+    </AdminPageFrame>
   );
 }
 
@@ -390,7 +404,7 @@ function StatStrip({
   largest: { name: string; count: number } | null;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <Grid columns={3} gap={3}>
       <StatTile label="Categories" value={String(categories)} />
       <StatTile label="Skills" value={String(skills)} />
       <StatTile
@@ -398,19 +412,48 @@ function StatStrip({
         value={largest ? String(largest.count) : '—'}
         hint={largest?.name}
       />
-    </div>
+    </Grid>
   );
 }
 
 function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-body px-4 py-3">
-      <div className="text-sm uppercase tracking-wide text-secondary">{label}</div>
-      <div className="mt-1 flex items-baseline gap-2">
-        <span className="text-2xl font-semibold tabular-nums text-primary">{value}</span>
-        {hint && <span className="truncate text-sm text-disabled">{hint}</span>}
-      </div>
-    </div>
+    // Not a Card: Card's `default` variant paints `--color-background-card` (white), but this
+    // tile uses the flatter `--color-background-body` (light gray) — a real, visible background
+    // difference Card has no variant for. Border/radius/background all go through style tokens.
+    <VStack
+      gap={0}
+      style={{
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-container)',
+        backgroundColor: 'var(--color-background-body)',
+        paddingInline: 'var(--spacing-4)',
+        paddingBlock: 'var(--spacing-3)',
+      }}
+    >
+      <Text
+        type="supporting"
+        color="secondary"
+        display="block"
+        className="uppercase" // keep: uppercase — Text has no casing prop (see access-console.tsx RailHeader)
+        style={{ letterSpacing: '0.025em' }} // tracking-wide
+      >
+        {label}
+      </Text>
+      <HStack
+        gap={2}
+        style={{ marginTop: 'var(--spacing-1)', alignItems: 'baseline' }} // keep: HStack vAlign has no "baseline" option
+      >
+        <Text size="2xl" weight="semibold" hasTabularNumbers>
+          {value}
+        </Text>
+        {hint && (
+          <Text type="supporting" color="disabled" className="truncate">
+            {hint}
+          </Text>
+        )}
+      </HStack>
+    </VStack>
   );
 }
 
@@ -431,18 +474,19 @@ function AddRow({
     if (value.trim() && !pending) onSubmit();
   };
   return (
-    <div className="flex gap-2">
-      <Input
-        label={placeholder}
-        isLabelHidden
-        startIcon={<Plus className="size-3.5" aria-hidden />}
-        value={value}
-        placeholder={placeholder}
-        onChange={(v) => onChange(v)}
-        onEnter={submit}
-        className="flex-1"
-        size="sm"
-      />
+    <HStack gap={2}>
+      <StackItem size="fill">
+        <Input
+          label={placeholder}
+          isLabelHidden
+          startIcon={<Plus className="size-3.5" aria-hidden />}
+          value={value}
+          placeholder={placeholder}
+          onChange={(v) => onChange(v)}
+          onEnter={submit}
+          size="sm"
+        />
+      </StackItem>
       <Button
         variant="secondary"
         size="sm"
@@ -451,7 +495,7 @@ function AddRow({
         isDisabled={!value.trim() || pending}
         onClick={submit}
       />
-    </div>
+    </HStack>
   );
 }
 
@@ -495,15 +539,21 @@ function CategoryRow({
   }
 
   return (
-    <li
+    <HStack
+      as="li"
+      gap={1}
+      vAlign="center"
       className={cn(
-        'group flex items-center gap-1 rounded-md border-l-2 py-1.5 pr-1 pl-2 transition-colors',
+        // keep: hover/selected row tint + left border-color state have no plain-token/prop
+        // equivalent (:hover pseudo-class, same reasoning as access-console.tsx's RailItem);
+        // layout itself (flex/gap/align) is already expressed via the HStack props above.
+        'group rounded-md border-l-2 py-1.5 pr-1 pl-2 transition-colors',
         selected ? 'border-accent-bg bg-surface' : 'border-transparent hover:bg-surface',
       )}
     >
-      {/* Not an Astryx Button: this is a full-width, left-aligned, truncating
-          list row. Button centres its label and owns its own weight/size, so
-          expressing this shape means overriding its StyleX at equal specificity. */}
+      {/* keep: native <button> — full-width, left-aligned, truncating list row; Button centres
+      its label and owns weight/size, so this shape can't be expressed via Button
+      (see .claude/rules/frontend.md, which cites this exact file). */}
       <button
         type="button"
         onClick={onSelect}
@@ -516,11 +566,11 @@ function CategoryRow({
       </button>
 
       {confirming ? (
-        <span className="flex items-center gap-1">
+        <HStack as="span" gap={1} vAlign="center">
           <Button
-            variant="ghost"
+            variant="destructive"
             size="sm"
-            className="h-6 px-1.5 text-error"
+            className="h-6 px-1.5" // keep: Button has no compact-height size variant
             icon={<Check className="size-3.5" aria-hidden />}
             label="Archive"
             onClick={() => {
@@ -532,24 +582,36 @@ function CategoryRow({
             variant="ghost"
             size="sm"
             isIconOnly
-            className="h-6 px-1.5 text-disabled"
+            className="h-6 px-1.5 text-disabled" // keep: Button has no compact-height/muted-icon variant
             icon={<X className="size-3.5" aria-hidden />}
             label="Cancel archive"
             onClick={() => setConfirming(false)}
           />
-        </span>
+        </HStack>
       ) : (
         <>
-          <span
-            className={cn(
-              'min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-sm tabular-nums',
-              selected ? 'bg-surface text-secondary' : 'text-disabled',
-            )}
+          <HStack
+            hAlign="center"
+            vAlign="center"
+            paddingInline={1.5}
+            paddingBlock={0.5}
+            style={{
+              minWidth: 'var(--spacing-5)',
+              borderRadius: 'var(--radius-full)',
+              backgroundColor: selected ? 'var(--color-background-surface)' : 'transparent',
+            }}
           >
-            {count}
-          </span>
+            <Text type="supporting" color={selected ? 'secondary' : 'disabled'} hasTabularNumbers>
+              {count}
+            </Text>
+          </HStack>
           {canManage && (
-            <span className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+            <HStack
+              as="span"
+              gap={0}
+              vAlign="center"
+              className="opacity-0 transition-opacity group-hover:opacity-100" // keep: hover-reveal pseudo-class has no style/prop equivalent
+            >
               <IconBtn
                 label={`Rename ${cat.name}`}
                 onClick={() => {
@@ -562,11 +624,11 @@ function CategoryRow({
               <IconBtn label={`Archive ${cat.name}`} onClick={() => setConfirming(true)}>
                 <Archive className="size-3" aria-hidden />
               </IconBtn>
-            </span>
+            </HStack>
           )}
         </>
       )}
-    </li>
+    </HStack>
   );
 }
 
@@ -594,64 +656,85 @@ function SkillCard({
       if (v && v !== skill.name) onRename(v);
     };
     return (
-      <li className="rounded-md border border-border bg-card p-1.5">
-        <InlineEditInput
-          value={draft}
-          onChange={setDraft}
-          onCommit={commit}
-          onCancel={() => setEditing(false)}
-        />
+      <li>
+        <Card padding={1.5}>
+          <InlineEditInput
+            value={draft}
+            onChange={setDraft}
+            onCommit={commit}
+            onCancel={() => setEditing(false)}
+          />
+        </Card>
       </li>
     );
   }
 
   return (
-    <li className="group flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2 transition-colors hover:border-border-strong">
-      <div className="min-w-0">
-        <div className="truncate text-base text-primary">{skill.name}</div>
-        {categoryLabel && <div className="truncate text-sm text-disabled">{categoryLabel}</div>}
-      </div>
+    <li>
+      <Card
+        padding={0}
+        className="group transition-colors hover:border-border-strong" // keep: hover-border tint + group hover-reveal have no Card prop equivalent
+        style={{ paddingInline: 'var(--spacing-3)', paddingBlock: 'var(--spacing-2)' }}
+      >
+        <HStack hAlign="between" vAlign="center" gap={2}>
+          <VStack gap={0} className="min-w-0">
+            <Text display="block" className="truncate">
+              {skill.name}
+            </Text>
+            {categoryLabel && (
+              <Text type="supporting" color="disabled" display="block" className="truncate">
+                {categoryLabel}
+              </Text>
+            )}
+          </VStack>
 
-      {canManage &&
-        (confirming ? (
-          <span className="flex flex-none items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-1.5 text-error"
-              icon={<Check className="size-3.5" aria-hidden />}
-              label="Archive"
-              onClick={() => {
-                setConfirming(false);
-                onArchive();
-              }}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              isIconOnly
-              className="h-6 px-1.5 text-disabled"
-              icon={<X className="size-3.5" aria-hidden />}
-              label="Cancel archive"
-              onClick={() => setConfirming(false)}
-            />
-          </span>
-        ) : (
-          <span className="flex flex-none items-center opacity-0 transition-opacity group-hover:opacity-100">
-            <IconBtn
-              label={`Rename ${skill.name}`}
-              onClick={() => {
-                setDraft(skill.name);
-                setEditing(true);
-              }}
-            >
-              <Pencil className="size-3" aria-hidden />
-            </IconBtn>
-            <IconBtn label={`Archive ${skill.name}`} onClick={() => setConfirming(true)}>
-              <Archive className="size-3" aria-hidden />
-            </IconBtn>
-          </span>
-        ))}
+          {canManage &&
+            (confirming ? (
+              <HStack as="span" gap={1} vAlign="center" className="flex-none">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-6 px-1.5" // keep: Button has no compact-height size variant
+                  icon={<Check className="size-3.5" aria-hidden />}
+                  label="Archive"
+                  onClick={() => {
+                    setConfirming(false);
+                    onArchive();
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  isIconOnly
+                  className="h-6 px-1.5 text-disabled" // keep: Button has no compact-height/muted-icon variant
+                  icon={<X className="size-3.5" aria-hidden />}
+                  label="Cancel archive"
+                  onClick={() => setConfirming(false)}
+                />
+              </HStack>
+            ) : (
+              <HStack
+                as="span"
+                gap={0}
+                vAlign="center"
+                className="flex-none opacity-0 transition-opacity group-hover:opacity-100" // keep: hover-reveal pseudo-class has no style/prop equivalent
+              >
+                <IconBtn
+                  label={`Rename ${skill.name}`}
+                  onClick={() => {
+                    setDraft(skill.name);
+                    setEditing(true);
+                  }}
+                >
+                  <Pencil className="size-3" aria-hidden />
+                </IconBtn>
+                <IconBtn label={`Archive ${skill.name}`} onClick={() => setConfirming(true)}>
+                  <Archive className="size-3" aria-hidden />
+                </IconBtn>
+              </HStack>
+            ))}
+        </HStack>
+      </Card>
     </li>
   );
 }
@@ -700,7 +783,7 @@ function IconBtn({
       isIconOnly
       icon={children}
       label={label}
-      className="size-6 text-disabled hover:text-primary"
+      className="size-6 text-disabled hover:text-primary" // keep: Button has no compact icon-size + hover-color variant
       onClick={onClick}
     />
   );
