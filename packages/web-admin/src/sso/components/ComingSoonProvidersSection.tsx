@@ -1,4 +1,4 @@
-import { Badge, InfoRow, SettingsSection, Text } from '@seta/shared-ui';
+import { Badge, InfoRow, SettingsSection, Text, VStack } from '@seta/shared-ui';
 
 interface PreviewProvider {
   id: string;
@@ -35,14 +35,11 @@ export function ComingSoonProvidersSection() {
           action={<Badge variant="neutral" label="Soon" />}
         />
       ))}
-      <Text
-        type="supporting"
-        color="secondary"
-        display="block"
-        style={{ paddingBlock: 'var(--spacing-3)' }}
-      >
-        Need a different provider? Talk to support.
-      </Text>
+      <VStack paddingBlock={4}>
+        <Text type="supporting" color="secondary" display="block">
+          Need a different provider? Talk to support.
+        </Text>
+      </VStack>
     </SettingsSection>
   );
 }

@@ -163,7 +163,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
       title="Microsoft Entra ID"
       description="Let your team sign in with their Microsoft work account."
     >
-      <HStack hAlign="between" vAlign="center" gap={2} paddingBlock={2}>
+      <HStack hAlign="between" vAlign="center" gap={2} paddingBlock={4}>
         <HStack gap={2} vAlign="center">
           <MicrosoftMark />
           {row?.updated_at && (
@@ -271,7 +271,7 @@ export function EntraProviderCard({ row, onChanged }: EntraProviderCardProps) {
             }
           />
 
-          <HStack hAlign="between" vAlign="center" gap={2} paddingBlock={3}>
+          <HStack hAlign="between" vAlign="center" gap={2} paddingBlock={4}>
             <HStack gap={2} vAlign="center">
               {status === 'consent_pending' && (
                 <>

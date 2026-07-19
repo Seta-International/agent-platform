@@ -2,15 +2,12 @@ import { PRODUCTS, productForNamespace } from '@seta/shared-rbac';
 import {
   Badge,
   Banner,
-  BreadcrumbItem,
-  Breadcrumbs,
   Button,
   Checkbox,
   Heading,
   HStack,
   Layout,
   LayoutContent,
-  LayoutHeader,
   LayoutPanel,
   PageContainer,
   Skeleton,
@@ -27,6 +24,7 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { ListChecks, Lock, RotateCcw, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { AdminPageHeader } from '../../components/AdminPageHeader.tsx';
 import { RailHeader, RailItem, StatBar, StatChip } from '../../components/access-console.tsx';
 import type { MatrixRole } from '../api/role-access-client.ts';
 import { useResetRole, useRoleAccessMatrix, useSetRolePermission } from '../hooks/useRoleAccess.ts';
@@ -61,24 +59,7 @@ export function RoleAccess() {
   return (
     <Layout
       height="fill"
-      header={
-        <LayoutHeader hasDivider padding={4}>
-          <VStack gap={1}>
-            <Breadcrumbs variant="supporting">
-              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-              <BreadcrumbItem isCurrent>Role access</BreadcrumbItem>
-            </Breadcrumbs>
-            <HStack hAlign="between" vAlign="center" gap={2}>
-              <HStack gap={2} vAlign="center">
-                <Text as="h1" size="lg" weight="semibold">
-                  Role access
-                </Text>
-                {subtitle && <Text color="secondary">{subtitle}</Text>}
-              </HStack>
-            </HStack>
-          </VStack>
-        </LayoutHeader>
-      }
+      header={<AdminPageHeader crumb="Role access" title="Role access" subtitle={subtitle} />}
       start={
         error ? undefined : (
           <LayoutPanel hasDivider width={288} padding={0} isScrollable={false}>

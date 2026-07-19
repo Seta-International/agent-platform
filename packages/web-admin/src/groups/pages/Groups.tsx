@@ -1,13 +1,9 @@
 import {
   Badge,
   Banner,
-  BreadcrumbItem,
-  Breadcrumbs,
   EmptyState,
-  HStack,
   Layout,
   LayoutContent,
-  LayoutHeader,
   LayoutPanel,
   PageContainer,
   Skeleton,
@@ -17,6 +13,7 @@ import {
 } from '@seta/shared-ui';
 import { UsersRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { AdminPageHeader } from '../../components/AdminPageHeader.tsx';
 import { RailHeader, RailItem } from '../../components/access-console.tsx';
 import type { Group } from '../api/groups-client.ts';
 import { CreateGroupDialog } from '../components/CreateGroupDialog.tsx';
@@ -92,23 +89,12 @@ export function GroupsPage() {
     <Layout
       height="fill"
       header={
-        <LayoutHeader hasDivider padding={4}>
-          <VStack gap={1}>
-            <Breadcrumbs variant="supporting">
-              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-              <BreadcrumbItem isCurrent>Groups</BreadcrumbItem>
-            </Breadcrumbs>
-            <HStack hAlign="between" vAlign="center" gap={2}>
-              <HStack gap={2} vAlign="center">
-                <Text as="h1" size="lg" weight="semibold">
-                  Groups
-                </Text>
-                {subtitle && <Text color="secondary">{subtitle}</Text>}
-              </HStack>
-              <CreateGroupDialog onCreated={setSelectedId} />
-            </HStack>
-          </VStack>
-        </LayoutHeader>
+        <AdminPageHeader
+          crumb="Groups"
+          title="Groups"
+          subtitle={subtitle}
+          actions={<CreateGroupDialog onCreated={setSelectedId} />}
+        />
       }
       start={
         error ? undefined : (

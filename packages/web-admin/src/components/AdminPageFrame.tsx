@@ -1,16 +1,6 @@
-import {
-  BreadcrumbItem,
-  Breadcrumbs,
-  Heading,
-  HStack,
-  Layout,
-  LayoutContent,
-  LayoutHeader,
-  PageContainer,
-  Text,
-  VStack,
-} from '@seta/shared-ui';
+import { Layout, LayoutContent, LayoutHeader, PageContainer, VStack } from '@seta/shared-ui';
 import type { ReactNode } from 'react';
+import { AdminPageHeader } from './AdminPageHeader.tsx';
 
 export interface AdminPageFrameProps {
   /** Breadcrumb leaf under Admin. */
@@ -43,21 +33,7 @@ export function AdminPageFrame({
       height="fill"
       header={
         <>
-          <LayoutHeader hasDivider padding={4}>
-            <VStack gap={1}>
-              <Breadcrumbs variant="supporting">
-                <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-                <BreadcrumbItem isCurrent>{crumb}</BreadcrumbItem>
-              </Breadcrumbs>
-              <HStack hAlign="between" vAlign="center" gap={2}>
-                <HStack gap={2} vAlign="center">
-                  <Heading level={1}>{title}</Heading>
-                  {subtitle && <Text color="secondary">{subtitle}</Text>}
-                </HStack>
-                {actions}
-              </HStack>
-            </VStack>
-          </LayoutHeader>
+          <AdminPageHeader crumb={crumb} title={title} subtitle={subtitle} actions={actions} />
           {subheader && <LayoutHeader padding={0}>{subheader}</LayoutHeader>}
         </>
       }
