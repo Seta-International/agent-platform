@@ -5,6 +5,7 @@ import {
   Dialog,
   DialogHeader,
   EmptyState,
+  HStack,
   Input,
   Layout,
   LayoutContent,
@@ -13,9 +14,11 @@ import {
   Skeleton,
   Table,
   type TableColumn,
+  Text,
   Tooltip,
   useTableSelection,
   useTableSelectionState,
+  VStack,
 } from '@seta/shared-ui';
 import { Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -47,11 +50,12 @@ const columns: TableColumn<EntraRow>[] = [
     header: 'Status',
     width: pixel(140),
     renderCell: (u) => {
+      // keep: BadgeProps has no size prop — text-xs shrinks the badge for this dense table cell
       if (!u.account_enabled)
-        return <Badge variant="neutral" className="text-xs" label="Disabled" />;
+        return <Badge variant="neutral" className="text-xs" label="Disabled" />; // keep: no size prop
       if (u.already_in_seta)
-        return <Badge variant="neutral" className="text-xs" label="Already added" />;
-      return <Badge variant="neutral" className="text-xs" label="New" />;
+        return <Badge variant="neutral" className="text-xs" label="Already added" />; // keep: no size prop
+      return <Badge variant="neutral" className="text-xs" label="New" />; // keep: no size prop
     },
   },
 ];
@@ -175,9 +179,9 @@ export function ImportFromEntraDialog({
           header={<DialogHeader title="Import from Entra ID" onOpenChange={handleOpenChange} />}
           content={
             <LayoutContent>
-              <div className="space-y-4">
+              <VStack gap={4}>
                 {result ? (
-                  <div className="space-y-3">
+                  <VStack gap={3}>
                     <Banner
                       status="info"
                       title={
@@ -189,16 +193,31 @@ export function ImportFromEntraDialog({
                     />
 
                     {result.skipped.length > 0 && (
-                      <details className="text-sm">
-                        <summary className="cursor-pointer text-secondary">
-                          {result.skipped.length} couldn&apos;t be added
+                      // keep: native disclosure — Astryx Collapsible defaults open and adds a
+                      // chevron trigger button, changing both the closed-by-default behavior and
+                      // the a11y semantics of this <details>/<summary> pair.
+                      <details>
+                        <summary className="cursor-pointer">
+                          <Text type="supporting" color="secondary">
+                            {result.skipped.length} couldn&apos;t be added
+                          </Text>
                         </summary>
-                        <ul className="mt-2 space-y-1 pl-4">
-                          {result.skipped.map((s) => {
+                        <ul
+                          style={{
+                            marginTop: 'var(--spacing-2)',
+                            paddingInlineStart: 'var(--spacing-4)',
+                          }}
+                        >
+                          {result.skipped.map((s, i) => {
                             const u = users?.find((u) => u.entra_oid === s.entra_oid);
                             return (
-                              <li key={s.entra_oid} className="text-secondary">
-                                {u?.email ?? s.entra_oid}: {s.reason}
+                              <li
+                                key={s.entra_oid}
+                                style={i > 0 ? { marginTop: 'var(--spacing-1)' } : undefined}
+                              >
+                                <Text type="supporting" color="secondary">
+                                  {u?.email ?? s.entra_oid}: {s.reason}
+                                </Text>
                               </li>
                             );
                           })}
@@ -206,7 +225,7 @@ export function ImportFromEntraDialog({
                       </details>
                     )}
 
-                    <div className="flex gap-2">
+                    <HStack gap={2}>
                       <Button
                         variant="secondary"
                         label="Refresh"
@@ -221,20 +240,20 @@ export function ImportFromEntraDialog({
                         label="Close"
                         onClick={() => handleOpenChange(false)}
                       />
-                    </div>
-                  </div>
+                    </HStack>
+                  </VStack>
                 ) : (
                   <>
                     {loadError && <Banner status="error" title={loadError} />}
 
                     {loading ? (
-                      <div className="space-y-2">
+                      <VStack gap={2}>
                         {[0, 1, 2, 3].map((i) => (
                           <Skeleton key={`skeleton-${i}`} height={32} />
                         ))}
-                      </div>
+                      </VStack>
                     ) : users !== null ? (
-                      <div className="space-y-2">
+                      <VStack gap={2}>
                         <Input
                           label="Filter users"
                           isLabelHidden
@@ -252,12 +271,12 @@ export function ImportFromEntraDialog({
                           emptyState={<EmptyState title="No matching users" />}
                           plugins={{ selection }}
                         />
-                      </div>
+                      </VStack>
                     ) : null}
 
                     {submitError && <Banner status="error" title={submitError} />}
 
-                    <div className="flex justify-end gap-2">
+                    <HStack gap={2} hAlign="end">
                       <Button
                         variant="ghost"
                         label="Cancel"
@@ -276,10 +295,10 @@ export function ImportFromEntraDialog({
                         onClick={() => void submit()}
                         isDisabled={submitting || selectedOids.length === 0}
                       />
-                    </div>
+                    </HStack>
                   </>
                 )}
-              </div>
+              </VStack>
             </LayoutContent>
           }
         />

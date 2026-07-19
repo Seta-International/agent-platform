@@ -183,7 +183,7 @@ function RoleScopeControl({
   );
 
   return (
-    <div className="flex flex-none items-center gap-1.5">
+    <HStack gap={1.5} vAlign="center" style={{ flexShrink: 0 }}>
       <Selector
         label={`${role.role_slug} scope`}
         isLabelHidden
@@ -211,7 +211,7 @@ function RoleScopeControl({
           width={160}
         />
       )}
-    </div>
+    </HStack>
   );
 }
 
@@ -223,7 +223,10 @@ function DeleteGroupButton({ group, onDeleted }: { group: Group; onDeleted: () =
       <Button
         variant="ghost"
         size="sm"
-        className="text-disabled hover:text-error"
+        // keep: variant="destructive" paints a permanent error-muted background (see
+        // theme-neutral .astryx-button.destructive) — this row action wants to stay
+        // visually quiet until hover, which no Button variant expresses.
+        className="text-disabled hover:text-error" // keep: no muted-until-hover variant
         label="Delete"
         icon={<Trash2 className="size-3.5" aria-hidden />}
         onClick={() => setIsOpen(true)}
@@ -354,7 +357,7 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                   {product && (
                     <Badge
                       variant="neutral"
-                      className="font-normal"
+                      className="font-normal" // keep: BadgeProps has no weight prop
                       label={PRODUCT_LABEL.get(product) ?? product}
                     />
                   )}
