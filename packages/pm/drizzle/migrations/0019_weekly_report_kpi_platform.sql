@@ -1,9 +1,11 @@
--- Touch triggers, RLS policies, latest-entry FK, and the flag-audit append-only guard for
--- the FUT-609 reporting tables: drizzle-kit cannot model triggers/policies. The touch + RLS
--- sections are generated verbatim by packages/pm/drizzle/generate-platform-sql.ts
--- (@seta/shared-db builders); pm.tg_touch_updated_at() already exists from 0001_pm_platform.sql.
+-- Touch triggers, RLS policies, latest-entry FK, and the flag-audit append-only guard for the
+-- FUT-609 reporting tables (reconciled with FUT-581): drizzle-kit cannot model
+-- triggers/policies. The touch + RLS sections are generated verbatim by
+-- packages/pm/drizzle/generate-platform-sql.ts (@seta/shared-db builders);
+-- pm.tg_touch_updated_at() already exists from 0001_pm_platform.sql.
 
--- touch-updated-at triggers (mutable tables only)
+-- touch-updated-at triggers (mutable tables only; flag_audit_entry and norm_snapshot are
+-- append-only/immutable and excluded)
 CREATE TRIGGER report_touch_updated_at
 BEFORE UPDATE ON pm.report
 FOR EACH ROW EXECUTE FUNCTION pm.tg_touch_updated_at();
@@ -13,9 +15,6 @@ FOR EACH ROW EXECUTE FUNCTION pm.tg_touch_updated_at();
 CREATE TRIGGER flag_touch_updated_at
 BEFORE UPDATE ON pm.flag
 FOR EACH ROW EXECUTE FUNCTION pm.tg_touch_updated_at();
-CREATE TRIGGER norm_baseline_touch_updated_at
-BEFORE UPDATE ON pm.norm_baseline
-FOR EACH ROW EXECUTE FUNCTION pm.tg_touch_updated_at();
 CREATE TRIGGER project_week_rollup_touch_updated_at
 BEFORE UPDATE ON pm.project_week_rollup
 FOR EACH ROW EXECUTE FUNCTION pm.tg_touch_updated_at();
@@ -23,7 +22,7 @@ CREATE TRIGGER comment_touch_updated_at
 BEFORE UPDATE ON pm.comment
 FOR EACH ROW EXECUTE FUNCTION pm.tg_touch_updated_at();
 
--- rls backstop (all eight; app still writes explicit WHERE tenant_id)
+-- rls backstop (all seven; app still writes explicit WHERE tenant_id)
 ALTER TABLE pm.report ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pm.report FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON pm.report
@@ -42,11 +41,6 @@ CREATE POLICY tenant_isolation ON pm.flag
 ALTER TABLE pm.flag_audit_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pm.flag_audit_entry FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON pm.flag_audit_entry
-  USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
-  WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
-ALTER TABLE pm.norm_baseline ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pm.norm_baseline FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON pm.norm_baseline
   USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
   WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 ALTER TABLE pm.norm_snapshot ENABLE ROW LEVEL SECURITY;

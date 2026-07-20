@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { createSkill, createSkillCategory } from '@seta/core';
 import { resetCoreDb } from '@seta/core/testing';
 import { closePools, initPools } from '@seta/shared-db';
@@ -133,5 +134,88 @@ describe('candidate CV upload/download URLs', () => {
         { presignDownload: presignDownload as never },
       );
       expect(dl.download_url).toBe(`https://s3.example/get/${up.s3_key}`);
+    }));
+});
+
+describe('parseCandidateCvDraft duplicate detection', () => {
+  const buffer = () => Buffer.from(CV_TEXT, 'utf-8');
+  const sha256 = (b: Buffer) => createHash('sha256').update(b).digest('hex');
+
+  it('flags a candidate whose stored CV has the same sha256', () =>
+    withDb(async ({ t }) => {
+      const { requisition_id } = await openRequisition({
+        title: 'QA Lead',
+        kind: 'new',
+        headcount: 1,
+        session: t.adminSession,
+      });
+      const { candidate_id } = await addCandidate({
+        requisition_id,
+        name: 'Existing Person',
+        session: t.adminSession,
+      });
+      await editCandidate({
+        candidate_id,
+        patch: { cv_sha256: sha256(buffer()) },
+        session: t.adminSession,
+      });
+
+      const draft = await parseCandidateCvDraft(
+        { buffer: buffer(), filename: 'cv.txt', session: t.adminSession },
+        { resolveModel: () => mockModel() },
+      );
+      expect(draft.cv_sha256).toBe(sha256(buffer()));
+      expect(draft.possible_duplicates).toEqual([
+        expect.objectContaining({ candidate_id, name: 'Existing Person', match: 'file' }),
+      ]);
+    }));
+
+  it('flags a candidate whose contact email matches the parsed email', () =>
+    withDb(async ({ t }) => {
+      const { requisition_id } = await openRequisition({
+        title: 'QA Lead',
+        kind: 'new',
+        headcount: 1,
+        session: t.adminSession,
+      });
+      const { candidate_id } = await addCandidate({
+        requisition_id,
+        name: 'Same Email Person',
+        personal_email: 'D.Le@gmail.com',
+        session: t.adminSession,
+      });
+
+      const draft = await parseCandidateCvDraft(
+        { buffer: buffer(), filename: 'cv.txt', session: t.adminSession },
+        { resolveModel: () => mockModel() },
+      );
+      expect(draft.possible_duplicates).toEqual([
+        expect.objectContaining({ candidate_id, name: 'Same Email Person', match: 'email' }),
+      ]);
+    }));
+
+  it('ignores soft-deleted candidates; empty when nothing matches', () =>
+    withDb(async ({ pool, t }) => {
+      const { requisition_id } = await openRequisition({
+        title: 'QA Lead',
+        kind: 'new',
+        headcount: 1,
+        session: t.adminSession,
+      });
+      const { candidate_id } = await addCandidate({
+        requisition_id,
+        name: 'Deleted Person',
+        personal_email: 'd.le@gmail.com',
+        session: t.adminSession,
+      });
+      await pool.query('UPDATE hiring.candidate SET deleted_at = now() WHERE id = $1', [
+        candidate_id,
+      ]);
+
+      const draft = await parseCandidateCvDraft(
+        { buffer: buffer(), filename: 'cv.txt', session: t.adminSession },
+        { resolveModel: () => mockModel() },
+      );
+      expect(draft.possible_duplicates).toEqual([]);
     }));
 });

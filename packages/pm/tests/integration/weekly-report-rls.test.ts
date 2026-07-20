@@ -30,7 +30,7 @@ describe('pm weekly-report platform invariants', () => {
   // observe enforcement via a raw SELECT (this is why the module's app-level isolation test
   // uses tenantScoped instead). For this schema task we assert the backstop DDL is present:
   // every reporting table has FORCE ROW LEVEL SECURITY and the tenant_isolation policy.
-  it('declares the RLS backstop (FORCE + tenant_isolation) on all eight reporting tables', async () => {
+  it('declares the RLS backstop (FORCE + tenant_isolation) on all seven reporting tables', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();
       resetPmDb();
@@ -41,7 +41,6 @@ describe('pm weekly-report platform invariants', () => {
           'metric_value',
           'flag',
           'flag_audit_entry',
-          'norm_baseline',
           'norm_snapshot',
           'project_week_rollup',
           'comment',
@@ -84,15 +83,16 @@ describe('pm weekly-report platform invariants', () => {
         const projectId = await seedProject(pool, t.tenant_id);
         const reportId = crypto.randomUUID();
         await pool.query(
-          `INSERT INTO pm.report (id, tenant_id, project_id, week_start, reporter_id)
-           VALUES ($1,$2,$3,'2026-07-13',$4)`,
+          `INSERT INTO pm.report (id, tenant_id, project_id, iso_year, iso_week, reporter_id)
+           VALUES ($1,$2,$3,2026,28,$4)`,
           [reportId, t.tenant_id, projectId, crypto.randomUUID()],
         );
         const flagId = crypto.randomUUID();
         await pool.query(
-          `INSERT INTO pm.flag (id, tenant_id, report_id, category, computed_colour, final_colour)
-           VALUES ($1,$2,$3,'quality','green','green')`,
-          [flagId, t.tenant_id, reportId],
+          `INSERT INTO pm.flag
+             (id, tenant_id, project_id, iso_year, iso_week, report_id, category, computed_colour, final_colour)
+           VALUES ($1,$2,$3,2026,28,$4,'quality','green','green')`,
+          [flagId, t.tenant_id, projectId, reportId],
         );
         const entryId = crypto.randomUUID();
         await pool.query(
@@ -129,8 +129,8 @@ describe('pm weekly-report platform invariants', () => {
         const projectId = await seedProject(pool, t.tenant_id);
         const reportId = crypto.randomUUID();
         await pool.query(
-          `INSERT INTO pm.report (id, tenant_id, project_id, week_start, reporter_id, updated_at)
-           VALUES ($1,$2,$3,'2026-07-13',$4, now() - interval '1 hour')`,
+          `INSERT INTO pm.report (id, tenant_id, project_id, iso_year, iso_week, reporter_id, updated_at)
+           VALUES ($1,$2,$3,2026,28,$4, now() - interval '1 hour')`,
           [reportId, t.tenant_id, projectId, crypto.randomUUID()],
         );
         const before = await pool.query(`SELECT updated_at FROM pm.report WHERE id = $1`, [

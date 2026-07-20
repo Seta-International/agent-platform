@@ -1,8 +1,9 @@
+import { createHash } from 'node:crypto';
 import { listSkills, type SessionScope } from '@seta/core';
 import { type CvProfileDraft, type ParseCvProfileDeps, parseCvProfile } from '@seta/knowledge';
 import { tenantScoped } from '@seta/shared-rbac';
 import { buildTenantKey, presignedDownloadUrl, presignedUploadUrl } from '@seta/shared-storage';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import { hiringDb } from '../db/client.ts';
 import { candidate } from '../db/schema.ts';
 import { HiringError, requirePermission } from '../rbac.ts';
@@ -28,6 +29,73 @@ export interface CandidateCvDraft {
   skills: Array<{ skill_id: string; skill_name: string }>;
   /** Names with no catalog match — surfaced as suggestions, never auto-created. */
   skill_suggestions: string[];
+  /** SHA-256 of the uploaded file; the client echoes it back when persisting the CV. */
+  cv_sha256: string;
+  /** Existing candidates this upload probably duplicates (same file, email, or phone). */
+  possible_duplicates: CandidateDuplicate[];
+}
+
+export interface CandidateDuplicate {
+  candidate_id: string;
+  name: string;
+  created_at: string;
+  match: 'file' | 'email' | 'phone';
+}
+
+const DUPLICATES_LIMIT = 5;
+
+/**
+ * Same-tenant candidates that look like this upload: exact file (sha256), or the
+ * parsed email/phone already on record. Warning-only — re-applying is legitimate,
+ * so the recruiter decides.
+ */
+async function findPossibleDuplicates(
+  session: SessionScope,
+  input: { cv_sha256: string; email: string | null; phone: string | null },
+): Promise<CandidateDuplicate[]> {
+  const email = input.email?.trim().toLowerCase() || null;
+  const phoneDigits = input.phone?.replace(/\D/g, '') || null;
+  const conditions = [eq(candidate.cv_sha256, input.cv_sha256)];
+  if (email) {
+    conditions.push(sql`lower(${candidate.contact}->>'personal_email') = ${email}`);
+  }
+  if (phoneDigits) {
+    conditions.push(
+      sql`regexp_replace(coalesce(${candidate.contact}->>'phone', ''), '\\D', '', 'g') = ${phoneDigits}`,
+    );
+  }
+  const rows = await hiringDb()
+    .select({
+      candidate_id: candidate.id,
+      name: candidate.name,
+      created_at: candidate.created_at,
+      cv_sha256: candidate.cv_sha256,
+      contact: candidate.contact,
+    })
+    .from(candidate)
+    .where(
+      and(
+        tenantScoped(candidate.tenant_id, session),
+        isNull(candidate.deleted_at),
+        or(...conditions),
+      ),
+    )
+    .limit(DUPLICATES_LIMIT);
+  return rows.map((r) => {
+    const contact = r.contact as { personal_email?: string | null } | null;
+    const match: CandidateDuplicate['match'] =
+      r.cv_sha256 === input.cv_sha256
+        ? 'file'
+        : email && contact?.personal_email?.trim().toLowerCase() === email
+          ? 'email'
+          : 'phone';
+    return {
+      candidate_id: r.candidate_id,
+      name: r.name,
+      created_at: r.created_at.toISOString(),
+      match,
+    };
+  });
 }
 
 async function matchSkillsToCatalog(
@@ -71,11 +139,17 @@ export async function parseCandidateCvDraft(
   deps: ParseCandidateCvDeps,
 ): Promise<CandidateCvDraft> {
   requirePermission(input.session, 'hiring.candidate.create');
+  const cv_sha256 = createHash('sha256').update(input.buffer).digest('hex');
   const profile: CvProfileDraft = await parseCvProfile(input.buffer, input.filename, {
     model: deps.resolveModel(),
     extract: deps.extract,
   });
   const { skills, suggestions } = await matchSkillsToCatalog(input.session, profile.skills);
+  const possible_duplicates = await findPossibleDuplicates(input.session, {
+    cv_sha256,
+    email: profile.personal_email,
+    phone: profile.phone,
+  });
   return {
     name: profile.full_name,
     personal_email: profile.personal_email,
@@ -86,6 +160,8 @@ export async function parseCandidateCvDraft(
     note: profile.summary,
     skills,
     skill_suggestions: suggestions,
+    cv_sha256,
+    possible_duplicates,
   };
 }
 

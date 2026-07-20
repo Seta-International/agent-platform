@@ -1,3 +1,13 @@
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
+import { useState } from 'react';
+import {
+  type AccountListRow,
+  fetchAccounts,
+  type SubmitCharterBody,
+  submitCharter,
+} from '../api/pm-client.ts';
+import { useWorkerSource } from '../api/worker-search';
 import {
   Banner,
   Button,
@@ -14,17 +24,7 @@ import {
   Textarea,
   Typeahead,
   useToast,
-} from '@seta/shared-ui';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
-import { useState } from 'react';
-import {
-  type AccountListRow,
-  fetchAccounts,
-  type SubmitCharterBody,
-  submitCharter,
-} from '../api/pm-client.ts';
-import { useWorkerSource } from '../api/worker-search';
+} from './_ui-compat.tsx';
 
 const NONE = '__none__';
 

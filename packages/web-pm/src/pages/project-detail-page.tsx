@@ -1,3 +1,20 @@
+import { usePermission } from '@seta/web-identity';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useParams } from '@tanstack/react-router';
+import { Plus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { orgUnitSearch } from '../api/org-unit-search.ts';
+import { createPlannerGroup, fetchPlannerGroups } from '../api/planner-client.ts';
+import {
+  closeProject,
+  editProject,
+  fetchProject,
+  linkPlannerGroup,
+  type ProjectDetail,
+  type ProjectPatch,
+  reopenProject,
+} from '../api/pm-client.ts';
+import { pmKeys } from '../state/query-keys.ts';
 import {
   Badge,
   Banner,
@@ -19,24 +36,7 @@ import {
   useSeededItem,
   useToast,
   VStack,
-} from '@seta/shared-ui';
-import { usePermission } from '@seta/web-identity';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
-import { Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { orgUnitSearch } from '../api/org-unit-search.ts';
-import { createPlannerGroup, fetchPlannerGroups } from '../api/planner-client.ts';
-import {
-  closeProject,
-  editProject,
-  fetchProject,
-  linkPlannerGroup,
-  type ProjectDetail,
-  type ProjectPatch,
-  reopenProject,
-} from '../api/pm-client.ts';
-import { pmKeys } from '../state/query-keys.ts';
+} from './_ui-compat.tsx';
 import { ProjectAccessSection } from './project-access-section.tsx';
 import { StaffingPlanSection } from './staffing-plan-section.tsx';
 

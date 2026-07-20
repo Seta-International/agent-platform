@@ -1,0 +1,4 @@
+ALTER TABLE "hiring"."application" DROP CONSTRAINT "application_status_check";--> statement-breakpoint
+ALTER TABLE "hiring"."candidate_event" DROP CONSTRAINT "candidate_event_kind_check";--> statement-breakpoint
+ALTER TABLE "hiring"."application" ADD CONSTRAINT "application_status_check" CHECK (status IN ('active', 'hired', 'rejected', 'transferred', 'cancelled'));--> statement-breakpoint
+ALTER TABLE "hiring"."candidate_event" ADD CONSTRAINT "candidate_event_kind_check" CHECK (kind IN ('created', 'stage_changed', 'hired', 'cancelled', 'rejected', 'transferred', 'rating_changed', 'note_changed', 'skills_changed', 'profile_changed'));

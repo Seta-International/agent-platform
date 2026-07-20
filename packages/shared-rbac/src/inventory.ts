@@ -458,8 +458,13 @@ export const INVENTORY: StatementSpec[] = [
       },
       {
         slug: 'pm.bod',
-        description: 'Board final approval gate',
-        permissions: ['pm.charter.bod_approve', 'pm.charter.read', 'pm.project.read'],
+        description: 'Board final approval gate + organization-wide read (FUT-610 org-scope)',
+        permissions: [
+          'pm.account.read',
+          'pm.charter.bod_approve',
+          'pm.charter.read',
+          'pm.project.read',
+        ],
       },
       {
         slug: 'pm.viewer',

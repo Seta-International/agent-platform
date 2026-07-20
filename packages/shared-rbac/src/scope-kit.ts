@@ -23,6 +23,11 @@ export function scopeDecision(
   ctx: ScopeCtx,
 ): ScopeDecision {
   if (scope.kind === 'tenant') return { kind: 'all' };
+  // No assignment grants the permission at all → deny outright. Relationship arms (project
+  // owner, account AM, …) only WIDEN an existing scoped grant — they never substitute for
+  // one, otherwise e.g. a read-only BoD user with a leftover project_access owner row would
+  // pass manage checks (and get can_manage=true) on that project.
+  if (scope.kind === 'none') return { kind: 'deny' };
   const arms: SQL[] = [];
   if (scope.kind === 'subset') {
     if (scope.org_unit_ids.length > 0 && plan.orgUnit) {

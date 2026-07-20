@@ -199,13 +199,216 @@ export const reassignAllocationInput = z.object({
 });
 export type ReassignAllocationInput = z.infer<typeof reassignAllocationInput>;
 
-/** Reassign a PM-chosen subset of a worker's own allocations at once — each of
- * `allocation_ids` ends on the same `source.date_to`, then the target
- * allocations are created. Used by the RA Monitoring "group by person"
- * reassign action (the PM checks which allocation(s) to reassign; unchecked
- * ones are left untouched). `allocation_ids` may be empty — this only adds
- * `targets`, without ending anything (`source.date_to` is unused in that
- * case). */
+/** Configure metrics is per-project with a bulk project picker (functional-analysis.md §2d):
+ * toggling a metric applies/removes it across every id in `project_ids` at once. */
+export const setAppliedMetricInput = z.object({
+  applied: z.boolean(),
+  project_ids: z.array(z.string().uuid()).min(1),
+});
+export type SetAppliedMetricInput = z.infer<typeof setAppliedMetricInput>;
+
+const commaSeparatedUuids = z.preprocess(
+  emptyToUndefined,
+  z
+    .string()
+    .transform((s) => s.split(','))
+    .pipe(z.array(z.string().uuid()))
+    .optional(),
+);
+export const kpiAppliedMetricsQuery = z.object({ project_ids: commaSeparatedUuids });
+export type KpiAppliedMetricsQuery = z.infer<typeof kpiAppliedMetricsQuery>;
+
+export const kpiExplorerQuery = z.object({
+  iso_year: z.coerce.number().int(),
+  iso_week: z.coerce.number().int().min(1).max(53),
+  account_id: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  project_id: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+});
+export type KpiExplorerQuery = z.infer<typeof kpiExplorerQuery>;
+
+export const kpiRecordQuery = z.object({
+  project_id: z.string().uuid(),
+  iso_year: z.coerce.number().int(),
+  iso_week: z.coerce.number().int().min(1).max(53),
+});
+export type KpiRecordQuery = z.infer<typeof kpiRecordQuery>;
+
+export const upsertKpiRecordEntryInput = z.object({
+  metric_id: z.string().uuid(),
+  component_1_value: z.number().nullable(),
+  component_2_value: z.number().nullable(),
+});
+
+export const upsertKpiRecordInput = z.object({
+  project_id: z.string().uuid(),
+  iso_year: z.number().int(),
+  iso_week: z.number().int().min(1).max(53),
+  expected_version: z.number().int().positive().optional(),
+  entries: z.array(upsertKpiRecordEntryInput),
+});
+export type UpsertKpiRecordInput = z.infer<typeof upsertKpiRecordInput>;
+
+// ── Weekly Reports (FUT-609) ────────────────────────────────────────────────
+
+export const reportColourEnum = z.enum(['green', 'yellow', 'red', 'gray']);
+
+// ── KPI colour semantics (FUT-595) ─────────────────────────────────────────────────────────
+// The metric-colour mapping is part of pm's public CONTRACT: the server computes the settled
+// colour with these exact functions, and web-pm imports the same functions for its live
+// "previewing" badge — one source of truth, so a preview can never disagree with what the
+// server will store (AC4: the preview echoes the server's computation by construction).
+
+export type RagStatus = 'green' | 'yellow' | 'red';
+
+export type BandCondition =
+  | { op: 'lte' | 'lt' | 'gte' | 'gt' | 'eq'; value: number }
+  | { op: 'between'; min: number; max: number }
+  | { op: 'or' | 'and'; conditions: BandCondition[] };
+
+/** 2-component metrics are a plain ratio (component_1 / component_2); 1-component metrics use
+ * component_1 directly. `null` when a required component isn't filled in yet, or the
+ * denominator is zero. */
+export function computeMetricValue(
+  component_count: 1 | 2,
+  component_1_value: number | null,
+  component_2_value: number | null,
+): number | null {
+  if (component_1_value === null) return null;
+  if (component_count === 1) return component_1_value;
+  if (component_2_value === null || component_2_value === 0) return null;
+  return component_1_value / component_2_value;
+}
+
+export function evaluateBand(cond: BandCondition, value: number): boolean {
+  switch (cond.op) {
+    case 'lte':
+      return value <= cond.value;
+    case 'lt':
+      return value < cond.value;
+    case 'gte':
+      return value >= cond.value;
+    case 'gt':
+      return value > cond.value;
+    case 'eq':
+      return value === cond.value;
+    case 'between':
+      return value >= cond.min && value <= cond.max;
+    case 'or':
+      return cond.conditions.some((c) => evaluateBand(c, value));
+    case 'and':
+      return cond.conditions.every((c) => evaluateBand(c, value));
+  }
+}
+
+/** `null` when the metric has no value yet (not entered) — distinct from a real red/yellow/green
+ * result. Bands are expected to partition the number line; if none match (malformed norm data)
+ * this also returns `null` rather than guessing. */
+export function computeEntryStatus(
+  value: number | null,
+  green_band: BandCondition,
+  yellow_band: BandCondition,
+  red_band: BandCondition,
+): RagStatus | null {
+  if (value === null) return null;
+  if (evaluateBand(green_band, value)) return 'green';
+  if (evaluateBand(yellow_band, value)) return 'yellow';
+  if (evaluateBand(red_band, value)) return 'red';
+  return null;
+}
+
+const RAG_RANK: Record<RagStatus, number> = { green: 0, yellow: 1, red: 2 };
+
+export function worstStatus(statuses: readonly RagStatus[]): RagStatus | null {
+  if (statuses.length === 0) return null;
+  return statuses.reduce((worst, s) => (RAG_RANK[s] > RAG_RANK[worst] ? s : worst));
+}
+
+/**
+ * Worst-wins over the entries that have a status; 0/N (no entry in this category has a value)
+ * defaults to `red` — "No Data = No Management" (functional-analysis.md §4 decision #2, updated
+ * 2026-07-14: previously a neutral "not reported" state, now explicitly Red per the business doc).
+ */
+export function computeCategoryHealth(entryStatuses: readonly RagStatus[]): RagStatus {
+  return worstStatus(entryStatuses) ?? 'red';
+}
+
+export function computeOverallHealth(categoryHealths: readonly RagStatus[]): RagStatus {
+  return worstStatus(categoryHealths) ?? 'red';
+}
+export const kpiCategoryEnum = z.enum(['quality', 'cost_capacity', 'delivery', 'process']);
+
+export const weeklyReportsQuery = z.object({
+  iso_year: z.coerce.number().int(),
+  iso_week: z.coerce.number().int().min(1).max(53),
+  account_id: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  project_id: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+});
+export type WeeklyReportsQuery = z.infer<typeof weeklyReportsQuery>;
+
+export const weeklyReportDetailQuery = z.object({
+  project_id: z.string().uuid(),
+  iso_year: z.coerce.number().int(),
+  iso_week: z.coerce.number().int().min(1).max(53),
+});
+export type WeeklyReportDetailQuery = z.infer<typeof weeklyReportDetailQuery>;
+
+export const upsertWeeklyReportInput = z.object({
+  project_id: z.string().uuid(),
+  iso_year: z.number().int(),
+  iso_week: z.number().int().min(1).max(53),
+  expected_version: z.number().int().positive().optional(),
+  /** 'draft' saves anything without gate validation and never stamps flags/snapshots; a
+   * draft save over a submitted report DEMOTES it (FUT-601 AC4). 'submit' (default) runs
+   * the full gate and stamps. */
+  save_mode: z.enum(['draft', 'submit']).optional(),
+  /** Free for drafts; the submit gate requires it non-empty (checked in the domain). */
+  executive_summary: z.string().trim(),
+  risk_issue: z.string().nullable().optional(),
+  road_to_green: z.string().nullable().optional(),
+  road_to_green_owner_id: z.string().uuid().nullable().optional(),
+  road_to_green_due: z.string().nullable().optional(),
+  // The composer's QCDP dropdowns — the reporter's declared colour per pillar. A pillar that
+  // differs from the computed colour becomes an audited override; omitted pillars keep the
+  // computed/overridden colour they already had.
+  category_colours: z
+    .object({
+      quality: reportColourEnum.optional(),
+      cost_capacity: reportColourEnum.optional(),
+      delivery: reportColourEnum.optional(),
+      process: reportColourEnum.optional(),
+    })
+    .optional(),
+});
+export type UpsertWeeklyReportInput = z.infer<typeof upsertWeeklyReportInput>;
+
+/** FUT-591: create-if-absent the reporter's draft for a (Project, Week) on context entry —
+ * idempotent; the same identity rules as upsert (assigned reporter, open week only). */
+export const ensureWeeklyReportInput = z.object({
+  project_id: z.string().uuid(),
+  iso_year: z.number().int(),
+  iso_week: z.number().int().min(1).max(53),
+});
+export type EnsureWeeklyReportInput = z.infer<typeof ensureWeeklyReportInput>;
+
+// Overriding a computed colour is a governance action — the reason is mandatory so the
+// flag_audit_entry trail stays meaningful (system-computed entries are the only reason-less ones).
+export const overrideFlagInput = z.object({
+  project_id: z.string().uuid(),
+  iso_year: z.number().int(),
+  iso_week: z.number().int().min(1).max(53),
+  category: kpiCategoryEnum,
+  final_colour: reportColourEnum,
+  reason: z.string().trim().min(1),
+});
+export type OverrideFlagInput = z.infer<typeof overrideFlagInput>;
+
+export const addReportCommentInput = z.object({
+  report_id: z.string().uuid(),
+  parent_comment_id: z.string().uuid().nullable().optional(),
+  body: z.string().trim().min(1),
+});
+export type AddReportCommentInput = z.infer<typeof addReportCommentInput>;
+
 export const reassignWorkerAllocationsInput = z.object({
   worker_id: z.string().uuid(),
   allocation_ids: z.array(z.string().uuid()),

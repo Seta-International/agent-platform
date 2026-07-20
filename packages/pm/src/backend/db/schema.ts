@@ -1,6 +1,7 @@
 import { textEnum, textEnumCheck } from '@seta/shared-db';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   date,
   foreignKey,
@@ -52,6 +53,14 @@ export const ALLOCATION_STATUS = ['placeholder', 'tentative', 'committed'] as co
 export const CHARTER_REJECTED_STAGES = ['pmo', 'bod'] as const;
 
 export const PROJECT_ACCESS_LEVELS = ['owner', 'edit', 'view'] as const;
+
+export const KPI_CATEGORIES = ['quality', 'cost_capacity', 'delivery', 'process'] as const;
+
+export const KPI_METRIC_TIERS = ['core', 'extended'] as const;
+
+export const KPI_RAG_STATUS = ['green', 'yellow', 'red'] as const;
+
+export const KPI_ENTRY_SOURCES = ['manual', 'live'] as const;
 
 export const account = pmSchema.table(
   'account',
@@ -235,6 +244,90 @@ export const personProjection = pmSchema.table(
   (t) => [index('person_projection_by_name').on(t.tenant_id, t.full_name)],
 );
 
+// Temporal Reporter→Project projection (FUT-610): who owned a project WHEN, so weekly-report
+// authorization can be answered as of a past week, not just from the live project_access
+// state. Rows are opened/closed by the pm.project.access.changed subscriber; a row with
+// valid_to NULL is the assignment currently in force. No FK to project — projection tables
+// stay standalone so replays never trip referential order.
+export const reporterAssignment = pmSchema.table(
+  'reporter_assignment',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    project_id: uuid('project_id').notNull(),
+    person_id: uuid('person_id').notNull(),
+    valid_from: timestamp('valid_from', { withTimezone: true }).notNull(),
+    valid_to: timestamp('valid_to', { withTimezone: true }),
+    /** Event that opened this row — traceability back to the outbox. */
+    source_event_id: uuid('source_event_id').notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('reporter_assignment_uniq_open')
+      .on(t.tenant_id, t.project_id, t.person_id)
+      .where(sql`valid_to IS NULL`),
+    index('reporter_assignment_by_project').on(t.tenant_id, t.project_id, t.valid_from),
+  ],
+);
+
+// Week-start NORM baseline (FUT-593): metric definitions copied BY VALUE the first time a
+// (project, week) is touched — every colour computed for that week reads these frozen rows,
+// so a mid-week catalog change (published as a version bump) only reaches the next week.
+// Applied-set stays live: a metric applied mid-week is appended to the baseline at that
+// moment (frozen from then on), so "apply then measure the same week" keeps working.
+export const kpiNormBaseline = pmSchema.table(
+  'kpi_norm_baseline',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    project_id: uuid('project_id').notNull(),
+    iso_year: integer('iso_year').notNull(),
+    iso_week: integer('iso_week').notNull(),
+    metric_id: uuid('metric_id').notNull(),
+    metric_version: integer('metric_version').notNull(),
+    category: textEnum('category', KPI_CATEGORIES).notNull(),
+    tier: textEnum('tier', KPI_METRIC_TIERS).notNull(),
+    name: text('name').notNull(),
+    formula_label: text('formula_label').notNull(),
+    component_count: integer('component_count').notNull(),
+    component_1_label: text('component_1_label').notNull(),
+    component_2_label: text('component_2_label'),
+    green_band: jsonb('green_band').notNull(),
+    yellow_band: jsonb('yellow_band').notNull(),
+    red_band: jsonb('red_band').notNull(),
+    insight: text('insight'),
+    sort_order: integer('sort_order').default(0).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('kpi_norm_baseline_uniq').on(
+      t.tenant_id,
+      t.project_id,
+      t.iso_year,
+      t.iso_week,
+      t.metric_id,
+    ),
+    index('kpi_norm_baseline_by_week').on(t.tenant_id, t.project_id, t.iso_year, t.iso_week),
+    textEnumCheck('kpi_norm_baseline', 'category', KPI_CATEGORIES),
+    textEnumCheck('kpi_norm_baseline', 'tier', KPI_METRIC_TIERS),
+  ],
+);
+
+// Per-subscription event-id ledger (FUT-610): projections are updated idempotently keyed on
+// event id — a redelivered event hits the primary key and is skipped, so at-least-once
+// delivery (and manual replays) can never double-apply a state transition.
+export const projectionAppliedEvent = pmSchema.table(
+  'projection_applied_event',
+  {
+    subscription: text('subscription').notNull(),
+    event_id: uuid('event_id').notNull(),
+    tenant_id: uuid('tenant_id').notNull(),
+    /** When the event was applied — doubles as the standard created_at (rows are immutable). */
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.subscription, t.event_id] })],
+);
+
 export const staffingPlanLine = pmSchema.table(
   'staffing_plan_line',
   {
@@ -272,12 +365,151 @@ export const staffingPlanLineSkill = pmSchema.table(
   ],
 );
 
-// ── Weekly Report & KPI Performance (FUT-609) ──────────────────────────────
+// KPI Metrics (FUT-581): norm library -> per-project configuration -> weekly measurement.
+// Health (category/project rollup, worst-wins) and OHS (weighted score) are computed at query
+// time from kpi_record_entry, never stored — see docs/feature/kpi-metrics/functional-analysis.md.
 
-export const REPORT_COLOURS = ['green', 'yellow', 'red', 'gray'] as const;
-export const QCDP_CATEGORIES = ['quality', 'cost', 'delivery', 'performance'] as const;
-export const METRIC_DIRECTIONS = ['higher_better', 'lower_better'] as const;
+export const kpiNorm = pmSchema.table(
+  'kpi_norm',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    code: text('code').notNull(),
+    revision: text('revision').notNull(),
+    effective_date: date('effective_date'),
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('kpi_norm_uniq_code').on(t.tenant_id, t.code)],
+);
+
+export const kpiNormMetric = pmSchema.table(
+  'kpi_norm_metric',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    norm_id: uuid('norm_id')
+      .notNull()
+      .references(() => kpiNorm.id, { onDelete: 'cascade' }),
+    category: textEnum('category', KPI_CATEGORIES).notNull(),
+    tier: textEnum('tier', KPI_METRIC_TIERS).notNull(),
+    name: text('name').notNull(),
+    formula_label: text('formula_label').notNull(),
+    component_count: integer('component_count').notNull(),
+    component_1_label: text('component_1_label').notNull(),
+    component_2_label: text('component_2_label'),
+    green_band: jsonb('green_band').notNull(),
+    yellow_band: jsonb('yellow_band').notNull(),
+    red_band: jsonb('red_band').notNull(),
+    insight: text('insight'),
+    is_live_capable: boolean('is_live_capable').default(false).notNull(),
+    sort_order: integer('sort_order').default(0).notNull(),
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('kpi_norm_metric_uniq_name').on(t.tenant_id, t.norm_id, t.name),
+    index('kpi_norm_metric_by_norm').on(t.tenant_id, t.norm_id, t.category),
+    textEnumCheck('kpi_norm_metric', 'category', KPI_CATEGORIES),
+    textEnumCheck('kpi_norm_metric', 'tier', KPI_METRIC_TIERS),
+    check('kpi_norm_metric_component_count_check', sql`component_count IN (1, 2)`),
+    check(
+      'kpi_norm_metric_component_2_label_check',
+      sql`component_count = 1 OR component_2_label IS NOT NULL`,
+    ),
+  ],
+);
+
+// Applied set = Configure KPI metrics, PER PROJECT (2026-07-15: reverted back from a tenant-wide
+// global set — Configure metrics has a project picker + bulk action, scoped by the same
+// project-manage RBAC as Manual KPI input; PMO/BOD see every project, EM/TL only ones they own).
+// Row exists = metric is applied for that project; no version/updated_at — toggling is
+// insert/delete, never an in-place edit.
+export const kpiAppliedMetric = pmSchema.table(
+  'kpi_applied_metric',
+  {
+    tenant_id: uuid('tenant_id').notNull(),
+    project_id: uuid('project_id')
+      .notNull()
+      .references(() => project.id, { onDelete: 'cascade' }),
+    metric_id: uuid('metric_id')
+      .notNull()
+      .references(() => kpiNormMetric.id),
+    applied_by: uuid('applied_by').notNull(), // identity.user (no cross-schema FK)
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.tenant_id, t.project_id, t.metric_id] }),
+    index('kpi_applied_metric_by_metric').on(t.tenant_id, t.metric_id),
+  ],
+);
+
+export const kpiRecord = pmSchema.table(
+  'kpi_record',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    project_id: uuid('project_id')
+      .notNull()
+      .references(() => project.id, { onDelete: 'cascade' }),
+    iso_year: integer('iso_year').notNull(),
+    iso_week: integer('iso_week').notNull(),
+    created_by: uuid('created_by').notNull(), // identity.user (no cross-schema FK)
+    version: integer('version').default(1).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('kpi_record_uniq_week').on(t.tenant_id, t.project_id, t.iso_year, t.iso_week),
+    index('kpi_record_by_project').on(t.tenant_id, t.project_id),
+    check('kpi_record_iso_week_check', sql`iso_week BETWEEN 1 AND 53`),
+  ],
+);
+
+// Raw formula components are stored individually (not just the computed value) so Edit can
+// prefill exactly what was entered before — see functional-analysis.md decision #3.
+export const kpiRecordEntry = pmSchema.table(
+  'kpi_record_entry',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    record_id: uuid('record_id')
+      .notNull()
+      .references(() => kpiRecord.id, { onDelete: 'cascade' }),
+    metric_id: uuid('metric_id')
+      .notNull()
+      .references(() => kpiNormMetric.id),
+    component_1_value: numeric('component_1_value', { precision: 15, scale: 4 }),
+    component_2_value: numeric('component_2_value', { precision: 15, scale: 4 }),
+    computed_value: numeric('computed_value', { precision: 15, scale: 4 }),
+    status: textEnum('status', KPI_RAG_STATUS),
+    source: textEnum('source', KPI_ENTRY_SOURCES).notNull().default('manual'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('kpi_record_entry_uniq_metric').on(t.tenant_id, t.record_id, t.metric_id),
+    index('kpi_record_entry_by_record').on(t.tenant_id, t.record_id),
+    index('kpi_record_entry_by_metric').on(t.tenant_id, t.metric_id),
+    textEnumCheck('kpi_record_entry', 'status', KPI_RAG_STATUS),
+    textEnumCheck('kpi_record_entry', 'source', KPI_ENTRY_SOURCES),
+  ],
+);
+
+// ── Weekly Report & KPI Performance (FUT-609, reconciled with FUT-581's KPI Metrics) ───────
+// Ported from PR #387 (feat/FUT-609-weekly-report-kpi-schema) with 3 deliberate departures,
+// discussed and agreed with the user:
+// 1. No norm_baseline — kpi_norm_metric (FUT-581) is already a versioned catalog with 3-band
+//    JSON conditions; a second threshold/direction table would be a second source of truth for
+//    the same 44 metrics. norm_snapshot pins directly from kpi_norm_metric instead.
+// 2. category columns reuse KPI_CATEGORIES ('cost_capacity'/'process'), not the PR's
+//    QCDP_CATEGORIES ('cost'/'performance') — same reasoning: one enum, not two that drift.
+// 3. week identity is iso_year+iso_week (matching kpi_record), not week_start date — avoids
+//    needing an iso-week<->date conversion utility that doesn't exist anywhere in this repo.
 export const REPORT_STATUS = ['draft', 'submitted'] as const;
+export const REPORT_COLOURS = ['green', 'yellow', 'red', 'gray'] as const;
 
 export const report = pmSchema.table(
   'report',
@@ -286,25 +518,76 @@ export const report = pmSchema.table(
     tenant_id: uuid('tenant_id').notNull(),
     project_id: uuid('project_id')
       .notNull()
-      .references(() => project.id),
-    week_start: date('week_start').notNull(), // Monday, Asia/Ho_Chi_Minh
+      .references(() => project.id, { onDelete: 'cascade' }),
+    iso_year: integer('iso_year').notNull(),
+    iso_week: integer('iso_week').notNull(),
     reporter_id: uuid('reporter_id').notNull(), // People worker (no cross-schema FK)
     status: textEnum('status', REPORT_STATUS).notNull().default('draft'),
+    /** The reporter's declared QCDP colours as sent from the composer (FUT-601): kept per
+     * report so a demote can recompute the shared flags from the REMAINING submitted
+     * reports' declarations instead of losing them. */
+    declared_colours: jsonb('declared_colours'),
     executive_summary: text('executive_summary'),
+    risk_issue: text('risk_issue'), // optional — mockup only shows the block when filled in
+    // Road-to-Green action: business rule (functional-analysis.md §9.5) — a non-Green report
+    // MUST carry one; enforced as a hard validation in upsertWeeklyReport, not a DB constraint
+    // (overall colour is derived at save time, not stored before validation runs).
+    road_to_green: text('road_to_green'),
+    road_to_green_owner_id: uuid('road_to_green_owner_id'), // People worker (no cross-schema FK)
+    road_to_green_due: date('road_to_green_due'),
     overall_colour: textEnum('overall_colour', REPORT_COLOURS), // derived RAG, set later
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex('report_identity_uniq').on(t.tenant_id, t.project_id, t.week_start, t.reporter_id),
-    index('report_by_project_week').on(t.tenant_id, t.project_id, t.week_start),
+    uniqueIndex('report_identity_uniq').on(
+      t.tenant_id,
+      t.project_id,
+      t.iso_year,
+      t.iso_week,
+      t.reporter_id,
+    ),
+    index('report_by_project_week').on(t.tenant_id, t.project_id, t.iso_year, t.iso_week),
     index('report_by_reporter').on(t.tenant_id, t.reporter_id),
     textEnumCheck('report', 'status', REPORT_STATUS),
     textEnumCheck('report', 'overall_colour', REPORT_COLOURS),
+    check('report_iso_week_check', sql`iso_week BETWEEN 1 AND 53`),
   ],
 );
 
+// Published report versions (append-only): every Submit snapshots the content here. While
+// the working row (pm.report) sits in draft, everyone but the author keeps reading the
+// latest revision — the "last submitted version" stays visible and effective. A report that
+// has comments is frozen (no further edits), so a discussed revision can never change under
+// the people who commented on it.
+export const reportRevision = pmSchema.table(
+  'report_revision',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenant_id: uuid('tenant_id').notNull(),
+    report_id: uuid('report_id')
+      .notNull()
+      .references(() => report.id, { onDelete: 'cascade' }),
+    executive_summary: text('executive_summary').notNull(),
+    risk_issue: text('risk_issue'),
+    road_to_green: text('road_to_green'),
+    road_to_green_owner_id: uuid('road_to_green_owner_id'),
+    road_to_green_due: date('road_to_green_due'),
+    overall_colour: textEnum('overall_colour', REPORT_COLOURS).notNull(),
+    declared_colours: jsonb('declared_colours'),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('report_revision_by_report').on(t.tenant_id, t.report_id, t.created_at),
+    textEnumCheck('report_revision', 'overall_colour', REPORT_COLOURS),
+  ],
+);
+
+// One row per (report, metric) — narrative snapshot of a metric's value for that report.
+// source_entry_id is a soft link: kpi_record_entry rows are deleted+recreated wholesale on every
+// Manual KPI Input save (see upsertKpiRecord), so it must not block that delete — ON DELETE SET
+// NULL, never CASCADE/NO ACTION.
 export const metricValue = pmSchema.table(
   'metric_value',
   {
@@ -313,8 +596,13 @@ export const metricValue = pmSchema.table(
     report_id: uuid('report_id')
       .notNull()
       .references(() => report.id, { onDelete: 'cascade' }),
-    metric_id: uuid('metric_id').notNull(), // Admin catalog metric (no cross-schema FK)
-    raw_value: numeric('raw_value', { precision: 18, scale: 6 }),
+    metric_id: uuid('metric_id')
+      .notNull()
+      .references(() => kpiNormMetric.id),
+    source_entry_id: uuid('source_entry_id').references(() => kpiRecordEntry.id, {
+      onDelete: 'set null',
+    }),
+    computed_value: numeric('computed_value', { precision: 18, scale: 6 }),
     colour: textEnum('colour', REPORT_COLOURS), // derived, set by colour computation
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -327,15 +615,22 @@ export const metricValue = pmSchema.table(
   ],
 );
 
+// One row per (project, week, category) — a shared status, not per-report/reporter: `report`
+// allows several reporters for the same (project, week), so tying the flag to a single report_id
+// would leave "whose override wins" undefined. report_id is kept as an optional "last touched
+// by" pointer only.
 export const flag = pmSchema.table(
   'flag',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tenant_id: uuid('tenant_id').notNull(),
-    report_id: uuid('report_id')
+    project_id: uuid('project_id')
       .notNull()
-      .references(() => report.id, { onDelete: 'cascade' }),
-    category: textEnum('category', QCDP_CATEGORIES).notNull(),
+      .references(() => project.id, { onDelete: 'cascade' }),
+    iso_year: integer('iso_year').notNull(),
+    iso_week: integer('iso_week').notNull(),
+    report_id: uuid('report_id').references(() => report.id, { onDelete: 'set null' }),
+    category: textEnum('category', KPI_CATEGORIES).notNull(),
     computed_colour: textEnum('computed_colour', REPORT_COLOURS).notNull(),
     final_colour: textEnum('final_colour', REPORT_COLOURS).notNull(),
     latest_audit_entry_id: uuid('latest_audit_entry_id'), // FK added in platform migration
@@ -343,13 +638,23 @@ export const flag = pmSchema.table(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex('flag_report_category_uniq').on(t.tenant_id, t.report_id, t.category),
-    textEnumCheck('flag', 'category', QCDP_CATEGORIES),
+    uniqueIndex('flag_project_week_category_uniq').on(
+      t.tenant_id,
+      t.project_id,
+      t.iso_year,
+      t.iso_week,
+      t.category,
+    ),
+    index('flag_by_report').on(t.tenant_id, t.report_id),
+    textEnumCheck('flag', 'category', KPI_CATEGORIES),
     textEnumCheck('flag', 'computed_colour', REPORT_COLOURS),
     textEnumCheck('flag', 'final_colour', REPORT_COLOURS),
+    check('flag_iso_week_check', sql`iso_week BETWEEN 1 AND 53`),
   ],
 );
 
+// Append-only audit trail for flag colour overrides (append-only guard added in the
+// hand-written platform migration, since drizzle-kit cannot model triggers).
 export const flagAuditEntry = pmSchema.table(
   'flag_audit_entry',
   {
@@ -371,27 +676,9 @@ export const flagAuditEntry = pmSchema.table(
   ],
 );
 
-export const normBaseline = pmSchema.table(
-  'norm_baseline',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    tenant_id: uuid('tenant_id').notNull(),
-    metric_id: uuid('metric_id').notNull(), // Admin catalog metric
-    catalog_version: integer('catalog_version').notNull(),
-    category: textEnum('category', QCDP_CATEGORIES).notNull(),
-    direction: textEnum('direction', METRIC_DIRECTIONS).notNull(),
-    goal_threshold: numeric('goal_threshold', { precision: 18, scale: 6 }),
-    yellow_threshold: numeric('yellow_threshold', { precision: 18, scale: 6 }),
-    formula_ref: text('formula_ref'),
-    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    uniqueIndex('norm_baseline_version_uniq').on(t.tenant_id, t.metric_id, t.catalog_version),
-    textEnumCheck('norm_baseline', 'category', QCDP_CATEGORIES),
-    textEnumCheck('norm_baseline', 'direction', METRIC_DIRECTIONS),
-  ],
-);
-
+// Frozen copy of a kpi_norm_metric's category + bands at the moment a report references it —
+// keeps the report's colours reproducible even if the norm's bands are edited later. No
+// norm_baseline: kpi_norm_metric is the only catalog (see file-header note above).
 export const normSnapshot = pmSchema.table(
   'norm_snapshot',
   {
@@ -400,22 +687,24 @@ export const normSnapshot = pmSchema.table(
     report_id: uuid('report_id')
       .notNull()
       .references(() => report.id, { onDelete: 'cascade' }),
-    metric_id: uuid('metric_id').notNull(),
-    catalog_version: integer('catalog_version').notNull(),
-    category: textEnum('category', QCDP_CATEGORIES).notNull(),
-    direction: textEnum('direction', METRIC_DIRECTIONS).notNull(),
-    goal_threshold: numeric('goal_threshold', { precision: 18, scale: 6 }),
-    yellow_threshold: numeric('yellow_threshold', { precision: 18, scale: 6 }),
-    formula_ref: text('formula_ref'),
+    metric_id: uuid('metric_id')
+      .notNull()
+      .references(() => kpiNormMetric.id),
+    metric_version: integer('metric_version').notNull(), // snapshot of kpi_norm_metric.version
+    category: textEnum('category', KPI_CATEGORIES).notNull(),
+    green_band: jsonb('green_band').notNull(),
+    yellow_band: jsonb('yellow_band').notNull(),
+    red_band: jsonb('red_band').notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     uniqueIndex('norm_snapshot_report_metric_uniq').on(t.tenant_id, t.report_id, t.metric_id),
-    textEnumCheck('norm_snapshot', 'category', QCDP_CATEGORIES),
-    textEnumCheck('norm_snapshot', 'direction', METRIC_DIRECTIONS),
+    textEnumCheck('norm_snapshot', 'category', KPI_CATEGORIES),
   ],
 );
 
+// Precomputed per (project, week) rollup — column names mirror KPI_CATEGORIES so they line up
+// with kpi_norm_metric.category (cost_capacity/process, not the PR's cost/performance).
 export const projectWeekRollup = pmSchema.table(
   'project_week_rollup',
   {
@@ -423,23 +712,26 @@ export const projectWeekRollup = pmSchema.table(
     tenant_id: uuid('tenant_id').notNull(),
     project_id: uuid('project_id')
       .notNull()
-      .references(() => project.id),
-    week_start: date('week_start').notNull(),
+      .references(() => project.id, { onDelete: 'cascade' }),
+    iso_year: integer('iso_year').notNull(),
+    iso_week: integer('iso_week').notNull(),
     quality_colour: textEnum('quality_colour', REPORT_COLOURS),
-    cost_colour: textEnum('cost_colour', REPORT_COLOURS),
+    cost_capacity_colour: textEnum('cost_capacity_colour', REPORT_COLOURS),
     delivery_colour: textEnum('delivery_colour', REPORT_COLOURS),
-    performance_colour: textEnum('performance_colour', REPORT_COLOURS),
+    process_colour: textEnum('process_colour', REPORT_COLOURS),
     rag: textEnum('rag', REPORT_COLOURS), // worst-of-four
     ohs: numeric('ohs', { precision: 5, scale: 2 }), // operational health score
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex('project_week_rollup_uniq').on(t.tenant_id, t.project_id, t.week_start),
+    uniqueIndex('project_week_rollup_uniq').on(t.tenant_id, t.project_id, t.iso_year, t.iso_week),
     textEnumCheck('project_week_rollup', 'quality_colour', REPORT_COLOURS),
-    textEnumCheck('project_week_rollup', 'cost_colour', REPORT_COLOURS),
+    textEnumCheck('project_week_rollup', 'cost_capacity_colour', REPORT_COLOURS),
     textEnumCheck('project_week_rollup', 'delivery_colour', REPORT_COLOURS),
-    textEnumCheck('project_week_rollup', 'performance_colour', REPORT_COLOURS),
+    textEnumCheck('project_week_rollup', 'process_colour', REPORT_COLOURS),
     textEnumCheck('project_week_rollup', 'rag', REPORT_COLOURS),
+    check('project_week_rollup_iso_week_check', sql`iso_week BETWEEN 1 AND 53`),
   ],
 );
 
@@ -453,6 +745,9 @@ export const comment = pmSchema.table(
       .references(() => report.id, { onDelete: 'cascade' }),
     parent_comment_id: uuid('parent_comment_id'), // self-FK added below
     author_user_id: uuid('author_user_id').notNull(),
+    // Display name snapshotted at write time — pm can't join identity.user (no cross-schema
+    // reads) and person_projection is keyed by person_id, not user_id.
+    author_name: text('author_name').notNull(),
     body: text('body').notNull(),
     version: integer('version').default(1).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

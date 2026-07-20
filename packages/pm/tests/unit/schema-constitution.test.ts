@@ -49,9 +49,9 @@ describe('pm schema constitution', () => {
     expect(first && 'name' in first ? first.name : '').toBe('tenant_id');
   });
 
-  it('flag is one row per report per QCDP category, and comment carries version', () => {
+  it('flag is one row per (project, week) per category, and comment carries version', () => {
     const idx = getTableConfig(flag).indexes.find((i) =>
-      i.config.name?.includes('flag_report_category_uniq'),
+      i.config.name?.includes('flag_project_week_category_uniq'),
     );
     expect(idx?.config.unique).toBe(true);
     expect(getTableConfig(comment).columns.some((c) => c.name === 'version')).toBe(true);

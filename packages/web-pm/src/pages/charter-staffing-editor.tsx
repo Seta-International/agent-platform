@@ -1,17 +1,3 @@
-import {
-  Button,
-  Card,
-  CardTitle,
-  Layout,
-  LayoutContent,
-  LayoutHeader,
-  NumberInput,
-  type SearchableItem,
-  Selector,
-  Typeahead,
-  useSeededItems,
-  useToast,
-} from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -27,6 +13,20 @@ import {
 } from '../api/pm-client.ts';
 import { useWorkerSource } from '../api/worker-search';
 import { pmKeys } from '../state/query-keys.ts';
+import {
+  Button,
+  Card,
+  CardTitle,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  NumberInput,
+  type SearchableItem,
+  Selector,
+  Typeahead,
+  useSeededItems,
+  useToast,
+} from './_ui-compat.tsx';
 
 const ROLES = ['Developer', 'Tech Lead', 'PM', 'QA', 'BA', 'PMO'] as const;
 type AccessLevel = ProjectAccessRow['level'];

@@ -54,8 +54,43 @@
     {
       "idx": 7,
       "version": "7",
-      "when": 1783992111522,
-      "tag": "0011_pm_reporting",
+      "when": 1783993577781,
+      "tag": "0011_kpi_metrics_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784016514158,
+      "tag": "0018_weekly_report_kpi_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784031462413,
+      "tag": "0020_report_risk_road_to_green",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1784096316123,
+      "tag": "0022_fut610_reporter_assignment_projection",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1784168024914,
+      "tag": "0025_fut593_norm_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784187018259,
+      "tag": "0028_fut601_report_revision",
       "breakpoints": true
     }
   ]

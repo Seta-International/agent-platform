@@ -1,3 +1,10 @@
+import { usePermission } from '@seta/web-identity';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
+import { FolderKanban, Plus, Settings2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { type AccountListRow, createAccount, fetchAccounts } from '../api/pm-client.ts';
+import { pmKeys } from '../state/query-keys.ts';
 import {
   Banner,
   BreadcrumbItem,
@@ -30,14 +37,7 @@ import {
   useTableSortableState,
   useToast,
   VStack,
-} from '@seta/shared-ui';
-import { usePermission } from '@seta/web-identity';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
-import { FolderKanban, Plus, Settings2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { type AccountListRow, createAccount, fetchAccounts } from '../api/pm-client.ts';
-import { pmKeys } from '../state/query-keys.ts';
+} from './_ui-compat.tsx';
 
 // Astryx Table columns require `T extends Record<string, unknown>`; the DTO
 // lacks an index signature, so alias locally (do not touch the shared DTO).

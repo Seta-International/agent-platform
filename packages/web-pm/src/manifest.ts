@@ -40,7 +40,6 @@ export const pmAppManifest: AppManifest = {
           label: 'Weekly Reports',
           to: '/pm/weekly',
           requires: ['pm.account.read'],
-          badge: 'Soon',
         },
         {
           id: 'pm.resourcing',
@@ -62,8 +61,7 @@ export const pmAppManifest: AppManifest = {
           icon: BarChart3,
           label: 'KPI Metrics',
           to: '/pm/metrics',
-          requires: ['pm.account.read'],
-          badge: 'Soon',
+          requires: ['pm.project.read'],
         },
         {
           id: 'pm.accounts',

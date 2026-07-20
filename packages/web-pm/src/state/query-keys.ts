@@ -13,4 +13,15 @@ export const pmKeys = {
   projectAccess: (id: string) => [...pmKeys.all, 'project', id, 'access'] as const,
   projectAllocations: (id: string) => [...pmKeys.all, 'project', id, 'allocations'] as const,
   allocations: (params: Record<string, unknown>) => [...pmKeys.all, 'allocations', params] as const,
+  currentWeek: () => [...pmKeys.all, 'current-week'] as const,
+  kpiNorm: () => [...pmKeys.all, 'kpi-norm'] as const,
+  kpiAppliedMetrics: (projectIds: string[]) =>
+    [...pmKeys.all, 'kpi-applied-metrics', [...projectIds].sort()] as const,
+  kpiExplorer: (params: Record<string, unknown>) =>
+    [...pmKeys.all, 'kpi-explorer', params] as const,
+  kpiRecord: (params: Record<string, unknown>) => [...pmKeys.all, 'kpi-record', params] as const,
+  weeklyReports: (params: Record<string, unknown>) =>
+    [...pmKeys.all, 'weekly-reports', params] as const,
+  weeklyReportDetail: (params: Record<string, unknown>) =>
+    [...pmKeys.all, 'weekly-report-detail', params] as const,
 };

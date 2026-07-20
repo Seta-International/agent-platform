@@ -1,3 +1,18 @@
+import { usePermission } from '@seta/web-identity';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useSearch } from '@tanstack/react-router';
+import { ArrowRightLeft, Plus, Settings2, Users, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  fetchAccounts,
+  fetchAllocations,
+  fetchProjects,
+  type RaMonitoringAllocation,
+  splitAllocation,
+} from '../api/pm-client.ts';
+import { useWorkerSource } from '../api/worker-search.ts';
+import { pmKeys } from '../state/query-keys.ts';
+import { rowCalendarEffort } from '../utils/common.ts';
 import {
   Badge,
   Banner,
@@ -38,22 +53,7 @@ import {
   useTableSortable,
   useToast,
   VStack,
-} from '@seta/shared-ui';
-import { usePermission } from '@seta/web-identity';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearch } from '@tanstack/react-router';
-import { ArrowRightLeft, Plus, Settings2, Users, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  fetchAccounts,
-  fetchAllocations,
-  fetchProjects,
-  type RaMonitoringAllocation,
-  splitAllocation,
-} from '../api/pm-client.ts';
-import { useWorkerSource } from '../api/worker-search.ts';
-import { pmKeys } from '../state/query-keys.ts';
-import { rowCalendarEffort } from '../utils/common.ts';
+} from './_ui-compat.tsx';
 import { type EffortWindow, overAllocatedWorkers, rollupKpis } from './ra-effort.ts';
 import { firstInGroupIds, groupByPerson, SECONDARY_SORT_FIELDS } from './ra-grouping.ts';
 import { type Bucket, bucketBadge, formatDisplayDate } from './ra-shared.tsx';

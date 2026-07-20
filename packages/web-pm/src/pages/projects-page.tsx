@@ -1,3 +1,9 @@
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
+import { FolderKanban, Settings2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { fetchProjects, type ProjectListRow } from '../api/pm-client.ts';
+import { pmKeys } from '../state/query-keys.ts';
 import {
   Badge,
   Banner,
@@ -27,13 +33,7 @@ import {
   useTableSortable,
   useTableSortableState,
   VStack,
-} from '@seta/shared-ui';
-import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
-import { FolderKanban, Settings2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { fetchProjects, type ProjectListRow } from '../api/pm-client.ts';
-import { pmKeys } from '../state/query-keys.ts';
+} from './_ui-compat.tsx';
 
 const STATUS_VARIANT: Record<ProjectListRow['status'], 'neutral' | 'success'> = {
   active: 'success',

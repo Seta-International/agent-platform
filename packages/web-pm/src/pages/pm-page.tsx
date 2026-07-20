@@ -1,3 +1,4 @@
+import { FolderKanban } from 'lucide-react';
 import {
   BreadcrumbItem,
   Breadcrumbs,
@@ -8,8 +9,7 @@ import {
   LayoutHeader,
   Text,
   VStack,
-} from '@seta/shared-ui';
-import { FolderKanban } from 'lucide-react';
+} from './_ui-compat.tsx';
 
 export function PmPage() {
   return (

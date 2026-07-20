@@ -153,6 +153,55 @@ export const allocationUpdatedPayload = z.object({
 });
 export type AllocationUpdatedPayload = z.infer<typeof allocationUpdatedPayload>;
 
+export const PM_KPI_APPLIED_METRIC_CHANGED = 'pm.kpi_applied_metric.changed';
+export const kpiAppliedMetricChangedPayload = z.object({
+  tenant_id: z.string().uuid(),
+  metric_id: z.string().uuid(),
+  metric_name: z.string(),
+  applied: z.boolean(),
+  project_ids: z.array(z.string().uuid()),
+  changed_by_user_id: z.string().uuid(),
+});
+export type KpiAppliedMetricChangedPayload = z.infer<typeof kpiAppliedMetricChangedPayload>;
+
+export const PM_KPI_RECORD_SAVED = 'pm.kpi_record.saved';
+export const kpiRecordSavedPayload = z.object({
+  record_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  iso_year: z.number().int(),
+  iso_week: z.number().int(),
+  overall_health: z.enum(['green', 'yellow', 'red']),
+});
+export type KpiRecordSavedPayload = z.infer<typeof kpiRecordSavedPayload>;
+
+export const PM_WEEKLY_REPORT_SAVED = 'pm.weekly_report.saved';
+export const weeklyReportSavedPayload = z.object({
+  report_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  iso_year: z.number().int(),
+  iso_week: z.number().int(),
+  reporter_id: z.string().uuid(),
+  overall_colour: z.enum(['green', 'yellow', 'red', 'gray']),
+});
+export type WeeklyReportSavedPayload = z.infer<typeof weeklyReportSavedPayload>;
+
+export const PM_FLAG_OVERRIDDEN = 'pm.flag.overridden';
+export const flagOverriddenPayload = z.object({
+  flag_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  iso_year: z.number().int(),
+  iso_week: z.number().int(),
+  category: z.enum(['quality', 'cost_capacity', 'delivery', 'process']),
+  from_colour: z.enum(['green', 'yellow', 'red', 'gray']),
+  to_colour: z.enum(['green', 'yellow', 'red', 'gray']),
+  reason: z.string().nullable(),
+  actor_user_id: z.string().uuid(),
+});
+export type FlagOverriddenPayload = z.infer<typeof flagOverriddenPayload>;
+
 export const PM_EVENTS = {
   'pm.account.created': accountCreatedPayload,
   'pm.account.updated': accountUpdatedPayload,
@@ -171,4 +220,8 @@ export const PM_EVENTS = {
   'pm.allocation.created': allocationCreatedPayload,
   'pm.allocation.removed': allocationRemovedPayload,
   'pm.allocation.updated': allocationUpdatedPayload,
+  'pm.kpi_applied_metric.changed': kpiAppliedMetricChangedPayload,
+  'pm.kpi_record.saved': kpiRecordSavedPayload,
+  'pm.weekly_report.saved': weeklyReportSavedPayload,
+  'pm.flag.overridden': flagOverriddenPayload,
 } as const satisfies Record<string, z.ZodSchema>;

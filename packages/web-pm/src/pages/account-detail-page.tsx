@@ -1,3 +1,15 @@
+import { usePermission } from '@seta/web-identity';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Users } from 'lucide-react';
+import { useState } from 'react';
+import {
+  type AccountPatch,
+  editAccount,
+  fetchAccount,
+  setAccountRecruiters,
+} from '../api/pm-client.ts';
+import { useWorkerSource } from '../api/worker-search.ts';
+import { pmKeys } from '../state/query-keys.ts';
 import {
   Banner,
   BreadcrumbItem,
@@ -20,19 +32,7 @@ import {
   useSeededItems,
   useToast,
   VStack,
-} from '@seta/shared-ui';
-import { usePermission } from '@seta/web-identity';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Users } from 'lucide-react';
-import { useState } from 'react';
-import {
-  type AccountPatch,
-  editAccount,
-  fetchAccount,
-  setAccountRecruiters,
-} from '../api/pm-client.ts';
-import { useWorkerSource } from '../api/worker-search.ts';
-import { pmKeys } from '../state/query-keys.ts';
+} from './_ui-compat.tsx';
 
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (

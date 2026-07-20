@@ -165,7 +165,7 @@ describe('transferApplication', () => {
         await rejectApplication({
           application_id: app1Id,
           expected_version: 1,
-          input: { reason_id: reason.id, tags: [] },
+          input: { reason: 'Not a fit', reason_id: reason.id, tags: [] },
           session: t.adminSession,
         });
         // Now add the same candidate to r2, then transfer back to r1 — must not collide

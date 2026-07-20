@@ -1,48 +1,20 @@
-import {
-  BreadcrumbItem,
-  Breadcrumbs,
-  ComingSoon,
-  HStack,
-  Layout,
-  LayoutContent,
-  LayoutHeader,
-  Text,
-  VStack,
-} from '@seta/shared-ui';
 import { createFileRoute } from '@tanstack/react-router';
+import { KpiMetricsPage, type KpiMetricsSearch } from '../../pages/kpi-metrics-page.tsx';
 
-function MetricsPlaceholder() {
-  return (
-    <Layout
-      height="fill"
-      header={
-        <LayoutHeader hasDivider padding={4}>
-          <VStack gap={1}>
-            <Breadcrumbs variant="supporting">
-              <BreadcrumbItem href="/pm">Project Monitoring</BreadcrumbItem>
-              <BreadcrumbItem isCurrent>KPI Metrics</BreadcrumbItem>
-            </Breadcrumbs>
-            <HStack hAlign="between" vAlign="center" gap={2}>
-              <HStack gap={2} vAlign="center">
-                <Text as="h1" size="lg" weight="semibold">
-                  KPI Metrics
-                </Text>
-              </HStack>
-            </HStack>
-          </VStack>
-        </LayoutHeader>
-      }
-      content={
-        <LayoutContent padding={0}>
-          <div className="p-6">
-            <ComingSoon feature="KPI Metrics" />
-          </div>
-        </LayoutContent>
-      }
-    />
-  );
-}
+const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
+const num = (v: unknown): number | undefined => {
+  if (v === undefined || v === null || v === '') return undefined;
+  const n = Number(v);
+  return Number.isNaN(n) ? undefined : n;
+};
 
 export const Route = createFileRoute('/_authed/pm/metrics/')({
-  component: MetricsPlaceholder,
+  validateSearch: (s: Record<string, unknown>): KpiMetricsSearch => ({
+    tab: s.tab === 'norm' ? 'norm' : s.tab === 'explorer' ? 'explorer' : undefined,
+    account: str(s.account),
+    project: str(s.project),
+    iso_year: num(s.iso_year),
+    iso_week: num(s.iso_week),
+  }),
+  component: KpiMetricsPage,
 });

@@ -26,6 +26,27 @@ import { HiringError, requirePermission } from '../rbac.ts';
 
 type Tx = Parameters<Parameters<typeof withEmit>[1]>[0];
 
+/**
+ * FUT-559: an on-hold requisition freezes its whole pipeline — no stage moves, rating,
+ * hire, reject, or transfer until it is resumed. Shared by every application mutation.
+ */
+export async function assertApplicationRequisitionNotOnHold(
+  application_id: string,
+  session: SessionScope,
+): Promise<void> {
+  const [row] = await hiringDb()
+    .select({ status: requisition.status })
+    .from(application)
+    .innerJoin(requisition, eq(requisition.id, application.requisition_id))
+    .where(and(eq(application.id, application_id), tenantScoped(application.tenant_id, session)))
+    .limit(1);
+  if (row?.status === 'on_hold')
+    throw new HiringError(
+      'CONFLICT',
+      'this requisition is on hold — resume it before updating its candidates',
+    );
+}
+
 export async function recordCandidateEvent(
   tx: Tx,
   args: {
@@ -201,6 +222,7 @@ export async function editCandidate(input: {
           segment: patch.segment ?? cur.segment,
           cv_storage_key:
             patch.cv_storage_key === undefined ? cur.cv_storage_key : patch.cv_storage_key,
+          cv_sha256: patch.cv_sha256 === undefined ? cur.cv_sha256 : patch.cv_sha256,
           updated_at: new Date(),
         })
         .where(
@@ -309,6 +331,7 @@ export async function setApplicationRating(input: {
   if (!cur) throw new HiringError('NOT_FOUND', 'application not found');
   if (input.expected_version !== undefined && input.expected_version !== cur.version)
     throw new HiringError('CONFLICT', 'version mismatch');
+  await assertApplicationRequisitionNotOnHold(application_id, session);
   const next = cur.version + 1;
   await withEmit(
     { actor: { userId: session.user_id, tenantId: session.tenant_id } },

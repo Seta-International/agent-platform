@@ -1,5 +1,5 @@
-import { Badge } from '@seta/shared-ui';
 import type { ReactNode } from 'react';
+import { Badge } from './_ui-compat.tsx';
 
 export const BUCKETS = ['billable', 'internal', 'bench'] as const;
 export type Bucket = (typeof BUCKETS)[number];

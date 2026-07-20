@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@seta/module-sdk": "workspace:^",
+    "@seta/pm": "workspace:*",
     "@seta/shared-rbac": "workspace:^",
     "@seta/shared-ui": "workspace:^",
     "@seta/web-identity": "workspace:^",
