@@ -293,10 +293,11 @@ export function RequisitionsPage() {
     [],
   );
 
-  // The board only carries non-filled requisitions (status open | on_hold).
-  const openCount = rows.filter((r) => r.status === 'open').length;
-  const onHold = rows.filter((r) => r.status === 'on_hold').length;
-  const totalApplicants = rows.reduce((n, r) => n + r.applicants_count, 0);
+  // The board only carries non-filled requisitions (status open | on_hold). Stats follow the
+  // active search/filters so the tiles describe what the user is looking at, not the whole board.
+  const openCount = filteredRows.filter((r) => r.status === 'open').length;
+  const onHold = filteredRows.filter((r) => r.status === 'on_hold').length;
+  const totalApplicants = filteredRows.reduce((n, r) => n + r.applicants_count, 0);
 
   return (
     <Layout
@@ -327,31 +328,32 @@ export function RequisitionsPage() {
         <LayoutContent padding={0}>
           <PageContainer className="space-y-4">
             {scopeNote && <Banner status="info" title={scopeNote} />}
+            {/* One accent only (DESIGN.md): neutral icon chips + ink numbers — the counts carry
+                the weight, colour stays reserved for status pills and the primary CTA. */}
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               {stat(
                 'Open positions',
                 openCount,
                 <Briefcase className="size-5" aria-hidden />,
-                'bg-accent-bg/12 text-accent',
+                'bg-surface text-secondary',
               )}
               {stat(
                 'Applicants',
                 totalApplicants,
                 <Users className="size-5" aria-hidden />,
-                'bg-success-muted text-success',
+                'bg-surface text-secondary',
               )}
               {stat(
                 'On hold',
                 onHold,
                 <Pause className="size-5" aria-hidden />,
-                'bg-warning-muted text-warning',
-                'text-warning',
+                'bg-surface text-secondary',
               )}
               {stat(
                 'Total open',
                 rows.length,
                 <Layers className="size-5" aria-hidden />,
-                'bg-accent-bg/12 text-accent',
+                'bg-surface text-secondary',
               )}
             </div>
             <div className="flex flex-wrap items-center gap-3">

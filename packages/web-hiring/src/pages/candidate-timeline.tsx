@@ -1,4 +1,6 @@
 import {
+  BadgeCheck,
+  Ban,
   CircleUserRound,
   FileText,
   type LucideIcon,
@@ -12,8 +14,10 @@ import type { CandidateEvent } from '../api/hiring-client.ts';
 const KIND_LABEL: Record<string, string> = {
   created: 'Candidate created',
   stage_changed: 'Stage changed',
+  hired: 'Hired',
   rejected: 'Rejected',
   transferred: 'Transferred to another role',
+  cancelled: 'Application closed',
   rating_changed: 'Rating updated',
   note_changed: 'Note updated',
   skills_changed: 'Skills updated',
@@ -23,8 +27,10 @@ const KIND_LABEL: Record<string, string> = {
 const KIND_ICON: Record<string, LucideIcon> = {
   created: Users,
   stage_changed: Ticket,
+  hired: BadgeCheck,
   rejected: Ticket,
   transferred: Ticket,
+  cancelled: Ban,
   rating_changed: Star,
   note_changed: Pencil,
   skills_changed: Pencil,

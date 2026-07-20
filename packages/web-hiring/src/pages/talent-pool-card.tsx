@@ -77,7 +77,9 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                             ? ' · transferred'
                             : c.last_status === 'rejected'
                               ? ' · rejected'
-                              : ' · past candidate'}
+                              : c.last_status === 'cancelled'
+                                ? ' · cancelled'
+                                : ' · past candidate'}
                       </span>
                     </span>
                   </span>

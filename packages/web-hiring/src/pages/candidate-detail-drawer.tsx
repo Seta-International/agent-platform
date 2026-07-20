@@ -1,4 +1,5 @@
 import {
+  AlertDialog,
   Avatar,
   Badge,
   Button,
@@ -32,9 +33,11 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import {
   type CandStage,
+  type CandStatus,
   editCandidate,
   fetchCandidate,
   getCandidateCvDownloadUrl,
+  hireApplication,
   moveApplicationStage,
   putCvToS3,
   requestCandidateCvUpload,
@@ -112,17 +115,35 @@ function DetailRow({
   );
 }
 
-function PipelineStepper({ stage }: { stage: CandStage | undefined }) {
-  const curIdx = stage ? STAGES.findIndex((s) => s.id === stage) : -1;
+// The stepper also shows the terminal "Hired" outcome after Offer. It's an application
+// *status*, not a stage — you reach it by filling the requisition, not via Move stage.
+const PIPELINE_STEPS: { id: CandStage | 'hired'; label: string }[] = [
+  ...STAGES,
+  { id: 'hired', label: 'Hired' },
+];
+
+function PipelineStepper({
+  stage,
+  status,
+}: {
+  stage: CandStage | undefined;
+  status: CandStatus | undefined;
+}) {
+  const curIdx =
+    status === 'hired'
+      ? PIPELINE_STEPS.length - 1
+      : stage
+        ? PIPELINE_STEPS.findIndex((s) => s.id === stage)
+        : -1;
   return (
     <div className="relative">
       <div className="absolute inset-x-[12.5%] top-[9px] h-px bg-border-strong" />
       <div
         className="absolute inset-y-0 left-[12.5%] top-[9px] h-px bg-accent-bg transition-[width]"
-        style={{ width: curIdx <= 0 ? 0 : `${(curIdx / (STAGES.length - 1)) * 75}%` }}
+        style={{ width: curIdx <= 0 ? 0 : `${(curIdx / (PIPELINE_STEPS.length - 1)) * 75}%` }}
       />
       <div className="relative flex justify-between">
-        {STAGES.map((s, i) => {
+        {PIPELINE_STEPS.map((s, i) => {
           const reached = i <= curIdx;
           return (
             <div key={s.id} className="flex flex-col items-center gap-1.5">
@@ -160,6 +181,7 @@ export function CandidateDetailDrawer({
   const canTransfer = usePermission('hiring.candidate.transfer');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [confirmHire, setConfirmHire] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: hiringKeys.candidate(candidateId ?? ''),
@@ -185,7 +207,26 @@ export function CandidateDetailDrawer({
     },
     onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.candidate(candidateId ?? '')),
   });
+  // Hiring fills the requisition and locks the application — terminal, so always confirm first.
+  const hire = useMutation({
+    mutationFn: () => {
+      if (!app) throw new Error('no active application');
+      return hireApplication(app.application_id, { expected_version: app.version });
+    },
+    onSuccess: () => {
+      setConfirmHire(false);
+      toast({ body: 'Candidate hired' });
+      refresh();
+    },
+    onError: (e: Error) => {
+      setConfirmHire(false);
+      on409(toast, e, queryClient, hiringKeys.candidate(candidateId ?? ''));
+    },
+  });
   const terminal = app ? app.status !== 'active' : true;
+  // FUT-559 on-hold lock: while the requisition is paused, its candidates can't be moved or
+  // hired — resume the requisition first. (Terminal applications are already locked above.)
+  const reqOnHold = !terminal && app?.requisition_status === 'on_hold';
   const fit = app ? fitLabel(app.fit) : null;
   const hasMoreActions = (canTransfer && !terminal) || (canReject && !terminal);
   const dialogLabel = `Candidate: ${data?.candidate.name ?? 'Loading'}`;
@@ -277,10 +318,18 @@ export function CandidateDetailDrawer({
                   </div>
 
                   <div className="border-b border-border px-6 py-4">
-                    <PipelineStepper stage={app?.stage} />
+                    <PipelineStepper stage={app?.stage} status={app?.status} />
                     {terminal && (
                       <p className="mt-3 text-sm text-secondary">
-                        This candidate is {app?.status} and can no longer be moved.
+                        {app?.status === 'cancelled'
+                          ? 'This application was closed because its requisition was cancelled.'
+                          : `This candidate is ${app?.status} and can no longer be moved.`}
+                      </p>
+                    )}
+                    {reqOnHold && (
+                      <p className="mt-3 text-sm text-warning">
+                        This requisition is on hold — candidate actions are locked until it's
+                        resumed.
                       </p>
                     )}
                   </div>
@@ -294,7 +343,8 @@ export function CandidateDetailDrawer({
                         size: 'sm',
                         label: 'Move stage',
                         icon: <RefreshCw className="size-3.5" aria-hidden />,
-                        isDisabled: !canManage || terminal || move.isPending,
+                        // reqOnHold locks the whole menu → Move stage AND the Hired item inside.
+                        isDisabled: !canManage || terminal || reqOnHold || move.isPending,
                       }}
                     >
                       {STAGES.map((s) => (
@@ -305,6 +355,8 @@ export function CandidateDetailDrawer({
                           onClick={() => move.mutate(s.id)}
                         />
                       ))}
+                      {/* Hiring is terminal (the application locks) — always confirm first. */}
+                      <DropdownMenuItem label="Hired" onClick={() => setConfirmHire(true)} />
                     </DropdownMenu>
                   </div>
 
@@ -463,6 +515,17 @@ export function CandidateDetailDrawer({
               refresh();
               onClose();
             }}
+          />
+          <AlertDialog
+            isOpen={confirmHire}
+            onOpenChange={setConfirmHire}
+            title="Hire this candidate?"
+            description="This fills the requisition and locks the application — it can't be moved back to a stage afterwards."
+            cancelLabel="Cancel"
+            actionLabel={hire.isPending ? 'Hiring…' : 'Hire'}
+            actionVariant="primary"
+            isActionLoading={hire.isPending}
+            onAction={() => hire.mutate()}
           />
         </>
       )}

@@ -1,4 +1,5 @@
 import {
+  AlertDialog,
   Banner,
   Button,
   DateInput,
@@ -12,14 +13,12 @@ import {
   LayoutFooter,
   NumberInput,
   RichTextEditor,
-  SegmentedControl,
-  SegmentedControlItem,
   Selector,
   useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   fetchAccounts,
   fetchProjects,
@@ -54,8 +53,6 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   const [projectId, setProjectId] = useState('');
   const [start, setStart] = useState('');
   const [due, setDue] = useState('');
-  // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
-  const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
   const [headcount, setHeadcount] = useState(1);
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [variant, setVariant] = useState<JdVariant>('internal');
@@ -67,15 +64,42 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   });
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const missingRequired = !title.trim() || isRichTextEmpty(jd.about);
-  const requiredError =
-    submitAttempted && missingRequired
-      ? !title.trim() && isRichTextEmpty(jd.about)
-        ? 'Job title and About the role are required.'
-        : !title.trim()
-          ? 'Job title is required.'
-          : 'About the role is required.'
+  // FUT-559 error focus: red per-field message + scroll to the first empty required field.
+  const titleFieldRef = useRef<HTMLDivElement>(null);
+  const aboutFieldRef = useRef<HTMLDivElement>(null);
+  const titleInvalid = submitAttempted && !title.trim();
+  const aboutInvalid = submitAttempted && isRichTextEmpty(jd.about);
+  // FUT-559 date bounds: a new requisition can't start in the past, and due must land on or
+  // after the start. yyyy-mm-dd ISO strings compare lexically; use local-midnight today.
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 10);
+  const startInPast = !!start && start < today;
+  const dueBeforeStart = !!due && (due < today || (!!start && due < start));
+  const startError = submitAttempted && startInPast ? 'Start date cannot be in the past.' : null;
+  const dueError =
+    submitAttempted && dueBeforeStart
+      ? start && due < start
+        ? 'Due date must be on or after the start date.'
+        : 'Due date cannot be in the past.'
       : null;
+  // Unsaved-input guard: confirm before dismissing a form the recruiter has started.
+  const dirty = !!(
+    title.trim() ||
+    start ||
+    due ||
+    accountId ||
+    projectId ||
+    skills.length ||
+    grade !== 'L4' ||
+    headcount !== 1 ||
+    kind !== 'new' ||
+    mode !== 'online' ||
+    variant !== 'internal' ||
+    SECTIONS.some((s) => !isRichTextEmpty(jd[s.key]))
+  );
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -108,6 +132,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     });
     setError(null);
     setSubmitAttempted(false);
+    setConfirmDiscard(false);
   }
 
   // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
@@ -118,6 +143,11 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   }
 
   function handleOpenChange(v: boolean) {
+    // FUT-559: don't drop a form the recruiter has started — ask first.
+    if (!v && dirty) {
+      setConfirmDiscard(true);
+      return;
+    }
     setOpen(v);
     if (!v) reset();
   }
@@ -159,7 +189,15 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || dateError) return;
+    if (missingRequired || startInPast || dueBeforeStart) {
+      const target = !title.trim()
+        ? titleFieldRef.current
+        : isRichTextEmpty(jd.about)
+          ? aboutFieldRef.current
+          : null;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     mutation.mutate();
   }
 
@@ -189,7 +227,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
           content={
             <LayoutContent>
               <div className="space-y-5">
-                <div className="space-y-1">
+                <div className="space-y-1" ref={titleFieldRef}>
                   <Input
                     label="Job title"
                     isRequired
@@ -197,6 +235,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                     onChange={(value) => setTitle(value)}
                     placeholder="e.g. Senior Backend Engineer"
                   />
+                  {titleInvalid && <p className="text-sm text-error">Job title is required.</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -275,37 +314,28 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                     <DateInput
                       label="Start date"
                       value={start || undefined}
-                      max={due || undefined}
                       onChange={(v) => setStart(v ?? '')}
                     />
+                    {startError && <p className="text-sm text-error">{startError}</p>}
                   </div>
                   <div className="space-y-1">
                     <DateInput
                       label="Due date"
                       value={due || undefined}
-                      min={start || undefined}
                       onChange={(v) => setDue(v ?? '')}
                     />
+                    {dueError && <p className="text-sm text-error">{dueError}</p>}
                   </div>
                 </div>
-                {dateError && <p className="text-base text-error">{dateError}</p>}
 
-                <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
+                <SkillPicker value={skills} onChange={setSkills} />
 
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold uppercase text-secondary">JD detail</div>
-                  <SegmentedControl
-                    label="JD variant"
-                    value={variant}
-                    onChange={(v) => setVariant(v as JdVariant)}
-                  >
-                    <SegmentedControlItem value="external" label="External" />
-                    <SegmentedControlItem value="internal" label="Internal" />
-                  </SegmentedControl>
-                </div>
+                {/* FUT-559 (562f4b86): External/Internal variant switcher is temporarily hidden —
+                    content saves under the default variant until the two-variant flow is final. */}
+                <div className="text-sm font-semibold uppercase text-secondary">JD detail</div>
 
                 {SECTIONS.map((s) => (
-                  <div key={s.key}>
+                  <div key={s.key} ref={s.key === 'about' ? aboutFieldRef : undefined}>
                     <div
                       className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
                     >
@@ -314,12 +344,16 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                     <RichTextEditor
                       value={jd[s.key]}
                       onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
+                      className={s.key === 'about' && aboutInvalid ? '!border-error' : undefined}
                       placeholder={
                         s.key === 'about'
                           ? 'Write the about section…'
                           : `Write the ${s.label.toLowerCase()}…`
                       }
                     />
+                    {s.key === 'about' && aboutInvalid && (
+                      <p className="mt-1 text-sm text-error">About the role is required.</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -329,8 +363,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
             <LayoutFooter hasDivider>
               <div className="space-y-2">
                 {error && <Banner status="error" title={error} />}
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-base text-error">{requiredError}</p>
+                <div className="flex items-center justify-end gap-2">
                   <HStack gap={2} hAlign="end">
                     <Button
                       variant="secondary"
@@ -352,6 +385,16 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
           }
         />
       </Dialog>
+      <AlertDialog
+        isOpen={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        title="Discard this requisition?"
+        description="Your inputs haven't been saved."
+        cancelLabel="Keep editing"
+        actionLabel="Discard"
+        actionVariant="destructive"
+        onAction={close}
+      />
     </>
   );
 }

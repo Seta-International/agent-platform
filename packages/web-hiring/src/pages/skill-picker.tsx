@@ -1,10 +1,4 @@
-import {
-  createStaticSource,
-  type SearchableItem,
-  Selector,
-  Token,
-  Tokenizer,
-} from '@seta/shared-ui';
+import { createStaticSource, type SearchableItem, Token, Tokenizer } from '@seta/shared-ui';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { fetchSkillCatalog } from '../api/hiring-client.ts';
@@ -13,20 +7,19 @@ import { hiringKeys } from '../state/query-keys.ts';
 export interface PickedSkill {
   skill_id: string;
   skill_name: string;
+  // Retained on the DTO for the edit save (min_level), but FUT-559 dropped the per-skill
+  // level picker — a requisition lists which skills matter, not a numeric bar per skill.
   level?: number;
 }
 
-type SkillItem = SearchableItem<{ level: number; category: string }>;
+type SkillItem = SearchableItem<{ category: string }>;
 
 export function SkillPicker({
   value,
   onChange,
-  showLevel = true,
 }: {
   value: PickedSkill[];
   onChange: (next: PickedSkill[]) => void;
-  /** Show the per-skill 0–5 level dropdown. Off for requisition creation, which doesn't set levels. */
-  showLevel?: boolean;
 }) {
   const { data, isPending } = useQuery({
     queryKey: hiringKeys.skillCatalog(),
@@ -47,7 +40,7 @@ export function SkillPicker({
           .map((s) => ({
             id: s.id,
             label: s.name,
-            auxiliaryData: { level: 0, category: catName.get(s.category_id) ?? '' },
+            auxiliaryData: { category: catName.get(s.category_id) ?? '' },
           })),
         { keywords: (i) => [i.auxiliaryData?.category ?? ''] },
       ),
@@ -58,12 +51,8 @@ export function SkillPicker({
   const items: SkillItem[] = value.map((v) => ({
     id: v.skill_id,
     label: v.skill_name,
-    auxiliaryData: { level: v.level ?? 0, category: '' },
+    auxiliaryData: { category: '' },
   }));
-
-  function setLevel(skillId: string, level: number) {
-    onChange(value.map((v) => (v.skill_id === skillId ? { ...v, level } : v)));
-  }
 
   return (
     <Tokenizer<SkillItem>
@@ -76,33 +65,9 @@ export function SkillPicker({
       isDisabled={isPending}
       disabledMessage="Loading skills…"
       value={items}
-      onChange={(next) =>
-        onChange(
-          next.map((i) => ({
-            skill_id: i.id,
-            skill_name: i.label,
-            level: i.auxiliaryData?.level ?? 0,
-          })),
-        )
-      }
+      onChange={(next) => onChange(next.map((i) => ({ skill_id: i.id, skill_name: i.label })))}
       renderToken={(item, onRemove) => (
-        <Token
-          key={item.id}
-          label={item.label}
-          onRemove={onRemove}
-          endContent={
-            showLevel ? (
-              <Selector
-                label={`${item.label} level`}
-                isLabelHidden
-                size="sm"
-                options={[0, 1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) }))}
-                value={String(item.auxiliaryData?.level ?? 0)}
-                onChange={(val) => setLevel(item.id, Number(val))}
-              />
-            ) : undefined
-          }
-        />
+        <Token key={item.id} label={item.label} onRemove={onRemove} />
       )}
     />
   );

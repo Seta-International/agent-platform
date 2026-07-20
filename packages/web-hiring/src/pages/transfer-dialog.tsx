@@ -37,9 +37,9 @@ export function TransferDialog({
     queryKey: hiringKeys.requisitionOptions(),
     queryFn: fetchRequisitions,
   });
-  const targets = (reqs ?? []).filter(
-    (r) => (r.status === 'open' || r.status === 'on_hold') && r.id !== currentRequisitionId,
-  );
+  // FUT-559: only actively-hiring roles receive transfers — on-hold (and closed) requisitions
+  // are excluded here, and the backend rejects them too.
+  const targets = (reqs ?? []).filter((r) => r.status === 'open' && r.id !== currentRequisitionId);
   const effectiveTarget = targetId || targets[0]?.id || '';
 
   const mutation = useMutation({
@@ -51,6 +51,13 @@ export function TransferDialog({
     onSuccess: () => {
       toast({ body: 'Candidate moved' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
+      // Both roles' cards and detail views changed (counts, applicant lists) — without
+      // this, a mounted Requisitions board keeps showing the candidate on the old role.
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
+      void queryClient.invalidateQueries({
+        queryKey: hiringKeys.requisition(currentRequisitionId),
+      });
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.requisition(effectiveTarget) });
       onOpenChange(false);
       onDone();
     },
