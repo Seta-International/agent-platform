@@ -76,8 +76,8 @@ export const KEY_PEOPLE: GoldenPerson[] = [
   {
     person_id: C.ACTOR_PERSON_ID,
     user_id: C.ACTOR_USER_ID,
-    full_name: 'Anh Nguyen',
-    email: 'anh.nguyen@seta-demo.test',
+    full_name: C.ACTOR_NAME,
+    email: C.ACTOR_EMAIL,
     bio: 'Engineering lead coordinating cross-team delivery at SETA International.',
     availability_status: 'available',
     timezone: 'Asia/Ho_Chi_Minh',
