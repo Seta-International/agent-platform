@@ -40,8 +40,6 @@ function row(over: Partial<RequisitionListRow> = {}): RequisitionListRow {
 }
 
 describe('RequisitionCard', () => {
-  // The card is a glance-and-navigate surface: read-only stage track, no action menu (lifecycle
-  // actions moved to the detail view's footer).
   it('renders the pipeline stage track and no action menu', () => {
     render(<RequisitionCard r={row()} />);
 

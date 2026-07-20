@@ -192,10 +192,13 @@ export function CandidateDetailDrawer({
       setConfirmHire(false);
       toast({ body: 'Candidate hired successfully' });
       refresh();
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
+      onClose();
     },
     onError: (e: Error) => {
       setConfirmHire(false);
       on409(toast, e, queryClient, hiringKeys.candidate(candidateId ?? ''));
+      onClose();
     },
   });
   const terminal = app ? app.status !== 'active' : true;
@@ -266,173 +269,6 @@ export function CandidateDetailDrawer({
                       : `This candidate is ${app?.status} and can no longer be moved.`
                   }
                 />
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 border-b border-border px-6 py-3">
-                    <DropdownMenu
-                      placement="below"
-                      hasChevron
-                      button={{
-                        variant: 'secondary',
-                        size: 'sm',
-                        label: 'Move stage',
-                        icon: <RefreshCw className="size-3.5" aria-hidden />,
-                        isDisabled: !canManage || terminal || move.isPending,
-                      }}
-                    >
-                      {STAGES.map((s) => (
-                        <DropdownMenuItem
-                          key={s.id}
-                          label={s.label}
-                          isDisabled={app?.stage === s.id}
-                          onClick={() => move.mutate(s.id)}
-                        />
-                      ))}
-                    </DropdownMenu>
-
-                    {canManage && !terminal && app?.stage === 'offer' && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        label={hire.isPending ? 'Hiring…' : 'Hire'}
-                        onClick={() => setHireConfirmOpen(true)}
-                        isDisabled={hire.isPending}
-                      />
-                    )}
-                  </div>
-
-                  <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto px-6 py-4 lg:grid-cols-[1.4fr_1fr]">
-                    <div className="space-y-4">
-                      <DetailCard title="Contact">
-                        <DetailRow
-                          icon={<Mail className="size-3.5" aria-hidden />}
-                          label="Personal email"
-                          value={data.candidate.contact?.personal_email ?? '—'}
-                          onCopy={
-                            data.candidate.contact?.personal_email
-                              ? () =>
-                                  void navigator.clipboard.writeText(
-                                    data.candidate.contact?.personal_email ?? '',
-                                  )
-                              : undefined
-                          }
-                        />
-                        <DetailRow
-                          icon={<Phone className="size-3.5" aria-hidden />}
-                          label="Phone"
-                          value={data.candidate.contact?.phone ?? '—'}
-                          onCopy={
-                            data.candidate.contact?.phone
-                              ? () =>
-                                  void navigator.clipboard.writeText(
-                                    data.candidate.contact?.phone ?? '',
-                                  )
-                              : undefined
-                          }
-                        />
-                        <DetailRow
-                          icon={<Globe className="size-3.5" aria-hidden />}
-                          label="Source"
-                          value={data.candidate.source ?? '—'}
-                        />
-                        <DetailRow
-                          icon={<Cake className="size-3.5" aria-hidden />}
-                          label="Date of birth"
-                          value={data.candidate.dob ?? '—'}
-                        />
-                        <DetailRow
-                          icon={<VenusAndMars className="size-3.5" aria-hidden />}
-                          label="Gender"
-                          value={data.candidate.gender ?? '—'}
-                        />
-                      </DetailCard>
-
-                      <DetailCard
-                        title="Skills"
-                        action={
-                          fit && (
-                            <Badge variant={fit.strong ? 'success' : 'neutral'} label={fit.text} />
-                          )
-                        }
-                      >
-                        <div className="flex flex-wrap gap-1.5">
-                          {data.skills.length === 0 ? (
-                            <span className="text-sm text-secondary">No skills recorded.</span>
-                          ) : (
-                            data.skills.map((s) => (
-                              <Badge
-                                key={s.skill_id}
-                                variant="neutral"
-                                label={
-                                  <>
-                                    <span>{s.skill_name}</span>
-                                    {s.level ? <span>{` · L${s.level}`}</span> : null}
-                                  </>
-                                }
-                              />
-                            ))
-                          )}
-                        </div>
-                      </DetailCard>
-
-                      <DetailCard title="CV">
-                        <CandidateCvActions
-                          candidateId={data.candidate.id}
-                          hasCv={Boolean(data.candidate.cv_storage_key)}
-                          cvStorageKey={data.candidate.cv_storage_key}
-                          canManage={canManage}
-                          onChanged={() =>
-                            void queryClient.invalidateQueries({
-                              queryKey: hiringKeys.candidate(data.candidate.id),
-                            })
-                          }
-                        />
-                      </DetailCard>
-
-                      <DetailCard title="Notes">
-                        {app?.note ? (
-                          <p className="text-base text-primary">{app.note}</p>
-                        ) : (
-                          <p className="text-sm text-secondary">No notes yet.</p>
-                        )}
-                      </DetailCard>
-                    </div>
-
-                    <div className="space-y-4">
-                      <DetailCard title="Application details">
-                        <DetailRow label="Requisition" value={app?.requisition_title ?? '—'} />
-                        <DetailRow
-                          label="Requisition ID"
-                          value={
-                            app ? (
-                              <span className="font-mono text-sm">{app.requisition_id}</span>
-                            ) : (
-                              '—'
-                            )
-                          }
-                        />
-                        <DetailRow
-                          label="Applied date"
-                          value={app ? new Date(app.applied_at).toLocaleString() : '—'}
-                        />
-                        <DetailRow
-                          label="Current stage"
-                          value={app ? STAGES.find((s) => s.id === app.stage)?.label : '—'}
-                        />
-                        <DetailRow
-                          label="Rating"
-                          value={app?.rating != null ? `${app.rating}/5` : 'Not rated'}
-                        />
-                      </DetailCard>
-
-                      <DetailCard title="Activity timeline">
-                        <CandidateTimeline events={data.timeline} />
-                      </DetailCard>
-                    </div>
-                  </div>
-                </>
->>>>>>> e45a722b (feat(hiring): FUT-315 create employee from candidate)
               )}
               {reqOnHold && (
                 <Banner

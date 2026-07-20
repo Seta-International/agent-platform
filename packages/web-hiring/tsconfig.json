@@ -12,6 +12,6 @@
     "jsx": "react-jsx",
     "types": []
   },
-  "include": ["src"],
+  "include": ["src", "tests"],
   "exclude": ["src/routes"]
 }

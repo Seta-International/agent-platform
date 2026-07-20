@@ -80,7 +80,7 @@ describe('SkillPicker', () => {
     expect(input).toHaveAttribute('aria-disabled', 'true');
 
     resolveCatalog({
-      categories: [{ id: 'c1', name: 'Backend' }],
+      categories: [{ id: 'c1', name: 'Backend', sort_order: 0, active: true }],
       skills: [{ id: 's1', name: 'Postgres', category_id: 'c1', active: true }],
     });
 

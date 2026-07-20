@@ -24,9 +24,9 @@ describe('hiringAppManifest', () => {
     const byId = Object.fromEntries(
       hiringAppManifest.nav.flatMap((s) => s.items).map((i) => [i.id, i]),
     );
-    expect(byId['hiring.requisitions'].requires).toContain('hiring.requisition.read');
-    expect(byId['hiring.candidates'].requires).toContain('hiring.candidate.read');
-    expect(byId['hiring.settings'].requires).toContain('hiring.jd_template.read');
+    expect(byId['hiring.requisitions']!.requires).toContain('hiring.requisition.read');
+    expect(byId['hiring.candidates']!.requires).toContain('hiring.candidate.read');
+    expect(byId['hiring.settings']!.requires).toContain('hiring.jd_template.read');
   });
 
   it('badges only the unbuilt placeholder tabs as Soon', () => {

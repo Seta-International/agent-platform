@@ -17,16 +17,47 @@ export function useRequisition(id: string) {
   return useQuery({ queryKey: hiringKeys.requisition(id), queryFn: () => fetchRequisition(id) });
 }
 
+export function capitalizeErrorMessage(msg: string | undefined): string {
+  if (!msg) return 'Operation failed';
+  const trimmed = msg.trim();
+  if (!trimmed) return 'Operation failed';
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
 export function on409(
   toast: ShowToastFn,
   e: Error,
   queryClient: ReturnType<typeof useQueryClient>,
   queryKey: readonly unknown[],
 ): void {
+  const isConcurrencyConflict =
+    e.message === 'version mismatch' ||
+    e.message.includes('modified concurrently') ||
+    e.message.includes('version mismatch');
+
   if ((e as { status?: number }).status === 409) {
-    toast({ body: 'This record changed — refreshing.', type: 'error' });
+    if (isConcurrencyConflict) {
+      toast({
+        body: 'This record changed — refreshing.',
+        type: 'error',
+        isAutoHide: true,
+        autoHideDuration: 6000,
+      });
+    } else {
+      toast({
+        body: capitalizeErrorMessage(e.message),
+        type: 'error',
+        isAutoHide: true,
+        autoHideDuration: 6000,
+      });
+    }
     void queryClient.invalidateQueries({ queryKey });
   } else {
-    toast({ body: e.message, type: 'error' });
+    toast({
+      body: capitalizeErrorMessage(e.message),
+      type: 'error',
+      isAutoHide: true,
+      autoHideDuration: 6000,
+    });
   }
 }
