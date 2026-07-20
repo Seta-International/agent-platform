@@ -17,5 +17,8 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     css: false,
     exclude: ['tests/e2e/**', 'node_modules/**'],
+    // RTL suites are correct but slow under CI CPU contention: the full-monorepo `pnpm test`
+    // fans out ~10 vitest processes on a 2-vCPU runner, so give them headroom past the 5s default.
+    testTimeout: 20000,
   },
 });

@@ -27,19 +27,19 @@ describe('PlanCard', () => {
 
   it('renders the MS Planner 3-state legend when bucket counts are provided', () => {
     render(<PlanCard plan={basePlan} notStartedCount={3} inProgressCount={5} completedCount={2} />);
-    expect(screen.getByText('Not started')).toBeInTheDocument();
-    expect(screen.getByText('In progress')).toBeInTheDocument();
-    expect(screen.getByText('Completed')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('5')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    // Each StateChip exposes its full label + count via the accessible name (role="img"
+    // aria-label="Not started: 3"); the visible text is the compact short label ("To do"),
+    // so query by accessible name rather than visible text.
+    expect(screen.getByRole('img', { name: 'Not started: 3' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'In progress: 5' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Completed: 2' })).toBeInTheDocument();
   });
 
   it('does not render the legend when no bucket counts are provided', () => {
     render(<PlanCard plan={basePlan} />);
-    expect(screen.queryByText('Not started')).not.toBeInTheDocument();
-    expect(screen.queryByText('In progress')).not.toBeInTheDocument();
-    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /Not started/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /In progress/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /Completed/ })).not.toBeInTheDocument();
   });
 
   it('does not render the on-track / at-risk / off-track pills (MS Planner has no plan status)', () => {

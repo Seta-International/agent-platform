@@ -61,7 +61,7 @@ describe('GroupDetail scope picker', () => {
     const scopeCombobox = await screen.findByRole('combobox', { name: 'people.manager scope' });
     expect(scopeCombobox).toHaveTextContent('Org unit');
     expect(await screen.findByText('Engineering')).toBeInTheDocument();
-  }, 15_000);
+  });
 
   it('posts a scoped role entry when checking a role (defaults to tenant-wide)', async () => {
     const user = userEvent.setup();
@@ -79,5 +79,5 @@ describe('GroupDetail scope picker', () => {
         { role_slug: 'people.viewer', scope_kind: 'tenant', scope_id: null },
       ]),
     );
-  }, 15_000);
+  });
 });

@@ -109,11 +109,7 @@ describe('RaMonitoringPage — SelectEmployeeDialog (Astryx migration smoke test
     const user = userEvent.setup();
     renderPage();
 
-    const trigger = await screen.findByRole(
-      'button',
-      { name: 'Add allocation' },
-      { timeout: 5000 },
-    );
+    const trigger = await screen.findByRole('button', { name: 'Add allocation' });
     await user.click(trigger);
 
     const dialog = screen.getByRole('dialog');
@@ -130,9 +126,7 @@ describe('RaMonitoringPage — SelectEmployeeDialog (Astryx migration smoke test
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(
-      await screen.findByRole('button', { name: 'Add allocation' }, { timeout: 5000 }),
-    );
+    await user.click(await screen.findByRole('button', { name: 'Add allocation' }));
     const dialog = screen.getByRole('dialog');
 
     expect(within(dialog).getByRole('button', { name: 'Next' })).toBeDisabled();
@@ -140,7 +134,7 @@ describe('RaMonitoringPage — SelectEmployeeDialog (Astryx migration smoke test
     const employeeField = within(dialog).getByLabelText('Employee');
     await user.click(employeeField);
     await user.type(employeeField, 'Jane');
-    await user.click(await screen.findByRole('option', { name: 'Jane Doe' }, { timeout: 5000 }));
+    await user.click(await screen.findByRole('option', { name: 'Jane Doe' }));
 
     expect(within(dialog).getByRole('button', { name: 'Next' })).toBeEnabled();
     await user.click(within(dialog).getByRole('button', { name: 'Next' }));
@@ -148,7 +142,7 @@ describe('RaMonitoringPage — SelectEmployeeDialog (Astryx migration smoke test
     // Select employee dialog itself is done with its job once Next is clicked — it always
     // closes and hands off to the Reassign wizard (already covered by reassign-wizard.test.tsx).
     expect(screen.queryByRole('heading', { name: 'Select employee' })).not.toBeInTheDocument();
-  }, 15_000);
+  });
 });
 
 // SplitAllocationDialog is deliberately NOT covered here. It's a parent-controlled dialog

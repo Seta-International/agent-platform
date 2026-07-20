@@ -1,9 +1,14 @@
 import { installDialogShim } from '@seta/shared-ui/testing';
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
 installDialogShim();
+
+// CI runs the whole monorepo's vitest in parallel on a 2-vCPU runner; heavy pages
+// (ra-monitoring's dialog + typeahead) can take seconds to settle under that CPU
+// starvation. Raise the findBy/waitFor polling ceiling so those waits don't false-fail.
+configure({ asyncUtilTimeout: 15000 });
 
 // Radix (Popover) relies on pointer-capture and scrollIntoView, which happy-dom lacks.
 const proto = window.HTMLElement.prototype;

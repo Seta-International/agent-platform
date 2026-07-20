@@ -68,7 +68,7 @@ describe('AccountsPage — CreateAccountDialog (Astryx migration smoke test)', (
 
     await user.type(within(dialog).getByLabelText(/^Name/), 'Aeris');
     await user.type(within(dialog).getByLabelText('Industry'), 'Fintech');
-    await user.click(within(dialog).getByRole('button', { name: 'Create' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Create account' }));
 
     await waitFor(() =>
       expect(createAccount).toHaveBeenCalledWith({ name: 'Aeris', industry: 'Fintech' }),
