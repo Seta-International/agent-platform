@@ -37,7 +37,8 @@
     "docker:build": "pnpm docker:build:server && pnpm docker:build:web",
     "release:check": "bash scripts/release/release-check.sh --no-build",
     "release:check:full": "bash scripts/release/release-check.sh",
-    "gen:dashboards": "pnpm -F @seta/grafana-dashboards run gen"
+    "gen:dashboards": "pnpm -F @seta/grafana-dashboards run gen",
+    "seed:golden": "tsx scripts/dev/seed-golden-dataset.ts"
   },
   "devDependencies": {
     "@astryxdesign/cli": "^0.1.6",
