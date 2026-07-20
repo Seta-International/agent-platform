@@ -1,3 +1,19 @@
+import { usePermission, useSession } from '@seta/web-identity';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import {
+  bodApproveCharter,
+  type CharterDetail,
+  fetchAccounts,
+  fetchCharter,
+  pmoSignOffCharter,
+  rejectCharter,
+  withdrawCharter,
+} from '../api/pm-client.ts';
+import { useWorkerSource } from '../api/worker-search';
+import { pmKeys } from '../state/query-keys.ts';
 import {
   Badge,
   Banner,
@@ -20,23 +36,7 @@ import {
   useSeededItems,
   useToast,
   VStack,
-} from '@seta/shared-ui';
-import { usePermission, useSession } from '@seta/web-identity';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { ChevronRight } from 'lucide-react';
-import { useState } from 'react';
-import {
-  bodApproveCharter,
-  type CharterDetail,
-  fetchAccounts,
-  fetchCharter,
-  pmoSignOffCharter,
-  rejectCharter,
-  withdrawCharter,
-} from '../api/pm-client.ts';
-import { useWorkerSource } from '../api/worker-search';
-import { pmKeys } from '../state/query-keys.ts';
+} from './_ui-compat.tsx';
 import { CharterStaffingEditor } from './charter-staffing-editor.tsx';
 import { CharterStepper } from './charter-stepper.tsx';
 

@@ -2339,6 +2339,9 @@ importers:
       '@seta/module-sdk':
         specifier: workspace:^
         version: link:../../sdks/module
+      '@seta/pm':
+        specifier: workspace:*
+        version: link:../pm
       '@seta/shared-rbac':
         specifier: workspace:^
         version: link:../shared-rbac

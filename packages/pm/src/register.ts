@@ -40,6 +40,11 @@ export function registerPmContributions(reg: ContributionRegistry): void {
       { table: 'pm.person_projection', policy: { kind: 'permanent' } },
       { table: 'pm.staffing_plan_line', policy: { kind: 'permanent' } },
       { table: 'pm.staffing_plan_line_skill', policy: { kind: 'permanent' } },
+      { table: 'pm.kpi_norm', policy: { kind: 'permanent' } },
+      { table: 'pm.kpi_norm_metric', policy: { kind: 'permanent' } },
+      { table: 'pm.kpi_applied_metric', policy: { kind: 'permanent' } },
+      { table: 'pm.kpi_record', policy: { kind: 'permanent' } },
+      { table: 'pm.kpi_record_entry', policy: { kind: 'permanent' } },
     ]);
   }
 

@@ -18,6 +18,18 @@ export {
   linkPlannerGroup,
   reopenProject,
 } from './backend/domain/edit-project.ts';
+export type { AppliedMetricCoverage } from './backend/domain/kpi-applied-metrics.ts';
+export { listAppliedMetrics, setAppliedMetric } from './backend/domain/kpi-applied-metrics.ts';
+export type { KpiNormDoc, KpiNormMetricRow } from './backend/domain/kpi-norm.ts';
+export { getKpiNorm } from './backend/domain/kpi-norm.ts';
+export type { BandCondition, KpiNormMetricSeed } from './backend/domain/kpi-norm-data.ts';
+export type {
+  KpiExplorerResult,
+  KpiExplorerRow,
+  KpiRecordDetail,
+  KpiRecordMetricRow,
+} from './backend/domain/kpi-records.ts';
+export { getKpiRecord, listKpiExplorer, upsertKpiRecord } from './backend/domain/kpi-records.ts';
 export { listProjectAccess, setProjectAccess } from './backend/domain/project-access.ts';
 export type { AccountListRow } from './backend/domain/read-accounts.ts';
 export { getAccount, listAccounts } from './backend/domain/read-accounts.ts';
@@ -47,6 +59,8 @@ export {
 } from './backend/domain/reassign-allocation.ts';
 export { listRecruiterAccountIds } from './backend/domain/recruiter-accounts.ts';
 export { removeAllocation } from './backend/domain/remove-allocation.ts';
+export type { ReporterAsOf } from './backend/domain/reporter-assignment.ts';
+export { getReportersAsOf } from './backend/domain/reporter-assignment.ts';
 export {
   listAccountIdsManagedBy,
   listAccountManagers,
@@ -62,19 +76,45 @@ export {
 } from './backend/domain/staffing-plan.ts';
 export { submitCharter } from './backend/domain/submit-charter.ts';
 export { updateAllocation } from './backend/domain/update-allocation.ts';
+export type {
+  ReportColour,
+  WeeklyReportCard,
+  WeeklyReportDetail,
+  WeeklyReportEntry,
+  WeekStats,
+} from './backend/domain/weekly-reports.ts';
+export {
+  addReportComment,
+  ensureWeeklyReport,
+  getCurrentIsoWeek,
+  getWeeklyReportDetail,
+  listWeeklyReports,
+  overrideFlag,
+  setWeeklyReportClock,
+  upsertWeeklyReport,
+} from './backend/domain/weekly-reports.ts';
 export { withdrawCharter } from './backend/domain/withdraw-charter.ts';
 export type {
+  AddReportCommentInput,
   CreateAccountInput,
   CreateAllocationInput,
   EditAccountInput,
   EditCharterInput,
   EditProjectInput,
+  KpiExplorerQuery,
+  KpiRecordQuery,
+  OverrideFlagInput,
   ReassignAllocationInput,
   RejectCharterInput,
   SetAccountRecruitersInput,
+  SetAppliedMetricInput,
   SetProjectAccessInput,
   SplitAllocationInput,
   StaffingPlanLineInput,
   SubmitCharterInput,
+  UpsertKpiRecordInput,
+  UpsertWeeklyReportInput,
+  WeeklyReportDetailQuery,
+  WeeklyReportsQuery,
 } from './contracts.ts';
 export { setAccountRecruitersInput } from './contracts.ts';

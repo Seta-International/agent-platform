@@ -6,6 +6,8 @@ import { buildRlsSql, buildTouchTriggerSql, buildTouchUpdatedAtFnSql } from '@se
 const SCHEMA = 'pm';
 
 // Every pm table carries an updated_at column that must be bumped on every UPDATE.
+// kpi_applied_metric is excluded: it has no updated_at (toggling applied metrics is
+// insert/delete, never an in-place edit).
 const TOUCH_TABLES = [
   'account',
   'project',
@@ -16,12 +18,15 @@ const TOUCH_TABLES = [
   'person_projection',
   'staffing_plan_line',
   'staffing_plan_line_skill',
+  'kpi_norm',
+  'kpi_norm_metric',
+  'kpi_record',
+  'kpi_record_entry',
   // Weekly Report & KPI Performance (FUT-609) — mutable tables only.
   // flag_audit_entry and norm_snapshot are immutable (no updated_at) and excluded.
   'report',
   'metric_value',
   'flag',
-  'norm_baseline',
   'project_week_rollup',
   'comment',
 ];
@@ -38,12 +43,16 @@ const RLS_TABLES = [
   'person_projection',
   'staffing_plan_line',
   'staffing_plan_line_skill',
-  // Weekly Report & KPI Performance (FUT-609) — all eight tables are tenant-scoped.
+  'kpi_norm',
+  'kpi_norm_metric',
+  'kpi_applied_metric',
+  'kpi_record',
+  'kpi_record_entry',
+  // Weekly Report & KPI Performance (FUT-609) — all seven tables are tenant-scoped.
   'report',
   'metric_value',
   'flag',
   'flag_audit_entry',
-  'norm_baseline',
   'norm_snapshot',
   'project_week_rollup',
   'comment',

@@ -2,6 +2,7 @@
 # not published to the shared repo. CLAUDE.md stays tracked.
 docs/superpowers
 .superpowers/
+docs/feature/kpi-metrics
 
 # Local Claude Code config (per-machine, not shared)
 .claude/settings.local.json

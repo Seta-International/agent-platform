@@ -714,3 +714,376 @@ export async function previewReassignWorkerAllocations(
   });
   return handleResponse<ReassignGroupPreviewResult>(res);
 }
+
+// ---- KPI Metrics (FUT-581) ----
+
+export type KpiCategory = 'quality' | 'cost_capacity' | 'delivery' | 'process';
+export type KpiTier = 'core' | 'extended';
+export type RagStatus = 'green' | 'yellow' | 'red';
+
+export type BandCondition =
+  | { op: 'lte' | 'lt' | 'gte' | 'gt' | 'eq'; value: number }
+  | { op: 'between'; min: number; max: number }
+  | { op: 'or' | 'and'; conditions: BandCondition[] };
+
+export interface KpiNormMetricRow {
+  metric_id: string;
+  category: KpiCategory;
+  tier: KpiTier;
+  name: string;
+  formula_label: string;
+  component_count: 1 | 2;
+  component_1_label: string;
+  component_2_label: string | null;
+  green_band: BandCondition;
+  yellow_band: BandCondition;
+  red_band: BandCondition;
+  insight: string | null;
+  is_live_capable: boolean;
+}
+
+export interface KpiNormDoc {
+  norm_id: string;
+  code: string;
+  revision: string;
+  effective_date: string | null;
+  metrics: KpiNormMetricRow[];
+}
+
+export async function fetchKpiNorm(): Promise<KpiNormDoc | null> {
+  const res = await fetch('/api/pm/v1/kpi-norm', { credentials: 'include' });
+  return handleResponse<KpiNormDoc | null>(res);
+}
+
+export interface AppliedMetricCoverage {
+  metric_id: string;
+  /** How many of the queried projects have this metric applied — compare against the queried
+   * project count to tell "applied everywhere" from "applied to some". */
+  applied_count: number;
+}
+
+export async function fetchAppliedMetrics(projectIds: string[]): Promise<AppliedMetricCoverage[]> {
+  if (projectIds.length === 0) return [];
+  const sp = new URLSearchParams({ project_ids: projectIds.join(',') });
+  const res = await fetch(`/api/pm/v1/kpi-applied-metrics?${sp.toString()}`, {
+    credentials: 'include',
+  });
+  return (await handleResponse<{ coverage: AppliedMetricCoverage[] }>(res)).coverage;
+}
+
+export async function setAppliedMetric(
+  metricId: string,
+  applied: boolean,
+  projectIds: string[],
+): Promise<{ metric_id: string; applied: boolean; project_ids: string[] }> {
+  const res = await fetch(`/api/pm/v1/kpi-applied-metrics/${metricId}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ applied, project_ids: projectIds }),
+  });
+  return handleResponse(res);
+}
+
+export interface KpiExplorerMetricCell {
+  value: number | null;
+  status: RagStatus | null;
+}
+
+export interface KpiExplorerRow {
+  project_id: string;
+  project_name: string;
+  account_id: string;
+  account_name: string;
+  record_id: string | null;
+  iso_year: number;
+  iso_week: number;
+  overall_health: RagStatus;
+  category_health: Record<KpiCategory, RagStatus>;
+  metrics: Record<string, KpiExplorerMetricCell>;
+  can_manage: boolean;
+}
+
+export interface KpiExplorerResult {
+  rows: KpiExplorerRow[];
+  /** Union of every metric applied to any project in `rows` — Configure metrics is per-project,
+   * so different projects can have different applied sets; build columns from this instead of
+   * assuming one shared tenant-wide set. */
+  applied_metric_ids: string[];
+}
+
+export async function fetchKpiExplorer(params: {
+  iso_year: number;
+  iso_week: number;
+  account_id?: string;
+  project_id?: string;
+}): Promise<KpiExplorerResult> {
+  const sp = new URLSearchParams();
+  sp.set('iso_year', String(params.iso_year));
+  sp.set('iso_week', String(params.iso_week));
+  if (params.account_id) sp.set('account_id', params.account_id);
+  if (params.project_id) sp.set('project_id', params.project_id);
+  const res = await fetch(`/api/pm/v1/kpi-explorer?${sp.toString()}`, { credentials: 'include' });
+  return handleResponse<KpiExplorerResult>(res);
+}
+
+export interface KpiRecordMetricRow extends KpiNormMetricRow {
+  component_1_value: number | null;
+  component_2_value: number | null;
+  computed_value: number | null;
+  status: RagStatus | null;
+}
+
+export interface KpiRecordDetail {
+  record_id: string | null;
+  project_id: string;
+  iso_year: number;
+  iso_week: number;
+  version: number | null;
+  metrics: KpiRecordMetricRow[];
+  category_health: Record<KpiCategory, RagStatus>;
+  overall_health: RagStatus;
+}
+
+export async function fetchKpiRecord(params: {
+  project_id: string;
+  iso_year: number;
+  iso_week: number;
+}): Promise<KpiRecordDetail> {
+  const sp = new URLSearchParams({
+    project_id: params.project_id,
+    iso_year: String(params.iso_year),
+    iso_week: String(params.iso_week),
+  });
+  const res = await fetch(`/api/pm/v1/kpi-records?${sp.toString()}`, { credentials: 'include' });
+  return handleResponse<KpiRecordDetail>(res);
+}
+
+export interface UpsertKpiRecordBody {
+  project_id: string;
+  iso_year: number;
+  iso_week: number;
+  expected_version?: number;
+  entries: Array<{
+    metric_id: string;
+    component_1_value: number | null;
+    component_2_value: number | null;
+  }>;
+}
+
+export async function upsertKpiRecord(
+  body: UpsertKpiRecordBody,
+): Promise<{ record_id: string; version: number; overall_health: RagStatus }> {
+  const res = await fetch('/api/pm/v1/kpi-records', {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res);
+}
+
+// ---- Weekly Reports (FUT-609) ----
+
+export type ReportColour = 'green' | 'yellow' | 'red' | 'gray';
+
+export interface WeekStats {
+  applied_count: number;
+  measured_count: number;
+  yellow_count: number;
+  red_count: number;
+  worst: {
+    metric_id: string;
+    name: string;
+    computed_value: number | null;
+    component_count: 1 | 2;
+  } | null;
+}
+
+export interface WeeklyReportCard {
+  project_id: string;
+  project_name: string;
+  account_id: string;
+  account_name: string;
+  pm_name: string | null;
+  pmo_name: string | null;
+  overall_colour: ReportColour;
+  category_colours: Record<KpiCategory, ReportColour>;
+  stats: WeekStats;
+  latest_summary: string | null;
+  reporters: { reporter_id: string; name: string | null }[];
+  report_count: number;
+  can_manage: boolean;
+}
+
+/** Server-authoritative current reporting week (Asia/Ho_Chi_Minh) — week pickers anchor on
+ * this so the browser timezone can never shift the default context (FUT-589 AC2). */
+export async function fetchCurrentWeek(): Promise<{ iso_year: number; iso_week: number }> {
+  const res = await fetch('/api/pm/v1/current-week', { credentials: 'include' });
+  return handleResponse(res);
+}
+
+export async function fetchWeeklyReports(params: {
+  iso_year: number;
+  iso_week: number;
+  account_id?: string;
+  project_id?: string;
+}): Promise<WeeklyReportCard[]> {
+  const sp = new URLSearchParams();
+  sp.set('iso_year', String(params.iso_year));
+  sp.set('iso_week', String(params.iso_week));
+  if (params.account_id) sp.set('account_id', params.account_id);
+  if (params.project_id) sp.set('project_id', params.project_id);
+  const res = await fetch(`/api/pm/v1/weekly-reports?${sp.toString()}`, {
+    credentials: 'include',
+  });
+  return (await handleResponse<{ rows: WeeklyReportCard[] }>(res)).rows;
+}
+
+export interface WeeklyReportComment {
+  id: string;
+  parent_comment_id: string | null;
+  author_user_id: string;
+  author_name: string;
+  body: string;
+  created_at: string;
+}
+
+export interface WeeklyReportEntry {
+  report_id: string;
+  reporter_id: string;
+  reporter_name: string | null;
+  status: 'draft' | 'submitted';
+  /** A submitted revision exists — others see (and may comment on) that version. */
+  published: boolean;
+  executive_summary: string | null;
+  risk_issue: string | null;
+  road_to_green: string | null;
+  road_to_green_owner_id: string | null;
+  road_to_green_owner_name: string | null;
+  road_to_green_due: string | null;
+  overall_colour: ReportColour | null;
+  version: number;
+  updated_at: string;
+  comments: WeeklyReportComment[];
+}
+
+export interface WeeklyReportDetail {
+  project_id: string;
+  project_name: string;
+  account_name: string;
+  phase: string;
+  pricing_model: string | null;
+  pm_person_id: string | null;
+  pmo_person_id: string | null;
+  staffed: number;
+  team_size: number | null;
+  headline_metrics: {
+    label: string;
+    name: string;
+    computed_value: number;
+    component_count: 1 | 2;
+    status: RagStatus | null;
+  }[];
+  pm_name: string | null;
+  pmo_name: string | null;
+  week_editable: boolean;
+  iso_year: number;
+  iso_week: number;
+  overall_colour: ReportColour;
+  flags: {
+    category: KpiCategory;
+    computed_colour: ReportColour;
+    final_colour: ReportColour;
+    overridden: boolean;
+  }[];
+  stats: WeekStats;
+  trend: { iso_year: number; iso_week: number; colour: ReportColour }[];
+  reports: WeeklyReportEntry[];
+  can_manage: boolean;
+  my_reporter_id: string | null;
+}
+
+export async function fetchWeeklyReportDetail(params: {
+  project_id: string;
+  iso_year: number;
+  iso_week: number;
+}): Promise<WeeklyReportDetail> {
+  const sp = new URLSearchParams({
+    project_id: params.project_id,
+    iso_year: String(params.iso_year),
+    iso_week: String(params.iso_week),
+  });
+  const res = await fetch(`/api/pm/v1/weekly-reports/detail?${sp.toString()}`, {
+    credentials: 'include',
+  });
+  return handleResponse<WeeklyReportDetail>(res);
+}
+
+/** FUT-591 draft-on-entry: idempotently create/fetch the caller's report for the context. */
+export async function ensureWeeklyReport(body: {
+  project_id: string;
+  iso_year: number;
+  iso_week: number;
+}): Promise<{ report_id: string; version: number; status: 'draft' | 'submitted' }> {
+  const res = await fetch('/api/pm/v1/weekly-reports/ensure', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res);
+}
+
+export async function upsertWeeklyReport(body: {
+  project_id: string;
+  iso_year: number;
+  iso_week: number;
+  expected_version?: number;
+  save_mode?: 'draft' | 'submit';
+  executive_summary: string;
+  risk_issue?: string | null;
+  road_to_green?: string | null;
+  road_to_green_owner_id?: string | null;
+  road_to_green_due?: string | null;
+  category_colours?: Partial<Record<KpiCategory, ReportColour>>;
+}): Promise<{ report_id: string; version: number; overall_colour: ReportColour }> {
+  const res = await fetch('/api/pm/v1/weekly-reports', {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res);
+}
+
+export async function overrideWeeklyFlag(body: {
+  project_id: string;
+  iso_year: number;
+  iso_week: number;
+  category: KpiCategory;
+  final_colour: ReportColour;
+  reason: string;
+}): Promise<{ flag_id: string; final_colour: ReportColour }> {
+  const res = await fetch('/api/pm/v1/weekly-reports/flags/override', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res);
+}
+
+export async function addWeeklyReportComment(body: {
+  report_id: string;
+  parent_comment_id?: string | null;
+  body: string;
+}): Promise<{ comment_id: string }> {
+  const res = await fetch('/api/pm/v1/weekly-reports/comments', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res);
+}

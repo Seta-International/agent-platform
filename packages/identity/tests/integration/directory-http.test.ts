@@ -107,6 +107,43 @@ describe('directory HTTP route', () => {
     });
   });
 
+  it('resolves a batch of user ids to names — including deactivated users — and never leaks across tenants', async () => {
+    await withDb(async ({ tenant }) => {
+      const a = await seed(tenant, 'alice@test.local', 'Alice Anderson');
+      const b = await seed(tenant, 'bob@test.local', 'Bob Brown');
+      // Deactivated users still resolve: attribution ("by Alice") must survive offboarding.
+      await identityDb().execute(
+        sql`UPDATE identity."user" SET deactivated_at = now() WHERE id = ${b.user_id}`,
+      );
+
+      const app = buildApp(session(tenant, ['identity.user.read']));
+      const foreignId = crypto.randomUUID();
+      const res = await app.request(
+        `/api/identity/v1/directory?ids=${a.user_id},${b.user_id},${foreignId}`,
+      );
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        rows: Array<{ user_id: string; name: string }>;
+        total: number;
+      };
+      expect(body.total).toBe(2);
+      expect(new Map(body.rows.map((r) => [r.user_id, r.name])).get(a.user_id)).toBe(
+        'Alice Anderson',
+      );
+      expect(body.rows.some((r) => r.user_id === b.user_id)).toBe(true);
+      expect(body.rows.some((r) => r.user_id === foreignId)).toBe(false);
+    });
+  });
+
+  it('rejects a malformed ids parameter', async () => {
+    await withDb(async ({ tenant }) => {
+      const app = buildApp(session(tenant, ['identity.user.read']));
+      const res = await app.request(`/api/identity/v1/directory?ids=not-a-uuid`);
+      expect(res.status).toBe(400);
+    });
+  });
+
   it('excludes deactivated users from the directory', async () => {
     await withDb(async ({ tenant }) => {
       const { user_id } = await seed(tenant, 'charlie@test.local', 'Charlie Clark');

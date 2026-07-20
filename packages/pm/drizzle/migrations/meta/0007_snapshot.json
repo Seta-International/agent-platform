@@ -1,5 +1,5 @@
 {
-  "id": "2655a655-2dee-4d93-a98d-2df440b0e267",
+  "id": "8b556a2a-f1b4-411f-a610-b22ae3de1a8e",
   "prevId": "5d937a7c-7327-430c-9e4f-b348d57d0d35",
   "version": "7",
   "dialect": "postgresql",
@@ -503,128 +503,62 @@
       },
       "isRLSEnabled": false
     },
-    "pm.comment": {
-      "name": "comment",
+    "pm.kpi_applied_metric": {
+      "name": "kpi_applied_metric",
       "schema": "pm",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
         "tenant_id": {
           "name": "tenant_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "report_id": {
-          "name": "report_id",
+        "metric_id": {
+          "name": "metric_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "parent_comment_id": {
-          "name": "parent_comment_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "author_user_id": {
-          "name": "author_user_id",
+        "applied_by": {
+          "name": "applied_by",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "body": {
-          "name": "body",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
+        "applied_at": {
+          "name": "applied_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
-      "indexes": {
-        "comment_by_report": {
-          "name": "comment_by_report",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "report_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "comment_report_id_report_id_fk": {
-          "name": "comment_report_id_report_id_fk",
-          "tableFrom": "comment",
-          "tableTo": "report",
+        "kpi_applied_metric_metric_id_kpi_norm_metric_id_fk": {
+          "name": "kpi_applied_metric_metric_id_kpi_norm_metric_id_fk",
+          "tableFrom": "kpi_applied_metric",
+          "tableTo": "kpi_norm_metric",
           "schemaTo": "pm",
-          "columnsFrom": ["report_id"],
+          "columnsFrom": ["metric_id"],
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "comment_parent_fk": {
-          "name": "comment_parent_fk",
-          "tableFrom": "comment",
-          "tableTo": "comment",
-          "schemaTo": "pm",
-          "columnsFrom": ["parent_comment_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "kpi_applied_metric_tenant_id_metric_id_pk": {
+          "name": "kpi_applied_metric_tenant_id_metric_id_pk",
+          "columns": ["tenant_id", "metric_id"]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "pm.flag": {
-      "name": "flag",
+    "pm.kpi_norm": {
+      "name": "kpi_norm",
       "schema": "pm",
       "columns": {
         "id": {
@@ -640,260 +574,21 @@
           "primaryKey": false,
           "notNull": true
         },
-        "report_id": {
-          "name": "report_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "category": {
-          "name": "category",
+        "code": {
+          "name": "code",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "computed_colour": {
-          "name": "computed_colour",
+        "revision": {
+          "name": "revision",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "final_colour": {
-          "name": "final_colour",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "latest_audit_entry_id": {
-          "name": "latest_audit_entry_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "flag_report_category_uniq": {
-          "name": "flag_report_category_uniq",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "report_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "category",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "flag_report_id_report_id_fk": {
-          "name": "flag_report_id_report_id_fk",
-          "tableFrom": "flag",
-          "tableTo": "report",
-          "schemaTo": "pm",
-          "columnsFrom": ["report_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "flag_category_check": {
-          "name": "flag_category_check",
-          "value": "category IN ('quality', 'cost', 'delivery', 'performance')"
-        },
-        "flag_computed_colour_check": {
-          "name": "flag_computed_colour_check",
-          "value": "computed_colour IN ('green', 'yellow', 'red', 'gray')"
-        },
-        "flag_final_colour_check": {
-          "name": "flag_final_colour_check",
-          "value": "final_colour IN ('green', 'yellow', 'red', 'gray')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "pm.flag_audit_entry": {
-      "name": "flag_audit_entry",
-      "schema": "pm",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "flag_id": {
-          "name": "flag_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "from_colour": {
-          "name": "from_colour",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "to_colour": {
-          "name": "to_colour",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "actor_user_id": {
-          "name": "actor_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "flag_audit_entry_by_flag": {
-          "name": "flag_audit_entry_by_flag",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "flag_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "flag_audit_entry_flag_id_flag_id_fk": {
-          "name": "flag_audit_entry_flag_id_flag_id_fk",
-          "tableFrom": "flag_audit_entry",
-          "tableTo": "flag",
-          "schemaTo": "pm",
-          "columnsFrom": ["flag_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "flag_audit_entry_from_colour_check": {
-          "name": "flag_audit_entry_from_colour_check",
-          "value": "from_colour IN ('green', 'yellow', 'red', 'gray')"
-        },
-        "flag_audit_entry_to_colour_check": {
-          "name": "flag_audit_entry_to_colour_check",
-          "value": "to_colour IN ('green', 'yellow', 'red', 'gray')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "pm.metric_value": {
-      "name": "metric_value",
-      "schema": "pm",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "report_id": {
-          "name": "report_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "metric_id": {
-          "name": "metric_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "raw_value": {
-          "name": "raw_value",
-          "type": "numeric(18, 6)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "colour": {
-          "name": "colour",
-          "type": "text",
+        "effective_date": {
+          "name": "effective_date",
+          "type": "date",
           "primaryKey": false,
           "notNull": false
         },
@@ -920,8 +615,8 @@
         }
       },
       "indexes": {
-        "metric_value_identity_uniq": {
-          "name": "metric_value_identity_uniq",
+        "kpi_norm_uniq_code": {
+          "name": "kpi_norm_uniq_code",
           "columns": [
             {
               "expression": "tenant_id",
@@ -930,153 +625,7 @@
               "nulls": "last"
             },
             {
-              "expression": "report_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "metric_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "metric_value_by_report": {
-          "name": "metric_value_by_report",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "report_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "metric_value_report_id_report_id_fk": {
-          "name": "metric_value_report_id_report_id_fk",
-          "tableFrom": "metric_value",
-          "tableTo": "report",
-          "schemaTo": "pm",
-          "columnsFrom": ["report_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "metric_value_colour_check": {
-          "name": "metric_value_colour_check",
-          "value": "colour IN ('green', 'yellow', 'red', 'gray')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "pm.norm_baseline": {
-      "name": "norm_baseline",
-      "schema": "pm",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "metric_id": {
-          "name": "metric_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "catalog_version": {
-          "name": "catalog_version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "category": {
-          "name": "category",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "direction": {
-          "name": "direction",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "goal_threshold": {
-          "name": "goal_threshold",
-          "type": "numeric(18, 6)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "yellow_threshold": {
-          "name": "yellow_threshold",
-          "type": "numeric(18, 6)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "formula_ref": {
-          "name": "formula_ref",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "norm_baseline_version_uniq": {
-          "name": "norm_baseline_version_uniq",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "metric_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "catalog_version",
+              "expression": "code",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1092,20 +641,11 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "norm_baseline_category_check": {
-          "name": "norm_baseline_category_check",
-          "value": "category IN ('quality', 'cost', 'delivery', 'performance')"
-        },
-        "norm_baseline_direction_check": {
-          "name": "norm_baseline_direction_check",
-          "value": "direction IN ('higher_better', 'lower_better')"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "pm.norm_snapshot": {
-      "name": "norm_snapshot",
+    "pm.kpi_norm_metric": {
+      "name": "kpi_norm_metric",
       "schema": "pm",
       "columns": {
         "id": {
@@ -1121,8 +661,366 @@
           "primaryKey": false,
           "notNull": true
         },
-        "report_id": {
-          "name": "report_id",
+        "norm_id": {
+          "name": "norm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tier": {
+          "name": "tier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "formula_label": {
+          "name": "formula_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "component_count": {
+          "name": "component_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "component_1_label": {
+          "name": "component_1_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "component_2_label": {
+          "name": "component_2_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "green_band": {
+          "name": "green_band",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "yellow_band": {
+          "name": "yellow_band",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "red_band": {
+          "name": "red_band",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "insight": {
+          "name": "insight",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_live_capable": {
+          "name": "is_live_capable",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "kpi_norm_metric_uniq_name": {
+          "name": "kpi_norm_metric_uniq_name",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "norm_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "kpi_norm_metric_by_norm": {
+          "name": "kpi_norm_metric_by_norm",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "norm_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "kpi_norm_metric_norm_id_kpi_norm_id_fk": {
+          "name": "kpi_norm_metric_norm_id_kpi_norm_id_fk",
+          "tableFrom": "kpi_norm_metric",
+          "tableTo": "kpi_norm",
+          "schemaTo": "pm",
+          "columnsFrom": ["norm_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "kpi_norm_metric_category_check": {
+          "name": "kpi_norm_metric_category_check",
+          "value": "category IN ('quality', 'cost_capacity', 'delivery', 'process')"
+        },
+        "kpi_norm_metric_tier_check": {
+          "name": "kpi_norm_metric_tier_check",
+          "value": "tier IN ('core', 'extended')"
+        },
+        "kpi_norm_metric_component_count_check": {
+          "name": "kpi_norm_metric_component_count_check",
+          "value": "component_count IN (1, 2)"
+        },
+        "kpi_norm_metric_component_2_label_check": {
+          "name": "kpi_norm_metric_component_2_label_check",
+          "value": "component_count = 1 OR component_2_label IS NOT NULL"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "pm.kpi_record": {
+      "name": "kpi_record",
+      "schema": "pm",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "iso_year": {
+          "name": "iso_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "iso_week": {
+          "name": "iso_week",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "kpi_record_uniq_week": {
+          "name": "kpi_record_uniq_week",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "iso_year",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "iso_week",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "kpi_record_by_project": {
+          "name": "kpi_record_by_project",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "kpi_record_project_id_project_id_fk": {
+          "name": "kpi_record_project_id_project_id_fk",
+          "tableFrom": "kpi_record",
+          "tableTo": "project",
+          "schemaTo": "pm",
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "kpi_record_iso_week_check": {
+          "name": "kpi_record_iso_week_check",
+          "value": "iso_week BETWEEN 1 AND 53"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "pm.kpi_record_entry": {
+      "name": "kpi_record_entry",
+      "schema": "pm",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "record_id": {
+          "name": "record_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -1133,41 +1031,36 @@
           "primaryKey": false,
           "notNull": true
         },
-        "catalog_version": {
-          "name": "catalog_version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "category": {
-          "name": "category",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "direction": {
-          "name": "direction",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "goal_threshold": {
-          "name": "goal_threshold",
-          "type": "numeric(18, 6)",
+        "component_1_value": {
+          "name": "component_1_value",
+          "type": "numeric(15, 4)",
           "primaryKey": false,
           "notNull": false
         },
-        "yellow_threshold": {
-          "name": "yellow_threshold",
-          "type": "numeric(18, 6)",
+        "component_2_value": {
+          "name": "component_2_value",
+          "type": "numeric(15, 4)",
           "primaryKey": false,
           "notNull": false
         },
-        "formula_ref": {
-          "name": "formula_ref",
+        "computed_value": {
+          "name": "computed_value",
+          "type": "numeric(15, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
         },
         "created_at": {
           "name": "created_at",
@@ -1175,11 +1068,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {
-        "norm_snapshot_report_metric_uniq": {
-          "name": "norm_snapshot_report_metric_uniq",
+        "kpi_record_entry_uniq_metric": {
+          "name": "kpi_record_entry_uniq_metric",
           "columns": [
             {
               "expression": "tenant_id",
@@ -1188,7 +1088,7 @@
               "nulls": "last"
             },
             {
-              "expression": "report_id",
+              "expression": "record_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1204,17 +1104,69 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "kpi_record_entry_by_record": {
+          "name": "kpi_record_entry_by_record",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "kpi_record_entry_by_metric": {
+          "name": "kpi_record_entry_by_metric",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "metric_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
-        "norm_snapshot_report_id_report_id_fk": {
-          "name": "norm_snapshot_report_id_report_id_fk",
-          "tableFrom": "norm_snapshot",
-          "tableTo": "report",
+        "kpi_record_entry_record_id_kpi_record_id_fk": {
+          "name": "kpi_record_entry_record_id_kpi_record_id_fk",
+          "tableFrom": "kpi_record_entry",
+          "tableTo": "kpi_record",
           "schemaTo": "pm",
-          "columnsFrom": ["report_id"],
+          "columnsFrom": ["record_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "kpi_record_entry_metric_id_kpi_norm_metric_id_fk": {
+          "name": "kpi_record_entry_metric_id_kpi_norm_metric_id_fk",
+          "tableFrom": "kpi_record_entry",
+          "tableTo": "kpi_norm_metric",
+          "schemaTo": "pm",
+          "columnsFrom": ["metric_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -1222,13 +1174,13 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "norm_snapshot_category_check": {
-          "name": "norm_snapshot_category_check",
-          "value": "category IN ('quality', 'cost', 'delivery', 'performance')"
+        "kpi_record_entry_status_check": {
+          "name": "kpi_record_entry_status_check",
+          "value": "status IN ('green', 'yellow', 'red')"
         },
-        "norm_snapshot_direction_check": {
-          "name": "norm_snapshot_direction_check",
-          "value": "direction IN ('higher_better', 'lower_better')"
+        "kpi_record_entry_source_check": {
+          "name": "kpi_record_entry_source_check",
+          "value": "source IN ('manual', 'live')"
         }
       },
       "isRLSEnabled": false
@@ -1763,333 +1715,6 @@
         "project_approval_rejected_stage_check": {
           "name": "project_approval_rejected_stage_check",
           "value": "rejected_stage IN ('pmo', 'bod')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "pm.project_week_rollup": {
-      "name": "project_week_rollup",
-      "schema": "pm",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "week_start": {
-          "name": "week_start",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "quality_colour": {
-          "name": "quality_colour",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cost_colour": {
-          "name": "cost_colour",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "delivery_colour": {
-          "name": "delivery_colour",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "performance_colour": {
-          "name": "performance_colour",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rag": {
-          "name": "rag",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ohs": {
-          "name": "ohs",
-          "type": "numeric(5, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "project_week_rollup_uniq": {
-          "name": "project_week_rollup_uniq",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "week_start",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "project_week_rollup_project_id_project_id_fk": {
-          "name": "project_week_rollup_project_id_project_id_fk",
-          "tableFrom": "project_week_rollup",
-          "tableTo": "project",
-          "schemaTo": "pm",
-          "columnsFrom": ["project_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "project_week_rollup_quality_colour_check": {
-          "name": "project_week_rollup_quality_colour_check",
-          "value": "quality_colour IN ('green', 'yellow', 'red', 'gray')"
-        },
-        "project_week_rollup_cost_colour_check": {
-          "name": "project_week_rollup_cost_colour_check",
-          "value": "cost_colour IN ('green', 'yellow', 'red', 'gray')"
-        },
-        "project_week_rollup_delivery_colour_check": {
-          "name": "project_week_rollup_delivery_colour_check",
-          "value": "delivery_colour IN ('green', 'yellow', 'red', 'gray')"
-        },
-        "project_week_rollup_performance_colour_check": {
-          "name": "project_week_rollup_performance_colour_check",
-          "value": "performance_colour IN ('green', 'yellow', 'red', 'gray')"
-        },
-        "project_week_rollup_rag_check": {
-          "name": "project_week_rollup_rag_check",
-          "value": "rag IN ('green', 'yellow', 'red', 'gray')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "pm.report": {
-      "name": "report",
-      "schema": "pm",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "week_start": {
-          "name": "week_start",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reporter_id": {
-          "name": "reporter_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'draft'"
-        },
-        "executive_summary": {
-          "name": "executive_summary",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "overall_colour": {
-          "name": "overall_colour",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "report_identity_uniq": {
-          "name": "report_identity_uniq",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "week_start",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "reporter_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "report_by_project_week": {
-          "name": "report_by_project_week",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "week_start",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "report_by_reporter": {
-          "name": "report_by_reporter",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "reporter_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "report_project_id_project_id_fk": {
-          "name": "report_project_id_project_id_fk",
-          "tableFrom": "report",
-          "tableTo": "project",
-          "schemaTo": "pm",
-          "columnsFrom": ["project_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "report_status_check": {
-          "name": "report_status_check",
-          "value": "status IN ('draft', 'submitted')"
-        },
-        "report_overall_colour_check": {
-          "name": "report_overall_colour_check",
-          "value": "overall_colour IN ('green', 'yellow', 'red', 'gray')"
         }
       },
       "isRLSEnabled": false

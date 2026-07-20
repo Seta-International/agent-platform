@@ -126,6 +126,10 @@ export const editCandidatePatch = z
     name: z.string().min(1),
     personal_email: z.string().email(),
     cv_storage_key: z.string().min(1).nullable(),
+    cv_sha256: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .nullable(),
     phone: z.string(),
     dob: z.string(),
     gender: genderValue,
@@ -138,9 +142,11 @@ export const editCandidatePatch = z
 export type EditCandidatePatch = z.infer<typeof editCandidatePatch>;
 
 export const rejectApplicationInput = z.object({
-  reason_id: z.string().uuid(),
+  /** Free-text reason typed by the recruiter — the dialog's single required field. */
+  reason: z.string().trim().min(1, 'reason is required'),
+  /** Optional catalog classification; when absent the event categorizes as 'other'. */
+  reason_id: z.string().uuid().optional(),
   tags: z.array(z.string()).default([]),
-  note: z.string().optional(),
 });
 export type RejectApplicationInput = z.infer<typeof rejectApplicationInput>;
 

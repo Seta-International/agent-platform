@@ -1,20 +1,3 @@
-import {
-  AlertDialog,
-  Banner,
-  Button,
-  createStaticSource,
-  DateInput,
-  Dialog,
-  DialogFooter,
-  DialogHeader,
-  Input,
-  Layout,
-  LayoutContent,
-  type SearchableItem,
-  Selector,
-  Typeahead,
-  useToast,
-} from '@seta/shared-ui';
 import { useMutation } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -36,6 +19,23 @@ import {
   removeAllocation,
   updateAllocation,
 } from '../api/pm-client.ts';
+import {
+  AlertDialog,
+  Banner,
+  Button,
+  createStaticSource,
+  DateInput,
+  Dialog,
+  DialogFooter,
+  DialogHeader,
+  Input,
+  Layout,
+  LayoutContent,
+  type SearchableItem,
+  Selector,
+  Typeahead,
+  useToast,
+} from './_ui-compat.tsx';
 import { AllocationTimeline, type TimelineRow } from './allocation-timeline.tsx';
 import {
   ALLOCATION_FRACTION_STEPS,

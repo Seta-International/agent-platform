@@ -1,3 +1,13 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus, Settings2, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  deleteStaffingPlanLine,
+  fetchStaffingPlan,
+  type StaffingPlanLine,
+  upsertStaffingPlanLine,
+} from '../api/pm-client.ts';
+import { pmKeys } from '../state/query-keys.ts';
 import {
   Button,
   Checkbox,
@@ -18,17 +28,7 @@ import {
   useTableSortable,
   useTableSortableState,
   useToast,
-} from '@seta/shared-ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Settings2, Users } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import {
-  deleteStaffingPlanLine,
-  fetchStaffingPlan,
-  type StaffingPlanLine,
-  upsertStaffingPlanLine,
-} from '../api/pm-client.ts';
-import { pmKeys } from '../state/query-keys.ts';
+} from './_ui-compat.tsx';
 
 // Astryx Table columns require `T extends Record<string, unknown>`; the DTO
 // lacks an index signature, so alias locally (do not touch the shared DTO).

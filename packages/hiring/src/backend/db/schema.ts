@@ -42,13 +42,22 @@ export const APPLICATION_KINDS = ['external', 'internal'] as const;
 
 export const APPLICATION_STAGES = ['new', 'screening', 'interview', 'offer'] as const;
 
-export const APPLICATION_STATUS = ['active', 'hired', 'rejected', 'transferred'] as const;
+export const APPLICATION_STATUS = [
+  'active',
+  'hired',
+  'rejected',
+  'transferred',
+  // Terminal: the requisition was cancelled while this application was still active.
+  'cancelled',
+] as const;
 
 export const REJECTION_CATEGORIES = ['rejected_by_us', 'withdrew', 'other'] as const;
 
 export const CANDIDATE_EVENT_KINDS = [
   'created',
   'stage_changed',
+  'hired',
+  'cancelled',
   'rejected',
   'transferred',
   'rating_changed',
@@ -250,6 +259,7 @@ export const candidate = hiringSchema.table(
     dob: date('dob'),
     gender: textEnum('gender', GENDERS),
     cv_storage_key: text('cv_storage_key'),
+    cv_sha256: text('cv_sha256'),
     seniority: text('seniority'),
     segment: text('segment'),
     source_cost: numeric('source_cost', { precision: 15, scale: 4 }),
@@ -260,6 +270,7 @@ export const candidate = hiringSchema.table(
   },
   (t) => [
     index('candidate_by_tenant').on(t.tenant_id, t.created_at),
+    index('candidate_by_cv_sha256').on(t.tenant_id, t.cv_sha256),
     textEnumCheck('candidate', 'gender', GENDERS),
   ],
 );

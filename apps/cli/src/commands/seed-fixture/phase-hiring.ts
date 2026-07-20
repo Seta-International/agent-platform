@@ -130,7 +130,15 @@ export async function seedHiring(
       if (roll < 0.2) {
         await rejectApplication({
           application_id,
-          input: { reason_id: reasonId, tags: [] },
+          input: {
+            reason: faker.helpers.arrayElement([
+              'Not enough depth on the core stack',
+              'Salary expectations out of band',
+              'Withdrew for another offer',
+            ]),
+            reason_id: reasonId,
+            tags: [],
+          },
           session,
         });
       } else if (roll < 0.7) {

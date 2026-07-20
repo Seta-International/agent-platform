@@ -31,10 +31,16 @@ describe('hiring contracts (HIR-2)', () => {
     ).toBe(true);
     expect(addCandidateInput.safeParse({ name: 'A' }).success).toBe(false);
   });
-  it('requires a reason id to reject', () => {
+  it('requires a free-text reason to reject; the catalog id is optional', () => {
+    expect(rejectApplicationInput.safeParse({ reason: 'Not a fit', tags: [] }).success).toBe(true);
     expect(
-      rejectApplicationInput.safeParse({ reason_id: crypto.randomUUID(), tags: [] }).success,
+      rejectApplicationInput.safeParse({
+        reason: 'Not a fit',
+        reason_id: crypto.randomUUID(),
+        tags: [],
+      }).success,
     ).toBe(true);
     expect(rejectApplicationInput.safeParse({ tags: [] }).success).toBe(false);
+    expect(rejectApplicationInput.safeParse({ reason: '   ', tags: [] }).success).toBe(false);
   });
 });

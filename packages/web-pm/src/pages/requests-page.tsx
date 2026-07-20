@@ -1,3 +1,30 @@
+import { usePermission } from '@seta/web-identity';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useSearch } from '@tanstack/react-router';
+import {
+  ArrowDown,
+  ArrowUp,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Clock,
+  FileText,
+  Gavel,
+  type LucideIcon,
+  Settings2,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  type CharterListQuery,
+  type CharterListRow,
+  type CharterStatus,
+  fetchAccounts,
+  fetchCharterSummary,
+  fetchCharters,
+} from '../api/pm-client.ts';
+import { useWorkerSource } from '../api/worker-search';
+import { pmKeys } from '../state/query-keys.ts';
 import {
   Badge,
   Banner,
@@ -32,34 +59,7 @@ import {
   useTableSortable,
   useTableSortableState,
   VStack,
-} from '@seta/shared-ui';
-import { usePermission } from '@seta/web-identity';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearch } from '@tanstack/react-router';
-import {
-  ArrowDown,
-  ArrowUp,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  Clock,
-  FileText,
-  Gavel,
-  type LucideIcon,
-  Settings2,
-} from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import {
-  type CharterListQuery,
-  type CharterListRow,
-  type CharterStatus,
-  fetchAccounts,
-  fetchCharterSummary,
-  fetchCharters,
-} from '../api/pm-client.ts';
-import { useWorkerSource } from '../api/worker-search';
-import { pmKeys } from '../state/query-keys.ts';
+} from './_ui-compat.tsx';
 import { CharterStepper } from './charter-stepper.tsx';
 import { SubmitCharterDialog } from './submit-charter-dialog.tsx';
 

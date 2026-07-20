@@ -3,19 +3,21 @@ import { tenantScoped } from '@seta/shared-rbac';
 import { and, eq, isNull, type SQL } from 'drizzle-orm';
 import { pmDb } from '../db/client.ts';
 import { project } from '../db/schema.ts';
-import { PmError } from '../rbac.ts';
+import { PmError, requirePermission } from '../rbac.ts';
 import { buildProjectManageScope, buildProjectScope } from './scope.ts';
 
 /**
- * Row-scope gate for allocation mutations (FUT-353). `requirePermission('pm.project.manage')`
- * only proves the caller holds the permission somewhere; this asserts it covers THIS project.
- * Readable-but-unmanaged projects reject FORBIDDEN (the RA Monitoring row is read-only);
- * invisible projects reject NOT_FOUND so existence never leaks through the mutation path.
+ * Row-scope gate for project mutations (FUT-353: allocations; also weekly reports). The
+ * permission gate proves the caller holds `pm.project.manage` somewhere; the row scope then
+ * asserts it covers THIS project. Readable-but-unmanaged projects reject FORBIDDEN (the RA
+ * Monitoring row is read-only); invisible projects reject NOT_FOUND so existence never leaks
+ * through the mutation path.
  */
 export async function assertProjectManageable(
   project_id: string,
   session: SessionScope,
 ): Promise<void> {
+  requirePermission(session, 'pm.project.manage');
   const manageScope = buildProjectManageScope(session);
   if (!manageScope) return; // tenant-wide manage
 

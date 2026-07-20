@@ -44,13 +44,15 @@ describe('scopeDecision', () => {
     expect(q).toContain('owner_id');
   });
 
-  it('relationship arms apply even at none-scope', () => {
+  it('none-scope denies even when relationship arms exist', () => {
+    // Relationship arms only widen an existing scoped grant — with no grant at all, a
+    // leftover ownership row (e.g. project_access owner) must not confer access.
     const d = scopeDecision(
       { kind: 'none' },
       { relationships: [({ userId }) => sql`${t.owner_id} = ${userId}`] },
       ctx,
     );
-    expect(render(d)).toContain('owner_id');
+    expect(d).toEqual({ kind: 'deny' });
   });
 
   it('empty subset without arms → deny', () => {
@@ -61,7 +63,7 @@ describe('scopeDecision', () => {
 
   it('null relationship arm is skipped, not ORed as null', () => {
     const d = scopeDecision(
-      { kind: 'none' },
+      { kind: 'subset', org_unit_ids: [], self: false },
       {
         relationships: [() => null, ({ userId }) => sql`${t.owner_id} = ${userId}`],
       },

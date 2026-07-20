@@ -88,7 +88,7 @@ describe('read candidates', () => {
         await rejectApplication({
           application_id,
           expected_version: 1,
-          input: { reason_id: reason.id, tags: [] },
+          input: { reason: 'Not a fit', reason_id: reason.id, tags: [] },
           session: t.adminSession,
         });
         const pool2 = await listTalentPool(t.adminSession);
@@ -174,7 +174,7 @@ describe('read candidates', () => {
         await rejectApplication({
           application_id,
           expected_version: 1,
-          input: { reason_id: reason.id, tags: [] },
+          input: { reason: 'Not a fit', reason_id: reason.id, tags: [] },
           session: t.adminSession,
         });
 
@@ -453,7 +453,7 @@ describe('read candidates', () => {
         await rejectApplication({
           application_id: rejectedAppId,
           expected_version: 1,
-          input: { reason_id: reason.id, tags: [] },
+          input: { reason: 'Not a fit', reason_id: reason.id, tags: [] },
           session: t.adminSession,
         });
 
