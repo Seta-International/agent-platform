@@ -3,7 +3,6 @@ import {
   Badge,
   Banner,
   Button,
-  DateInput,
   Dialog,
   DialogHeader,
   Field,
@@ -390,10 +389,18 @@ export function NewCandidateDialog() {
                     {phoneError && <p className="text-sm text-error">{phoneError}</p>}
                   </div>
                   <div className="space-y-1">
-                    <DateInput
+                    <Input
+                      id="cand-dob"
+                      type={'date' as unknown as undefined}
                       label="Date of birth"
-                      value={dob || undefined}
-                      onChange={(v) => setDob(v ?? '')}
+                      value={dob}
+                      onChange={(value, e) => {
+                        setDob(value);
+                        setDobBadInput(
+                          (e as unknown as React.ChangeEvent<HTMLInputElement>)?.target?.validity
+                            ?.badInput ?? false,
+                        );
+                      }}
                     />
                     {dobError && <p className="text-sm text-error">{dobError}</p>}
                   </div>
