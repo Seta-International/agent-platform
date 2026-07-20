@@ -4,6 +4,11 @@
 -- packages/pm/drizzle/generate-platform-sql.ts (@seta/shared-db builders);
 -- pm.tg_touch_updated_at() already exists from 0001_pm_platform.sql.
 
+-- FUT-609's 0012_weekly_report_platform.sql (deleted by this PR) reached the dev environment
+-- and defined this function independently of any table, so 0018's table drops don't cascade
+-- into it. Drop it here too; no-op anywhere the old migration never ran.
+DROP FUNCTION IF EXISTS pm.tg_flag_audit_append_only() CASCADE;
+
 -- touch-updated-at triggers (mutable tables only; flag_audit_entry and norm_snapshot are
 -- append-only/immutable and excluded)
 CREATE TRIGGER report_touch_updated_at
