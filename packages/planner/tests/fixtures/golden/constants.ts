@@ -97,9 +97,17 @@ export function endOfWeek(): Date {
   return d;
 }
 
-/** UUID v4 generator seeded from a prefix + index for deterministic generated data. */
+/**
+ * Deterministic UUID generator seeded from a prefix + index. `prefix` may
+ * contain non-hex characters (e.g. 'genpers0') — it's mapped through char
+ * codes into valid hex so the result is always a well-formed Postgres uuid.
+ */
 export function seededId(prefix: string, index: number): string {
   const hex = index.toString(16).padStart(12, '0');
-  const pfx = prefix.padEnd(8, '0').slice(0, 8);
-  return `${pfx}-0000-4000-8000-${hex}`;
+  const seed = [...prefix]
+    .map((c) => c.charCodeAt(0).toString(16).padStart(2, '0'))
+    .join('')
+    .padEnd(8, '0')
+    .slice(0, 8);
+  return `${seed}-0000-4000-8000-${hex}`;
 }
