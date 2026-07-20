@@ -15,7 +15,6 @@ export const ACTOR_EMAIL = 'anh.nguyen@seta-demo.test';
 
 // --- Admin ---
 export const ADMIN_USER_ID = '00000000-bbbb-0000-0000-000000000000';
-export const ADMIN_EMAIL = 'admin@seta-demo.test';
 
 // --- Groups ---
 export const GRP_ENG_ID = '00000000-dddd-0000-0000-000000000001';
@@ -101,6 +100,11 @@ export function endOfWeek(): Date {
  * Deterministic UUID generator seeded from a prefix + index. `prefix` may
  * contain non-hex characters (e.g. 'genpers0') — it's mapped through char
  * codes into valid hex so the result is always a well-formed Postgres uuid.
+ *
+ * Only the first 4 characters of `prefix` are significant (each maps to 2
+ * hex digits, and the result is sliced to the uuid's 8-hex-digit first
+ * segment) — prefixes that share their first 4 characters collide. Keep
+ * prefixes distinct within their first 4 characters.
  */
 export function seededId(prefix: string, index: number): string {
   const hex = index.toString(16).padStart(12, '0');
