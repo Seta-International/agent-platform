@@ -1,20 +1,23 @@
-import { Avatar, Button, Card, Input, Textarea, TimeInput } from '@seta/shared-ui';
+import {
+  Avatar,
+  Button,
+  Card,
+  Field,
+  HStack,
+  Input,
+  StackItem,
+  Text,
+  Textarea,
+  TimeInput,
+  VStack,
+} from '@seta/shared-ui';
 import { Calendar } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../../api/client.ts';
 import { TimezonePicker } from '../TimezonePicker';
 
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const BIO_MAX = 500;
-
-function FieldLabel({ label, hint }: { label: string; hint?: string }) {
-  return (
-    <div className="flex items-baseline justify-between mb-1.5">
-      <span className="text-xs font-medium text-secondary">{label}</span>
-      {hint && <span className="text-xs text-secondary">{hint}</span>}
-    </div>
-  );
-}
 
 export function ProfileIdentityCard({
   profile,
@@ -27,6 +30,7 @@ export function ProfileIdentityCard({
   onUpdate: (p: ProfileDto) => void;
   canEditWorkingHours?: boolean;
 }) {
+  const workingHoursId = useId();
   const [name, setName] = useState(profile.display_name);
   const [tz, setTz] = useState(profile.timezone);
   const [bio, setBio] = useState(profile.bio ?? '');
@@ -75,31 +79,27 @@ export function ProfileIdentityCard({
 
   return (
     <Card padding={5}>
-      <div className="flex items-start gap-5">
-        <div className="flex flex-col items-center gap-2 flex-none">
-          <Avatar name={profile.display_name} size={64} />
-        </div>
+      <HStack gap={5} vAlign="start">
+        <Avatar name={profile.display_name} size={64} />
 
-        <div className="flex-1 min-w-0 flex flex-col gap-3.5">
-          <div>
+        <StackItem size="fill">
+          <VStack gap={4}>
             <Input label="Name" value={name} onChange={(value) => setName(value)} />
-          </div>
 
-          <Textarea
-            label="Bio"
-            value={bio}
-            maxLength={BIO_MAX}
-            rows={4}
-            placeholder="Add a short bio so teammates know who you are."
-            onChange={(value) => setBio(value)}
-            status={
-              bioTooLong
-                ? { type: 'error', message: `Bio cannot exceed ${BIO_MAX} characters.` }
-                : undefined
-            }
-          />
+            <Textarea
+              label="Bio"
+              value={bio}
+              maxLength={BIO_MAX}
+              rows={4}
+              placeholder="Add a short bio so teammates know who you are."
+              onChange={(value) => setBio(value)}
+              status={
+                bioTooLong
+                  ? { type: 'error', message: `Bio cannot exceed ${BIO_MAX} characters.` }
+                  : undefined
+              }
+            />
 
-          <div>
             <Input
               label="Email"
               description="If you change this, you'll need to verify the new email."
@@ -107,73 +107,77 @@ export function ProfileIdentityCard({
               isDisabled
               className="font-mono text-sm"
             />
-          </div>
 
-          <div>
-            <FieldLabel label="Timezone" />
-            <TimezonePicker value={tz} onChange={setTz} />
-          </div>
+            <TimezonePicker value={tz} onChange={setTz} isLabelHidden={false} />
 
-          <div>
-            <FieldLabel label="Working hours" />
+            {!editingHours && <Text weight="semibold">Working hours</Text>}
             {canEditWorkingHours && editingHours ? (
-              <div className="flex items-center gap-2">
-                <TimeInput
-                  label="Working hours start"
-                  isLabelHidden
-                  hourFormat="24h"
-                  value={whStart || undefined}
-                  onChange={(v) => setWhStart(v ?? '')}
-                />
-                <span className="text-secondary text-sm">to</span>
-                <TimeInput
-                  label="Working hours end"
-                  isLabelHidden
-                  hourFormat="24h"
-                  value={whEnd || undefined}
-                  onChange={(v) => setWhEnd(v ?? '')}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setWhStart(wh?.start ?? '');
-                    setWhEnd(wh?.end ?? '');
-                    setEditingHours(false);
-                  }}
-                  label="Cancel"
-                />
-              </div>
+              <Field
+                label="Working hours"
+                inputID={workingHoursId}
+                labelID={workingHoursId}
+                isGroupLabel
+                status={
+                  whInvalid ? { type: 'error', message: 'Use 24-hour time, like 09:00' } : undefined
+                }
+                statusVariant="detached"
+              >
+                <fieldset aria-labelledby={workingHoursId} className="flex items-center gap-2">
+                  <TimeInput
+                    label="Working hours start"
+                    isLabelHidden
+                    hourFormat="24h"
+                    value={whStart || undefined}
+                    onChange={(v) => setWhStart(v ?? '')}
+                  />
+                  <Text type="supporting">to</Text>
+                  <TimeInput
+                    label="Working hours end"
+                    isLabelHidden
+                    hourFormat="24h"
+                    value={whEnd || undefined}
+                    onChange={(v) => setWhEnd(v ?? '')}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setWhStart(wh?.start ?? '');
+                      setWhEnd(wh?.end ?? '');
+                      setEditingHours(false);
+                    }}
+                    label="Cancel"
+                  />
+                </fieldset>
+              </Field>
             ) : (
-              <div className="flex items-center gap-2.5 rounded-md border border-border-strong px-3 py-1.5 text-sm">
-                <Calendar className="size-3.5 text-secondary flex-none" />
-                <span>{wh ? `Mon–Fri · ${wh.start}–${wh.end}` : 'Not set'}</span>
-                <span className="flex-1" />
+              <HStack gap={2} vAlign="center">
+                <Calendar className="size-3.5 text-secondary" />
+                <Text>{wh ? `Mon–Fri · ${wh.start}–${wh.end}` : 'Not set'}</Text>
+                <StackItem size="fill" />
                 {canEditWorkingHours ? (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-5 px-2 text-xs"
                     onClick={() => setEditingHours(true)}
                     label="Edit"
                   />
                 ) : (
-                  <span className="text-xs text-secondary">Set by your admin</span>
+                  <Text type="supporting">Set by your admin</Text>
                 )}
-              </div>
+              </HStack>
             )}
-            {whInvalid && <p className="mt-1 text-xs text-error">Use 24-hour time, like 09:00</p>}
-          </div>
 
-          <div className="flex justify-end pt-1">
-            <Button
-              onClick={save}
-              isDisabled={saving || !dirty || Boolean(whInvalid) || bioTooLong}
-              label="Save changes"
-            />
-          </div>
-        </div>
-      </div>
+            <HStack hAlign="end">
+              <Button
+                onClick={save}
+                isDisabled={saving || !dirty || Boolean(whInvalid) || bioTooLong}
+                label="Save changes"
+              />
+            </HStack>
+          </VStack>
+        </StackItem>
+      </HStack>
     </Card>
   );
 }
