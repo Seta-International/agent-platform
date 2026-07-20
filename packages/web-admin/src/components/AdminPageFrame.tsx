@@ -1,6 +1,9 @@
-import { Layout, LayoutContent, LayoutHeader, PageContainer, VStack } from '@seta/shared-ui';
+import { Layout, LayoutContent, LayoutHeader, VStack } from '@seta/shared-ui';
 import type { ReactNode } from 'react';
 import { AdminPageHeader } from './AdminPageHeader.tsx';
+
+/** Reading-width cap; 640 (Astryx's form width) cramps the two-column field grids. */
+const CONTENT_WIDTH = 960;
 
 export interface AdminPageFrameProps {
   /** Breadcrumb leaf under Admin. */
@@ -18,13 +21,17 @@ export interface AdminPageFrameProps {
   subheader?: ReactNode;
   /**
    * Drops the reading-width cap so content spans the viewport. For wide data tables, where
-   * centring inside a ~1180px column wastes screen and truncates columns. Padding is kept.
+   * centring inside a fixed column wastes screen and truncates columns.
    */
   isFullWidth?: boolean;
   children: ReactNode;
 }
 
-/** Shared frame for every /admin page: breadcrumb, level-1 heading, actions, stacked content. */
+/**
+ * Shared frame for every single-pane /admin page. The cap comes from `Layout`'s own
+ * `contentWidth` so header and body share one column; capping only the body indents it
+ * away from the header.
+ */
 export function AdminPageFrame({
   crumb,
   title,
@@ -37,6 +44,7 @@ export function AdminPageFrame({
   return (
     <Layout
       height="fill"
+      contentWidth={isFullWidth ? undefined : CONTENT_WIDTH}
       header={
         <>
           <AdminPageHeader crumb={crumb} title={title} subtitle={subtitle} actions={actions} />
@@ -44,10 +52,8 @@ export function AdminPageFrame({
         </>
       }
       content={
-        <LayoutContent padding={0}>
-          <PageContainer className={isFullWidth ? 'max-w-none' : undefined}>
-            <VStack gap={8}>{children}</VStack>
-          </PageContainer>
+        <LayoutContent padding={6}>
+          <VStack gap={8}>{children}</VStack>
         </LayoutContent>
       }
     />

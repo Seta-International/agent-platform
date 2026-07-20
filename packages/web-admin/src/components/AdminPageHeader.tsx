@@ -1,12 +1,4 @@
-import {
-  BreadcrumbItem,
-  Breadcrumbs,
-  Heading,
-  HStack,
-  LayoutHeader,
-  Text,
-  VStack,
-} from '@seta/shared-ui';
+import { BreadcrumbItem, Breadcrumbs, HStack, LayoutHeader, Text, VStack } from '@seta/shared-ui';
 import type { ReactNode } from 'react';
 
 export interface AdminPageHeaderProps {
@@ -20,10 +12,11 @@ export interface AdminPageHeaderProps {
 }
 
 /**
- * Shared breadcrumb + level-1 heading row for every /admin page. Used by `AdminPageFrame`
- * (single-pane pages) and directly by the two master-detail pages (`Groups`, `RoleAccess`)
- * that hand-roll their own `Layout` because they need `start=`/`content=` panes instead of
- * the frame's single scrollable body.
+ * Shared breadcrumb + title row for every /admin page — also used directly by the two
+ * master-detail pages, which need their own `Layout` panes instead of `AdminPageFrame`.
+ *
+ * Title uses `Text as="h1" size="lg"`, matching web-people and the rest of the product;
+ * `Heading level={1}` renders 24px, which reads as a different app.
  */
 export function AdminPageHeader({ crumb, title, subtitle, actions }: AdminPageHeaderProps) {
   return (
@@ -35,7 +28,9 @@ export function AdminPageHeader({ crumb, title, subtitle, actions }: AdminPageHe
         </Breadcrumbs>
         <HStack hAlign="between" vAlign="center" gap={2}>
           <HStack gap={2} vAlign="center">
-            <Heading level={1}>{title}</Heading>
+            <Text as="h1" size="lg" weight="semibold">
+              {title}
+            </Text>
             {subtitle && <Text color="secondary">{subtitle}</Text>}
           </HStack>
           {actions}

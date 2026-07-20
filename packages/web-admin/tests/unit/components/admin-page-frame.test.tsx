@@ -33,13 +33,15 @@ describe('AdminPageFrame', () => {
     expect(content?.contains(toolbar)).toBe(false);
   });
 
+  // Astryx `Layout` applies `contentWidth` as an inline custom property, so the px value is
+  // the observable contract here — asserting on it survives StyleX class-hash churn.
   it('caps the content width by default', () => {
     const { container } = render(
       <AdminPageFrame crumb="General" title="General">
         page-body
       </AdminPageFrame>,
     );
-    expect(container.querySelector('.max-w-\\[73\\.75rem\\]')).not.toBeNull();
+    expect(container.querySelector('[style*="960px"]')).not.toBeNull();
   });
 
   it('drops the width cap when isFullWidth is set', () => {
@@ -48,9 +50,21 @@ describe('AdminPageFrame', () => {
         page-body
       </AdminPageFrame>,
     );
-    // tailwind-merge resolves the conflict, so the capped class is replaced outright
-    // rather than both landing on the element.
-    expect(container.querySelector('.max-w-\\[73\\.75rem\\]')).toBeNull();
-    expect(container.querySelector('.max-w-none')).not.toBeNull();
+    expect(container.querySelector('[style*="960px"]')).toBeNull();
+  });
+
+  it('caps the header on the same column as the body, so their left edges align', () => {
+    const { container } = render(
+      <AdminPageFrame crumb="General" title="General">
+        page-body
+      </AdminPageFrame>,
+    );
+    // The cap lives on a shared ancestor of both slots rather than on the content slot alone;
+    // capping only the body indents it away from the header (the defect this replaced).
+    const capped = container.querySelector('[style*="960px"]');
+    const header = container.querySelector('.astryx-layout-header');
+    const content = container.querySelector('.astryx-layout-content');
+    expect(capped?.contains(header!)).toBe(true);
+    expect(capped?.contains(content!)).toBe(true);
   });
 });

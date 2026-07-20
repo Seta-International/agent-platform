@@ -274,7 +274,9 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
       <TableHeader>
         <TableRow isHeaderRow>
           <TableHeaderCell
-            className="sticky left-0 z-10 bg-card align-bottom" // keep: matrix Table's own sticky first-column chrome — structure stays exact per Task 13 scope
+            // w-full absorbs the table's slack so role columns hold at min width; min-w-72 keeps
+            // the longest slug on one line.
+            className="sticky left-0 z-10 w-full min-w-72 bg-card align-bottom" // keep: matrix Table's own sticky first-column chrome
           >
             <Text
               type="supporting"
@@ -302,7 +304,7 @@ function MatrixTable({ roles, canWrite }: { roles: MatrixRole[]; canWrite: boole
             className="border-b border-border" // keep: matrix Table's own row-rule chrome — structure stays exact per Task 13 scope
           >
             <TableCell
-              className="sticky left-0 z-10 bg-body" // keep: matrix Table's own sticky first-column chrome — structure stays exact per Task 13 scope
+              className="sticky left-0 z-10 w-full min-w-72 bg-body" // keep: matrix Table's own sticky first-column chrome; widths mirror the header cell
             >
               <VStack>
                 <Text display="block">{description}</Text>
