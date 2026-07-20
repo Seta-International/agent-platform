@@ -406,6 +406,7 @@ export function Directory({ search, onSearch }: DirectoryProps) {
       crumb="Directory"
       title="Directory"
       subtitle={subtitle}
+      isFullWidth
       subheader={
         <Toolbar
           label="Directory filters"

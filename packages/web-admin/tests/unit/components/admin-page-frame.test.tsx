@@ -32,4 +32,25 @@ describe('AdminPageFrame', () => {
     expect(content).not.toBeNull();
     expect(content?.contains(toolbar)).toBe(false);
   });
+
+  it('caps the content width by default', () => {
+    const { container } = render(
+      <AdminPageFrame crumb="General" title="General">
+        page-body
+      </AdminPageFrame>,
+    );
+    expect(container.querySelector('.max-w-\\[73\\.75rem\\]')).not.toBeNull();
+  });
+
+  it('drops the width cap when isFullWidth is set', () => {
+    const { container } = render(
+      <AdminPageFrame crumb="Directory" title="Directory" isFullWidth>
+        page-body
+      </AdminPageFrame>,
+    );
+    // tailwind-merge resolves the conflict, so the capped class is replaced outright
+    // rather than both landing on the element.
+    expect(container.querySelector('.max-w-\\[73\\.75rem\\]')).toBeNull();
+    expect(container.querySelector('.max-w-none')).not.toBeNull();
+  });
 });

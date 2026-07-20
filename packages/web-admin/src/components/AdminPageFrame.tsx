@@ -16,6 +16,11 @@ export interface AdminPageFrameProps {
    * while the page's data scrolls underneath it (data pages with their own filter/search bar).
    */
   subheader?: ReactNode;
+  /**
+   * Drops the reading-width cap so content spans the viewport. For wide data tables, where
+   * centring inside a ~1180px column wastes screen and truncates columns. Padding is kept.
+   */
+  isFullWidth?: boolean;
   children: ReactNode;
 }
 
@@ -26,6 +31,7 @@ export function AdminPageFrame({
   subtitle,
   actions,
   subheader,
+  isFullWidth,
   children,
 }: AdminPageFrameProps) {
   return (
@@ -39,7 +45,7 @@ export function AdminPageFrame({
       }
       content={
         <LayoutContent padding={0}>
-          <PageContainer>
+          <PageContainer className={isFullWidth ? 'max-w-none' : undefined}>
             <VStack gap={8}>{children}</VStack>
           </PageContainer>
         </LayoutContent>
