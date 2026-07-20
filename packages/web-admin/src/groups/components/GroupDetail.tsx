@@ -8,13 +8,18 @@ import {
   Dialog,
   DialogFooter,
   DialogHeader,
+  Heading,
+  HStack,
   Input,
   Layout,
   LayoutContent,
   Selector,
+  StackItem,
+  Text,
   Textarea,
   Typeahead,
   useSeededItem,
+  VStack,
 } from '@seta/shared-ui';
 import { Boxes, Layers, Pencil, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -67,11 +72,17 @@ function SectionHeader({
   hint?: string;
 }) {
   return (
-    <div className="flex items-baseline gap-2">
-      <span className="text-secondary">{icon}</span>
-      <h3 className="text-base font-semibold tracking-tight text-primary">{title}</h3>
-      {hint && <span className="text-sm text-disabled">{hint}</span>}
-    </div>
+    // Stack's cross-axis alignment has no "baseline" value (start | center | end | stretch) —
+    // "center" is the closest approximation for lining up the icon against the heading/hint text.
+    <HStack gap={2} vAlign="center">
+      <Text color="secondary">{icon}</Text>
+      <Heading level={3}>{title}</Heading>
+      {hint && (
+        <Text type="supporting" color="secondary">
+          {hint}
+        </Text>
+      )}
+    </HStack>
   );
 }
 
@@ -102,15 +113,15 @@ function RenameDialog({ group }: { group: Group }) {
           header={<DialogHeader title="Edit group" onOpenChange={setOpen} />}
           content={
             <LayoutContent>
-              <div className="space-y-4 pt-1">
-                <div className="space-y-1.5">
+              <VStack gap={4} style={{ paddingTop: 'var(--spacing-1)' }}>
+                <VStack gap={1.5}>
                   <Input
                     label="Name"
                     value={name}
                     onChange={(value) => setName(value)}
                     hasAutoFocus
                   />
-                </div>
+                </VStack>
                 <Textarea
                   label="Description"
                   value={description}
@@ -118,7 +129,7 @@ function RenameDialog({ group }: { group: Group }) {
                   placeholder="What this group is for (optional)"
                   rows={2}
                 />
-              </div>
+              </VStack>
             </LayoutContent>
           }
           footer={
@@ -172,7 +183,7 @@ function RoleScopeControl({
   );
 
   return (
-    <div className="flex flex-none items-center gap-1.5">
+    <HStack gap={1.5} vAlign="center" style={{ flexShrink: 0 }}>
       <Selector
         label={`${role.role_slug} scope`}
         isLabelHidden
@@ -196,10 +207,11 @@ function RoleScopeControl({
             onChange('org_unit', item?.id ?? null);
           }}
           placeholder="Org unit…"
-          className="h-7 w-40 flex-none text-sm"
+          size="sm"
+          width={160}
         />
       )}
-    </div>
+    </HStack>
   );
 }
 
@@ -211,7 +223,10 @@ function DeleteGroupButton({ group, onDeleted }: { group: Group; onDeleted: () =
       <Button
         variant="ghost"
         size="sm"
-        className="text-disabled hover:text-error"
+        // keep: variant="destructive" paints a permanent error-muted background (see
+        // theme-neutral .astryx-button.destructive) — this row action wants to stay
+        // visually quiet until hover, which no Button variant expresses.
+        className="text-disabled hover:text-error" // keep: no muted-until-hover variant
         label="Delete"
         icon={<Trash2 className="size-3.5" aria-hidden />}
         onClick={() => setIsOpen(true)}
@@ -264,26 +279,31 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
   const editable = group.kind !== 'default';
 
   return (
-    <div className="space-y-7 px-8 py-7">
-      <header className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 space-y-1">
-            <div className="flex items-center gap-2">
-              <h2 className="truncate text-2xl font-semibold tracking-tight text-primary">
-                {group.name}
-              </h2>
-              {group.is_base && <Badge variant="neutral" label="Base" />}
-              {group.kind === 'default' && <Badge variant="neutral" label="Default" />}
-            </div>
-            <p className="font-mono text-sm text-disabled">{group.slug}</p>
-          </div>
-          <div className="flex flex-none items-center gap-2">
+    // gap=7 has no native SpacingStep (scale skips 7/9/11/12) — style-based token gap instead.
+    <VStack style={{ gap: 'var(--spacing-7)', padding: 'var(--spacing-7) var(--spacing-8)' }}>
+      <VStack as="header" gap={3}>
+        <HStack hAlign="between" vAlign="start" gap={4}>
+          <StackItem size="fill">
+            <VStack gap={1}>
+              <HStack gap={2} vAlign="center">
+                <Heading level={2} className="truncate">
+                  {group.name}
+                </Heading>
+                {group.is_base && <Badge variant="neutral" label="Base" />}
+                {group.kind === 'default' && <Badge variant="neutral" label="Default" />}
+              </HStack>
+              <Text type="code" size="sm" color="secondary" display="block">
+                {group.slug}
+              </Text>
+            </VStack>
+          </StackItem>
+          <HStack gap={2} vAlign="center">
             {editable && <RenameDialog group={group} />}
             {editable && !group.is_base && (
               <DeleteGroupButton group={group} onDeleted={onDeleted} />
             )}
-          </div>
-        </div>
+          </HStack>
+        </HStack>
 
         <StatBar>
           <StatChip
@@ -298,65 +318,108 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
           />
           <StatChip icon={<Boxes className="size-4" />} value={products.length} label="products" />
         </StatBar>
-      </header>
+      </VStack>
 
-      <div className="space-y-7">
-        <section className="space-y-3">
+      <VStack style={{ gap: 'var(--spacing-7)' }}>
+        <VStack as="section" gap={3}>
           <SectionHeader
             icon={<ShieldCheck className="size-4" />}
             title="Roles"
             hint="Tick the roles everyone in this group inherits"
           />
-          <div className="overflow-hidden rounded-lg border border-border">
-            {ROLE_GROUPS.map(({ module, product, roles }) => (
-              <div key={module} className="border-b border-border last:border-b-0">
-                <div className="flex items-center gap-2 border-b border-border bg-card px-3.5 py-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">
+          <div
+            style={{
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-container)',
+              overflow: 'hidden',
+            }}
+          >
+            {ROLE_GROUPS.map(({ module, product, roles }, moduleIndex) => (
+              <div
+                key={module}
+                style={
+                  moduleIndex < ROLE_GROUPS.length - 1
+                    ? { borderBottom: '1px solid var(--color-border)' }
+                    : undefined
+                }
+              >
+                <HStack
+                  gap={2}
+                  vAlign="center"
+                  style={{
+                    padding: 'var(--spacing-2) var(--spacing-3)',
+                    backgroundColor: 'var(--color-background-surface)',
+                  }}
+                >
+                  <Text type="supporting" weight="medium" color="secondary">
                     {moduleDisplay(module)}
-                  </span>
+                  </Text>
                   {product && (
                     <Badge
                       variant="neutral"
-                      className="font-normal"
+                      className="font-normal" // keep: BadgeProps has no weight prop
                       label={PRODUCT_LABEL.get(product) ?? product}
                     />
                   )}
-                </div>
-                <ul className="divide-y divide-border">
-                  {roles.map((r) => {
+                </HStack>
+                {/* keep: selectable checkbox+scope-control rows are a shape `List` can't express — plain ul/li */}
+                <ul>
+                  {roles.map((r, roleIndex) => {
                     const entry = roleEntries.find((e) => e.role_slug === r.slug);
                     const checked = entry != null;
                     return (
                       <li key={r.slug}>
-                        <div
+                        <HStack
+                          gap={3}
+                          vAlign="center"
+                          // keep: translucent accent/hover row tint has no plain-token utility —
+                          // the Tailwind bridge exposes no bg-accent subtle/opacity variants.
                           className={cn(
-                            'flex items-center gap-3 px-3.5 py-2.5 transition-colors',
+                            'transition-colors',
                             checked
                               ? 'bg-accent-bg/[0.06] hover:bg-accent-bg/10'
                               : 'hover:bg-surface',
                           )}
+                          style={{
+                            padding: 'var(--spacing-2) var(--spacing-3)',
+                            borderTop: roleIndex > 0 ? '1px solid var(--color-border)' : undefined,
+                          }}
                         >
-                          <div className="flex min-w-0 flex-1 items-center gap-3">
-                            <Checkbox
-                              label={r.label}
-                              isLabelHidden
-                              value={checked}
-                              onChange={(v) => toggleRole(r.slug, v)}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <span className="text-base font-medium text-primary">
-                                {roleTail(r.slug)}
-                              </span>
-                              {r.description && (
-                                <p className="mt-0.5 truncate text-sm text-secondary">
-                                  {r.description}
-                                </p>
-                              )}
-                            </div>
-                            <span className="flex-none font-mono text-sm text-disabled">
-                              {r.slug}
-                            </span>
-                          </div>
+                          <StackItem size="fill">
+                            <HStack gap={3} vAlign="center">
+                              <Checkbox
+                                label={r.label}
+                                isLabelHidden
+                                value={checked}
+                                onChange={(v) => toggleRole(r.slug, v)}
+                              />
+                              <StackItem size="fill">
+                                <VStack gap={0.5}>
+                                  <Text weight="medium" display="block">
+                                    {roleTail(r.slug)}
+                                  </Text>
+                                  {r.description && (
+                                    <Text
+                                      type="supporting"
+                                      color="secondary"
+                                      display="block"
+                                      maxLines={1}
+                                    >
+                                      {r.description}
+                                    </Text>
+                                  )}
+                                </VStack>
+                              </StackItem>
+                              <Text
+                                type="code"
+                                size="sm"
+                                color="disabled"
+                                style={{ flexShrink: 0 }}
+                              >
+                                {r.slug}
+                              </Text>
+                            </HStack>
+                          </StackItem>
                           {entry && (
                             <RoleScopeControl
                               role={entry}
@@ -365,7 +428,7 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                               }
                             />
                           )}
-                        </div>
+                        </HStack>
                       </li>
                     );
                   })}
@@ -373,16 +436,16 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
               </div>
             ))}
           </div>
-        </section>
+        </VStack>
 
-        <section className="space-y-3">
+        <VStack as="section" gap={3}>
           <SectionHeader
             icon={<Boxes className="size-4" />}
             title="Product access"
             hint="Derived from roles"
           />
           {products.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
+            <HStack gap={1.5} wrap="wrap">
               {products.map((p) => (
                 <Badge
                   key={p}
@@ -391,14 +454,14 @@ export function GroupDetail({ group, onDeleted }: { group: Group; onDeleted: () 
                   label={PRODUCT_LABEL.get(p) ?? p}
                 />
               ))}
-            </div>
+            </HStack>
           ) : (
-            <p className="text-base text-disabled">
+            <Text color="secondary" display="block">
               No products yet — assign a product role above to grant app access.
-            </p>
+            </Text>
           )}
-        </section>
-      </div>
-    </div>
+        </VStack>
+      </VStack>
+    </VStack>
   );
 }

@@ -1,12 +1,19 @@
 import {
   Button,
   createStaticSource,
+  Grid,
+  HStack,
+  IconButton,
   Input,
+  List,
+  ListItem,
   NumberInput,
   type SearchableItem,
   type SearchSource,
   Skeleton,
+  Text,
   Typeahead,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { Briefcase, FolderKanban, Plus, X } from 'lucide-react';
@@ -95,7 +102,14 @@ function AddAllocationForm({
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
+    <VStack
+      gap={3}
+      style={{
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-container)',
+        padding: 'var(--spacing-3)',
+      }}
+    >
       <Field label="Account">
         <Typeahead
           label="Account"
@@ -135,7 +149,7 @@ function AddAllocationForm({
           onChange={(v) => setPct(String(v))}
         />
       </Field>
-      <div className="flex justify-end gap-2">
+      <HStack hAlign="end" gap={2}>
         <Button variant="ghost" size="sm" label="Cancel" onClick={onCancel} />
         <Button
           size="sm"
@@ -145,8 +159,8 @@ function AddAllocationForm({
           isDisabled={!project || pending}
           onClick={submit}
         />
-      </div>
-    </div>
+      </HStack>
+    </VStack>
   );
 }
 
@@ -194,18 +208,20 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
 
   if (profileError) {
     return (
-      <div className="flex flex-col gap-4">
+      <VStack gap={4}>
         <SectionTitle icon={<Briefcase className="size-4" />}>Work</SectionTitle>
-        <p className="text-base text-disabled">Couldn't load the work profile.</p>
-      </div>
+        <Text color="disabled" display="block">
+          Couldn&apos;t load the work profile.
+        </Text>
+      </VStack>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <VStack gap={4}>
       <SectionTitle icon={<Briefcase className="size-4" />}>Work</SectionTitle>
 
-      <div className="grid grid-cols-2 gap-4">
+      <Grid columns={2} gap={4}>
         <Input
           label="Position"
           value={title}
@@ -237,24 +253,24 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
             placeholder="No department"
           />
         </Field>
-      </div>
+      </Grid>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex h-6 items-center justify-between">
-          <span className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">
+      <VStack gap={2}>
+        <HStack hAlign="between" vAlign="center" style={{ height: 'var(--spacing-6)' }}>
+          <Text type="supporting" weight="medium" color="secondary">
             Accounts · projects
-          </span>
+          </Text>
           {allocationsEditable && !adding && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 gap-1 px-1.5 text-secondary"
               onClick={() => setAdding(true)}
               icon={<Plus className="size-3.5" aria-hidden />}
               label="Add project"
+              style={{ color: 'var(--color-text-secondary)' }}
             />
           )}
-        </div>
+        </HStack>
 
         {adding && (
           <AddAllocationForm
@@ -266,77 +282,106 @@ export function WorkSection({ workerId, employmentStatus }: Props) {
         )}
 
         {allocationsLoading ? (
-          <div className="flex flex-col gap-1.5">
+          <VStack gap={1.5}>
             <Skeleton height={56} radius={3} />
             <Skeleton height={56} radius={3} />
-          </div>
+          </VStack>
         ) : groups.length === 0 ? (
           !adding && (
-            <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-base text-disabled">
-              No project allocations
-            </p>
+            <VStack
+              vAlign="center"
+              style={{
+                border: '1px dashed var(--color-border)',
+                borderRadius: 'var(--radius-container)',
+                padding: 'var(--spacing-4) var(--spacing-3)',
+              }}
+            >
+              <Text color="disabled" justify="center" display="block">
+                No project allocations
+              </Text>
+            </VStack>
           )
         ) : (
-          <div className="flex flex-col gap-1.5">
+          <VStack gap={1.5}>
             {groups.map((group) => {
               const total = allocationTotal(group.rows);
               return (
-                <div key={group.id} className="rounded-lg border border-border bg-card">
-                  <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
-                    <span className="truncate text-sm font-semibold uppercase tracking-[0.04em] text-secondary">
+                // keep: bordered list container — Card's uniform padding would break the edge-to-edge List (same shape as GroupDetail's role-group container)
+                <div
+                  key={group.id}
+                  style={{
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-container)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <HStack
+                    hAlign="between"
+                    vAlign="center"
+                    gap={2}
+                    style={{
+                      padding: 'var(--spacing-1) var(--spacing-3)',
+                      backgroundColor: 'var(--color-background-surface)',
+                    }}
+                  >
+                    <Text type="supporting" weight="medium" color="secondary" className="truncate">
                       {group.name}
-                    </span>
+                    </Text>
                     {total !== null && (
-                      <span className="flex-none text-sm tabular-nums text-secondary">
+                      <Text type="supporting" color="secondary" hasTabularNumbers>
                         {total}% total
-                      </span>
+                      </Text>
                     )}
-                  </div>
-                  <ul className="flex flex-col">
+                  </HStack>
+                  <List hasDividers>
                     {group.rows.map((a) => (
-                      <li
+                      <ListItem
                         key={a.allocation_id}
-                        className="flex items-center gap-2.5 border-b border-border px-3 py-2 last:border-b-0"
-                      >
-                        <FolderKanban className="size-4 flex-none text-secondary" aria-hidden />
-                        <div className="min-w-0 flex-1">
-                          <span className="block truncate text-base font-medium text-primary">
-                            {a.project_name}
-                          </span>
-                          {(a.role || a.status !== 'committed') && (
-                            <span className="block truncate text-sm text-secondary">
-                              {[a.role, a.status !== 'committed' ? a.status : null]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </span>
-                          )}
-                        </div>
-                        {a.planned_pct !== null && (
-                          <span className="flex-none text-base tabular-nums text-secondary">
-                            {a.planned_pct}%
-                          </span>
-                        )}
-                        {allocationsEditable && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            isIconOnly
-                            className="size-6 flex-none text-secondary hover:text-error"
-                            label={`Remove ${a.project_name}`}
-                            isDisabled={removeAllocation.isPending}
-                            onClick={() => removeAllocation.mutate(a.allocation_id)}
-                            icon={<X className="size-3.5" />}
+                        startContent={
+                          <FolderKanban
+                            className="size-4 flex-none"
+                            style={{ color: 'var(--color-text-secondary)' }}
+                            aria-hidden
                           />
-                        )}
-                      </li>
+                        }
+                        label={a.project_name}
+                        description={
+                          a.role || a.status !== 'committed'
+                            ? [a.role, a.status !== 'committed' ? a.status : null]
+                                .filter(Boolean)
+                                .join(' · ')
+                            : undefined
+                        }
+                        endContent={
+                          <HStack gap={2} vAlign="center">
+                            {a.planned_pct !== null && (
+                              <Text color="secondary" hasTabularNumbers>
+                                {a.planned_pct}%
+                              </Text>
+                            )}
+                            {allocationsEditable && (
+                              <IconButton
+                                variant="ghost"
+                                size="sm"
+                                label={`Remove ${a.project_name}`}
+                                isDisabled={removeAllocation.isPending}
+                                onClick={() => removeAllocation.mutate(a.allocation_id)}
+                                icon={<X className="size-3.5" />}
+                                style={{ color: 'var(--color-text-secondary)' }}
+                                className="hover:text-error" // keep: no hover-state color prop on IconButton/Button
+                              />
+                            )}
+                          </HStack>
+                        }
+                      />
                     ))}
-                  </ul>
+                  </List>
                 </div>
               );
             })}
-          </div>
+          </VStack>
         )}
-      </div>
-    </div>
+      </VStack>
+    </VStack>
   );
 }

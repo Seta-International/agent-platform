@@ -6,7 +6,9 @@ import {
   Input,
   Layout,
   LayoutContent,
+  Text,
   Textarea,
+  VStack,
 } from '@seta/shared-ui';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
@@ -75,8 +77,8 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
           }
           content={
             <LayoutContent>
-              <div className="space-y-4 pt-1">
-                <div className="space-y-1.5">
+              <VStack gap={4} style={{ paddingTop: 'var(--spacing-1)' }}>
+                <VStack gap={1.5}>
                   <Input
                     label="Name"
                     value={name}
@@ -84,8 +86,8 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
                     placeholder="HR Team"
                     hasAutoFocus
                   />
-                </div>
-                <div className="space-y-1.5">
+                </VStack>
+                <VStack gap={1.5}>
                   <Input
                     label="Slug"
                     value={effectiveSlug}
@@ -94,12 +96,12 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
                       setSlug(slugify(value));
                     }}
                     placeholder="hr-team"
-                    className="font-mono text-base"
+                    className="font-mono"
                   />
-                  <p className="text-sm text-disabled">
+                  <Text type="supporting" color="disabled" display="block">
                     A stable identifier. Lowercase letters, numbers, and hyphens.
-                  </p>
-                </div>
+                  </Text>
+                </VStack>
                 <Textarea
                   label="Description"
                   value={description}
@@ -107,7 +109,7 @@ export function CreateGroupDialog({ onCreated }: { onCreated?: (id: string) => v
                   placeholder="What this group is for (optional)"
                   rows={2}
                 />
-              </div>
+              </VStack>
             </LayoutContent>
           }
           footer={

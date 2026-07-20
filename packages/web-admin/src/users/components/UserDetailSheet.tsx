@@ -5,11 +5,16 @@ import {
   createStaticSource,
   Dialog,
   DialogHeader,
+  Grid,
+  HStack,
   Layout,
   LayoutContent,
   type SearchableItem,
   Selector,
+  StatusDot,
+  Text,
   Tokenizer,
+  VStack,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Boxes, ShieldCheck, UsersRound } from 'lucide-react';
@@ -123,19 +128,18 @@ function RolesSection({ userId }: { userId: string }) {
   return (
     <Field label="Roles · inherited from groups">
       {roles.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
+        <HStack gap={1.5} wrap="wrap">
           {roles.map((r) => (
-            <span
+            <Badge
               key={r}
-              className="inline-flex items-center gap-1 rounded-md bg-surface px-1.5 py-0.5 font-mono text-sm text-secondary"
-            >
-              <ShieldCheck className="size-3" aria-hidden />
-              {r}
-            </span>
+              variant="neutral"
+              icon={<ShieldCheck className="size-3" aria-hidden />}
+              label={r}
+            />
           ))}
-        </div>
+        </HStack>
       ) : (
-        <span className="text-disabled">No roles</span>
+        <Text color="disabled">No roles</Text>
       )}
     </Field>
   );
@@ -192,7 +196,7 @@ function ProductsSection({ userId }: { userId: string }) {
   const busy = setOverride.isPending || clearOverride.isPending;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <VStack gap={1.5}>
       {PRODUCTS.map((p) => {
         const userOverride = rows.find((r) => r.product_id === p.id && r.source === 'user');
         const overrideValue = userOverride
@@ -200,26 +204,41 @@ function ProductsSection({ userId }: { userId: string }) {
           : ('inherit' as 'grant' | 'revoke' | 'inherit');
         const { granted, source, isOverride } = productState(rows, p.id);
         return (
-          <div
+          <HStack
             key={p.id}
+            hAlign="between"
+            vAlign="center"
+            gap={3}
+            style={{
+              borderRadius: 'var(--radius-container)',
+              padding: 'var(--spacing-2) var(--spacing-3)',
+              ...(isOverride
+                ? {}
+                : {
+                    border: '1px solid var(--color-border)',
+                    backgroundColor: 'var(--color-background-card)',
+                  }),
+            }}
+            // keep: translucent accent-tint override state (border-accent-bg/40, bg-accent-bg/[0.04])
+            // has no plain-token equivalent — same exception as GroupDetail.tsx's selected-row tint.
             className={cn(
-              'flex items-center justify-between gap-3 rounded-lg border px-3 py-2',
-              isOverride ? 'border-accent-bg/40 bg-accent-bg/[0.04]' : 'border-border bg-card',
+              isOverride ? 'border border-accent-bg/40 bg-accent-bg/[0.04]' : undefined,
             )}
           >
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span
-                className={cn(
-                  'size-1.5 flex-none rounded-full',
-                  granted ? 'bg-success' : 'bg-disabled/50',
-                )}
-                aria-hidden
+            <HStack gap={2} vAlign="center" className="min-w-0">
+              <StatusDot
+                variant={granted ? 'success' : 'neutral'}
+                label={`${p.label} ${granted ? 'granted' : 'not granted'}`}
               />
-              <div className="min-w-0">
-                <span className="block truncate text-base font-medium text-primary">{p.label}</span>
-                <span className="block truncate text-sm text-secondary">{source}</span>
-              </div>
-            </div>
+              <VStack gap={0} className="min-w-0">
+                <Text weight="medium" className="truncate">
+                  {p.label}
+                </Text>
+                <Text type="supporting" color="secondary" className="truncate">
+                  {source}
+                </Text>
+              </VStack>
+            </HStack>
             <Selector
               label={`${p.label} access`}
               isLabelHidden
@@ -236,10 +255,10 @@ function ProductsSection({ userId }: { userId: string }) {
                 { value: 'revoke', label: 'Revoke' },
               ]}
             />
-          </div>
+          </HStack>
         );
       })}
-    </div>
+    </VStack>
   );
 }
 
@@ -261,20 +280,15 @@ export function UserDetailSheet({ row, open, onOpenChange }: Props) {
           <DialogHeader
             title={row?.full_name ?? '—'}
             subtitle={row?.work_email ?? undefined}
-            startContent={
-              <PersonAvatar
-                name={row?.full_name ?? '?'}
-                className="size-10 text-base font-semibold"
-              />
-            }
+            startContent={<PersonAvatar name={row?.full_name ?? '?'} size="lg" />}
             onOpenChange={onOpenChange}
           />
         }
         content={
           <LayoutContent>
             {row && (
-              <div className="flex flex-col gap-5">
-                <div className="grid grid-cols-2 gap-4">
+              <VStack gap={5}>
+                <Grid columns={2} gap={4}>
                   <Field label="Employment">
                     <Badge
                       variant={EMPLOYMENT_BADGE[row.employment_status]}
@@ -287,27 +301,27 @@ export function UserDetailSheet({ row, open, onOpenChange }: Props) {
                       label={ACCOUNT_STATUS_LABEL[row.account_status]}
                     />
                   </Field>
-                </div>
+                </Grid>
 
                 <WorkSection workerId={row.person_id} employmentStatus={row.employment_status} />
 
                 {row.user_id && (
-                  <div className="mt-1 flex flex-col gap-4">
+                  <VStack gap={4} style={{ marginTop: 'var(--spacing-1)' }}>
                     <SectionTitle icon={<UsersRound className="size-4" />}>Access</SectionTitle>
 
                     <GroupsSection userId={row.user_id} />
 
                     <RolesSection userId={row.user_id} />
 
-                    <div className="flex flex-col gap-3">
+                    <VStack gap={3}>
                       <SectionTitle icon={<Boxes className="size-4" />}>
                         Product overrides
                       </SectionTitle>
                       <ProductsSection userId={row.user_id} />
-                    </div>
-                  </div>
+                    </VStack>
+                  </VStack>
                 )}
-              </div>
+              </VStack>
             )}
           </LayoutContent>
         }

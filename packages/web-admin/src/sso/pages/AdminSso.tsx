@@ -1,25 +1,13 @@
-import {
-  Banner,
-  BreadcrumbItem,
-  Breadcrumbs,
-  Button,
-  HStack,
-  Layout,
-  LayoutContent,
-  LayoutHeader,
-  PageContainer,
-  Skeleton,
-  Text,
-  VStack,
-} from '@seta/shared-ui';
+import { Banner, Button, Skeleton, VStack } from '@seta/shared-ui';
 import { useSession } from '@seta/web-identity';
 import { ExternalLink } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { AdminPageFrame } from '../../components/AdminPageFrame.tsx';
 import type { SsoProviderRowDto } from '../api/sso-client.ts';
 import { listProviders } from '../api/sso-client.ts';
-import { ComingSoonProvidersCard } from '../components/ComingSoonProvidersCard.tsx';
+import { ComingSoonProvidersSection } from '../components/ComingSoonProvidersSection.tsx';
 import { EntraProviderCard } from '../components/EntraProviderCard.tsx';
-import { SignInMethodsCard } from '../components/SignInMethodsCard.tsx';
+import { SignInMethodsSection } from '../components/SignInMethodsSection.tsx';
 
 interface AdminSsoProps {
   status?: string;
@@ -69,72 +57,50 @@ export function AdminSso({ status, error }: AdminSsoProps) {
   const subtitle = summarize(providers);
 
   return (
-    <Layout
-      height="fill"
-      header={
-        <LayoutHeader hasDivider padding={4}>
-          <VStack gap={1}>
-            <Breadcrumbs variant="supporting">
-              <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-              <BreadcrumbItem isCurrent>Sign-in & SSO</BreadcrumbItem>
-            </Breadcrumbs>
-            <HStack hAlign="between" vAlign="center" gap={2}>
-              <HStack gap={2} vAlign="center">
-                <Text as="h1" size="lg" weight="semibold">
-                  Sign-in & SSO
-                </Text>
-                {subtitle && <Text color="secondary">{subtitle}</Text>}
-              </HStack>
-              <Button
-                variant="ghost"
-                size="sm"
-                label="Entra docs"
-                icon={<ExternalLink aria-hidden className="size-3.5" />}
-                href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app"
-                target="_blank"
-                rel="noopener noreferrer"
-              />
-            </HStack>
-          </VStack>
-        </LayoutHeader>
+    <AdminPageFrame
+      crumb="Sign-in & SSO"
+      title="Sign-in & SSO"
+      subtitle={subtitle}
+      actions={
+        <Button
+          variant="ghost"
+          size="sm"
+          label="Entra docs"
+          icon={<ExternalLink aria-hidden className="size-3.5" />}
+          href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        />
       }
-      content={
-        <LayoutContent padding={0}>
-          <PageContainer className="space-y-4">
-            {status === 'consent_granted' && (
-              <Banner
-                status="info"
-                title="Admin consent granted. The provider is ready to enable."
-              />
-            )}
-            {status === 'consent_failed' && (
-              <Banner
-                status="error"
-                title={<>Admin consent didn&apos;t go through{error ? `: ${error}` : '.'}</>}
-              />
-            )}
-            {fetchError && <Banner status="error" title={fetchError} />}
+    >
+      {status === 'consent_granted' && (
+        <Banner status="info" title="Admin consent granted. The provider is ready to enable." />
+      )}
+      {status === 'consent_failed' && (
+        <Banner
+          status="error"
+          title={<>Admin consent didn&apos;t go through{error ? `: ${error}` : '.'}</>}
+        />
+      )}
+      {fetchError && <Banner status="error" title={fetchError} />}
 
-            {providers === null && !fetchError ? (
-              <div className="space-y-4">
-                <Skeleton height={224} radius={3} />
-                <Skeleton height={128} radius={3} />
-                <Skeleton height={176} radius={3} />
-              </div>
-            ) : (
-              <>
-                <EntraProviderCard row={entraRow} onChanged={refresh} />
-                <SignInMethodsCard
-                  localPasswordDisabled={session.tenant_local_password_disabled}
-                  hasEnabledProvider={hasEnabledProvider}
-                  onChanged={refresh}
-                />
-                <ComingSoonProvidersCard />
-              </>
-            )}
-          </PageContainer>
-        </LayoutContent>
-      }
-    />
+      {providers === null && !fetchError ? (
+        <VStack gap={4}>
+          <Skeleton height={224} radius={3} />
+          <Skeleton height={128} radius={3} />
+          <Skeleton height={176} radius={3} />
+        </VStack>
+      ) : (
+        <>
+          <EntraProviderCard row={entraRow} onChanged={refresh} />
+          <SignInMethodsSection
+            localPasswordDisabled={session.tenant_local_password_disabled}
+            hasEnabledProvider={hasEnabledProvider}
+            onChanged={refresh}
+          />
+          <ComingSoonProvidersSection />
+        </>
+      )}
+    </AdminPageFrame>
   );
 }

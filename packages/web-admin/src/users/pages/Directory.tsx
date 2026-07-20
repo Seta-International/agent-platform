@@ -1,7 +1,5 @@
 import {
   Badge,
-  BreadcrumbItem,
-  Breadcrumbs,
   Button,
   Dialog,
   DialogFooter,
@@ -12,8 +10,6 @@ import {
   HStack,
   Input,
   Layout,
-  LayoutContent,
-  LayoutHeader,
   pixel,
   proportional,
   Selector,
@@ -29,6 +25,7 @@ import {
 import { usePermission } from '@seta/web-identity';
 import { MoreHorizontal, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AdminPageFrame } from '../../components/AdminPageFrame.tsx';
 import { PersonAvatar } from '../../components/person-avatar.tsx';
 import { useGroupsQuery } from '../../groups/hooks/useGroups.ts';
 import type { DirectoryRow } from '../api/directory-client.ts';
@@ -107,14 +104,18 @@ type DirectoryTableRow = DirectoryRow & Record<string, unknown>;
 
 /** Compact chip list for name collections (groups, accounts, projects) with +N overflow. */
 function ChipList({ items }: { items: string[] }) {
-  if (items.length === 0) return <span className="text-disabled">{'—'}</span>;
+  if (items.length === 0) return <Text color="disabled">{'—'}</Text>;
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <HStack gap={1} vAlign="center" wrap="wrap">
       {items.slice(0, 2).map((label) => (
         <Badge key={label} variant="neutral" label={label} />
       ))}
-      {items.length > 2 && <span className="text-sm text-disabled">+{items.length - 2}</span>}
-    </div>
+      {items.length > 2 && (
+        <Text type="supporting" color="disabled">
+          +{items.length - 2}
+        </Text>
+      )}
+    </HStack>
   );
 }
 
@@ -250,15 +251,19 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         header: 'Name',
         width: proportional(2),
         renderCell: (r) => (
-          <div className="flex items-center gap-2.5">
+          <HStack gap={2} vAlign="center">
             <PersonAvatar name={r.full_name} />
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate font-medium text-primary">{r.full_name}</span>
+            <VStack gap={0} className="min-w-0">
+              <Text weight="medium" className="truncate">
+                {r.full_name}
+              </Text>
               {r.work_email && (
-                <span className="truncate text-sm text-disabled">{r.work_email}</span>
+                <Text type="supporting" color="disabled" className="truncate">
+                  {r.work_email}
+                </Text>
               )}
-            </div>
-          </div>
+            </VStack>
+          </HStack>
         ),
       },
       {
@@ -268,14 +273,18 @@ export function Directory({ search, onSearch }: DirectoryProps) {
         renderCell: (r) => {
           const department = briefById.get(r.person_id)?.org_unit_name;
           return (
-            <div className="flex min-w-0 flex-col">
+            <VStack gap={0} className="min-w-0">
               {r.job_title ? (
-                <span className="truncate">{r.job_title}</span>
+                <Text className="truncate">{r.job_title}</Text>
               ) : (
-                <span className="text-disabled">{'—'}</span>
+                <Text color="disabled">{'—'}</Text>
               )}
-              {department && <span className="truncate text-sm text-disabled">{department}</span>}
-            </div>
+              {department && (
+                <Text type="supporting" color="disabled" className="truncate">
+                  {department}
+                </Text>
+              )}
+            </VStack>
           );
         },
       },
@@ -393,194 +402,168 @@ export function Directory({ search, onSearch }: DirectoryProps) {
       : undefined;
 
   return (
-    <Layout
-      height="fill"
-      header={
-        <>
-          <LayoutHeader hasDivider padding={4}>
-            <VStack gap={1}>
-              <Breadcrumbs variant="supporting">
-                <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-                <BreadcrumbItem isCurrent>Directory</BreadcrumbItem>
-              </Breadcrumbs>
-              <HStack hAlign="between" vAlign="center" gap={2}>
-                <HStack gap={2} vAlign="center">
-                  <Text as="h1" size="lg" weight="semibold">
-                    Directory
-                  </Text>
-                  {subtitle && <Text color="secondary">{subtitle}</Text>}
-                </HStack>
-              </HStack>
-            </VStack>
-          </LayoutHeader>
-          <LayoutHeader padding={0}>
-            <Toolbar
-              label="Directory filters"
-              size="sm"
-              dividers={['bottom']}
-              startContent={
-                <div className="flex flex-wrap items-center gap-2">
-                  <FilterSelect
-                    ariaLabel="Filter by group"
-                    value={group}
-                    onChange={(v) => applyFilter({ group: v === 'all' ? undefined : v })}
-                    options={groupOptions}
-                  />
-                  <FilterSelect
-                    ariaLabel="Filter by account status"
-                    value={status}
-                    onChange={(v) =>
-                      applyFilter({
-                        status: v === 'all' ? undefined : (v as DirectorySearch['status']),
-                      })
-                    }
-                    options={STATUS_OPTIONS}
-                  />
-                  <FilterSelect
-                    ariaLabel="Filter by employment"
-                    value={employment}
-                    onChange={(v) =>
-                      applyFilter({
-                        employment: v === 'all' ? undefined : (v as DirectorySearch['employment']),
-                      })
-                    }
-                    options={EMPLOYMENT_OPTIONS}
-                  />
-                  {hasFilters && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-secondary"
-                      onClick={() => {
-                        setQInput('');
-                        onSearch(() => ({}));
-                      }}
-                      icon={<X className="size-3.5" aria-hidden />}
-                      label="Clear"
-                    />
-                  )}
-                </div>
-              }
-              endContent={
-                <Input
-                  label="Search people"
-                  isLabelHidden
-                  startIcon={<Search className="size-3.5" aria-hidden />}
-                  placeholder="Search people…"
-                  value={qInput}
-                  onChange={(value) => {
-                    setQInput(value);
-                    applyFilter({ q: value.trim() || undefined });
-                  }}
-                  className="w-64"
+    <AdminPageFrame
+      crumb="Directory"
+      title="Directory"
+      subtitle={subtitle}
+      isFullWidth
+      subheader={
+        <Toolbar
+          label="Directory filters"
+          size="sm"
+          dividers={['bottom']}
+          startContent={
+            <HStack gap={2} vAlign="center" wrap="wrap">
+              <FilterSelect
+                ariaLabel="Filter by group"
+                value={group}
+                onChange={(v) => applyFilter({ group: v === 'all' ? undefined : v })}
+                options={groupOptions}
+              />
+              <FilterSelect
+                ariaLabel="Filter by account status"
+                value={status}
+                onChange={(v) =>
+                  applyFilter({
+                    status: v === 'all' ? undefined : (v as DirectorySearch['status']),
+                  })
+                }
+                options={STATUS_OPTIONS}
+              />
+              <FilterSelect
+                ariaLabel="Filter by employment"
+                value={employment}
+                onChange={(v) =>
+                  applyFilter({
+                    employment: v === 'all' ? undefined : (v as DirectorySearch['employment']),
+                  })
+                }
+                options={EMPLOYMENT_OPTIONS}
+              />
+              {hasFilters && (
+                <Button
+                  variant="ghost"
                   size="sm"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                  onClick={() => {
+                    setQInput('');
+                    onSearch(() => ({}));
+                  }}
+                  icon={<X className="size-3.5" aria-hidden />}
+                  label="Clear"
                 />
-              }
+              )}
+            </HStack>
+          }
+          endContent={
+            <Input
+              label="Search people"
+              isLabelHidden
+              startIcon={<Search className="size-3.5" aria-hidden />}
+              placeholder="Search people…"
+              value={qInput}
+              onChange={(value) => {
+                setQInput(value);
+                applyFilter({ q: value.trim() || undefined });
+              }}
+              width={256}
+              size="sm"
             />
-          </LayoutHeader>
-        </>
+          }
+        />
       }
-      content={
-        <LayoutContent padding={0}>
-          {canWrite && selectedUserIds.length > 0 && (
-            <BulkGroupBar selectedUserIds={selectedUserIds} onClearSelection={clearSelection} />
-          )}
-          <div className="px-6 py-4">
-            {isLoading ? (
-              <div className="space-y-2">
-                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
-                  <Skeleton key={id} height={44} />
-                ))}
-              </div>
-            ) : (
-              <Table
-                data={rows}
-                columns={columns}
-                idKey="person_id"
-                emptyState={<EmptyState title="No results" />}
-                plugins={{
-                  selection,
-                  pagination,
-                  // Row click opens the detail sheet. Guard against clicks that
-                  // originate from the row's own interactive controls (selection
-                  // checkbox, the actions menu trigger) so they don't also
-                  // navigate — the deleted DataTable did this via stopPropagation.
-                  rowClick: {
-                    transformBodyRow: (props, item) => ({
-                      ...props,
-                      htmlProps: {
-                        ...props.htmlProps,
-                        style: { ...props.htmlProps.style, cursor: 'pointer' },
-                        onClick: (e) => {
-                          const target = e.target as HTMLElement;
-                          if (
-                            target.closest(
-                              'button, a, input, label, [role="checkbox"], [role="menuitem"]',
-                            )
-                          )
-                            return;
-                          setSelectedRow(item);
-                        },
-                      },
-                    }),
+    >
+      {canWrite && selectedUserIds.length > 0 && (
+        <BulkGroupBar selectedUserIds={selectedUserIds} onClearSelection={clearSelection} />
+      )}
+      {isLoading ? (
+        <VStack gap={2}>
+          {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+            <Skeleton key={id} height={44} />
+          ))}
+        </VStack>
+      ) : (
+        <Table
+          data={rows}
+          columns={columns}
+          idKey="person_id"
+          emptyState={<EmptyState title="No results" />}
+          plugins={{
+            selection,
+            pagination,
+            // Row click opens the detail sheet. Guard against clicks that
+            // originate from the row's own interactive controls (selection
+            // checkbox, the actions menu trigger) so they don't also
+            // navigate — the deleted DataTable did this via stopPropagation.
+            rowClick: {
+              transformBodyRow: (props, item) => ({
+                ...props,
+                htmlProps: {
+                  ...props.htmlProps,
+                  style: { ...props.htmlProps.style, cursor: 'pointer' },
+                  onClick: (e) => {
+                    const target = e.target as HTMLElement;
+                    if (
+                      target.closest(
+                        'button, a, input, label, [role="checkbox"], [role="menuitem"]',
+                      )
+                    )
+                      return;
+                    setSelectedRow(item);
                   },
+                },
+              }),
+            },
+          }}
+        />
+      )}
+
+      {/* Suspend confirm dialog. "form" purpose, not "required": this action is recoverable, not
+      terminal, and Astryx's `purpose="form"` already blocks backdrop-click dismissal (only
+      Escape is allowed) — closer to `"required"`'s risk profile than the name suggests, so
+      there's little value in going further. The strongest signal is this file's own history:
+      before this migration it used a plain Radix `Dialog` here, never `AlertDialog`, unlike
+      `GroupDetail.tsx`'s genuinely terminal group-delete flow (irreversible, deletes roles)
+      which *does* use `AlertDialog` in the same package — the original author already judged
+      suspend as non-terminal. The copy ("You can reactivate at any time") corroborates that
+      judgment but isn't the primary evidence. */}
+      <Dialog
+        isOpen={suspendTarget !== null}
+        onOpenChange={handleSuspendDialogOpenChange}
+        purpose="form"
+      >
+        <Layout
+          header={
+            <DialogHeader
+              title="Suspend account?"
+              subtitle={`${suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at any time.`}
+              onOpenChange={handleSuspendDialogOpenChange}
+            />
+          }
+          footer={
+            <DialogFooter>
+              <Button variant="secondary" label="Cancel" onClick={() => setSuspendTarget(null)} />
+              <Button
+                variant="destructive"
+                label="Suspend"
+                onClick={() => {
+                  if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
+                  setSuspendTarget(null);
                 }}
               />
-            )}
-          </div>
+            </DialogFooter>
+          }
+        />
+      </Dialog>
 
-          {/* Suspend confirm dialog. "form" purpose, not "required": this action is recoverable, not
-          terminal, and Astryx's `purpose="form"` already blocks backdrop-click dismissal (only
-          Escape is allowed) — closer to `"required"`'s risk profile than the name suggests, so
-          there's little value in going further. The strongest signal is this file's own history:
-          before this migration it used a plain Radix `Dialog` here, never `AlertDialog`, unlike
-          `GroupDetail.tsx`'s genuinely terminal group-delete flow (irreversible, deletes roles)
-          which *does* use `AlertDialog` in the same package — the original author already judged
-          suspend as non-terminal. The copy ("You can reactivate at any time") corroborates that
-          judgment but isn't the primary evidence. */}
-          <Dialog
-            isOpen={suspendTarget !== null}
-            onOpenChange={handleSuspendDialogOpenChange}
-            purpose="form"
-          >
-            <Layout
-              header={
-                <DialogHeader
-                  title="Suspend account?"
-                  subtitle={`${suspendTarget?.full_name}'s access will be revoked immediately. You can reactivate at any time.`}
-                  onOpenChange={handleSuspendDialogOpenChange}
-                />
-              }
-              footer={
-                <DialogFooter>
-                  <Button
-                    variant="secondary"
-                    label="Cancel"
-                    onClick={() => setSuspendTarget(null)}
-                  />
-                  <Button
-                    variant="destructive"
-                    label="Suspend"
-                    onClick={() => {
-                      if (suspendTarget?.user_id) suspend.mutate(suspendTarget.user_id);
-                      setSuspendTarget(null);
-                    }}
-                  />
-                </DialogFooter>
-              }
-            />
-          </Dialog>
-
-          {/* Detail sheet */}
-          <UserDetailSheet
-            row={selectedRow}
-            open={selectedRow !== null}
-            onOpenChange={(o) => {
-              if (!o) setSelectedRow(null);
-            }}
-          />
-        </LayoutContent>
-      }
-    />
+      {/* Detail sheet */}
+      <UserDetailSheet
+        row={selectedRow}
+        open={selectedRow !== null}
+        onOpenChange={(o) => {
+          if (!o) setSelectedRow(null);
+        }}
+      />
+    </AdminPageFrame>
   );
 }

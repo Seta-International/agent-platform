@@ -1,5 +1,5 @@
-import { Badge, Button, Input } from '@seta/shared-ui';
-import { Plus } from 'lucide-react';
+import { Badge, Button, HStack, IconButton, Input, StackItem, VStack } from '@seta/shared-ui';
+import { Plus, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface DomainsFieldProps {
@@ -24,15 +24,19 @@ export function DomainsField({ domains, onChange }: DomainsFieldProps) {
   }
 
   return (
-    <div className="space-y-1">
-      <div className="flex gap-2">
-        <Input
-          label="Email domains"
-          value={input}
-          onChange={(value) => setInput(value)}
-          placeholder="contoso.com"
-          onEnter={add}
-        />
+    <VStack gap={2}>
+      {/* vAlign="end": Input is a labelled field, so aligning tops would sit the button
+          beside the label rather than the control. */}
+      <HStack gap={2} vAlign="end">
+        <StackItem size="fill">
+          <Input
+            label="Email domains"
+            value={input}
+            onChange={(value) => setInput(value)}
+            placeholder="contoso.com"
+            onEnter={add}
+          />
+        </StackItem>
         <Button
           type="button"
           variant="secondary"
@@ -40,31 +44,30 @@ export function DomainsField({ domains, onChange }: DomainsFieldProps) {
           label="Add"
           onClick={add}
         />
-      </div>
+      </HStack>
       {domains.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
+        <HStack gap={1} wrap="wrap">
           {domains.map((d) => (
             <Badge
               key={d}
               variant="neutral"
-              className="gap-1"
+              className="gap-1" // keep: spaces the Badge's inline label content (text + remove IconButton); no Stack fits inside a bare ReactNode label
               label={
                 <>
                   {d}
-                  <button
-                    type="button"
-                    className="ml-1 hover:text-error"
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    label={`Remove ${d}`}
                     onClick={() => remove(d)}
-                    aria-label={`Remove ${d}`}
-                  >
-                    ×
-                  </button>
+                    icon={<X className="size-3" />}
+                  />
                 </>
               }
             />
           ))}
-        </div>
+        </HStack>
       )}
-    </div>
+    </VStack>
   );
 }

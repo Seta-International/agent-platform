@@ -1,7 +1,5 @@
 import {
   Badge,
-  BreadcrumbItem,
-  Breadcrumbs,
   Button,
   Dialog,
   DialogHeader,
@@ -10,11 +8,12 @@ import {
   Input,
   Layout,
   LayoutContent,
-  LayoutHeader,
   pixel,
   proportional,
   Selector,
   Skeleton,
+  StatusDot,
+  type StatusDotVariant,
   Table,
   type TableColumn,
   type TableSortState,
@@ -26,6 +25,7 @@ import {
 } from '@seta/shared-ui';
 import { Copy, Search } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { AdminPageFrame } from '../../components/AdminPageFrame.tsx';
 import type { AuditRowDto } from '../api/audit-client.ts';
 import { useAuditEvents } from '../hooks/queries/use-audit-events.ts';
 
@@ -86,21 +86,29 @@ function eventTone(eventType: string): 'success' | 'danger' | 'warning' | 'prima
   return 'info';
 }
 
-const TONE_DOT: Record<ReturnType<typeof eventTone>, string> = {
-  success: 'bg-success',
-  danger: 'bg-error',
-  warning: 'bg-warning',
-  primary: 'bg-accent-bg',
-  info: 'bg-disabled',
+const TONE_VARIANT: Record<ReturnType<typeof eventTone>, StatusDotVariant> = {
+  success: 'success',
+  danger: 'error',
+  warning: 'warning',
+  primary: 'accent',
+  info: 'neutral',
+};
+
+const TONE_LABEL: Record<ReturnType<typeof eventTone>, string> = {
+  success: 'Created',
+  danger: 'Removed',
+  warning: 'Changed',
+  primary: 'Access change',
+  info: 'Other',
 };
 
 function EventTypeCell({ eventType }: { eventType: string }) {
   const tone = eventTone(eventType);
   return (
-    <div className="flex items-center gap-2">
-      <span aria-hidden className={`size-1.5 rounded-full ${TONE_DOT[tone]}`} />
-      <code className="font-mono text-base text-primary">{eventType}</code>
-    </div>
+    <HStack gap={2} vAlign="center">
+      <StatusDot variant={TONE_VARIANT[tone]} label={TONE_LABEL[tone]} />
+      <Text type="code">{eventType}</Text>
+    </HStack>
   );
 }
 
@@ -108,16 +116,29 @@ function ActorCell({ actor }: { actor: AuditRowDto['actor'] }) {
   const kind = deriveActorKind(actor);
   const label = actorLabel(actor);
   return (
-    <div className="flex items-center gap-2">
-      <Badge variant="neutral" className="font-mono text-xs" label={kind} />
-      <span className="truncate text-base text-secondary">{label}</span>
-    </div>
+    <HStack gap={2} vAlign="center">
+      <Badge
+        variant="neutral"
+        className="font-mono" // keep: mono has no Badge prop (sanctioned exception, see EntraProviderCard.tsx)
+        label={kind}
+      />
+      <Text
+        color="secondary"
+        className="truncate" // keep: no Text prop for text-overflow truncation
+      >
+        {label}
+      </Text>
+    </HStack>
   );
 }
 
 function TraceCell({ traceId }: { traceId: string | null }) {
-  if (!traceId) return <span className="text-disabled">{'\u2014'}</span>;
-  return <code className="font-mono text-sm text-secondary">{traceId.slice(0, 12)}…</code>;
+  if (!traceId) return <Text color="disabled">{'\u2014'}</Text>;
+  return (
+    <Text type="code" size="sm" color="secondary">
+      {traceId.slice(0, 12)}…
+    </Text>
+  );
 }
 
 function whenLabel(iso: string): { absolute: string; relative: string } {
@@ -148,10 +169,12 @@ const columns: TableColumn<AuditRow>[] = [
     renderCell: (r) => {
       const w = whenLabel(r.occurred_at);
       return (
-        <div className="flex flex-col leading-tight">
-          <span className="font-mono text-base text-primary">{w.absolute}</span>
-          <span className="text-sm text-secondary">{w.relative}</span>
-        </div>
+        <VStack gap={0}>
+          <Text type="code">{w.absolute}</Text>
+          <Text type="supporting" color="secondary">
+            {w.relative}
+          </Text>
+        </VStack>
       );
     },
   },
@@ -189,24 +212,56 @@ function AuditDiffPanel({ row }: { row: AuditRowDto }) {
     );
   }, [json]);
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-body">
-      <div className="flex items-center justify-between border-b border-border bg-card px-3 py-1.5">
-        <span className="text-xs font-medium uppercase tracking-[0.04em] text-secondary">
+    <VStack
+      gap={0}
+      // keep: this is the JSON code-viewer itself (not a settings/list "card"), so it keeps
+      // a container boundary via tokens instead of the removed Card-around-a-form idiom.
+      style={{
+        overflow: 'hidden',
+        borderRadius: 'var(--radius-container)',
+        border: '1px solid var(--color-border)',
+      }}
+    >
+      <HStack
+        hAlign="between"
+        vAlign="center"
+        gap={2}
+        style={{
+          paddingInline: 'var(--spacing-3)',
+          paddingBlock: 'var(--spacing-1.5)',
+          borderBottom: '1px solid var(--color-border)',
+          backgroundColor: 'var(--color-background-surface)',
+        }}
+      >
+        <Text
+          type="supporting"
+          weight="medium"
+          color="secondary"
+          className="uppercase tracking-[0.04em]" // keep: no Text prop for letter-spacing/uppercase
+        >
           Payload diff
-        </span>
+        </Text>
         <Button
           variant="ghost"
           size="sm"
           onClick={onCopy}
-          className="h-6 gap-1.5"
           icon={<Copy className="size-3" />}
           label={copied ? 'Copied' : 'Copy JSON'}
         />
-      </div>
-      <pre className="max-h-72 overflow-auto bg-body p-3 font-mono text-sm leading-relaxed text-primary">
+      </HStack>
+      <Text
+        type="code"
+        display="block"
+        style={{
+          maxHeight: '18rem',
+          overflow: 'auto',
+          padding: 'var(--spacing-3)',
+          whiteSpace: 'pre',
+        }}
+      >
         {json}
-      </pre>
-    </div>
+      </Text>
+    </VStack>
   );
 }
 
@@ -311,140 +366,116 @@ export function AdminAudit({
         : 'No events';
 
   return (
-    <Layout
-      height="fill"
-      header={
-        <>
-          <LayoutHeader hasDivider padding={4}>
-            <VStack gap={1}>
-              <Breadcrumbs variant="supporting">
-                <BreadcrumbItem href="/admin">Admin</BreadcrumbItem>
-                <BreadcrumbItem isCurrent>Audit log</BreadcrumbItem>
-              </Breadcrumbs>
-              <HStack hAlign="between" vAlign="center" gap={2}>
-                <HStack gap={2} vAlign="center">
-                  <Text as="h1" size="lg" weight="semibold">
-                    Audit log
-                  </Text>
-                  {subtitle && <Text color="secondary">{subtitle}</Text>}
-                </HStack>
-              </HStack>
-            </VStack>
-          </LayoutHeader>
-          <LayoutHeader padding={0}>
-            <Toolbar
-              label="Audit log filters"
-              size="sm"
-              dividers={['bottom']}
-              startContent={
-                <>
-                  <Selector
-                    label="Event"
-                    isLabelHidden
-                    size="sm"
-                    placeholder="All events"
-                    hasClear
-                    options={[...EVENT_TYPE_OPTIONS]}
-                    value={search.event_type ?? null}
-                    onChange={setEventType}
-                  />
-                  <Selector
-                    label="Range"
-                    isLabelHidden
-                    size="sm"
-                    placeholder="All time"
-                    hasClear
-                    options={[...DATE_RANGE_OPTIONS]}
-                    value={rangeSelected}
-                    onChange={(v) => setRange(v as DateRange | null)}
-                  />
-                </>
-              }
-              endContent={
-                <Input
-                  label="Search trace id (coming soon)"
-                  isLabelHidden
-                  startIcon={<Search className="size-3.5" aria-hidden />}
-                  placeholder="Search trace id…"
-                  value=""
-                  onChange={() => {}}
-                  isDisabled
-                  className="w-72"
-                />
-              }
-            />
-          </LayoutHeader>
-        </>
-      }
-      content={
-        <LayoutContent padding={0}>
-          <div className="px-6 py-4">
-            {isLoading ? (
-              <div className="space-y-2">
-                {['s0', 's1', 's2', 's3', 's4'].map((id) => (
-                  <Skeleton key={id} height={44} />
-                ))}
-              </div>
-            ) : (
-              <Table
-                data={rows}
-                columns={columns}
-                idKey="event_id"
-                emptyState={<EmptyState title="No events" />}
-                plugins={{
-                  sortable,
-                  pagination,
-                  // Click a row to open its payload-diff detail drawer; ignore
-                  // clicks originating from the row's own controls (e.g. the
-                  // sortable header lives in <thead>, so only body cells trigger).
-                  rowClick: {
-                    transformBodyRow: (props, item) => ({
-                      ...props,
-                      htmlProps: {
-                        ...props.htmlProps,
-                        style: { ...props.htmlProps.style, cursor: 'pointer' },
-                        onClick: (e) => {
-                          const target = e.target as HTMLElement;
-                          if (target.closest('button, a, input, label')) return;
-                          setDetailRow(item);
-                        },
-                      },
-                    }),
-                  },
-                }}
+    <AdminPageFrame
+      crumb="Audit log"
+      title="Audit log"
+      subtitle={subtitle}
+      isFullWidth
+      subheader={
+        <Toolbar
+          label="Audit log filters"
+          size="sm"
+          dividers={['bottom']}
+          startContent={
+            <>
+              <Selector
+                label="Event"
+                isLabelHidden
+                size="sm"
+                placeholder="All events"
+                hasClear
+                options={[...EVENT_TYPE_OPTIONS]}
+                value={search.event_type ?? null}
+                onChange={setEventType}
               />
-            )}
-          </div>
-
-          {/* Payload-diff detail drawer — the row-expansion replacement. */}
-          <Dialog
-            isOpen={detailRow !== null}
-            onOpenChange={(o) => {
-              if (!o) setDetailRow(null);
-            }}
-            purpose="info"
-            position={{ top: 0, right: 0, bottom: 0 }}
-            width={640}
-            maxHeight="100dvh"
-            aria-label={detailRow ? `Event detail: ${detailRow.event_type}` : 'Event detail'}
-          >
-            <Layout
-              header={
-                <DialogHeader
-                  title="Event detail"
-                  subtitle={detailRow?.event_type}
-                  onOpenChange={(o) => {
-                    if (!o) setDetailRow(null);
-                  }}
-                />
-              }
-              content={
-                <LayoutContent>{detailRow && <AuditDiffPanel row={detailRow} />}</LayoutContent>
-              }
+              <Selector
+                label="Range"
+                isLabelHidden
+                size="sm"
+                placeholder="All time"
+                hasClear
+                options={[...DATE_RANGE_OPTIONS]}
+                value={rangeSelected}
+                onChange={(v) => setRange(v as DateRange | null)}
+              />
+            </>
+          }
+          endContent={
+            <Input
+              label="Search trace id (coming soon)"
+              isLabelHidden
+              startIcon={<Search className="size-3.5" aria-hidden />}
+              placeholder="Search trace id…"
+              value=""
+              onChange={() => {}}
+              isDisabled
+              width={288}
             />
-          </Dialog>
-        </LayoutContent>
+          }
+        />
       }
-    />
+    >
+      {isLoading ? (
+        <VStack gap={2}>
+          {['s0', 's1', 's2', 's3', 's4'].map((id) => (
+            <Skeleton key={id} height={44} />
+          ))}
+        </VStack>
+      ) : (
+        <Table
+          data={rows}
+          columns={columns}
+          idKey="event_id"
+          emptyState={<EmptyState title="No events" />}
+          plugins={{
+            sortable,
+            pagination,
+            // Click a row to open its payload-diff detail drawer; ignore
+            // clicks originating from the row's own controls (e.g. the
+            // sortable header lives in <thead>, so only body cells trigger).
+            rowClick: {
+              transformBodyRow: (props, item) => ({
+                ...props,
+                htmlProps: {
+                  ...props.htmlProps,
+                  style: { ...props.htmlProps.style, cursor: 'pointer' },
+                  onClick: (e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button, a, input, label')) return;
+                    setDetailRow(item);
+                  },
+                },
+              }),
+            },
+          }}
+        />
+      )}
+
+      {/* Payload-diff detail drawer — the row-expansion replacement. */}
+      <Dialog
+        isOpen={detailRow !== null}
+        onOpenChange={(o) => {
+          if (!o) setDetailRow(null);
+        }}
+        purpose="info"
+        position={{ top: 0, right: 0, bottom: 0 }}
+        width={640}
+        maxHeight="100dvh"
+        aria-label={detailRow ? `Event detail: ${detailRow.event_type}` : 'Event detail'}
+      >
+        <Layout
+          header={
+            <DialogHeader
+              title="Event detail"
+              subtitle={detailRow?.event_type}
+              onOpenChange={(o) => {
+                if (!o) setDetailRow(null);
+              }}
+            />
+          }
+          content={<LayoutContent>{detailRow && <AuditDiffPanel row={detailRow} />}</LayoutContent>}
+        />
+      </Dialog>
+    </AdminPageFrame>
   );
 }

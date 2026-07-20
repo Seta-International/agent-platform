@@ -7,6 +7,7 @@ import {
   Input,
   Layout,
   LayoutContent,
+  VStack,
 } from '@seta/shared-ui';
 import { useState } from 'react';
 import { DomainsField } from '../../components/DomainsField.tsx';
@@ -65,18 +66,18 @@ export function EditDomainsDialog({
           header={<DialogHeader title="Edit email domains" onOpenChange={handleOpenChange} />}
           content={
             <LayoutContent>
-              <div className="space-y-4">
-                <div className="space-y-1">
+              <VStack gap={4}>
+                <VStack gap={1}>
                   <Input
                     label="Entra tenant ID"
                     value={entraTenantId ?? ''}
                     placeholder="Configured via the Microsoft 365 integration"
                     isDisabled
                   />
-                </div>
+                </VStack>
                 <DomainsField domains={domains} onChange={setDomains} />
                 {error && <Banner status="error" title={error} />}
-              </div>
+              </VStack>
             </LayoutContent>
           }
           footer={

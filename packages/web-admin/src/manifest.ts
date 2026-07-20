@@ -22,39 +22,6 @@ export const adminAppManifest: AppManifest = {
   useNavExtensions: noNavExtensions,
   nav: [
     {
-      label: 'Access control',
-      items: [
-        {
-          id: 'admin.users',
-          icon: Users,
-          label: 'Directory',
-          to: '/admin/users',
-          requires: ['identity.user.list'],
-        },
-        {
-          id: 'admin.groups',
-          icon: UsersRound,
-          label: 'Groups',
-          to: '/admin/groups',
-          requires: ['identity.group.read'],
-        },
-        {
-          id: 'admin.role-access',
-          icon: ShieldCheck,
-          label: 'Role access',
-          to: '/admin/role-access',
-          requires: ['identity.role.read'],
-        },
-        {
-          id: 'admin.sso',
-          icon: Shield,
-          label: 'Sign-in & SSO',
-          to: '/admin/sso',
-          requires: ['identity.sso.read'],
-        },
-      ],
-    },
-    {
       label: 'Workspace',
       items: [
         {
@@ -84,6 +51,39 @@ export const adminAppManifest: AppManifest = {
           label: 'Skills catalog',
           to: '/admin/skills',
           requires: ['core.skill.read'],
+        },
+      ],
+    },
+    {
+      label: 'Access control',
+      items: [
+        {
+          id: 'admin.users',
+          icon: Users,
+          label: 'Directory',
+          to: '/admin/users',
+          requires: ['identity.user.list'],
+        },
+        {
+          id: 'admin.groups',
+          icon: UsersRound,
+          label: 'Groups',
+          to: '/admin/groups',
+          requires: ['identity.group.read'],
+        },
+        {
+          id: 'admin.role-access',
+          icon: ShieldCheck,
+          label: 'Role access',
+          to: '/admin/role-access',
+          requires: ['identity.role.read'],
+        },
+        {
+          id: 'admin.sso',
+          icon: Shield,
+          label: 'Sign-in & SSO',
+          to: '/admin/sso',
+          requires: ['identity.sso.read'],
         },
       ],
     },
