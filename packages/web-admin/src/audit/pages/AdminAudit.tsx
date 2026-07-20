@@ -370,6 +370,7 @@ export function AdminAudit({
       crumb="Audit log"
       title="Audit log"
       subtitle={subtitle}
+      isFullWidth
       subheader={
         <Toolbar
           label="Audit log filters"

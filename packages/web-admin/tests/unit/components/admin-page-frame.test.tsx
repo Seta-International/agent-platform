@@ -33,15 +33,15 @@ describe('AdminPageFrame', () => {
     expect(content?.contains(toolbar)).toBe(false);
   });
 
-  // Astryx `Layout` applies `contentWidth` as an inline custom property, so the px value is
-  // the observable contract here — asserting on it survives StyleX class-hash churn.
-  it('caps the content width by default', () => {
+  it('caps and centres the body by default', () => {
     const { container } = render(
       <AdminPageFrame crumb="General" title="General">
         page-body
       </AdminPageFrame>,
     );
-    expect(container.querySelector('[style*="960px"]')).not.toBeNull();
+    const body = container.querySelector<HTMLElement>('[style*="max-width: 640px"]');
+    expect(body).not.toBeNull();
+    expect(body?.style.marginInline).toBe('auto');
   });
 
   it('drops the width cap when isFullWidth is set', () => {
@@ -50,21 +50,17 @@ describe('AdminPageFrame', () => {
         page-body
       </AdminPageFrame>,
     );
-    expect(container.querySelector('[style*="960px"]')).toBeNull();
+    expect(container.querySelector('[style*="max-width"]')).toBeNull();
   });
 
-  it('caps the header on the same column as the body, so their left edges align', () => {
+  it('leaves the header uncapped so its actions stay at the viewport edge', () => {
     const { container } = render(
-      <AdminPageFrame crumb="General" title="General">
+      <AdminPageFrame crumb="General" title="General" actions={<button type="button">New</button>}>
         page-body
       </AdminPageFrame>,
     );
-    // The cap lives on a shared ancestor of both slots rather than on the content slot alone;
-    // capping only the body indents it away from the header (the defect this replaced).
-    const capped = container.querySelector('[style*="960px"]');
-    const header = container.querySelector('.astryx-layout-header');
-    const content = container.querySelector('.astryx-layout-content');
-    expect(capped?.contains(header!)).toBe(true);
-    expect(capped?.contains(content!)).toBe(true);
+    const capped = container.querySelector('[style*="max-width: 640px"]');
+    expect(capped?.contains(container.querySelector('.astryx-layout-header'))).toBe(false);
+    expect(capped?.contains(container.querySelector('.astryx-layout-content'))).toBe(false);
   });
 });
