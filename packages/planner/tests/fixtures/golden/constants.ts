@@ -13,8 +13,9 @@ export const ACTOR_PERSON_ID = '00000000-cccc-0000-0000-000000000001';
 export const ACTOR_NAME = 'Anh Nguyen';
 export const ACTOR_EMAIL = 'anh.nguyen@seta-demo.test';
 
-// --- Admin ---
+// --- Admin (tenant admin — no person record, used as created_by/assigned_by) ---
 export const ADMIN_USER_ID = '00000000-bbbb-0000-0000-000000000000';
+export const ADMIN_EMAIL = 'admin@seta-demo.test';
 
 // --- Groups ---
 export const GRP_ENG_ID = '00000000-dddd-0000-0000-000000000001';
