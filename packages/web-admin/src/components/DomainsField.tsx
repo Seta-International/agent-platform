@@ -1,4 +1,4 @@
-import { Badge, Button, HStack, IconButton, Input, VStack } from '@seta/shared-ui';
+import { Badge, Button, HStack, IconButton, Input, StackItem, VStack } from '@seta/shared-ui';
 import { Plus, X } from 'lucide-react';
 import { useState } from 'react';
 
@@ -25,14 +25,18 @@ export function DomainsField({ domains, onChange }: DomainsFieldProps) {
 
   return (
     <VStack gap={2}>
-      <HStack gap={2}>
-        <Input
-          label="Email domains"
-          value={input}
-          onChange={(value) => setInput(value)}
-          placeholder="contoso.com"
-          onEnter={add}
-        />
+      {/* vAlign="end": Input is a labelled field, so aligning tops would sit the button
+          beside the label rather than the control. */}
+      <HStack gap={2} vAlign="end">
+        <StackItem size="fill">
+          <Input
+            label="Email domains"
+            value={input}
+            onChange={(value) => setInput(value)}
+            placeholder="contoso.com"
+            onEnter={add}
+          />
+        </StackItem>
         <Button
           type="button"
           variant="secondary"
