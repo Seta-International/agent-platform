@@ -524,8 +524,26 @@ function CategoryRow({
           selected ? 'font-semibold text-primary' : 'text-secondary',
         )}
       >
-        {cat.name} <span style={{ color: 'var(--color-text-disabled)' }}>({count})</span>
+        {cat.name}
       </button>
+
+      {/* Count pill matches RailItem's, so the rail reads the same as Groups and Role access. */}
+      <HStack
+        hAlign="center"
+        vAlign="center"
+        paddingInline={1.5}
+        style={{
+          height: 'var(--spacing-5)',
+          minWidth: 'var(--spacing-5)',
+          flex: 'none',
+          borderRadius: 'var(--radius-full)',
+          backgroundColor: 'var(--color-background-card)',
+        }}
+      >
+        <Text type="supporting" color="secondary">
+          {count}
+        </Text>
+      </HStack>
 
       {confirming ? (
         <HStack as="span" gap={1} vAlign="center">
