@@ -1,42 +1,65 @@
-import { Card } from '@seta/shared-ui';
+import {
+  Badge,
+  HStack,
+  pixel,
+  proportional,
+  Table,
+  type TableColumn,
+  Text,
+  VStack,
+} from '@seta/shared-ui';
+
+interface RoleRow extends Record<string, unknown> {
+  slug: string;
+}
+
+const columns: TableColumn<RoleRow>[] = [
+  {
+    key: 'slug',
+    header: 'Role',
+    width: proportional(2),
+    renderCell: (row) => <Text className="font-mono text-sm">{row.slug}</Text>,
+  },
+  {
+    key: 'scope',
+    header: 'Scope',
+    width: proportional(1),
+    renderCell: () => <Text color="secondary">Organization</Text>,
+  },
+  {
+    key: 'assignment',
+    header: 'Assignment',
+    width: pixel(120),
+    align: 'end',
+    renderCell: () => <Badge label="Manual" />,
+  },
+];
 
 export function ProfileRolesCard({ roles }: { roles: string[] }) {
   return (
-    <Card padding={5}>
-      <div className="flex items-baseline justify-between gap-4 mb-3.5">
-        <p className="text-sm text-secondary m-0">
+    <VStack gap={4}>
+      <HStack hAlign="between" vAlign="start" gap={4}>
+        <Text color="secondary">
           What you can see and change in this app. Need a different role?{' '}
-          <span className="text-accent">Ask your admin</span>.
-        </p>
-        <span className="flex-none text-xs text-secondary">Your admin manages these.</span>
-      </div>
+          <Text weight="semibold">Ask your admin</Text>.
+        </Text>
+        <Text type="supporting" color="secondary">
+          Your admin manages these.
+        </Text>
+      </HStack>
 
       {roles.length === 0 ? (
-        <div className="rounded-md border border-border px-3.5 py-3 text-sm text-secondary">
+        <Text type="supporting" color="secondary">
           No roles yet.
-        </div>
+        </Text>
       ) : (
-        <div className="rounded-md border border-border overflow-hidden">
-          {roles.map((slug, i) => (
-            <div
-              key={slug}
-              className="grid grid-cols-[1.4fr_1fr_90px] items-center px-3.5 py-2.5 text-sm"
-              style={{
-                borderBottom: i === roles.length - 1 ? undefined : '1px solid var(--color-border)',
-              }}
-            >
-              <span className="flex items-center gap-2">
-                <span className="size-1.5 rounded-full bg-accent-bg" />
-                <span className="font-mono text-sm">{slug}</span>
-              </span>
-              <span className="text-sm text-secondary">Organization</span>
-              <span className="justify-self-end inline-flex items-center h-[18px] rounded-full bg-surface border border-transparent px-1.5 text-xs text-secondary">
-                Manual
-              </span>
-            </div>
-          ))}
-        </div>
+        <Table
+          data={roles.map((slug) => ({ slug }))}
+          columns={columns}
+          dividers="rows"
+          density="compact"
+        />
       )}
-    </Card>
+    </VStack>
   );
 }

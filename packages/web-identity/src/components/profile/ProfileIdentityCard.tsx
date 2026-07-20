@@ -1,20 +1,24 @@
-import { Avatar, Button, Card, Input, Textarea, TimeInput } from '@seta/shared-ui';
+import {
+  Avatar,
+  Button,
+  Divider,
+  Field,
+  Heading,
+  HStack,
+  Input,
+  StackItem,
+  Text,
+  Textarea,
+  TimeInput,
+  VStack,
+} from '@seta/shared-ui';
 import { Calendar } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../../api/client.ts';
 import { TimezonePicker } from '../TimezonePicker';
 
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const BIO_MAX = 500;
-
-function FieldLabel({ label, hint }: { label: string; hint?: string }) {
-  return (
-    <div className="flex items-baseline justify-between mb-1.5">
-      <span className="text-xs font-medium text-secondary">{label}</span>
-      {hint && <span className="text-xs text-secondary">{hint}</span>}
-    </div>
-  );
-}
 
 export function ProfileIdentityCard({
   profile,
@@ -27,6 +31,7 @@ export function ProfileIdentityCard({
   onUpdate: (p: ProfileDto) => void;
   canEditWorkingHours?: boolean;
 }) {
+  const workingHoursId = useId();
   const [name, setName] = useState(profile.display_name);
   const [tz, setTz] = useState(profile.timezone);
   const [bio, setBio] = useState(profile.bio ?? '');
@@ -74,50 +79,69 @@ export function ProfileIdentityCard({
   }
 
   return (
-    <Card padding={5}>
-      <div className="flex items-start gap-5">
-        <div className="flex flex-col items-center gap-2 flex-none">
+    <VStack gap={8}>
+      {/* "Personal info": avatar + name + bio + email, grouped exactly as
+            the reference Astryx settings template groups them (its own
+            "Personal information" section carries name, email, and contact
+            fields together) — a Heading + Divider per section, not an
+            unlabeled visual break. */}
+      <VStack gap={4}>
+        <Heading level={3}>Personal info</Heading>
+        <Divider />
+        <HStack gap={4} vAlign="start">
           <Avatar name={profile.display_name} size={64} />
-        </div>
+          <StackItem size="fill">
+            <VStack gap={4}>
+              <Input label="Name" value={name} onChange={(value) => setName(value)} />
+              <Textarea
+                label="Bio"
+                value={bio}
+                maxLength={BIO_MAX}
+                rows={4}
+                placeholder="Add a short bio so teammates know who you are."
+                onChange={(value) => setBio(value)}
+                status={
+                  bioTooLong
+                    ? { type: 'error', message: `Bio cannot exceed ${BIO_MAX} characters.` }
+                    : undefined
+                }
+              />
+              <Input
+                label="Email"
+                description="If you change this, you'll need to verify the new email."
+                value={profile.email}
+                isDisabled
+                className="font-mono text-sm"
+              />
+            </VStack>
+          </StackItem>
+        </HStack>
+      </VStack>
 
-        <div className="flex-1 min-w-0 flex flex-col gap-3.5">
-          <div>
-            <Input label="Name" value={name} onChange={(value) => setName(value)} />
-          </div>
+      {/* "Preferences": how/when this person works. */}
+      <VStack gap={4}>
+        <Heading level={3}>Preferences</Heading>
+        <Divider />
 
-          <Textarea
-            label="Bio"
-            value={bio}
-            maxLength={BIO_MAX}
-            rows={4}
-            placeholder="Add a short bio so teammates know who you are."
-            onChange={(value) => setBio(value)}
-            status={
-              bioTooLong
-                ? { type: 'error', message: `Bio cannot exceed ${BIO_MAX} characters.` }
-                : undefined
-            }
-          />
+        <TimezonePicker value={tz} onChange={setTz} isLabelHidden={false} />
 
-          <div>
-            <Input
-              label="Email"
-              description="If you change this, you'll need to verify the new email."
-              value={profile.email}
-              isDisabled
-              className="font-mono text-sm"
-            />
-          </div>
-
-          <div>
-            <FieldLabel label="Timezone" />
-            <TimezonePicker value={tz} onChange={setTz} />
-          </div>
-
-          <div>
-            <FieldLabel label="Working hours" />
-            {canEditWorkingHours && editingHours ? (
-              <div className="flex items-center gap-2">
+        <VStack gap={1.5}>
+          {/* Matches every other field's own label styling (Astryx's
+                Field/Input labels render as type="label") instead of an
+                arbitrary bold Text that outweighs its neighbors. */}
+          {!editingHours && <Text type="label">Working hours</Text>}
+          {canEditWorkingHours && editingHours ? (
+            <Field
+              label="Working hours"
+              inputID={workingHoursId}
+              labelID={workingHoursId}
+              isGroupLabel
+              status={
+                whInvalid ? { type: 'error', message: 'Use 24-hour time, like 09:00' } : undefined
+              }
+              statusVariant="detached"
+            >
+              <fieldset aria-labelledby={workingHoursId} className="flex items-center gap-2">
                 <TimeInput
                   label="Working hours start"
                   isLabelHidden
@@ -125,7 +149,7 @@ export function ProfileIdentityCard({
                   value={whStart || undefined}
                   onChange={(v) => setWhStart(v ?? '')}
                 />
-                <span className="text-secondary text-sm">to</span>
+                <Text type="supporting">to</Text>
                 <TimeInput
                   label="Working hours end"
                   isLabelHidden
@@ -143,37 +167,43 @@ export function ProfileIdentityCard({
                   }}
                   label="Cancel"
                 />
-              </div>
-            ) : (
-              <div className="flex items-center gap-2.5 rounded-md border border-border-strong px-3 py-1.5 text-sm">
-                <Calendar className="size-3.5 text-secondary flex-none" />
-                <span>{wh ? `Mon–Fri · ${wh.start}–${wh.end}` : 'Not set'}</span>
-                <span className="flex-1" />
-                {canEditWorkingHours ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 px-2 text-xs"
-                    onClick={() => setEditingHours(true)}
-                    label="Edit"
-                  />
-                ) : (
-                  <span className="text-xs text-secondary">Set by your admin</span>
-                )}
-              </div>
-            )}
-            {whInvalid && <p className="mt-1 text-xs text-error">Use 24-hour time, like 09:00</p>}
-          </div>
+              </fieldset>
+            </Field>
+          ) : (
+            // Same label/value-left, action-right shape as the reference
+            // template's own device-history and account rows — a wide
+            // hAlign="between" row is that template's deliberate idiom,
+            // not a layout bug.
+            <HStack hAlign="between" vAlign="center">
+              <HStack gap={2} vAlign="center">
+                <Calendar className="size-3.5 text-secondary" />
+                <Text>{wh ? `Mon–Fri · ${wh.start}–${wh.end}` : 'Not set'}</Text>
+              </HStack>
+              {canEditWorkingHours ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingHours(true)}
+                  label="Edit"
+                />
+              ) : (
+                <Text type="supporting">Set by your admin</Text>
+              )}
+            </HStack>
+          )}
+        </VStack>
+      </VStack>
 
-          <div className="flex justify-end pt-1">
-            <Button
-              onClick={save}
-              isDisabled={saving || !dirty || Boolean(whInvalid) || bioTooLong}
-              label="Save changes"
-            />
-          </div>
-        </div>
-      </div>
-    </Card>
+      <Divider />
+
+      <HStack hAlign="end">
+        <Button
+          variant="primary"
+          onClick={save}
+          isDisabled={saving || !dirty || Boolean(whInvalid) || bioTooLong}
+          label="Save changes"
+        />
+      </HStack>
+    </VStack>
   );
 }
