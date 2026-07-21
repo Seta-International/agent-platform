@@ -36,6 +36,8 @@ import {
   applyDraftToForm,
   EMPTY_WORKER_FORM,
   saveWorkerWithCv,
+  validateWorkerForm,
+  type WorkerFormErrors,
   type WorkerFormValues,
 } from '../lib/cv-intake.ts';
 
@@ -62,6 +64,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<WorkerFormErrors>({});
 
   const { data: org } = useQuery({
     queryKey: ['people', 'org-structure'],
@@ -77,8 +80,22 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
 
   const [skillItems, setSkillItems] = useSeededItems(skillIds, searchSkills.seed);
 
-  const set = (field: keyof WorkerFormValues) => (v: string) =>
+  const set = (field: keyof WorkerFormValues) => (v: string) => {
     setForm((prev) => ({ ...prev, [field]: v }));
+    setFieldErrors((prev) => (field in prev ? { ...prev, [field]: undefined } : prev));
+  };
+
+  const fieldStatus = (field: keyof WorkerFormErrors) =>
+    fieldErrors[field] ? ({ type: 'error', message: fieldErrors[field] } as const) : undefined;
+
+  function handleSubmit() {
+    const errors = validateWorkerForm(form);
+    if (Object.values(errors).some(Boolean)) {
+      setFieldErrors(errors);
+      return;
+    }
+    save.mutate();
+  }
 
   const parse = useMutation({
     mutationFn: parseWorkerCvDraft,
@@ -104,7 +121,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
         { form, skillIds, cvFile },
       ),
     onSuccess: ({ warnings }) => {
-      toast({ body: 'Worker created' });
+      toast({ body: 'Employee added' });
       for (const w of warnings) toast({ body: w, type: 'error' });
       onCreated();
       setOpen(false);
@@ -119,6 +136,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
     setSuggestions([]);
     setCvFile(null);
     setError(null);
+    setFieldErrors({});
     parse.reset();
   }
 
@@ -140,7 +158,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
         size="sm"
         variant="primary"
         icon={<Plus className="size-3.5" />}
-        label="New worker"
+        label="Add employee"
         onClick={() => setOpen(true)}
       />
       <Dialog
@@ -151,7 +169,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
         purpose="form"
       >
         <Layout
-          header={<DialogHeader title="Add worker" onOpenChange={handleOpenChange} />}
+          header={<DialogHeader title="Add employee" onOpenChange={handleOpenChange} />}
           content={
             <LayoutContent>
               <div className="space-y-5">
@@ -195,6 +213,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                       isRequired
                       value={form.full_name}
                       onChange={(value) => set('full_name')(value)}
+                      status={fieldStatus('full_name')}
                       className="col-span-2"
                     />
                     <DateInput
@@ -219,6 +238,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                       label="Personal email"
                       value={form.personal_email}
                       onChange={(value) => set('personal_email')(value)}
+                      status={fieldStatus('personal_email')}
                     />
                     <Input
                       label="Phone"
@@ -230,6 +250,7 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
                       label="Work email"
                       value={form.work_email}
                       onChange={(value) => set('work_email')(value)}
+                      status={fieldStatus('work_email')}
                       placeholder="Generated from the tenant domain when left empty"
                       className="col-span-2"
                     />
@@ -309,10 +330,10 @@ export function CreateWorkerDialog({ onCreated }: { onCreated: () => void }) {
               <Button variant="secondary" onClick={() => setOpen(false)} label="Cancel" />
               <Button
                 variant="primary"
-                onClick={() => save.mutate()}
-                isDisabled={save.isPending || parse.isPending || !form.full_name.trim()}
+                onClick={handleSubmit}
+                isDisabled={save.isPending || parse.isPending}
                 icon={<Plus className="size-4" />}
-                label={save.isPending ? 'Creating…' : 'Create worker'}
+                label={save.isPending ? 'Adding…' : 'Add employee'}
               />
             </DialogFooter>
           }

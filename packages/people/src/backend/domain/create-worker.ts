@@ -8,6 +8,22 @@ import { PeopleError, requirePermission } from '../rbac.ts';
 import { insertWorkerAggregate } from './insert-worker-aggregate.ts';
 import { generateWorkEmail } from './work-email.ts';
 
+/** Unique indexes on people.person whose violation is a user-fixable conflict, not a 500. */
+const UNIQUE_CONFLICT_MESSAGES: Record<string, string> = {
+  person_uniq_email_per_tenant: 'work_email already in use',
+  person_uniq_employee_no_per_tenant: 'employee_no already in use',
+};
+
+function uniqueConflictMessage(err: unknown): string | undefined {
+  // Drizzle wraps the driver error (DrizzleQueryError.cause) — walk the cause
+  // chain so both wrapped and raw pg errors match.
+  for (let e = err; e instanceof Error; e = e.cause) {
+    const pg = e as Error & { code?: string; constraint?: string };
+    if (pg.code === '23505' && pg.constraint) return UNIQUE_CONFLICT_MESSAGES[pg.constraint];
+  }
+  return undefined;
+}
+
 export async function createWorker(
   input: CreateWorkerInput & { session: SessionScope },
 ): Promise<{ worker_id: string }> {
@@ -72,15 +88,8 @@ export async function createWorker(
       },
     );
   } catch (err) {
-    if (
-      err instanceof Error &&
-      'code' in err &&
-      (err as NodeJS.ErrnoException).code === '23505' &&
-      'constraint' in err &&
-      (err as unknown as Record<string, unknown>).constraint === 'person_uniq_email_per_tenant'
-    ) {
-      throw new PeopleError('CONFLICT', 'work_email already in use');
-    }
+    const conflict = uniqueConflictMessage(err);
+    if (conflict) throw new PeopleError('CONFLICT', conflict);
     throw err;
   }
   return result;

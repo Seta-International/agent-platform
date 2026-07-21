@@ -453,8 +453,8 @@ export function PeoplePage() {
                         ) : (
                           <EmptyState
                             icon={<Users className="size-6" />}
-                            title="No workers yet"
-                            description="Add a worker to get started."
+                            title="No employees yet"
+                            description="Add an employee to get started."
                           />
                         )
                       }

@@ -18,6 +18,22 @@ export const Default: Story = {
   },
 };
 
+export const Required: Story = {
+  render: () => (
+    <div className="flex flex-col gap-4 w-72">
+      <Input label="Full name" isRequired value="" onChange={() => {}} />
+      <Input
+        label="Work email"
+        isRequired
+        labelTooltip="Generated from the tenant domain when left empty"
+        value=""
+        onChange={() => {}}
+      />
+      <Input label="Phone" value="" onChange={() => {}} />
+    </div>
+  ),
+};
+
 export const Sizes: Story = {
   render: () => (
     <div className="flex flex-col gap-4 w-72">
