@@ -34,10 +34,18 @@ The `forbidden-tools` scorer checks against this explicit set:
 
 **Write tools from current codebase:** `planner_assignTask`, `planner_postComment`, `planner_setAssignees`, `planner_createTask`
 
-## Judge
+## Models (agent-under-test vs judge)
 
-- Judge model: `claude-sonnet-4-20250514` — Std tier, sufficient for faithfulness/relevancy judgments on S2 data. Does not need Heavy tier because the judgments are comparative (tool output vs answer text), not generative.
-- Per ADR: S2 data may be judged by external models; S1 would require self-hosted judge.
+- **Agent-under-test:** the environment's configured model, resolved through the
+  production registry (`resolveModel(undefined)` in `@seta/agent`, driven by the
+  `AGENT_MODELS` / `AGENT_MODEL_DEFAULT` / `<PROVIDER>_BASE_URL` GitHub variables).
+  Golden lanes never hardcode a model — dev/uat/prod each evaluate their own
+  (self-hosted) default via `tests/fixtures/golden/eval-models.ts`.
+- **Judge:** an OpenAI model, `EVAL_JUDGE_MODEL` (default `openai/gpt-5-mini`), kept
+  independent of the agent so a self-hosted agent is still judged by a capable
+  cloud model. `eval.config.json.judgeModel` mirrors the default.
+- Per ADR: S2 data may be judged by external models; S1 would require a
+  self-hosted judge.
 
 ## Gate vs advisory registry (`metricPolicy`)
 
@@ -96,4 +104,5 @@ registry is only the gate/advisory decision the runner enforces.
 - 2026-07-16: initial thresholds set. `faithfulness` at 0.8 (above default 0.7) and `hallucination` at 0.8 reflect QueryAgent's data-grounding mission. `expected-tools` as gate reflects deterministic routing.
 - 2026-07-21: golden dataset v2 landed — CSV → typed YAML cases, frozen SQL fact oracle + `preflight`, and the `metricPolicy` gate/advisory registry (A1–A8 gate, B1–B8 advisory). Cases assert Axis A only; Axis B stays advisory until the E2E quality lane is built.
 - 2026-07-21: A3 retrieval slice (cases + IR policy runner), deterministic Axis-A scorers + two-tier policy registry, and judge grounding-context wrapper (+ hallucination CLI) landed. Remaining: E2E golden-tenant lane (real pgvector search + real orchestrator run) for A3/A8-real/B1–B3.
+- 2026-07-21: agent-under-test switched from hardcoded `openai/gpt-4o-mini` to the environment's registry default (self-hosted via `resolveModel`); LLM judge switched from Claude to OpenAI (`EVAL_JUDGE_MODEL`, default `openai/gpt-5-mini`). `runGoldenEval` gained an advisory `runJudge` seam — B2/B3/B4 now score via faithfulness/hallucination/answer-relevancy judges (recorded, never gating); B2+B4 enabled on PQ-003. Diagnostic report artifacts (JSON+MD with full trajectory/answer/scorer detail) now written to `.reports/` per run.
 - 2026-07-21: `runGoldenEval` data-driven driver + `onToolActivity` two-tier trajectory capture landed; nightly diagnostic lane runs the smoke suite over the real pipeline (seed → login → embed → preflight → run). First live smoke run: 6 cases, 4 pass / 2 A1 `tool_selection` fails (PQ-001 "board Alpha", PQ-003 "how many open tasks") where the live model deviates from the exact-match `requiredTools`. These are constraint/behavior mismatches on legacy-migrated cases — follow-up is to reconcile `allowedTools`/seed per case, **not** to weaken scorers. The lane asserts the driver runs E2E, not `gateFailed===false`, until that reconcile lands.

@@ -1,8 +1,8 @@
-import type { MastraModelConfig } from '@mastra/core/llm';
 import { expect, it } from 'vitest';
 import { buildPlannerQueryEvalTarget } from '../../../src/backend/orchestration/eval-target.ts';
 import { ACTOR_USER_ID, TENANT_ID } from '../../fixtures/golden/constants.ts';
 import { embedGoldenTasks } from '../../fixtures/golden/embed-tasks.ts';
+import { resolveEvalGenModel } from '../../fixtures/golden/eval-models.ts';
 import { cleanGoldenDataset, seedGoldenDataset } from '../../fixtures/golden/index.ts';
 import { seedGoldenLogin } from '../../fixtures/golden/seed-login.ts';
 import { withAgentTestDb } from '../agent-tools-helpers.ts';
@@ -22,7 +22,7 @@ it('runs the real orchestrator against the seeded tenant and answers the open-ta
     await embedGoldenTasks(pool, databaseUrl, [TENANT_ID]);
 
     // Gateway model string — Mastra routes it via the AI SDK using OPENAI_API_KEY.
-    const model = 'openai/gpt-4o-mini' as unknown as MastraModelConfig;
+    const { model } = resolveEvalGenModel();
     const runtime = buildPlannerQueryEvalTarget({ databaseUrl }).buildQualityRuntime({
       resolveModel: () => model,
     });

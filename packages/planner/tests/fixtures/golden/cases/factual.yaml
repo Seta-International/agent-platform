@@ -52,7 +52,9 @@
     behavior: answer
     trajectory:
       requiredTools: [planner_queryTasksAgent, planner_getOpenTaskCountForUser]
-  metrics: { enabled: [A1] }
+  # A1 gates deterministically; B2/B4 are advisory LLM-judge signals
+  # (faithfulness/answer-relevancy) exercised by the E2E quality lane.
+  metrics: { enabled: [A1, B2, B4] }
 
 - schemaVersion: 1
   kind: agent

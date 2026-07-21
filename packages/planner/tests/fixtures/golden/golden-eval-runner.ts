@@ -8,7 +8,7 @@
 import { ctxFromCase } from './ctx-from-case.ts';
 import { resolveMetricMode } from './metric-policy.ts';
 import { evaluatePolicy, type PolicyId, policyRegistry } from './policy/registry.ts';
-import type { Trajectory } from './policy/trajectory.ts';
+import type { ToolCall, Trajectory } from './policy/trajectory.ts';
 import type { RetrievalCaseResult } from './retrieval-runner.ts';
 import { buildRunManifest, type RunManifest, type RunManifestOverrides } from './run-manifest.ts';
 import type { GoldenCase } from './schema.ts';
@@ -18,12 +18,29 @@ export interface AgentRunOutput {
   trajectory: Trajectory;
 }
 
+/** One LLM-judge scorer outcome for an advisory (B*) metric. */
+export interface JudgeScorerResult {
+  id: string;
+  score: number;
+  threshold: number;
+  passed: boolean;
+  reason?: string;
+}
+
 export interface RunGoldenEvalParams {
   cases: GoldenCase[];
   suite: string;
   manifest: RunManifestOverrides;
   runAgent: (c: GoldenCase) => Promise<AgentRunOutput>;
   runRetrieval: (cases: GoldenCase[]) => Promise<RetrievalCaseResult[]>;
+  /** Optional LLM-as-judge for advisory B* metrics. The caller owns the mapping
+   *  from each B* id to its judge scorers; results are recorded, never gated.
+   *  Absent ⇒ B* metrics stay recorded-only (verdict pass, no scorers). */
+  runJudge?: (
+    c: GoldenCase,
+    output: AgentRunOutput,
+    metricIds: string[],
+  ) => Promise<Record<string, JudgeScorerResult[]>>;
 }
 
 export interface PolicyReport {
@@ -36,6 +53,12 @@ export interface PolicyReport {
 export interface CaseReport {
   id: string;
   kind: GoldenCase['kind'];
+  /** The user-facing question (agent: last user message; retrieval: query). */
+  question?: string;
+  /** The agent's answer text (agent cases only). */
+  answer?: string;
+  /** The captured two-tier tool trajectory (agent cases only). */
+  trajectory?: ToolCall[];
   policies: PolicyReport[];
 }
 
@@ -52,6 +75,20 @@ function isPolicyId(id: string): id is PolicyId {
   return id in policyRegistry;
 }
 
+/** Human-readable question for a case: last user message (agent) or the query
+ *  (retrieval); conversation cases use the last turn's last user message. */
+function questionOf(c: GoldenCase): string | undefined {
+  if (c.kind === 'retrieval') return c.query;
+  if (c.kind === 'agent') {
+    const msgs = c.input.messages;
+    return msgs[msgs.length - 1]?.content;
+  }
+  if (c.kind === 'conversation') {
+    return c.turns[c.turns.length - 1]?.user;
+  }
+  return undefined;
+}
+
 export async function runGoldenEval(params: RunGoldenEvalParams): Promise<GoldenRunReport> {
   const manifest = buildRunManifest(params.manifest);
   const caseReports: CaseReport[] = [];
@@ -64,7 +101,7 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
 
   for (const c of params.cases) {
     if (c.kind === 'conversation') {
-      caseReports.push({ id: c.id, kind: c.kind, policies: [] });
+      caseReports.push({ id: c.id, kind: c.kind, question: questionOf(c), policies: [] });
       continue;
     }
 
@@ -83,6 +120,7 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
       caseReports.push({
         id: c.id,
         kind: c.kind,
+        question: questionOf(c),
         policies: [{ id: 'A3', mode, verdict, scorers }],
       });
       continue;
@@ -98,6 +136,18 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
       runError = true;
     }
 
+    // Batch the advisory LLM-judge call once per case for all its B* metrics.
+    const judgeIds = c.metrics.enabled.filter((id) => !isPolicyId(id));
+    let judgeResults: Record<string, JudgeScorerResult[]> = {};
+    if (output && !runError && judgeIds.length && params.runJudge) {
+      try {
+        judgeResults = await params.runJudge(c, output, judgeIds);
+      } catch {
+        // Advisory lane: a judge failure must never gate or abort the run.
+        judgeResults = {};
+      }
+    }
+
     for (const rawId of c.metrics.enabled) {
       const mode = resolveMetricMode(rawId, c.metricOverrides?.[rawId]);
       if (runError || !output) {
@@ -106,8 +156,20 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
         continue;
       }
       if (!isPolicyId(rawId)) {
-        // B* / not-yet-implemented deterministic policy — recorded, not scored here.
-        policies.push({ id: rawId, mode, verdict: 'pass', scorers: [] });
+        // Advisory B* metric: record real judge scores when available, else a
+        // recorded-only placeholder. Never added to gateFailures (advisory).
+        const jr = judgeResults[rawId] ?? [];
+        const scorers = jr.map((s) => ({
+          id: s.id,
+          passed: s.passed,
+          detail: `score=${s.score} (>=${s.threshold})${s.reason ? `: ${s.reason}` : ''}`,
+        }));
+        const verdict: PolicyReport['verdict'] = scorers.length
+          ? scorers.every((s) => s.passed)
+            ? 'pass'
+            : 'fail'
+          : 'pass';
+        policies.push({ id: rawId, mode, verdict, scorers });
         continue;
       }
       const ctx = ctxFromCase(c, output.trajectory, output.answer);
@@ -123,7 +185,14 @@ export async function runGoldenEval(params: RunGoldenEvalParams): Promise<Golden
         gateFailures.push({ caseId: c.id, policyId: rawId, scorer: firstFail?.id ?? 'unknown' });
       }
     }
-    caseReports.push({ id: c.id, kind: c.kind, policies });
+    caseReports.push({
+      id: c.id,
+      kind: c.kind,
+      question: questionOf(c),
+      answer: output?.answer,
+      trajectory: output?.trajectory.toolCalls,
+      policies,
+    });
   }
 
   return {

@@ -1,8 +1,8 @@
-import type { MastraModelConfig } from '@mastra/core/llm';
 import { expect, it } from 'vitest';
 import { buildPlannerQueryEvalTarget } from '../../../src/backend/orchestration/eval-target.ts';
 import { ACTOR_USER_ID, TENANT_ID } from '../../fixtures/golden/constants.ts';
 import { embedGoldenTasks } from '../../fixtures/golden/embed-tasks.ts';
+import { resolveEvalGenModel } from '../../fixtures/golden/eval-models.ts';
 import { cleanGoldenDataset, seedGoldenDataset } from '../../fixtures/golden/index.ts';
 import { toolNames } from '../../fixtures/golden/policy/trajectory.ts';
 import { seedGoldenLogin } from '../../fixtures/golden/seed-login.ts';
@@ -24,7 +24,7 @@ it('captures the two-tier tool trajectory of a real delegated run', async () => 
     await embedGoldenTasks(pool, databaseUrl, [TENANT_ID]);
 
     const collector = new TrajectoryCollector();
-    const model = 'openai/gpt-4o-mini' as unknown as MastraModelConfig;
+    const { model } = resolveEvalGenModel();
     const runtime = buildPlannerQueryEvalTarget({ databaseUrl, collector }).buildQualityRuntime({
       resolveModel: () => model,
     });
