@@ -20,6 +20,7 @@ import {
   QuerySubAgentInputSchema,
   QuerySubAgentOutputSchema,
 } from '../schemas.ts';
+import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
 
 export const TASK_DETAIL_TOOL_IDS = [
   'planner_getTask',
@@ -33,6 +34,8 @@ export interface QueryTaskDetailDeps {
   resolveModel: () => MastraModelConfig;
   mastraStorage: MastraCompositeStore;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
+  /** Eval seam — receives this agent's executed tool calls after generate(). */
+  onToolActivity?: OnToolActivity;
 }
 
 const INSTRUCTIONS = `You answer questions about ONE known task in prose.
@@ -118,6 +121,7 @@ export function makeQueryTaskDetailAgent(deps: QueryTaskDetailDeps): Specialized
               requestContext: rc,
               abortSignal: ctx.abortSignal,
             });
+            deps.onToolActivity?.(mapToolActivity(r.toolCalls, r.toolResults));
             return { text: r.text };
           })();
 

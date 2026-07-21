@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { pickModel } from './model.ts';
 import { makeQueryOrchestratorTools } from './orchestrator.tools.ts';
 import type { QuerySubAgentInput, QuerySubAgentOutput } from './schemas.ts';
+import type { OnToolActivity } from './tool-activity.ts';
 
 type SubAgent = SpecializedAgentSpec<QuerySubAgentInput, QuerySubAgentOutput>;
 
@@ -35,6 +36,8 @@ export interface QueryOrchestratorDeps {
   generalAnswer: SubAgent;
   resolveModel: () => MastraModelConfig;
   mastraStorage: MastraCompositeStore;
+  /** Eval seam — receives the orchestrator's delegation (routing) calls. */
+  onToolActivity?: OnToolActivity;
   /** Test seam — replaces agent.stream(); returns a minimal output with `.text`. */
   streamAgent?: (args: {
     message: string;
@@ -90,6 +93,7 @@ function buildQueryOrchestrator(
     teamInfo: deps.teamInfo,
     generalAnswer: deps.generalAnswer,
     ctx,
+    onToolActivity: deps.onToolActivity,
   }) as unknown as Record<string, AgentTool>;
 
   const rawAgent = new Agent({
