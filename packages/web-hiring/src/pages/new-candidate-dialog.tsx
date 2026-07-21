@@ -33,7 +33,7 @@ import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
 const NONE = '__none__';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^\+?[0-9()\-.\s]{7,20}$/;
+const PHONE_RE = /^\+?[0-9]{7,15}$/;
 const NAME_ERROR_MESSAGE = 'Full name must be a valid person name.';
 const NAME_RE = /^[\p{L}\p{M}]+(?:[ '’-][\p{L}\p{M}]+)*$/u;
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addCandidateInput,
   closeOpeningInput,
+  editCandidatePatch,
   editRequisitionPatch,
   openRequisitionInput,
   rejectApplicationInput,
@@ -51,7 +52,6 @@ describe('hiring contracts (HIR-2)', () => {
     expect(rejectApplicationInput.safeParse({ tags: [] }).success).toBe(false);
     expect(rejectApplicationInput.safeParse({ reason: '   ', tags: [] }).success).toBe(false);
   });
-
   describe('name validation (FUT-623)', () => {
     const validReq = () => ({ requisition_id: crypto.randomUUID() });
     it('rejects date-like values', () => {
@@ -103,5 +103,30 @@ describe('hiring contracts (HIR-2)', () => {
       const r = addCandidateInput.parse({ name: 'Jean‐Luc', ...validReq() });
       expect(r.name).toBe('Jean-Luc');
     });
+  });
+
+  it('validates candidate phone format in addCandidateInput and editCandidatePatch (FUT-625)', () => {
+    const reqId = crypto.randomUUID();
+    // Valid phone formats
+    expect(
+      addCandidateInput.safeParse({ name: 'Valid', requisition_id: reqId, phone: '0962093864' })
+        .success,
+    ).toBe(true);
+    expect(
+      addCandidateInput.safeParse({ name: 'Valid', requisition_id: reqId, phone: '+84962093864' })
+        .success,
+    ).toBe(true);
+    expect(
+      addCandidateInput.safeParse({ name: 'Valid', requisition_id: reqId, phone: '' }).success,
+    ).toBe(true);
+
+    // Invalid phone formats (FUT-625 test cases)
+    const invalidPhones = ['abc', '09abc', '@@@@', '0962 093864', '0962-093-864'];
+    for (const phone of invalidPhones) {
+      expect(
+        addCandidateInput.safeParse({ name: 'Test', requisition_id: reqId, phone }).success,
+      ).toBe(false);
+      expect(editCandidatePatch.safeParse({ phone }).success).toBe(false);
+    }
   });
 });
