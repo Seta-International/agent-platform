@@ -6,6 +6,9 @@ import {
   Dialog,
   DialogHeader,
   DisabledActionTooltip,
+  Divider,
+  Field,
+  Grid,
   HStack,
   Input,
   Layout,
@@ -15,10 +18,11 @@ import {
   RichTextEditor,
   Selector,
   useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import {
   fetchAccounts,
   fetchProjects,
@@ -29,6 +33,7 @@ import {
 import { GRADES } from '../lib/grades.ts';
 import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
+import { GroupLabel } from './form-group-label.tsx';
 import { isRichTextEmpty } from './requisition-format.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
@@ -69,6 +74,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   // FUT-559 error focus: red per-field message + scroll to the first empty required field.
   const titleFieldRef = useRef<HTMLDivElement>(null);
   const aboutFieldRef = useRef<HTMLDivElement>(null);
+  // Stable id base for the JD Field wrappers (label ↔ control association).
+  const jdFieldBase = useId();
   const titleInvalid = submitAttempted && !title.trim();
   const aboutInvalid = submitAttempted && isRichTextEmpty(jd.about);
   // FUT-559 date bounds: a new requisition can't start in the past, and due must land on or
@@ -226,27 +233,32 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
           }
           content={
             <LayoutContent>
-              <div className="space-y-5">
-                <div className="space-y-1" ref={titleFieldRef}>
-                  <Input
-                    label="Job title"
-                    isRequired
-                    value={title}
-                    onChange={(value) => setTitle(value)}
-                    placeholder="e.g. Senior Backend Engineer"
-                  />
-                  {titleInvalid && <p className="text-sm text-error">Job title is required.</p>}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+              <VStack gap={6}>
+                {/* Role */}
+                <VStack gap={4}>
+                  <GroupLabel>Role</GroupLabel>
+                  {/* Wrapper is a scroll target for the submit-time error focus, not styling. */}
+                  <div ref={titleFieldRef}>
+                    <Input
+                      label="Job title"
+                      isRequired
+                      value={title}
+                      onChange={(value) => setTitle(value)}
+                      placeholder="e.g. Senior Backend Engineer"
+                      status={
+                        titleInvalid
+                          ? { type: 'error', message: 'Job title is required.' }
+                          : undefined
+                      }
+                    />
+                  </div>
+                  <Grid columns={2} gap={4}>
                     <Selector
                       label="Grade"
                       options={GRADES.map((g) => ({ value: g, label: g }))}
                       value={grade}
                       onChange={setGrade}
                     />
-                  </div>
-                  <div className="space-y-1">
                     <Selector
                       label="Type"
                       options={[
@@ -256,10 +268,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       value={kind}
                       onChange={(v) => setKind(v as 'new' | 'replacement')}
                     />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  </Grid>
+                  <Grid columns={2} gap={4}>
                     <Selector
                       label="Account"
                       options={(accounts ?? []).map((a) => ({
@@ -273,8 +283,6 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       }}
                       placeholder="No account"
                     />
-                  </div>
-                  <div className="space-y-1">
                     <Selector
                       label="Project"
                       options={(projects ?? []).map((p) => ({
@@ -286,10 +294,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       isDisabled={!accountId}
                       placeholder={accountId ? 'No project' : 'Pick an account first'}
                     />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  </Grid>
+                </VStack>
+
+                {/* Logistics */}
+                <VStack gap={4}>
+                  <GroupLabel>Logistics</GroupLabel>
+                  <Grid columns={2} gap={4}>
                     <Selector
                       label="Interview mode"
                       options={[
@@ -300,63 +311,78 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       value={mode}
                       onChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
                     />
-                  </div>
-                  <NumberInput
-                    label="Headcount (openings)"
-                    min={1}
-                    isIntegerOnly
-                    value={headcount}
-                    onChange={(v) => setHeadcount(Math.max(1, v || 1))}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                    <NumberInput
+                      label="Headcount (openings)"
+                      min={1}
+                      isIntegerOnly
+                      value={headcount}
+                      onChange={(v) => setHeadcount(Math.max(1, v || 1))}
+                    />
+                  </Grid>
+                  <Grid columns={2} gap={4}>
                     <DateInput
                       label="Start date"
                       value={start || undefined}
                       onChange={(v) => setStart(v ?? '')}
+                      // Can't start a role in the past — disable every day before today.
+                      min={today}
+                      status={startError ? { type: 'error', message: startError } : undefined}
                     />
-                    {startError && <p className="text-sm text-error">{startError}</p>}
-                  </div>
-                  <div className="space-y-1">
                     <DateInput
                       label="Due date"
                       value={due || undefined}
                       onChange={(v) => setDue(v ?? '')}
+                      // Due must land on/after the start date (and never before today).
+                      min={start && start > today ? start : today}
+                      status={dueError ? { type: 'error', message: dueError } : undefined}
                     />
-                    {dueError && <p className="text-sm text-error">{dueError}</p>}
-                  </div>
-                </div>
+                  </Grid>
+                </VStack>
 
-                <SkillPicker value={skills} onChange={setSkills} />
+                {/* Skills */}
+                <VStack gap={4}>
+                  <GroupLabel>Skills</GroupLabel>
+                  <SkillPicker value={skills} onChange={setSkills} />
+                </VStack>
 
-                {/* FUT-559 (562f4b86): External/Internal variant switcher is temporarily hidden —
-                    content saves under the default variant until the two-variant flow is final. */}
-                <div className="text-sm font-semibold uppercase text-secondary">JD detail</div>
+                <Divider />
 
-                {SECTIONS.map((s) => (
-                  <div key={s.key} ref={s.key === 'about' ? aboutFieldRef : undefined}>
-                    <div
-                      className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
-                    >
-                      {s.key === 'about' ? 'About the role *' : s.label}
-                    </div>
-                    <RichTextEditor
-                      value={jd[s.key]}
-                      onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
-                      className={s.key === 'about' && aboutInvalid ? '!border-error' : undefined}
-                      placeholder={
-                        s.key === 'about'
-                          ? 'Write the about section…'
-                          : `Write the ${s.label.toLowerCase()}…`
-                      }
-                    />
-                    {s.key === 'about' && aboutInvalid && (
-                      <p className="mt-1 text-sm text-error">About the role is required.</p>
-                    )}
-                  </div>
-                ))}
-              </div>
+                {/* Job description. FUT-559 (562f4b86): the External/Internal variant switcher is
+                    temporarily hidden — content saves under the default variant for now. */}
+                <VStack gap={4}>
+                  <GroupLabel>Job description</GroupLabel>
+                  {SECTIONS.map((s) => {
+                    const isAbout = s.key === 'about';
+                    return (
+                      <Field
+                        key={s.key}
+                        ref={isAbout ? aboutFieldRef : undefined}
+                        label={s.label}
+                        isGroupLabel
+                        inputID={`${jdFieldBase}-${s.key}`}
+                        labelID={`${jdFieldBase}-${s.key}-label`}
+                        isRequired={isAbout}
+                        status={
+                          isAbout && aboutInvalid
+                            ? { type: 'error', message: 'About the role is required.' }
+                            : undefined
+                        }
+                      >
+                        <RichTextEditor
+                          value={jd[s.key]}
+                          onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
+                          className={isAbout && aboutInvalid ? '!border-error' : undefined}
+                          placeholder={
+                            isAbout
+                              ? 'Write the about section…'
+                              : `Write the ${s.label.toLowerCase()}…`
+                          }
+                        />
+                      </Field>
+                    );
+                  })}
+                </VStack>
+              </VStack>
             </LayoutContent>
           }
           footer={

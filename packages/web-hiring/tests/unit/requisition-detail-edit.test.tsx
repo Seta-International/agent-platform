@@ -84,30 +84,40 @@ const wrap =
 async function openEditor() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<RequisitionDetailView requisitionId="r1" variant="page" />, { wrapper: wrap(qc) });
-  await userEvent.click(await screen.findByRole('button', { name: /edit jd/i }));
+  await userEvent.click(await screen.findByRole('button', { name: /^edit$/i }));
   await screen.findByLabelText(/job title/i);
 }
 
 describe('RequisitionDetailView editing', () => {
   beforeEach(() => editRequisition.mockReset());
 
-  it('rejects moving the start date into the past', async () => {
+  it('keeps a past date from being set as the start date', async () => {
     await openEditor();
+    // The start picker disables every day before today, so a past value is rejected outright —
+    // nothing invalid reaches the save.
     fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: '2000-01-01' } });
     await userEvent.click(screen.getByRole('button', { name: /^update$/i }));
 
-    expect(screen.getByText('Start date cannot be in the past.')).toBeInTheDocument();
     expect(editRequisition).not.toHaveBeenCalled();
   });
 
-  it('rejects a due date before the start date', async () => {
+  it('rejects a due date earlier than the start date', async () => {
+    editRequisition.mockResolvedValueOnce({ version: 2 });
     await openEditor();
     fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: '2999-01-02' } });
+    // The due picker's minimum is the start date, so this earlier value is not taken; the save
+    // goes through with the valid start and no due date.
     fireEvent.change(screen.getByLabelText(/due date/i), { target: { value: '2999-01-01' } });
     await userEvent.click(screen.getByRole('button', { name: /^update$/i }));
 
-    expect(screen.getByText('Due date must be on or after the start date.')).toBeInTheDocument();
-    expect(editRequisition).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(editRequisition).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({
+          patch: expect.objectContaining({ start_date: '2999-01-02', due_date: undefined }),
+        }),
+      ),
+    );
   });
 
   it('still saves when the stored past start date is left untouched', async () => {
@@ -140,7 +150,7 @@ describe('RequisitionDetailView editing', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
     await userEvent.click(screen.getByRole('button', { name: /^discard$/i }));
-    expect(await screen.findByRole('button', { name: /edit jd/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^edit$/i })).toBeInTheDocument();
   });
 
   it('cancels immediately when nothing changed', async () => {
@@ -148,6 +158,6 @@ describe('RequisitionDetailView editing', () => {
     await userEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
 
     expect(screen.queryByText('Discard your changes?')).not.toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: /edit jd/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^edit$/i })).toBeInTheDocument();
   });
 });

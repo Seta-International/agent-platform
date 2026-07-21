@@ -1,6 +1,6 @@
 import { ToastViewport } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -112,12 +112,12 @@ describe('CandidateDetailDrawer', () => {
     );
   });
 
-  it('shows profile, skills, fit, note, and the activity timeline', async () => {
+  it('shows profile, fit, note, and the activity timeline', async () => {
     fetchCandidate.mockResolvedValue(detail);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
-    expect(screen.getByText('TypeScript')).toBeInTheDocument();
+    // Skills live in the CV now — the drawer surfaces the fit summary, not a chip list.
     expect(screen.getByText('2/3 skills')).toBeInTheDocument();
     expect(screen.getByText('Candidate created')).toBeInTheDocument();
     expect(screen.getByText('1998-05-12')).toBeInTheDocument();
@@ -200,14 +200,15 @@ describe('CandidateDetailDrawer', () => {
     expect(screen.getByText('Upload')).toBeInTheDocument();
   });
 
-  it('moves stage from the Move stage menu', async () => {
+  it('advances the candidate to the next stage from the decision bar', async () => {
     fetchCandidate.mockResolvedValue(detail);
     moveApplicationStage.mockResolvedValueOnce({ version: 5 });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
-    await userEvent.click(screen.getByRole('button', { name: /Move stage/i }));
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Interview' }));
+    // Candidate is in Screening, so the primary action advances to Interview — after a confirm.
+    await userEvent.click(screen.getByRole('button', { name: /Advance to Interview/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Advance' }));
     await waitFor(() =>
       expect(moveApplicationStage).toHaveBeenCalledWith('a1', {
         expected_version: 4,

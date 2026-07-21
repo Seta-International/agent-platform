@@ -99,11 +99,13 @@ describe('CandidatesPage', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidatesPage />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
-    // "New"/"Screening"/"Hired" each appear twice (stat segment label + board column name).
+    // Each stage label appears twice now: once in the stat segments, once as the board column
+    // name — the segments were unified to the board's vocabulary (Interview/Offer, not the old
+    // Interviewing/Offering) so the two surfaces read the same word.
     expect(screen.getAllByText('New').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('Screening').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText('Interview')).toBeInTheDocument();
-    expect(screen.getByText('Offer')).toBeInTheDocument();
+    expect(screen.getAllByText('Interview').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('Offer').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('Hired').length).toBeGreaterThanOrEqual(2);
   });
 

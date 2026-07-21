@@ -1,284 +1,147 @@
-import {
-  Button,
-  DisabledActionTooltip,
-  DropdownMenu,
-  DropdownMenuItem,
-  useToast,
-} from '@seta/shared-ui';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ClickableCard, Heading, StatusDot, Text } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
-import { Calendar, Check, MoreHorizontal, Users } from 'lucide-react';
-import {
-  holdRequisition,
-  type RequisitionListRow,
-  resumeRequisition,
-} from '../api/hiring-client.ts';
-import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
-import { hiringKeys } from '../state/query-keys.ts';
+import { Users } from 'lucide-react';
+import type { RequisitionListRow } from '../api/hiring-client.ts';
 import {
   daysLeft,
+  deriveAttention,
   formatDate,
   furthestReachedIndex,
   STAGE_LABEL,
   STAGES,
-  STATUS_BADGE_CLASS,
-  STATUS_LABEL,
   stageCounts,
 } from './requisition-format.ts';
-import { on409 } from './utils.ts';
-
-// Skill proficiency: requisition_skill.min_level is 1–5; render a word like the design.
-const LEVEL_LABEL: Record<number, string> = {
-  1: 'Basic',
-  2: 'Intermediate',
-  3: 'Advanced',
-  4: 'Expert',
-  5: 'Master',
-};
 
 const KIND_LABEL: Record<string, string> = { new: 'New', replacement: 'Replacement' };
 
-export function RequisitionCard({
-  r,
-  canManage,
-  canClose,
-  onRequestMarkFilled,
-  onRequestCancel,
-}: {
-  r: RequisitionListRow;
-  canManage: boolean;
-  canClose: boolean;
-  onRequestMarkFilled: () => void;
-  onRequestCancel: () => void;
-}) {
-  const toast = useToast();
+// A requisition card is a glance-and-navigate surface: it shows the one signal that needs
+// attention and opens the detail view on click. Lifecycle actions (pause, mark filled, cancel)
+// live in the detail's footer, so the card carries no action menu of its own.
+export function RequisitionCard({ r }: { r: RequisitionListRow }) {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const invalidate = () =>
-    void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
 
-  function onError(e: Error) {
-    on409(toast, e, queryClient, hiringKeys.requisitions());
-  }
-
-  const pause = useMutation({
-    mutationFn: () => holdRequisition(r.id, { expected_version: r.version }),
-    onSuccess: () => {
-      toast({ body: 'Requisition paused' });
-      invalidate();
-    },
-    onError,
-  });
-  const resume = useMutation({
-    mutationFn: () => resumeRequisition(r.id, { expected_version: r.version }),
-    onSuccess: () => {
-      toast({ body: 'Requisition resumed' });
-      invalidate();
-    },
-    onError,
-  });
-
-  const isTerminal = r.status === 'filled' || r.status === 'cancelled';
-  // Per-stage applicant counts (FUT-558: a bucket per stage, not the requisition's own
-  // `stage` field) — each candidate counted once, at their current stage, so the four
-  // numbers always sum to r.applicants_count. The checkmark dots/line below track a
-  // separate, still-cumulative concept: the furthest stage anyone has reached.
+  const att = deriveAttention(r);
+  // Per-stage bucket counts (FUT-558): each candidate counted once at their current stage;
+  // the four numbers sum to applicants_count. `furthest` is the deepest stage anyone reached
+  // — the card emphasises that column so the pipeline's leading edge reads at a glance.
   const counts = stageCounts(r.applicants_count, r.applicants);
-  const lastReachedIdx = furthestReachedIndex(r.applicants);
+  const furthest = furthestReachedIndex(r.applicants);
+  const filled = Math.max(0, r.openings_total - r.openings_open);
 
-  // Account/project names come from local pm projections (null until pm emits / the
-  // requisition links a project); grade is always local. Falls back gracefully.
+  // Time-to-fill readout for open requisitions: days left / overdue, coloured only when it
+  // needs attention (past due → red, within a week → amber). Non-open states show a status
+  // word instead (att.statusWord).
+  const dl = r.due_date ? daysLeft(r.due_date) : null;
+  const dueLabel =
+    dl === null
+      ? ''
+      : dl < 0
+        ? `${-dl} day${dl === -1 ? '' : 's'} overdue`
+        : dl === 0
+          ? 'Due today'
+          : `${dl} day${dl === 1 ? '' : 's'} left`;
+  const dueColor =
+    dl === null || dl > 7
+      ? undefined
+      : dl < 0
+        ? 'var(--color-text-error)'
+        : 'var(--color-text-warning)';
+
+  // Account/project names come from local pm projections (null until pm emits / a project is
+  // linked); grade is always local. Falls back gracefully to whatever is present.
   const subtitle = [r.account_name, r.project_name, r.grade ? `Grade ${r.grade}` : null]
     .filter(Boolean)
     .join(' • ');
+
   const go = () =>
     void navigate({
       to: '/hiring/requisitions',
-      search: (prev: Record<string, unknown>) => ({
-        ...prev,
-        selectedRequisitionId: r.id,
-      }),
+      search: (prev: Record<string, unknown>) => ({ ...prev, selectedRequisitionId: r.id }),
     });
 
   return (
-    <div
+    <ClickableCard
+      label={`Open ${r.title}`}
+      onClick={go}
+      padding={5}
+      className="flex h-full flex-col"
       data-testid="requisition-card"
-      className="flex h-full flex-col rounded-xl border border-border bg-card p-5"
     >
-      {/* Title + status */}
-      <div className="flex items-start justify-between gap-4">
+      {/* Header: attention dot + title + kind. */}
+      <div className="flex items-start gap-2.5">
+        <span className="mt-2 shrink-0">
+          <StatusDot variant={att.dotVariant} label={att.dotLabel} />
+        </span>
         <div className="min-w-0">
-          <button
-            type="button"
-            className="line-clamp-2 w-full break-words text-left text-2xl font-semibold text-primary hover:underline"
-            onClick={go}
-          >
-            {r.title}
-          </button>
-          {subtitle && <div className="mt-0.5 truncate text-base text-secondary">{subtitle}</div>}
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {/* Working cards wear their kind (New / Replacement) — on-hold shows through the
-              amber pipeline + Paused block instead. Terminal outcomes (Filled / Cancelled)
-              still take the pill: that's the one fact a closed card must announce. */}
-          {isTerminal ? (
-            <span
-              className={`rounded-full px-2.5 py-1 text-sm font-medium ${STATUS_BADGE_CLASS[r.status]}`}
-            >
-              {STATUS_LABEL[r.status]}
-            </span>
-          ) : (
-            <span className="rounded-full bg-surface px-2.5 py-1 text-sm font-medium text-secondary">
+          <div className="flex items-baseline gap-2">
+            <Heading level={3} maxLines={2}>
+              {r.title}
+            </Heading>
+            {/* Kind as a flat uppercase tag, not a Badge pill — it labels identity, not a
+                status, so it stays out of the enumerated-state Badge vocabulary. */}
+            <Text type="supporting" color="secondary" className="shrink-0 uppercase tracking-wide">
               {KIND_LABEL[r.kind] ?? r.kind}
-            </span>
-          )}
-          {!isTerminal && (
-            <DisabledActionTooltip
-              disabled={!canManage && !canClose}
-              reason={PERMISSION_DENIED.requisition.edit}
-            >
-              <DropdownMenu
-                placement="below"
-                button={{
-                  variant: 'ghost',
-                  size: 'sm',
-                  isIconOnly: true,
-                  icon: <MoreHorizontal className="size-4" />,
-                  label: 'Requisition actions',
-                  isDisabled: !canManage && !canClose,
-                }}
-              >
-                {r.status === 'open' && (
-                  <DropdownMenuItem
-                    label="Pause"
-                    isDisabled={!canManage}
-                    onClick={() => pause.mutate()}
-                  />
-                )}
-                {r.status === 'on_hold' && (
-                  <DropdownMenuItem
-                    label="Resume"
-                    isDisabled={!canManage}
-                    onClick={() => resume.mutate()}
-                  />
-                )}
-                <DropdownMenuItem
-                  label="Mark filled"
-                  isDisabled={!canClose}
-                  // Defer past the menu's own close/focus-return — opening a Dialog
-                  // synchronously from onClick races two focus-traps and can leave
-                  // body pointer-events stuck off (page looks frozen until a refresh).
-                  onClick={() => setTimeout(onRequestMarkFilled, 0)}
-                />
-                <DropdownMenuItem
-                  label="Cancel"
-                  isDisabled={!canClose}
-                  style={{ color: 'var(--color-text-red)' }}
-                  onClick={() => setTimeout(onRequestCancel, 0)}
-                />
-              </DropdownMenu>
-            </DisabledActionTooltip>
-          )}
-        </div>
-      </div>
-
-      {/* Skill chips — tightly grouped with the header/subtitle above it (still "about this
-          role"); the stage module below gets a bigger gap since it's a distinct section.
-          The slot always renders at chip height so the stage track starts at the same y
-          across sibling cards whether or not a role lists skills. */}
-      <div className="mt-3 flex min-h-[26px] flex-wrap gap-1.5">
-        {r.skills.map((s) => (
-          <span
-            key={s.skill_name}
-            className="rounded-full bg-surface px-2.5 py-1 text-sm text-secondary"
-          >
-            {s.skill_name}
-            {/* Level 0 means "no minimum" — show the suffix only for a real 1–5 requirement. */}
-            {s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''}
-          </span>
-        ))}
-      </div>
-
-      {/* Stage progress + timing — read-only: each step lights up once at least one candidate has
-          reached it (furthest-reached index), independent of the requisition's own status. The
-          number under each step is a per-stage bucket count (FUT-558), not cumulative. */}
-      <div className="mt-5 flex items-start gap-4 pb-4">
-        <div className="relative flex-[3] pt-2.5">
-          <div className="absolute inset-x-[12.5%] top-[19px] h-px bg-border-strong" />
-          {/* The pipeline carries the status colour (amber while paused) — with the pill
-              now showing the requisition kind, this is the card's live status signal. */}
-          <div
-            className={`absolute inset-y-0 left-[12.5%] top-[19px] h-px transition-[width] ${
-              r.status === 'on_hold' ? 'bg-warning' : 'bg-accent-bg'
-            }`}
-            style={{
-              width: lastReachedIdx <= 0 ? 0 : `${(lastReachedIdx / (STAGES.length - 1)) * 75}%`,
-            }}
-          />
-          <div className="relative flex justify-between">
-            {STAGES.map((s, i) => {
-              const reached = i <= lastReachedIdx;
-              return (
-                <div key={s} className="flex flex-col items-center gap-1.5">
-                  <span
-                    className={`flex size-5 items-center justify-center rounded-full text-on-accent ${
-                      reached
-                        ? r.status === 'on_hold'
-                          ? 'bg-warning'
-                          : 'bg-accent-bg'
-                        : 'border-2 border-border-strong bg-body'
-                    }`}
-                  >
-                    {reached && <Check className="size-3" aria-hidden />}
-                  </span>
-                  <span
-                    className={`text-sm font-medium ${i === lastReachedIdx ? 'text-primary' : 'text-secondary'}`}
-                  >
-                    {STAGE_LABEL[s]}
-                  </span>
-                  <span className="text-sm tabular-nums text-secondary">{counts[i]}</span>
-                </div>
-              );
-            })}
+            </Text>
           </div>
-        </div>
-        <div className="flex flex-1 items-start justify-end gap-1.5 pt-0.5 text-right text-base">
-          <Calendar className="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden />
-          {r.status === 'on_hold' ? (
-            // Same neutral ink as the due-date block — the amber pipeline alone carries
-            // the paused colour signal.
-            <div>
-              <div className="font-medium text-primary">Paused</div>
-              <div className="text-sm text-secondary">Since {formatDate(r.updated_at)}</div>
-            </div>
-          ) : r.due_date ? (
-            <div>
-              <div className="font-medium text-primary">
-                {daysLeft(r.due_date) >= 0
-                  ? `${daysLeft(r.due_date)} days left`
-                  : `${-daysLeft(r.due_date)}d overdue`}
-              </div>
-              <div className="text-sm text-secondary">Due {formatDate(r.due_date)}</div>
-            </div>
-          ) : (
-            <div className="text-sm text-secondary">No due date</div>
+          {subtitle && (
+            <Text type="supporting" maxLines={1} display="block">
+              {subtitle}
+            </Text>
           )}
         </div>
       </div>
 
-      {/* Applicants + View JD — mt-auto pins the footer to the bottom so cards of different
-          content height still align their footers within the same grid row. */}
-      <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
-        <div>
-          <span className="flex items-center gap-1.5 text-base text-secondary">
-            <Users className="size-4" aria-hidden />
-            {r.applicants_count} Applicants
-          </span>
+      {/* Pipeline buckets (left) + the one hero signal (right). */}
+      <div className="mt-5 flex items-end justify-between gap-4">
+        <div className="flex gap-5">
+          {STAGES.map((s, i) => (
+            <div key={s} className="flex flex-col gap-0.5">
+              <Text type="supporting">{STAGE_LABEL[s]}</Text>
+              <Text
+                data-testid="stage-count"
+                hasTabularNumbers
+                weight={i === furthest ? 'bold' : 'normal'}
+                color={i === furthest ? 'primary' : 'secondary'}
+              >
+                {counts[i]}
+              </Text>
+            </div>
+          ))}
         </div>
-        {/* Sentence case like every other control; no external-link icon — this opens a
-            modal on the same page, not a new tab. */}
-        <Button size="sm" variant="secondary" label="View detail" onClick={go} />
+        {/* One consistent right-hand signal: a lifecycle word for non-open states, otherwise the
+            due-date countdown so every open card is comparable at a glance. */}
+        <div className="flex flex-col items-end text-right">
+          {att.statusWord ? (
+            <Text weight="semibold" style={{ color: att.toneVar }}>
+              {att.statusWord}
+            </Text>
+          ) : r.due_date ? (
+            <>
+              <Text weight="semibold" style={dueColor ? { color: dueColor } : undefined}>
+                {dueLabel}
+              </Text>
+              <Text type="supporting" display="block">
+                Due {formatDate(r.due_date)}
+              </Text>
+            </>
+          ) : (
+            <Text type="supporting">No due date</Text>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Footer pinned to the bottom so cards in a row align: applicants + headcount readout. */}
+      <div className="mt-auto flex items-center justify-between pt-4">
+        <span className="flex items-center gap-1.5">
+          <Users className="size-4 text-secondary" aria-hidden />
+          <Text type="supporting">{r.applicants_count} applicants</Text>
+        </span>
+        {r.openings_total > 0 && (
+          <Text type="supporting">
+            {filled}/{r.openings_total} filled
+          </Text>
+        )}
+      </div>
+    </ClickableCard>
   );
 }

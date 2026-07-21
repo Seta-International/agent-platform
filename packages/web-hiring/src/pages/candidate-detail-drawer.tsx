@@ -2,30 +2,29 @@ import {
   AlertDialog,
   Avatar,
   Badge,
+  Banner,
   Button,
   Dialog,
-  DropdownMenu,
-  DropdownMenuItem,
   formatRelative,
   IconButton,
   Layout,
   LayoutContent,
+  ProgressBar,
   useToast,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  ArrowRight,
   Building2,
   Cake,
   CalendarDays,
-  Check,
   Copy,
   FileText,
   Globe,
   Mail,
-  MoreHorizontal,
   Phone,
-  RefreshCw,
+  Star,
   VenusAndMars,
   X,
 } from 'lucide-react';
@@ -33,7 +32,6 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import {
   type CandStage,
-  type CandStatus,
   editCandidate,
   fetchCandidate,
   getCandidateCvDownloadUrl,
@@ -115,58 +113,6 @@ function DetailRow({
   );
 }
 
-// The stepper also shows the terminal "Hired" outcome after Offer. It's an application
-// *status*, not a stage — you reach it by filling the requisition, not via Move stage.
-const PIPELINE_STEPS: { id: CandStage | 'hired'; label: string }[] = [
-  ...STAGES,
-  { id: 'hired', label: 'Hired' },
-];
-
-function PipelineStepper({
-  stage,
-  status,
-}: {
-  stage: CandStage | undefined;
-  status: CandStatus | undefined;
-}) {
-  const curIdx =
-    status === 'hired'
-      ? PIPELINE_STEPS.length - 1
-      : stage
-        ? PIPELINE_STEPS.findIndex((s) => s.id === stage)
-        : -1;
-  return (
-    <div className="relative">
-      <div className="absolute inset-x-[12.5%] top-[9px] h-px bg-border-strong" />
-      <div
-        className="absolute inset-y-0 left-[12.5%] top-[9px] h-px bg-accent-bg transition-[width]"
-        style={{ width: curIdx <= 0 ? 0 : `${(curIdx / (PIPELINE_STEPS.length - 1)) * 75}%` }}
-      />
-      <div className="relative flex justify-between">
-        {PIPELINE_STEPS.map((s, i) => {
-          const reached = i <= curIdx;
-          return (
-            <div key={s.id} className="flex flex-col items-center gap-1.5">
-              <span
-                className={`flex size-[18px] items-center justify-center rounded-full text-on-accent ${
-                  reached ? 'bg-accent-bg' : 'border-2 border-border-strong bg-body'
-                }`}
-              >
-                {reached && <Check className="size-2.5" aria-hidden />}
-              </span>
-              <span
-                className={`text-sm font-medium ${i === curIdx ? 'text-primary' : 'text-secondary'}`}
-              >
-                {s.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export function CandidateDetailDrawer({
   candidateId,
   onClose,
@@ -182,6 +128,7 @@ export function CandidateDetailDrawer({
   const [rejectOpen, setRejectOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [confirmHire, setConfirmHire] = useState(false);
+  const [confirmAdvance, setConfirmAdvance] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: hiringKeys.candidate(candidateId ?? ''),
@@ -192,6 +139,12 @@ export function CandidateDetailDrawer({
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: hiringKeys.candidate(candidateId ?? '') });
     void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
+    void queryClient.invalidateQueries({ queryKey: hiringKeys.candidateStageCounts() });
+    // A stage move / hire / reject / transfer also changes what the requisition detail's
+    // applicant list and the requisitions board show — refresh those too. The `requisition`
+    // prefix invalidates whichever requisition detail is open (incl. a transfer's new role).
+    void queryClient.invalidateQueries({ queryKey: [...hiringKeys.all, 'requisition'] });
+    void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
   };
 
   const app = data?.applications.find((a) => a.status === 'active') ?? data?.applications[0];
@@ -202,10 +155,14 @@ export function CandidateDetailDrawer({
       return moveApplicationStage(app.application_id, { expected_version: app.version, to });
     },
     onSuccess: () => {
+      setConfirmAdvance(false);
       toast({ body: 'Stage updated' });
       refresh();
     },
-    onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.candidate(candidateId ?? '')),
+    onError: (e: Error) => {
+      setConfirmAdvance(false);
+      on409(toast, e, queryClient, hiringKeys.candidate(candidateId ?? ''));
+    },
   });
   // Hiring fills the requisition and locks the application — terminal, so always confirm first.
   const hire = useMutation({
@@ -228,8 +185,17 @@ export function CandidateDetailDrawer({
   // hired — resume the requisition first. (Terminal applications are already locked above.)
   const reqOnHold = !terminal && app?.requisition_status === 'on_hold';
   const fit = app ? fitLabel(app.fit) : null;
-  const hasMoreActions = (canTransfer && !terminal) || (canReject && !terminal);
   const dialogLabel = `Candidate: ${data?.candidate.name ?? 'Loading'}`;
+
+  // Decision-first: the common move is "advance to the next stage"; past Offer that becomes the
+  // terminal Hire (its own confirm). Move stage (any stage) stays available in a secondary menu.
+  const stageIdx = app?.stage ? STAGES.findIndex((s) => s.id === app.stage) : -1;
+  const nextStage = stageIdx >= 0 && stageIdx < STAGES.length - 1 ? STAGES[stageIdx + 1] : null;
+  const canAct = canManage && !terminal && !reqOnHold && !move.isPending;
+  const advanceLabel = nextStage ? `Advance to ${nextStage.label}` : 'Mark as hired';
+  // Every forward move now confirms first: a next-stage advance opens its own dialog; the final
+  // step past Offer is the terminal Hire, which already has one.
+  const advance = () => (nextStage ? setConfirmAdvance(true) : setConfirmHire(true));
 
   return (
     <Dialog
@@ -279,159 +245,97 @@ export function CandidateDetailDrawer({
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-none items-center gap-1">
-                      {hasMoreActions && (
-                        <DropdownMenu
-                          placement="below"
-                          button={{
-                            variant: 'ghost',
-                            size: 'sm',
-                            isIconOnly: true,
-                            icon: <MoreHorizontal className="size-4" />,
-                            label: 'More actions',
-                          }}
-                        >
-                          {canTransfer && !terminal && (
-                            <DropdownMenuItem
-                              label="Move to another role"
-                              onClick={() => setTransferOpen(true)}
-                            />
-                          )}
-                          {canReject && !terminal && (
-                            <DropdownMenuItem
-                              label="Reject"
-                              style={{ color: 'var(--color-error)' }}
-                              onClick={() => setRejectOpen(true)}
-                            />
-                          )}
-                        </DropdownMenu>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        isIconOnly
-                        icon={<X className="size-4" />}
-                        label="Close"
-                        onClick={onClose}
-                      />
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      isIconOnly
+                      icon={<X className="size-4" />}
+                      label="Close"
+                      onClick={onClose}
+                      className="flex-none"
+                    />
                   </div>
 
+                  {/* Stage bar: where the candidate is in the pipeline. The actual moves
+                      (advance / reject / transfer) live in the footer; terminal and on-hold
+                      states show a banner here explaining why those moves are locked. */}
                   <div className="border-b border-border px-6 py-4">
-                    <PipelineStepper stage={app?.stage} status={app?.status} />
+                    {/* Where the candidate is in the pipeline. Fit, rating and skills each live in
+                        their own section below now. */}
+                    <div className="min-w-0">
+                      <div className="text-sm text-secondary">Current stage</div>
+                      <div className="mt-1 flex items-baseline gap-2">
+                        <span className="text-lg font-semibold text-primary">
+                          {app ? (STAGES.find((s) => s.id === app.stage)?.label ?? app.stage) : '—'}
+                        </span>
+                        {stageIdx >= 0 && (
+                          <span className="text-sm text-secondary">
+                            Step {stageIdx + 1} of {STAGES.length}
+                          </span>
+                        )}
+                      </div>
+                      {stageIdx >= 0 && (
+                        <div className="mt-2 w-[200px] max-w-full">
+                          <ProgressBar
+                            label="Stage progress"
+                            isLabelHidden
+                            value={stageIdx + 1}
+                            max={STAGES.length}
+                          />
+                        </div>
+                      )}
+                    </div>
+
                     {terminal && (
-                      <p className="mt-3 text-sm text-secondary">
-                        {app?.status === 'cancelled'
-                          ? 'This application was closed because its requisition was cancelled.'
-                          : `This candidate is ${app?.status} and can no longer be moved.`}
-                      </p>
+                      <Banner
+                        className="mt-3"
+                        status={app?.status === 'hired' ? 'success' : 'info'}
+                        title={
+                          app?.status === 'cancelled'
+                            ? 'Closed — its requisition was cancelled.'
+                            : `This candidate is ${app?.status} and can no longer be moved.`
+                        }
+                      />
                     )}
                     {reqOnHold && (
-                      <p className="mt-3 text-sm text-warning">
-                        This requisition is on hold — candidate actions are locked until it's
-                        resumed.
-                      </p>
+                      <Banner
+                        className="mt-3"
+                        status="warning"
+                        title="Requisition on hold — resume it from the board to move this candidate."
+                      />
                     )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 border-b border-border px-6 py-3">
-                    <DropdownMenu
-                      placement="below"
-                      hasChevron
-                      button={{
-                        variant: 'secondary',
-                        size: 'sm',
-                        label: 'Move stage',
-                        icon: <RefreshCw className="size-3.5" aria-hidden />,
-                        // reqOnHold locks the whole menu → Move stage AND the Hired item inside.
-                        isDisabled: !canManage || terminal || reqOnHold || move.isPending,
-                      }}
-                    >
-                      {STAGES.map((s) => (
-                        <DropdownMenuItem
-                          key={s.id}
-                          label={s.label}
-                          isDisabled={app?.stage === s.id}
-                          onClick={() => move.mutate(s.id)}
-                        />
-                      ))}
-                      {/* Hiring is terminal (the application locks) — always confirm first. */}
-                      <DropdownMenuItem label="Hired" onClick={() => setConfirmHire(true)} />
-                    </DropdownMenu>
                   </div>
 
                   <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto px-6 py-4 lg:grid-cols-[1.4fr_1fr]">
+                    {/* READ — the material HR reads to decide. */}
                     <div className="space-y-4">
-                      <DetailCard title="Contact">
-                        <DetailRow
-                          icon={<Mail className="size-3.5" aria-hidden />}
-                          label="Personal email"
-                          value={data.candidate.contact?.personal_email ?? '—'}
-                          onCopy={
-                            data.candidate.contact?.personal_email
-                              ? () =>
-                                  void navigator.clipboard.writeText(
-                                    data.candidate.contact?.personal_email ?? '',
-                                  )
-                              : undefined
-                          }
-                        />
-                        <DetailRow
-                          icon={<Phone className="size-3.5" aria-hidden />}
-                          label="Phone"
-                          value={data.candidate.contact?.phone ?? '—'}
-                          onCopy={
-                            data.candidate.contact?.phone
-                              ? () =>
-                                  void navigator.clipboard.writeText(
-                                    data.candidate.contact?.phone ?? '',
-                                  )
-                              : undefined
-                          }
-                        />
-                        <DetailRow
-                          icon={<Globe className="size-3.5" aria-hidden />}
-                          label="Source"
-                          value={data.candidate.source ?? '—'}
-                        />
-                        <DetailRow
-                          icon={<Cake className="size-3.5" aria-hidden />}
-                          label="Date of birth"
-                          value={data.candidate.dob ?? '—'}
-                        />
-                        <DetailRow
-                          icon={<VenusAndMars className="size-3.5" aria-hidden />}
-                          label="Gender"
-                          value={data.candidate.gender ?? '—'}
-                        />
-                      </DetailCard>
-
-                      <DetailCard
-                        title="Skills"
-                        action={
-                          fit && (
-                            <Badge variant={fit.strong ? 'success' : 'neutral'} label={fit.text} />
-                          )
-                        }
-                      >
-                        <div className="flex flex-wrap gap-1.5">
-                          {data.skills.length === 0 ? (
-                            <span className="text-sm text-secondary">No skills recorded.</span>
-                          ) : (
-                            data.skills.map((s) => (
-                              <Badge
+                      <DetailCard title="Skills">
+                        {app && app.fit.required > 0 && (
+                          <div className="mb-3 flex items-center gap-2">
+                            <Badge
+                              variant={fit?.strong ? 'success' : 'neutral'}
+                              label={fit?.text ?? ''}
+                            />
+                            <span className="text-sm text-secondary">
+                              {fit?.strong ? 'Strong fit' : 'Partial fit'} for the required skills
+                            </span>
+                          </div>
+                        )}
+                        {data.skills.length === 0 ? (
+                          <p className="text-sm text-secondary">No skills listed.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {data.skills.map((s) => (
+                              <span
                                 key={s.skill_id}
-                                variant="neutral"
-                                label={
-                                  <>
-                                    <span>{s.skill_name}</span>
-                                    {s.level ? <span>{` · L${s.level}`}</span> : null}
-                                  </>
-                                }
-                              />
-                            ))
-                          )}
-                        </div>
+                                className="rounded-full bg-surface px-2.5 py-1 text-sm text-secondary"
+                              >
+                                {s.skill_name}
+                                {s.level ? ` · ${s.level}/5` : ''}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </DetailCard>
 
                       <DetailCard title="CV">
@@ -457,30 +361,54 @@ export function CandidateDetailDrawer({
                       </DetailCard>
                     </div>
 
+                    {/* CONTEXT — supporting facts and history. */}
                     <div className="space-y-4">
-                      <DetailCard title="Application details">
-                        <DetailRow label="Requisition" value={app?.requisition_title ?? '—'} />
+                      <DetailCard title="Details">
                         <DetailRow
-                          label="Requisition ID"
-                          value={
-                            app ? (
-                              <span className="font-mono text-sm">{app.requisition_id}</span>
-                            ) : (
-                              '—'
-                            )
+                          icon={<Star className="size-3.5" aria-hidden />}
+                          label="Rating"
+                          value={app?.rating != null ? `${app.rating}/5` : 'Not rated'}
+                        />
+                        <DetailRow
+                          icon={<Mail className="size-3.5" aria-hidden />}
+                          label="Email"
+                          value={data.candidate.contact?.personal_email ?? 'Not provided'}
+                          onCopy={
+                            data.candidate.contact?.personal_email
+                              ? () =>
+                                  void navigator.clipboard.writeText(
+                                    data.candidate.contact?.personal_email ?? '',
+                                  )
+                              : undefined
                           }
                         />
                         <DetailRow
-                          label="Applied date"
-                          value={app ? new Date(app.applied_at).toLocaleString() : '—'}
+                          icon={<Phone className="size-3.5" aria-hidden />}
+                          label="Phone"
+                          value={data.candidate.contact?.phone ?? 'Not provided'}
+                          onCopy={
+                            data.candidate.contact?.phone
+                              ? () =>
+                                  void navigator.clipboard.writeText(
+                                    data.candidate.contact?.phone ?? '',
+                                  )
+                              : undefined
+                          }
                         />
                         <DetailRow
-                          label="Current stage"
-                          value={app ? STAGES.find((s) => s.id === app.stage)?.label : '—'}
+                          icon={<Globe className="size-3.5" aria-hidden />}
+                          label="Source"
+                          value={data.candidate.source ?? 'Not provided'}
                         />
                         <DetailRow
-                          label="Rating"
-                          value={app?.rating != null ? `${app.rating}/5` : 'Not rated'}
+                          icon={<Cake className="size-3.5" aria-hidden />}
+                          label="Date of birth"
+                          value={data.candidate.dob ?? 'Not provided'}
+                        />
+                        <DetailRow
+                          icon={<VenusAndMars className="size-3.5" aria-hidden />}
+                          label="Gender"
+                          value={data.candidate.gender ?? 'Not provided'}
                         />
                       </DetailCard>
 
@@ -489,6 +417,42 @@ export function CandidateDetailDrawer({
                       </DetailCard>
                     </div>
                   </div>
+
+                  {/* Footer — the candidate's moves. Transfer on the left; Reject and the primary
+                      Advance on the right. Hidden once the application is terminal. */}
+                  {!terminal && (
+                    <div className="flex flex-none items-center justify-between gap-2 border-t border-border px-6 py-3">
+                      <div>
+                        {canTransfer && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            label="Move to another role"
+                            onClick={() => setTransferOpen(true)}
+                          />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {canReject && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            label="Reject"
+                            style={{ color: 'var(--color-text-red)' }}
+                            onClick={() => setRejectOpen(true)}
+                          />
+                        )}
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          label={advanceLabel}
+                          icon={<ArrowRight className="size-4" aria-hidden />}
+                          isDisabled={!canAct}
+                          onClick={advance}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -515,6 +479,19 @@ export function CandidateDetailDrawer({
               refresh();
               onClose();
             }}
+          />
+          <AlertDialog
+            isOpen={confirmAdvance}
+            onOpenChange={setConfirmAdvance}
+            title={nextStage ? `Advance to ${nextStage.label}?` : 'Advance candidate?'}
+            description={`This moves ${data?.candidate.name ?? 'the candidate'} to the ${
+              nextStage?.label ?? 'next'
+            } stage.`}
+            cancelLabel="Cancel"
+            actionLabel={move.isPending ? 'Advancing…' : 'Advance'}
+            actionVariant="primary"
+            isActionLoading={move.isPending}
+            onAction={() => nextStage && move.mutate(nextStage.id)}
           />
           <AlertDialog
             isOpen={confirmHire}

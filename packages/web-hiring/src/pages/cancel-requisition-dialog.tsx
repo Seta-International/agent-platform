@@ -3,14 +3,12 @@ import {
   Dialog,
   DialogFooter,
   DialogHeader,
-  Input,
   Layout,
   LayoutContent,
-  Selector,
+  Textarea,
   useToast,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { closeRequisition, createCloseReason, fetchCloseReasons } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
@@ -31,43 +29,39 @@ export function CancelRequisitionDialog({
 }) {
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [reasonId, setReasonId] = useState('');
-  const [newReasonLabel, setNewReasonLabel] = useState('');
+  // Single required free-text reason, same idiom as the reject-candidate dialog.
+  const [reason, setReason] = useState('');
+  const reasonMissing = reason.trim() === '';
 
-  const { data: reasons, isLoading: reasonsLoading } = useQuery({
+  // Existing close reasons — used only to reuse a matching one instead of minting a duplicate.
+  const { data: reasons } = useQuery({
     queryKey: hiringKeys.closeReasons(),
     queryFn: fetchCloseReasons,
   });
-  const active = (reasons ?? []).filter((r) => r.active);
-  const effectiveReason = reasonId || active[0]?.id || '';
-
-  // No close reason exists yet in this tenant — offer to create one inline rather than sending
-  // the user away to Settings mid-cancel.
-  const createReason = useMutation({
-    mutationFn: () => createCloseReason({ label: newReasonLabel.trim() }),
-    onSuccess: async (created) => {
-      await queryClient.invalidateQueries({ queryKey: hiringKeys.closeReasons() });
-      setReasonId(created.id);
-      setNewReasonLabel('');
-    },
-    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
-  });
 
   const mutation = useMutation({
-    mutationFn: () =>
-      closeRequisition(requisitionId, {
+    mutationFn: async () => {
+      // The backend keys a cancellation to a close_reason *entity*, not free text (see
+      // requisition-lifecycle: close_reason_id is required + validated). So resolve the typed
+      // text to a reason id: reuse a matching active reason, else create one on the fly.
+      const trimmed = reason.trim();
+      const match = (reasons ?? []).find(
+        (r) => r.active && r.label.trim().toLowerCase() === trimmed.toLowerCase(),
+      );
+      const close_reason_id = match?.id ?? (await createCloseReason({ label: trimmed })).id;
+      return closeRequisition(requisitionId, {
         expected_version: version,
         status: 'cancelled',
-        close_reason_id: effectiveReason,
-      }),
+        close_reason_id,
+      });
+    },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: hiringKeys.closeReasons() });
       toast({ body: 'Requisition cancelled' });
       onOpenChange(false);
-      // Cancelling removes this row from the board query (see OPEN_BOARD_STATUSES) — invalidating
-      // immediately can unmount the row (and this dialog with it) mid-close-animation, which can
-      // leave Radix's body scroll/pointer-events lock stuck permanently on (page looks frozen
-      // until a refresh). Defer past the dialog's 200ms exit animation (duration-200 in
-      // dialog.tsx) so Radix finishes tearing itself down cleanly first.
+      // Cancelling removes this row from the board query — invalidating immediately can unmount
+      // the row (and this dialog) mid-close-animation and leave Radix's scroll/pointer-events
+      // lock stuck. Defer past the dialog's 200ms exit animation so Radix tears down cleanly.
       setTimeout(onDone, 250);
     },
     onError: (e: Error) => on409(toast, e, queryClient, hiringKeys.requisitions()),
@@ -80,39 +74,14 @@ export function CancelRequisitionDialog({
         content={
           <LayoutContent>
             <div className="space-y-3">
-              <div className="space-y-1">
-                {!reasonsLoading && active.length === 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-base text-secondary">
-                      No close reasons yet — add one to continue.
-                    </p>
-                    <div className="flex gap-2">
-                      <Input
-                        label="Reason"
-                        placeholder="e.g. Position no longer needed"
-                        value={newReasonLabel}
-                        onChange={(value) => setNewReasonLabel(value)}
-                      />
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        icon={<Plus className="size-4" />}
-                        label={createReason.isPending ? 'Adding…' : 'Add reason'}
-                        isDisabled={createReason.isPending || !newReasonLabel.trim()}
-                        onClick={() => createReason.mutate()}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <Selector
-                    label="Reason"
-                    options={active.map((r) => ({ value: r.id, label: r.label }))}
-                    value={effectiveReason}
-                    onChange={(v) => setReasonId(v)}
-                    placeholder="Select a reason"
-                  />
-                )}
-              </div>
+              <Textarea
+                label="Reason"
+                isRequired
+                value={reason}
+                onChange={(value) => setReason(value)}
+                placeholder="Why is this requisition being cancelled?"
+                rows={3}
+              />
               <p className="text-base text-secondary">
                 This closes the requisition for good — it can&apos;t be reopened afterwards.
               </p>
@@ -129,9 +98,9 @@ export function CancelRequisitionDialog({
             />
             <Button
               variant="destructive"
-              label={mutation.isPending ? 'Cancelling…' : 'Cancel requisition'}
+              label={mutation.isPending ? 'Cancelling…' : 'Cancel'}
               onClick={() => mutation.mutate()}
-              isDisabled={mutation.isPending || !effectiveReason}
+              isDisabled={mutation.isPending || reasonMissing}
             />
           </DialogFooter>
         }

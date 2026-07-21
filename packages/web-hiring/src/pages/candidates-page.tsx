@@ -82,8 +82,8 @@ const COLUMN_EMPTY_ICON: Record<string, ReactNode> = {
 const STAGE_COUNT_SEGMENTS: { key: keyof CandidateStageCounts; label: string }[] = [
   { key: 'new', label: 'New' },
   { key: 'screening', label: 'Screening' },
-  { key: 'interview', label: 'Interviewing' },
-  { key: 'offer', label: 'Offering' },
+  { key: 'interview', label: 'Interview' },
+  { key: 'offer', label: 'Offer' },
   { key: 'hired', label: 'Hired' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
@@ -270,6 +270,19 @@ export function CandidatesPage() {
 
   const groups = boardColumns(rows);
 
+  // The stat bar tracks the active filters by counting the filtered board rows (so it always
+  // agrees with the columns below). "Cancelled" (rejected/transferred/cancelled outcomes) isn't
+  // a board bucket and the filterable list only returns active + hired, so it keeps the server
+  // aggregate — an unfiltered archive total.
+  const filteredStageCounts: CandidateStageCounts = {
+    new: groups.new.length,
+    screening: groups.screening.length,
+    interview: groups.interview.length,
+    offer: groups.offer.length,
+    hired: groups.hired.length,
+    cancelled: stageCounts?.cancelled ?? 0,
+  };
+
   const columns = useMemo<TableColumn<Row>[]>(
     () => [
       {
@@ -355,14 +368,26 @@ export function CandidatesPage() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="flex h-full min-h-0 flex-col gap-4 p-6">
+          {/* The page scrolls as a whole (LayoutContent owns the scroll): the board grows to its
+              content and the Talent pool sits below it, so every candidate is reachable by
+              scrolling down instead of relying on a fragile per-column inner scroll. */}
+          <div className="flex flex-col gap-4 p-6">
             <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border bg-card sm:grid-cols-6">
               {STAGE_COUNT_SEGMENTS.map((seg) => (
                 <div key={seg.key} className="px-4 py-3">
-                  <div className="text-3xl font-bold" style={{ color: STAGE_COLOR[seg.key] }}>
-                    {stageCounts?.[seg.key] ?? 0}
+                  {/* Number is ink (achromatic, like the detail drawer); the stage colour is a
+                      small dot on the label, not the big number. */}
+                  <div className="text-3xl font-bold text-primary">
+                    {filteredStageCounts[seg.key]}
                   </div>
-                  <div className="text-sm text-secondary">{seg.label}</div>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-sm text-secondary">
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: STAGE_COLOR[seg.key] }}
+                      aria-hidden
+                    />
+                    {seg.label}
+                  </div>
                 </div>
               ))}
             </div>
@@ -514,7 +539,7 @@ export function CandidatesPage() {
                 description="Add a candidate to get started."
               />
             ) : (
-              <div className="-mx-6 flex min-h-0 flex-1 flex-col">
+              <div className="-mx-6">
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <KanbanBoard>
                     {BOARD_COLUMNS.map((col) => (
@@ -528,10 +553,11 @@ export function CandidatesPage() {
                             name={col.label}
                             count={groups[col.id].length}
                             color={STAGE_COLOR[col.id]}
-                            // Why: narrows each column below the shared default (280px) —
-                            // now a min-width floor (Task 8, FUT-725), so the column still
-                            // flexes to fill the board row above it.
-                            width={210}
+                            // `width` is a min-width floor (FUT-725): columns flex to fill the
+                            // board row but never shrink below this. A comfortable 300px keeps the
+                            // candidate cards readable; once the columns outgrow the board width,
+                            // the board (overflow:auto) scrolls horizontally instead of squeezing.
+                            width={300}
                             emptyState={
                               <EmptyState
                                 className="py-4"
@@ -579,7 +605,12 @@ export function CandidatesPage() {
                 </DragDropContext>
               </div>
             )}
-            <TalentPoolCard onOpenCandidate={setSelected} />
+            <TalentPoolCard
+              onOpenCandidate={setSelected}
+              q={q}
+              reqFilter={reqFilter}
+              seniorityFilter={seniorityFilter}
+            />
           </div>
           <CandidateDetailDrawer candidateId={selected} onClose={() => setSelected(null)} />
         </LayoutContent>

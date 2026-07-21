@@ -30,7 +30,7 @@ import {
   VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { Briefcase, Layers, Pause, Search, Settings2, Users } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
@@ -40,17 +40,10 @@ import {
   type RequisitionListRow,
 } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
-import { CancelRequisitionDialog } from './cancel-requisition-dialog.tsx';
-import { MarkFilledDialog } from './mark-filled-dialog.tsx';
 import { NewRequisitionDialog } from './new-requisition-dialog.tsx';
 import { RequisitionCard } from './requisition-card.tsx';
 import { STAGE_LABEL } from './requisition-format.ts';
 import { buildScopeNote } from './utils.ts';
-
-interface CloseTarget {
-  id: string;
-  version: number;
-}
 
 const STATUS_LABEL: Record<string, string> = {
   open: 'Open',
@@ -82,24 +75,10 @@ const REQ_PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 export function RequisitionsPage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const canManage = usePermission('hiring.requisition.manage');
   // The "New requisition" button calls openRequisition, which the backend gates on
   // `.open` (see backend/domain/open-requisition.ts) — a distinct permission from `.manage`
   // (edit/hold requisition), even though every seed role grants both today.
   const canCreate = usePermission('hiring.requisition.open');
-  // Mark Filled / Cancel call closeRequisition, gated on `.close` — distinct from `.manage`
-  // (stage/pause/resume), even though every seed role grants both today.
-  const canClose = usePermission('hiring.requisition.close');
-  // Lifted out of RequisitionCard (one singleton here instead of one Dialog per card): filling
-  // or cancelling removes the row from this board's query, which would unmount the card — and
-  // Radix's Dialog can leave `pointer-events` stuck on <body> if it's torn down mid-close-
-  // animation. Keeping the dialog mounted at the page level, independent of the row, avoids the
-  // race entirely instead of racing a setTimeout against Radix's animation.
-  const [fillTarget, setFillTarget] = useState<CloseTarget | null>(null);
-  const [cancelTarget, setCancelTarget] = useState<CloseTarget | null>(null);
-  const invalidate = () =>
-    void queryClient.invalidateQueries({ queryKey: hiringKeys.requisitions() });
   const [view, setView] = useState<'board' | 'list'>('board');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -530,46 +509,11 @@ export function RequisitionsPage() {
             ) : (
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {filteredRows.map((r) => (
-                  <RequisitionCard
-                    key={r.id}
-                    r={r}
-                    canManage={canManage}
-                    canClose={canClose}
-                    onRequestMarkFilled={() => setFillTarget({ id: r.id, version: r.version })}
-                    onRequestCancel={() => setCancelTarget({ id: r.id, version: r.version })}
-                  />
+                  <RequisitionCard key={r.id} r={r} />
                 ))}
               </div>
             )}
           </PageContainer>
-          {fillTarget && (
-            <MarkFilledDialog
-              requisitionId={fillTarget.id}
-              version={fillTarget.version}
-              open
-              onOpenChange={(v) => {
-                if (!v) setFillTarget(null);
-              }}
-              onDone={() => {
-                invalidate();
-                setFillTarget(null);
-              }}
-            />
-          )}
-          {cancelTarget && (
-            <CancelRequisitionDialog
-              requisitionId={cancelTarget.id}
-              version={cancelTarget.version}
-              open
-              onOpenChange={(v) => {
-                if (!v) setCancelTarget(null);
-              }}
-              onDone={() => {
-                invalidate();
-                setCancelTarget(null);
-              }}
-            />
-          )}
         </LayoutContent>
       }
     />

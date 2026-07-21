@@ -1,4 +1,4 @@
-import type { ReqStage, ReqStatus } from '../api/hiring-client.ts';
+import type { ReqStage, ReqStatus, RequisitionListRow } from '../api/hiring-client.ts';
 
 export const STAGES: ReqStage[] = ['sourcing', 'screening', 'interview', 'offer'];
 export const STAGE_LABEL: Record<ReqStage, string> = {
@@ -55,6 +55,83 @@ export function stageCounts(
 export function furthestReachedIndex(applicants: { stage: string | null }[]): number {
   if (applicants.length === 0) return -1;
   return applicants.reduce((max, a) => Math.max(max, APPLICANT_STAGE_INDEX[a.stage ?? ''] ?? 0), 0);
+}
+
+// The card's attention tone: roll the risks HR cares about (blocked/approval, overdue,
+// undersupplied, on-track) into ONE StatusDot colour. Priority matters — a terminal outcome
+// overrides a pending approval, which overrides a live-pipeline signal. `statusWord` is the
+// card's right-hand signal for NON-open lifecycle states (Filled/On hold/…); open requisitions
+// return `null` there and the card shows a due-date countdown instead — a consistent,
+// comparable time-to-fill signal rather than a value that means something different per card.
+export interface RequisitionAttention {
+  dotVariant: 'error' | 'warning' | 'success' | 'accent' | 'neutral';
+  /** aria-label for the StatusDot. */
+  dotLabel: string;
+  /** Colour token for `statusWord`. */
+  toneVar: string;
+  /** Lifecycle word to show for non-open states; `null` for open (show the due date instead). */
+  statusWord: string | null;
+}
+
+const TONE = {
+  error: 'var(--color-text-error)',
+  warning: 'var(--color-text-warning)',
+  success: 'var(--color-text-success)',
+  neutral: 'var(--color-text-secondary)',
+} as const;
+
+export function deriveAttention(r: RequisitionListRow): RequisitionAttention {
+  if (r.status === 'cancelled')
+    return {
+      dotVariant: 'neutral',
+      dotLabel: 'Cancelled',
+      toneVar: TONE.neutral,
+      statusWord: 'Cancelled',
+    };
+  if (r.status === 'filled')
+    return {
+      dotVariant: 'success',
+      dotLabel: 'Filled',
+      toneVar: TONE.success,
+      statusWord: 'Filled',
+    };
+  if (r.approval_status === 'rejected')
+    return {
+      dotVariant: 'error',
+      dotLabel: 'Rejected',
+      toneVar: TONE.error,
+      statusWord: 'Rejected',
+    };
+  if (r.approval_status === 'pending_approval')
+    return {
+      dotVariant: 'neutral',
+      dotLabel: 'Pending approval',
+      toneVar: TONE.neutral,
+      statusWord: 'Pending',
+    };
+  if (r.status === 'on_hold')
+    return {
+      dotVariant: 'warning',
+      dotLabel: 'On hold',
+      toneVar: TONE.warning,
+      statusWord: 'On hold',
+    };
+
+  // Live (open): the StatusDot tone reflects time pressure, then supply; the right-hand hero is
+  // the due-date countdown (statusWord null), so the dot carries the "needs attention" signal.
+  const dl = r.due_date ? daysLeft(r.due_date) : null;
+  if (dl !== null && dl < 0)
+    return { dotVariant: 'error', dotLabel: 'Overdue', toneVar: TONE.error, statusWord: null };
+  if (r.applicants_count === 0)
+    return {
+      dotVariant: 'warning',
+      dotLabel: 'No candidates',
+      toneVar: TONE.warning,
+      statusWord: null,
+    };
+  if (dl !== null && dl <= 7)
+    return { dotVariant: 'warning', dotLabel: 'Due soon', toneVar: TONE.warning, statusWord: null };
+  return { dotVariant: 'success', dotLabel: 'On track', toneVar: TONE.success, statusWord: null };
 }
 
 export function formatDate(value: string): string {
