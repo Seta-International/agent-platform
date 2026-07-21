@@ -1,4 +1,5 @@
 import {
+  AlertDialog,
   Badge,
   Banner,
   Button,
@@ -18,9 +19,10 @@ import {
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, Plus, X } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import {
   addCandidate,
+  type CandidateDuplicate,
   editCandidate,
   fetchCandidates,
   fetchRequisitions,
@@ -57,9 +59,15 @@ export function NewCandidateDialog() {
   const [note, setNote] = useState('');
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [cvFile, setCvFile] = useState<File | null>(null);
+  // FUT-559: the parsed CV carries a content hash + any candidates it may duplicate; warn the
+  // recruiter before they create a second record, and pass the hash through on save so the
+  // stored CV is dedup-aware.
+  const [cvSha256, setCvSha256] = useState<string | null>(null);
+  const [duplicates, setDuplicates] = useState<CandidateDuplicate[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const emailError = email.trim() && !EMAIL_RE.test(email.trim()) ? 'Enter a valid email.' : null;
   const phoneError =
     phone.trim() && !PHONE_RE.test(phone.trim()) ? 'Enter a valid phone number.' : null;
@@ -106,9 +114,12 @@ export function NewCandidateDialog() {
     setNote('');
     setSkills([]);
     setCvFile(null);
+    setCvSha256(null);
+    setDuplicates([]);
     setSuggestions([]);
     setError(null);
     setSubmitAttempted(false);
+    setConfirmDiscard(false);
   }
 
   // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
@@ -119,20 +130,34 @@ export function NewCandidateDialog() {
   }
 
   function handleOpenChange(v: boolean) {
+    if (!v && dirty) {
+      setConfirmDiscard(true);
+      return;
+    }
     setOpen(v);
     if (!v) reset();
   }
 
   const effectiveReq = reqId || openReqs[0]?.id || '';
   const missingRequired = !name.trim() || !effectiveReq;
-  const requiredError =
-    submitAttempted && missingRequired
-      ? !name.trim() && !effectiveReq
-        ? 'Full name and position applied are required.'
-        : !name.trim()
-          ? 'Full name is required.'
-          : 'Position applied is required.'
-      : null;
+  // FUT-559 unsaved-input guard: confirm before dismissing a form the recruiter has started.
+  const dirty = !!(
+    name.trim() ||
+    email.trim() ||
+    phone.trim() ||
+    dob ||
+    gender ||
+    seniority ||
+    source ||
+    note.trim() ||
+    skills.length ||
+    cvFile
+  );
+  // FUT-559 error focus: red per-field message + scroll to the first empty required field.
+  const nameFieldRef = useRef<HTMLDivElement>(null);
+  const reqFieldRef = useRef<HTMLDivElement>(null);
+  const nameInvalid = submitAttempted && !name.trim();
+  const reqInvalid = submitAttempted && !effectiveReq;
 
   // Fill-only-empty: a parse never overwrites what the recruiter already typed.
   const parse = useMutation({
@@ -150,6 +175,8 @@ export function NewCandidateDialog() {
         return [...prev, ...draft.skills.filter((s) => !have.has(s.skill_id))];
       });
       setSuggestions(draft.skill_suggestions);
+      setCvSha256(draft.cv_sha256);
+      setDuplicates(draft.possible_duplicates);
       toast({ body: 'CV parsed — review the pre-filled fields before saving' });
     },
     onError: (e: Error) => toast({ body: e.message, type: 'error' }),
@@ -183,7 +210,9 @@ export function NewCandidateDialog() {
             cvFile.type || 'application/octet-stream',
           );
           await putCvToS3(upload_url, cvFile);
-          await editCandidate(res.candidate_id, { patch: { cv_storage_key: s3_key } });
+          await editCandidate(res.candidate_id, {
+            patch: { cv_storage_key: s3_key, cv_sha256: cvSha256 ?? undefined },
+          });
         } catch (e) {
           cvWarning = `CV was not attached: ${(e as Error).message}`;
         }
@@ -201,7 +230,16 @@ export function NewCandidateDialog() {
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || emailError || phoneError || nameError) return;
+    if (missingRequired || emailError || phoneError || nameError) {
+      const target =
+        !name.trim() || nameError
+          ? nameFieldRef.current
+          : !effectiveReq
+            ? reqFieldRef.current
+            : null;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setError(null);
     mutation.mutate();
   }
@@ -242,6 +280,8 @@ export function NewCandidateDialog() {
                       onClick={() => {
                         setCvFile(null);
                         setSuggestions([]);
+                        setCvSha256(null);
+                        setDuplicates([]);
                       }}
                     />
                   </div>
@@ -264,13 +304,25 @@ export function NewCandidateDialog() {
                     description="PDF or DOCX, up to 10MB — parsed fields stay editable"
                   />
                 )}
-                <div className="space-y-1">
+                {duplicates.length > 0 && (
+                  <Banner
+                    status="warning"
+                    title={`This CV may already be in the system: ${duplicates
+                      .map(
+                        (d) =>
+                          `${d.name} (${d.match === 'file' ? 'same file' : d.match === 'email' ? 'same email' : 'same phone'})`,
+                      )
+                      .join(', ')}`}
+                  />
+                )}
+                <div className="space-y-1" ref={nameFieldRef}>
                   <Input
                     label="Full name"
                     isRequired
                     value={name}
                     onChange={(value) => setName(value)}
                   />
+                  {nameInvalid && <p className="text-sm text-error">Full name is required.</p>}
                   {nameError && <p className="text-sm text-error">{nameError}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -332,7 +384,7 @@ export function NewCandidateDialog() {
                     />
                   </div>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1" ref={reqFieldRef}>
                   <Selector
                     label="Position applied"
                     isRequired
@@ -341,6 +393,9 @@ export function NewCandidateDialog() {
                     onChange={(v) => setReqId(v)}
                     placeholder="Select a position"
                   />
+                  {reqInvalid && (
+                    <p className="text-sm text-error">Position applied is required.</p>
+                  )}
                 </div>
                 <Field label="Skills" inputID={skillsId} labelID={skillsId} isGroupLabel>
                   <fieldset aria-labelledby={skillsId}>
@@ -363,8 +418,7 @@ export function NewCandidateDialog() {
             <LayoutFooter hasDivider>
               <div className="space-y-2">
                 {error && <Banner status="error" title={error} />}
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-base text-error">{requiredError}</p>
+                <div className="flex items-center justify-end gap-2">
                   <HStack gap={2} hAlign="end">
                     <Button variant="secondary" label="Cancel" onClick={close} />
                     <Button
@@ -381,6 +435,16 @@ export function NewCandidateDialog() {
           }
         />
       </Dialog>
+      <AlertDialog
+        isOpen={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        title="Discard this candidate?"
+        description="Your inputs haven't been saved."
+        cancelLabel="Keep editing"
+        actionLabel="Discard"
+        actionVariant="destructive"
+        onAction={close}
+      />
     </>
   );
 }

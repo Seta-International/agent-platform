@@ -32,6 +32,7 @@ export {
   getCandidate,
   getCandidateStageCounts,
   listCandidates,
+  listRejectedCandidates,
   listTalentPool,
   type TalentPoolRow,
 } from './backend/domain/read-candidates.ts';

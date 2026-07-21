@@ -51,6 +51,7 @@ export interface RequisitionApplicantSummary {
   applied_date: string;
   stage: string;
   kind: string;
+  status: string;
 }
 
 export interface RequisitionListRow {
@@ -130,6 +131,10 @@ export interface ApplicantRow {
   worker_id: string | null;
   stage: string | null;
   status: string | null;
+  /** From the detail read's candidate join — null for internal applications. */
+  candidate_name: string | null;
+  candidate_seniority: string | null;
+  created_at: string;
 }
 export interface RequisitionDetail {
   requisition: RequisitionRow;
@@ -336,7 +341,7 @@ export async function archiveCloseReason(
 
 // ---- Candidates (mirror PR2; web must not import backend) ----
 export type CandStage = 'new' | 'screening' | 'interview' | 'offer';
-export type CandStatus = 'active' | 'hired' | 'rejected' | 'transferred';
+export type CandStatus = 'active' | 'hired' | 'rejected' | 'transferred' | 'cancelled';
 
 export interface Fit {
   met: number;
@@ -353,6 +358,7 @@ export interface CandidateListItem {
   source: string | null;
   requisition_id: string;
   requisition_title: string;
+  requisition_status: string;
   stage: CandStage;
   status: CandStatus;
   rating: number | null;
@@ -378,6 +384,7 @@ export interface CandidateApplication {
   application_id: string;
   requisition_id: string;
   requisition_title: string;
+  requisition_status: string;
   account_id: string | null;
   stage: CandStage;
   status: CandStatus;
@@ -458,6 +465,12 @@ export async function fetchCandidates(): Promise<CandidateListItem[]> {
   const res = await fetch('/api/hiring/v1/candidates', { credentials: 'include' });
   return (await handleResponse<{ candidates: CandidateListItem[] }>(res)).candidates;
 }
+// Rejected applications — backs the board's read-only "Rejected" column (kept out of
+// fetchCandidates so the active pipeline stays active+hired only).
+export async function fetchRejectedCandidates(): Promise<CandidateListItem[]> {
+  const res = await fetch('/api/hiring/v1/candidates/rejected', { credentials: 'include' });
+  return (await handleResponse<{ candidates: CandidateListItem[] }>(res)).candidates;
+}
 export async function fetchCandidateStageCounts(): Promise<CandidateStageCounts> {
   const res = await fetch('/api/hiring/v1/candidates/stage-counts', { credentials: 'include' });
   return handleResponse<CandidateStageCounts>(res);
@@ -512,6 +525,7 @@ export async function editCandidate(
       personal_email?: string;
       phone?: string;
       cv_storage_key?: string | null;
+      cv_sha256?: string | null;
     };
   },
 ): Promise<{ ok: true }> {
@@ -531,6 +545,14 @@ export async function moveApplicationStage(
     await fetch(`/api/hiring/v1/applications/${applicationId}/stage`, json('POST', input)),
   );
 }
+export async function hireApplication(
+  applicationId: string,
+  input: { expected_version?: number },
+): Promise<{ version: number }> {
+  return handleResponse(
+    await fetch(`/api/hiring/v1/applications/${applicationId}/hire`, json('POST', input)),
+  );
+}
 export async function setApplicationRating(
   applicationId: string,
   input: { expected_version?: number; rating: number },
@@ -541,7 +563,7 @@ export async function setApplicationRating(
 }
 export async function rejectApplication(
   applicationId: string,
-  input: { expected_version?: number; reason_id: string; tags: string[]; note?: string },
+  input: { expected_version?: number; reason: string; reason_id?: string; tags?: string[] },
 ): Promise<{ version: number }> {
   const { expected_version, ...reasonInput } = input;
   return handleResponse(
@@ -602,6 +624,15 @@ export interface CandidateCvDraft {
   note: string | null;
   skills: Array<{ skill_id: string; skill_name: string }>;
   skill_suggestions: string[];
+  cv_sha256: string;
+  possible_duplicates: CandidateDuplicate[];
+}
+
+export interface CandidateDuplicate {
+  candidate_id: string;
+  name: string;
+  created_at: string;
+  match: 'file' | 'email' | 'phone';
 }
 
 /** Stateless parse: nothing is stored until the recruiter saves the form. */

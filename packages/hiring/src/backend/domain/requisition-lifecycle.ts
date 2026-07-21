@@ -155,60 +155,71 @@ export async function closeRequisition(input: {
         .returning({ id: requisition.id });
       if (updated.length === 0)
         throw new HiringError('CONFLICT', 'requisition was modified concurrently');
-      if (status === 'cancelled') {
-        await tx
-          .update(opening)
-          .set({ status: 'cancelled', closed_at: new Date(), updated_at: new Date() })
-          .where(and(eq(opening.requisition_id, requisition_id), eq(opening.status, 'open')));
+      // Closing a requisition (filled OR cancelled) ends its pipeline: any remaining open
+      // openings and every still-active application are terminally closed — hired ones are
+      // history and stay hired. Without this, filling a requisition left its other candidates
+      // "active" on a board-hidden role (they showed up applying for a role that's gone). The
+      // freed candidates surface in the talent pool for re-matching instead of lingering.
+      // Cancelled marks the openings cancelled; filled marks them closed (demand met elsewhere).
+      await tx
+        .update(opening)
+        .set({
+          status: status === 'cancelled' ? 'cancelled' : 'closed',
+          closed_at: new Date(),
+          updated_at: new Date(),
+        })
+        .where(and(eq(opening.requisition_id, requisition_id), eq(opening.status, 'open')));
 
-        // A cancelled requisition has no pipeline to run: every still-active application is
-        // terminally closed (hired ones are history and stay hired). The candidates then
-        // surface in the talent pool for re-matching instead of lingering on the board.
-        const activeApps = await tx
-          .update(application)
-          .set({
-            status: 'cancelled',
-            closed_at: new Date(),
-            version: sql`${application.version} + 1`,
-            updated_at: new Date(),
-          })
-          .where(
-            and(
-              eq(application.requisition_id, requisition_id),
-              eq(application.status, 'active'),
-              tenantScoped(application.tenant_id, session),
-            ),
-          )
-          .returning({
-            id: application.id,
-            candidate_id: application.candidate_id,
-            stage: application.stage,
-          });
-        for (const app of activeApps) {
-          if (app.candidate_id) {
-            await recordCandidateEvent(tx, {
-              session,
-              candidate_id: app.candidate_id,
-              application_id: app.id,
-              kind: 'cancelled',
-              summary: 'Requisition cancelled — application closed',
-              detail: { requisition_id, from_stage: app.stage },
-            });
-          }
-          await emit({
-            tenantId: session.tenant_id,
-            aggregateType: 'hiring.application',
-            aggregateId: app.id,
-            eventType: HIRING_APPLICATION_CANCELLED,
-            eventVersion: 1,
-            payload: {
-              application_id: app.id,
-              tenant_id: session.tenant_id,
-              requisition_id,
-              from_stage: app.stage,
-            },
+      // The application status enum has no dedicated "not selected" value, so both outcomes
+      // land on 'cancelled' (closed without a hire); the recorded reason keeps them distinct.
+      const closeSummary =
+        status === 'cancelled'
+          ? 'Requisition cancelled — application closed'
+          : 'Position filled — application closed';
+      const activeApps = await tx
+        .update(application)
+        .set({
+          status: 'cancelled',
+          closed_at: new Date(),
+          version: sql`${application.version} + 1`,
+          updated_at: new Date(),
+        })
+        .where(
+          and(
+            eq(application.requisition_id, requisition_id),
+            eq(application.status, 'active'),
+            tenantScoped(application.tenant_id, session),
+          ),
+        )
+        .returning({
+          id: application.id,
+          candidate_id: application.candidate_id,
+          stage: application.stage,
+        });
+      for (const app of activeApps) {
+        if (app.candidate_id) {
+          await recordCandidateEvent(tx, {
+            session,
+            candidate_id: app.candidate_id,
+            application_id: app.id,
+            kind: 'cancelled',
+            summary: closeSummary,
+            detail: { requisition_id, from_stage: app.stage, requisition_status: status },
           });
         }
+        await emit({
+          tenantId: session.tenant_id,
+          aggregateType: 'hiring.application',
+          aggregateId: app.id,
+          eventType: HIRING_APPLICATION_CANCELLED,
+          eventVersion: 1,
+          payload: {
+            application_id: app.id,
+            tenant_id: session.tenant_id,
+            requisition_id,
+            from_stage: app.stage,
+          },
+        });
       }
       await emit({
         tenantId: session.tenant_id,

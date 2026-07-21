@@ -5,6 +5,8 @@ import { afterEach, vi } from 'vitest';
 
 installPopoverShim();
 installDialogShim();
+// jsdom doesn't implement scrollIntoView; forms use it to surface validation errors.
+Element.prototype.scrollIntoView ??= () => {};
 
 if (typeof localStorage === 'undefined') {
   const _store: Record<string, string> = {};

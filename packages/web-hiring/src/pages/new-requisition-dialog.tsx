@@ -1,10 +1,14 @@
 import {
+  AlertDialog,
   Banner,
   Button,
   DateInput,
   Dialog,
   DialogHeader,
   DisabledActionTooltip,
+  Divider,
+  Field,
+  Grid,
   HStack,
   Input,
   Layout,
@@ -12,14 +16,13 @@ import {
   LayoutFooter,
   NumberInput,
   RichTextEditor,
-  SegmentedControl,
-  SegmentedControlItem,
   Selector,
   useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { type ClipboardEvent, useId, useRef, useState } from 'react';
 import {
   fetchAccounts,
   fetchProjects,
@@ -30,6 +33,7 @@ import {
 import { GRADES } from '../lib/grades.ts';
 import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
+import { GroupLabel } from './form-group-label.tsx';
 import { isRichTextEmpty } from './requisition-format.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 
@@ -54,9 +58,9 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   const [projectId, setProjectId] = useState('');
   const [start, setStart] = useState('');
   const [due, setDue] = useState('');
-  // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
-  const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  // Nullable so the field can be cleared; validated below (the branch keeps its own granular date
+  // validation via startInPast/dueBeforeStart, so `dateError` from main is intentionally dropped).
   const [headcount, setHeadcount] = useState<number | null>(1);
   const headcountError =
     headcount === null ||
@@ -77,15 +81,44 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     nice_to_have: '',
   });
   const [error, setError] = useState<string | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const missingRequired = !title.trim() || isRichTextEmpty(jd.about);
-  const requiredError =
-    submitAttempted && missingRequired
-      ? !title.trim() && isRichTextEmpty(jd.about)
-        ? 'Job title and About the role are required.'
-        : !title.trim()
-          ? 'Job title is required.'
-          : 'About the role is required.'
+  // FUT-559 error focus: red per-field message + scroll to the first empty required field.
+  const titleFieldRef = useRef<HTMLDivElement>(null);
+  const aboutFieldRef = useRef<HTMLDivElement>(null);
+  // Stable id base for the JD Field wrappers (label ↔ control association).
+  const jdFieldBase = useId();
+  const titleInvalid = submitAttempted && !title.trim();
+  const aboutInvalid = submitAttempted && isRichTextEmpty(jd.about);
+  // FUT-559 date bounds: a new requisition can't start in the past, and due must land on or
+  // after the start. yyyy-mm-dd ISO strings compare lexically; use local-midnight today.
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 10);
+  const startInPast = !!start && start < today;
+  const dueBeforeStart = !!due && (due < today || (!!start && due < start));
+  const startError = submitAttempted && startInPast ? 'Start date cannot be in the past.' : null;
+  const dueError =
+    submitAttempted && dueBeforeStart
+      ? start && due < start
+        ? 'Due date must be on or after the start date.'
+        : 'Due date cannot be in the past.'
       : null;
+  // Unsaved-input guard: confirm before dismissing a form the recruiter has started.
+  const dirty = !!(
+    title.trim() ||
+    start ||
+    due ||
+    accountId ||
+    projectId ||
+    skills.length ||
+    grade !== 'L4' ||
+    headcount !== 1 ||
+    kind !== 'new' ||
+    mode !== 'online' ||
+    variant !== 'internal' ||
+    SECTIONS.some((s) => !isRichTextEmpty(jd[s.key]))
+  );
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -118,6 +151,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     });
     setError(null);
     setSubmitAttempted(false);
+    setConfirmDiscard(false);
   }
 
   // Radix only fires onOpenChange for its own dismissals (Esc, overlay); closing
@@ -128,6 +162,11 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   }
 
   function handleOpenChange(v: boolean) {
+    // FUT-559: don't drop a form the recruiter has started — ask first.
+    if (!v && dirty) {
+      setConfirmDiscard(true);
+      return;
+    }
     setOpen(v);
     if (!v) reset();
   }
@@ -169,7 +208,15 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || dateError || headcountError) return;
+    if (missingRequired || startInPast || dueBeforeStart || headcountError) {
+      const target = !title.trim()
+        ? titleFieldRef.current
+        : isRichTextEmpty(jd.about)
+          ? aboutFieldRef.current
+          : null;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     mutation.mutate();
   }
 
@@ -198,26 +245,32 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
           }
           content={
             <LayoutContent>
-              <div className="space-y-5">
-                <div className="space-y-1">
-                  <Input
-                    label="Job title"
-                    isRequired
-                    value={title}
-                    onChange={(value) => setTitle(value)}
-                    placeholder="e.g. Senior Backend Engineer"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+              <VStack gap={6}>
+                {/* Role */}
+                <VStack gap={4}>
+                  <GroupLabel>Role</GroupLabel>
+                  {/* Wrapper is a scroll target for the submit-time error focus, not styling. */}
+                  <div ref={titleFieldRef}>
+                    <Input
+                      label="Job title"
+                      isRequired
+                      value={title}
+                      onChange={(value) => setTitle(value)}
+                      placeholder="e.g. Senior Backend Engineer"
+                      status={
+                        titleInvalid
+                          ? { type: 'error', message: 'Job title is required.' }
+                          : undefined
+                      }
+                    />
+                  </div>
+                  <Grid columns={2} gap={4}>
                     <Selector
                       label="Grade"
                       options={GRADES.map((g) => ({ value: g, label: g }))}
                       value={grade}
                       onChange={setGrade}
                     />
-                  </div>
-                  <div className="space-y-1">
                     <Selector
                       label="Type"
                       options={[
@@ -227,10 +280,8 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       value={kind}
                       onChange={(v) => setKind(v as 'new' | 'replacement')}
                     />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  </Grid>
+                  <Grid columns={2} gap={4}>
                     <Selector
                       label="Account"
                       options={(accounts ?? []).map((a) => ({
@@ -244,8 +295,6 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       }}
                       placeholder="No account"
                     />
-                  </div>
-                  <div className="space-y-1">
                     <Selector
                       label="Project"
                       options={(projects ?? []).map((p) => ({
@@ -257,10 +306,13 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       isDisabled={!accountId}
                       placeholder={accountId ? 'No project' : 'Pick an account first'}
                     />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  </Grid>
+                </VStack>
+
+                {/* Logistics */}
+                <VStack gap={4}>
+                  <GroupLabel>Logistics</GroupLabel>
+                  <Grid columns={2} gap={4}>
                     <Selector
                       label="Interview mode"
                       options={[
@@ -271,8 +323,6 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       value={mode}
                       onChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
                     />
-                  </div>
-                  <div className="space-y-1">
                     <NumberInput
                       label="Headcount (openings)"
                       isIntegerOnly
@@ -292,82 +342,93 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                           e.preventDefault();
                         }
                       }}
-                      onPaste={(e: React.ClipboardEvent<HTMLInputElement>) => {
+                      onPaste={(e: ClipboardEvent<HTMLInputElement>) => {
                         const text = e.clipboardData?.getData('text') ?? '';
                         if (/[eE+\-.,]/.test(text) || !/^\d+$/.test(text.trim())) {
                           e.preventDefault();
                         }
                       }}
+                      status={
+                        headcountError &&
+                        (submitAttempted ||
+                          headcount === null ||
+                          (headcount !== null && (headcount < 1 || headcount > 1000)))
+                          ? { type: 'error', message: headcountError }
+                          : undefined
+                      }
                     />
-                    {headcountError &&
-                      (submitAttempted ||
-                        headcount === null ||
-                        (headcount !== null && (headcount < 1 || headcount > 1000))) && (
-                        <p className="text-sm text-error">{headcountError}</p>
-                      )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  </Grid>
+                  <Grid columns={2} gap={4}>
                     <DateInput
                       label="Start date"
                       value={start || undefined}
-                      max={due || undefined}
                       onChange={(v) => setStart(v ?? '')}
+                      // Can't start a role in the past — disable every day before today.
+                      min={today}
+                      status={startError ? { type: 'error', message: startError } : undefined}
                     />
-                  </div>
-                  <div className="space-y-1">
                     <DateInput
                       label="Due date"
                       value={due || undefined}
-                      min={start || undefined}
                       onChange={(v) => setDue(v ?? '')}
+                      // Due must land on/after the start date (and never before today).
+                      min={start && start > today ? start : today}
+                      status={dueError ? { type: 'error', message: dueError } : undefined}
                     />
-                  </div>
-                </div>
-                {dateError && <p className="text-base text-error">{dateError}</p>}
+                  </Grid>
+                </VStack>
 
-                <SkillPicker value={skills} onChange={setSkills} showLevel={false} />
+                {/* Skills */}
+                <VStack gap={4}>
+                  <GroupLabel>Skills</GroupLabel>
+                  <SkillPicker value={skills} onChange={setSkills} />
+                </VStack>
 
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold uppercase text-secondary">JD detail</div>
-                  <SegmentedControl
-                    label="JD variant"
-                    value={variant}
-                    onChange={(v) => setVariant(v as JdVariant)}
-                  >
-                    <SegmentedControlItem value="external" label="External" />
-                    <SegmentedControlItem value="internal" label="Internal" />
-                  </SegmentedControl>
-                </div>
+                <Divider />
 
-                {SECTIONS.map((s) => (
-                  <div key={s.key}>
-                    <div
-                      className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
-                    >
-                      {s.key === 'about' ? 'About the role *' : s.label}
-                    </div>
-                    <RichTextEditor
-                      value={jd[s.key]}
-                      onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
-                      placeholder={
-                        s.key === 'about'
-                          ? 'Write the about section…'
-                          : `Write the ${s.label.toLowerCase()}…`
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
+                {/* Job description. FUT-559 (562f4b86): the External/Internal variant switcher is
+                    temporarily hidden — content saves under the default variant for now. */}
+                <VStack gap={4}>
+                  <GroupLabel>Job description</GroupLabel>
+                  {SECTIONS.map((s) => {
+                    const isAbout = s.key === 'about';
+                    return (
+                      <Field
+                        key={s.key}
+                        ref={isAbout ? aboutFieldRef : undefined}
+                        label={s.label}
+                        isGroupLabel
+                        inputID={`${jdFieldBase}-${s.key}`}
+                        labelID={`${jdFieldBase}-${s.key}-label`}
+                        isRequired={isAbout}
+                        status={
+                          isAbout && aboutInvalid
+                            ? { type: 'error', message: 'About the role is required.' }
+                            : undefined
+                        }
+                      >
+                        <RichTextEditor
+                          value={jd[s.key]}
+                          onChange={(html) => setJd((d) => ({ ...d, [s.key]: html }))}
+                          className={isAbout && aboutInvalid ? '!border-error' : undefined}
+                          placeholder={
+                            isAbout
+                              ? 'Write the about section…'
+                              : `Write the ${s.label.toLowerCase()}…`
+                          }
+                        />
+                      </Field>
+                    );
+                  })}
+                </VStack>
+              </VStack>
             </LayoutContent>
           }
           footer={
             <LayoutFooter hasDivider>
               <div className="space-y-2">
                 {error && <Banner status="error" title={error} />}
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-base text-error">{requiredError}</p>
+                <div className="flex items-center justify-end gap-2">
                   <HStack gap={2} hAlign="end">
                     <Button
                       variant="secondary"
@@ -389,6 +450,16 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
           }
         />
       </Dialog>
+      <AlertDialog
+        isOpen={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        title="Discard this requisition?"
+        description="Your inputs haven't been saved."
+        cancelLabel="Keep editing"
+        actionLabel="Discard"
+        actionVariant="destructive"
+        onAction={close}
+      />
     </>
   );
 }

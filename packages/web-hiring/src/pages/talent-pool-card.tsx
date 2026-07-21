@@ -14,13 +14,36 @@ import { useState } from 'react';
 import { fetchTalentPool } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 
-export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: string) => void }) {
+export function TalentPoolCard({
+  onOpenCandidate,
+  q = '',
+  reqFilter = '',
+  seniorityFilter = '',
+}: {
+  onOpenCandidate: (id: string) => void;
+  /** Active board filters — the pool honours the ones it has data for (name search, seniority,
+   * and requisition via its recommended roles). Source isn't stored on pool rows, so it's not
+   * applied here. */
+  q?: string;
+  reqFilter?: string;
+  seniorityFilter?: string;
+}) {
   const [show, setShow] = useState(false);
   const pool = useQuery({
     queryKey: hiringKeys.talentPool(),
     queryFn: fetchTalentPool,
     enabled: show,
   });
+
+  const needle = q.trim().toLowerCase();
+  const filtered = (pool.data ?? []).filter((c) => {
+    if (seniorityFilter && c.seniority !== seniorityFilter) return false;
+    // A requisition filter narrows the pool to candidates the matcher recommends for that role.
+    if (reqFilter && !c.recommended.some((r) => r.requisition_id === reqFilter)) return false;
+    if (needle && !`${c.name} ${c.seniority ?? ''}`.toLowerCase().includes(needle)) return false;
+    return true;
+  });
+  const hasFilters = Boolean(seniorityFilter || reqFilter || needle);
 
   return (
     <Card padding={4}>
@@ -52,13 +75,15 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                 />
               ))}
             </div>
-          ) : (pool.data?.length ?? 0) === 0 ? (
+          ) : filtered.length === 0 ? (
             <Text size="sm" color="secondary">
-              No past candidates to re-match yet.
+              {hasFilters
+                ? 'No talent-pool candidates match your filters.'
+                : 'No past candidates to re-match yet.'}
             </Text>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {pool.data?.map((c) => (
+              {filtered.map((c) => (
                 <button
                   key={c.candidate_id}
                   type="button"
@@ -77,7 +102,9 @@ export function TalentPoolCard({ onOpenCandidate }: { onOpenCandidate: (id: stri
                             ? ' · transferred'
                             : c.last_status === 'rejected'
                               ? ' · rejected'
-                              : ' · past candidate'}
+                              : c.last_status === 'cancelled'
+                                ? ' · cancelled'
+                                : ' · past candidate'}
                       </span>
                     </span>
                   </span>

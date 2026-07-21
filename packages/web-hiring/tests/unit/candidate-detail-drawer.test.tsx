@@ -1,6 +1,6 @@
 import { ToastViewport } from '@seta/shared-ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -24,6 +24,16 @@ vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   requestCandidateCvUpload: (...args: unknown[]) => requestCandidateCvUpload(...args),
   putCvToS3: (url: string, file: File) => putCvToS3(url, file),
   getCandidateCvDownloadUrl: (id: string) => getCandidateCvDownloadUrl(id),
+}));
+
+// The timeline resolves actor_user_ids to names via the identity directory.
+vi.mock('../../src/api/identity-directory.ts', () => ({
+  fetchDirectoryUsersByIds: (ids: string[]) =>
+    Promise.resolve(
+      ids.includes('u-1')
+        ? [{ user_id: 'u-1', email: 'jane@example.com', name: 'Jane Recruiter' }]
+        : [],
+    ),
 }));
 
 vi.mock('@seta/web-identity', async (importOriginal) => ({
@@ -72,8 +82,7 @@ const detail: CandidateDetail = {
       actor_user_id: null,
     },
     {
-      // A real actor id: hiring has no local name projection for it, so the
-      // timeline must label it honestly rather than guess a name.
+      // A real actor id — resolved to a display name via the identity directory.
       id: 'e2',
       kind: 'stage_changed',
       summary: 'Moved to screening',
@@ -112,23 +121,23 @@ describe('CandidateDetailDrawer', () => {
     );
   });
 
-  it('shows profile, skills, fit, note, and the activity timeline', async () => {
+  it('shows profile, fit, note, and the activity timeline', async () => {
     fetchCandidate.mockResolvedValue(detail);
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
-    expect(screen.getByText('TypeScript')).toBeInTheDocument();
+    // Skills live in the CV now — the drawer surfaces the fit summary, not a chip list.
     expect(screen.getByText('2/3 skills')).toBeInTheDocument();
     expect(screen.getByText('Candidate created')).toBeInTheDocument();
     expect(screen.getByText('1998-05-12')).toBeInTheDocument();
-    expect(screen.getByText('female')).toBeInTheDocument();
+    expect(screen.getByText('Female')).toBeInTheDocument();
     expect(screen.getByText('Strong fundamentals')).toBeInTheDocument();
     expect(screen.getByText('3/5')).toBeInTheDocument();
-    // A null actor is a system event; an unresolvable one is labeled honestly
-    // rather than fabricated into a name. The label shares a text node with the
-    // timestamp ("by System · 20 Jun 2026"), so match on a substring.
+    // A null actor is a system event; a real actor id resolves to its directory name. The
+    // label shares a text node with the timestamp ("by System · 20 Jun 2026"), so match on a
+    // substring.
     expect(screen.getByText(/by System ·/)).toBeInTheDocument();
-    expect(screen.getByText(/by No Data ·/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/by Jane Recruiter ·/)).toBeInTheDocument());
   });
 
   it('shows CV file card when cv_storage_key exists', async () => {
@@ -188,7 +197,7 @@ describe('CandidateDetailDrawer', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('CV must be under 10MB');
   });
 
-  it('shows No CV on file when cv_storage_key is null', async () => {
+  it('shows a CV upload dropzone when cv_storage_key is null', async () => {
     fetchCandidate.mockResolvedValue({
       ...detail,
       candidate: { ...detail.candidate, cv_storage_key: null },
@@ -196,18 +205,19 @@ describe('CandidateDetailDrawer', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
-    expect(screen.getByText('No CV on file')).toBeInTheDocument();
-    expect(screen.getByText('Upload')).toBeInTheDocument();
+    expect(screen.getByText('Upload a CV')).toBeInTheDocument();
+    expect(screen.getByText(/PDF or DOCX/)).toBeInTheDocument();
   });
 
-  it('moves stage from the Move stage menu', async () => {
+  it('advances the candidate to the next stage from the decision bar', async () => {
     fetchCandidate.mockResolvedValue(detail);
     moveApplicationStage.mockResolvedValueOnce({ version: 5 });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
-    await userEvent.click(screen.getByRole('button', { name: /Move stage/i }));
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Interview' }));
+    // Candidate is in Screening, so the primary action advances to Interview — after a confirm.
+    await userEvent.click(screen.getByRole('button', { name: /Advance to Interview/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Advance' }));
     await waitFor(() =>
       expect(moveApplicationStage).toHaveBeenCalledWith('a1', {
         expected_version: 4,

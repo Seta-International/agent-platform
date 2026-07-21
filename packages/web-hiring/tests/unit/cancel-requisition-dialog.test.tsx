@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CloseReason } from '../../src/api/hiring-client.ts';
+import { hiringKeys } from '../../src/state/query-keys.ts';
 
 let reasons: CloseReason[] = [];
 const closeRequisition = vi.fn();
@@ -29,15 +30,17 @@ function newClient() {
 
 beforeEach(() => {
   reasons = [];
+  closeRequisition.mockReset();
+  createCloseReason.mockReset();
 });
 
 describe('CancelRequisitionDialog', () => {
-  // purpose="required" (cancelling a requisition is described in-file as irreversible) makes
-  // Astryx's Dialog render role="alertdialog", not "dialog" — verified precedent from the
-  // web-planner confirm/delete batch. Astryx's Dialog/DialogHeader don't wire aria-labelledby,
-  // so scope with within() and query the heading for the title instead of `{ name }`.
-  it('auto-selects the first active reason and cancels with it', async () => {
-    reasons = [{ id: 'cr1', label: 'No longer needed', active: true, version: 1 }];
+  // purpose="required" (cancelling is irreversible) makes Astryx's Dialog render
+  // role="alertdialog"; DialogHeader doesn't wire aria-labelledby, so scope with within().
+  // FUT: the reason is a single required free-text field (same idiom as reject) — the backend
+  // still keys the cancel to a close_reason entity, so the typed text is resolved to an id.
+  it('creates a close reason from the typed text, then cancels with it', async () => {
+    createCloseReason.mockResolvedValueOnce({ id: 'cr-new' });
     closeRequisition.mockResolvedValueOnce({ version: 2 });
     const onDone = vi.fn();
     render(
@@ -53,10 +56,42 @@ describe('CancelRequisitionDialog', () => {
     const dialog = screen.getByRole('alertdialog');
     expect(within(dialog).getByRole('heading', { name: 'Cancel requisition' })).toBeInTheDocument();
 
+    await userEvent.type(within(dialog).getByLabelText(/reason/i), 'Budget freeze');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(createCloseReason).toHaveBeenCalledWith({ label: 'Budget freeze' }));
     await waitFor(() =>
-      expect(within(dialog).getByRole('combobox', { name: /reason/i })).toBeInTheDocument(),
+      expect(closeRequisition).toHaveBeenCalledWith('req1', {
+        expected_version: 1,
+        status: 'cancelled',
+        close_reason_id: 'cr-new',
+      }),
     );
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel requisition' }));
+    // onDone is deferred ~250ms past the dialog's exit animation (see cancel-requisition-dialog.tsx).
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+  });
+
+  it('reuses a matching active reason instead of minting a duplicate', async () => {
+    reasons = [{ id: 'cr1', label: 'No longer needed', active: true, version: 1 }];
+    closeRequisition.mockResolvedValueOnce({ version: 2 });
+    const qc = newClient();
+    render(
+      <CancelRequisitionDialog
+        requisitionId="req1"
+        version={1}
+        open
+        onOpenChange={() => {}}
+        onDone={vi.fn()}
+      />,
+      { wrapper: wrap(qc) },
+    );
+    // Wait for the reasons query so the match runs against loaded data (case-insensitive).
+    await waitFor(() => expect(qc.getQueryData(hiringKeys.closeReasons())).toBeDefined());
+    const dialog = screen.getByRole('alertdialog');
+
+    await userEvent.type(within(dialog).getByLabelText(/reason/i), 'no longer needed');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
     await waitFor(() =>
       expect(closeRequisition).toHaveBeenCalledWith('req1', {
         expected_version: 1,
@@ -64,13 +99,10 @@ describe('CancelRequisitionDialog', () => {
         close_reason_id: 'cr1',
       }),
     );
-    // onDone is deferred ~250ms past the dialog's exit animation (see cancel-requisition-dialog.tsx).
-    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(createCloseReason).not.toHaveBeenCalled();
   });
 
-  it('offers an inline "Add reason" form when no close reasons exist yet', async () => {
-    reasons = [];
-    createCloseReason.mockResolvedValueOnce({ id: 'cr-new' });
+  it('keeps Cancel disabled until a reason is typed', async () => {
     render(
       <CancelRequisitionDialog
         requisitionId="req1"
@@ -82,19 +114,9 @@ describe('CancelRequisitionDialog', () => {
       { wrapper: wrap(newClient()) },
     );
     const dialog = screen.getByRole('alertdialog');
-
-    await expect(
-      within(dialog).findByText('No close reasons yet — add one to continue.'),
-    ).resolves.toBeInTheDocument();
-    // Cancel is disabled until a reason exists.
-    expect(within(dialog).getByRole('button', { name: 'Cancel requisition' })).toBeDisabled();
-
-    await userEvent.type(
-      within(dialog).getByPlaceholderText('e.g. Position no longer needed'),
-      'Budget freeze',
-    );
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Add reason' }));
-    await waitFor(() => expect(createCloseReason).toHaveBeenCalledWith({ label: 'Budget freeze' }));
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    await userEvent.type(within(dialog).getByLabelText(/reason/i), 'x');
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
   });
 
   it('is not exposed as an alertdialog when closed', () => {

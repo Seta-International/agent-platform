@@ -4,29 +4,24 @@ import {
   formatRelative,
   KanbanCardShell,
   type KanbanCardShellProps,
+  Text,
 } from '@seta/shared-ui';
+import { Star } from 'lucide-react';
 import type { CandidateListItem } from '../api/hiring-client.ts';
-import { fitScoreBadge } from './candidate-utils.ts';
-
-const VISIBLE_SKILLS = 4;
+import { fitLabel } from './candidate-utils.ts';
 
 function appliedLabel(appliedAt: string): string {
   const rel = formatRelative(appliedAt);
   return rel === 'now' ? 'just now' : `${rel} ago`;
 }
 
-function StarRating({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-sm text-secondary">Not rated yet</span>;
-  const full = Math.round(value);
+// Rating mirrors the detail drawer: a plain "n/5" (achromatic), not a coloured star row.
+function RatingLine({ value }: { value: number | null }) {
+  if (value == null) return <Text type="supporting">Not rated yet</Text>;
   return (
-    <span
-      role="img"
-      aria-label={`Rating ${full} of 5`}
-      className="text-sm"
-      style={{ color: 'var(--color-icon-orange)' }}
-    >
-      {'★'.repeat(full)}
-      <span style={{ color: 'var(--color-border-emphasized)' }}>{'★'.repeat(5 - full)}</span>
+    <span className="flex items-center gap-1.5 text-secondary">
+      <Star className="size-3.5" aria-hidden />
+      <Text type="supporting">{value}/5</Text>
     </span>
   );
 }
@@ -40,27 +35,36 @@ export function CandidateCard({
   onSelect: (candidateId: string) => void;
   draggable: KanbanCardShellProps['draggable'];
 }) {
-  const fit = fitScoreBadge(item.fit);
-  const visibleSkills = item.skills.slice(0, VISIBLE_SKILLS);
-  const hiddenSkillCount = item.skills.length - visibleSkills.length;
+  // Fit speaks the same language as the detail drawer — "n/m skills", not a percentage.
+  const fit = fitLabel(item.fit);
 
   const header = (
     <div className="flex items-start gap-2.5">
       <Avatar name={item.name} size={40} />
       <div className="min-w-0 flex-1">
+        {/* Name + seniority share a line (name truncates first); the requisition title gets its
+            own full-width line below, so it shows as much as fits and only ellipsises when it
+            genuinely overflows. Nothing else competes for that line. */}
         <div className="flex items-center gap-1.5">
-          <span className="truncate font-medium text-primary">{item.name}</span>
-          {item.seniority && <Badge variant="neutral" label={item.seniority} />}
+          <span className="min-w-0 flex-1">
+            <Text weight="medium" maxLines={1} display="block">
+              {item.name}
+            </Text>
+          </span>
+          {item.seniority && (
+            <Badge variant="neutral" label={item.seniority} className="flex-none" />
+          )}
         </div>
-        <div className="truncate text-sm text-secondary">{item.requisition_title}</div>
+        <Text type="supporting" maxLines={1} display="block" className="mt-0.5">
+          {item.requisition_title}
+        </Text>
       </div>
-      <Badge variant={fit.variant} className="flex-none" label={fit.text} />
     </div>
   );
   const footer = (
-    <span className="text-sm text-secondary">
+    <Text type="supporting">
       {item.source ?? '—'} · {appliedLabel(item.applied_at)}
-    </span>
+    </Text>
   );
 
   return (
@@ -71,15 +75,11 @@ export function CandidateCard({
       header={header}
       footer={footer}
     >
-      <StarRating value={item.rating} />
-      {item.skills.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {visibleSkills.map((s) => (
-            <Badge key={s.skill_id} variant="neutral" label={s.skill_name} />
-          ))}
-          {hiddenSkillCount > 0 && <Badge variant="neutral" label={`+${hiddenSkillCount}`} />}
-        </div>
-      )}
+      {/* Decision-support line: skill fit + rating, together. */}
+      <div className="flex items-center gap-2.5">
+        <Badge variant={fit.strong ? 'success' : 'neutral'} label={fit.text} />
+        <RatingLine value={item.rating} />
+      </div>
     </KanbanCardShell>
   );
 }

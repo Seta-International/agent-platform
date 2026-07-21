@@ -1,36 +1,46 @@
 import {
+  AlertDialog,
   Avatar,
   Badge,
   Banner,
   Button,
-  Calendar,
   DateInput,
+  DialogFooter,
+  DialogHeader,
   DisabledActionTooltip,
+  Divider,
   DropdownMenu,
   DropdownMenuItem,
   EmptyState,
-  IconButton,
+  Field,
+  Grid,
   Input,
-  Popover,
+  NumberInput,
+  ProgressBar,
   RichTextDisplay,
   RichTextEditor,
-  SegmentedControl,
-  SegmentedControlItem,
   Selector,
+  Tab,
+  TabList,
+  Text,
   useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar as CalendarIcon, MoreHorizontal, Pencil, Share2, X } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { MoreHorizontal, Pencil, Share2 } from 'lucide-react';
+import { type CSSProperties, useId, useRef, useState } from 'react';
 import {
+  type ApplicantRow,
+  addOpening,
+  closeOpening,
   editRequisition,
   fetchAccounts,
   fetchProjects,
   holdRequisition,
   type JdSectionKey,
   type JdVariant,
-  type OpenRequisitionsBoard,
+  type ReqStatus,
   resumeRequisition,
   setRequisitionJd,
   setRequisitionSkills,
@@ -39,14 +49,11 @@ import { GRADES } from '../lib/grades.ts';
 import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { CancelRequisitionDialog } from './cancel-requisition-dialog.tsx';
+import { CandidateDetailDrawer } from './candidate-detail-drawer.tsx';
+import { DetailRow } from './detail-row.tsx';
+import { GroupLabel } from './form-group-label.tsx';
 import { MarkFilledDialog } from './mark-filled-dialog.tsx';
-import {
-  daysLeft,
-  formatDate,
-  isRichTextEmpty,
-  STATUS_BADGE_CLASS,
-  STATUS_LABEL,
-} from './requisition-format.ts';
+import { daysLeft, formatDate, isRichTextEmpty, STATUS_LABEL } from './requisition-format.ts';
 import { type PickedSkill, SkillPicker } from './skill-picker.tsx';
 import { on409, useRequisition } from './utils.ts';
 
@@ -58,6 +65,35 @@ const LEVEL_LABEL: Record<number, string> = {
   4: 'Expert',
   5: 'Master',
 };
+
+// Requisition titles are usually stored as "Role — Client". The header mirrors the candidate
+// drawer's name + seniority shape, so split the client off into the subtitle instead of repeating
+// it across the title, the subtitle and the Client fact. If the client isn't baked into the title,
+// surface it as the subtitle anyway; if there's no client at all, the title stands alone.
+function splitReqTitle(fullTitle: string, client?: string): { role: string; subtitle?: string } {
+  if (!client) return { role: fullTitle };
+  for (const sep of [' — ', ' – ', ' - ']) {
+    const suffix = sep + client;
+    if (fullTitle.endsWith(suffix)) {
+      const role = fullTitle.slice(0, -suffix.length).trim();
+      if (role) return { role, subtitle: client };
+    }
+  }
+  return { role: fullTitle, subtitle: client };
+}
+
+// The requisition detail renders its own DialogHeader/DialogFooter as plain children (not through
+// a Layout header/footer slot), so it can't inherit slot padding. When mounted in the modal it
+// sits under a full-bleed `<Layout padding={0}>`, which zeroes both `--layout-padding-outer-*` (the
+// dialog-edge sides) and `--layout-padding-inner-y` (the content-facing edges: header bottom, footer
+// top). Left unset, the header/footer would sit flush against the dialog edges AND their labels/
+// actions would touch the body and the divider. Restore all three so the bars breathe exactly like
+// the candidate drawer (which gets these from a normally-padded Layout) in both modal and page route.
+const HEADER_FOOTER_PADDING: CSSProperties = {
+  '--layout-padding-outer-x': 'var(--spacing-6)',
+  '--layout-padding-outer-y': 'var(--spacing-4)',
+  '--layout-padding-inner-y': 'var(--spacing-4)',
+} as CSSProperties;
 
 const SECTIONS: { key: JdSectionKey; label: string }[] = [
   { key: 'about', label: 'About the role' },
@@ -75,15 +111,58 @@ const APPLICANT_STAGE_BADGE: Record<string, string> = {
   offer: 'bg-warning-muted text-warning',
 };
 
-// Display-only relabel: application.stage's first value is 'new' in the DB, but the
-// board card's stage track calls that same phase "Sourcing" — show the same word here
-// so they don't read as two different concepts. No stored value changes.
+// Applicant-stage labels — kept identical to the candidate board/detail (New / Screening /
+// Interview / Offer) so the same application.stage reads the same word everywhere. No stored
+// value changes.
 const APPLICANT_STAGE_LABEL: Record<string, string> = {
-  new: 'Sourcing',
+  new: 'New',
   screening: 'Screening',
   interview: 'Interview',
   offer: 'Offer',
 };
+
+// Terminal applications show their outcome instead of the stage they died at — otherwise a
+// rejected/transferred applicant reads as still "Screening" and disagrees with the Candidates
+// board (which lists only active + hired).
+const APPLICANT_STATUS_BADGE: Record<string, string> = {
+  hired: 'bg-success-muted text-success',
+  rejected: 'bg-danger-muted text-danger',
+  transferred: 'bg-surface text-secondary',
+  cancelled: 'bg-surface text-secondary',
+};
+
+const APPLICANT_STATUS_LABEL: Record<string, string> = {
+  hired: 'Hired',
+  rejected: 'Rejected',
+  transferred: 'Transferred',
+  cancelled: 'Cancelled',
+};
+
+// Facts-panel status pill: map the lifecycle status onto a Badge tone (chromatic colour is
+// reserved for status only, per the design system).
+const STATUS_VARIANT: Record<ReqStatus, 'success' | 'warning' | 'neutral' | 'error'> = {
+  open: 'success',
+  on_hold: 'warning',
+  filled: 'neutral',
+  cancelled: 'error',
+};
+
+const MODE_LABEL: Record<string, string> = {
+  online: 'Online (Teams)',
+  onsite: 'Onsite',
+  either: 'Online or onsite',
+};
+
+const APPROVAL_LABEL: Record<string, string> = {
+  draft: 'Draft',
+  pending_approval: 'Pending approval',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
+// The Candidates tab groups the active pipeline by stage — a section per stage so the funnel
+// reads top-to-bottom (application.stage's first value is 'new', shown as "New").
+const CANDIDATE_STAGES = ['new', 'screening', 'interview', 'offer'];
 
 function daysSince(dateStr: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000));
@@ -125,108 +204,6 @@ function emptySections(): SectionGrid {
   };
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-base">
-      <span className="text-secondary">{label}</span>
-      <span className="font-medium text-primary">{value}</span>
-    </div>
-  );
-}
-
-function DateField({
-  label,
-  value,
-  editable,
-  canManage,
-  onChange,
-  extra,
-}: {
-  label: string;
-  value: string | null;
-  editable: boolean;
-  canManage: boolean;
-  onChange: (value: string) => void;
-  extra?: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="flex items-start gap-3">
-      <CalendarIcon className="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden />
-      <div>
-        <div className="text-sm text-secondary">{label}</div>
-        <DisabledActionTooltip
-          disabled={!editable}
-          reason={
-            !canManage
-              ? PERMISSION_DENIED.requisition.edit
-              : 'Only editable while the requisition is open.'
-          }
-        >
-          {editable ? (
-            <Popover
-              isOpen={open}
-              onOpenChange={setOpen}
-              alignment="start"
-              label="Set date"
-              content={
-                <Calendar
-                  mode="single"
-                  value={value ?? undefined}
-                  onChange={(v) => {
-                    onChange(v);
-                    setOpen(false);
-                  }}
-                />
-              }
-            >
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                label={value ? formatDate(value) : 'Set date'}
-              />
-            </Popover>
-          ) : (
-            <span className="text-base font-medium text-primary">
-              {value ? formatDate(value) : '—'}
-            </span>
-          )}
-        </DisabledActionTooltip>
-        {extra}
-      </div>
-    </div>
-  );
-}
-
-function QuickAction({
-  icon,
-  label,
-  onClick,
-  disabled,
-  destructive,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  destructive?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex w-full flex-col items-center gap-2 rounded-lg border border-border px-2 py-3 text-center text-sm font-medium hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 ${
-        destructive ? 'text-error' : 'text-primary'
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
-
 interface Props {
   requisitionId: string;
   variant: 'page' | 'modal';
@@ -242,6 +219,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const jdVariant: JdVariant = data ? pickJdVariant(data.jd_sections) : 'external';
 
   const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useState<'candidates' | 'jd'>('candidates');
   const [title, setTitle] = useState('');
   const [grade, setGrade] = useState('');
   const [kind, setKind] = useState<'new' | 'replacement'>('new');
@@ -250,23 +228,60 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
   const [projectId, setProjectId] = useState('');
   const [start, setStart] = useState('');
   const [due, setDue] = useState('');
+  // FUT-559: headcount is the count of *open* opening rows — editable here (grow/shrink on save).
+  const [openCount, setOpenCount] = useState(1);
   const [editVariant, setEditVariant] = useState<JdVariant>('external');
   const [sections, setSections] = useState<SectionGrid>(emptySections());
+  // FUT-559: clicking an applicant row opens the candidate detail drawer in place.
+  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [showFillConfirm, setShowFillConfirm] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
-  const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
+  const [showDiscard, setShowDiscard] = useState(false);
+  // ISO date strings (yyyy-mm-dd) compare lexically. FUT-559: only a CHANGED start is held to
+  // "not in the past" — an old requisition's stored past start stays editable when untouched.
+  const today = new Date().toISOString().slice(0, 10);
+  const startChanged = start !== (data?.requisition.start_date ?? '');
+  const dueChanged = due !== (data?.requisition.due_date ?? '');
+  const startInPast = !!start && startChanged && start < today;
+  const dueBeforeStart = !!due && !!start && due < start;
+  // A changed due date can't land in the past either (independent of start) — matches the
+  // New requisition form; an old requisition's stored past due stays valid when untouched.
+  const dueInPast = !!due && dueChanged && !dueBeforeStart && due < today;
+  const startError = submitAttempted && startInPast ? 'Start date cannot be in the past.' : null;
+  const dueError = submitAttempted
+    ? dueBeforeStart
+      ? 'Due date must be on or after the start date.'
+      : dueInPast
+        ? 'Due date cannot be in the past.'
+        : null
+    : null;
   const missingRequired = !title.trim() || isRichTextEmpty(sections.about);
-  const requiredError =
-    submitAttempted && missingRequired
-      ? !title.trim() && isRichTextEmpty(sections.about)
-        ? 'Job title and About the role are required.'
-        : !title.trim()
-          ? 'Job title is required.'
-          : 'About the role is required.'
-      : null;
+  // FUT-559 error focus: mark each empty required field in red on submit and scroll to the
+  // first offender, instead of a single lumped message the user has to hunt the field for.
+  const titleFieldRef = useRef<HTMLDivElement>(null);
+  const aboutFieldRef = useRef<HTMLDivElement>(null);
+  // Stable id base for the JD Field wrappers (label ↔ control association).
+  const jdFieldBase = useId();
+  const titleInvalid = submitAttempted && !title.trim();
+  const aboutInvalid = submitAttempted && isRichTextEmpty(sections.about);
+  // Unsaved-edit guard for the Cancel button (FUT-559: confirm before discarding). Compares the
+  // reliably-loaded scalar fields against the stored requisition — enough to catch a real edit
+  // without the false positives an array (skills/JD) diff can throw during the edit-load tick.
+  const originalOpenCount = data ? data.openings.filter((o) => o.status === 'open').length : 0;
+  const editsDirty =
+    editing &&
+    data != null &&
+    (title !== (data.requisition.title ?? '') ||
+      grade !== (data.requisition.grade ?? '') ||
+      kind !== data.requisition.kind ||
+      mode !== data.requisition.default_interview_mode ||
+      accountId !== (data.requisition.account_id ?? '') ||
+      projectId !== (data.requisition.project_id ?? '') ||
+      start !== (data.requisition.start_date ?? '') ||
+      due !== (data.requisition.due_date ?? '') ||
+      openCount !== (originalOpenCount || 1));
 
   const { data: accounts } = useQuery({
     queryKey: hiringKeys.accounts(),
@@ -312,16 +327,6 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     },
     onError,
   });
-  const setDate = useMutation({
-    mutationFn: (patch: { start_date?: string; due_date?: string }) =>
-      editRequisition(requisitionId, {
-        expected_version: data?.requisition.version,
-        patch,
-      }),
-    onSuccess: refresh,
-    onError,
-  });
-
   const save = useMutation({
     mutationFn: async () => {
       if (!data) throw new Error('not loaded');
@@ -350,6 +355,20 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
           },
         });
         version = res.version;
+      }
+
+      // Headcount is opening rows, not a column: grow by adding openings, shrink by cancelling
+      // the highest-seq open ones (filled/closed slots are never touched).
+      const openOpen = data.openings.filter((o) => o.status === 'open');
+      if (openCount > openOpen.length) {
+        for (let i = openOpen.length; i < openCount; i++) await addOpening(requisitionId, {});
+      } else if (openCount < openOpen.length) {
+        const toCancel = [...openOpen]
+          .sort((a, b) => b.seq - a.seq)
+          .slice(0, openOpen.length - openCount);
+        for (const o of toCancel) {
+          await closeOpening(o.id, { expected_version: o.version, status: 'cancelled' });
+        }
       }
 
       const originalSections = emptySections();
@@ -410,6 +429,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     setProjectId(data.requisition.project_id ?? '');
     setStart(data.requisition.start_date ?? '');
     setDue(data.requisition.due_date ?? '');
+    setOpenCount(data.openings.filter((o) => o.status === 'open').length || 1);
     setEditVariant(jdVariant);
     const grid = emptySections();
     for (const s of data.jd_sections) if (s.variant === jdVariant) grid[s.section] = s.body;
@@ -429,11 +449,30 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
   function submitEdit() {
     setSubmitAttempted(true);
-    if (missingRequired || dateError) return;
+    if (missingRequired || startInPast || dueBeforeStart || dueInPast) {
+      const target = !title.trim()
+        ? titleFieldRef.current
+        : isRichTextEmpty(sections.about)
+          ? aboutFieldRef.current
+          : null;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     save.mutate();
   }
 
+  function discardEdits() {
+    setShowDiscard(false);
+    setSubmitAttempted(false);
+    setEditing(false);
+  }
+
   function cancelEditing() {
+    if (editsDirty) {
+      setShowDiscard(true);
+      return;
+    }
+    setSubmitAttempted(false);
     setEditing(false);
   }
 
@@ -466,28 +505,57 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
 
   const req = data.requisition;
   const isTerminal = req.status === 'filled' || req.status === 'cancelled';
-  // Same "on hold/terminal freezes everything" rule the board card uses — dates only move
-  // while the requisition is actively open.
-  const datesEditable = canManage && req.status === 'open';
+  // FUT-559 (4d3023eb): a paused requisition freezes its detail actions — Edit JD and the
+  // lifecycle menu are locked until it's resumed from the Requisitions board.
+  const isOnHold = req.status === 'on_hold';
+  const onHoldReason =
+    'This requisition is on hold — resume it from the Requisitions board to make changes.';
 
-  // The board list's row (already fetched for the page this modal is opened from) carries
-  // candidate name/role/applied-date that the detail endpoint's bare application rows don't
-  // — reuse it instead of a second round-trip. Falls back to nothing if opened without that
-  // cache warm (e.g. a direct link), and only "at Company" is skipped since no such field
-  // exists on a candidate.
-  const cachedRow = queryClient
-    .getQueryData<OpenRequisitionsBoard>(hiringKeys.requisitions())
-    ?.requisitions.find((r) => r.id === requisitionId);
-  const applicantRows = cachedRow?.applicants ?? [];
-
-  // While editing, reflect the in-progress Account/Project/Grade selection instead of the
-  // last-saved server values, so the subtitle updates live as the user picks a new one.
-  const liveAccountName = editing
-    ? (accounts?.find((a) => a.account_id === accountId)?.name ?? null)
-    : data.account_name;
-  const subtitle = [liveAccountName, data.project_name, req.grade ? `Grade ${req.grade}` : null]
-    .filter(Boolean)
-    .join(' • ');
+  // FUT-559: read applicants from the detail endpoint (candidate_id + name + seniority +
+  // status), and split the active pipeline from the closed trail. A transferred/rejected
+  // candidate must NOT linger in the old role's active list (bug: it still showed under Role A
+  // after a transfer) — it drops to a dimmed "Past applicants" section instead.
+  const activeApplicants = data.applicants.filter((a) => a.status === 'active');
+  const pastApplicants = data.applicants.filter(
+    (a) => a.status !== 'active' && a.status !== 'hired',
+  );
+  // Headcount is opening rows, not a column: a cancelled opening no longer counts toward the
+  // target, and a filled one is progress. (See the edit form for the grow/shrink mechanics.)
+  const openingsTotal = data.openings.filter((o) => o.status !== 'cancelled').length;
+  const openingsFilled = data.openings.filter((o) => o.status === 'filled').length;
+  const renderApplicant = (a: ApplicantRow) => {
+    const name = a.candidate_name ?? 'Unknown candidate';
+    const terminal = a.status !== 'active';
+    return (
+      <button
+        key={a.id}
+        type="button"
+        onClick={() => a.candidate_id && setSelectedCandidate(a.candidate_id)}
+        className="flex w-full items-center gap-3 py-3 text-left hover:bg-surface"
+      >
+        <Avatar name={name} size={36} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium text-primary">{name}</div>
+          <div className="truncate text-base text-secondary">
+            {[a.candidate_seniority, `Applied ${relativeDays(a.created_at)}`]
+              .filter(Boolean)
+              .join(' · ')}
+          </div>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-medium ${
+            terminal
+              ? (APPLICANT_STATUS_BADGE[a.status ?? ''] ?? 'bg-surface text-secondary')
+              : (APPLICANT_STAGE_BADGE[a.stage ?? ''] ?? 'bg-surface text-secondary')
+          }`}
+        >
+          {terminal
+            ? (APPLICANT_STATUS_LABEL[a.status ?? ''] ?? a.status)
+            : (APPLICANT_STAGE_LABEL[a.stage ?? ''] ?? a.stage)}
+        </span>
+      </button>
+    );
+  };
 
   const hasJdContent = SECTIONS.some(
     (s) =>
@@ -501,406 +569,503 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     return (
       <div
         className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
+        style={HEADER_FOOTER_PADDING}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-border bg-body px-6 py-4">
-          <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold text-primary">{title}</h1>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1.5">
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                label="Cancel"
-                onClick={cancelEditing}
-                isDisabled={save.isPending}
-              />
-              <Button
-                size="sm"
-                variant="primary"
-                label={save.isPending ? 'Updating…' : 'Update'}
-                onClick={submitEdit}
-                isDisabled={save.isPending}
-              />
-            </div>
-            {requiredError && <p className="text-sm text-error">{requiredError}</p>}
-          </div>
+        {/* FUT-559 edit-layout parity: title-only header + a footer action bar, matching the
+            New requisition dialog — actions live at the bottom-right, not stacked in the header. */}
+        <header className="border-b border-border bg-body px-6 py-4">
+          <h1 className="truncate text-lg font-semibold text-primary">{title}</h1>
         </header>
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className="mx-auto max-w-[720px] space-y-5 px-6 py-5">
-            <div className="space-y-1">
-              <Input
-                label="Job title"
-                isRequired
-                value={title}
-                onChange={(value) => setTitle(value)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Selector
-                  label="Grade"
-                  options={GRADES.map((g) => ({ value: g, label: g }))}
-                  value={grade}
-                  onChange={setGrade}
-                />
-              </div>
-              <div className="space-y-1">
-                <Selector
-                  label="Type"
-                  options={[
-                    { value: 'new', label: 'New' },
-                    { value: 'replacement', label: 'Replacement' },
-                  ]}
-                  value={kind}
-                  onChange={(v) => setKind(v as 'new' | 'replacement')}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Selector
-                  label="Account"
-                  options={(accounts ?? []).map((a) => ({ value: a.account_id, label: a.name }))}
-                  value={accountId}
-                  onChange={(v) => {
-                    setAccountId(v);
-                    setProjectId('');
-                  }}
-                  placeholder="No account"
-                />
-              </div>
-              <div className="space-y-1">
-                <Selector
-                  label="Project"
-                  options={(projects ?? []).map((p) => ({ value: p.project_id, label: p.name }))}
-                  value={projectId}
-                  onChange={setProjectId}
-                  isDisabled={!accountId}
-                  placeholder={accountId ? 'No project' : 'Pick an account first'}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Selector
-                  label="Interview mode"
-                  options={[
-                    { value: 'online', label: 'Online (Teams)' },
-                    { value: 'onsite', label: 'Onsite' },
-                    { value: 'either', label: 'Either' },
-                  ]}
-                  value={mode}
-                  onChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <DateInput
-                  label="Start date"
-                  value={start || undefined}
-                  max={due || undefined}
-                  onChange={(v) => setStart(v ?? '')}
-                />
-              </div>
-              <div className="space-y-1">
-                <DateInput
-                  label="Due date"
-                  value={due || undefined}
-                  min={start || undefined}
-                  onChange={(v) => setDue(v ?? '')}
-                />
-              </div>
-            </div>
-            {dateError && <p className="text-base text-error">{dateError}</p>}
-
-            <SkillPicker value={skills} onChange={setSkills} />
-
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold uppercase text-secondary">JD detail</div>
-              <SegmentedControl
-                label="JD variant"
-                value={editVariant}
-                onChange={(v) => setEditVariant(v as JdVariant)}
-              >
-                <SegmentedControlItem value="external" label="External" />
-                <SegmentedControlItem value="internal" label="Internal" />
-              </SegmentedControl>
-            </div>
-
-            {SECTIONS.map((s) => (
-              <div key={s.key}>
-                <div
-                  className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
-                >
-                  {s.key === 'about' ? 'About the role *' : s.label}
+          <div className="mx-auto max-w-[720px] px-6 py-6">
+            <VStack gap={6}>
+              {/* Role */}
+              <VStack gap={4}>
+                <GroupLabel>Role</GroupLabel>
+                {/* Wrapper is a scroll target for the submit-time error focus, not styling. */}
+                <div ref={titleFieldRef}>
+                  <Input
+                    label="Job title"
+                    isRequired
+                    value={title}
+                    onChange={(value) => setTitle(value)}
+                    status={
+                      titleInvalid
+                        ? { type: 'error', message: 'Job title is required.' }
+                        : undefined
+                    }
+                  />
                 </div>
-                <RichTextEditor
-                  value={sections[s.key]}
-                  onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
-                  placeholder={
-                    s.key === 'about'
-                      ? 'Write the about section…'
-                      : `Write the ${s.label.toLowerCase()}…`
-                  }
-                />
-              </div>
-            ))}
+                <Grid columns={2} gap={4}>
+                  <Selector
+                    label="Grade"
+                    options={GRADES.map((g) => ({ value: g, label: g }))}
+                    value={grade}
+                    onChange={setGrade}
+                  />
+                  <Selector
+                    label="Type"
+                    options={[
+                      { value: 'new', label: 'New' },
+                      { value: 'replacement', label: 'Replacement' },
+                    ]}
+                    value={kind}
+                    onChange={(v) => setKind(v as 'new' | 'replacement')}
+                  />
+                </Grid>
+                <Grid columns={2} gap={4}>
+                  <Selector
+                    label="Account"
+                    options={(accounts ?? []).map((a) => ({ value: a.account_id, label: a.name }))}
+                    value={accountId}
+                    onChange={(v) => {
+                      setAccountId(v);
+                      setProjectId('');
+                    }}
+                    placeholder="No account"
+                  />
+                  <Selector
+                    label="Project"
+                    options={(projects ?? []).map((p) => ({ value: p.project_id, label: p.name }))}
+                    value={projectId}
+                    onChange={setProjectId}
+                    isDisabled={!accountId}
+                    placeholder={accountId ? 'No project' : 'Pick an account first'}
+                  />
+                </Grid>
+              </VStack>
+
+              {/* Logistics */}
+              <VStack gap={4}>
+                <GroupLabel>Logistics</GroupLabel>
+                <Grid columns={2} gap={4}>
+                  <Selector
+                    label="Interview mode"
+                    options={[
+                      { value: 'online', label: 'Online (Teams)' },
+                      { value: 'onsite', label: 'Onsite' },
+                      { value: 'either', label: 'Either' },
+                    ]}
+                    value={mode}
+                    onChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
+                  />
+                  <NumberInput
+                    label="Headcount (openings)"
+                    min={1}
+                    isIntegerOnly
+                    value={openCount}
+                    onChange={(v) => setOpenCount(Math.max(1, v || 1))}
+                    status={
+                      openCount < originalOpenCount
+                        ? {
+                            type: 'warning',
+                            message: `Saving cancels ${originalOpenCount - openCount} open opening${
+                              originalOpenCount - openCount > 1 ? 's' : ''
+                            }. Filled openings are kept.`,
+                          }
+                        : undefined
+                    }
+                  />
+                </Grid>
+                <Grid columns={2} gap={4}>
+                  <DateInput
+                    label="Start date"
+                    value={start || undefined}
+                    onChange={(v) => setStart(v ?? '')}
+                    // Can't start a role in the past — disable every day before today.
+                    min={today}
+                    status={startError ? { type: 'error', message: startError } : undefined}
+                  />
+                  <DateInput
+                    label="Due date"
+                    value={due || undefined}
+                    onChange={(v) => setDue(v ?? '')}
+                    // Due must land on/after the start date (and never before today).
+                    min={start && start > today ? start : today}
+                    status={dueError ? { type: 'error', message: dueError } : undefined}
+                  />
+                </Grid>
+              </VStack>
+
+              {/* Skills */}
+              <VStack gap={4}>
+                <GroupLabel>Skills</GroupLabel>
+                <SkillPicker value={skills} onChange={setSkills} />
+              </VStack>
+
+              <Divider />
+
+              {/* Job description. FUT-559 (562f4b86): the External/Internal variant switcher is
+                  temporarily hidden — edits keep whichever variant the content already uses. */}
+              <VStack gap={4}>
+                <GroupLabel>Job description</GroupLabel>
+                {SECTIONS.map((s) => {
+                  const isAbout = s.key === 'about';
+                  return (
+                    <Field
+                      key={s.key}
+                      ref={isAbout ? aboutFieldRef : undefined}
+                      label={s.label}
+                      isGroupLabel
+                      inputID={`${jdFieldBase}-${s.key}`}
+                      labelID={`${jdFieldBase}-${s.key}-label`}
+                      isRequired={isAbout}
+                      status={
+                        isAbout && aboutInvalid
+                          ? { type: 'error', message: 'About the role is required.' }
+                          : undefined
+                      }
+                    >
+                      <RichTextEditor
+                        value={sections[s.key]}
+                        onChange={(html) => setSections((g) => ({ ...g, [s.key]: html }))}
+                        className={isAbout && aboutInvalid ? '!border-error' : undefined}
+                        placeholder={
+                          isAbout
+                            ? 'Write the about section…'
+                            : `Write the ${s.label.toLowerCase()}…`
+                        }
+                      />
+                    </Field>
+                  );
+                })}
+              </VStack>
+            </VStack>
           </div>
         </div>
+        {/* Same DialogFooter as the view mode and the candidate drawer — right-aligned actions,
+            Cancel-first, primary last. Keeps its top divider: the edit form is a single scrollable
+            column, so there's no facts-panel column line for it to collide with. */}
+        <DialogFooter>
+          <Button
+            size="sm"
+            variant="secondary"
+            label="Cancel"
+            onClick={cancelEditing}
+            isDisabled={save.isPending}
+          />
+          <Button
+            size="sm"
+            variant="primary"
+            label={save.isPending ? 'Updating…' : 'Update'}
+            onClick={submitEdit}
+            isDisabled={save.isPending}
+          />
+        </DialogFooter>
+        <AlertDialog
+          isOpen={showDiscard}
+          onOpenChange={setShowDiscard}
+          title="Discard your changes?"
+          description="Your edits to this requisition haven't been saved."
+          cancelLabel="Keep editing"
+          actionLabel="Discard"
+          actionVariant="destructive"
+          onAction={discardEdits}
+        />
       </div>
     );
   }
 
+  // Strip any " — <client>" suffix so the heading is just the role; the client (and every other
+  // fact) lives in the right-hand facts panel, so it isn't repeated in the header.
+  const { role: headerTitle } = splitReqTitle(req.title, data.account_name ?? undefined);
+
   return (
     <div
       className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
+      style={HEADER_FOOTER_PADDING}
     >
-      <header className="flex items-start justify-between gap-4 border-b border-border bg-body px-6 py-4">
-        <div className="flex min-w-0 items-start gap-3">
-          <IconButton
-            type="button"
-            variant="secondary"
-            onClick={requestClose}
-            label="Close dialog"
-            icon={<X className="size-4" />}
-            className="mt-0.5 shrink-0"
-          />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="truncate text-lg font-semibold text-primary">{req.title}</h1>
-              <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-medium ${STATUS_BADGE_CLASS[req.status]}`}
-              >
-                {STATUS_LABEL[req.status]}
-              </span>
-            </div>
-            {subtitle && <p className="mt-0.5 truncate text-base text-secondary">{subtitle}</p>}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {!isTerminal && (
-            <DisabledActionTooltip
-              disabled={!canManage && !canClose}
-              reason={PERMISSION_DENIED.requisition.manage}
+      {/* Header carries the role title only — no avatar or client subtitle. The More-actions menu
+          sits before the close button; status, client and every other fact live in the right-hand
+          facts panel, so nothing is duplicated. */}
+      <DialogHeader
+        hasDivider={false}
+        title={headerTitle}
+        endContent={
+          <DropdownMenu
+            placement="below"
+            button={{
+              variant: 'ghost',
+              size: 'sm',
+              isIconOnly: true,
+              icon: <MoreHorizontal className="size-4" />,
+              label: 'More actions',
+            }}
+          >
+            <DropdownMenuItem
+              label="Share"
+              icon={<Share2 className="size-4" />}
+              onClick={shareJob}
+            />
+          </DropdownMenu>
+        }
+        onOpenChange={(open) => {
+          if (!open) requestClose();
+        }}
+      />
+
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-card">
+        {/* Working area (left): candidate pipeline is the default view, job description second. */}
+        <section className="flex min-w-0 flex-1 flex-col">
+          <div className="flex-none border-b border-border px-6">
+            <TabList
+              value={tab}
+              onChange={(t) => setTab(t as 'candidates' | 'jd')}
+              aria-label="Requisition sections"
             >
-              <DropdownMenu
-                placement="below"
-                button={{
-                  variant: 'secondary',
-                  size: 'sm',
-                  label: 'More actions',
-                  icon: <MoreHorizontal className="size-4" />,
-                  isDisabled: !canManage && !canClose,
-                }}
+              <Tab
+                value="candidates"
+                label="Candidates"
+                endContent={<Badge variant="neutral" label={activeApplicants.length} />}
+              />
+              <Tab value="jd" label="Job description" />
+            </TabList>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto p-6">
+            {tab === 'candidates' ? (
+              activeApplicants.length === 0 && pastApplicants.length === 0 ? (
+                <EmptyState
+                  title="No applicants yet"
+                  description="Candidates appear here, grouped by pipeline stage, as they apply."
+                />
+              ) : (
+                <div className="space-y-6">
+                  {/* Active pipeline grouped by stage. A transferred/rejected candidate drops to
+                      the dimmed "Past applicants" trail instead of lingering in a stage. */}
+                  {CANDIDATE_STAGES.map((stageKey) => {
+                    const items = activeApplicants.filter((a) => (a.stage ?? 'new') === stageKey);
+                    return (
+                      <div key={stageKey}>
+                        <div className="mb-2 flex items-center gap-2 border-b border-border pb-1.5">
+                          <Text type="supporting" className="uppercase">
+                            {APPLICANT_STAGE_LABEL[stageKey]}
+                          </Text>
+                          <Badge variant="neutral" label={items.length} />
+                        </div>
+                        {items.length === 0 ? (
+                          <p className="py-1 text-sm text-secondary">
+                            No candidates at this stage.
+                          </p>
+                        ) : (
+                          <div className="divide-y divide-border">
+                            {items.map((a) => renderApplicant(a))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {pastApplicants.length > 0 && (
+                    <div className="border-t border-border pt-3">
+                      <div className="mb-1 text-sm font-medium text-secondary">
+                        Past applicants ({pastApplicants.length})
+                      </div>
+                      <div className="divide-y divide-border opacity-70">
+                        {pastApplicants.slice(0, 5).map((a) => renderApplicant(a))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            ) : !hasAnyDetail ? (
+              req.note?.trim() ? (
+                <p className="text-base text-primary">{req.note}</p>
+              ) : (
+                <EmptyState
+                  title="No job description yet"
+                  description="Skills and JD content haven't been added for this requisition."
+                />
+              )
+            ) : (
+              <div className="space-y-5">
+                {data.skills.length > 0 && (
+                  <div>
+                    <div className="mb-2 font-semibold text-primary">Tech stack</div>
+                    <div className="flex flex-wrap gap-2">
+                      {data.skills.map((s) => (
+                        <Badge
+                          key={s.skill_name}
+                          variant="neutral"
+                          label={`${s.skill_name}${
+                            s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {SECTIONS.map((s) => {
+                  const body =
+                    data.jd_sections.find((j) => j.variant === jdVariant && j.section === s.key)
+                      ?.body ?? '';
+                  if (isRichTextEmpty(body)) return null;
+                  return (
+                    <div key={s.key}>
+                      <div
+                        className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
+                      >
+                        {s.label}
+                      </div>
+                      <RichTextDisplay value={body} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Facts panel (right): status, type, client and everything a recruiter checks without
+            leaving the pipeline — the single home for these values (the header holds only the title).
+            Sits on the same white surface as the pipeline and footer, set apart by the left hairline
+            and its own row dividers — no tinted slab (the old bg-body cut off above the footer and
+            read cold against the white body). */}
+        <aside className="w-[300px] shrink-0 overflow-y-auto border-l border-border px-5 py-4">
+          {req.status === 'open' && req.due_date && daysLeft(req.due_date) < 0 && (
+            <Banner
+              status="error"
+              title={`${-daysLeft(req.due_date)} days overdue`}
+              className="mb-4"
+            />
+          )}
+          {openingsTotal > 0 && (
+            <div className="mb-3">
+              <div className="mb-1 flex items-center justify-between">
+                <Text type="supporting">Headcount</Text>
+                <Text type="supporting">
+                  {openingsFilled}/{openingsTotal} filled
+                </Text>
+              </div>
+              <ProgressBar
+                label="Headcount filled"
+                isLabelHidden
+                value={openingsFilled}
+                max={openingsTotal}
+                variant="success"
+              />
+            </div>
+          )}
+          <DetailRow
+            label="Status"
+            value={<Badge variant={STATUS_VARIANT[req.status]} label={STATUS_LABEL[req.status]} />}
+          />
+          <DetailRow label="Type" value={req.kind === 'replacement' ? 'Replacement' : 'New'} />
+          <DetailRow
+            label="Approval"
+            value={APPROVAL_LABEL[req.approval_status] ?? req.approval_status}
+          />
+          <DetailRow label="Client" value={data.account_name ?? '—'} />
+          <DetailRow label="Project" value={data.project_name ?? '—'} />
+          <DetailRow label="Grade" value={req.grade ?? '—'} />
+          <DetailRow label="Candidates" value={`${data.applicants.length} total`} />
+          <DetailRow label="Start date" value={req.start_date ? formatDate(req.start_date) : '—'} />
+          <DetailRow
+            label="Due date"
+            value={
+              req.due_date
+                ? `${formatDate(req.due_date)} · ${
+                    daysLeft(req.due_date) < 0
+                      ? `${-daysLeft(req.due_date)}d overdue`
+                      : `${daysLeft(req.due_date)} days left`
+                  }`
+                : '—'
+            }
+          />
+          <DetailRow
+            label="Interview mode"
+            value={MODE_LABEL[req.default_interview_mode ?? ''] ?? '—'}
+          />
+          <DetailRow label="Posted" value={openDaysLabel(req.created_at)} />
+        </aside>
+      </div>
+
+      {/* Full-width separator above the footer — the same gray line the candidate drawer shows.
+          It lives here as its own row (not as the footer's own top border) so the two-column body
+          above can't interrupt it at the facts-panel seam; the footer's own divider stays off to
+          avoid doubling. */}
+      <Divider />
+      {/* Footer mirrors the candidate drawer's DialogFooter: secondary lifecycle actions pinned
+          left, the primary action (Edit) on the right. A terminal requisition has no actions, so
+          the bar collapses to an empty strip — same as the drawer's settled state. */}
+      <DialogFooter
+        hasDivider={false}
+        startContent={
+          !isTerminal ? (
+            <div className="flex items-center gap-2">
+              <DisabledActionTooltip
+                disabled={!canClose || isOnHold}
+                reason={!canClose ? PERMISSION_DENIED.requisition.manage : onHoldReason}
               >
-                {req.status === 'open' && (
-                  <DropdownMenuItem
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  label="Cancel"
+                  isDisabled={!canClose || isOnHold}
+                  style={{ color: 'var(--color-text-red)' }}
+                  onClick={() => setShowCancelDialog(true)}
+                />
+              </DisabledActionTooltip>
+              {req.status === 'open' && (
+                <DisabledActionTooltip
+                  disabled={!canManage}
+                  reason={PERMISSION_DENIED.requisition.manage}
+                >
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     label="Pause"
                     isDisabled={!canManage}
                     onClick={() => pause.mutate()}
                   />
-                )}
-                {req.status === 'on_hold' && (
-                  <DropdownMenuItem
+                </DisabledActionTooltip>
+              )}
+              {req.status === 'on_hold' && (
+                <DisabledActionTooltip
+                  disabled={!canManage}
+                  reason={PERMISSION_DENIED.requisition.manage}
+                >
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     label="Resume"
                     isDisabled={!canManage}
                     onClick={() => resume.mutate()}
                   />
-                )}
-                <DropdownMenuItem
-                  label="Mark filled"
-                  isDisabled={!canClose}
-                  onClick={() => setTimeout(() => setShowFillConfirm(true), 0)}
-                />
-                <DropdownMenuItem
-                  label="Cancel"
-                  isDisabled={!canClose}
-                  style={{ color: 'var(--color-text-red)' }}
-                  onClick={() => setTimeout(() => setShowCancelDialog(true), 0)}
-                />
-              </DropdownMenu>
-            </DisabledActionTooltip>
-          )}
-        </div>
-      </header>
-
-      <div className="min-h-0 flex-1 overflow-auto bg-card">
-        <div className="grid grid-cols-1 gap-5 p-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="space-y-5">
-            {/* Full job description */}
-            <section
-              id="full-job-description"
-              className="rounded-xl border border-border bg-body p-5"
-            >
-              <h1 className="mb-4 text-lg font-semibold text-primary">Job description</h1>
-              {!hasAnyDetail ? (
-                req.note?.trim() ? (
-                  <p className="text-base text-primary">{req.note}</p>
-                ) : (
-                  <EmptyState
-                    title="No job description yet"
-                    description="Skills and JD content haven't been added for this requisition."
-                  />
-                )
-              ) : (
-                <div className="space-y-5">
-                  {data.skills.length > 0 && (
-                    <div>
-                      <div className="mb-2 font-semibold text-primary">Tech stack</div>
-                      <div className="flex flex-wrap gap-2">
-                        {data.skills.map((s) => (
-                          <Badge
-                            key={s.skill_name}
-                            variant="neutral"
-                            className="rounded-md border border-border bg-surface px-3 py-1.5 text-base text-secondary"
-                            label={`${s.skill_name}${
-                              s.min_level ? ` · ${LEVEL_LABEL[s.min_level] ?? s.min_level}` : ''
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {SECTIONS.map((s) => {
-                    const body =
-                      data.jd_sections.find((j) => j.variant === jdVariant && j.section === s.key)
-                        ?.body ?? '';
-                    if (isRichTextEmpty(body)) return null;
-                    return (
-                      <div key={s.key}>
-                        <div
-                          className={`mb-1 font-semibold ${s.key === 'nice_to_have' ? 'text-secondary' : 'text-primary'}`}
-                        >
-                          {s.label}
-                        </div>
-                        <RichTextDisplay value={body} />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <p className="mt-5 text-sm text-secondary">
-                Posted {req.created_at.slice(0, 10)} · {openDaysLabel(req.created_at)}
-              </p>
-            </section>
-
-            {/* Applicants */}
-            <section className="rounded-xl border border-border bg-body p-5">
-              <div className="mb-1 flex items-center justify-between">
-                <h2 className="font-semibold text-primary">
-                  Applicants ({data.applicants.length})
-                </h2>
-              </div>
-              {applicantRows.length === 0 ? (
-                <p className="py-4 text-base text-secondary">No applicants yet.</p>
-              ) : (
-                <div className="divide-y divide-border">
-                  {applicantRows.slice(0, 5).map((a) => (
-                    <div
-                      key={`${a.name}-${a.applied_date}`}
-                      className="flex items-center gap-3 py-3"
-                    >
-                      <Avatar name={a.name} size={36} />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium text-primary">{a.name}</div>
-                        <div className="truncate text-base text-secondary">
-                          {[a.role, `Applied ${relativeDays(a.applied_date)}`]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </div>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-medium ${
-                          APPLICANT_STAGE_BADGE[a.stage] ?? 'bg-surface text-secondary'
-                        }`}
-                      >
-                        {APPLICANT_STAGE_LABEL[a.stage] ?? a.stage}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-
-          <div className="space-y-5">
-            {/* Timeline */}
-            <section className="rounded-xl border border-border bg-body p-5">
-              <h2 className="mb-4 font-semibold text-primary">Timeline</h2>
-              <div className="space-y-4">
-                <DateField
-                  label="Start date"
-                  value={req.start_date}
-                  editable={datesEditable}
-                  canManage={canManage}
-                  onChange={(start_date) => setDate.mutate({ start_date })}
-                />
-                <DateField
-                  label="Due date"
-                  value={req.due_date}
-                  editable={datesEditable}
-                  canManage={canManage}
-                  onChange={(due_date) => setDate.mutate({ due_date })}
-                  extra={
-                    req.due_date && (
-                      <span
-                        className={`ml-1.5 text-base ${
-                          daysLeft(req.due_date) < 0 ? 'text-error' : 'text-warning'
-                        }`}
-                      >
-                        (
-                        {daysLeft(req.due_date) >= 0
-                          ? `${daysLeft(req.due_date)} days left`
-                          : `${-daysLeft(req.due_date)}d overdue`}
-                        )
-                      </span>
-                    )
-                  }
-                />
-              </div>
-            </section>
-
-            {/* Job details */}
-            <section className="rounded-xl border border-border bg-body p-5">
-              <h2 className="mb-3 font-semibold text-primary">Job details</h2>
-              <div className="space-y-2.5">
-                <DetailRow label="Account" value={data.account_name ?? '—'} />
-                <DetailRow label="Project" value={data.project_name ?? '—'} />
-                <DetailRow
-                  label="Type"
-                  value={req.kind === 'replacement' ? 'Replacement' : 'New'}
-                />
-              </div>
-            </section>
-
-            {/* Quick actions */}
-            <section className="rounded-xl border border-border bg-body p-5">
-              <h2 className="mb-3 font-semibold text-primary">Quick actions</h2>
-              <div className="grid grid-cols-2 gap-2">
-                <DisabledActionTooltip
-                  disabled={!canManage}
-                  reason={PERMISSION_DENIED.requisition.edit}
-                  className="w-full"
-                >
-                  <QuickAction
-                    icon={<Pencil className="size-4" aria-hidden />}
-                    label="Edit JD"
-                    onClick={startEditing}
-                    disabled={!canManage}
-                  />
                 </DisabledActionTooltip>
-                <QuickAction
-                  icon={<Share2 className="size-4" aria-hidden />}
-                  label="Share Job"
-                  onClick={shareJob}
-                />
-              </div>
-            </section>
-          </div>
-        </div>
-      </div>
+              )}
+            </div>
+          ) : undefined
+        }
+      >
+        {!isTerminal && (
+          <DisabledActionTooltip
+            disabled={!canClose || isOnHold}
+            reason={!canClose ? PERMISSION_DENIED.requisition.manage : onHoldReason}
+          >
+            <Button
+              size="sm"
+              variant="secondary"
+              label="Mark filled"
+              isDisabled={!canClose || isOnHold}
+              onClick={() => setShowFillConfirm(true)}
+            />
+          </DisabledActionTooltip>
+        )}
+        {!isTerminal && (
+          <DisabledActionTooltip
+            disabled={!canManage || isOnHold}
+            reason={!canManage ? PERMISSION_DENIED.requisition.edit : onHoldReason}
+          >
+            <Button
+              size="sm"
+              variant="primary"
+              label="Edit"
+              icon={<Pencil className="size-4" />}
+              isDisabled={!canManage || isOnHold}
+              onClick={startEditing}
+            />
+          </DisabledActionTooltip>
+        )}
+      </DialogFooter>
       <MarkFilledDialog
         requisitionId={requisitionId}
         version={req.version}
@@ -915,6 +1080,12 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         onOpenChange={setShowCancelDialog}
         onDone={refresh}
       />
+      {selectedCandidate && (
+        <CandidateDetailDrawer
+          candidateId={selectedCandidate}
+          onClose={() => setSelectedCandidate(null)}
+        />
+      )}
     </div>
   );
 }

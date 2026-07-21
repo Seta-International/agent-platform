@@ -3,16 +3,14 @@ import {
   Dialog,
   DialogFooter,
   DialogHeader,
-  Input,
   Layout,
   LayoutContent,
-  Selector,
   Textarea,
   useToast,
 } from '@seta/shared-ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { fetchRejectionReasons, rejectApplication } from '../api/hiring-client.ts';
+import { rejectApplication } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { on409 } from './utils.ts';
 
@@ -31,31 +29,21 @@ export function RejectDialog({
 }) {
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [reasonId, setReasonId] = useState('');
-  const [tags, setTags] = useState('');
-  const [note, setNote] = useState('');
-
-  const { data: reasons } = useQuery({
-    queryKey: hiringKeys.rejectionReasons(),
-    queryFn: fetchRejectionReasons,
-  });
-  const active = (reasons ?? []).filter((r) => r.active);
-  const effectiveReason = reasonId || active[0]?.id || '';
+  // FUT-559: the reject dialog is a single required free-text reason — the old
+  // category + tags + note trio is gone; one sentence explaining the call is enough.
+  const [reason, setReason] = useState('');
+  const reasonMissing = reason.trim() === '';
 
   const mutation = useMutation({
     mutationFn: () =>
       rejectApplication(applicationId, {
         expected_version: version,
-        reason_id: effectiveReason,
-        tags: tags
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean),
-        note: note.trim() || undefined,
+        reason: reason.trim(),
       }),
     onSuccess: () => {
       toast({ body: 'Candidate rejected' });
       void queryClient.invalidateQueries({ queryKey: hiringKeys.candidates() });
+      setReason('');
       onOpenChange(false);
       onDone();
     },
@@ -68,25 +56,14 @@ export function RejectDialog({
         header={<DialogHeader title="Reject candidate" onOpenChange={onOpenChange} />}
         content={
           <LayoutContent>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Selector
-                  label="Reason"
-                  options={active.map((r) => ({ value: r.id, label: r.label }))}
-                  value={effectiveReason}
-                  onChange={(v) => setReasonId(v)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Input
-                  label="Tags — comma-separated"
-                  value={tags}
-                  onChange={(value) => setTags(value)}
-                  placeholder="e.g. frontend, junior"
-                />
-              </div>
-              <Textarea label="Note" value={note} onChange={(value) => setNote(value)} />
-            </div>
+            <Textarea
+              label="Reason"
+              isRequired
+              value={reason}
+              onChange={(value) => setReason(value)}
+              placeholder="Why is this candidate being rejected?"
+              rows={3}
+            />
           </LayoutContent>
         }
         footer={
@@ -96,7 +73,7 @@ export function RejectDialog({
               variant="destructive"
               label={mutation.isPending ? 'Rejecting…' : 'Reject'}
               onClick={() => mutation.mutate()}
-              isDisabled={mutation.isPending || !effectiveReason}
+              isDisabled={mutation.isPending || reasonMissing}
             />
           </DialogFooter>
         }

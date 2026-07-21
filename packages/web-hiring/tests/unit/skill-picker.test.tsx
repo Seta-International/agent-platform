@@ -20,12 +20,12 @@ vi.mock('../../src/api/hiring-client.ts', () => ({
   }),
 }));
 
-function renderPicker(showLevel?: boolean) {
+function renderPicker() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onChange = vi.fn();
   const utils = render(
     <QueryClientProvider client={qc}>
-      <SkillPicker value={[]} onChange={onChange} showLevel={showLevel} />
+      <SkillPicker value={[]} onChange={onChange} />
     </QueryClientProvider>,
   );
   return { ...utils, onChange, qc };
@@ -40,14 +40,14 @@ async function waitForCatalog(qc: QueryClient) {
 }
 
 describe('SkillPicker', () => {
-  it('adds a picked skill with level 0 when a catalog skill is selected', async () => {
+  it('adds a picked skill when a catalog skill is selected', async () => {
     const { onChange, qc } = renderPicker();
     const input = await screen.findByPlaceholderText(/search skills/i);
     await waitForCatalog(qc);
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: 'Postgres' } });
     fireEvent.click(await screen.findByText('Postgres'));
-    expect(onChange).toHaveBeenCalledWith([{ skill_id: 's1', skill_name: 'Postgres', level: 0 }]);
+    expect(onChange).toHaveBeenCalledWith([{ skill_id: 's1', skill_name: 'Postgres' }]);
   });
 
   it('omits inactive catalog skills from the dropdown', async () => {
