@@ -4,7 +4,9 @@ import type { AgentTool } from '@seta/agent-sdk';
 // REFERENCE_TIME lives in the golden constants (a zero-dependency leaf module) so the
 // fixture data and the eval-executed agent share one frozen anchor. Importing it here
 // pulls only a Date constant — none of the heavier fixture graph (tasks/events/seed).
+import { resolveEmbeddingProvider } from '@seta/shared-embeddings';
 import { REFERENCE_TIME } from '../../../tests/fixtures/golden/constants.ts';
+import { plannerFindSimilarTasksTool } from '../agent-tools/find-similar-tasks.ts';
 import {
   makeQueryGeneralAnswerAgent,
   makeQueryTaskDetailAgent,
@@ -22,14 +24,22 @@ export interface PlannerQueryEvalTarget {
   buildQualityRuntime: (opts: { resolveModel: () => MastraModelConfig }) => PlannerQueryRuntime;
 }
 
+/** Options for the E2E lane. When `databaseUrl` is set, the real
+ *  `planner_findSimilarTasks` tool runs against seeded pgvector embeddings
+ *  instead of the stub; default (no opts) keeps the existing stubbed behavior. */
+export interface BuildPlannerQueryEvalTargetOpts {
+  databaseUrl?: string;
+}
+
 function buildRuntime(
   resolveModel: () => MastraModelConfig,
+  findSimilarTasksTool: AgentTool,
   streamAgent?: QueryOrchestratorDeps['streamAgent'],
 ): PlannerQueryRuntime {
   const taskSearch = makeQueryTaskSearchAgent({
     resolveModel,
     mastraStorage: stubStorage,
-    findSimilarTasksTool: stubFindSimilar,
+    findSimilarTasksTool,
     now: () => REFERENCE_TIME,
   });
   const taskDetail = makeQueryTaskDetailAgent({ resolveModel, mastraStorage: stubStorage });
@@ -50,14 +60,27 @@ function buildRuntime(
   return { runStream };
 }
 
-export function buildPlannerQueryEvalTarget(): PlannerQueryEvalTarget {
+export function buildPlannerQueryEvalTarget(
+  opts: BuildPlannerQueryEvalTargetOpts = {},
+): PlannerQueryEvalTarget {
+  const findSimilar = opts.databaseUrl
+    ? (plannerFindSimilarTasksTool({
+        provider: resolveEmbeddingProvider(),
+        databaseUrl: opts.databaseUrl,
+        now: () => REFERENCE_TIME,
+      }) as unknown as AgentTool)
+    : stubFindSimilar;
+
   return {
     buildDeterministicRuntime: () =>
       buildRuntime(
         () => ({}) as never,
-        () => ({ text: Promise.resolve('Deterministic eval response.') }),
+        findSimilar,
+        () => ({
+          text: Promise.resolve('Deterministic eval response.'),
+        }),
       ),
 
-    buildQualityRuntime: (opts) => buildRuntime(opts.resolveModel),
+    buildQualityRuntime: (opts2) => buildRuntime(opts2.resolveModel, findSimilar),
   };
 }
