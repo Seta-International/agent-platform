@@ -54,7 +54,11 @@ it('flags a cross-tenant leak (decoy entity embedded under the main tenant)', ()
 
 it('flags a wrong model id', () => {
   const p = baseParams();
-  p.rows[0].modelId = 'openai:text-embedding-3-large';
+  p.rows = [
+    { entityId: 't1', tenantId: MAIN, modelId: 'openai:text-embedding-3-large' },
+    { entityId: 't2', tenantId: MAIN, modelId: MODEL },
+    { entityId: 'd1', tenantId: DECOY, modelId: MODEL },
+  ];
   const v = checkEmbeddingInvariants(p);
   expect(v.some((x) => /model/i.test(x))).toBe(true);
 });

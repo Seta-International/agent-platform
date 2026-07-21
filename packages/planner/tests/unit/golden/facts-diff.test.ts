@@ -17,7 +17,7 @@ it('reports no diff for identical facts', () => {
 
 it('reports a changed scalar with its dotted path and both values', () => {
   const candidate = structuredClone(base);
-  candidate.facts.users.u1.openTaskCount = 13;
+  candidate.facts.users.u1 = { openTaskCount: 13, groups: ['g1'], inaccessibleGroups: [] };
   const d = diffGoldenFacts(base, candidate);
   expect(d).toHaveLength(1);
   expect(d[0]).toContain('facts.users.u1.openTaskCount');
