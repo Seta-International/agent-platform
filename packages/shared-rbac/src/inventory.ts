@@ -323,6 +323,10 @@ export const INVENTORY: StatementSpec[] = [
     statement: {
       'people.worker': ['read', 'create', 'update', 'manage'],
       'people.self': ['read', 'manage'],
+      'people.performance': ['read'],
+    },
+    descriptions: {
+      'people.performance.read': 'Enter the Performance surface and read own capacities',
     },
     roles: [
       {
@@ -335,6 +339,7 @@ export const INVENTORY: StatementSpec[] = [
           'people.worker.manage',
           'people.self.read',
           'people.self.manage',
+          'people.performance.read',
           'core.skill.read',
         ],
       },
@@ -345,6 +350,7 @@ export const INVENTORY: StatementSpec[] = [
           'people.worker.read',
           'people.self.read',
           'people.self.manage',
+          'people.performance.read',
           'core.skill.read',
         ],
       },
@@ -454,6 +460,7 @@ export const INVENTORY: StatementSpec[] = [
           'pm.charter.read',
           'pm.project.read',
           'pm.project.manage',
+          'people.performance.read',
         ],
       },
       {
@@ -464,6 +471,7 @@ export const INVENTORY: StatementSpec[] = [
           'pm.charter.bod_approve',
           'pm.charter.read',
           'pm.project.read',
+          'people.performance.read',
         ],
       },
       {

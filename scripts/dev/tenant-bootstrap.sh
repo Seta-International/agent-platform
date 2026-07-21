@@ -49,6 +49,10 @@ for ((i = 1; i <= MEMBER_COUNT; i++)); do
     --user "$email" --tenant "$SLUG" --role knowledge.member --scope tenant --action grant
   pnpm -F @seta/cli exec tsx src/index.ts role-grant \
     --user "$email" --tenant "$SLUG" --role agent.member --scope self --action grant
+  # Sandbox-only: lets demo members enter /people/performance (people.performance.read).
+  # Real-tenant grants are an admin decision — see the Story 1.1 PR notes.
+  pnpm -F @seta/cli exec tsx src/index.ts role-grant \
+    --user "$email" --tenant "$SLUG" --role people.viewer --scope self --action grant
 done
 
 cat <<EOF
