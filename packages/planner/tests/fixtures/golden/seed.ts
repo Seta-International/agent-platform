@@ -2,6 +2,7 @@
 import { slugifySkill } from '@seta/core';
 import type { Pool } from 'pg';
 import * as C from './constants.ts';
+import { buildDecoyFixture } from './decoy.ts';
 import { ALL_EVENTS } from './events.ts';
 import { GROUPS, MEMBERSHIPS, ORG_UNITS } from './organization.ts';
 import { ALL_PEOPLE, SKILL_CATALOG } from './people.ts';
@@ -278,30 +279,148 @@ export async function seedGoldenDataset(pool: Pool): Promise<void> {
       ],
     );
   }
+
+  // 16. Decoy tenant (collision-only isolation fixture; spec §B).
+  await seedDecoyTenant(pool);
+}
+
+/**
+ * Seeds the collision-only decoy tenant under DECOY_TENANT_ID in FK order.
+ * Deliberately minimal (2 users, 1 group/plan/bucket, 2 tasks) and carries
+ * canary strings so cross-tenant leaks are detectable.
+ */
+async function seedDecoyTenant(pool: Pool): Promise<void> {
+  const decoy = buildDecoyFixture();
+
+  await pool.query(
+    `INSERT INTO core.tenants (id, name, slug)
+     VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`,
+    [C.DECOY_TENANT_ID, 'Decoy Corp', 'decoy-corp'],
+  );
+
+  for (const user of decoy.users) {
+    await pool.query(
+      `INSERT INTO people.person
+         (id, tenant_id, full_name, work_email, bio, availability_status, timezone)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING`,
+      [
+        user.person_id,
+        C.DECOY_TENANT_ID,
+        user.display_name,
+        user.email,
+        user.bio,
+        user.availability_status,
+        user.timezone,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO people.user_projection (user_id, tenant_id, person_id)
+       VALUES ($1, $2, $3) ON CONFLICT (user_id) DO NOTHING`,
+      [user.user_id, C.DECOY_TENANT_ID, user.person_id],
+    );
+    await pool.query(
+      `INSERT INTO planner.assignee_projection
+         (user_id, tenant_id, display_name, email, availability_status, timezone)
+       VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (user_id) DO NOTHING`,
+      [
+        user.user_id,
+        C.DECOY_TENANT_ID,
+        user.display_name,
+        user.email,
+        user.availability_status,
+        user.timezone,
+      ],
+    );
+  }
+
+  await pool.query(
+    `INSERT INTO planner.groups (id, tenant_id, name, visibility, theme, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING`,
+    [decoy.group.id, C.DECOY_TENANT_ID, decoy.group.name, 'private', 'blue', C.DECOY_TUAN_USER_ID],
+  );
+  for (const user of decoy.users) {
+    await pool.query(
+      `INSERT INTO planner.group_members (tenant_id, group_id, user_id, role, added_by)
+       VALUES ($1, $2, $3, $4, $5) ON CONFLICT (tenant_id, group_id, user_id) DO NOTHING`,
+      [C.DECOY_TENANT_ID, decoy.group.id, user.user_id, 'member', C.DECOY_TUAN_USER_ID],
+    );
+  }
+
+  await pool.query(
+    `INSERT INTO planner.plans (id, tenant_id, group_id, name, created_by)
+     VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
+    [decoy.plan.id, C.DECOY_TENANT_ID, decoy.plan.group_id, decoy.plan.name, C.DECOY_TUAN_USER_ID],
+  );
+  await pool.query(
+    `INSERT INTO planner.buckets (id, tenant_id, plan_id, name, order_hint, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING`,
+    [
+      decoy.bucket.id,
+      C.DECOY_TENANT_ID,
+      decoy.bucket.plan_id,
+      decoy.bucket.name,
+      'a',
+      C.DECOY_TUAN_USER_ID,
+    ],
+  );
+
+  for (const task of decoy.tasks) {
+    await pool.query(
+      `INSERT INTO planner.tasks
+         (id, tenant_id, plan_id, bucket_id, title, description, priority, progress, due_at, created_at, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (id) DO NOTHING`,
+      [
+        task.id,
+        C.DECOY_TENANT_ID,
+        task.plan_id,
+        task.bucket_id,
+        task.title,
+        task.description,
+        task.priority,
+        task.progress,
+        task.due_at,
+        task.created_at,
+        C.DECOY_TUAN_USER_ID,
+      ],
+    );
+    for (const userId of task.assignee_user_ids) {
+      await pool.query(
+        `INSERT INTO planner.task_assignments (tenant_id, task_id, user_id, assigned_by)
+         VALUES ($1, $2, $3, $4) ON CONFLICT (task_id, user_id) DO NOTHING`,
+        [C.DECOY_TENANT_ID, task.id, userId, C.DECOY_TUAN_USER_ID],
+      );
+    }
+  }
 }
 
 /**
  * Deletes every row written by `seedGoldenDataset`, scoped to the golden
- * dataset's tenant (reverse FK order). Safe to call even if nothing was
- * seeded yet.
+ * dataset's tenants (main + decoy, reverse FK order). Safe to call even if
+ * nothing was seeded yet.
  */
 export async function cleanGoldenDataset(pool: Pool): Promise<void> {
-  await pool.query(`DELETE FROM core.events WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM planner.task_comments WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM planner.task_labels WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM planner.task_assignments WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM planner.tasks WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM planner.labels WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM planner.buckets WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM planner.plans WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM planner.group_members WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM planner.groups WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM planner.assignee_projection WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM people.person_skill WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM people.user_projection WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM people.person WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM people.org_unit WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM core.skill WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM core.skill_category WHERE tenant_id = $1`, [C.TENANT_ID]);
-  await pool.query(`DELETE FROM core.tenants WHERE id = $1`, [C.TENANT_ID]);
+  for (const tenantId of [C.TENANT_ID, C.DECOY_TENANT_ID]) {
+    await cleanTenant(pool, tenantId);
+  }
+}
+
+async function cleanTenant(pool: Pool, tenantId: string): Promise<void> {
+  await pool.query(`DELETE FROM core.events WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM planner.task_comments WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM planner.task_labels WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM planner.task_assignments WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM planner.tasks WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM planner.labels WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM planner.buckets WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM planner.plans WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM planner.group_members WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM planner.groups WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM planner.assignee_projection WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM people.person_skill WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM people.user_projection WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM people.person WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM people.org_unit WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM core.skill WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM core.skill_category WHERE tenant_id = $1`, [tenantId]);
+  await pool.query(`DELETE FROM core.tenants WHERE id = $1`, [tenantId]);
 }
