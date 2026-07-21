@@ -42,19 +42,23 @@ function fmt(ts: string): string {
   return Number.isNaN(d.getTime()) ? ts : d.toLocaleString();
 }
 
-// candidate_event.actor_user_id has no local name projection in the hiring module (would need
-// a cross-module identity lookup) — null reliably means a system-triggered event, but a real
-// user id can't be resolved to a display name here, so it's labeled honestly instead of guessed.
-function actorLabel(actorUserId: string | null): string {
-  return actorUserId === null ? 'System' : 'No Data';
+// candidate_event stores only actor_user_id — a null one is a system-triggered event; a real
+// user id is resolved to a display name via the identity directory (`actorNames`, wired by the
+// caller). Falls back to "Unknown" only when the directory can't resolve the id.
+function actorLabel(actorUserId: string | null, actorNames?: Record<string, string>): string {
+  if (actorUserId === null) return 'System';
+  return actorNames?.[actorUserId] ?? 'Unknown';
 }
 
 export function CandidateTimeline({
   events,
   loading,
+  actorNames,
 }: {
   events: CandidateEvent[];
   loading?: boolean;
+  /** actor_user_id → display name, resolved against the identity directory by the caller. */
+  actorNames?: Record<string, string>;
 }) {
   if (loading) {
     return (
@@ -85,7 +89,7 @@ export function CandidateTimeline({
                 <div className="text-sm text-secondary">{e.summary}</div>
               )}
               <div className="text-sm text-secondary">
-                by {actorLabel(e.actor_user_id)} · {fmt(e.created_at)}
+                by {actorLabel(e.actor_user_id, actorNames)} · {fmt(e.created_at)}
               </div>
             </div>
           </li>

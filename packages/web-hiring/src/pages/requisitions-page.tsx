@@ -42,7 +42,14 @@ import {
 import { hiringKeys } from '../state/query-keys.ts';
 import { NewRequisitionDialog } from './new-requisition-dialog.tsx';
 import { RequisitionCard } from './requisition-card.tsx';
-import { STAGE_LABEL } from './requisition-format.ts';
+import {
+  daysLeft,
+  furthestReachedIndex,
+  PIPELINE_STAGE_LABEL,
+  STAGE_LABEL,
+  STAGES,
+  stageCounts,
+} from './requisition-format.ts';
 import { buildScopeNote } from './utils.ts';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -66,9 +73,12 @@ const REQ_COLUMN_OPTIONS: ColumnSettingsOption[] = [
   { key: 'grade', label: 'Grade' },
   { key: 'kind', label: 'Type' },
   { key: 'stage', label: 'Stage' },
+  { key: 'pipeline', label: 'Pipeline' },
   { key: 'applicants_count', label: 'Applicants' },
+  { key: 'headcount', label: 'Headcount' },
   { key: 'status', label: 'Status' },
   { key: 'due_date', label: 'Due' },
+  { key: 'days_left', label: 'Days left' },
 ];
 const DEFAULT_REQ_COLUMN_KEYS = REQ_COLUMN_OPTIONS.map((c) => c.key);
 const REQ_PAGE_SIZE_OPTIONS = [25, 50, 100];
@@ -139,6 +149,20 @@ export function RequisitionsPage() {
 
   const { sortedData, sort, sortConfig } = useTableSortableState<Row>({
     data: filteredRows as Row[],
+    // Computed columns have no backing field, so sort them explicitly. Days-left sorts by urgency
+    // (soonest/overdue first, undated last); headcount by fill ratio (least-filled first).
+    comparators: {
+      days_left: (a, b) => {
+        const av = a.due_date ? daysLeft(a.due_date) : Number.POSITIVE_INFINITY;
+        const bv = b.due_date ? daysLeft(b.due_date) : Number.POSITIVE_INFINITY;
+        return av - bv;
+      },
+      headcount: (a, b) => {
+        const frac = (r: Row) =>
+          r.openings_total > 0 ? (r.openings_total - r.openings_open) / r.openings_total : -1;
+        return frac(a) - frac(b);
+      },
+    },
   });
   const sortable = useTableSortable<Row>(sortConfig);
 
@@ -249,10 +273,54 @@ export function RequisitionsPage() {
         renderCell: (r) => <span className="text-secondary">{STAGE_LABEL[r.stage]}</span>,
       },
       {
+        // Compact per-stage breakdown (New · Screening · Interview · Offer), the deepest reached
+        // stage emphasised — the card's mini-pipeline as one cell. Tooltip spells out the stages.
+        key: 'pipeline',
+        header: 'Pipeline',
+        sortable: false,
+        renderCell: (r) => {
+          const counts = stageCounts(r.applicants_count, r.applicants);
+          const furthest = furthestReachedIndex(r.applicants);
+          return (
+            <Tooltip
+              content={STAGES.map((s, i) => `${PIPELINE_STAGE_LABEL[s]} ${counts[i]}`).join(' · ')}
+              hasHoverIndication={false}
+            >
+              <span className="flex items-center gap-1 whitespace-nowrap tabular-nums">
+                {counts.map((c, i) => (
+                  <span key={STAGES[i]} className="flex items-center gap-1">
+                    {i > 0 && <span className="text-secondary">·</span>}
+                    <span
+                      className={i === furthest ? 'font-semibold text-primary' : 'text-secondary'}
+                    >
+                      {c}
+                    </span>
+                  </span>
+                ))}
+              </span>
+            </Tooltip>
+          );
+        },
+      },
+      {
         key: 'applicants_count',
         header: 'Applicants',
         sortable: true,
         renderCell: (r) => <span className="text-secondary">{r.applicants_count}</span>,
+      },
+      {
+        // Fill progress (filled / total openings) — how close the requisition is to being filled.
+        key: 'headcount',
+        header: 'Headcount',
+        sortable: true,
+        renderCell: (r) =>
+          r.openings_total > 0 ? (
+            <span className="whitespace-nowrap tabular-nums text-secondary">
+              {Math.max(0, r.openings_total - r.openings_open)}/{r.openings_total} filled
+            </span>
+          ) : (
+            <span className="text-secondary">—</span>
+          ),
       },
       {
         key: 'status',
@@ -267,6 +335,33 @@ export function RequisitionsPage() {
         renderCell: (r) => (
           <span className="font-mono text-sm text-secondary">{r.due_date ?? '—'}</span>
         ),
+      },
+      {
+        // Urgency countdown, coloured only when it needs attention (overdue → red, ≤7 days → amber);
+        // matches the requisition card's time-to-fill signal.
+        key: 'days_left',
+        header: 'Days left',
+        sortable: true,
+        renderCell: (r) => {
+          if (!r.due_date) return <span className="text-secondary">—</span>;
+          const dl = daysLeft(r.due_date);
+          const label =
+            dl < 0
+              ? `${-dl} day${dl === -1 ? '' : 's'} overdue`
+              : dl === 0
+                ? 'Due today'
+                : `${dl} day${dl === 1 ? '' : 's'} left`;
+          const color =
+            dl > 7 ? undefined : dl < 0 ? 'var(--color-text-error)' : 'var(--color-text-warning)';
+          return (
+            <span
+              className="whitespace-nowrap text-secondary"
+              style={color ? { color } : undefined}
+            >
+              {label}
+            </span>
+          );
+        },
       },
     ],
     [],

@@ -1,4 +1,4 @@
-import { ClickableCard, Heading, StatusDot, Text } from '@seta/shared-ui';
+import { ClickableCard, Heading, Text } from '@seta/shared-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Users } from 'lucide-react';
 import type { RequisitionListRow } from '../api/hiring-client.ts';
@@ -7,7 +7,7 @@ import {
   deriveAttention,
   formatDate,
   furthestReachedIndex,
-  STAGE_LABEL,
+  PIPELINE_STAGE_LABEL,
   STAGES,
   stageCounts,
 } from './requisition-format.ts';
@@ -67,28 +67,23 @@ export function RequisitionCard({ r }: { r: RequisitionListRow }) {
       className="flex h-full flex-col"
       data-testid="requisition-card"
     >
-      {/* Header: attention dot + title + kind. */}
-      <div className="flex items-start gap-2.5">
-        <span className="mt-2 shrink-0">
-          <StatusDot variant={att.dotVariant} label={att.dotLabel} />
-        </span>
-        <div className="min-w-0">
-          <div className="flex items-baseline gap-2">
-            <Heading level={3} maxLines={2}>
-              {r.title}
-            </Heading>
-            {/* Kind as a flat uppercase tag, not a Badge pill — it labels identity, not a
-                status, so it stays out of the enumerated-state Badge vocabulary. */}
-            <Text type="supporting" color="secondary" className="shrink-0 uppercase tracking-wide">
-              {KIND_LABEL[r.kind] ?? r.kind}
-            </Text>
-          </div>
-          {subtitle && (
-            <Text type="supporting" maxLines={1} display="block">
-              {subtitle}
-            </Text>
-          )}
+      {/* Header: title + kind. */}
+      <div className="min-w-0">
+        <div className="flex items-baseline gap-2">
+          <Heading level={3} maxLines={2}>
+            {r.title}
+          </Heading>
+          {/* Kind as a flat uppercase tag, not a Badge pill — it labels identity, not a
+              status, so it stays out of the enumerated-state Badge vocabulary. */}
+          <Text type="supporting" color="secondary" className="shrink-0 uppercase tracking-wide">
+            {KIND_LABEL[r.kind] ?? r.kind}
+          </Text>
         </div>
+        {subtitle && (
+          <Text type="supporting" maxLines={1} display="block">
+            {subtitle}
+          </Text>
+        )}
       </div>
 
       {/* Pipeline buckets (left) + the one hero signal (right). */}
@@ -96,7 +91,7 @@ export function RequisitionCard({ r }: { r: RequisitionListRow }) {
         <div className="flex gap-5">
           {STAGES.map((s, i) => (
             <div key={s} className="flex flex-col gap-0.5">
-              <Text type="supporting">{STAGE_LABEL[s]}</Text>
+              <Text type="supporting">{PIPELINE_STAGE_LABEL[s]}</Text>
               <Text
                 data-testid="stage-count"
                 hasTabularNumbers

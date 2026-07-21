@@ -16,6 +16,7 @@ import {
   getCandidateStageCounts,
   hireApplication,
   listCandidates,
+  listRejectedCandidates,
   listTalentPool,
   moveApplicationStage,
   rejectApplication,
@@ -38,6 +39,10 @@ export function registerHiringCandidateRoutes(app: Hono<SessionEnv>): void {
   );
   app.get('/api/hiring/v1/candidates/stage-counts', async (c) =>
     c.json(await getCandidateStageCounts(c.get('user'))),
+  );
+  // Registered before `/candidates/:id` so the static segment wins the match.
+  app.get('/api/hiring/v1/candidates/rejected', async (c) =>
+    c.json({ candidates: await listRejectedCandidates(c.get('user')) }),
   );
   app.get('/api/hiring/v1/talent-pool', async (c) =>
     c.json({ pool: await listTalentPool(c.get('user')) }),

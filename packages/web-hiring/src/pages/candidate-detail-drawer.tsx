@@ -5,8 +5,9 @@ import {
   Banner,
   Button,
   Dialog,
-  formatRelative,
-  IconButton,
+  DialogFooter,
+  DialogHeader,
+  DisabledActionTooltip,
   Layout,
   LayoutContent,
   ProgressBar,
@@ -19,17 +20,17 @@ import {
   Building2,
   Cake,
   CalendarDays,
-  Copy,
+  CircleDot,
   FileText,
   Globe,
   Mail,
   Phone,
   Star,
+  Upload,
   VenusAndMars,
-  X,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   type CandStage,
   editCandidate,
@@ -40,9 +41,11 @@ import {
   putCvToS3,
   requestCandidateCvUpload,
 } from '../api/hiring-client.ts';
+import { fetchDirectoryUsersByIds } from '../api/identity-directory.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { CandidateTimeline } from './candidate-timeline.tsx';
 import { fitLabel } from './candidate-utils.ts';
+import { DetailRow } from './detail-row.tsx';
 import { RejectDialog } from './reject-dialog.tsx';
 import { TransferDialog } from './transfer-dialog.tsx';
 import { on409 } from './utils.ts';
@@ -54,9 +57,34 @@ const STAGES: { id: CandStage; label: string }[] = [
   { id: 'offer', label: 'Offer' },
 ];
 
-function appliedLabel(appliedAt: string): string {
-  const rel = formatRelative(appliedAt);
-  return rel === 'now' ? 'just now' : `${rel} ago`;
+// Application lifecycle status → human label + Badge tone (chromatic colour is reserved for status).
+// Rejected reads as a caution (amber, matching the terminal banner); hired is the positive outcome.
+const APP_STATUS_LABEL: Record<string, string> = {
+  active: 'Active',
+  hired: 'Hired',
+  rejected: 'Rejected',
+  transferred: 'Transferred',
+  cancelled: 'Cancelled',
+};
+const APP_STATUS_VARIANT: Record<string, 'success' | 'warning' | 'neutral' | 'error'> = {
+  active: 'neutral',
+  hired: 'success',
+  rejected: 'warning',
+  transferred: 'neutral',
+  cancelled: 'neutral',
+};
+
+// Gender is stored as a snake_case enum — show a human label instead of the raw value.
+const GENDER_LABEL: Record<string, string> = {
+  male: 'Male',
+  female: 'Female',
+  non_binary: 'Non-binary',
+  other: 'Other',
+  prefer_not_to_say: 'Prefer not to say',
+};
+function genderLabel(value: string | null): string {
+  if (!value) return 'Not provided';
+  return GENDER_LABEL[value] ?? value.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 }
 
 function DetailCard({
@@ -76,40 +104,6 @@ function DetailCard({
       </div>
       {children}
     </section>
-  );
-}
-
-function DetailRow({
-  icon,
-  label,
-  value,
-  onCopy,
-}: {
-  icon?: ReactNode;
-  label: string;
-  value: ReactNode;
-  onCopy?: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-border py-2 last:border-b-0">
-      <span className="flex items-center gap-1.5 text-sm text-secondary">
-        {icon}
-        {label}
-      </span>
-      <span className="flex items-center gap-1.5 text-base text-primary">
-        {value}
-        {onCopy && (
-          <IconButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onCopy}
-            label={`Copy ${label}`}
-            icon={<Copy className="size-3.5" />}
-          />
-        )}
-      </span>
-    </div>
   );
 }
 
@@ -135,6 +129,30 @@ export function CandidateDetailDrawer({
     queryFn: () => fetchCandidate(candidateId as string),
     enabled: !!candidateId,
   });
+
+  // Resolve the timeline's actor_user_ids to display names via the identity directory — hiring
+  // stores only the id, so "by <name>" attribution needs this cross-module lookup.
+  const actorIds = useMemo(
+    () =>
+      [
+        ...new Set(
+          (data?.timeline ?? [])
+            .map((e) => e.actor_user_id)
+            .filter((id): id is string => id !== null),
+        ),
+      ].sort(),
+    [data?.timeline],
+  );
+  const { data: directoryUsers } = useQuery({
+    queryKey: hiringKeys.actorNames(actorIds),
+    queryFn: () => fetchDirectoryUsersByIds(actorIds),
+    enabled: actorIds.length > 0,
+  });
+  const actorNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const u of directoryUsers ?? []) map[u.user_id] = u.name;
+    return map;
+  }, [directoryUsers]);
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: hiringKeys.candidate(candidateId ?? '') });
@@ -204,65 +222,163 @@ export function CandidateDetailDrawer({
       purpose="info"
       width={1040}
       maxHeight="90vh"
-      padding={0}
       aria-label={dialogLabel}
     >
-      {/*
-       * Special case (no visible header/footer): the content below renders its own visible
-       * header (avatar/name/close button), so this shell must NOT render a `DialogHeader` —
-       * that would stack two header bars. The dialog's accessible name is set directly via
-       * `aria-label` above, mirroring the original's screen-reader-only `DialogTitle`.
-       */}
-      <Layout
-        padding={0}
-        content={
-          <LayoutContent padding={0} isScrollable={false}>
-            <div className="flex max-h-[90vh] flex-col">
-              {isLoading || !data ? (
-                <div className="p-6 text-secondary">Loading…</div>
-              ) : (
-                <>
-                  <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
-                    <div className="flex items-start gap-3">
-                      <Avatar name={data.candidate.name} size={60} />
-                      <div>
-                        <div className="text-2xl font-semibold text-primary">
-                          {data.candidate.name}
-                        </div>
-                        <div className="text-base text-secondary">
-                          {data.candidate.seniority ?? '—'} · applying for{' '}
-                          {app?.requisition_title ?? '—'}
-                        </div>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-sm text-secondary">
-                          <span className="inline-flex items-center gap-1">
-                            <Building2 className="size-3.5" aria-hidden />
-                            {data.candidate.source ?? '—'}
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <CalendarDays className="size-3.5" aria-hidden />
-                            {app ? `Applied ${appliedLabel(app.applied_at)}` : '—'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      isIconOnly
-                      icon={<X className="size-4" />}
-                      label="Close"
-                      onClick={onClose}
-                      className="flex-none"
-                    />
-                  </div>
+      {isLoading || !data ? (
+        <Layout
+          content={
+            <LayoutContent>
+              <div className="p-6 text-secondary">Loading…</div>
+            </LayoutContent>
+          }
+        />
+      ) : (
+        <Layout
+          header={
+            <DialogHeader
+              title={data.candidate.name}
+              subtitle={data.candidate.seniority ?? undefined}
+              startContent={<Avatar name={data.candidate.name} size={48} />}
+              onOpenChange={(open) => !open && onClose()}
+            />
+          }
+          content={
+            <LayoutContent>
+              {/* Terminal / on-hold states show a full-width alert; the current stage itself now
+                  lives in the Application card (right column, with the rest of the process info). */}
+              {terminal && (
+                <Banner
+                  className="mb-4"
+                  // hired reads as a positive outcome (green); rejected is a caution (amber); the
+                  // remaining closed states (cancelled/transferred) stay neutral info.
+                  status={
+                    app?.status === 'hired'
+                      ? 'success'
+                      : app?.status === 'rejected'
+                        ? 'warning'
+                        : 'info'
+                  }
+                  title={
+                    app?.status === 'cancelled'
+                      ? app?.requisition_status === 'filled'
+                        ? 'Closed — the position was filled.'
+                        : 'Closed — its requisition was cancelled.'
+                      : `This candidate is ${app?.status} and can no longer be moved.`
+                  }
+                />
+              )}
+              {reqOnHold && (
+                <Banner
+                  className="mb-4"
+                  status="warning"
+                  title="Requisition on hold — resume it from the board to move this candidate."
+                />
+              )}
 
-                  {/* Stage bar: where the candidate is in the pipeline. The actual moves
-                      (advance / reject / transfer) live in the footer; terminal and on-hold
-                      states show a banner here explaining why those moves are locked. */}
-                  <div className="border-b border-border px-6 py-4">
-                    {/* Where the candidate is in the pipeline. Fit, rating and skills each live in
-                        their own section below now. */}
-                    <div className="min-w-0">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
+                {/* LEFT — the person: contact, résumé, skills. */}
+                <div className="space-y-4">
+                  <DetailCard title="Contact">
+                    <DetailRow
+                      icon={<Mail className="size-3.5" aria-hidden />}
+                      label="Email"
+                      value={data.candidate.contact?.personal_email ?? 'Not provided'}
+                      onCopy={
+                        data.candidate.contact?.personal_email
+                          ? () =>
+                              void navigator.clipboard.writeText(
+                                data.candidate.contact?.personal_email ?? '',
+                              )
+                          : undefined
+                      }
+                    />
+                    <DetailRow
+                      icon={<Phone className="size-3.5" aria-hidden />}
+                      label="Phone"
+                      value={data.candidate.contact?.phone ?? 'Not provided'}
+                      onCopy={
+                        data.candidate.contact?.phone
+                          ? () =>
+                              void navigator.clipboard.writeText(
+                                data.candidate.contact?.phone ?? '',
+                              )
+                          : undefined
+                      }
+                    />
+                    <DetailRow
+                      icon={<Globe className="size-3.5" aria-hidden />}
+                      label="Source"
+                      value={data.candidate.source ?? 'Not provided'}
+                    />
+                    <DetailRow
+                      icon={<Cake className="size-3.5" aria-hidden />}
+                      label="Date of birth"
+                      value={data.candidate.dob ?? 'Not provided'}
+                    />
+                    <DetailRow
+                      icon={<VenusAndMars className="size-3.5" aria-hidden />}
+                      label="Gender"
+                      value={genderLabel(data.candidate.gender)}
+                    />
+                  </DetailCard>
+
+                  <DetailCard title="CV">
+                    <CandidateCvActions
+                      candidateId={data.candidate.id}
+                      hasCv={Boolean(data.candidate.cv_storage_key)}
+                      cvStorageKey={data.candidate.cv_storage_key}
+                      canManage={canManage}
+                      onChanged={() =>
+                        void queryClient.invalidateQueries({
+                          queryKey: hiringKeys.candidate(data.candidate.id),
+                        })
+                      }
+                    />
+                  </DetailCard>
+
+                  <DetailCard title="Skills">
+                    {app && app.fit.required > 0 && (
+                      <div className="mb-3 flex items-center gap-2">
+                        <Badge
+                          variant={fit?.strong ? 'success' : 'neutral'}
+                          label={fit?.text ?? ''}
+                        />
+                        <span className="text-sm text-secondary">
+                          {fit?.strong ? 'Strong fit' : 'Partial fit'} for the required skills
+                        </span>
+                      </div>
+                    )}
+                    {data.skills.length === 0 ? (
+                      <p className="text-sm text-secondary">No skills listed.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {data.skills.map((s) => (
+                          <span
+                            key={s.skill_id}
+                            className="rounded-full bg-surface px-2.5 py-1 text-sm text-secondary"
+                          >
+                            {s.skill_name}
+                            {s.level ? ` · ${s.level}/5` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </DetailCard>
+
+                  <DetailCard title="Notes">
+                    {app?.note ? (
+                      <p className="text-base text-primary">{app.note}</p>
+                    ) : (
+                      <p className="text-sm text-secondary">No notes yet.</p>
+                    )}
+                  </DetailCard>
+                </div>
+
+                {/* RIGHT — the application & its progress: role, screening, history. */}
+                <div className="space-y-4">
+                  <DetailCard title="Application">
+                    {/* Current stage + progress lead the process card. */}
+                    <div className="mb-3 border-b border-border pb-3">
                       <div className="text-sm text-secondary">Current stage</div>
                       <div className="mt-1 flex items-baseline gap-2">
                         <span className="text-lg font-semibold text-primary">
@@ -275,7 +391,7 @@ export function CandidateDetailDrawer({
                         )}
                       </div>
                       {stageIdx >= 0 && (
-                        <div className="mt-2 w-[200px] max-w-full">
+                        <div className="mt-2">
                           <ProgressBar
                             label="Stage progress"
                             isLabelHidden
@@ -285,180 +401,95 @@ export function CandidateDetailDrawer({
                         </div>
                       )}
                     </div>
-
-                    {terminal && (
-                      <Banner
-                        className="mt-3"
-                        status={app?.status === 'hired' ? 'success' : 'info'}
-                        title={
-                          app?.status === 'cancelled'
-                            ? 'Closed — its requisition was cancelled.'
-                            : `This candidate is ${app?.status} and can no longer be moved.`
-                        }
-                      />
-                    )}
-                    {reqOnHold && (
-                      <Banner
-                        className="mt-3"
-                        status="warning"
-                        title="Requisition on hold — resume it from the board to move this candidate."
-                      />
-                    )}
-                  </div>
-
-                  <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto px-6 py-4 lg:grid-cols-[1.4fr_1fr]">
-                    {/* READ — the material HR reads to decide. */}
-                    <div className="space-y-4">
-                      <DetailCard title="Skills">
-                        {app && app.fit.required > 0 && (
-                          <div className="mb-3 flex items-center gap-2">
-                            <Badge
-                              variant={fit?.strong ? 'success' : 'neutral'}
-                              label={fit?.text ?? ''}
-                            />
-                            <span className="text-sm text-secondary">
-                              {fit?.strong ? 'Strong fit' : 'Partial fit'} for the required skills
-                            </span>
-                          </div>
-                        )}
-                        {data.skills.length === 0 ? (
-                          <p className="text-sm text-secondary">No skills listed.</p>
+                    <DetailRow
+                      icon={<CircleDot className="size-3.5" aria-hidden />}
+                      label="Status"
+                      value={
+                        app ? (
+                          <Badge
+                            variant={APP_STATUS_VARIANT[app.status] ?? 'neutral'}
+                            label={APP_STATUS_LABEL[app.status] ?? app.status}
+                          />
                         ) : (
-                          <div className="flex flex-wrap gap-1.5">
-                            {data.skills.map((s) => (
-                              <span
-                                key={s.skill_id}
-                                className="rounded-full bg-surface px-2.5 py-1 text-sm text-secondary"
-                              >
-                                {s.skill_name}
-                                {s.level ? ` · ${s.level}/5` : ''}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </DetailCard>
-
-                      <DetailCard title="CV">
-                        <CandidateCvActions
-                          candidateId={data.candidate.id}
-                          hasCv={Boolean(data.candidate.cv_storage_key)}
-                          cvStorageKey={data.candidate.cv_storage_key}
-                          canManage={canManage}
-                          onChanged={() =>
-                            void queryClient.invalidateQueries({
-                              queryKey: hiringKeys.candidate(data.candidate.id),
+                          '—'
+                        )
+                      }
+                    />
+                    <DetailRow
+                      icon={<Building2 className="size-3.5" aria-hidden />}
+                      label="Requisition"
+                      value={app?.requisition_title ?? '—'}
+                    />
+                    <DetailRow
+                      icon={<CalendarDays className="size-3.5" aria-hidden />}
+                      label="Applied"
+                      value={
+                        app
+                          ? new Date(app.applied_at).toLocaleDateString('en-GB', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
                             })
-                          }
-                        />
-                      </DetailCard>
+                          : '—'
+                      }
+                    />
+                    <DetailRow
+                      icon={<Star className="size-3.5" aria-hidden />}
+                      label="Rating"
+                      value={app?.rating != null ? `${app.rating}/5` : 'Not rated'}
+                    />
+                  </DetailCard>
 
-                      <DetailCard title="Notes">
-                        {app?.note ? (
-                          <p className="text-base text-primary">{app.note}</p>
-                        ) : (
-                          <p className="text-sm text-secondary">No notes yet.</p>
-                        )}
-                      </DetailCard>
-                    </div>
-
-                    {/* CONTEXT — supporting facts and history. */}
-                    <div className="space-y-4">
-                      <DetailCard title="Details">
-                        <DetailRow
-                          icon={<Star className="size-3.5" aria-hidden />}
-                          label="Rating"
-                          value={app?.rating != null ? `${app.rating}/5` : 'Not rated'}
-                        />
-                        <DetailRow
-                          icon={<Mail className="size-3.5" aria-hidden />}
-                          label="Email"
-                          value={data.candidate.contact?.personal_email ?? 'Not provided'}
-                          onCopy={
-                            data.candidate.contact?.personal_email
-                              ? () =>
-                                  void navigator.clipboard.writeText(
-                                    data.candidate.contact?.personal_email ?? '',
-                                  )
-                              : undefined
-                          }
-                        />
-                        <DetailRow
-                          icon={<Phone className="size-3.5" aria-hidden />}
-                          label="Phone"
-                          value={data.candidate.contact?.phone ?? 'Not provided'}
-                          onCopy={
-                            data.candidate.contact?.phone
-                              ? () =>
-                                  void navigator.clipboard.writeText(
-                                    data.candidate.contact?.phone ?? '',
-                                  )
-                              : undefined
-                          }
-                        />
-                        <DetailRow
-                          icon={<Globe className="size-3.5" aria-hidden />}
-                          label="Source"
-                          value={data.candidate.source ?? 'Not provided'}
-                        />
-                        <DetailRow
-                          icon={<Cake className="size-3.5" aria-hidden />}
-                          label="Date of birth"
-                          value={data.candidate.dob ?? 'Not provided'}
-                        />
-                        <DetailRow
-                          icon={<VenusAndMars className="size-3.5" aria-hidden />}
-                          label="Gender"
-                          value={data.candidate.gender ?? 'Not provided'}
-                        />
-                      </DetailCard>
-
-                      <DetailCard title="Activity timeline">
-                        <CandidateTimeline events={data.timeline} />
-                      </DetailCard>
-                    </div>
-                  </div>
-
-                  {/* Footer — the candidate's moves. Transfer on the left; Reject and the primary
-                      Advance on the right. Hidden once the application is terminal. */}
-                  {!terminal && (
-                    <div className="flex flex-none items-center justify-between gap-2 border-t border-border px-6 py-3">
-                      <div>
-                        {canTransfer && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            label="Move to another role"
-                            onClick={() => setTransferOpen(true)}
-                          />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {canReject && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            label="Reject"
-                            style={{ color: 'var(--color-text-red)' }}
-                            onClick={() => setRejectOpen(true)}
-                          />
-                        )}
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          label={advanceLabel}
-                          icon={<ArrowRight className="size-4" aria-hidden />}
-                          isDisabled={!canAct}
-                          onClick={advance}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </>
+                  <DetailCard title="Activity timeline">
+                    <CandidateTimeline events={data.timeline} actorNames={actorNames} />
+                  </DetailCard>
+                </div>
+              </div>
+            </LayoutContent>
+          }
+          footer={
+            // A terminal application (hired/rejected/cancelled) keeps the decision bar visible for
+            // continuity, but every action is locked — the outcome is already settled.
+            <DialogFooter
+              startContent={
+                canTransfer ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    label="Move to another role"
+                    isDisabled={terminal}
+                    onClick={() => setTransferOpen(true)}
+                  />
+                ) : undefined
+              }
+            >
+              {canReject && (
+                <DisabledActionTooltip
+                  disabled={reqOnHold}
+                  reason="Requisition on hold — resume it from the board to reject this candidate."
+                >
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    label="Reject"
+                    style={{ color: 'var(--color-text-red)' }}
+                    isDisabled={reqOnHold || terminal}
+                    onClick={() => setRejectOpen(true)}
+                  />
+                </DisabledActionTooltip>
               )}
-            </div>
-          </LayoutContent>
-        }
-      />
+              <Button
+                variant="primary"
+                size="sm"
+                label={advanceLabel}
+                icon={<ArrowRight className="size-4" aria-hidden />}
+                isDisabled={!canAct}
+                onClick={advance}
+              />
+            </DialogFooter>
+          }
+        />
+      )}
 
       {app && (
         <>
@@ -592,21 +623,26 @@ function CandidateCvActions({
     );
   }
 
+  if (!canManage) {
+    return <p className="text-sm text-secondary">No CV on file yet.</p>;
+  }
+
   return (
-    <div className="flex items-center gap-3 text-base">
-      <span className="text-secondary">No CV on file</span>
-      {canManage && (
-        <label className="cursor-pointer text-accent hover:underline">
-          {replace.isPending ? 'Uploading…' : 'Upload'}
-          <input
-            type="file"
-            accept=".pdf,.docx"
-            className="hidden"
-            disabled={replace.isPending}
-            onChange={(e) => handleCvFile(e.target.files?.[0])}
-          />
-        </label>
-      )}
-    </div>
+    <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-strong bg-surface px-4 py-6 text-center transition-colors hover:border-accent-bg hover:bg-card focus-within:border-accent-bg focus-within:bg-card">
+      <span className="flex size-10 items-center justify-center rounded-full bg-accent-bg/10 text-accent">
+        <Upload className="size-5" aria-hidden />
+      </span>
+      <span className="text-base font-medium text-primary">
+        {replace.isPending ? 'Uploading…' : 'Upload a CV'}
+      </span>
+      <span className="text-sm text-secondary">PDF or DOCX, up to 10 MB</span>
+      <input
+        type="file"
+        accept=".pdf,.docx"
+        className="hidden"
+        disabled={replace.isPending}
+        onChange={(e) => handleCvFile(e.target.files?.[0])}
+      />
+    </label>
   );
 }

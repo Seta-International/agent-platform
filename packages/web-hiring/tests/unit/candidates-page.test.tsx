@@ -12,6 +12,7 @@ const fetchCandidates = vi.fn();
 vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/api/hiring-client.ts')>()),
   fetchCandidates: () => fetchCandidates(),
+  fetchRejectedCandidates: () => Promise.resolve([]),
   fetchCandidateStageCounts: () =>
     Promise.resolve({ new: 1, screening: 0, interview: 0, offer: 0, hired: 0, cancelled: 0 }),
   fetchRequisitions: () => Promise.resolve([{ id: 'r1', title: 'Backend Eng', status: 'open' }]),

@@ -26,6 +26,16 @@ vi.mock('../../src/api/hiring-client.ts', async (importOriginal) => ({
   getCandidateCvDownloadUrl: (id: string) => getCandidateCvDownloadUrl(id),
 }));
 
+// The timeline resolves actor_user_ids to names via the identity directory.
+vi.mock('../../src/api/identity-directory.ts', () => ({
+  fetchDirectoryUsersByIds: (ids: string[]) =>
+    Promise.resolve(
+      ids.includes('u-1')
+        ? [{ user_id: 'u-1', email: 'jane@example.com', name: 'Jane Recruiter' }]
+        : [],
+    ),
+}));
+
 vi.mock('@seta/web-identity', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@seta/web-identity')>()),
   usePermission: () => true,
@@ -72,8 +82,7 @@ const detail: CandidateDetail = {
       actor_user_id: null,
     },
     {
-      // A real actor id: hiring has no local name projection for it, so the
-      // timeline must label it honestly rather than guess a name.
+      // A real actor id — resolved to a display name via the identity directory.
       id: 'e2',
       kind: 'stage_changed',
       summary: 'Moved to screening',
@@ -121,14 +130,14 @@ describe('CandidateDetailDrawer', () => {
     expect(screen.getByText('2/3 skills')).toBeInTheDocument();
     expect(screen.getByText('Candidate created')).toBeInTheDocument();
     expect(screen.getByText('1998-05-12')).toBeInTheDocument();
-    expect(screen.getByText('female')).toBeInTheDocument();
+    expect(screen.getByText('Female')).toBeInTheDocument();
     expect(screen.getByText('Strong fundamentals')).toBeInTheDocument();
     expect(screen.getByText('3/5')).toBeInTheDocument();
-    // A null actor is a system event; an unresolvable one is labeled honestly
-    // rather than fabricated into a name. The label shares a text node with the
-    // timestamp ("by System · 20 Jun 2026"), so match on a substring.
+    // A null actor is a system event; a real actor id resolves to its directory name. The
+    // label shares a text node with the timestamp ("by System · 20 Jun 2026"), so match on a
+    // substring.
     expect(screen.getByText(/by System ·/)).toBeInTheDocument();
-    expect(screen.getByText(/by No Data ·/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/by Jane Recruiter ·/)).toBeInTheDocument());
   });
 
   it('shows CV file card when cv_storage_key exists', async () => {
@@ -188,7 +197,7 @@ describe('CandidateDetailDrawer', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('CV must be under 10MB');
   });
 
-  it('shows No CV on file when cv_storage_key is null', async () => {
+  it('shows a CV upload dropzone when cv_storage_key is null', async () => {
     fetchCandidate.mockResolvedValue({
       ...detail,
       candidate: { ...detail.candidate, cv_storage_key: null },
@@ -196,8 +205,8 @@ describe('CandidateDetailDrawer', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<CandidateDetailDrawer candidateId="c1" onClose={() => {}} />, { wrapper: wrap(qc) });
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
-    expect(screen.getByText('No CV on file')).toBeInTheDocument();
-    expect(screen.getByText('Upload')).toBeInTheDocument();
+    expect(screen.getByText('Upload a CV')).toBeInTheDocument();
+    expect(screen.getByText(/PDF or DOCX/)).toBeInTheDocument();
   });
 
   it('advances the candidate to the next stage from the decision bar', async () => {

@@ -465,6 +465,12 @@ export async function fetchCandidates(): Promise<CandidateListItem[]> {
   const res = await fetch('/api/hiring/v1/candidates', { credentials: 'include' });
   return (await handleResponse<{ candidates: CandidateListItem[] }>(res)).candidates;
 }
+// Rejected applications — backs the board's read-only "Rejected" column (kept out of
+// fetchCandidates so the active pipeline stays active+hired only).
+export async function fetchRejectedCandidates(): Promise<CandidateListItem[]> {
+  const res = await fetch('/api/hiring/v1/candidates/rejected', { credentials: 'include' });
+  return (await handleResponse<{ candidates: CandidateListItem[] }>(res)).candidates;
+}
 export async function fetchCandidateStageCounts(): Promise<CandidateStageCounts> {
   const res = await fetch('/api/hiring/v1/candidates/stage-counts', { credentials: 'include' });
   return handleResponse<CandidateStageCounts>(res);

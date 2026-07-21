@@ -5,6 +5,8 @@ import {
   Banner,
   Button,
   DateInput,
+  DialogFooter,
+  DialogHeader,
   DisabledActionTooltip,
   Divider,
   DropdownMenu,
@@ -12,8 +14,6 @@ import {
   EmptyState,
   Field,
   Grid,
-  IconButton,
-  InfoRow,
   Input,
   NumberInput,
   ProgressBar,
@@ -28,8 +28,8 @@ import {
 } from '@seta/shared-ui';
 import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MoreHorizontal, Pencil, Share2, X } from 'lucide-react';
-import { useId, useRef, useState } from 'react';
+import { MoreHorizontal, Pencil, Share2 } from 'lucide-react';
+import { type CSSProperties, useId, useRef, useState } from 'react';
 import {
   type ApplicantRow,
   addOpening,
@@ -50,6 +50,7 @@ import { PERMISSION_DENIED } from '../lib/permission-messages.ts';
 import { hiringKeys } from '../state/query-keys.ts';
 import { CancelRequisitionDialog } from './cancel-requisition-dialog.tsx';
 import { CandidateDetailDrawer } from './candidate-detail-drawer.tsx';
+import { DetailRow } from './detail-row.tsx';
 import { GroupLabel } from './form-group-label.tsx';
 import { MarkFilledDialog } from './mark-filled-dialog.tsx';
 import { daysLeft, formatDate, isRichTextEmpty, STATUS_LABEL } from './requisition-format.ts';
@@ -64,6 +65,35 @@ const LEVEL_LABEL: Record<number, string> = {
   4: 'Expert',
   5: 'Master',
 };
+
+// Requisition titles are usually stored as "Role — Client". The header mirrors the candidate
+// drawer's name + seniority shape, so split the client off into the subtitle instead of repeating
+// it across the title, the subtitle and the Client fact. If the client isn't baked into the title,
+// surface it as the subtitle anyway; if there's no client at all, the title stands alone.
+function splitReqTitle(fullTitle: string, client?: string): { role: string; subtitle?: string } {
+  if (!client) return { role: fullTitle };
+  for (const sep of [' — ', ' – ', ' - ']) {
+    const suffix = sep + client;
+    if (fullTitle.endsWith(suffix)) {
+      const role = fullTitle.slice(0, -suffix.length).trim();
+      if (role) return { role, subtitle: client };
+    }
+  }
+  return { role: fullTitle, subtitle: client };
+}
+
+// The requisition detail renders its own DialogHeader/DialogFooter as plain children (not through
+// a Layout header/footer slot), so it can't inherit slot padding. When mounted in the modal it
+// sits under a full-bleed `<Layout padding={0}>`, which zeroes both `--layout-padding-outer-*` (the
+// dialog-edge sides) and `--layout-padding-inner-y` (the content-facing edges: header bottom, footer
+// top). Left unset, the header/footer would sit flush against the dialog edges AND their labels/
+// actions would touch the body and the divider. Restore all three so the bars breathe exactly like
+// the candidate drawer (which gets these from a normally-padded Layout) in both modal and page route.
+const HEADER_FOOTER_PADDING: CSSProperties = {
+  '--layout-padding-outer-x': 'var(--spacing-6)',
+  '--layout-padding-outer-y': 'var(--spacing-4)',
+  '--layout-padding-inner-y': 'var(--spacing-4)',
+} as CSSProperties;
 
 const SECTIONS: { key: JdSectionKey; label: string }[] = [
   { key: 'about', label: 'About the role' },
@@ -81,11 +111,11 @@ const APPLICANT_STAGE_BADGE: Record<string, string> = {
   offer: 'bg-warning-muted text-warning',
 };
 
-// Display-only relabel: application.stage's first value is 'new' in the DB, but the
-// board card's stage track calls that same phase "Sourcing" — show the same word here
-// so they don't read as two different concepts. No stored value changes.
+// Applicant-stage labels — kept identical to the candidate board/detail (New / Screening /
+// Interview / Offer) so the same application.stage reads the same word everywhere. No stored
+// value changes.
 const APPLICANT_STAGE_LABEL: Record<string, string> = {
-  new: 'Sourcing',
+  new: 'New',
   screening: 'Screening',
   interview: 'Interview',
   offer: 'Offer',
@@ -131,7 +161,7 @@ const APPROVAL_LABEL: Record<string, string> = {
 };
 
 // The Candidates tab groups the active pipeline by stage — a section per stage so the funnel
-// reads top-to-bottom (application.stage's first value is 'new', shown as "Sourcing").
+// reads top-to-bottom (application.stage's first value is 'new', shown as "New").
 const CANDIDATE_STAGES = ['new', 'screening', 'interview', 'offer'];
 
 function daysSince(dateStr: string): number {
@@ -539,6 +569,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     return (
       <div
         className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
+        style={HEADER_FOOTER_PADDING}
       >
         {/* FUT-559 edit-layout parity: title-only header + a footer action bar, matching the
             New requisition dialog — actions live at the bottom-right, not stacked in the header. */}
@@ -702,7 +733,10 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             </VStack>
           </div>
         </div>
-        <footer className="flex items-center justify-end gap-2 border-t border-border bg-body px-6 py-3">
+        {/* Same DialogFooter as the view mode and the candidate drawer — right-aligned actions,
+            Cancel-first, primary last. Keeps its top divider: the edit form is a single scrollable
+            column, so there's no facts-panel column line for it to collide with. */}
+        <DialogFooter>
           <Button
             size="sm"
             variant="secondary"
@@ -717,7 +751,7 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
             onClick={submitEdit}
             isDisabled={save.isPending}
           />
-        </footer>
+        </DialogFooter>
         <AlertDialog
           isOpen={showDiscard}
           onOpenChange={setShowDiscard}
@@ -732,15 +766,22 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
     );
   }
 
+  // Strip any " — <client>" suffix so the heading is just the role; the client (and every other
+  // fact) lives in the right-hand facts panel, so it isn't repeated in the header.
+  const { role: headerTitle } = splitReqTitle(req.title, data.account_name ?? undefined);
+
   return (
     <div
       className={`flex flex-col overflow-hidden ${variant === 'modal' ? 'min-h-0 flex-1' : 'h-full'}`}
+      style={HEADER_FOOTER_PADDING}
     >
-      {/* Header carries identity only — status, type, client and every other fact live in the
-          right-hand facts panel, so nothing is duplicated. */}
-      <header className="flex items-center justify-between gap-4 border-b border-border bg-body px-6 py-4">
-        <h1 className="min-w-0 truncate text-lg font-semibold text-primary">{req.title}</h1>
-        <div className="flex shrink-0 items-center gap-1">
+      {/* Header carries the role title only — no avatar or client subtitle. The More-actions menu
+          sits before the close button; status, client and every other fact live in the right-hand
+          facts panel, so nothing is duplicated. */}
+      <DialogHeader
+        hasDivider={false}
+        title={headerTitle}
+        endContent={
           <DropdownMenu
             placement="below"
             button={{
@@ -757,16 +798,11 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               onClick={shareJob}
             />
           </DropdownMenu>
-          <IconButton
-            type="button"
-            variant="ghost"
-            onClick={requestClose}
-            label="Close dialog"
-            icon={<X className="size-4" />}
-            className="text-secondary"
-          />
-        </div>
-      </header>
+        }
+        onOpenChange={(open) => {
+          if (!open) requestClose();
+        }}
+      />
 
       <div className="flex min-h-0 flex-1 overflow-hidden bg-card">
         {/* Working area (left): candidate pipeline is the default view, job description second. */}
@@ -879,8 +915,11 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
         </section>
 
         {/* Facts panel (right): status, type, client and everything a recruiter checks without
-            leaving the pipeline — the single home for these values (the header holds only the title). */}
-        <aside className="w-[300px] shrink-0 overflow-y-auto border-l border-border bg-body px-5 py-4">
+            leaving the pipeline — the single home for these values (the header holds only the title).
+            Sits on the same white surface as the pipeline and footer, set apart by the left hairline
+            and its own row dividers — no tinted slab (the old bg-body cut off above the footer and
+            read cold against the white body). */}
+        <aside className="w-[300px] shrink-0 overflow-y-auto border-l border-border px-5 py-4">
           {req.status === 'open' && req.due_date && daysLeft(req.due_date) < 0 && (
             <Banner
               status="error"
@@ -905,21 +944,21 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
               />
             </div>
           )}
-          <InfoRow
+          <DetailRow
             label="Status"
             value={<Badge variant={STATUS_VARIANT[req.status]} label={STATUS_LABEL[req.status]} />}
           />
-          <InfoRow label="Type" value={req.kind === 'replacement' ? 'Replacement' : 'New'} />
-          <InfoRow
+          <DetailRow label="Type" value={req.kind === 'replacement' ? 'Replacement' : 'New'} />
+          <DetailRow
             label="Approval"
             value={APPROVAL_LABEL[req.approval_status] ?? req.approval_status}
           />
-          <InfoRow label="Client" value={data.account_name ?? '—'} />
-          <InfoRow label="Project" value={data.project_name ?? '—'} />
-          <InfoRow label="Grade" value={req.grade ?? '—'} />
-          <InfoRow label="Candidates" value={`${data.applicants.length} total`} />
-          <InfoRow label="Start date" value={req.start_date ? formatDate(req.start_date) : '—'} />
-          <InfoRow
+          <DetailRow label="Client" value={data.account_name ?? '—'} />
+          <DetailRow label="Project" value={data.project_name ?? '—'} />
+          <DetailRow label="Grade" value={req.grade ?? '—'} />
+          <DetailRow label="Candidates" value={`${data.applicants.length} total`} />
+          <DetailRow label="Start date" value={req.start_date ? formatDate(req.start_date) : '—'} />
+          <DetailRow
             label="Due date"
             value={
               req.due_date
@@ -931,93 +970,102 @@ export function RequisitionDetailView({ requisitionId, variant, onClose }: Props
                 : '—'
             }
           />
-          <InfoRow
+          <DetailRow
             label="Interview mode"
             value={MODE_LABEL[req.default_interview_mode ?? ''] ?? '—'}
           />
-          <InfoRow label="Posted" value={openDaysLabel(req.created_at)} />
+          <DetailRow label="Posted" value={openDaysLabel(req.created_at)} />
         </aside>
       </div>
 
-      {/* Footer: the primary actions, mirroring the New requisition dialog's bottom bar. */}
-      <footer className="flex flex-none items-center justify-between gap-2 border-t border-border bg-body px-6 py-3">
-        <div className="flex items-center gap-2">
-          {!isTerminal && (
-            <DisabledActionTooltip
-              disabled={!canClose || isOnHold}
-              reason={!canClose ? PERMISSION_DENIED.requisition.manage : onHoldReason}
-            >
-              <Button
-                size="sm"
-                variant="secondary"
-                label="Cancel"
-                isDisabled={!canClose || isOnHold}
-                style={{ color: 'var(--color-text-red)' }}
-                onClick={() => setShowCancelDialog(true)}
-              />
-            </DisabledActionTooltip>
-          )}
-          {req.status === 'open' && (
-            <DisabledActionTooltip
-              disabled={!canManage}
-              reason={PERMISSION_DENIED.requisition.manage}
-            >
-              <Button
-                size="sm"
-                variant="secondary"
-                label="Pause"
-                isDisabled={!canManage}
-                onClick={() => pause.mutate()}
-              />
-            </DisabledActionTooltip>
-          )}
-          {req.status === 'on_hold' && (
-            <DisabledActionTooltip
-              disabled={!canManage}
-              reason={PERMISSION_DENIED.requisition.manage}
-            >
-              <Button
-                size="sm"
-                variant="secondary"
-                label="Resume"
-                isDisabled={!canManage}
-                onClick={() => resume.mutate()}
-              />
-            </DisabledActionTooltip>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {!isTerminal && (
-            <DisabledActionTooltip
-              disabled={!canClose || isOnHold}
-              reason={!canClose ? PERMISSION_DENIED.requisition.manage : onHoldReason}
-            >
-              <Button
-                size="sm"
-                variant="secondary"
-                label="Mark filled"
-                isDisabled={!canClose || isOnHold}
-                onClick={() => setShowFillConfirm(true)}
-              />
-            </DisabledActionTooltip>
-          )}
-          {!isTerminal && (
-            <DisabledActionTooltip
-              disabled={!canManage || isOnHold}
-              reason={!canManage ? PERMISSION_DENIED.requisition.edit : onHoldReason}
-            >
-              <Button
-                size="sm"
-                variant="primary"
-                label="Edit"
-                icon={<Pencil className="size-4" />}
-                isDisabled={!canManage || isOnHold}
-                onClick={startEditing}
-              />
-            </DisabledActionTooltip>
-          )}
-        </div>
-      </footer>
+      {/* Full-width separator above the footer — the same gray line the candidate drawer shows.
+          It lives here as its own row (not as the footer's own top border) so the two-column body
+          above can't interrupt it at the facts-panel seam; the footer's own divider stays off to
+          avoid doubling. */}
+      <Divider />
+      {/* Footer mirrors the candidate drawer's DialogFooter: secondary lifecycle actions pinned
+          left, the primary action (Edit) on the right. A terminal requisition has no actions, so
+          the bar collapses to an empty strip — same as the drawer's settled state. */}
+      <DialogFooter
+        hasDivider={false}
+        startContent={
+          !isTerminal ? (
+            <div className="flex items-center gap-2">
+              <DisabledActionTooltip
+                disabled={!canClose || isOnHold}
+                reason={!canClose ? PERMISSION_DENIED.requisition.manage : onHoldReason}
+              >
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  label="Cancel"
+                  isDisabled={!canClose || isOnHold}
+                  style={{ color: 'var(--color-text-red)' }}
+                  onClick={() => setShowCancelDialog(true)}
+                />
+              </DisabledActionTooltip>
+              {req.status === 'open' && (
+                <DisabledActionTooltip
+                  disabled={!canManage}
+                  reason={PERMISSION_DENIED.requisition.manage}
+                >
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    label="Pause"
+                    isDisabled={!canManage}
+                    onClick={() => pause.mutate()}
+                  />
+                </DisabledActionTooltip>
+              )}
+              {req.status === 'on_hold' && (
+                <DisabledActionTooltip
+                  disabled={!canManage}
+                  reason={PERMISSION_DENIED.requisition.manage}
+                >
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    label="Resume"
+                    isDisabled={!canManage}
+                    onClick={() => resume.mutate()}
+                  />
+                </DisabledActionTooltip>
+              )}
+            </div>
+          ) : undefined
+        }
+      >
+        {!isTerminal && (
+          <DisabledActionTooltip
+            disabled={!canClose || isOnHold}
+            reason={!canClose ? PERMISSION_DENIED.requisition.manage : onHoldReason}
+          >
+            <Button
+              size="sm"
+              variant="secondary"
+              label="Mark filled"
+              isDisabled={!canClose || isOnHold}
+              onClick={() => setShowFillConfirm(true)}
+            />
+          </DisabledActionTooltip>
+        )}
+        {!isTerminal && (
+          <DisabledActionTooltip
+            disabled={!canManage || isOnHold}
+            reason={!canManage ? PERMISSION_DENIED.requisition.edit : onHoldReason}
+          >
+            <Button
+              size="sm"
+              variant="primary"
+              label="Edit"
+              icon={<Pencil className="size-4" />}
+              isDisabled={!canManage || isOnHold}
+              onClick={startEditing}
+            />
+          </DisabledActionTooltip>
+        )}
+      </DialogFooter>
       <MarkFilledDialog
         requisitionId={requisitionId}
         version={req.version}

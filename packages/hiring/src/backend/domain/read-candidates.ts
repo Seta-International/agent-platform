@@ -108,11 +108,16 @@ async function fitFor(
   return { reqSkills, candSkills };
 }
 
-export async function listCandidates(session: SessionScope): Promise<CandidateListRow[]> {
-  requirePermission(session, 'hiring.candidate.read');
+// Shared read for the candidates board/list — one row per application, joined to candidate +
+// requisition with fit computed. `statuses` narrows which application states come back so the
+// same shape backs both the active board (active+hired) and the read-only Rejected column.
+async function listApplicationRows(
+  session: SessionScope,
+  statuses: (typeof application.$inferSelect)['status'][],
+): Promise<CandidateListRow[]> {
   const conds = [
     eq(application.kind, 'external'),
-    inArray(application.status, ['active', 'hired']),
+    inArray(application.status, statuses),
     tenantScoped(application.tenant_id, session),
     isNull(candidate.deleted_at),
   ];
@@ -156,6 +161,20 @@ export async function listCandidates(session: SessionScope): Promise<CandidateLi
       candSkills.get(r.candidate_id as string) ?? [],
     ),
   }));
+}
+
+// The board/list surface: the active pipeline plus hired. Terminal outcomes are read separately
+// (listRejectedCandidates) so they never leak into the pipeline columns.
+export async function listCandidates(session: SessionScope): Promise<CandidateListRow[]> {
+  requirePermission(session, 'hiring.candidate.read');
+  return listApplicationRows(session, ['active', 'hired']);
+}
+
+// Rejected applications only — backs the board's read-only "Rejected" column. Transferred and
+// cancelled outcomes are deliberately excluded; "rejected" means an explicit reject decision.
+export async function listRejectedCandidates(session: SessionScope): Promise<CandidateListRow[]> {
+  requirePermission(session, 'hiring.candidate.read');
+  return listApplicationRows(session, ['rejected']);
 }
 
 export interface CandidateStageCounts {

@@ -35,6 +35,7 @@ import { usePermission } from '@seta/web-identity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BadgeCheck,
+  Ban,
   CalendarClock,
   Download,
   Handshake,
@@ -49,9 +50,8 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   type CandidateListItem,
-  type CandidateStageCounts,
-  fetchCandidateStageCounts,
   fetchCandidates,
+  fetchRejectedCandidates,
   moveApplicationStage,
 } from '../api/hiring-client.ts';
 import { hiringKeys } from '../state/query-keys.ts';
@@ -59,6 +59,7 @@ import { CandidateCard } from './candidate-card.tsx';
 import { CandidateDetailDrawer } from './candidate-detail-drawer.tsx';
 import {
   BOARD_COLUMNS,
+  type BoardColumnId,
   boardColumns,
   COLUMN_EMPTY_COPY,
   fitLabel,
@@ -77,15 +78,19 @@ const COLUMN_EMPTY_ICON: Record<string, ReactNode> = {
   interview: <CalendarClock className="size-5" />,
   offer: <Handshake className="size-5" />,
   hired: <BadgeCheck className="size-5" />,
+  rejected: <Ban className="size-5" />,
 };
 
-const STAGE_COUNT_SEGMENTS: { key: keyof CandidateStageCounts; label: string }[] = [
+// One stat tile per board column — the numbers track the filtered board buckets exactly. The
+// last tile is "Rejected" (candidate reject decisions); it is NOT "Cancelled", which at the
+// application level means the requisition was cancelled — a requisition signal, not a candidate one.
+const STAGE_COUNT_SEGMENTS: { key: BoardColumnId; label: string }[] = [
   { key: 'new', label: 'New' },
   { key: 'screening', label: 'Screening' },
   { key: 'interview', label: 'Interview' },
   { key: 'offer', label: 'Offer' },
   { key: 'hired', label: 'Hired' },
-  { key: 'cancelled', label: 'Cancelled' },
+  { key: 'rejected', label: 'Rejected' },
 ];
 
 // Astryx Table columns require `T extends Record<string, unknown>`; the DTO lacks an index
@@ -145,6 +150,25 @@ function exportCandidatesCsv(rows: CandidateListItem[]) {
   URL.revokeObjectURL(url);
 }
 
+// Shared client-side filtering for the board's active pipeline and its Rejected column, so both
+// respond to the same search box and filter selectors.
+function filterCandidates(
+  items: CandidateListItem[],
+  f: { q: string; reqFilter: string; seniorityFilter: string; sourceFilter: string },
+): CandidateListItem[] {
+  let r = items;
+  if (f.reqFilter) r = r.filter((c) => c.requisition_id === f.reqFilter);
+  if (f.seniorityFilter) r = r.filter((c) => c.seniority === f.seniorityFilter);
+  if (f.sourceFilter) r = r.filter((c) => c.source === f.sourceFilter);
+  if (f.q.trim()) {
+    const needle = f.q.toLowerCase();
+    r = r.filter((c) =>
+      `${c.name} ${c.requisition_title} ${c.seniority ?? ''}`.toLowerCase().includes(needle),
+    );
+  }
+  return r;
+}
+
 export function onBoardDragEnd(
   items: CandidateListItem[],
   mutate: (move: {
@@ -181,24 +205,21 @@ export function CandidatesPage() {
     queryKey: hiringKeys.candidates(),
     queryFn: fetchCandidates,
   });
-  const { data: stageCounts } = useQuery({
-    queryKey: hiringKeys.candidateStageCounts(),
-    queryFn: fetchCandidateStageCounts,
+  // Rejected candidates load separately (fetchCandidates returns active+hired only) and feed the
+  // board's read-only Rejected column.
+  const { data: rejectedData } = useQuery({
+    queryKey: hiringKeys.rejectedCandidates(),
+    queryFn: fetchRejectedCandidates,
   });
 
-  const rows = useMemo(() => {
-    let r = data ?? [];
-    if (reqFilter) r = r.filter((c) => c.requisition_id === reqFilter);
-    if (seniorityFilter) r = r.filter((c) => c.seniority === seniorityFilter);
-    if (sourceFilter) r = r.filter((c) => c.source === sourceFilter);
-    if (q.trim()) {
-      const needle = q.toLowerCase();
-      r = r.filter((c) =>
-        `${c.name} ${c.requisition_title} ${c.seniority ?? ''}`.toLowerCase().includes(needle),
-      );
-    }
-    return r;
-  }, [data, q, reqFilter, seniorityFilter, sourceFilter]);
+  const rows = useMemo(
+    () => filterCandidates(data ?? [], { q, reqFilter, seniorityFilter, sourceFilter }),
+    [data, q, reqFilter, seniorityFilter, sourceFilter],
+  );
+  const rejectedRows = useMemo(
+    () => filterCandidates(rejectedData ?? [], { q, reqFilter, seniorityFilter, sourceFilter }),
+    [rejectedData, q, reqFilter, seniorityFilter, sourceFilter],
+  );
 
   const { sortedData, sort, sortConfig } = useTableSortableState<Row>({ data: rows as Row[] });
   const sortable = useTableSortable<Row>(sortConfig);
@@ -268,20 +289,10 @@ export function CandidatesPage() {
   });
   const handleDragEnd = onBoardDragEnd(rows, (m) => stageMove.mutate(m));
 
-  const groups = boardColumns(rows);
-
-  // The stat bar tracks the active filters by counting the filtered board rows (so it always
-  // agrees with the columns below). "Cancelled" (rejected/transferred/cancelled outcomes) isn't
-  // a board bucket and the filterable list only returns active + hired, so it keeps the server
-  // aggregate — an unfiltered archive total.
-  const filteredStageCounts: CandidateStageCounts = {
-    new: groups.new.length,
-    screening: groups.screening.length,
-    interview: groups.interview.length,
-    offer: groups.offer.length,
-    hired: groups.hired.length,
-    cancelled: stageCounts?.cancelled ?? 0,
-  };
+  // Rejected rows come from a separate query; merge them in only for the board's column buckets.
+  // The active-pipeline `rows` still drives drag/list/export/filter options untouched. Every stat
+  // tile then reads straight from `groups`, so each number matches the column beneath it.
+  const groups = boardColumns([...rows, ...rejectedRows]);
 
   const columns = useMemo<TableColumn<Row>[]>(
     () => [
@@ -377,9 +388,7 @@ export function CandidatesPage() {
                 <div key={seg.key} className="px-4 py-3">
                   {/* Number is ink (achromatic, like the detail drawer); the stage colour is a
                       small dot on the label, not the big number. */}
-                  <div className="text-3xl font-bold text-primary">
-                    {filteredStageCounts[seg.key]}
-                  </div>
+                  <div className="text-3xl font-bold text-primary">{groups[seg.key].length}</div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-sm text-secondary">
                     <span
                       className="size-2 shrink-0 rounded-full"
@@ -532,7 +541,7 @@ export function CandidatesPage() {
                   />
                 ))}
               </div>
-            ) : (data ?? []).length === 0 ? (
+            ) : (data ?? []).length === 0 && (rejectedData ?? []).length === 0 ? (
               <EmptyState
                 icon={<Users className="size-6" />}
                 title="No candidates yet"
@@ -546,7 +555,7 @@ export function CandidatesPage() {
                       <Droppable
                         key={col.id}
                         droppableId={col.id}
-                        isDropDisabled={col.id === 'hired' || !canManage}
+                        isDropDisabled={col.id === 'hired' || col.id === 'rejected' || !canManage}
                       >
                         {(provided, snapshot) => (
                           <KanbanColumn
@@ -580,7 +589,7 @@ export function CandidatesPage() {
                                 key={item.application_id}
                                 draggableId={item.application_id}
                                 index={idx}
-                                isDragDisabled={!canManage}
+                                isDragDisabled={!canManage || col.id === 'rejected'}
                               >
                                 {(dp, ds) => (
                                   <CandidateCard

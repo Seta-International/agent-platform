@@ -1,8 +1,19 @@
 import type { ReqStage, ReqStatus, RequisitionListRow } from '../api/hiring-client.ts';
 
 export const STAGES: ReqStage[] = ['sourcing', 'screening', 'interview', 'offer'];
+// The requisition's OWN stage names (its first phase is "Sourcing").
 export const STAGE_LABEL: Record<ReqStage, string> = {
   sourcing: 'Sourcing',
+  screening: 'Screening',
+  interview: 'Interview',
+  offer: 'Offer',
+};
+
+// The card's pipeline buckets count candidates by their application stage, so they read in the
+// candidate vocabulary — "New" (not "Sourcing") for the first phase — to match the candidate
+// board and the requisition detail's applicant groups. Same 4 positions as STAGES.
+export const PIPELINE_STAGE_LABEL: Record<ReqStage, string> = {
+  sourcing: 'New',
   screening: 'Screening',
   interview: 'Interview',
   offer: 'Offer',
