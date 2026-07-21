@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { loadGoldenCases } from '../../fixtures/golden/loader.ts';
 import { runRetrievalCases } from '../../fixtures/golden/retrieval-runner.ts';
 import type { GoldenCase } from '../../fixtures/golden/schema.ts';
 
@@ -39,4 +40,22 @@ it('ignores non-retrieval cases', async () => {
     search: async () => [],
   });
   expect(results).toHaveLength(0);
+});
+
+it('authored retrieval cases pass under an ideal-ranking fake search', async () => {
+  const cases = loadGoldenCases({ includeAll: true }).filter((c) => c.kind === 'retrieval');
+  expect(cases.length).toBeGreaterThan(0);
+  const results = await runRetrievalCases({
+    cases,
+    decoyIds: [],
+    // Ideal search: for each case, return its own ids sorted by grade desc.
+    search: async (query) => {
+      const c = cases.find((x) => x.kind === 'retrieval' && x.query === query);
+      if (!c || c.kind !== 'retrieval') return [];
+      return Object.entries(c.relevance)
+        .sort((a, b) => b[1] - a[1])
+        .map(([id]) => id);
+    },
+  });
+  for (const r of results) expect(r.policy.verdict).toBe('pass');
 });
