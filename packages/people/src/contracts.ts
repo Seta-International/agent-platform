@@ -57,3 +57,31 @@ export const createOrgUnitInput = z.object({
   sort: z.number().int().optional(),
 });
 export type CreateOrgUnitInput = z.infer<typeof createOrgUnitInput>;
+
+export const performanceContextInput = z.object({
+  as_of_month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/), // YYYY-MM
+});
+export type PerformanceContextInput = z.infer<typeof performanceContextInput>;
+
+export type PerformanceCapacity =
+  | { kind: 'am'; account_id: string; label: string }
+  | { kind: 'tl'; project_id: string; account_id: string; label: string }
+  | { kind: 'member'; project_id: string; account_id: string; label: string };
+
+/**
+ * The Performance surface's entry context ("EmployeePort" read). Discriminated
+ * on `status`: `no_employee_record` is a first-class state (renders the
+ * "Contact HR" block screen), never a 403/404.
+ */
+export type PerformanceContext =
+  | { status: 'no_employee_record' }
+  | {
+      status: 'ok';
+      as_of_month: string;
+      person: { person_id: string; full_name: string | null; org_unit_id: string | null };
+      /** Session RBAC role slugs (pm.pmo, pm.bod, people.manager, …) for SCR-02 routing. */
+      role_slugs: string[];
+      /** Sorted: am < tl < member, then label asc, then id asc — deterministic (AC4). */
+      capacities: PerformanceCapacity[];
+      default_capacity_index: 0 | -1;
+    };
