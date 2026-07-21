@@ -128,4 +128,14 @@ describe('NewCandidateDialog', () => {
       expect(screen.getByRole('combobox', { name: /position applied/i })).toBeInTheDocument(),
     );
   });
+
+  it('shows inline error for invalid name (FUT-623)', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    await userEvent.type(screen.getByLabelText(/full name/i), '12345');
+    await waitFor(() => {
+      expect(screen.getByText(/valid person name/i)).toBeInTheDocument();
+    });
+  });
 });
