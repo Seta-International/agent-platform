@@ -16,7 +16,7 @@ export const peopleAppManifest: AppManifest = {
   label: 'People',
   icon: Users,
   color: '#0047FF',
-  requiredPermissions: ['people.worker.read'],
+  requiredPermissions: ['people.worker.read', 'people.performance.read'],
   useNavExtensions: noNavExtensions,
   nav: [
     {
@@ -56,8 +56,8 @@ export const peopleAppManifest: AppManifest = {
           icon: LineChart,
           label: 'Performance',
           to: '/people/performance',
-          requires: ['people.worker.read'],
-          badge: 'Soon',
+          // PMO/BoD hold performance.read without the directory permission.
+          requires: ['people.performance.read'],
         },
       ],
     },
