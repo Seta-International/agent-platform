@@ -6,6 +6,16 @@ it('selects by suite and always excludes holdout by default', () => {
   expect(smoke.every((c) => c.suites.includes('smoke') && c.holdout === false)).toBe(true);
 });
 
+it('loads authored kind:retrieval cases with a non-empty relevance map', () => {
+  const retrieval = loadGoldenCases({ includeAll: true }).filter((c) => c.kind === 'retrieval');
+  expect(retrieval.length).toBeGreaterThan(0);
+  for (const c of retrieval) {
+    if (c.kind !== 'retrieval') continue;
+    expect(Object.keys(c.relevance).length).toBeGreaterThan(0);
+    expect(c.query.length).toBeGreaterThan(0);
+  }
+});
+
 it('resolves a fact ref against golden-facts.json', () => {
   expect(resolveFactRef('facts.users.00000000-bbbb-0000-0000-000000000002.openTaskCount')).toBe(12);
 });
