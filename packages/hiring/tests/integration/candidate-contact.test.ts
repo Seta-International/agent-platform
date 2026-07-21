@@ -42,14 +42,14 @@ describe('candidate contact.personal_email', () => {
         requisition_id,
         name: 'Trinh Thi C',
         personal_email: 'c.trinh@gmail.com',
-        phone: '+84 900 000 222',
+        phone: '+84900000222',
         session: t.adminSession,
       });
 
       const got = await getCandidate({ candidate_id: res.candidate_id, session: t.adminSession });
       expect(got.candidate.contact).toMatchObject({
         personal_email: 'c.trinh@gmail.com',
-        phone: '+84 900 000 222',
+        phone: '+84900000222',
       });
 
       await editCandidate({

@@ -138,4 +138,20 @@ describe('NewCandidateDialog', () => {
       expect(screen.getByText(/valid person name/i)).toBeInTheDocument();
     });
   });
+
+  it('displays inline error and blocks submission when invalid phone number is entered (FUT-625)', async () => {
+    addCandidate.mockClear();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<NewCandidateDialog />, { wrapper: wrap(qc) });
+    await userEvent.click(screen.getByRole('button', { name: /new candidate/i }));
+    await userEvent.type(screen.getByLabelText(/full name/i), 'Invalid Phone Test');
+    await userEvent.type(screen.getByLabelText(/phone/i), '0962 093864');
+
+    await waitFor(() =>
+      expect(screen.getByText('Enter a valid phone number.')).toBeInTheDocument(),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /create candidate/i }));
+    expect(addCandidate).not.toHaveBeenCalled();
+  });
 });

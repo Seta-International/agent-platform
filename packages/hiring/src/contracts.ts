@@ -121,11 +121,21 @@ export const candidateSkillInput = z.object({
 });
 export type CandidateSkillInput = z.infer<typeof candidateSkillInput>;
 
+export const PHONE_REGEX = /^\+?[0-9]{7,15}$/;
+
+export const candidatePhoneSchema = z
+  .string()
+  .trim()
+  .refine((v) => !v || PHONE_REGEX.test(v), {
+    message: 'Invalid phone number format',
+  })
+  .optional();
+
 export const addCandidateInput = z.object({
   requisition_id: z.string().uuid(),
   name: nameString,
   personal_email: z.string().email().optional(),
-  phone: z.string().optional(),
+  phone: candidatePhoneSchema,
   dob: z.string().optional(),
   gender: genderValue.optional(),
   seniority: z.string().optional(),
@@ -145,7 +155,7 @@ export const editCandidatePatch = z
       .string()
       .regex(/^[0-9a-f]{64}$/)
       .nullable(),
-    phone: z.string(),
+    phone: candidatePhoneSchema,
     dob: z.string(),
     gender: genderValue,
     seniority: z.string(),
