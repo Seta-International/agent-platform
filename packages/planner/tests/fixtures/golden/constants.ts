@@ -70,30 +70,41 @@ export const USER_KHOA_ID = '00000000-bbbb-0000-0000-00000000000b';
 export const PERSON_THAO_ID = '00000000-cccc-0000-0000-00000000000c';
 export const USER_THAO_ID = '00000000-bbbb-0000-0000-00000000000c';
 
-// --- Date helpers ---
-/** Returns a Date offset from now by `days` (positive = future, negative = past). */
+// --- Date helpers (reference-anchored; spec §A) ---
+/** Frozen evaluation anchor: 2026-07-01 09:00 Asia/Bangkok (UTC+07:00). */
+export const REFERENCE_TIME = new Date('2026-07-01T09:00:00+07:00');
+
+const BKK_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/** Returns a Date offset from REFERENCE_TIME by `days`, at 09:00 Asia/Bangkok. */
 export function daysFromNow(days: number): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  d.setHours(9, 0, 0, 0);
+  const d = new Date(REFERENCE_TIME.getTime());
+  d.setUTCDate(d.getUTCDate() + days); // 09:00+07 already baked into REFERENCE_TIME
   return d;
 }
 
-/** Start of the current ISO week (Monday 00:00). */
+/** Monday 00:00 Asia/Bangkok of the reference ISO week. */
 export function startOfWeek(): Date {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  // Work in BKK-local space, then convert back to UTC.
+  const local = new Date(REFERENCE_TIME.getTime() + BKK_OFFSET_MS);
+  const day = local.getUTCDay(); // 0=Sun..6=Sat
+  const diff = local.getUTCDate() - day + (day === 0 ? -6 : 1);
+  const mondayLocalMidnight = Date.UTC(
+    local.getUTCFullYear(),
+    local.getUTCMonth(),
+    diff,
+    0,
+    0,
+    0,
+    0,
+  );
+  return new Date(mondayLocalMidnight - BKK_OFFSET_MS);
 }
 
-/** End of the current ISO week (Sunday 23:59). */
+/** Half-open upper bound: next Monday 00:00 Asia/Bangkok (spec §A uses [from, to)). */
 export function endOfWeek(): Date {
   const d = startOfWeek();
-  d.setDate(d.getDate() + 6);
-  d.setHours(23, 59, 59, 999);
+  d.setUTCDate(d.getUTCDate() + 7);
   return d;
 }
 
