@@ -26,10 +26,17 @@ describe('peopleAppManifest', () => {
     ]);
   });
 
-  it('gates the app and every nav tab on people.worker.read with none disabled', () => {
+  it('gates every nav tab on its permission with none disabled', () => {
+    // App tile shows for either directory readers or performance-only roles (PMO/BoD).
     expect(peopleAppManifest.requiredPermissions).toContain('people.worker.read');
+    expect(peopleAppManifest.requiredPermissions).toContain('people.performance.read');
     for (const item of peopleAppManifest.nav.flatMap((s) => s.items)) {
-      expect(item.requires).toContain('people.worker.read');
+      if (item.id === 'people.performance') {
+        expect(item.requires).toContain('people.performance.read');
+        expect(item.requires).not.toContain('people.worker.read');
+      } else {
+        expect(item.requires).toContain('people.worker.read');
+      }
       expect(item.disabled).toBeFalsy();
     }
   });
@@ -42,9 +49,9 @@ describe('peopleAppManifest', () => {
     expect(byId['people.employees']).toBeUndefined();
     expect(byId['people.org']).toBeUndefined();
     expect(byId['people.allocation']).toBeUndefined();
+    expect(byId['people.performance']).toBeUndefined(); // live since FUT-692 (entry gate)
     for (const id of [
       'people.dashboard',
-      'people.performance',
       'people.onboarding',
       'people.probation',
       'people.offboarding',
