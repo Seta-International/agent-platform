@@ -1,5 +1,14 @@
+import { fakeJudgeModel } from '@seta/shared-agent-evals';
 import { describe, expect, it } from 'vitest';
-import { summarizeQualityResults } from '../../src/commands/eval-quality.ts';
+import { buildQualityScorers, summarizeQualityResults } from '../../src/commands/eval-quality.ts';
+
+describe('buildQualityScorers', () => {
+  it('registers the hallucination scorer alongside relevancy/faithfulness/toxicity', () => {
+    const ids = buildQualityScorers(fakeJudgeModel()).map((s) => s.scorer.id);
+    expect(ids).toContain('hallucination');
+    expect(ids).toEqual(['answer-relevancy', 'faithfulness', 'hallucination', 'toxicity']);
+  });
+});
 
 describe('summarizeQualityResults', () => {
   it('flattens per-spec scores into printable rows', () => {
