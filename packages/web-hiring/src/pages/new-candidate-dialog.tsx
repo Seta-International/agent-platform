@@ -47,6 +47,7 @@ export function NewCandidateDialog() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const skillsId = useId();
+  const parseGen = useRef(0);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -103,6 +104,8 @@ export function NewCandidateDialog() {
   );
 
   function reset() {
+    parseGen.current += 1;
+    parse.reset();
     setName('');
     setEmail('');
     setPhone('');
@@ -162,24 +165,6 @@ export function NewCandidateDialog() {
   // Fill-only-empty: a parse never overwrites what the recruiter already typed.
   const parse = useMutation({
     mutationFn: parseCandidateCvDraft,
-    onSuccess: (draft) => {
-      if (!name.trim() && draft.name) setName(draft.name);
-      if (!email.trim() && draft.personal_email) setEmail(draft.personal_email);
-      if (!phone.trim() && draft.phone) setPhone(draft.phone);
-      if (!dob && draft.dob) setDob(draft.dob);
-      if (!gender && draft.gender) setGender(draft.gender);
-      if (!seniority && draft.seniority) setSeniority(draft.seniority);
-      if (!note.trim() && draft.note) setNote(draft.note);
-      setSkills((prev) => {
-        const have = new Set(prev.map((s) => s.skill_id));
-        return [...prev, ...draft.skills.filter((s) => !have.has(s.skill_id))];
-      });
-      setSuggestions(draft.skill_suggestions);
-      setCvSha256(draft.cv_sha256);
-      setDuplicates(draft.possible_duplicates);
-      toast({ body: 'CV parsed — review the pre-filled fields before saving' });
-    },
-    onError: (e: Error) => toast({ body: e.message, type: 'error' }),
   });
 
   const mutation = useMutation({
@@ -295,7 +280,38 @@ export function NewCandidateDialog() {
                     onChange={(file) => {
                       if (file instanceof File) {
                         setCvFile(file);
-                        parse.mutate(file);
+                        parseGen.current += 1;
+                        const gen = parseGen.current;
+                        parse.mutate(file, {
+                          onSuccess: (draft) => {
+                            if (parseGen.current !== gen) return;
+                            if (!name.trim() && draft.name) setName(draft.name);
+                            if (!email.trim() && draft.personal_email)
+                              setEmail(draft.personal_email);
+                            if (!phone.trim() && draft.phone) setPhone(draft.phone);
+                            if (!dob && draft.dob) setDob(draft.dob);
+                            if (!gender && draft.gender) setGender(draft.gender);
+                            if (!seniority && draft.seniority) setSeniority(draft.seniority);
+                            if (!note.trim() && draft.note) setNote(draft.note);
+                            setSkills((prev) => {
+                              const have = new Set(prev.map((s) => s.skill_id));
+                              return [
+                                ...prev,
+                                ...draft.skills.filter((s) => !have.has(s.skill_id)),
+                              ];
+                            });
+                            setSuggestions(draft.skill_suggestions);
+                            setCvSha256(draft.cv_sha256);
+                            setDuplicates(draft.possible_duplicates);
+                            toast({
+                              body: 'CV parsed — review the pre-filled fields before saving',
+                            });
+                          },
+                          onError: (e: Error) => {
+                            if (parseGen.current !== gen) return;
+                            toast({ body: e.message, type: 'error' });
+                          },
+                        });
                       }
                     }}
                     isLoading={parse.isPending}
