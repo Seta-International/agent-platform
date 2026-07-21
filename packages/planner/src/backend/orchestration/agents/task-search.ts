@@ -45,10 +45,12 @@ export interface QueryTaskSearchDeps {
   queryTasksTool?: AgentTool;
   getOpenTaskCountTool?: AgentTool;
   resolveMemberTool?: AgentTool;
+  /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
+  now?: () => Date;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
 }
 
-function buildInstructions(now: Date = new Date()): string {
+export function buildInstructions(now: Date = new Date()): string {
   return `You answer "which tasks?" questions — the user is discovering a
 SET of tasks, not asking about one known task. Answer in prose.
 
@@ -104,7 +106,7 @@ export function makeQueryTaskSearchAgent(deps: QueryTaskSearchDeps): Specialized
             const rawAgent = new Agent({
               id: agentId,
               name: 'Planner Task Search',
-              instructions: buildInstructions(),
+              instructions: buildInstructions(deps.now?.()),
               model: pickModel(ctx, deps.resolveModel),
               tools: {
                 planner_queryTasks: deps.queryTasksTool ?? plannerQueryTasksTool,
@@ -116,21 +118,26 @@ export function makeQueryTaskSearchAgent(deps: QueryTaskSearchDeps): Specialized
                 planner_resolveMember: deps.resolveMemberTool ?? plannerResolveMemberTool,
               } as never,
             });
+            const hasStorage = typeof deps.mastraStorage?.getStore === 'function';
             const mastra = new Mastra({
               agents: { [agentId]: rawAgent },
-              storage: deps.mastraStorage,
+              ...(hasStorage ? { storage: deps.mastraStorage } : {}),
               logger: new ConsoleLogger({
                 name: 'Mastra',
                 level: (process.env.MASTRA_LOG_LEVEL as LogLevel) ?? 'warn',
               }),
-              observability: new Observability({
-                configs: {
-                  default: {
-                    serviceName: 'query-task-search',
-                    exporters: [new MastraStorageExporter()],
-                  },
-                },
-              }),
+              ...(hasStorage
+                ? {
+                    observability: new Observability({
+                      configs: {
+                        default: {
+                          serviceName: 'query-task-search',
+                          exporters: [new MastraStorageExporter()],
+                        },
+                      },
+                    }),
+                  }
+                : {}),
             });
             const agent = mastra.getAgent(agentId);
             const r = await agent.generate(input.query, {

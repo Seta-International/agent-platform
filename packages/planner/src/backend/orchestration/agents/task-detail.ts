@@ -92,21 +92,26 @@ export function makeQueryTaskDetailAgent(deps: QueryTaskDetailDeps): Specialized
                 planner_queryTasks: deps.queryTasksTool ?? plannerQueryTasksTool,
               } as never,
             });
+            const hasStorage = typeof deps.mastraStorage?.getStore === 'function';
             const mastra = new Mastra({
               agents: { [agentId]: rawAgent },
-              storage: deps.mastraStorage,
+              ...(hasStorage ? { storage: deps.mastraStorage } : {}),
               logger: new ConsoleLogger({
                 name: 'Mastra',
                 level: (process.env.MASTRA_LOG_LEVEL as LogLevel) ?? 'warn',
               }),
-              observability: new Observability({
-                configs: {
-                  default: {
-                    serviceName: 'query-task-detail',
-                    exporters: [new MastraStorageExporter()],
-                  },
-                },
-              }),
+              ...(hasStorage
+                ? {
+                    observability: new Observability({
+                      configs: {
+                        default: {
+                          serviceName: 'query-task-detail',
+                          exporters: [new MastraStorageExporter()],
+                        },
+                      },
+                    }),
+                  }
+                : {}),
             });
             const agent = mastra.getAgent(agentId);
             const r = await agent.generate(input.query, {
