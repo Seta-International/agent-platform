@@ -56,7 +56,18 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   const [due, setDue] = useState('');
   // ISO date strings (yyyy-mm-dd from <input type="date">) compare correctly with `<`.
   const dateError = start && due && start >= due ? 'Start date must be before due date.' : null;
-  const [headcount, setHeadcount] = useState(1);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [headcount, setHeadcount] = useState<number | null>(1);
+  const headcountError =
+    headcount === null ||
+    headcount === undefined ||
+    Number.isNaN(headcount) ||
+    !Number.isInteger(headcount) ||
+    headcount < 1
+      ? 'Headcount must be a positive whole number.'
+      : headcount > 1000
+        ? 'Headcount cannot exceed 1,000.'
+        : null;
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [variant, setVariant] = useState<JdVariant>('internal');
   const [jd, setJd] = useState<Record<JdSectionKey, string>>({
@@ -66,7 +77,6 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     nice_to_have: '',
   });
   const [error, setError] = useState<string | null>(null);
-  const [submitAttempted, setSubmitAttempted] = useState(false);
   const missingRequired = !title.trim() || isRichTextEmpty(jd.about);
   const requiredError =
     submitAttempted && missingRequired
@@ -138,7 +148,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
         default_interview_mode: mode,
         start_date: start || undefined,
         due_date: due || undefined,
-        headcount,
+        headcount: headcount ?? 1,
         jd_sections,
         skills: skills.map((s) => ({
           skill_id: s.skill_id,
@@ -159,7 +169,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || dateError) return;
+    if (missingRequired || dateError || headcountError) return;
     mutation.mutate();
   }
 
@@ -262,13 +272,40 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                       onChange={(v) => setMode(v as 'online' | 'onsite' | 'either')}
                     />
                   </div>
-                  <NumberInput
-                    label="Headcount (openings)"
-                    min={1}
-                    isIntegerOnly
-                    value={headcount}
-                    onChange={(v) => setHeadcount(Math.max(1, v || 1))}
-                  />
+                  <div className="space-y-1">
+                    <NumberInput
+                      label="Headcount (openings)"
+                      isIntegerOnly
+                      hasClear
+                      value={headcount}
+                      onChange={(v) => setHeadcount(v)}
+                      onInvalid={(e) => e.preventDefault()}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === 'e' ||
+                          e.key === 'E' ||
+                          e.key === '.' ||
+                          e.key === ',' ||
+                          e.key === '+' ||
+                          e.key === '-'
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      onPaste={(e: React.ClipboardEvent<HTMLInputElement>) => {
+                        const text = e.clipboardData?.getData('text') ?? '';
+                        if (/[eE+\-.,]/.test(text) || !/^\d+$/.test(text.trim())) {
+                          e.preventDefault();
+                        }
+                      }}
+                    />
+                    {headcountError &&
+                      (submitAttempted ||
+                        headcount === null ||
+                        (headcount !== null && (headcount < 1 || headcount > 1000))) && (
+                        <p className="text-sm text-error">{headcountError}</p>
+                      )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
