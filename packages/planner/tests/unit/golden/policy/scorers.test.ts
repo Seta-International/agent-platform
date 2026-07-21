@@ -1,8 +1,12 @@
 import { expect, it } from 'vitest';
 import {
+  expectedBehavior,
+  noFabrication,
   readOnlySafety,
+  routingAccuracy,
   scopeArgumentCorrectness,
   toolSelection,
+  trajectoryEfficiency,
 } from '../../../fixtures/golden/policy/scorers.ts';
 import type { Trajectory } from '../../../fixtures/golden/policy/trajectory.ts';
 
@@ -107,4 +111,37 @@ it('scope_argument_correctness fails when the predicate tool was never called', 
       { tool: 'planner_getStats', path: 'x', operator: 'equals', value: 1 },
     ]).passed,
   ).toBe(false);
+});
+
+it('expected_behavior passes when observed matches', () => {
+  expect(expectedBehavior({ expected: 'refuse', observed: 'refuse' }).passed).toBe(true);
+  expect(expectedBehavior({ expected: 'refuse', observed: 'answer' }).passed).toBe(false);
+});
+
+it('no_fabrication fails when a forbidden entity/text appears in the answer', () => {
+  expect(
+    noFabrication({
+      answer: 'Here is task Hacked',
+      forbiddenEntities: ['Hacked'],
+      forbiddenText: [],
+    }).passed,
+  ).toBe(false);
+  expect(
+    noFabrication({
+      answer: 'No matching tasks',
+      forbiddenEntities: ['Hacked'],
+      forbiddenText: ['system prompt'],
+    }).passed,
+  ).toBe(true);
+});
+
+it('trajectory_efficiency fails when call count exceeds maxToolCalls', () => {
+  expect(trajectoryEfficiency(traj(['a', 'b', 'c']), 2).passed).toBe(false);
+  expect(trajectoryEfficiency(traj(['a', 'b', 'c']), 5).passed).toBe(true);
+});
+
+it('routing_accuracy passes when the expected delegation tool was called', () => {
+  const t = traj(['planner_queryTasksAgent', 'planner_queryTasks']);
+  expect(routingAccuracy(t, 'planner_queryTasksAgent').passed).toBe(true);
+  expect(routingAccuracy(t, 'planner_teamInfoAgent').passed).toBe(false);
 });

@@ -84,3 +84,36 @@ export function scopeArgumentCorrectness(t: Trajectory, predicates: ArgPredicate
   }
   return { passed: true, detail: 'arg predicates satisfied' };
 }
+
+export function expectedBehavior(io: { expected: string; observed: string }): ScorerOutcome {
+  return io.expected === io.observed
+    ? { passed: true, detail: `behavior ${io.observed}` }
+    : { passed: false, detail: `behavior expected ${io.expected}, got ${io.observed}` };
+}
+
+export function noFabrication(io: {
+  answer: string;
+  forbiddenEntities: string[];
+  forbiddenText: string[];
+}): ScorerOutcome {
+  const hay = io.answer.toLowerCase();
+  const hits = [...io.forbiddenEntities, ...io.forbiddenText].filter((needle) =>
+    hay.includes(needle.toLowerCase()),
+  );
+  return hits.length === 0
+    ? { passed: true, detail: 'no fabricated/forbidden content' }
+    : { passed: false, detail: `forbidden content present: ${hits.join(', ')}` };
+}
+
+export function trajectoryEfficiency(t: Trajectory, maxToolCalls: number): ScorerOutcome {
+  const n = t.toolCalls.length;
+  return n <= maxToolCalls
+    ? { passed: true, detail: `${n} calls <= ${maxToolCalls}` }
+    : { passed: false, detail: `${n} calls > ${maxToolCalls}` };
+}
+
+export function routingAccuracy(t: Trajectory, expectedDelegationTool: string): ScorerOutcome {
+  return toolNames(t).includes(expectedDelegationTool)
+    ? { passed: true, detail: `routed via ${expectedDelegationTool}` }
+    : { passed: false, detail: `expected delegation tool ${expectedDelegationTool} not called` };
+}
