@@ -12,6 +12,8 @@ import {
   answerRelevancyScorer,
   EVALS_HARNESS_VERSION,
   faithfulnessScorer,
+  hallucinationScorer,
+  type JudgeModel,
   type RunQualityEvalsResult,
   runQualityEvals,
   toxicityScorer,
@@ -59,6 +61,17 @@ export interface SummaryRow {
   mean: number;
 }
 
+/** The judged quality scorers, ordered. Pure (no model calls) so composition is
+ *  unit-testable. `hallucination` receives grounding context via the wrapper. */
+export function buildQualityScorers(judgeModel: JudgeModel) {
+  return [
+    { scorer: answerRelevancyScorer({ model: judgeModel }) },
+    { scorer: faithfulnessScorer({ model: judgeModel }) },
+    { scorer: hallucinationScorer({ model: judgeModel }) },
+    { scorer: toxicityScorer({ model: judgeModel }) },
+  ];
+}
+
 /** Pure: flatten results into printable rows (unit-tested). */
 export function summarizeQualityResults(results: RunQualityEvalsResult[]): SummaryRow[] {
   return results.flatMap((r) =>
@@ -79,11 +92,7 @@ export async function runEvalQuality(opts: {
   // model is configured (resolveModel falls back to the catalog's first entry).
   const { model: genModel, entry } = resolveModel('auto', { tierHint: 'fast' });
   const judgeModel = genModel;
-  const scorers = [
-    { scorer: answerRelevancyScorer({ model: judgeModel }) },
-    { scorer: faithfulnessScorer({ model: judgeModel }) },
-    { scorer: toxicityScorer({ model: judgeModel }) },
-  ];
+  const scorers = buildQualityScorers(judgeModel);
 
   const results: RunQualityEvalsResult[] = [];
   for (const manifest of MANIFESTS) {
