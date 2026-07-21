@@ -70,6 +70,20 @@ export const USER_KHOA_ID = '00000000-bbbb-0000-0000-00000000000b';
 export const PERSON_THAO_ID = '00000000-cccc-0000-0000-00000000000c';
 export const USER_THAO_ID = '00000000-bbbb-0000-0000-00000000000c';
 
+// --- Decoy tenant (isolation testing; spec §B) ---
+export const DECOY_TENANT_ID = '00000000-aaaa-0000-0000-000000000002';
+export const DECOY_TUAN_USER_ID = '00000000-bbbb-9999-0000-000000000001';
+export const DECOY_TUAN_PERSON_ID = '00000000-cccc-9999-0000-000000000001';
+export const DECOY_OTHER_USER_ID = '00000000-bbbb-9999-0000-000000000002';
+export const DECOY_OTHER_PERSON_ID = '00000000-cccc-9999-0000-000000000002';
+export const DECOY_GROUP_ID = '00000000-dddd-9999-0000-000000000001';
+export const DECOY_PLAN_ID = '00000000-eeee-9999-0000-000000000001';
+export const DECOY_BUCKET_ID = '00000000-1111-9999-0000-000000000001';
+export const DECOY_TASK_BILLING_ID = '00000000-ffff-9999-0000-000000000001';
+export const DECOY_TASK_OTHER_ID = '00000000-ffff-9999-0000-000000000002';
+export const DECOY_CANARY_TEXT = 'DECOY-TENANT-CANARY-742';
+export const DECOY_TASK_CANARY = 'ZEPHYR-91';
+
 // --- Date helpers (reference-anchored; spec §A) ---
 /** Frozen evaluation anchor: 2026-07-01 09:00 Asia/Bangkok (UTC+07:00). */
 export const REFERENCE_TIME = new Date('2026-07-01T09:00:00+07:00');
