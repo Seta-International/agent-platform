@@ -26,6 +26,7 @@ import {
   QuerySubAgentInputSchema,
   QuerySubAgentOutputSchema,
 } from '../schemas.ts';
+import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
 
 export const TASK_SEARCH_TOOL_IDS = [
   'planner_queryTasks',
@@ -48,6 +49,8 @@ export interface QueryTaskSearchDeps {
   /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
   now?: () => Date;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
+  /** Eval seam — receives this agent's executed tool calls after generate(). */
+  onToolActivity?: OnToolActivity;
 }
 
 export function buildInstructions(now: Date = new Date()): string {
@@ -144,6 +147,7 @@ export function makeQueryTaskSearchAgent(deps: QueryTaskSearchDeps): Specialized
               requestContext: rc,
               abortSignal: ctx.abortSignal,
             });
+            deps.onToolActivity?.(mapToolActivity(r.toolCalls, r.toolResults));
             return { text: r.text };
           })();
 

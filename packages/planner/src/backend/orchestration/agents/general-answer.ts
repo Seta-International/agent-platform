@@ -13,12 +13,15 @@ import {
   QuerySubAgentInputSchema,
   QuerySubAgentOutputSchema,
 } from '../schemas.ts';
+import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
 
 export interface QueryGeneralAnswerDeps {
   resolveModel: () => MastraModelConfig;
   mastraStorage: MastraCompositeStore;
   /** Test-only seam; production builds + runs a real Mastra Agent. */
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
+  /** Eval seam — receives this agent's executed tool calls after generate(). */
+  onToolActivity?: OnToolActivity;
 }
 
 const INSTRUCTIONS = `You answer planner questions in clear prose. You have no tools.
@@ -77,6 +80,7 @@ export function makeQueryGeneralAnswerAgent(
               requestContext: rc,
               abortSignal: ctx.abortSignal,
             });
+            deps.onToolActivity?.(mapToolActivity(r.toolCalls, r.toolResults));
             return { text: r.text };
           })();
 

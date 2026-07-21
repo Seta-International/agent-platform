@@ -5,6 +5,7 @@ import {
 } from '@seta/agent-sdk';
 import { z } from 'zod';
 import type { QuerySubAgentInput, QuerySubAgentOutput } from './schemas.ts';
+import type { OnToolActivity } from './tool-activity.ts';
 
 type SubAgent = SpecializedAgentSpec<QuerySubAgentInput, QuerySubAgentOutput>;
 
@@ -15,6 +16,8 @@ export interface QueryOrchestratorToolDeps {
   generalAnswer: SubAgent;
   /** The orchestrator's run ctx — sub-agents inherit tenant/actor/permissions/model. */
   ctx: SpecializedAgentRunCtx;
+  /** Eval seam — receives the delegation (routing) call after each sub-agent run. */
+  onToolActivity?: OnToolActivity;
 }
 
 export function makeQueryOrchestratorTools(deps: QueryOrchestratorToolDeps) {
@@ -37,6 +40,7 @@ export function makeQueryOrchestratorTools(deps: QueryOrchestratorToolDeps) {
       executionTimeoutMs: 120_000,
       execute: async ({ query }) => {
         const res = await sub.run({ query }, subCtx);
+        deps.onToolActivity?.([{ toolName: id, args: { query }, result: res.result, ok: true }]);
         return { answer: res.result.answer };
       },
     });

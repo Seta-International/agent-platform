@@ -24,6 +24,7 @@ import {
   QuerySubAgentInputSchema,
   QuerySubAgentOutputSchema,
 } from '../schemas.ts';
+import { mapToolActivity, type OnToolActivity } from '../tool-activity.ts';
 
 export const TEAM_INFO_TOOL_IDS = [
   'planner_getGroupOverview',
@@ -38,6 +39,8 @@ export interface QueryTeamInfoDeps {
   resolveModel: () => MastraModelConfig;
   mastraStorage: MastraCompositeStore;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
+  /** Eval seam — receives this agent's executed tool calls after generate(). */
+  onToolActivity?: OnToolActivity;
 }
 
 function buildInstructions({ requestContext }: { requestContext: RequestContext }): string {
@@ -147,6 +150,7 @@ export function makeQueryTeamInfoAgent(deps: QueryTeamInfoDeps): SpecializedAgen
               requestContext: rc,
               abortSignal: ctx.abortSignal,
             });
+            deps.onToolActivity?.(mapToolActivity(r.toolCalls, r.toolResults));
             return { text: r.text };
           })();
 
