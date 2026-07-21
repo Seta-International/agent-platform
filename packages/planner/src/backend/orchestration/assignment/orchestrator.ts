@@ -297,9 +297,10 @@ async function buildOrchestrator(
   // native-suspend snapshot — a later resumeStream (Task 7) reloads it from the
   // SAME store. The store is injected (staffing owns no storage); the engine
   // Mastra shares this one instance so cross-Mastra-instance resume works.
+  const hasStorage = typeof deps.mastraStorage?.getStore === 'function';
   const mastra = new Mastra({
     agents: { 'planner.assignment-orchestrator': agent },
-    storage: deps.mastraStorage,
+    ...(hasStorage ? { storage: deps.mastraStorage } : {}),
     // Framework-level logs (WARN by default; raise via MASTRA_LOG_LEVEL).
     logger: new ConsoleLogger({
       name: 'Mastra',
@@ -308,14 +309,18 @@ async function buildOrchestrator(
     // AI tracing → the agent module's shared span store. This is the per-turn
     // agent that actually decides tools (proposeAssignment etc.) and natively
     // suspends, so its span tree is the primary record for debugging chat HITL.
-    observability: new Observability({
-      configs: {
-        default: {
-          serviceName: 'assignment-orchestrator',
-          exporters: [new MastraStorageExporter()],
-        },
-      },
-    }),
+    ...(hasStorage
+      ? {
+          observability: new Observability({
+            configs: {
+              default: {
+                serviceName: 'assignment-orchestrator',
+                exporters: [new MastraStorageExporter()],
+              },
+            },
+          }),
+        }
+      : {}),
   });
   const boundAgent = mastra.getAgent('planner.assignment-orchestrator');
 
