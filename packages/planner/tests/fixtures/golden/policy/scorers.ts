@@ -48,3 +48,39 @@ export function toolSelection(t: Trajectory, c: ToolSelectionConstraints): Score
   }
   return { passed: true, detail: 'tool selection satisfied' };
 }
+
+export interface ArgPredicate {
+  tool: string;
+  path: string; // dotted path into the tool's args
+  operator: 'equals' | 'subsetOf' | 'notEquals';
+  value: unknown;
+}
+
+function readPath(obj: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((node, seg) => {
+    if (typeof node !== 'object' || node === null) return undefined;
+    return (node as Record<string, unknown>)[seg];
+  }, obj);
+}
+
+function checkPredicate(actual: unknown, p: ArgPredicate): boolean {
+  if (p.operator === 'equals') return JSON.stringify(actual) === JSON.stringify(p.value);
+  if (p.operator === 'notEquals') return JSON.stringify(actual) !== JSON.stringify(p.value);
+  if (!Array.isArray(actual) || !Array.isArray(p.value)) return false; // subsetOf
+  const superset = new Set(p.value as unknown[]);
+  return (actual as unknown[]).every((x) => superset.has(x));
+}
+
+export function scopeArgumentCorrectness(t: Trajectory, predicates: ArgPredicate[]): ScorerOutcome {
+  for (const p of predicates) {
+    const call = t.toolCalls.find((c) => c.toolName === p.tool);
+    if (!call) return { passed: false, detail: `predicate tool not called: ${p.tool}` };
+    if (!checkPredicate(readPath(call.args, p.path), p)) {
+      return {
+        passed: false,
+        detail: `arg predicate failed: ${p.tool}.${p.path} ${p.operator} ${JSON.stringify(p.value)}`,
+      };
+    }
+  }
+  return { passed: true, detail: 'arg predicates satisfied' };
+}
