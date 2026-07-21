@@ -12,7 +12,7 @@ advisory.
 | --- | --- | --- | --- | --- | --- |
 | A1 | gate | PQ-001..018, PQ-027 | 19 | happy-path answer correctness across all 4 sub-agents | covered; add A2/A3 splits below |
 | A2 | gate | — | 0 | named-person / entity resolution correctness | **gap** — currently folded into A1 (PQ-006, PQ-009, PQ-027) |
-| A3 | gate | — | 0 | semantic-search relevance (kind:retrieval graded labels) | **gap** — PQ-007 is agent-kind only; no retrieval-kind cases yet |
+| A3 | gate | RET-001, RET-002 | 2 | semantic-search relevance (kind:retrieval graded labels) | covered — graded-relevance retrieval cases scored by `ir-metrics.ts` + `retrieval-policy.ts` |
 | A4 | gate | PQ-019, PQ-020, PQ-023, PQ-024, PQ-025 | 5 | empty / not-found / tool-error result shapes | covered |
 | A5 | gate | PQ-021, PQ-022, PQ-026 | 3 | ambiguity → clarify (never guess) | covered |
 | A6 | gate | — | 0 | multi-turn / context-pack follow-ups | **gap** — no kind:conversation cases yet |
@@ -37,6 +37,6 @@ advisory.
   PQ-022, PQ-027, PQ-029, PQ-031.
 - Suites: `smoke` = PQ-001/002/003/006/008/012; `regression` = all; `nightly` adds
   the edge-error, adversarial, and RBAC cases.
-- The three biggest gaps to close in the scale-up are **A3 retrieval-kind cases**
-  (graded relevance labels + IR scorer), **A6 kind:conversation** multi-turn cases,
-  and **decoy-isolation eval cases** that assert canaries never leak.
+- The two biggest gaps to close in the scale-up are **A6 kind:conversation**
+  multi-turn cases and **decoy-isolation eval cases** that assert canaries never
+  leak. (A3 retrieval-kind cases + IR scorer landed: RET-001, RET-002.)
