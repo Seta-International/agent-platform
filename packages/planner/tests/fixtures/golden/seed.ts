@@ -44,7 +44,7 @@ export async function seedGoldenDataset(pool: Pool): Promise<void> {
   // events go back to roughly -2 months, per daysFromNow()) must be
   // backfilled here before step 15 inserts any event rows. Computed
   // dynamically (not hardcoded) since the dataset is date-relative to "now".
-  const now = new Date();
+  const now = C.REFERENCE_TIME;
   for (const offset of [-3, -2, -1, 0]) {
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
     await pool.query(`SELECT core.ensure_events_partition($1::date)`, [monthStart]);

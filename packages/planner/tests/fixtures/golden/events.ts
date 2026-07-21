@@ -279,7 +279,7 @@ function midpoint(a: Date, b: Date): Date {
 }
 
 function clampPastNotFuture(d: Date, created: Date): Date {
-  const now = new Date();
+  const now = C.REFERENCE_TIME;
   if (d.getTime() >= now.getTime()) return midpoint(created, now);
   if (d.getTime() <= created.getTime()) return midpoint(created, now);
   return d;
@@ -351,7 +351,7 @@ export function generateBulkEvents(): GoldenEvent[] {
   for (const task of ALL_TASKS) {
     if (task.progress !== 'done') continue;
     if (completedSkipSet.has(task.id)) continue;
-    const now = new Date();
+    const now = C.REFERENCE_TIME;
     const dueInPastAndAfterCreated =
       task.due_at !== null &&
       task.due_at.getTime() < now.getTime() &&
@@ -393,7 +393,7 @@ export function generateBulkEvents(): GoldenEvent[] {
   for (let i = 0; i < ALL_TASKS.length && updatedCount < 80; i += 2) {
     const task = ALL_TASKS[i]!;
     if (task.id === C.TASK_API_RATE_LIMIT_ID) continue;
-    const now = new Date();
+    const now = C.REFERENCE_TIME;
     const occurredAt = clampPastNotFuture(midpoint(task.created_at, now), task.created_at);
     const actorUserId = task.assignee_user_ids[0] ?? C.ACTOR_USER_ID;
     const priorPregress = PROGRESS_PREDECESSOR[task.progress];
@@ -456,7 +456,7 @@ export function generateBulkEvents(): GoldenEvent[] {
     if (task.label_ids.length === 0) continue;
     for (const labelId of task.label_ids) {
       if (task.id === C.TASK_API_RATE_LIMIT_ID && labelId === ALPHA_CRITICAL_LABEL_ID) continue;
-      const now = new Date();
+      const now = C.REFERENCE_TIME;
       const occurredAt = clampPastNotFuture(midpoint(task.created_at, now), task.created_at);
       const actorUserId = task.assignee_user_ids[0] ?? C.ACTOR_USER_ID;
       events.push({
