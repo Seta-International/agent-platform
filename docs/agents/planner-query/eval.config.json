@@ -31,5 +31,23 @@
     "planner_setAssignees",
     "planner_createTask"
   ],
-  "run": { "maxConcurrency": 5, "itemTimeout": 60000, "maxRetries": 1 }
+  "run": { "maxConcurrency": 5, "itemTimeout": 60000, "maxRetries": 1 },
+  "metricPolicy": {
+    "A1": { "mode": "gate" },
+    "A2": { "mode": "gate" },
+    "A3": { "mode": "gate" },
+    "A4": { "mode": "gate" },
+    "A5": { "mode": "gate" },
+    "A6": { "mode": "gate" },
+    "A7": { "mode": "gate" },
+    "A8": { "mode": "gate" },
+    "B1": { "mode": "advisory" },
+    "B2": { "mode": "advisory" },
+    "B3": { "mode": "advisory" },
+    "B4": { "mode": "advisory" },
+    "B5": { "mode": "advisory" },
+    "B6": { "mode": "advisory" },
+    "B7": { "mode": "advisory" },
+    "B8": { "mode": "advisory" }
+  }
 }
