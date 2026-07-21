@@ -8,10 +8,20 @@ import {
   Text,
   VStack,
 } from '@seta/shared-ui';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { PerformanceGate } from '../components/performance-gate.tsx';
+import { PerformanceScopeProvider } from '../components/performance-scope.tsx';
+import { PerformanceShell } from '../components/performance-shell.tsx';
 
-function PerformancePage() {
+/** The scope tuple lives here and only here (AC3/AC4 — shareable links). */
+export function validatePerformanceSearch(s: Record<string, unknown>) {
+  return {
+    capacity: typeof s.capacity === 'string' ? s.capacity : undefined,
+    month: typeof s.month === 'string' ? s.month : undefined,
+  };
+}
+
+function PerformanceLayout() {
   return (
     <Layout
       height="fill"
@@ -36,13 +46,11 @@ function PerformancePage() {
         <LayoutContent padding={0}>
           <PerformanceGate>
             {(ctx) => (
-              // SCR-02 (Story 1.4 role router + Story 1.2 capacity switcher) mounts here.
-              <div className="p-6">
-                <Text color="secondary">
-                  Signed in with {ctx.capacities.length}{' '}
-                  {ctx.capacities.length === 1 ? 'capacity' : 'capacities'} for {ctx.as_of_month}.
-                </Text>
-              </div>
+              <PerformanceScopeProvider context={ctx}>
+                <PerformanceShell>
+                  <Outlet />
+                </PerformanceShell>
+              </PerformanceScopeProvider>
             )}
           </PerformanceGate>
         </LayoutContent>
@@ -52,5 +60,6 @@ function PerformancePage() {
 }
 
 export const Route = createFileRoute('/_authed/people/performance')({
-  component: PerformancePage,
+  validateSearch: validatePerformanceSearch,
+  component: PerformanceLayout,
 });
