@@ -50,6 +50,30 @@ export function applyDraftToForm(
   };
 }
 
+export type WorkerFormErrors = Partial<
+  Record<'full_name' | 'personal_email' | 'work_email', string>
+>;
+
+/** Loose shape check only — the createWorker contract (zod .email()) stays the authority. */
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Client-side mirror of the createWorker contract's hard failures: required
+ * full_name and email shape. Everything else in the form is optional or
+ * constrained by its control (Selector, DateInput, Typeahead).
+ */
+export function validateWorkerForm(form: WorkerFormValues): WorkerFormErrors {
+  const errors: WorkerFormErrors = {};
+  if (form.full_name.trim() === '') errors.full_name = 'Full name is required.';
+  for (const field of ['personal_email', 'work_email'] as const) {
+    const value = form[field].trim();
+    if (value !== '' && !EMAIL_SHAPE.test(value)) {
+      errors[field] = 'Enter a valid email address.';
+    }
+  }
+  return errors;
+}
+
 export function formToCreateInput(form: WorkerFormValues): CreateWorkerInput {
   const opt = (v: string): string | undefined => (v.trim() === '' ? undefined : v.trim());
   return {

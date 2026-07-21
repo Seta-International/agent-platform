@@ -5,6 +5,7 @@ import {
   EMPTY_WORKER_FORM,
   formToCreateInput,
   saveWorkerWithCv,
+  validateWorkerForm,
 } from '../../src/lib/cv-intake.ts';
 
 const DRAFT: WorkerCvDraft = {
@@ -48,6 +49,48 @@ describe('formToCreateInput', () => {
       personal_email: 'j@x.y',
     });
     expect(input).toEqual({ full_name: 'Jane', personal_email: 'j@x.y' });
+  });
+});
+
+describe('validateWorkerForm', () => {
+  it('passes a form with only a full name', () => {
+    expect(validateWorkerForm({ ...EMPTY_WORKER_FORM, full_name: 'Jane' })).toEqual({});
+  });
+
+  it('requires full name, ignoring whitespace', () => {
+    expect(validateWorkerForm(EMPTY_WORKER_FORM)).toEqual({
+      full_name: 'Full name is required.',
+    });
+    expect(validateWorkerForm({ ...EMPTY_WORKER_FORM, full_name: '   ' })).toEqual({
+      full_name: 'Full name is required.',
+    });
+  });
+
+  it('rejects malformed emails but accepts empty ones (mirrors the createWorker contract)', () => {
+    expect(
+      validateWorkerForm({
+        ...EMPTY_WORKER_FORM,
+        full_name: 'Jane',
+        personal_email: 'not-an-email',
+        work_email: 'jane@company',
+      }),
+    ).toEqual({
+      personal_email: 'Enter a valid email address.',
+      work_email: 'Enter a valid email address.',
+    });
+    expect(
+      validateWorkerForm({
+        ...EMPTY_WORKER_FORM,
+        full_name: 'Jane',
+        personal_email: 'jane@gmail.com',
+        work_email: 'jane@company.io',
+      }),
+    ).toEqual({});
+  });
+
+  it('reports every failing field at once', () => {
+    const errors = validateWorkerForm({ ...EMPTY_WORKER_FORM, personal_email: 'nope' });
+    expect(Object.keys(errors).sort()).toEqual(['full_name', 'personal_email']);
   });
 });
 
