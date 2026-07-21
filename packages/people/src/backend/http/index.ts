@@ -4,6 +4,7 @@ import { registerPeopleAllocationRoutes } from './allocations.ts';
 import { registerPeopleCvRoutes } from './cv.ts';
 import { registerPeopleMeRoutes } from './me.ts';
 import { registerPeopleOrgRoutes } from './org.ts';
+import { registerPeoplePerformanceRoutes } from './performance.ts';
 import { registerPeoplePickersRoutes } from './pickers.ts';
 import { registerPeopleWorkersRoutes } from './workers.ts';
 
@@ -11,6 +12,7 @@ export { registerPeopleAllocationRoutes } from './allocations.ts';
 export { registerPeopleCvRoutes } from './cv.ts';
 export { registerPeopleMeRoutes } from './me.ts';
 export { registerPeopleOrgRoutes } from './org.ts';
+export { registerPeoplePerformanceRoutes } from './performance.ts';
 export { registerPeoplePickersRoutes } from './pickers.ts';
 export { registerPeopleWorkersRoutes } from './workers.ts';
 
@@ -22,5 +24,6 @@ export function buildPeopleRoutes(deps: RouteBuildDeps): Hono<SessionEnv> {
   registerPeoplePickersRoutes(app);
   registerPeopleOrgRoutes(app);
   registerPeopleAllocationRoutes(app);
+  registerPeoplePerformanceRoutes(app);
   return app;
 }
