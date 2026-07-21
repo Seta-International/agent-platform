@@ -40,7 +40,10 @@
     "gen:dashboards": "pnpm -F @seta/grafana-dashboards run gen",
     "seed:golden": "tsx scripts/dev/seed-golden-dataset.ts",
     "seed:golden:login": "tsx scripts/dev/seed-golden-dataset-login.ts",
-    "seed:golden:embed": "tsx scripts/dev/seed-golden-dataset-embed.ts"
+    "seed:golden:embed": "tsx scripts/dev/seed-golden-dataset-embed.ts",
+    "golden:facts:generate": "tsx scripts/dev/golden-facts.ts generate",
+    "golden:facts:diff": "tsx scripts/dev/golden-facts.ts diff",
+    "golden:facts:promote": "tsx scripts/dev/golden-facts.ts promote"
   },
   "devDependencies": {
     "@astryxdesign/cli": "^0.1.6",

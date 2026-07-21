@@ -1,0 +1,20 @@
+{
+  "datasetVersion": "2.0.0",
+  "caseSchemaVersion": 1,
+  "designSpecVersion": "golden-dataset-v2",
+  "referenceTime": "2026-07-01T09:00:00+07:00",
+  "seedChecksum": "a173555d7d497e2f9cc8853e176f7f2e0ea97fbb72795578b30f1533696f157a",
+  "embedding": {
+    "modelVersion": "openai/text-embedding-3-small",
+    "tasks": {
+      "index": "task_embeddings",
+      "mainExpectedRows": 200,
+      "decoyExpectedRows": 2
+    },
+    "people": {
+      "index": "person_profile_embeddings",
+      "mainExpectedRows": 50,
+      "decoyExpectedRows": 2
+    }
+  }
+}
