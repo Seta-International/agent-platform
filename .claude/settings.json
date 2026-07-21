@@ -7,6 +7,9 @@
   "permissions": {
     "deny": ["Workflow"]
   },
+  "env": {
+    "ECC_GATEGUARD": "off"
+  },
   "enabledPlugins": {
     "context7@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
