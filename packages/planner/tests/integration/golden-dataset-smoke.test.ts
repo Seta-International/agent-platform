@@ -1,5 +1,5 @@
 // packages/planner/tests/integration/golden-dataset-smoke.test.ts
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import * as C from '../fixtures/golden/constants.ts';
 import { cleanGoldenDataset, seedGoldenDataset } from '../fixtures/golden/index.ts';
 import { withAgentTestDb } from './agent-tools-helpers.ts';
@@ -112,11 +112,12 @@ describe('golden dataset smoke', () => {
       );
       expect(pq005Done.rows[0].c).toBe(27);
 
-      // PQ-005: Alpha has 3 overdue tasks
+      // PQ-005: Alpha has 3 overdue tasks (overdue is relative to the frozen anchor,
+      // not wall-clock NOW() — the fixtures are anchored to REFERENCE_TIME).
       const pq005Overdue = await pool.query(
         `SELECT count(*)::int AS c FROM planner.tasks
-          WHERE tenant_id = $1 AND plan_id = $2 AND due_at < NOW() AND progress != 'done'`,
-        [C.TENANT_ID, C.PLAN_ALPHA_ID],
+          WHERE tenant_id = $1 AND plan_id = $2 AND due_at < $3 AND progress != 'done'`,
+        [C.TENANT_ID, C.PLAN_ALPHA_ID, C.REFERENCE_TIME],
       );
       expect(pq005Overdue.rows[0].c).toBe(3);
 
@@ -151,11 +152,11 @@ describe('golden dataset smoke', () => {
       );
       expect(pq013.rows[0].c).toBe(12);
 
-      // PQ-017: Tuan has recent activity (last 7 days)
+      // PQ-017: Tuan has recent activity (last 7 days relative to the frozen anchor).
       const pq017 = await pool.query(
         `SELECT count(*)::int AS c FROM core.events
-          WHERE tenant_id = $1 AND caused_by_user_id = $2 AND occurred_at >= NOW() - INTERVAL '7 days'`,
-        [C.TENANT_ID, C.USER_TUAN_ID],
+          WHERE tenant_id = $1 AND caused_by_user_id = $2 AND occurred_at >= $3::timestamptz - INTERVAL '7 days'`,
+        [C.TENANT_ID, C.USER_TUAN_ID, C.REFERENCE_TIME],
       );
       expect(pq017.rows[0].c).toBeGreaterThanOrEqual(7);
 
@@ -215,6 +216,42 @@ describe('golden dataset smoke', () => {
       );
       const tuanSkillNames = tuanSkills.rows.map((r: { skill_name: string }) => r.skill_name);
       expect(tuanSkillNames).toEqual(expect.arrayContaining(['TypeScript', 'Go', 'Docker']));
+
+      await cleanGoldenDataset(pool);
+    });
+  });
+
+  it('due-this-week result is identical under different wall clocks', async () => {
+    await withAgentTestDb(async ({ pool }) => {
+      await cleanGoldenDataset(pool);
+      await seedGoldenDataset(pool);
+
+      // Capture the anchored week window under two very different system clocks.
+      // Timers are faked only around the synchronous window computation and
+      // restored before any DB await, so the pg driver is never touched.
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2020-01-01T00:00:00Z'));
+      const w1 = { start: C.startOfWeek(), end: C.endOfWeek() };
+      vi.setSystemTime(new Date('2031-01-01T00:00:00Z'));
+      const w2 = { start: C.startOfWeek(), end: C.endOfWeek() };
+      vi.useRealTimers();
+
+      // The frozen anchor makes the window itself wall-clock independent.
+      expect(w1.start.getTime()).toBe(w2.start.getTime());
+      expect(w1.end.getTime()).toBe(w2.end.getTime());
+
+      // …and the seeded data resolves to the same due-this-week task set for either window.
+      const dueThisWeek = async (win: { start: Date; end: Date }): Promise<string[]> => {
+        const r = await pool.query(
+          `SELECT id FROM planner.tasks
+            WHERE tenant_id = $1 AND plan_id = $2 AND due_at >= $3 AND due_at < $4`,
+          [C.TENANT_ID, C.PLAN_ALPHA_ID, win.start, win.end],
+        );
+        return r.rows.map((x: { id: string }) => x.id);
+      };
+      const a = await dueThisWeek(w1);
+      const b = await dueThisWeek(w2);
+      expect(new Set(a)).toEqual(new Set(b));
 
       await cleanGoldenDataset(pool);
     });
