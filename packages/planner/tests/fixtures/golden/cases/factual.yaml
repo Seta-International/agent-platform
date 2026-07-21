@@ -1,0 +1,310 @@
+# Factual / happy-path query-agent cases (migrated from testcases.csv PQ-001..PQ-018).
+# All are kind:agent. Crisp numbers in the original ground_truth came from fictional
+# tool mocks, not the golden manifest, so they are kept as prose reference cases
+# (behavior:answer, no fact refs) per plan §D.
+- schemaVersion: 1
+  kind: agent
+  id: PQ-001
+  category: happy
+  suites: [smoke, regression]
+  holdout: false
+  actor: &actor { tenantId: '00000000-aaaa-0000-0000-000000000001', userId: '00000000-bbbb-0000-0000-000000000001' }
+  input:
+    messages:
+      - role: user
+        content: What tasks are due this week on board Alpha?
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_queryTasksAgent, planner_queryTasks]
+      forbiddenTools: [planner_createTask, planner_assignTask, planner_postComment]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-002
+  category: happy
+  suites: [smoke, regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: What should I work on today?
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_queryTasksAgent, planner_queryTasks]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-003
+  category: happy
+  suites: [smoke, regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: How many open tasks do I have?
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_queryTasksAgent, planner_getOpenTaskCountForUser]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-004
+  category: happy
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: '[Context: planner.board#board-sprint12] What''s the current state of this board?'
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_queryTasksAgent, planner_getBoardSnapshot]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-005
+  category: happy
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: What's the completion rate for Project Alpha?
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_queryTasksAgent, planner_getStats]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-006
+  category: happy
+  suites: [smoke, regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: Show me Tuan's open tasks
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_queryTasksAgent, planner_resolveMember, planner_queryTasks]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-007
+  category: happy
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: Tasks about the billing migration
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_queryTasksAgent, planner_findSimilarTasks]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-008
+  category: happy
+  suites: [smoke, regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: '[Context: planner.task#task-abc123] Tell me about this task'
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_taskDetailAgent, planner_getTask]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-009
+  category: happy
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: Show the discussion on task 'Billing Migration'
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_taskDetailAgent, planner_queryTasks, planner_getTask, planner_listComments]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-010
+  category: happy
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: '[Context: planner.task#task-abc123] What changed on this task recently?'
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_taskDetailAgent, planner_getTask, planner_getItemActivity]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-011
+  category: happy
+  suites: [regression]
+  holdout: true
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: '[Context: planner.task#task-abc123] When is this due and what depends on it?'
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_taskDetailAgent, planner_getTask, planner_getTimeline]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-012
+  category: happy
+  suites: [smoke, regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: How many members are in my group?
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_teamInfoAgent, planner_getGroupOverview]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-013
+  category: happy
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: Who's overloaded in the team?
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_teamInfoAgent, planner_getWorkload]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-014
+  category: happy
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: What plans exist in my group?
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_teamInfoAgent, planner_listPlans]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-015
+  category: happy
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: What buckets are in plan 'Sprint 12'?
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_teamInfoAgent, planner_listBuckets]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-016
+  category: happy
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: Who on my team has React experience?
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_teamInfoAgent, planner_searchGroupMembersBySkills]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-017
+  category: happy
+  suites: [regression]
+  holdout: true
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: What did Tuan do this week?
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_teamInfoAgent, planner_getUserActivity]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-018
+  category: happy
+  suites: [regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      - role: user
+        content: Compare our team's workload this week with last week's completion stats and summarize
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_answerQuestion]
+  metrics: { enabled: [A1] }
