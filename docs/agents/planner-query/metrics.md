@@ -57,6 +57,16 @@ registry is only the gate/advisory decision the runner enforces.
 
 ### Current wiring status
 
+- **Cases are now scored data-driven by `runGoldenEval`** (`tests/fixtures/golden/
+  golden-eval-runner.ts`): for each case it walks `metrics.enabled`, resolves
+  gate-vs-advisory from the `metricPolicy` registry, and dispatches by `kind` to
+  the existing policy/scorer stack — retrieval cases via `runRetrievalCases`,
+  agent cases via `evaluatePolicy(id, ctxFromCase(...))` over a **captured
+  two-tier tool trajectory** (orchestrator routing + sub-agent read tools,
+  recorded through the additive `onToolActivity` seam and `TrajectoryCollector`).
+  It emits one `GoldenRunReport` (`gateFailed`, `gateFailures`, per-case verdicts);
+  a gate scorer below threshold fails the case, an agent-run throw records
+  `verdict:'error'` (counts as a gate fail), advisory results are recorded only.
 - **Axis A is what the 33 migrated YAML cases assert today** — each case carries
   `metrics.enabled` (e.g. `A1` happy-path, `A4` empty/not-found, `A5` clarify,
   `A7` adversarial refusal, `A8` RBAC) plus deterministic `trajectory`
@@ -86,3 +96,4 @@ registry is only the gate/advisory decision the runner enforces.
 - 2026-07-16: initial thresholds set. `faithfulness` at 0.8 (above default 0.7) and `hallucination` at 0.8 reflect QueryAgent's data-grounding mission. `expected-tools` as gate reflects deterministic routing.
 - 2026-07-21: golden dataset v2 landed — CSV → typed YAML cases, frozen SQL fact oracle + `preflight`, and the `metricPolicy` gate/advisory registry (A1–A8 gate, B1–B8 advisory). Cases assert Axis A only; Axis B stays advisory until the E2E quality lane is built.
 - 2026-07-21: A3 retrieval slice (cases + IR policy runner), deterministic Axis-A scorers + two-tier policy registry, and judge grounding-context wrapper (+ hallucination CLI) landed. Remaining: E2E golden-tenant lane (real pgvector search + real orchestrator run) for A3/A8-real/B1–B3.
+- 2026-07-21: `runGoldenEval` data-driven driver + `onToolActivity` two-tier trajectory capture landed; nightly diagnostic lane runs the smoke suite over the real pipeline (seed → login → embed → preflight → run). First live smoke run: 6 cases, 4 pass / 2 A1 `tool_selection` fails (PQ-001 "board Alpha", PQ-003 "how many open tasks") where the live model deviates from the exact-match `requiredTools`. These are constraint/behavior mismatches on legacy-migrated cases — follow-up is to reconcile `allowedTools`/seed per case, **not** to weaken scorers. The lane asserts the driver runs E2E, not `gateFailed===false`, until that reconcile lands.
