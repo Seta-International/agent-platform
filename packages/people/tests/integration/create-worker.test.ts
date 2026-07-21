@@ -213,6 +213,35 @@ describe('createWorker', () => {
     });
   });
 
+  it('throws CONFLICT when employee_no already in use', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPeopleDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+
+        await createWorker({
+          full_name: 'First Worker',
+          employee_no: 'EMP-001',
+          session: t.adminSession,
+        });
+
+        await expect(
+          createWorker({
+            full_name: 'Second Worker',
+            employee_no: 'EMP-001',
+            session: t.adminSession,
+          }),
+        ).rejects.toMatchObject({ code: 'CONFLICT', message: 'employee_no already in use' });
+      } finally {
+        resetPeopleDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('throws CONFLICT when supplied email already in use', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

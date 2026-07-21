@@ -7,6 +7,18 @@
 html { color-scheme: dark; }
 html.theme-light { color-scheme: light; }
 
+/* Required-field indicator: Astryx FieldLabel renders required fields as a
+   " ∙ Required" suffix in --color-text-secondary, with no prop or dedicated
+   token to restyle it — design wants it error-red so required fields read at
+   a glance. The :not(#\#) chain matches the id-level specificity Astryx's own
+   atomic rules carry (.xv1l7n4:not(#\#):not(#\#):not(#\#)); both sheets are
+   unlayered, so this later rule then wins. :has(> span[aria-hidden]) pins the
+   status span (its " ∙ " separator), leaving label icons/tooltips untouched.
+   Would also hit an " ∙ Optional" suffix, but isOptional is unused here. */
+.astryx-field-label > span:has(> span[aria-hidden]):not(#\#):not(#\#):not(#\#) {
+  color: var(--color-error);
+}
+
 /* Rich text content — editor and display both carry this class */
 /* Headings need explicit sizes: the Tailwind preflight resets h1–h6 to inherit, which
    would leave the toolbar's H1/H2 toggle visually inert. */

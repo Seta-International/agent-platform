@@ -1,7 +1,6 @@
 import {
   BreadcrumbItem,
   Breadcrumbs,
-  ComingSoon,
   HStack,
   Layout,
   LayoutContent,
@@ -10,8 +9,9 @@ import {
   VStack,
 } from '@seta/shared-ui';
 import { createFileRoute } from '@tanstack/react-router';
+import { PerformanceGate } from '../components/performance-gate.tsx';
 
-function PerformancePlaceholder() {
+function PerformancePage() {
   return (
     <Layout
       height="fill"
@@ -34,9 +34,17 @@ function PerformancePlaceholder() {
       }
       content={
         <LayoutContent padding={0}>
-          <div className="p-6">
-            <ComingSoon feature="Performance" />
-          </div>
+          <PerformanceGate>
+            {(ctx) => (
+              // SCR-02 (Story 1.4 role router + Story 1.2 capacity switcher) mounts here.
+              <div className="p-6">
+                <Text color="secondary">
+                  Signed in with {ctx.capacities.length}{' '}
+                  {ctx.capacities.length === 1 ? 'capacity' : 'capacities'} for {ctx.as_of_month}.
+                </Text>
+              </div>
+            )}
+          </PerformanceGate>
         </LayoutContent>
       }
     />
@@ -44,5 +52,5 @@ function PerformancePlaceholder() {
 }
 
 export const Route = createFileRoute('/_authed/people/performance')({
-  component: PerformancePlaceholder,
+  component: PerformancePage,
 });

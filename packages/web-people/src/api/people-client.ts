@@ -325,3 +325,27 @@ export async function putToS3(uploadUrl: string, file: File): Promise<void> {
   });
   if (!res.ok) throw new Error(`CV upload failed: HTTP ${res.status}`);
 }
+
+export type PerformanceCapacity =
+  | { kind: 'am'; account_id: string; label: string }
+  | { kind: 'tl'; project_id: string; account_id: string; label: string }
+  | { kind: 'member'; project_id: string; account_id: string; label: string };
+
+export type PerformanceContext =
+  | { status: 'no_employee_record' }
+  | {
+      status: 'ok';
+      as_of_month: string;
+      person: { person_id: string; full_name: string | null; org_unit_id: string | null };
+      role_slugs: string[];
+      capacities: PerformanceCapacity[];
+      default_capacity_index: number;
+    };
+
+export async function fetchPerformanceContext(asOfMonth: string): Promise<PerformanceContext> {
+  const res = await fetch(
+    `/api/people/v1/performance/context?as_of_month=${encodeURIComponent(asOfMonth)}`,
+    { credentials: 'include' },
+  );
+  return handleResponse<PerformanceContext>(res);
+}

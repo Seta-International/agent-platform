@@ -39,6 +39,7 @@ export {
 export { provisionAccount } from './backend/domain/provision-account.ts';
 export { provisionWorker } from './backend/domain/provision-worker.ts';
 export { type MyProfile, readMyProfile } from './backend/domain/read-my-profile.ts';
+export { readPerformanceContext } from './backend/domain/read-performance-context.ts';
 export { type PresenceResult, readPresence } from './backend/domain/read-presence.ts';
 export { getWorker, getWorkerHistory, listWorkers } from './backend/domain/read-workers.ts';
 export { setBio } from './backend/domain/set-bio.ts';
@@ -69,5 +70,12 @@ export {
   personProfileVectorId,
   resetPeopleVectorStore,
 } from './backend/embeddings/vector-store.ts';
-export type { CreateWorkerInput, EditWorkerInput, ProvisionWorkerInput } from './contracts.ts';
+export type {
+  CreateWorkerInput,
+  EditWorkerInput,
+  PerformanceCapacity,
+  PerformanceContext,
+  PerformanceContextInput,
+  ProvisionWorkerInput,
+} from './contracts.ts';
 export { GENDER_VALUES, type GenderValue, genderValue } from './contracts.ts';

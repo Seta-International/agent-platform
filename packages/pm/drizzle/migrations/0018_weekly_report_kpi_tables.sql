@@ -1,3 +1,9 @@
+-- FUT-609's prototype reporting schema (0011_pm_reporting.sql, deleted by this PR) reached the
+-- dev environment before being redesigned here; drop it so dev's already-applied tables don't
+-- collide with the recreate below. No-op anywhere the old migration never ran.
+DROP TABLE IF EXISTS "pm"."comment", "pm"."flag", "pm"."flag_audit_entry", "pm"."metric_value",
+  "pm"."norm_baseline", "pm"."norm_snapshot", "pm"."project_week_rollup", "pm"."report" CASCADE;
+--> statement-breakpoint
 CREATE TABLE "pm"."comment" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" uuid NOT NULL,

@@ -70,21 +70,21 @@ describe('CreateWorkerDialog', () => {
     // `open` attribute (and thus no dialog role) until isOpen flips true.
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'New worker' }));
+    await user.click(screen.getByRole('button', { name: 'Add employee' }));
 
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByRole('heading', { name: 'Add worker' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: 'Add employee' })).toBeInTheDocument();
   });
 
   it('creates a worker from the filled-in name and closes the dialog', async () => {
     const user = userEvent.setup();
     const { onCreated } = renderDialog();
 
-    await user.click(screen.getByRole('button', { name: 'New worker' }));
+    await user.click(screen.getByRole('button', { name: 'Add employee' }));
     const dialog = await screen.findByRole('dialog');
 
     await user.type(within(dialog).getByLabelText(/^Full name/), 'Ada Lovelace');
-    await user.click(within(dialog).getByRole('button', { name: 'Create worker' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Add employee' }));
 
     await vi.waitFor(() => {
       expect(mockCreateWorker).toHaveBeenCalledWith(
@@ -99,7 +99,7 @@ describe('CreateWorkerDialog', () => {
     const user = userEvent.setup();
     const { onCreated } = renderDialog();
 
-    await user.click(screen.getByRole('button', { name: 'New worker' }));
+    await user.click(screen.getByRole('button', { name: 'Add employee' }));
     const dialog = await screen.findByRole('dialog');
 
     await user.type(within(dialog).getByLabelText(/^Full name/), 'Grace Hopper');
@@ -114,7 +114,7 @@ describe('CreateWorkerDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await user.click(screen.getByRole('button', { name: 'New worker' }));
+    await user.click(screen.getByRole('button', { name: 'Add employee' }));
     const dialog = await screen.findByRole('dialog');
 
     const label = within(dialog).getByText('Upload CV to auto-fill', { selector: 'label' });
@@ -128,13 +128,49 @@ describe('CreateWorkerDialog', () => {
     expect([...extra].filter((c) => hintClasses.has(c))).toEqual([]);
   });
 
-  it('disables Create while the name is empty', async () => {
+  it('blocks submit on an empty name with an inline error instead of a disabled button', async () => {
+    const user = userEvent.setup();
+    const { onCreated } = renderDialog();
+
+    await user.click(screen.getByRole('button', { name: 'Add employee' }));
+    const dialog = await screen.findByRole('dialog');
+
+    const submit = within(dialog).getByRole('button', { name: 'Add employee' });
+    expect(submit).toBeEnabled();
+    await user.click(submit);
+
+    expect(within(dialog).getByText('Full name is required.')).toBeInTheDocument();
+    expect(mockCreateWorker).not.toHaveBeenCalled();
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('clears a field error as soon as the user edits that field', async () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await user.click(screen.getByRole('button', { name: 'New worker' }));
+    await user.click(screen.getByRole('button', { name: 'Add employee' }));
     const dialog = await screen.findByRole('dialog');
 
-    expect(within(dialog).getByRole('button', { name: 'Create worker' })).toBeDisabled();
+    await user.click(within(dialog).getByRole('button', { name: 'Add employee' }));
+    expect(within(dialog).getByText('Full name is required.')).toBeInTheDocument();
+
+    await user.type(within(dialog).getByLabelText(/^Full name/), 'A');
+    expect(within(dialog).queryByText('Full name is required.')).not.toBeInTheDocument();
+  });
+
+  it('blocks submit on a malformed email with an inline error on that field', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByRole('button', { name: 'Add employee' }));
+    const dialog = await screen.findByRole('dialog');
+
+    await user.type(within(dialog).getByLabelText(/^Full name/), 'Ada Lovelace');
+    await user.type(within(dialog).getByLabelText(/^Personal email/), 'not-an-email');
+    await user.click(within(dialog).getByRole('button', { name: 'Add employee' }));
+
+    expect(within(dialog).getByText('Enter a valid email address.')).toBeInTheDocument();
+    expect(mockCreateWorker).not.toHaveBeenCalled();
   });
 });

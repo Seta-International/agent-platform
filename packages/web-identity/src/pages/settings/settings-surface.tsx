@@ -32,10 +32,11 @@ export function SettingsSurface({ title, children }: { title: string; children: 
         </LayoutHeader>
       }
       content={
-        <LayoutContent padding={0}>
-          <div className="bg-card min-h-full">
-            <PageContainer className="space-y-5">{children}</PageContainer>
-          </div>
+        <LayoutContent
+          padding={0}
+          style={{ backgroundColor: 'var(--color-background-surface)', minHeight: '100%' }}
+        >
+          <PageContainer className="space-y-5">{children}</PageContainer>
         </LayoutContent>
       }
     />

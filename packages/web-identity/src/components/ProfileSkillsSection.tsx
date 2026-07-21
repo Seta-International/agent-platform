@@ -1,12 +1,15 @@
 import {
   Button,
   Card,
+  HStack,
   IconButton,
   type SearchableItem,
   type SearchSource,
   SkillLevelRating,
+  Text,
   Typeahead,
   useToast,
+  VStack,
 } from '@seta/shared-ui';
 import { X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -126,7 +129,7 @@ export function ProfileSkillsSection({
   const dirty = signature(draft) !== serverSig;
 
   return (
-    <Card className="space-y-4 pt-6">
+    <VStack gap={4}>
       <Typeahead
         label="Search to add a skill"
         isLabelHidden
@@ -141,47 +144,51 @@ export function ProfileSkillsSection({
       />
 
       {shown.length === 0 ? (
-        <p className="text-base text-secondary">No skills yet — search above to add one.</p>
+        <Text color="secondary">No skills yet — search above to add one.</Text>
       ) : (
+        // keep: viewport-breakpoint grid (1 col mobile / 2 sm) — Grid has no
+        // equivalent for a literal breakpoint schedule, see SkillsCatalog.tsx.
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {shown.map((s) => (
-            <div
-              key={s.name}
-              className="group flex flex-col gap-2 rounded-md border border-border bg-surface px-3 py-2.5 transition-colors hover:bg-surface"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-base font-medium text-primary truncate">{s.name}</span>
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  label={`Remove ${s.name}`}
-                  isDisabled={saving}
-                  icon={<X className="size-3.5" />}
-                  onClick={() => removeSkill(s.name)}
-                  className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                />
-              </div>
-              <SkillLevelRating level={s.level} onChange={(level) => rate(s.name, level)} />
-            </div>
+            <Card key={s.name} variant="muted" padding={2} className="group">
+              <VStack gap={2}>
+                <HStack hAlign="between" vAlign="center" gap={2}>
+                  <Text weight="medium" className="truncate">
+                    {s.name}
+                  </Text>
+                  <IconButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    label={`Remove ${s.name}`}
+                    isDisabled={saving}
+                    icon={<X className="size-3.5" />}
+                    onClick={() => removeSkill(s.name)}
+                    className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                  />
+                </HStack>
+                <SkillLevelRating level={s.level} onChange={(level) => rate(s.name, level)} />
+              </VStack>
+            </Card>
           ))}
         </div>
       )}
 
       {shown.length > 0 && (
-        <p className="text-sm text-secondary">
+        <Text type="supporting" color="secondary">
           Click a segment to rate proficiency · 1 = novice, 5 = expert · click the active level to
           clear
-        </p>
+        </Text>
       )}
 
-      <div className="flex justify-end pt-1">
+      <HStack hAlign="end">
         <Button
+          variant="primary"
           onClick={save}
           isDisabled={saving || !dirty}
           label={saving ? 'Saving…' : 'Save changes'}
         />
-      </div>
-    </Card>
+      </HStack>
+    </VStack>
   );
 }

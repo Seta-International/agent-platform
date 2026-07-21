@@ -1,4 +1,4 @@
-import { Button, Card, DateInput, RadioGroup, RadioListItem } from '@seta/shared-ui';
+import { Button, DateInput, HStack, RadioGroup, RadioListItem, VStack } from '@seta/shared-ui';
 import { useState } from 'react';
 import type { ProfileDto, SaveProfile } from '../api/client.ts';
 
@@ -49,10 +49,9 @@ export function ProfileAvailabilitySection({
     (oooUntil?.toISOString() ?? null) !== (profile.ooo_until ?? null);
 
   return (
-    <Card className="space-y-4 pt-6">
+    <VStack gap={4}>
       <RadioGroup
         label="Availability status"
-        isLabelHidden
         value={status}
         onChange={(v) => setStatus(v as typeof status)}
         orientation="horizontal"
@@ -62,21 +61,24 @@ export function ProfileAvailabilitySection({
         <RadioListItem value="ooo" label="Out of office" />
       </RadioGroup>
       {status === 'ooo' && (
-        <div className="space-y-2">
-          <DateInput
-            label="Until"
-            min={todayInputValue()}
-            value={toDateInputValue(oooUntil) || undefined}
-            onChange={(v) => {
-              setOooUntil(v ? new Date(`${v}T00:00:00`) : null);
-            }}
-            width={224}
-          />
-        </div>
+        <DateInput
+          label="Until"
+          min={todayInputValue()}
+          value={toDateInputValue(oooUntil) || undefined}
+          onChange={(v) => {
+            setOooUntil(v ? new Date(`${v}T00:00:00`) : null);
+          }}
+          width={224}
+        />
       )}
-      <div className="flex justify-end pt-1">
-        <Button onClick={save} isDisabled={saving || !dirty} label="Save changes" />
-      </div>
-    </Card>
+      <HStack hAlign="end">
+        <Button
+          variant="primary"
+          onClick={save}
+          isDisabled={saving || !dirty}
+          label="Save changes"
+        />
+      </HStack>
+    </VStack>
   );
 }

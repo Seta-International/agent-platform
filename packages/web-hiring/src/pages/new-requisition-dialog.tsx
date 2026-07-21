@@ -22,7 +22,7 @@ import {
 } from '@seta/shared-ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { useId, useRef, useState } from 'react';
+import { type ClipboardEvent, useId, useRef, useState } from 'react';
 import {
   fetchAccounts,
   fetchProjects,
@@ -58,7 +58,20 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
   const [projectId, setProjectId] = useState('');
   const [start, setStart] = useState('');
   const [due, setDue] = useState('');
-  const [headcount, setHeadcount] = useState(1);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  // Nullable so the field can be cleared; validated below (the branch keeps its own granular date
+  // validation via startInPast/dueBeforeStart, so `dateError` from main is intentionally dropped).
+  const [headcount, setHeadcount] = useState<number | null>(1);
+  const headcountError =
+    headcount === null ||
+    headcount === undefined ||
+    Number.isNaN(headcount) ||
+    !Number.isInteger(headcount) ||
+    headcount < 1
+      ? 'Headcount must be a positive whole number.'
+      : headcount > 1000
+        ? 'Headcount cannot exceed 1,000.'
+        : null;
   const [skills, setSkills] = useState<PickedSkill[]>([]);
   const [variant, setVariant] = useState<JdVariant>('internal');
   const [jd, setJd] = useState<Record<JdSectionKey, string>>({
@@ -68,7 +81,6 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
     nice_to_have: '',
   });
   const [error, setError] = useState<string | null>(null);
-  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const missingRequired = !title.trim() || isRichTextEmpty(jd.about);
   // FUT-559 error focus: red per-field message + scroll to the first empty required field.
@@ -175,7 +187,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
         default_interview_mode: mode,
         start_date: start || undefined,
         due_date: due || undefined,
-        headcount,
+        headcount: headcount ?? 1,
         jd_sections,
         skills: skills.map((s) => ({
           skill_id: s.skill_id,
@@ -196,7 +208,7 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || startInPast || dueBeforeStart) {
+    if (missingRequired || startInPast || dueBeforeStart || headcountError) {
       const target = !title.trim()
         ? titleFieldRef.current
         : isRichTextEmpty(jd.about)
@@ -313,10 +325,37 @@ export function NewRequisitionDialog({ disabled = false }: { disabled?: boolean 
                     />
                     <NumberInput
                       label="Headcount (openings)"
-                      min={1}
                       isIntegerOnly
+                      hasClear
                       value={headcount}
-                      onChange={(v) => setHeadcount(Math.max(1, v || 1))}
+                      onChange={(v) => setHeadcount(v)}
+                      onInvalid={(e) => e.preventDefault()}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === 'e' ||
+                          e.key === 'E' ||
+                          e.key === '.' ||
+                          e.key === ',' ||
+                          e.key === '+' ||
+                          e.key === '-'
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      onPaste={(e: ClipboardEvent<HTMLInputElement>) => {
+                        const text = e.clipboardData?.getData('text') ?? '';
+                        if (/[eE+\-.,]/.test(text) || !/^\d+$/.test(text.trim())) {
+                          e.preventDefault();
+                        }
+                      }}
+                      status={
+                        headcountError &&
+                        (submitAttempted ||
+                          headcount === null ||
+                          (headcount !== null && (headcount < 1 || headcount > 1000)))
+                          ? { type: 'error', message: headcountError }
+                          : undefined
+                      }
                     />
                   </Grid>
                   <Grid columns={2} gap={4}>
