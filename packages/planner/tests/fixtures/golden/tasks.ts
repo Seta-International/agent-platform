@@ -465,12 +465,11 @@ function generateBackgroundTasks(): GoldenTask[] {
       label_ids: j % 5 === 0 ? [ALPHA_LABELS[j % ALPHA_LABELS.length]!.id] : [],
     });
   }
-  // The key task "Review PR #42" is due `daysFromNow(0)` (today 09:00). Once
-  // seeded after 09:00 local time it reads as past-due and — since it is
-  // non-done — counts toward Alpha's overdue total on its own. Size the
-  // generated overdue bucket around that so the Alpha overdue count is
-  // always exactly 3 regardless of what time of day the fixture is seeded.
-  const reviewPrIsOverdue = C.daysFromNow(0).getTime() < Date.now();
+  // The key task "Review PR #42" is due `daysFromNow(0)` — exactly REFERENCE_TIME.
+  // Overdue is evaluated with the strict rule `due_at < REFERENCE_TIME`, so a task
+  // due *at* the anchor is NOT overdue. Size the generated overdue bucket around
+  // that (anchored, not wall-clock) so Alpha's overdue count is always exactly 3.
+  const reviewPrIsOverdue = C.daysFromNow(0).getTime() < C.REFERENCE_TIME.getTime();
   const alphaOverdueCount = reviewPrIsOverdue ? 2 : 3;
   const alphaRemainingCount = 34 - 27 - alphaOverdueCount;
 
