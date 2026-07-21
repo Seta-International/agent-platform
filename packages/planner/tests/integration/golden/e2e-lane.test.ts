@@ -1,8 +1,8 @@
-import type { MastraModelConfig } from '@mastra/core/llm';
 import { expect, it } from 'vitest';
 import { buildPlannerQueryEvalTarget } from '../../../src/backend/orchestration/eval-target.ts';
 import { ACTOR_USER_ID, TENANT_ID } from '../../fixtures/golden/constants.ts';
 import { embedGoldenTasks } from '../../fixtures/golden/embed-tasks.ts';
+import { resolveEvalGenModel } from '../../fixtures/golden/eval-models.ts';
 import { cleanGoldenDataset, seedGoldenDataset } from '../../fixtures/golden/index.ts';
 import { loadGoldenCases } from '../../fixtures/golden/loader.ts';
 import { preflightGolden } from '../../fixtures/golden/oracles/preflight.ts';
@@ -37,11 +37,12 @@ it('runs the golden E2E lane: preflight + retrieval scoring + a real agent case'
       ok: true,
     });
 
-    // 3. run manifest
+    // 3. run manifest — agent-under-test = the env's configured model.
+    const { key: genKey, model } = resolveEvalGenModel();
     const manifest = buildRunManifest({
       agentVersion: 'planner-query',
       promptVersion: 'golden-v2',
-      productionModelVersion: 'openai/gpt-4o-mini',
+      productionModelVersion: genKey,
       judgeModelVersion: 'n/a',
       harnessVersion: 'phase-2a',
     });
@@ -59,7 +60,6 @@ it('runs the golden E2E lane: preflight + retrieval scoring + a real agent case'
     expect(retrievalResults[0]!.policy.verdict).toBe('pass');
 
     // 5. one real agent case through the orchestrator, answer-level scoring
-    const model = 'openai/gpt-4o-mini' as unknown as MastraModelConfig;
     const runtime = buildPlannerQueryEvalTarget({ databaseUrl }).buildQualityRuntime({
       resolveModel: () => model,
     });

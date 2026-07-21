@@ -1,4 +1,4 @@
-import type { MastraModelConfig } from '@mastra/core/llm';
+import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { buildPlannerQueryEvalTarget } from '../../../src/backend/orchestration/eval-target.ts';
 import {
@@ -8,10 +8,13 @@ import {
   TENANT_ID,
 } from '../../fixtures/golden/constants.ts';
 import { embedGoldenTasks } from '../../fixtures/golden/embed-tasks.ts';
+import { resolveEvalGenModel, resolveEvalJudgeModel } from '../../fixtures/golden/eval-models.ts';
 import { runGoldenEval } from '../../fixtures/golden/golden-eval-runner.ts';
 import { cleanGoldenDataset, seedGoldenDataset } from '../../fixtures/golden/index.ts';
+import { makeGoldenJudge } from '../../fixtures/golden/judge-runner.ts';
 import { loadGoldenCases } from '../../fixtures/golden/loader.ts';
 import { preflightGolden } from '../../fixtures/golden/oracles/preflight.ts';
+import { writeGoldenReport } from '../../fixtures/golden/report-writer.ts';
 import { runRetrievalCases } from '../../fixtures/golden/retrieval-runner.ts';
 import { seedGoldenLogin } from '../../fixtures/golden/seed-login.ts';
 import { TrajectoryCollector } from '../../fixtures/golden/trajectory-collector.ts';
@@ -43,7 +46,11 @@ it('runs the smoke suite data-driven end-to-end and reports gate outcomes', asyn
       ok: true,
     });
 
-    const model = 'openai/gpt-4o-mini' as unknown as MastraModelConfig;
+    // Agent-under-test = the environment's configured (self-hosted) model, via
+    // the production registry — never a hardcoded model string.
+    const { key: genKey, model } = resolveEvalGenModel();
+    // Judge = an OpenAI model (EVAL_JUDGE_MODEL), independent of the agent.
+    const { key: judgeKey } = resolveEvalJudgeModel();
     const search = makeGoldenVectorSearch(databaseUrl);
 
     const report = await runGoldenEval({
@@ -52,11 +59,12 @@ it('runs the smoke suite data-driven end-to-end and reports gate outcomes', asyn
       manifest: {
         agentVersion: 'planner-query',
         promptVersion: 'golden-v2',
-        productionModelVersion: 'openai/gpt-4o-mini',
-        judgeModelVersion: 'n/a',
+        productionModelVersion: genKey,
+        judgeModelVersion: judgeKey,
         harnessVersion: 'phase-2a',
       },
       runRetrieval: (cases) => runRetrievalCases({ cases, search, decoyIds: DECOY_IDS }),
+      runJudge: makeGoldenJudge(),
       runAgent: async (c) => {
         const collector = new TrajectoryCollector();
         const runtime = buildPlannerQueryEvalTarget({ databaseUrl, collector }).buildQualityRuntime(
@@ -81,6 +89,11 @@ it('runs the smoke suite data-driven end-to-end and reports gate outcomes', asyn
     expect(report.cases.length).toBe(report.totalCases);
     for (const cr of report.cases) expect(cr.policies.length).toBeGreaterThan(0);
 
+    // Persist full-fidelity diagnostic artifacts (trajectory + answer + scorer
+    // detail) so a failing case can be triaged after the run without re-running.
+    const reportsDir = fileURLToPath(new URL('../../fixtures/golden/.reports/', import.meta.url));
+    const { jsonPath, mdPath } = writeGoldenReport(report, reportsDir);
+
     // Diagnostic surface — use stderr directly (vitest hides console.* on pass).
     const perCase = report.cases
       .map((cr) => `${cr.id}[${cr.policies.map((p) => `${p.id}:${p.verdict}`).join(',')}]`)
@@ -90,7 +103,8 @@ it('runs the smoke suite data-driven end-to-end and reports gate outcomes', asyn
         `failures=${report.gateFailures.length}\n[golden smoke] ${perCase}\n` +
         (report.gateFailures.length
           ? `[golden smoke] failures=${JSON.stringify(report.gateFailures)}\n`
-          : ''),
+          : '') +
+        `[golden smoke] report: ${mdPath}\n[golden smoke] json:   ${jsonPath}\n`,
     );
 
     await cleanGoldenDataset(pool);
