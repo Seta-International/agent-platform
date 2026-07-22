@@ -27,9 +27,12 @@
   input:
     messages:
       - role: user
-        content: '[Context: planner.task#nonexistent-uuid] Tell me about this task'
+        # Well-formed UUID that is absent from the seed: resolveTaskRef passes it
+        # through (valid uuid), then the DB lookup throws NOT_FOUND. The agent must
+        # recover gracefully — there is no "clean answer for a missing task" path.
+        content: '[Context: planner.task#00000000-ffff-4000-8000-0000000000ff] Tell me about this task'
   expected:
-    behavior: answer
+    behavior: error-recovery
     trajectory:
       requiredTools: [planner_taskDetailAgent, planner_getTask]
   metrics: { enabled: [A4] }

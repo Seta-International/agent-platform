@@ -74,7 +74,7 @@
   input:
     messages:
       - role: user
-        content: '[Context: planner.board#board-sprint12] What''s the current state of this board?'
+        content: What's the current state of the Sprint 12 board?
   expected:
     behavior: answer
     trajectory:
@@ -177,7 +177,7 @@
   input:
     messages:
       - role: user
-        content: '[Context: planner.task#task-abc123] What changed on this task recently?'
+        content: '[Context: planner.task#00000000-ffff-4000-8000-000000000001] What changed on this task recently?'
   expected:
     behavior: answer
     trajectory:
@@ -194,7 +194,7 @@
   input:
     messages:
       - role: user
-        content: '[Context: planner.task#task-abc123] When is this due and what depends on it?'
+        content: '[Context: planner.task#00000000-ffff-4000-8000-000000000001] When is this due and what depends on it?'
   expected:
     behavior: answer
     trajectory:
