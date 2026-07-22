@@ -1,14 +1,8 @@
 #!/usr/bin/env node
-// Configures Claude Code to export usage telemetry to the central stack, by merging an
-// `env` block into the developer's ~/.claude/settings.json. Runs from `postinstall`, so
-// it must work on macOS, Ubuntu and Windows and must NEVER fail an install: every exit
-// path is 0, and anything unexpected degrades to "leave settings untouched".
-//
-// Metadata only. The five content-capture knobs are written explicitly as "0" rather
-// than left to their defaults, so the boundary is visible in the file itself and a
-// later default change upstream cannot silently start shipping prompt text.
-//
-// Opt out with SETA_TELEMETRY_OPTOUT=1; that also removes a previously written block.
+// Merges a telemetry `env` block into ~/.claude/settings.json. Runs from postinstall on
+// macOS/Ubuntu/Windows and must never fail an install: every exit path is 0.
+// Content knobs are written as explicit "0" so an upstream default change cannot start
+// shipping prompt text. Opt out with SETA_TELEMETRY_OPTOUT=1.
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -19,8 +13,7 @@ const SETTINGS_PATH = join(homedir(), '.claude', 'settings.json');
 const ENDPOINT = 'https://future-ingest.seta-international.com';
 const MARKER = 'SETA_TELEMETRY_MANAGED';
 
-// Keys this script owns. Anything else in `env` belongs to the developer and is preserved;
-// on opt-out exactly these are removed, so a hand-set unrelated variable survives.
+// Keys this script owns; everything else in `env` is the developer's and is preserved.
 const MANAGED_KEYS = [
   MARKER,
   'CLAUDE_CODE_ENABLE_TELEMETRY',
@@ -40,8 +33,7 @@ const MANAGED_KEYS = [
 
 const say = (msg) => process.stdout.write(`[telemetry] ${msg}\n`);
 
-// The team shares one Claude login, so the natively emitted user_email is identical for
-// everyone. git config is the only per-person identity available on the machine.
+// The team shares one Claude login, so the native user_email is identical for everyone.
 function gitEmail() {
   try {
     return execFileSync('git', ['config', '--get', 'user.email'], {
@@ -128,11 +120,9 @@ function main() {
     OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
     OTEL_EXPORTER_OTLP_ENDPOINT: ENDPOINT,
     OTEL_EXPORTER_OTLP_HEADERS: `Authorization=Basic ${token}`,
-    // Claude Code defaults to delta temporality, which Prometheus rejects with
-    // "invalid temporality and type combination" — while still answering 200, so the
-    // metrics vanish silently. Cumulative is the only combination Prometheus stores.
+    // Delta (the default) is rejected by Prometheus while still answering 200 — the
+    // metrics vanish silently.
     OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: 'cumulative',
-    // Content capture — all off, deliberately explicit. See the header comment.
     OTEL_LOG_USER_PROMPTS: '0',
     OTEL_LOG_ASSISTANT_RESPONSES: '0',
     OTEL_LOG_TOOL_CONTENT: '0',
