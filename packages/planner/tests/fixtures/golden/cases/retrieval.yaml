@@ -1,20 +1,20 @@
 # Retrieval (A3) cases: graded-relevance labels over REAL seeded task ids from
 # tasks.ts. Grade 0..3; "relevant" = grade >= 2. tenantId == TENANT_ID (golden
 # main tenant). Each case has a grade-3 subject (A3 requires top1_strong).
-#   00000000-ffff-0000-0000-000000000002 = "Migrate billing schema"
-#   00000000-ffff-0000-0000-000000000006 = "Update payment gateway"
-#   00000000-ffff-0000-0000-000000000003 = "Data migration pipeline"
+#   00000000-ffff-4000-8000-000000000002 = "Migrate billing schema"
+#   00000000-ffff-4000-8000-000000000006 = "Update payment gateway"
+#   00000000-ffff-4000-8000-000000000003 = "Data migration pipeline"
 - schemaVersion: 1
   kind: retrieval
   id: RET-001
   suites: [regression, nightly]
   holdout: false
   query: tasks about the billing migration
-  tenantId: '00000000-aaaa-0000-0000-000000000001'
+  tenantId: '00000000-aaaa-4000-8000-000000000001'
   relevance:
-    '00000000-ffff-0000-0000-000000000002': 3
-    '00000000-ffff-0000-0000-000000000006': 2
-    '00000000-ffff-0000-0000-000000000003': 1
+    '00000000-ffff-4000-8000-000000000002': 3
+    '00000000-ffff-4000-8000-000000000006': 2
+    '00000000-ffff-4000-8000-000000000003': 1
   evaluation: { k: [1, 3, 5] }
 
 - schemaVersion: 1
@@ -23,8 +23,8 @@
   suites: [nightly]
   holdout: true
   query: payment gateway integration work
-  tenantId: '00000000-aaaa-0000-0000-000000000001'
+  tenantId: '00000000-aaaa-4000-8000-000000000001'
   relevance:
-    '00000000-ffff-0000-0000-000000000006': 3
-    '00000000-ffff-0000-0000-000000000002': 1
+    '00000000-ffff-4000-8000-000000000006': 3
+    '00000000-ffff-4000-8000-000000000002': 1
   evaluation: { k: [1, 3, 5] }
