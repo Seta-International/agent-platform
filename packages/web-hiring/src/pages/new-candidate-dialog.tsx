@@ -3,7 +3,6 @@ import {
   Badge,
   Banner,
   Button,
-  DateInput,
   Dialog,
   DialogHeader,
   Field,
@@ -54,6 +53,7 @@ export function NewCandidateDialog() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [dob, setDob] = useState('');
+  const [dobBadInput, setDobBadInput] = useState(false);
   const [gender, setGender] = useState('');
   const [seniority, setSeniority] = useState('');
   const [source, setSource] = useState('');
@@ -74,6 +74,28 @@ export function NewCandidateDialog() {
   const phoneError =
     phone.trim() && !PHONE_RE.test(phone.trim()) ? 'Enter a valid phone number.' : null;
   const nameError = name.trim() && !NAME_RE.test(normalizeName(name)) ? NAME_ERROR_MESSAGE : null;
+  const dobError = (() => {
+    // Browser rejected the date entirely (e.g. Feb 29 non-leap)
+    if (dobBadInput) return 'Invalid calendar date.';
+    if (!dob) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return 'Invalid date format.';
+    const parts = dob.split('-').map(Number) as [number, number, number];
+    const [y, m, d] = parts;
+    const date = new Date(y, m - 1, d);
+    if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d)
+      return 'Invalid calendar date.';
+    // Compare local dates to prevent timezone-shift false negatives.
+    const todayLocal = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth(),
+      new Date().getDate(),
+    );
+    if (date >= todayLocal) return 'Date of birth cannot be in the future.';
+    const age = Math.floor((Date.now() - date.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    if (age < 18) return 'Candidate must be at least 18 years old.';
+    if (age >= 100) return 'Candidate must be under 100 years old.';
+    return null;
+  })();
 
   const { data: reqs } = useQuery({
     queryKey: hiringKeys.requisitionOptions(),
@@ -112,6 +134,7 @@ export function NewCandidateDialog() {
     setEmail('');
     setPhone('');
     setDob('');
+    setDobBadInput(false);
     setGender('');
     setSeniority('');
     setSource('');
@@ -218,7 +241,7 @@ export function NewCandidateDialog() {
 
   function submit() {
     setSubmitAttempted(true);
-    if (missingRequired || emailError || phoneError || nameError) {
+    if (missingRequired || emailError || phoneError || nameError || dobError) {
       const target =
         !name.trim() || nameError
           ? nameFieldRef.current
@@ -296,7 +319,10 @@ export function NewCandidateDialog() {
                             if (!email.trim() && draft.personal_email)
                               setEmail(draft.personal_email);
                             if (!phone.trim() && draft.phone) setPhone(draft.phone);
-                            if (!dob && draft.dob) setDob(draft.dob);
+                            if (!dob && draft.dob) {
+                              setDob(draft.dob);
+                              setDobBadInput(false);
+                            }
                             if (!gender && draft.gender) setGender(draft.gender);
                             if (!seniority && draft.seniority) setSeniority(draft.seniority);
                             if (!note.trim() && draft.note) setNote(draft.note);
@@ -363,11 +389,20 @@ export function NewCandidateDialog() {
                     {phoneError && <p className="text-sm text-error">{phoneError}</p>}
                   </div>
                   <div className="space-y-1">
-                    <DateInput
+                    <Input
+                      id="cand-dob"
+                      type={'date' as unknown as undefined}
                       label="Date of birth"
-                      value={dob || undefined}
-                      onChange={(v) => setDob(v ?? '')}
+                      value={dob}
+                      onChange={(value, e) => {
+                        setDob(value);
+                        setDobBadInput(
+                          (e as unknown as React.ChangeEvent<HTMLInputElement>)?.target?.validity
+                            ?.badInput ?? false,
+                        );
+                      }}
                     />
+                    {dobError && <p className="text-sm text-error">{dobError}</p>}
                   </div>
                   <div className="space-y-1">
                     <Selector

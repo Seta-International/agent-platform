@@ -131,12 +131,52 @@ export const candidatePhoneSchema = z
   })
   .optional();
 
+// Reusable DOB validator — valid calendar date, not future, age 18-99.
+// Use YYYY-MM-DD string; manual part-check catches JS auto-correction (e.g. Feb 31 → Mar 3).
+const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+export const dobSchema = z
+  .string()
+  .refine((v) => dateRegex.test(v), { message: 'Invalid date format' })
+  .refine(
+    (v) => {
+      const parts = v.split('-').map(Number) as [number, number, number];
+      const [y, m, d] = parts;
+      const date = new Date(y, m - 1, d);
+      return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+    },
+    { message: 'Invalid calendar date (e.g. Feb 31 does not exist)' },
+  )
+  .refine(
+    (v) => {
+      const parts = v.split('-').map(Number) as [number, number, number];
+      const [y, m, d] = parts;
+      const entered = new Date(y, m - 1, d);
+      const todayLocal = new Date(
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        new Date().getDate(),
+      );
+      return entered < todayLocal;
+    },
+    { message: 'Date of birth cannot be in the future' },
+  )
+  .refine(
+    (v) => {
+      const parts = v.split('-').map(Number) as [number, number, number];
+      const [y, m, d] = parts;
+      const entered = new Date(y, m - 1, d);
+      const age = Math.floor((Date.now() - entered.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      return age >= 18 && age < 100;
+    },
+    { message: 'Candidate must be at least 18 and under 100 years old' },
+  );
+
 export const addCandidateInput = z.object({
   requisition_id: z.string().uuid(),
   name: nameString,
   personal_email: z.string().email().optional(),
   phone: candidatePhoneSchema,
-  dob: z.string().optional(),
+  dob: dobSchema.optional(),
   gender: genderValue.optional(),
   seniority: z.string().optional(),
   source: z.string().optional(),
@@ -156,7 +196,7 @@ export const editCandidatePatch = z
       .regex(/^[0-9a-f]{64}$/)
       .nullable(),
     phone: candidatePhoneSchema,
-    dob: z.string(),
+    dob: dobSchema,
     gender: genderValue,
     seniority: z.string(),
     source: z.string(),
