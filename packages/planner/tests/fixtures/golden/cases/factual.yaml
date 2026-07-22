@@ -78,7 +78,11 @@
   expected:
     behavior: answer
     trajectory:
-      requiredTools: [planner_queryTasksAgent, planner_getBoardSnapshot]
+      # A board overview may be routed via either the team-info sub-agent
+      # (structure) or the task-query sub-agent (counts) — both carry
+      # planner_getBoardSnapshot, so assert the leaf tool, not the delegate.
+      requiredTools: [planner_getBoardSnapshot]
+      allowedTools: [planner_teamInfoAgent, planner_queryTasksAgent]
   metrics: { enabled: [A1] }
 
 - schemaVersion: 1
@@ -357,4 +361,25 @@
     behavior: answer
     trajectory:
       requiredTools: [planner_answerQuestion]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-019
+  category: happy
+  suites: [smoke, regression]
+  holdout: false
+  actor: *actor
+  input:
+    messages:
+      # Bare "the board of <plan>" by name — the report that motivated wiring
+      # planner_getBoardSnapshot into the team-info sub-agent. Must surface the
+      # board overview, not claim it lacks a board tool.
+      - role: user
+        content: Show me the board of Project Alpha
+  expected:
+    behavior: answer
+    trajectory:
+      requiredTools: [planner_getBoardSnapshot]
+      allowedTools: [planner_teamInfoAgent, planner_queryTasksAgent]
   metrics: { enabled: [A1] }

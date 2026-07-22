@@ -12,6 +12,7 @@ describe('query teamInfoAgent', () => {
       'planner_getUserActivity',
       'planner_listPlans',
       'planner_listBuckets',
+      'planner_getBoardSnapshot',
       'planner_searchGroupMembersBySkills',
     ]);
   });

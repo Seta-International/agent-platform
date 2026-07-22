@@ -70,6 +70,7 @@ Rationale: 23 tools in one agent degrades tool selection. Sub-agents keep 6–12
 | `planner_getGroupOverview` | — | R (org structure) | Read | group-scoped | No | 1 ✓ |
 | `planner_listPlans` | — | R (org structure) | Read | group-scoped | No | 1 ✓ |
 | `planner_listBuckets` | — | R (org structure) | Read | plan-scoped | No | 1 ✓ |
+| `planner_getBoardSnapshot` | R4 | R - Planner Reads | Read | board-scoped | No | 1 ✓ |
 | `planner_searchGroupMembersBySkills` | — | R (skill query) | Read | group-scoped | No | 1 ✓ |
 | `kg_get_entity_profile` | K3 | K - Knowledge Graph | Read | entity-scoped | No | 2 |
 | `kg_suggest_assignees` | K4 | K - Knowledge Graph | Read | scope-scoped | No | 4 |
@@ -77,6 +78,8 @@ Rationale: 23 tools in one agent degrades tool selection. Sub-agents keep 6–12
 | `analysis_detect_patterns` | X6 | X - Analysis | Read | scope-scoped | No | 4 |
 | `analysis_bus_factor` | X7 | X - Analysis | Read | scope-scoped | No | 4 |
 | `analysis_skill_coverage` | X8 | X - Analysis | Read | scope-scoped | No | 4 |
+
+`planner_getBoardSnapshot` is intentionally shared with `taskSearch`: a board request can read as either task-counts ("what's on the board") or plan structure ("show me the board of X"). Wiring it into both sub-agents makes the board reachable whichever way the orchestrator routes — the fix for the "no board tool" gap where a bare "board của X" landed in `teamInfo`, which then lacked the tool.
 
 ### Sub-agent: generalAnswer (`planner.query.generalAnswer`)
 

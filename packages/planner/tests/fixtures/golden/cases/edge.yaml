@@ -119,7 +119,10 @@
   expected:
     behavior: error-recovery
     trajectory:
-      requiredTools: [planner_queryTasksAgent, planner_getBoardSnapshot]
+      # Board overview routes via either team-info or task-query — both carry
+      # planner_getBoardSnapshot; assert the leaf tool, not the delegate.
+      requiredTools: [planner_getBoardSnapshot]
+      allowedTools: [planner_teamInfoAgent, planner_queryTasksAgent]
   metrics: { enabled: [A4] }
 
 - schemaVersion: 1

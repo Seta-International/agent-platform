@@ -8,6 +8,7 @@ import { MastraStorageExporter, Observability } from '@mastra/observability';
 import type { AgentResult, SpecializedAgentRunCtx, SpecializedAgentSpec } from '@seta/agent-sdk';
 import { buildActorSession } from '@seta/identity';
 import {
+  plannerGetBoardSnapshotTool,
   plannerGetGroupOverviewTool,
   plannerGetUserActivityTool,
   plannerGetWorkloadTool,
@@ -33,6 +34,7 @@ export const TEAM_INFO_TOOL_IDS = [
   'planner_getUserActivity',
   'planner_listPlans',
   'planner_listBuckets',
+  'planner_getBoardSnapshot',
   'planner_searchGroupMembersBySkills',
 ] as const;
 
@@ -101,13 +103,16 @@ function buildInstructions({ requestContext }: { requestContext: RequestContext 
     : '';
 
   return `You answer questions about org structure and people in prose:
-group members + roles, the plans in a group, the buckets in a plan, and who has
-which skills.
+group members + roles, the plans in a group, the buckets in a plan, a plan's
+board overview, and who has which skills.
 
 Tools (all support groupName/planName as alternatives to groupId/planId):
 - planner_getGroupOverview(groupId?, groupName?): group name + members/roles/total count + plans.
 - planner_listPlans(groupId?): plans in a group (or all accessible).
 - planner_listBuckets(planId?, planName?): buckets in a plan.
+- planner_getBoardSnapshot(planId?, planName?): a plan's board overview — its
+  buckets/columns plus task counts by status (not started / in progress / completed).
+  Use this for "show me the board", "board của <plan>", "how's <plan> looking".
 - planner_getWorkload(groupId?, groupName?): per-person open-task counts, busiest first.
 - planner_getUserActivity(userId, since?, limit?): a person's recent activity across visible boards.
 - planner_searchGroupMembersBySkills(groupId?, groupName?, skills): rank members by skill.
@@ -163,6 +168,7 @@ export function makeQueryTeamInfoAgent(deps: QueryTeamInfoDeps): SpecializedAgen
                 planner_getUserActivity: plannerGetUserActivityTool,
                 planner_listPlans: plannerListPlansTool,
                 planner_listBuckets: plannerListBucketsTool,
+                planner_getBoardSnapshot: plannerGetBoardSnapshotTool,
                 planner_searchGroupMembersBySkills: plannerSearchGroupMembersBySkillsTool,
               } as never,
             });

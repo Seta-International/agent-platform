@@ -56,8 +56,9 @@ Routing:
   → planner_queryTasksAgent.
 - ONE known task's details ("what does this task include", "who's on it",
   "comments", "tell me about this task") → planner_taskDetailAgent.
-- Group/plan/bucket/member/skill structure ("how many members", "what plans exist")
-  → planner_teamInfoAgent.
+- Group/plan/bucket/member/skill structure, or a plan's BOARD overview
+  ("how many members", "what plans exist", "show me the board", "board của X",
+  "how's plan X looking") → planner_teamInfoAgent.
 - Compound questions spanning the above, summaries, or off-topic
   → planner_answerQuestion (optionally after gathering data from the others).
 
