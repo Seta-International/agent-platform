@@ -92,11 +92,11 @@ export function makeQueryTaskDetailAgent(deps: QueryTaskDetailDeps): Specialized
               instructions: INSTRUCTIONS,
               model: pickModel(ctx, deps.resolveModel),
               tools: {
-                planner_getTask: deps.getTaskTool ?? plannerGetTaskTool,
+                planner_getTask: plannerGetTaskTool,
                 planner_getItemActivity: plannerGetItemActivityTool,
                 planner_getTimeline: plannerGetTimelineTool,
-                planner_listComments: deps.listCommentsTool ?? plannerListCommentsTool,
-                planner_queryTasks: deps.queryTasksTool ?? plannerQueryTasksTool,
+                planner_listComments: plannerListCommentsTool,
+                planner_queryTasks: plannerQueryTasksTool,
               } as never,
             });
             const hasStorage = typeof deps.mastraStorage?.getStore === 'function';

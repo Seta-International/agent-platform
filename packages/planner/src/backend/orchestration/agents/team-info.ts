@@ -158,13 +158,12 @@ export function makeQueryTeamInfoAgent(deps: QueryTeamInfoDeps): SpecializedAgen
               instructions: buildInstructions,
               model: pickModel(ctx, deps.resolveModel),
               tools: {
-                planner_getGroupOverview: deps.getGroupOverviewTool ?? plannerGetGroupOverviewTool,
+                planner_getGroupOverview: plannerGetGroupOverviewTool,
                 planner_getWorkload: plannerGetWorkloadTool,
                 planner_getUserActivity: plannerGetUserActivityTool,
-                planner_listPlans: deps.listPlansTool ?? plannerListPlansTool,
-                planner_listBuckets: deps.listBucketsTool ?? plannerListBucketsTool,
-                planner_searchGroupMembersBySkills:
-                  deps.searchGroupMembersBySkillsTool ?? plannerSearchGroupMembersBySkillsTool,
+                planner_listPlans: plannerListPlansTool,
+                planner_listBuckets: plannerListBucketsTool,
+                planner_searchGroupMembersBySkills: plannerSearchGroupMembersBySkillsTool,
               } as never,
             });
             const hasStorage = typeof deps.mastraStorage?.getStore === 'function';
