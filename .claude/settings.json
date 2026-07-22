@@ -18,6 +18,7 @@
   "enabledPlugins": {
     "context7@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true
+    "frontend-design@claude-plugins-official": true,
+    "i-have-adhd@i-have-adhd": true
   }
 }
