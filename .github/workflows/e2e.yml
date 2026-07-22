@@ -56,12 +56,19 @@ jobs:
         run: |
           set -euo pipefail
           PW_VERSION=$(node -p "require('./apps/web/package.json').devDependencies['@playwright/test'].replace(/[^0-9.]/g,'')")
+          # The container runs as root against a bind-mounted workspace, so everything pnpm
+          # writes (node_modules/, .pnpm-store/) lands root-owned. The runner user then cannot
+          # clean the workspace and every later actions/checkout on this runner dies with
+          # EACCES — which is what broke Deploy Monitoring. Hand ownership back inside the
+          # same container, on success or failure, preserving the test exit code.
+          # Running the container as the host user instead is not an option: corepack enable
+          # needs to write into the image's root-owned Node install.
           docker run --rm \
             -v "$PWD":/work -w /work \
             -e E2E_BASE_URL="https://${PUBLIC_DOMAIN}" \
             -e E2E_ADMIN_EMAIL -e E2E_ADMIN_PASSWORD -e CI=1 \
             "mcr.microsoft.com/playwright:v${PW_VERSION}-noble" \
-            bash -c "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @seta/web exec playwright test" \
+            bash -c "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @seta/web exec playwright test; rc=\$?; chown -R $(id -u):$(id -g) /work; exit \$rc" \
             || echo "PLAYWRIGHT_FAILED=1" >> "$GITHUB_ENV"
 
       - name: Publish report to the served volume
