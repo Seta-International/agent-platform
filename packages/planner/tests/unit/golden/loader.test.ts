@@ -17,7 +17,7 @@ it('loads authored kind:retrieval cases with a non-empty relevance map', () => {
 });
 
 it('resolves a fact ref against golden-facts.json', () => {
-  expect(resolveFactRef('facts.users.00000000-bbbb-0000-0000-000000000002.openTaskCount')).toBe(12);
+  expect(resolveFactRef('facts.users.00000000-bbbb-4000-8000-000000000002.openTaskCount')).toBe(12);
 });
 
 it('throws on an unknown fact ref (no silent undefined)', () => {
@@ -39,7 +39,7 @@ it('down-projects an agent case to an EvalCase with resolved facts as groundTrut
       behavior: 'answer',
       facts: [
         {
-          ref: 'facts.users.00000000-bbbb-0000-0000-000000000002.openTaskCount',
+          ref: 'facts.users.00000000-bbbb-4000-8000-000000000002.openTaskCount',
           assertion: 'equals',
         },
       ],
@@ -50,6 +50,6 @@ it('down-projects an agent case to an EvalCase with resolved facts as groundTrut
   expect(evalCase.layer).toBe('deterministic');
   expect(evalCase.actor).toEqual({ tenantId: 'tenant-golden-main', userId: 'actor-standard-001' });
   expect(evalCase.groundTruth).toMatchObject({
-    'facts.users.00000000-bbbb-0000-0000-000000000002.openTaskCount': 12,
+    'facts.users.00000000-bbbb-4000-8000-000000000002.openTaskCount': 12,
   });
 });

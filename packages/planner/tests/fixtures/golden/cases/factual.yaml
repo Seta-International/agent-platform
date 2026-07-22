@@ -8,7 +8,7 @@
   category: happy
   suites: [smoke, regression]
   holdout: false
-  actor: &actor { tenantId: '00000000-aaaa-0000-0000-000000000001', userId: '00000000-bbbb-0000-0000-000000000001' }
+  actor: &actor { tenantId: '00000000-aaaa-4000-8000-000000000001', userId: '00000000-bbbb-4000-8000-000000000001' }
   input:
     messages:
       - role: user
@@ -17,6 +17,10 @@
     behavior: answer
     trajectory:
       requiredTools: [planner_queryTasksAgent, planner_queryTasks]
+      # Resolving the board *name* "Alpha" to a planId legitimately needs a
+      # board/plan lookup, so getBoardSnapshot is permitted (allowlist), not
+      # extraneous. It is read-only and never gated by forbiddenTools.
+      allowedTools: [planner_getBoardSnapshot]
       forbiddenTools: [planner_createTask, planner_assignTask, planner_postComment]
   metrics: { enabled: [A1] }
 
@@ -52,6 +56,10 @@
     behavior: answer
     trajectory:
       requiredTools: [planner_queryTasksAgent, planner_getOpenTaskCountForUser]
+      # The open-task count must come from the tool, not be invented (PQ-003
+      # previously fabricated "14"): every number in the answer must trace to a
+      # tool result or the user's text.
+      groundNumbers: true
   # A1 gates deterministically; B2/B4 are advisory LLM-judge signals
   # (faithfulness/answer-relevancy) exercised by the E2E quality lane.
   metrics: { enabled: [A1, B2, B4] }
@@ -134,11 +142,12 @@
   input:
     messages:
       - role: user
-        content: '[Context: planner.task#task-abc123] Tell me about this task'
+        content: '[Context: planner.task#00000000-ffff-4000-8000-000000000007] Tell me about this task'
   expected:
     behavior: answer
     trajectory:
       requiredTools: [planner_taskDetailAgent, planner_getTask]
+      groundNumbers: true
   metrics: { enabled: [A1] }
 
 - schemaVersion: 1
@@ -192,13 +201,51 @@
       requiredTools: [planner_taskDetailAgent, planner_getTask, planner_getTimeline]
   metrics: { enabled: [A1] }
 
+# PQ-012 / PQ-012b are a matched pair testing "my group" disambiguation.
+# The default actor (Anh) belongs to THREE groups (owner of Engineering,
+# member of Platform + DevOps), so "my group" is ambiguous -> the agent must
+# ask which group (clarify). Tuan belongs to ONE group (Engineering), so the
+# same question is unambiguous -> the agent answers the member count directly.
 - schemaVersion: 1
   kind: agent
   id: PQ-012
   category: happy
   suites: [smoke, regression]
   holdout: false
-  actor: *actor
+  actor: *actor # multi-group actor -> "my group" is ambiguous
+  input:
+    messages:
+      - role: user
+        content: How many members are in my group?
+  expected:
+    # Actor is in 3 groups: the only correct response is to ask which one.
+    behavior: clarify
+    trajectory:
+      # The agent must ask which group BEFORE touching any group data. Routing
+      # to the team-info sub-agent is fine (that's where the ambiguity is seen),
+      # but pulling a group overview/workload before the user picks would mean
+      # the agent guessed a group (or, worse, fabricated a total across all
+      # three) — so those data tools are forbidden here, not merely absent.
+      requiredTools: []
+      allowedTools: [planner_teamInfoAgent, planner_listPlans]
+      forbiddenTools:
+        [
+          planner_getGroupOverview,
+          planner_getWorkload,
+          planner_createTask,
+          planner_assignTask,
+          planner_postComment,
+        ]
+  metrics: { enabled: [A1] }
+
+- schemaVersion: 1
+  kind: agent
+  id: PQ-012b
+  category: happy
+  suites: [smoke, regression]
+  holdout: false
+  # Tuan is a member of Engineering only -> "my group" is unambiguous.
+  actor: { tenantId: '00000000-aaaa-4000-8000-000000000001', userId: '00000000-bbbb-4000-8000-000000000002' }
   input:
     messages:
       - role: user
@@ -207,6 +254,7 @@
     behavior: answer
     trajectory:
       requiredTools: [planner_teamInfoAgent, planner_getGroupOverview]
+      groundNumbers: true
   metrics: { enabled: [A1] }
 
 - schemaVersion: 1

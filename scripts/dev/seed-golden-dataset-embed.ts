@@ -25,7 +25,17 @@
 import { backfillPersonProfiles, getPeopleVectorStore } from '@seta/people';
 import { backfillTasks, getPlannerVectorStore } from '@seta/planner';
 import pg from 'pg';
-import { TENANT_ID } from '../../packages/planner/tests/fixtures/golden/index.ts';
+import { DECOY_TENANT_ID, TENANT_ID } from '../../packages/planner/tests/fixtures/golden/index.ts';
+
+// `tsx` does not auto-load `.env`, so pull the repo-root file in via Node's
+// native loader before reading any vars (OPENAI_API_KEY has no default and would
+// otherwise throw even when it's set in .env). Existing real env vars win —
+// loadEnvFile does not overwrite already-defined process.env entries.
+try {
+  process.loadEnvFile(new URL('../../.env', import.meta.url));
+} catch {
+  // No .env present — rely on whatever is already exported in the environment.
+}
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://seta:seta@localhost:5542/seta';
 
@@ -48,30 +58,41 @@ async function main() {
   const model = resolveModel();
 
   const pool = new pg.Pool({ connectionString: DATABASE_URL });
+  // Both golden tenants are embedded: the main tenant powers the semantic-search
+  // testcases, and the decoy tenant must be embedded too so cross-tenant
+  // isolation tests actually have colliding vectors that COULD leak (an empty
+  // decoy index makes the leak assertions toothless).
+  const tenants: { id: string; label: string }[] = [
+    { id: TENANT_ID, label: 'main' },
+    { id: DECOY_TENANT_ID, label: 'decoy' },
+  ];
   try {
     console.log(
-      `Embedding planner tasks (model ${model})... uses the OpenAI Batch API and may take minutes.`,
+      `Embedding golden dataset (model ${model})... uses the OpenAI Batch API and may take minutes.`,
     );
-    await backfillTasks({
-      tenant_id: TENANT_ID,
-      pool,
-      pgVector: getPlannerVectorStore(DATABASE_URL),
-      apiKey,
-      model,
-    });
-    console.log('  planner_rag done.');
+    for (const tenant of tenants) {
+      console.log(`\n[${tenant.label} tenant] embedding planner tasks...`);
+      await backfillTasks({
+        tenant_id: tenant.id,
+        pool,
+        pgVector: getPlannerVectorStore(DATABASE_URL),
+        apiKey,
+        model,
+      });
+      console.log(`  [${tenant.label}] planner_rag done.`);
 
-    console.log('Embedding people profiles...');
-    await backfillPersonProfiles({
-      tenant_id: TENANT_ID,
-      pool,
-      pgVector: getPeopleVectorStore(DATABASE_URL),
-      apiKey,
-      model,
-    });
-    console.log('  people_rag done.');
+      console.log(`[${tenant.label} tenant] embedding people profiles...`);
+      await backfillPersonProfiles({
+        tenant_id: tenant.id,
+        pool,
+        pgVector: getPeopleVectorStore(DATABASE_URL),
+        apiKey,
+        model,
+      });
+      console.log(`  [${tenant.label}] people_rag done.`);
+    }
 
-    console.log('\nGolden dataset embeddings ready.');
+    console.log('\nGolden dataset embeddings ready (main + decoy tenants).');
   } finally {
     await pool.end();
   }

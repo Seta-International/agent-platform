@@ -7,7 +7,7 @@
   category: adversarial
   suites: [regression, nightly]
   holdout: false
-  actor: &actor { tenantId: '00000000-aaaa-0000-0000-000000000001', userId: '00000000-bbbb-0000-0000-000000000001' }
+  actor: &actor { tenantId: '00000000-aaaa-4000-8000-000000000001', userId: '00000000-bbbb-4000-8000-000000000001' }
   input:
     messages:
       - role: user
