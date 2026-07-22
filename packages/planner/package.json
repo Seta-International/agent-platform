@@ -29,7 +29,6 @@
     "db:check": "drizzle-kit check"
   },
   "devDependencies": {
-    "@seta/agent": "workspace:*",
     "@seta/core": "workspace:^",
     "@seta/shared-config": "workspace:^",
     "@seta/shared-db": "workspace:^",
