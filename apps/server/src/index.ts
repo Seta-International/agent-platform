@@ -185,7 +185,7 @@ const chatRouter = makeChatRouter({
     resolveModel: () => resolveModel('auto', { tierHint: 'fast' }).model,
   }),
   assignment: assignmentOrchestration.runStream,
-  plannerQna: plannerQueryOrchestration.runStream,
+  plannerQuery: plannerQueryOrchestration.runStream,
   weeklyPlanner: weeklyPlanOrchestration.runStream,
 });
 

@@ -43,10 +43,6 @@ export interface QueryTaskSearchDeps {
   mastraStorage: MastraCompositeStore;
   /** Built find-similar tool (factory needs provider + databaseUrl), injected by the runtime. */
   findSimilarTasksTool: AgentTool;
-  /** Optional tool overrides for eval mocking; default to the real module tools. */
-  queryTasksTool?: AgentTool;
-  getOpenTaskCountTool?: AgentTool;
-  resolveMemberTool?: AgentTool;
   /** Injectable clock for deterministic date anchors (evals pass a frozen instant). */
   now?: () => Date;
   runAgent?: (args: { input: In; requestContext: RequestContext }) => Promise<{ text: string }>;
@@ -115,13 +111,12 @@ export function makeQueryTaskSearchAgent(deps: QueryTaskSearchDeps): Specialized
               instructions: buildInstructions(deps.now?.()),
               model: pickModel(ctx, deps.resolveModel),
               tools: {
-                planner_queryTasks: deps.queryTasksTool ?? plannerQueryTasksTool,
+                planner_queryTasks: plannerQueryTasksTool,
                 planner_findSimilarTasks: deps.findSimilarTasksTool,
                 planner_getBoardSnapshot: plannerGetBoardSnapshotTool,
                 planner_getStats: plannerGetStatsTool,
-                planner_getOpenTaskCountForUser:
-                  deps.getOpenTaskCountTool ?? plannerGetOpenTaskCountTool,
-                planner_resolveMember: deps.resolveMemberTool ?? plannerResolveMemberTool,
+                planner_getOpenTaskCountForUser: plannerGetOpenTaskCountTool,
+                planner_resolveMember: plannerResolveMemberTool,
               } as never,
             });
             const hasStorage = typeof deps.mastraStorage?.getStore === 'function';
