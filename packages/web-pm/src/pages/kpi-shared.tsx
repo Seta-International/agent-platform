@@ -181,7 +181,7 @@ export function ragBadge(status: RagStatus | null) {
     );
   }
   const variant = status === 'green' ? 'success' : status === 'yellow' ? 'warning' : 'destructive';
-  const label = status === 'green' ? 'Green' : status === 'yellow' ? 'Yellow' : 'Red';
+  const label = status === 'green' ? 'Green' : status === 'yellow' ? 'Amber' : 'Red';
   return (
     <Badge variant={variant} className="font-normal">
       {label}
@@ -209,8 +209,8 @@ export function isoWeekOf(date: Date): { iso_year: number; iso_week: number } {
   return { iso_year: d.getUTCFullYear(), iso_week };
 }
 
-/** Week label with its lifecycle mark (FUT-589 AC4): the current week reads "· current",
- * closed weeks read "· 🔒 view-only" — the picker itself says which context is writable. */
+/** Week label with its lifecycle mark (FUT-589 AC4): only the current week is marked —
+ * closed weeks stay bare; the warning banner in the entry dialog already says view-only. */
 export function isoWeekLabel(
   iso_year: number,
   iso_week: number,
@@ -218,7 +218,7 @@ export function isoWeekLabel(
 ): string {
   const isCurrent = iso_year === current.iso_year && iso_week === current.iso_week;
   const base = `${iso_year}-W-${String(iso_week).padStart(2, '0')}`;
-  return isCurrent ? `${base} · current` : `${base} · 🔒 view-only`;
+  return isCurrent ? `${base} · current` : base;
 }
 
 /** Client-side mirror of the server's Epic 3 week gate: weekly data (KPI records, reports,

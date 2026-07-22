@@ -7,22 +7,20 @@ import {
 } from '../api/pm-client.ts';
 import { pmKeys } from '../state/query-keys.ts';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from './_legacy-dialog.tsx';
-import {
   Badge,
+  Banner,
   Button,
+  Dialog,
+  DialogHeader,
+  HStack,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Layout,
+  LayoutContent,
+  LayoutFooter,
+  Selector,
   Skeleton,
+  StatusDot,
+  Text,
   toast,
 } from './_ui-compat.tsx';
 import {
@@ -38,6 +36,14 @@ import {
 } from './kpi-shared.tsx';
 
 type EntryState = Record<string, { c1: string; c2: string }>;
+
+// RAG colour → Astryx status variant (chromatic colour is reserved for status, matching the
+// weekly reports page); null (nothing measured yet) reads as neutral.
+const RAG_DOT_VARIANT = {
+  green: 'success',
+  yellow: 'warning',
+  red: 'error',
+} as const;
 
 function toNumber(raw: string): number | null {
   if (raw.trim() === '') return null;
@@ -172,207 +178,221 @@ export function KpiManualInputDialog({
 
   const isNewRecord = recordQuery.data?.record_id == null;
   // Epic 3 week gate, mirrored client-side: only the current week (before Friday 17:00 VNT)
-  // is writable — view-only weeks render read-only values, matching the 🔒 in the picker.
+  // is writable — closed weeks render read-only values behind the warning banner.
   const weekOpen = isReportingWeekOpen(isoYear, isoWeek, weeks[0]);
 
   return (
-    <Dialog open onOpenChange={onOpenChange}>
-      {/* Three fixed bands (header / scrolling body / footer) — same anatomy as the weekly
+    <Dialog isOpen onOpenChange={onOpenChange} width={760} maxHeight="85vh">
+      {/* Astryx three-band anatomy (header / scrolling content / footer) — same as the weekly
           report dialog: Cancel + Save never scroll away on long metric lists. */}
-      <DialogContent className="max-w-3xl grid-rows-[auto_minmax(0,1fr)_auto] max-h-[85vh] overflow-hidden">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <DialogTitle>Manual KPI input</DialogTitle>
-            {ragBadge(isNewRecord ? null : live.overall)}
-            {anyDirty ? (
-              <Badge variant="outline" className="font-normal text-secondary">
-                previewing — save to settle
-              </Badge>
-            ) : null}
-            {isNewRecord ? <span className="text-xs text-secondary">New record</span> : null}
-          </div>
-          <p className="text-sm text-secondary">
-            Pick a project &amp; week — edit the formula components; metrics, QCDP &amp; RAG
-            recompute live.
-          </p>
-          {/* QCDP category health pinned in the fixed header band — stays visible while the
-              long metric list scrolls, recomputing live as variables are typed. */}
-          {projectId && metrics.length > 0 ? (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {KPI_CATEGORIES.map((cat) => (
-                <div
-                  key={cat}
-                  className="flex items-center gap-1.5 rounded-md border border-hairline px-2.5 py-1"
-                >
-                  {ragBadge(live.categoryHealth[cat])}
-                  <span className="text-xs text-secondary">{KPI_CATEGORY_LABELS[cat]}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </DialogHeader>
-
-        <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <div className="text-xs text-secondary">Project</div>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pick a project…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs text-secondary">Reporting week</div>
-              <Select
-                value={`${isoYear}-${isoWeek}`}
-                onValueChange={(v) => {
-                  const [y, w] = v.split('-');
-                  setIsoYear(Number(y));
-                  setIsoWeek(Number(w));
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {weeks.map((w) => (
-                    <SelectItem
-                      key={`${w.iso_year}-${w.iso_week}`}
-                      value={`${w.iso_year}-${w.iso_week}`}
-                    >
-                      {w.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Fallback only (caller presets a manageable project): entry stays blocked while
-              no project is selected, so the Save target is never ambiguous. */}
-          {!projectId ? (
-            <p className="rounded-lg bg-surface-1 px-3 py-8 text-center text-sm text-secondary">
-              Pick a project above to enter KPIs — every record is pinned to a Project + Week.
-            </p>
-          ) : recordQuery.isLoading ? (
-            <Skeleton className="h-64 w-full" />
-          ) : (
-            <div className="space-y-3">
-              {!weekOpen ? (
-                <p className="rounded-md bg-surface-1 px-3 py-2 text-sm text-secondary">
-                  🔒 This week is view-only — KPI records lock with the week at Friday 5:00 PM
-                  (VNT). Switch to the current week to enter data.
-                </p>
-              ) : null}
-              <div className="grid grid-cols-12 gap-2 text-xs font-medium uppercase tracking-wide text-secondary">
-                <div className="col-span-5">Metric</div>
-                <div className="col-span-5">Formula components</div>
-                <div className="col-span-2">Status</div>
+      <Layout
+        header={
+          <DialogHeader
+            title="Manual KPI input"
+            onOpenChange={(open) => !open && onOpenChange(false)}
+            endContent={
+              <div className="flex items-center gap-2">
+                {ragBadge(isNewRecord ? null : live.overall)}
+                {anyDirty ? (
+                  <Badge variant="outline" className="font-normal text-secondary">
+                    previewing — save to settle
+                  </Badge>
+                ) : null}
+                {isNewRecord ? <span className="text-xs text-secondary">New record</span> : null}
               </div>
-              {metrics.map((m) => {
-                const e = entries[m.metric_id] ?? { c1: '', c2: '' };
-                const bands = formatBandTriple(
-                  m.name,
-                  m.component_count,
-                  m.green_band,
-                  m.yellow_band,
-                  m.red_band,
-                );
-                return (
-                  <div
-                    key={m.metric_id}
-                    className="grid grid-cols-12 items-center gap-2 border-b border-hairline pb-2"
-                  >
-                    <div className="col-span-5">
-                      <div className="font-medium text-primary">{m.name}</div>
-                      <div className="text-xs text-secondary">{m.formula_label}</div>
-                      {/* The week's NORM, read-only alongside the variables (FUT-594 AC1) —
-                          these are the frozen baseline bands, not the live catalog. */}
-                      <div className="text-xs">
-                        <span className="text-success">{bands.green}</span>
-                        <span className="text-secondary"> · </span>
-                        <span className="text-warning">{bands.yellow}</span>
-                        <span className="text-secondary"> · </span>
-                        <span className="text-error">{bands.red}</span>
-                      </div>
+            }
+          />
+        }
+        content={
+          <LayoutContent>
+            <div className="space-y-4">
+              {/* QCDP live health — same pillar row as the weekly report cards: a status dot
+                  per pillar, short name, off-norm pillar weights its name. Recomputes live. */}
+              {projectId && metrics.length > 0 ? (
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  {KPI_CATEGORIES.map((cat) => {
+                    const health = live.categoryHealth[cat];
+                    const label =
+                      health === 'green' ? 'Green' : health === 'yellow' ? 'Amber' : 'Red';
+                    const name =
+                      KPI_CATEGORY_LABELS[cat].split(' — ')[1] ?? KPI_CATEGORY_LABELS[cat];
+                    const off = health !== 'green';
+                    return (
+                      <span
+                        key={cat}
+                        className="flex items-center gap-1.5"
+                        title={`${KPI_CATEGORY_LABELS[cat]}: ${label}`}
+                      >
+                        <StatusDot
+                          variant={RAG_DOT_VARIANT[health]}
+                          label={`${KPI_CATEGORY_LABELS[cat]}: ${label}`}
+                        />
+                        <Text
+                          type="supporting"
+                          color={off ? 'primary' : 'secondary'}
+                          weight={off ? 'semibold' : 'normal'}
+                        >
+                          {name}
+                        </Text>
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-2 gap-3">
+                <Selector
+                  label="Project"
+                  options={projects}
+                  value={projectId}
+                  onChange={setProjectId}
+                  placeholder="Pick a project…"
+                />
+                <Selector
+                  label="Reporting week"
+                  options={weeks.map((w) => ({
+                    value: `${w.iso_year}-${w.iso_week}`,
+                    label: w.label,
+                  }))}
+                  value={`${isoYear}-${isoWeek}`}
+                  onChange={(v) => {
+                    const [y, w] = v.split('-');
+                    setIsoYear(Number(y));
+                    setIsoWeek(Number(w));
+                  }}
+                />
+              </div>
+
+              {/* Fallback only (caller presets a manageable project): entry stays blocked while
+                  no project is selected, so the Save target is never ambiguous. */}
+              {!projectId ? (
+                <p className="rounded-lg bg-surface px-3 py-8 text-center text-sm text-secondary">
+                  Pick a project above to enter KPIs — every record is pinned to a Project + Week.
+                </p>
+              ) : recordQuery.isLoading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : (
+                <div className="space-y-3">
+                  {!weekOpen ? (
+                    <Banner
+                      status="warning"
+                      title="This week is view-only — KPI records lock with the week at Friday 5:00 PM (VNT). Switch to the current week to enter data."
+                    />
+                  ) : null}
+                  {/* One bordered card, same table anatomy as the KPI Norm tab: a labelled
+                      column header band, then rows separated by hairlines. */}
+                  <div className="rounded-md border border-border">
+                    <div className="grid grid-cols-12 gap-3 border-b border-border px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-secondary">
+                      <div className="col-span-6">Metric</div>
+                      <div className="col-span-4">Formula components</div>
+                      <div className="col-span-2">Status</div>
                     </div>
-                    <div className="col-span-5 flex items-center gap-1.5">
-                      <Input
-                        type="number"
-                        placeholder={m.component_1_label}
-                        aria-label={m.component_1_label}
-                        value={e.c1}
-                        disabled={!weekOpen}
-                        onChange={(ev: string) =>
-                          setEntries((prev) => ({
-                            ...prev,
-                            [m.metric_id]: { c1: ev, c2: prev[m.metric_id]?.c2 ?? '' },
-                          }))
-                        }
-                      />
-                      {m.component_count === 2 ? (
-                        <>
-                          <span className="text-secondary">/</span>
-                          <Input
-                            type="number"
-                            placeholder={m.component_2_label ?? ''}
-                            aria-label={m.component_2_label ?? ''}
-                            value={e.c2}
-                            disabled={!weekOpen}
-                            onChange={(ev: string) =>
-                              setEntries((prev) => ({
-                                ...prev,
-                                [m.metric_id]: {
-                                  c1: prev[m.metric_id]?.c1 ?? '',
-                                  c2: ev,
-                                },
-                              }))
-                            }
-                          />
-                        </>
-                      ) : null}
-                    </div>
-                    <div className="col-span-2 flex flex-wrap items-center gap-1">
-                      {ragBadge(live.statusByMetric.get(m.metric_id) ?? null)}
-                      {isDirty(m.metric_id) ? (
-                        <Badge variant="outline" className="font-normal text-secondary">
-                          previewing
-                        </Badge>
-                      ) : null}
+                    <div className="px-3">
+                      {metrics.map((m) => {
+                        const e = entries[m.metric_id] ?? { c1: '', c2: '' };
+                        const bands = formatBandTriple(
+                          m.name,
+                          m.component_count,
+                          m.green_band,
+                          m.yellow_band,
+                          m.red_band,
+                        );
+                        return (
+                          <div
+                            key={m.metric_id}
+                            className="grid grid-cols-12 items-center gap-3 border-b border-border py-3 last:border-0"
+                          >
+                            <div className="col-span-6">
+                              <div className="font-medium text-primary">{m.name}</div>
+                              <div className="text-xs text-secondary">{m.formula_label}</div>
+                              {/* The week's NORM, read-only alongside the variables (FUT-594
+                                  AC1) — the frozen baseline bands, not the live catalog. */}
+                              <div className="text-xs">
+                                <span className="text-success">{bands.green}</span>
+                                <span className="text-secondary"> · </span>
+                                <span className="text-warning">{bands.yellow}</span>
+                                <span className="text-secondary"> · </span>
+                                <span className="text-error">{bands.red}</span>
+                              </div>
+                            </div>
+                            {/* Compact, fixed-width number boxes — weekly KPI figures are a
+                                few digits; a wide box just reads as empty space. */}
+                            <div className="col-span-4 flex items-center gap-1.5">
+                              <Input
+                                type="number"
+                                width={88}
+                                placeholder={m.component_1_label}
+                                aria-label={m.component_1_label}
+                                value={e.c1}
+                                disabled={!weekOpen}
+                                onChange={(ev: string) =>
+                                  setEntries((prev) => ({
+                                    ...prev,
+                                    [m.metric_id]: { c1: ev, c2: prev[m.metric_id]?.c2 ?? '' },
+                                  }))
+                                }
+                              />
+                              {m.component_count === 2 ? (
+                                <>
+                                  <span className="text-secondary">/</span>
+                                  <Input
+                                    type="number"
+                                    width={88}
+                                    placeholder={m.component_2_label ?? ''}
+                                    aria-label={m.component_2_label ?? ''}
+                                    value={e.c2}
+                                    disabled={!weekOpen}
+                                    onChange={(ev: string) =>
+                                      setEntries((prev) => ({
+                                        ...prev,
+                                        [m.metric_id]: {
+                                          c1: prev[m.metric_id]?.c1 ?? '',
+                                          c2: ev,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </>
+                              ) : null}
+                            </div>
+                            <div className="col-span-2">
+                              {ragBadge(live.statusByMetric.get(m.metric_id) ?? null)}
+                              {/* FUT-595 AC4: an unsaved (provisional) colour stays marked, but
+                                  as quiet text — the loud aggregate badge lives in the header. */}
+                              {isDirty(m.metric_id) ? (
+                                <div className="mt-0.5 text-xs text-secondary">previewing</div>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-
-        <DialogFooter className="gap-2 border-t border-hairline pt-4">
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => save.mutate()}
-            disabled={
-              !weekOpen ||
-              !projectId ||
-              save.isPending ||
-              recordQuery.isLoading ||
-              live.completeCount === 0
-            }
-          >
-            Save record
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider>
+            <HStack gap={2} hAlign="end">
+              <Button variant="ghost" label="Cancel" onClick={() => onOpenChange(false)} />
+              <Button
+                variant="primary"
+                label={save.isPending ? 'Saving…' : 'Save record'}
+                onClick={() => save.mutate()}
+                disabled={
+                  !weekOpen ||
+                  !projectId ||
+                  save.isPending ||
+                  recordQuery.isLoading ||
+                  live.completeCount === 0
+                }
+              />
+            </HStack>
+          </LayoutFooter>
+        }
+      />
     </Dialog>
   );
 }

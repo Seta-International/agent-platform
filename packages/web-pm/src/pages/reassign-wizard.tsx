@@ -594,7 +594,7 @@ export function ReassignWizardDialog({
 
                   <div
                     role="alert"
-                    className="flex items-center gap-3 rounded-md bg-accent-muted p-sm text-base text-accent"
+                    className="flex items-center gap-3 rounded-md bg-accent-muted p-2 text-base text-accent"
                   >
                     <Info className="size-4 shrink-0 text-accent" />
                     <div>
@@ -855,7 +855,7 @@ function ReviewStep({
         // laid out as a centered flex row so the icon lines up with the middle of the text.
         <div
           role="alert"
-          className="flex items-center gap-3 rounded-md bg-warning-muted p-sm text-base text-warning"
+          className="flex items-center gap-3 rounded-md bg-warning-muted p-2 text-base text-warning"
         >
           <AlertCircle className="size-4 shrink-0" />
           <div>

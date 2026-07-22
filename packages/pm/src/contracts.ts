@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+// Read-only KPI Norm reference sections (Methodology lens, Executive EQI/TDI) — documentation
+// content the web Norm tab renders; see kpi-norm-reference.ts for why it is not norm config.
+export {
+  KPI_EXECUTIVE_MATRIX_WARNING,
+  KPI_EXECUTIVE_METRICS,
+  KPI_METHODOLOGY_LENS,
+  type KpiMethodologyLensGroup,
+  type KpiReferenceMetric,
+} from './kpi-norm-reference.ts';
+
 export const createAccountInput = z.object({
   name: z.string().min(1),
   industry: z.string().optional(),

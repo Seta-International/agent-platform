@@ -900,6 +900,14 @@ export interface WeekStats {
   } | null;
 }
 
+export interface WeeklyHeadlineMetric {
+  label: string;
+  name: string;
+  computed_value: number;
+  component_count: 1 | 2;
+  status: RagStatus | null;
+}
+
 export interface WeeklyReportCard {
   project_id: string;
   project_name: string;
@@ -910,6 +918,11 @@ export interface WeeklyReportCard {
   overall_colour: ReportColour;
   category_colours: Record<KpiCategory, ReportColour>;
   stats: WeekStats;
+  /** People staffed this week vs the charter team size — the card's "Staffed X/Y". */
+  staffed: number;
+  team_size: number | null;
+  /** Delivery pulse (util · predictability · CSS) for the week; unmeasured metrics omitted. */
+  headline_metrics: WeeklyHeadlineMetric[];
   latest_summary: string | null;
   reporters: { reporter_id: string; name: string | null }[];
   report_count: number;

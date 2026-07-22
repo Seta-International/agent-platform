@@ -31,6 +31,21 @@ overrides:
   # pointer-events gets stuck at "none" forever (page looks frozen) once both close. Force
   # one shared instance so the lock/restore coordination is consistent app-wide.
   "@radix-ui/react-dismissable-layer": 1.1.12
+  # The pin above only holds if the packages that depend on it agree: @radix-ui/* declare each
+  # other by EXACT version, so when radix-ui (the meta package assistant-ui pulls) drifted to
+  # 1.6.x its react-dialog@1.1.20 started importing `useDismissableLayerSurface` — an export
+  # that only exists from dismissable-layer@1.1.13 on. Forced back to 1.1.12, the import
+  # resolves to nothing and Vite fails the build outright. radix-ui@1.5.0 is the release whose
+  # react-dialog (1.1.16) still targets 1.1.12.
+  radix-ui: 1.5.0
+  # @assistant-ui/react@0.14.18 caps @assistant-ui/tap at ^0.7.1 but allows core ^0.2.14, and
+  # core/store past 0.2.20 switched to tap ^0.9 — so the tree resolved core@0.2.21 against
+  # tap@0.7.1 and Vite died on `"./react-shim/compiler-runtime" is not exported`, taking the
+  # api + worker down with it. Upstream fixed the peer set in react@0.14.27, but that pulls
+  # radix-ui@1.6.4, which needs all eleven @radix-ui pins above moved — the very versions held
+  # back on purpose. Hold core/store at the last tap@0.7-compatible release instead.
+  "@assistant-ui/core": 0.2.14
+  "@assistant-ui/store": 0.2.16
   happy-dom: 20.9.0
   # Root pinned vitest ^4.1.10 while every leaf pinned ^4.1.9, and @types/node was split
   # 25/26 across the tree (tooling pulled 26). vitest is peer-keyed on @types/node, so it
@@ -42,7 +57,7 @@ overrides:
   "@vitest/coverage-v8": 4.1.10
   "@types/node": 25.9.5
 allowBuilds:
-  '@prisma/client': true
+  "@prisma/client": true
   better-sqlite3: true
   cpu-features: true
   esbuild: true
@@ -51,11 +66,15 @@ allowBuilds:
   protobufjs: true
   ssh2: true
 minimumReleaseAgeExclude:
-  - '@aws-sdk/*'
-  - '@mastra/*'
-  - '@assistant-ui/*'
-  - '@turbo/*'
+  - "@aws-sdk/*"
+  - "@mastra/*"
+  - "@assistant-ui/*"
+  - "@turbo/*"
   - assistant-stream
+  - baseline-browser-mapping
+  - browserslist
+  - electron-to-chromium
   - nodemailer
   - react-email
+  - react-is
   - turbo

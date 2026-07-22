@@ -220,6 +220,56 @@ describe('weekly reports domain', () => {
     });
   });
 
+  it('a Green submit discards a Road-to-Green carried over from a non-Green revision', async () => {
+    await withTestDb(ctx, async ({ pool, databaseUrl }) => {
+      resetCoreDb();
+      resetPmDb();
+      initPools({ databaseUrl });
+      try {
+        const t = await seedTenant(pool);
+        const projectId = await liveProject(pool, t.adminSession, t.tenant_id);
+        const session = reporterSession(t.tenant_id, t.admin_user_id);
+        // All four pillars declared Green (no measured KPI blocks the declaration) while the
+        // input still carries a Road-to-Green — the composer prefills it from the previous
+        // non-Green revision. A Green report has nothing to recover from, so it must not keep
+        // the stale plan.
+        const saved = await upsertWeeklyReport({
+          project_id: projectId,
+          iso_year: 2026,
+          iso_week: 29,
+          executive_summary: 'Back to green',
+          road_to_green: 'Stale plan from last week',
+          road_to_green_due: '2026-12-31',
+          category_colours: {
+            quality: 'green',
+            cost_capacity: 'green',
+            delivery: 'green',
+            process: 'green',
+          },
+          session,
+        });
+        expect(saved.overall_colour).toBe('green');
+
+        const row = await pool.query(
+          `SELECT road_to_green, road_to_green_due FROM pm.report WHERE id = $1`,
+          [saved.report_id],
+        );
+        expect(row.rows[0].road_to_green).toBeNull();
+        expect(row.rows[0].road_to_green_due).toBeNull();
+        const rev = await pool.query(
+          `SELECT road_to_green, road_to_green_due FROM pm.report_revision WHERE report_id = $1`,
+          [saved.report_id],
+        );
+        expect(rev.rows[0].road_to_green).toBeNull();
+        expect(rev.rows[0].road_to_green_due).toBeNull();
+      } finally {
+        resetPmDb();
+        resetCoreDb();
+        await closePools();
+      }
+    });
+  });
+
   it('override writes an audit entry, sticks over computed, and shows up in detail/list', async () => {
     await withTestDb(ctx, async ({ pool, databaseUrl }) => {
       resetCoreDb();

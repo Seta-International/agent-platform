@@ -100,8 +100,8 @@ export function KpiConfigureDialog({
         <div className="grid min-h-0 grid-cols-5 gap-4">
           <section className="col-span-2 flex min-h-0 flex-col gap-1.5">
             <div className="text-xs uppercase tracking-wide text-secondary">Projects</div>
-            <div className="flex min-h-[22rem] flex-1 flex-col rounded-lg border border-hairline">
-              <div className="flex items-center gap-2.5 border-b border-hairline px-3 py-2.5">
+            <div className="flex min-h-[22rem] flex-1 flex-col rounded-lg border border-border">
+              <div className="flex items-center gap-2.5 border-b border-border px-3 py-2.5">
                 <Checkbox
                   id="kpi-project-select-all"
                   // Per product decision: ticked only when EVERY project is selected; a
@@ -120,7 +120,7 @@ export function KpiConfigureDialog({
                   {selected.size}/{sortedProjects.length}
                 </span>
               </div>
-              <div className="border-b border-hairline p-2">
+              <div className="border-b border-border p-2">
                 <Input
                   value={filter}
                   onChange={setFilter}
@@ -140,7 +140,7 @@ export function KpiConfigureDialog({
                       return (
                         <div
                           key={p.project_id}
-                          className="flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-surface-1"
+                          className="flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-surface"
                         >
                           <Checkbox
                             id={checkboxId}
@@ -165,7 +165,7 @@ export function KpiConfigureDialog({
           <section className="col-span-3 flex min-h-0 flex-col gap-1.5">
             <div className="text-xs uppercase tracking-wide text-secondary">Metrics</div>
             {selectedIds.length === 0 ? (
-              <div className="flex min-h-[22rem] flex-1 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-hairline px-6 text-center">
+              <div className="flex min-h-[22rem] flex-1 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border px-6 text-center">
                 <p className="font-medium text-primary">No project selected</p>
                 <p className="text-sm text-secondary">
                   Pick at least one project on the left to see and edit its metrics.
@@ -208,7 +208,7 @@ export function KpiConfigureDialog({
                             return (
                               <div
                                 key={m.metric_id}
-                                className="flex items-start gap-2.5 rounded-md border border-hairline px-3 py-2 transition-colors hover:bg-surface-1"
+                                className="flex items-start gap-2.5 rounded-md border border-border px-3 py-2 transition-colors hover:bg-surface"
                               >
                                 <Checkbox
                                   id={checkboxId}
@@ -260,7 +260,7 @@ export function KpiConfigureDialog({
           </section>
         </div>
 
-        <DialogFooter className="gap-2 border-t border-hairline pt-4 sm:justify-between">
+        <DialogFooter className="gap-2 border-t border-border pt-4 sm:justify-between">
           <p className="self-center text-xs text-secondary">
             Toggles save instantly to every selected project — there is nothing else to submit.
           </p>
