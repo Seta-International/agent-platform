@@ -27,11 +27,21 @@ export interface ToolSelectionConstraints {
 export function toolSelection(t: Trajectory, c: ToolSelectionConstraints): ScorerOutcome {
   const actual = toolNames(t);
   const actualSet = new Set(actual);
+  // A required tool only counts as satisfied when it actually succeeded — a call
+  // that errored (ok=false) left the agent without the data it needed, so it
+  // must not pass the gate (otherwise error-recovery answers score as success).
+  const succeededSet = new Set(t.toolCalls.filter((call) => call.ok).map((call) => call.toolName));
   const permitted = new Set([...c.requiredTools, ...c.allowedTools]);
 
-  const missing = c.requiredTools.filter((r) => !actualSet.has(r));
-  if (missing.length)
-    return { passed: false, detail: `missing required tool(s): ${missing.join(', ')}` };
+  const missing = c.requiredTools.filter((r) => !succeededSet.has(r));
+  if (missing.length) {
+    const failed = missing.filter((r) => actualSet.has(r));
+    const absent = missing.filter((r) => !actualSet.has(r));
+    const parts: string[] = [];
+    if (failed.length) parts.push(`required tool(s) failed: ${failed.join(', ')}`);
+    if (absent.length) parts.push(`missing required tool(s): ${absent.join(', ')}`);
+    return { passed: false, detail: parts.join('; ') };
+  }
 
   const extraneous = actual.filter((n) => !permitted.has(n));
   if (extraneous.length)
@@ -110,6 +120,34 @@ export function trajectoryEfficiency(t: Trajectory, maxToolCalls: number): Score
   return n <= maxToolCalls
     ? { passed: true, detail: `${n} calls <= ${maxToolCalls}` }
     : { passed: false, detail: `${n} calls > ${maxToolCalls}` };
+}
+
+/** Every standalone integer/decimal token in `text`. Deliberately excludes
+ *  numbers embedded in longer alphanumerics (ids, UUIDs) via the \b boundaries. */
+function extractNumbers(text: string): string[] {
+  return text.match(/\b\d+(?:\.\d+)?\b/g) ?? [];
+}
+
+/** Deterministic anti-fabrication check: a *live* figure in the answer must be
+ *  traceable to a source the agent actually saw — a successful tool result or
+ *  the user's own words. A number present in the answer but in neither is an
+ *  unsupported (fabricated) claim. This is the cheap first line of defense that
+ *  would have caught PQ-012's invented "5 / 8 / 6 members" without an LLM judge.
+ *
+ *  Sources = the stringified successful tool results (ok !== false) plus the
+ *  user prompt. Callers should gate this to count/overview/workload intents; it
+ *  intentionally does not special-case ordinals/percentages/dates, so enabling
+ *  it on prose-heavy answers will over-fire. */
+export function unsupportedNumericClaim(io: {
+  answer: string;
+  toolResults: unknown[];
+  userText: string;
+}): ScorerOutcome {
+  const supported = [io.userText, ...io.toolResults.map((r) => JSON.stringify(r ?? ''))].join('\n');
+  const unsupported = extractNumbers(io.answer).filter((n) => !supported.includes(n));
+  return unsupported.length === 0
+    ? { passed: true, detail: 'all numeric claims grounded in a source' }
+    : { passed: false, detail: `unsupported numeric claim(s): ${unsupported.join(', ')}` };
 }
 
 export function routingAccuracy(t: Trajectory, expectedDelegationTool: string): ScorerOutcome {

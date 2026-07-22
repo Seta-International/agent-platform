@@ -35,6 +35,12 @@ export function ctxFromCase(
     argPredicates: t.argPredicates ?? [],
     maxToolCalls: t.maxToolCalls,
   };
+  const userText =
+    c.kind === 'agent'
+      ? (c.input.messages[c.input.messages.length - 1]?.content ?? '')
+      : (c.turns[c.turns.length - 1]?.user ?? '');
+  // Only successful calls are a legitimate source (a failed call returned no data).
+  const toolResults = trajectory.toolCalls.filter((call) => call.ok).map((call) => call.result);
   return {
     trajectory,
     constraints,
@@ -44,5 +50,8 @@ export function ctxFromCase(
     expectedDelegationTool: constraints.requiredTools[0],
     forbiddenEntities: expected.output?.forbiddenEntities ?? [],
     forbiddenText: expected.output?.forbiddenText ?? [],
+    userText,
+    toolResults,
+    groundNumbers: expected.trajectory?.groundNumbers ?? false,
   };
 }

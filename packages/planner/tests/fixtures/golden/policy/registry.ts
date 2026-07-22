@@ -13,6 +13,7 @@ import {
   type ScorerOutcome,
   scopeArgumentCorrectness,
   toolSelection,
+  unsupportedNumericClaim,
 } from './scorers.ts';
 import type { Trajectory } from './trajectory.ts';
 
@@ -42,6 +43,12 @@ export interface PolicyEvalContext {
   expectedDelegationTool?: string;
   forbiddenEntities?: string[];
   forbiddenText?: string[];
+  /** The user's message text — a legitimate source for numbers in the answer. */
+  userText?: string;
+  /** Results of successful tool calls — the other legitimate number source. */
+  toolResults?: unknown[];
+  /** When true, A1 additionally gates on unsupported_numeric_claim. */
+  groundNumbers?: boolean;
 }
 
 export interface PolicyResult {
@@ -129,6 +136,12 @@ function runScorer(id: string, ctx: PolicyEvalContext): ScorerOutcome {
       });
     case 'routing_accuracy':
       return routingAccuracy(ctx.trajectory, ctx.expectedDelegationTool ?? '');
+    case 'unsupported_numeric_claim':
+      return unsupportedNumericClaim({
+        answer: ctx.answer,
+        toolResults: ctx.toolResults ?? [],
+        userText: ctx.userText ?? '',
+      });
     default:
       throw new Error(`registry: no deterministic scorer bound for "${id}"`);
   }
@@ -137,7 +150,12 @@ function runScorer(id: string, ctx: PolicyEvalContext): ScorerOutcome {
 export function evaluatePolicy(policyId: PolicyId, ctx: PolicyEvalContext): PolicyResult {
   const policy = policyRegistry[policyId];
   const advisory = advisoryWithin[policyId] ?? new Set<string>();
-  const scorers = policy.defaultScorers
+  const activeScorers = [...policy.defaultScorers];
+  // Opt-in anti-fabrication gate: only cases that flag groundNumbers pay the
+  // (over-firing-prone) numeric check, and only on A1. Appended as REQUIRED so a
+  // fabricated figure fails the gate.
+  if (policyId === 'A1' && ctx.groundNumbers) activeScorers.push('unsupported_numeric_claim');
+  const scorers = activeScorers
     .filter((id) => !id.startsWith('retrieval_')) // retrieval-kind handled by retrieval-policy.ts
     .map((id) => ({ id, required: !advisory.has(id), outcome: runScorer(id, ctx) }));
   const verdict = scorers.every((s) => !s.required || s.outcome.passed) ? 'pass' : 'fail';

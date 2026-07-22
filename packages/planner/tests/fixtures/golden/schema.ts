@@ -28,6 +28,11 @@ const Trajectory = z
       )
       .default([]),
     maxToolCalls: z.number().int().positive().optional(),
+    // Opt-in for the A1 anti-fabrication gate: when true, every standalone number
+    // in the answer must be traceable to a successful tool result or the user's
+    // text. Set on count/overview/detail cases (PQ-003/008/012b) where the model
+    // has historically invented figures.
+    groundNumbers: z.boolean().optional(),
   })
   .partial();
 
