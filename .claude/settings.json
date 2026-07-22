@@ -1,19 +1,11 @@
 {
+  "autoCompactWindow": 200000,
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.claude/statusline.sh\""
+  },
   "permissions": {
-    "allow": [
-      "Bash(pnpm --filter @seta/web-hiring test -- requisition-detail-applicants)",
-      "Bash(echo \"biome: $?\")",
-      "Bash(pnpm --filter @seta/web-hiring test -- requisition-detail)",
-      "Bash(pnpm --filter @seta/hiring test -- reject)",
-      "Bash(git commit -m 'feat\\(hiring web-hiring\\): FUT-559 free-text reject reason + applicant rows open candidate detail *)",
-      "Bash(echo \"exit: $?\")",
-      "Bash(pnpm depcruise *)",
-      "Bash(pnpm --filter @seta/cli typecheck)",
-      "Bash(git commit -m 'fix\\(cli\\): FUT-559 seed fixture passes the now-required free-text reject reason *)"
-    ],
-    "deny": [
-      "Workflow"
-    ]
+    "deny": ["Workflow"]
   },
   "enabledPlugins": {
     "context7@claude-plugins-official": true,
